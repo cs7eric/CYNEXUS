@@ -6,4 +6,12 @@ import java.util.List;
 public interface SchedulerJobCategoryMappingBasicService {
 
     List<SchedulerJobCategoryMappingPO> listAll();
+
+    SchedulerJobCategoryMappingPO getById(Long id);
+
+    Long create(SchedulerJobCategoryMappingPO po);
+
+    boolean update(SchedulerJobCategoryMappingPO po);
+
+    boolean delete(Long id);
 }

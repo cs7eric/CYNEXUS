@@ -1,4 +1,17 @@
 package cn.cccs7.cynexus.ai.domain.valueobject;
 
-public record ModelCapability(boolean toolCallSupported, boolean structuredOutputSupported, boolean visionSupported) {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ModelCapability {
+
+    private boolean toolCallSupported;
+    private boolean structuredOutputSupported;
+    private boolean visionSupported;
 }

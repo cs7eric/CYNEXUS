@@ -6,4 +6,12 @@ import java.util.List;
 public interface SchedulerJobBasicService {
 
     List<SchedulerJobPO> listAll();
+
+    SchedulerJobPO getById(Long id);
+
+    Long create(SchedulerJobPO po);
+
+    boolean update(SchedulerJobPO po);
+
+    boolean delete(Long id);
 }

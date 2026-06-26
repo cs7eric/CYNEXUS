@@ -1,0 +1,64 @@
+server:
+  port: 18000
+
+spring:
+  application:
+    name: cynexus-gateway
+  main:
+    web-application-type: reactive
+  config:
+    import:
+      - optional:nacos:cynexus-gateway.yml
+      - optional:nacos:cynexus-common.yml
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:}
+      password: ${NACOS_PASSWORD:}
+      discovery:
+        enabled: true
+        register-enabled: true
+        service: ${spring.application.name}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        cluster-name: ${NACOS_CLUSTER_NAME:DEFAULT}
+        ephemeral: true
+        metadata:
+          management.port: ${server.port}
+      config:
+        enabled: true
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yml
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: cynexus-core
+              uri: lb://cynexus-core
+              predicates:
+                - Path=/api/core/**
+            - id: cynexus-ai
+              uri: lb://cynexus-ai
+              predicates:
+                - Path=/api/ai/**
+            - id: cynexus-market
+              uri: lb://cynexus-market
+              predicates:
+                - Path=/api/market/**
+
+management:
+  endpoint:
+    gateway:
+      access: read-only
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true

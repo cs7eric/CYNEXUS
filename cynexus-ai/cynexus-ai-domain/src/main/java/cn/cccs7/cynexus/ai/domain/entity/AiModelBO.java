@@ -1,14 +1,23 @@
 package cn.cccs7.cynexus.ai.domain.entity;
 
+
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelRuntimeOptions;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record AiModelBO(
-        String modelCode,
-        String providerCode,
-        String modelName,
-        ModelCapability capability,
-        ModelRuntimeOptions runtimeOptions,
-        boolean enabled
-) {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AiModelBO {
+
+    private String modelCode;
+    private String providerCode;
+    private String modelName;
+    private ModelCapability capability;
+    private ModelRuntimeOptions runtimeOptions;
+    private boolean enabled;
 }

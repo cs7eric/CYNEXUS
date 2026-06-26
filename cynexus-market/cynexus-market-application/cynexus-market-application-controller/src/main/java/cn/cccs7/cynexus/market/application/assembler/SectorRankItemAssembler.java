@@ -26,8 +26,8 @@ public interface SectorRankItemAssembler extends BaseMapper<SectorRankBO, Sector
             return null;
         }
         return new SectorRankBO(
-                new Sector(target.sectorCode(), target.sectorName()),
-                new SectorStrength(target.changePercent(), target.turnoverAmount(), target.mainNetInflow())
+                new Sector(target.getSectorCode(), target.getSectorName()),
+                new SectorStrength(target.getChangePercent(), target.getTurnoverAmount(), target.getMainNetInflow())
         );
     }
 }

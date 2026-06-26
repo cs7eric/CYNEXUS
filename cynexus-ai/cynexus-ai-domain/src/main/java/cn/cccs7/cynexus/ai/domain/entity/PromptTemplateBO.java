@@ -1,11 +1,20 @@
 package cn.cccs7.cynexus.ai.domain.entity;
 
-public record PromptTemplateBO(
-        String scenarioCode,
-        String promptVersion,
-        String systemPrompt,
-        String userPromptTemplate,
-        String outputSchemaJson,
-        boolean enabled
-) {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class PromptTemplateBO {
+
+    private String scenarioCode;
+    private String promptVersion;
+    private String systemPrompt;
+    private String userPromptTemplate;
+    private String outputSchemaJson;
+    private boolean enabled;
 }

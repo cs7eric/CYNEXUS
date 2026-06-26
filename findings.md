@@ -158,3 +158,38 @@ Required market modules:
 - Scheduler ownership moved from Market schema to Core schema.
 - `cynexus_appl_core` owns five scheduler tables: `scheduler_job_categories`, `scheduler_job_category_mappings`, `scheduler_job_run_history`, `scheduler_job_statuses`, and `scheduler_jobs`.
 - After the move, `cynexus_appl_market` contains 9 business tables and no `scheduler_%` tables.
+
+## CRUD Completion Findings
+
+- AI application CRUD endpoint base path: `/api/ai/config`.
+- Market application CRUD endpoint base path: `/api/market/data`.
+- `MarketOverviewBasicServiceImpl` previously returned mock data and is now backed by `MarketOverviewMapper`.
+- `MarketOverviewMapper.xml` was the only missing mapper XML in the checked AI/Market/Core PO set.
+- A clean rebuild exposed old record-style accessors in Market assemblers; those were changed to Lombok getter calls.
+- Core scheduler PO converters warned about unmapped audit fields until scheduler BO/DTO classes gained `createdAt`, `updatedAt`, and `deletedAt`.
+
+## Local Docker Rerun
+
+- The supported command for local application reruns is `.\deploy\local\up-latest.ps1`.
+- `up-latest.ps1` runs `mvn clean package -DskipTests` before rebuilding/recreating `core`, `market`, and `ai`.
+- `Dockerfile.app` now copies the local starter jar into the image, so the image content is tied to the Maven package output from the current workspace.
+- The `.cmd` wrapper exists for Windows shell convenience: `deploy\local\up-latest.cmd`.
+- If a completely uncached Docker rebuild is needed, use `.\deploy\local\up-latest.ps1 -NoCache`.
+
+## Controller Dependency Rule
+
+- Controllers should depend on application services, not domain services.
+- Core now follows `Controller -> AppService -> DomainService -> Repository`.
+- Current controller audit found no direct `DomainService` dependency in AI, Market, or Core controllers.
+
+## Gateway Service
+
+- `cynexus-gateway` is a real Spring Cloud Gateway microservice, not an external reverse proxy.
+- Local gateway port is `127.0.0.1:18000`.
+- Gateway uses Nacos discovery and Spring Cloud LoadBalancer routes:
+  - `/api/core/**` -> `lb://cynexus-core`
+  - `/api/ai/**` -> `lb://cynexus-ai`
+  - `/api/market/**` -> `lb://cynexus-market`
+- Spring Cloud Gateway 5 uses the config prefix `spring.cloud.gateway.server.webflux`.
+- Local Docker rerun default now includes `gateway` in `deploy/local/up-latest.ps1`.
+- `market_overview_snapshots` database columns differ from the previous placeholder PO; the table is now represented by its real columns, including money-flow fields, breadth fields, manual override fields, JSON `extra`, and audit fields.

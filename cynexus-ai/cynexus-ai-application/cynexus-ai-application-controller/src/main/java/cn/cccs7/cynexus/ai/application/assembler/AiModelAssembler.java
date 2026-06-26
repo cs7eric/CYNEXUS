@@ -22,8 +22,8 @@ public interface AiModelAssembler extends BaseMapper<AiModelBO, AiModelDTO> {
         if (target == null) {
             return null;
         }
-        return new AiModelBO(target.modelCode(), target.providerCode(), target.modelName(),
-                new ModelCapability(target.toolCallSupported(), target.structuredOutputSupported(), false),
-                new ModelRuntimeOptions(null, null, null), target.enabled());
+        return new AiModelBO(target.getModelCode(), target.getProviderCode(), target.getModelName(),
+                new ModelCapability(target.isToolCallSupported(), target.isStructuredOutputSupported(), false),
+                new ModelRuntimeOptions(null, null, null), target.isEnabled());
     }
 }

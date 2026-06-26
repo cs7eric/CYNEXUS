@@ -1,0 +1,26 @@
+package cn.cccs7.cynexus.ai.api.dto;
+
+import java.time.OffsetDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AiUsageBindingDTO {
+
+    private Long id;
+    private String capability;
+    private String label;
+    private Long providerId;
+    private String modelOverride;
+    private Boolean enabled;
+    private String params;
+    private String remark;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private OffsetDateTime deletedAt;
+}

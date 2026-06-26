@@ -20,8 +20,8 @@ public interface StockIntradayFeatureAssembler extends BaseMapper<StockIntradayF
         if (target == null) {
             return null;
         }
-        return new StockIntradayFeatureBO(new Stock(target.symbol(), target.symbol()), target.tradeDate(),
-                target.latestPrice(), target.amplitude(), target.volumeAcceleration(), target.mainNetInflow(),
-                target.intradayLabel());
+        return new StockIntradayFeatureBO(new Stock(target.getSymbol(), target.getSymbol()), target.getTradeDate(),
+                target.getLatestPrice(), target.getAmplitude(), target.getVolumeAcceleration(),
+                target.getMainNetInflow(), target.getIntradayLabel());
     }
 }

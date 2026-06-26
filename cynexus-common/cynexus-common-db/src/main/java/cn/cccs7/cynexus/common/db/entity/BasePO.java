@@ -1,15 +1,17 @@
 package cn.cccs7.cynexus.common.db.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 public class BasePO {
 
     private Long id;
-    private String createdBy;
-    private String updatedBy;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private Integer deleted;
+    @TableField("created_at")
+    private OffsetDateTime createdAt;
+    @TableField("updated_at")
+    private OffsetDateTime updatedAt;
+    @TableField("deleted_at")
+    private OffsetDateTime deletedAt;
 }

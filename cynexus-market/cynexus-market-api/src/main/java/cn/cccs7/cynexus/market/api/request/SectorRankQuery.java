@@ -1,4 +1,16 @@
 package cn.cccs7.cynexus.market.api.request;
 
-public record SectorRankQuery(String tradeDate, Integer topN) {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SectorRankQuery {
+
+    private String tradeDate;
+    private Integer topN;
 }

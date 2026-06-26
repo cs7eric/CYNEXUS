@@ -1,16 +1,23 @@
 package cn.cccs7.cynexus.core.infra.basic.entity;
 
 import cn.cccs7.cynexus.common.db.entity.BasePO;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
+@TableName("scheduler_job_statuses")
 public class SchedulerJobStatusPO extends BasePO {
 
     private Long jobId;
-    private Boolean isEnabled;
-    private Boolean isRunning;
+    @TableField("is_enabled")
+    private Boolean enabled;
+    @TableField("is_running")
+    private Boolean running;
     private String schedule;
     private Integer timezoneOffsetHours;
     private Integer tickSeconds;

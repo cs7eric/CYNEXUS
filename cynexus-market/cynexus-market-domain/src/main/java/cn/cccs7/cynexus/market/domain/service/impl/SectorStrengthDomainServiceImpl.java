@@ -7,7 +7,11 @@ public class SectorStrengthDomainServiceImpl implements SectorStrengthDomainServ
 
     @Override
     public boolean isLeadingSector(SectorRankBO rank) {
-        return rank.strength().changePercent().doubleValue() > 2.0
-                && rank.strength().mainNetInflow().doubleValue() > 0;
+        return rank != null
+                && rank.getStrength() != null
+                && rank.getStrength().getChangePercent() != null
+                && rank.getStrength().getMainNetInflow() != null
+                && rank.getStrength().getChangePercent().doubleValue() > 2.0
+                && rank.getStrength().getMainNetInflow().doubleValue() > 0;
     }
 }

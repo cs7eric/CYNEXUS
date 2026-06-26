@@ -1,0 +1,187 @@
+package cn.cccs7.cynexus.ai.application.service;
+
+import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
+import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisConfigBO;
+import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisDailySnapshotBO;
+import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisResultCurrentBO;
+import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisResultHistoryBO;
+import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisTargetBO;
+import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisConfigRepository;
+import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisDailySnapshotRepository;
+import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultCurrentRepository;
+import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultHistoryRepository;
+import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisTargetRepository;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AiConfigurationCrudAppService {
+
+    private final AiProviderRepository aiProviderRepository;
+    private final AiUsageBindingRepository aiUsageBindingRepository;
+    private final ApplicationAnalysisConfigRepository applicationAnalysisConfigRepository;
+    private final ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository;
+    private final ApplicationAnalysisResultCurrentRepository applicationAnalysisResultCurrentRepository;
+    private final ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository;
+    private final ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository;
+
+    public AiConfigurationCrudAppService(
+            AiProviderRepository aiProviderRepository,
+            AiUsageBindingRepository aiUsageBindingRepository,
+            ApplicationAnalysisConfigRepository applicationAnalysisConfigRepository,
+            ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository,
+            ApplicationAnalysisResultCurrentRepository applicationAnalysisResultCurrentRepository,
+            ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository,
+            ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository) {
+        this.aiProviderRepository = aiProviderRepository;
+        this.aiUsageBindingRepository = aiUsageBindingRepository;
+        this.applicationAnalysisConfigRepository = applicationAnalysisConfigRepository;
+        this.applicationAnalysisDailySnapshotRepository = applicationAnalysisDailySnapshotRepository;
+        this.applicationAnalysisResultCurrentRepository = applicationAnalysisResultCurrentRepository;
+        this.applicationAnalysisResultHistoryRepository = applicationAnalysisResultHistoryRepository;
+        this.applicationAnalysisTargetRepository = applicationAnalysisTargetRepository;
+    }
+
+    public List<AiProviderBO> listProviders() {
+        return aiProviderRepository.listAll();
+    }
+
+    public AiProviderBO findProviderById(Long id) {
+        return aiProviderRepository.findById(id);
+    }
+
+    public Long createProvider(AiProviderBO provider) {
+        return aiProviderRepository.create(provider);
+    }
+
+    public boolean updateProvider(AiProviderBO provider) {
+        return aiProviderRepository.update(provider);
+    }
+
+    public boolean deleteProvider(Long id) {
+        return aiProviderRepository.delete(id);
+    }
+
+    public List<AiUsageBindingBO> listUsageBindings() {
+        return aiUsageBindingRepository.listAll();
+    }
+
+    public AiUsageBindingBO findUsageBindingById(Long id) {
+        return aiUsageBindingRepository.findById(id);
+    }
+
+    public Long createUsageBinding(AiUsageBindingBO binding) {
+        return aiUsageBindingRepository.create(binding);
+    }
+
+    public boolean updateUsageBinding(AiUsageBindingBO binding) {
+        return aiUsageBindingRepository.update(binding);
+    }
+
+    public boolean deleteUsageBinding(Long id) {
+        return aiUsageBindingRepository.delete(id);
+    }
+
+    public List<ApplicationAnalysisConfigBO> listAnalysisConfigs() {
+        return applicationAnalysisConfigRepository.listAll();
+    }
+
+    public ApplicationAnalysisConfigBO findAnalysisConfigById(Long id) {
+        return applicationAnalysisConfigRepository.findById(id);
+    }
+
+    public Long createAnalysisConfig(ApplicationAnalysisConfigBO config) {
+        return applicationAnalysisConfigRepository.create(config);
+    }
+
+    public boolean updateAnalysisConfig(ApplicationAnalysisConfigBO config) {
+        return applicationAnalysisConfigRepository.update(config);
+    }
+
+    public boolean deleteAnalysisConfig(Long id) {
+        return applicationAnalysisConfigRepository.delete(id);
+    }
+
+    public List<ApplicationAnalysisDailySnapshotBO> listAnalysisDailySnapshots() {
+        return applicationAnalysisDailySnapshotRepository.listAll();
+    }
+
+    public ApplicationAnalysisDailySnapshotBO findAnalysisDailySnapshotById(Long id) {
+        return applicationAnalysisDailySnapshotRepository.findById(id);
+    }
+
+    public Long createAnalysisDailySnapshot(ApplicationAnalysisDailySnapshotBO snapshot) {
+        return applicationAnalysisDailySnapshotRepository.create(snapshot);
+    }
+
+    public boolean updateAnalysisDailySnapshot(ApplicationAnalysisDailySnapshotBO snapshot) {
+        return applicationAnalysisDailySnapshotRepository.update(snapshot);
+    }
+
+    public boolean deleteAnalysisDailySnapshot(Long id) {
+        return applicationAnalysisDailySnapshotRepository.delete(id);
+    }
+
+    public List<ApplicationAnalysisResultCurrentBO> listAnalysisResultCurrent() {
+        return applicationAnalysisResultCurrentRepository.listAll();
+    }
+
+    public ApplicationAnalysisResultCurrentBO findAnalysisResultCurrentById(Long id) {
+        return applicationAnalysisResultCurrentRepository.findById(id);
+    }
+
+    public Long createAnalysisResultCurrent(ApplicationAnalysisResultCurrentBO result) {
+        return applicationAnalysisResultCurrentRepository.create(result);
+    }
+
+    public boolean updateAnalysisResultCurrent(ApplicationAnalysisResultCurrentBO result) {
+        return applicationAnalysisResultCurrentRepository.update(result);
+    }
+
+    public boolean deleteAnalysisResultCurrent(Long id) {
+        return applicationAnalysisResultCurrentRepository.delete(id);
+    }
+
+    public List<ApplicationAnalysisResultHistoryBO> listAnalysisResultHistory() {
+        return applicationAnalysisResultHistoryRepository.listAll();
+    }
+
+    public ApplicationAnalysisResultHistoryBO findAnalysisResultHistoryById(Long id) {
+        return applicationAnalysisResultHistoryRepository.findById(id);
+    }
+
+    public Long createAnalysisResultHistory(ApplicationAnalysisResultHistoryBO result) {
+        return applicationAnalysisResultHistoryRepository.create(result);
+    }
+
+    public boolean updateAnalysisResultHistory(ApplicationAnalysisResultHistoryBO result) {
+        return applicationAnalysisResultHistoryRepository.update(result);
+    }
+
+    public boolean deleteAnalysisResultHistory(Long id) {
+        return applicationAnalysisResultHistoryRepository.delete(id);
+    }
+
+    public List<ApplicationAnalysisTargetBO> listAnalysisTargets() {
+        return applicationAnalysisTargetRepository.listAll();
+    }
+
+    public ApplicationAnalysisTargetBO findAnalysisTargetById(Long id) {
+        return applicationAnalysisTargetRepository.findById(id);
+    }
+
+    public Long createAnalysisTarget(ApplicationAnalysisTargetBO target) {
+        return applicationAnalysisTargetRepository.create(target);
+    }
+
+    public boolean updateAnalysisTarget(ApplicationAnalysisTargetBO target) {
+        return applicationAnalysisTargetRepository.update(target);
+    }
+
+    public boolean deleteAnalysisTarget(Long id) {
+        return applicationAnalysisTargetRepository.delete(id);
+    }
+}

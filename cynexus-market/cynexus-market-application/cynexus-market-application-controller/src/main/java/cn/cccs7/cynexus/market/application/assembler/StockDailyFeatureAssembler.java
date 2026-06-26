@@ -20,8 +20,8 @@ public interface StockDailyFeatureAssembler extends BaseMapper<StockDailyFeature
         if (target == null) {
             return null;
         }
-        return new StockDailyFeatureBO(new Stock(target.symbol(), target.symbol()), target.tradeDate(),
-                target.closePrice(), target.changePercent(), target.turnoverRate(), target.volumeRatio(),
-                target.mainNetInflow(), target.trendLabel());
+        return new StockDailyFeatureBO(new Stock(target.getSymbol(), target.getSymbol()), target.getTradeDate(),
+                target.getClosePrice(), target.getChangePercent(), target.getTurnoverRate(), target.getVolumeRatio(),
+                target.getMainNetInflow(), target.getTrendLabel());
     }
 }

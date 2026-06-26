@@ -16,7 +16,7 @@ public interface AiExecutionAssembler extends BaseMapper<AiExecutionBO, AiExecut
 
     @Override
     @Mapping(target = "scenarioCode", source = "scenario.scenarioCode")
-    @Mapping(target = "status", expression = "java(source.status().name())")
+    @Mapping(target = "status", expression = "java(source.getStatus().name())")
     AiExecuteDTO toTarget(AiExecutionBO source);
 
     @Override
@@ -24,14 +24,14 @@ public interface AiExecutionAssembler extends BaseMapper<AiExecutionBO, AiExecut
         if (target == null) {
             return null;
         }
-        AiScenarioBO scenario = new AiScenarioBO(target.scenarioCode(), target.scenarioCode(), null, null,
+        AiScenarioBO scenario = new AiScenarioBO(target.getScenarioCode(), target.getScenarioCode(), null, null,
                 0, false, false, true);
-        return new AiExecutionBO(target.executionNo(), scenario, target.modelCode(),
-                AiExecutionStatus.valueOf(target.status()), target.content(), target.toolCalls());
+        return new AiExecutionBO(target.getExecutionNo(), scenario, target.getModelCode(),
+                AiExecutionStatus.valueOf(target.getStatus()), target.getContent(), target.getToolCalls());
     }
 
     default ExecuteScenarioCommand toCommand(AiExecuteRequest request) {
-        return new ExecuteScenarioCommand(request.scenarioCode(), request.userInput(), request.variables(),
-                request.preferredModelCode());
+        return new ExecuteScenarioCommand(request.getScenarioCode(), request.getUserInput(), request.getVariables(),
+                request.getPreferredModelCode());
     }
 }

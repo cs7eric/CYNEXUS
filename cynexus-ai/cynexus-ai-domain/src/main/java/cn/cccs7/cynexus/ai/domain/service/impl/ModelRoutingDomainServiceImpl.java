@@ -12,11 +12,11 @@ public class ModelRoutingDomainServiceImpl implements ModelRoutingDomainService 
     @Override
     public AiModelBO route(AiScenarioBO scenario, List<AiModelBO> candidates, String preferredModelCode) {
         return candidates.stream()
-                .filter(AiModelBO::enabled)
+                .filter(AiModelBO::isEnabled)
                 .filter(model -> preferredModelCode == null || preferredModelCode.isBlank()
-                        || preferredModelCode.equals(model.modelCode()))
-                .filter(model -> !scenario.toolCallRequired() || model.capability().toolCallSupported())
-                .filter(model -> !scenario.jsonOutputRequired() || model.capability().structuredOutputSupported())
+                        || preferredModelCode.equals(model.getModelCode()))
+                .filter(model -> !scenario.isToolCallRequired() || model.getCapability().isToolCallSupported())
+                .filter(model -> !scenario.isJsonOutputRequired() || model.getCapability().isStructuredOutputSupported())
                 .findFirst()
                 .orElseThrow(() -> new BizException(ErrorCode.BAD_REQUEST, "No available model for scenario"));
     }

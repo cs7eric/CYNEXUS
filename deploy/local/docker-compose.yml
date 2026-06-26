@@ -195,3 +195,34 @@ services:
       timeout: 5s
       retries: 10
       start_period: 40s
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/local/Dockerfile.app
+      args:
+        MAVEN_PROJECT: cynexus-gateway/cynexus-gateway-starter
+        JAR_NAME: cynexus-gateway-starter-1.0.0-SNAPSHOT.jar
+    image: cynexus-gateway:local
+    container_name: cynexus-gateway
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_started
+      core:
+        condition: service_healthy
+      market:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+    environment:
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75"
+      NACOS_SERVER_ADDR: nacos:8848
+    ports:
+      - "127.0.0.1:18000:18000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18000/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s

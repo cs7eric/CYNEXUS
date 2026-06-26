@@ -11,6 +11,6 @@ public class AgentExecutor {
     public String execute(AiScenarioBO scenario, AiModelBO model, String prompt, List<String> toolCodes) {
         return """
                 {"scenario":"%s","model":"%s","toolCodes":"%s","content":"mock structured AI response"}
-                """.formatted(scenario.scenarioCode(), model.modelCode(), toolCodes);
+                """.formatted(scenario.getScenarioCode(), model.getModelCode(), toolCodes);
     }
 }

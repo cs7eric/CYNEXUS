@@ -42,7 +42,7 @@ public class ScenarioExecutionAppService {
 
     public AiExecuteDTO execute(AiExecuteRequest request) {
         AiScenarioBO scenario = new AiScenarioBO(
-                request.scenarioCode() == null ? "market_daily_review" : request.scenarioCode(),
+                request.getScenarioCode() == null ? "market_daily_review" : request.getScenarioCode(),
                 "Market Daily Review",
                 "mock-model",
                 null,
@@ -51,21 +51,21 @@ public class ScenarioExecutionAppService {
                 true,
                 true
         );
-        AiModelBO model = modelRouteAppService.route(scenario, request.preferredModelCode());
-        String prompt = promptRenderAppService.render("Summarize market information with JSON output.", request.userInput(),
-                request.variables());
+        AiModelBO model = modelRouteAppService.route(scenario, request.getPreferredModelCode());
+        String prompt = promptRenderAppService.render("Summarize market information with JSON output.", request.getUserInput(),
+                request.getVariables());
         String content = agentExecutor.execute(scenario, model, prompt, aiToolRegistry.enabledToolCodes());
-        boolean valid = outputValidationDomainService.validateJsonRequired(scenario.jsonOutputRequired(), content);
+        boolean valid = outputValidationDomainService.validateJsonRequired(scenario.isJsonOutputRequired(), content);
         AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
         AiExecutionBO execution = new AiExecutionBO(
                 "AI-" + UUID.randomUUID().toString().replace("-", ""),
                 scenario,
-                model.modelCode(),
+                model.getModelCode(),
                 status,
                 content,
                 aiToolRegistry.enabledToolCodes()
         );
-        aiTraceLogger.record(execution.executionNo(), status.name());
+        aiTraceLogger.record(execution.getExecutionNo(), status.name());
         return aiExecutionAssembler.toTarget(execution);
     }
 }

@@ -6,4 +6,12 @@ import java.util.List;
 public interface SchedulerJobStatusBasicService {
 
     List<SchedulerJobStatusPO> listAll();
+
+    SchedulerJobStatusPO getById(Long id);
+
+    Long create(SchedulerJobStatusPO po);
+
+    boolean update(SchedulerJobStatusPO po);
+
+    boolean delete(Long id);
 }

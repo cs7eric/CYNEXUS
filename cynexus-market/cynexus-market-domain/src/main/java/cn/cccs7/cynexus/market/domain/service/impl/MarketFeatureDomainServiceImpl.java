@@ -7,6 +7,10 @@ public class MarketFeatureDomainServiceImpl implements MarketFeatureDomainServic
 
     @Override
     public boolean isStrongTrend(StockDailyFeatureBO feature) {
-        return feature.changePercent().doubleValue() > 3.0 && feature.volumeRatio().doubleValue() > 1.5;
+        return feature != null
+                && feature.getChangePercent() != null
+                && feature.getVolumeRatio() != null
+                && feature.getChangePercent().doubleValue() > 3.0
+                && feature.getVolumeRatio().doubleValue() > 1.5;
     }
 }

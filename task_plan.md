@@ -229,3 +229,48 @@ Status: complete
 - Local Docker Compose runs `cynexus-core`, `cynexus-ai`, and `cynexus-market` together.
 - Health endpoints return `UP` for Core `18080`, AI `18081`, and Market `18082`.
 - Core service info endpoint `http://127.0.0.1:18080/api/core/info` returns service name `cynexus-core` and schema `cynexus_appl_core`.
+
+## Phase 15 - Complete Table CRUD And Lombok/MapStruct Cleanup
+
+Status: complete
+
+- Add application-layer DTO/BO converters for AI table DTOs with `INSTANCE = Mappers.getMapper(...)`.
+- Add `AiConfigurationCrudAppService` and `AiConfigurationCrudController` for AI providers, usage bindings, and application analysis tables.
+- Add application-layer DTO/BO converters for Market table DTOs with `INSTANCE = Mappers.getMapper(...)`.
+- Add `MarketDataCrudAppService` and `MarketDataCrudController` for market overview snapshots, limit snapshots/stocks, pulse batches/snapshots, sector fund-flow snapshots, and self-selected lists/items.
+- Change `MarketOverviewBasicService` from mock data to real MyBatis-Plus CRUD plus `findByTradeDate`.
+- Add missing `MarketOverviewMapper.xml`.
+- Replace remaining old record-style DTO accessors in AI/Market application code with Lombok getters.
+- Add Core scheduler audit fields to BO/DTO classes so PO/BO/DTO table fields align.
+
+## Phase 15 Verification Results
+
+- `mvn compile -DskipTests` succeeded after the CRUD and converter additions.
+- Converter audit found no `*Converter.java` without `INSTANCE = Mappers.getMapper(...)`.
+- Mapper XML audit found no PO without a matching `*Mapper.xml`.
+- No Java `record` declarations remain in AI, Market, or Core modules.
+- Final `mvn clean package -DskipTests` succeeded across all 31 Maven reactor projects.
+
+## Phase 16 - Add Microservice Gateway Entrypoint
+
+Status: complete
+
+- Add `cynexus-gateway` as a Maven microservice module with `cynexus-gateway-starter`.
+- Use Spring Cloud Gateway WebFlux and Nacos service discovery.
+- Route `/api/core/**`, `/api/ai/**`, and `/api/market/**` through service names with `lb://`.
+- Register Gateway in local Docker Compose on `127.0.0.1:18000`.
+- Include Gateway in `deploy/local/up-latest.ps1` so local reruns package and recreate the latest gateway image.
+- Add a Nacos config sample for `cynexus-gateway.yml`.
+- Align `market_overview_snapshots` PO/BO/DTO/converters with the real database table so the documented gateway Market API works.
+
+## Phase 16 Verification Results
+
+- `mvn clean package -DskipTests` succeeded across 33 Maven reactor projects after adding Gateway.
+- `docker compose -f deploy/local/docker-compose.yml config` succeeded.
+- `deploy/local/up-latest.ps1` rebuilt and recreated Core, Market, AI, and Gateway.
+- Gateway container `cynexus-gateway` is healthy on `127.0.0.1:18000`.
+- Verified through Gateway:
+  - `GET /actuator/health` returns `UP`.
+  - `GET /api/core/info` returns Core service info.
+  - `GET /api/ai/config/providers` returns AI provider rows.
+  - `GET /api/market/data/overview-snapshots` returns Market overview rows.

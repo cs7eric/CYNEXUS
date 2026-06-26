@@ -156,3 +156,46 @@
 - Rebuilt and started Core, Market, and AI with Docker Compose.
 - Verified Core, AI, and Market health endpoints all return `UP`.
 - Verified `http://127.0.0.1:18080/api/core/info` returns the Core service info payload.
+- Continued the table-layer cleanup after the user asked to keep going.
+- Fixed AI application record-style accessor leftovers after DTO/BO/request classes were converted to Lombok classes.
+- Added AI application DTO converters, `AiConfigurationCrudAppService`, and `AiConfigurationCrudController` for providers, usage bindings, analysis configs, analysis targets, daily snapshots, current results, and history results.
+- Added Market application DTO converters, `MarketDataCrudAppService`, and `MarketDataCrudController` for all nine tables remaining in `cynexus_appl_market`.
+- Reworked `MarketOverviewBasicServiceImpl` from mock data to real MyBatis-Plus mapper-backed CRUD and added the missing `MarketOverviewMapper.xml`.
+- Added `id` and audit fields to Market overview DTO/BO and mapped those fields through PO converters.
+- Replaced remaining Market assembler record-style DTO calls with Lombok getter calls.
+- Added `createdAt`, `updatedAt`, and `deletedAt` to Core scheduler BO/DTO types to align with BasePO-backed tables and remove MapStruct unmapped-field warnings.
+- Audited converters for the required `INSTANCE = Mappers.getMapper(...)`; no missing converter instances remained.
+- Audited PO-to-XML mapper coverage; every checked PO has a matching mapper XML.
+- Ran `mvn compile -DskipTests`; build succeeded across 31 reactor projects.
+- Ran final `mvn clean package -DskipTests`; build succeeded across 31 reactor projects.
+- User asked to make Docker reruns always pick up the latest code.
+- Added `deploy/local/up-latest.ps1` and `deploy/local/up-latest.cmd` as the supported local rerun entrypoint.
+- Changed `deploy/local/Dockerfile.app` to copy already-packaged starter jars instead of compiling inside each Docker build.
+- Updated `.dockerignore` so only the three starter jars are included from `target` directories.
+- Updated `deploy/local/README.md` with the new rerun command.
+- First run of `up-latest.ps1` rebuilt images but exposed a Core runtime bean issue: `SchedulerRepositoryImpl` implemented a duplicate infra repository interface instead of the domain repository interface.
+- Deleted the duplicate Core infra `SchedulerRepository` interface and changed `SchedulerRepositoryImpl` to implement `cn.cccs7.cynexus.core.domain.repository.SchedulerRepository`.
+- Re-ran `up-latest.ps1`; Maven package succeeded, Docker images rebuilt, and Core/Market/AI containers were recreated.
+- Verified `http://127.0.0.1:18080/actuator/health`, `http://127.0.0.1:18081/actuator/health`, and `http://127.0.0.1:18082/actuator/health` all return `UP`.
+- User requested controllers stop calling domain services directly.
+- Added `CoreInfoAppService` and changed `CoreInfoController` to depend on the app service instead of `CoreServiceInfoDomainService`.
+- Added `SchedulerAppService` and changed `SchedulerController` to depend on the app service instead of `SchedulerDomainService`.
+- Audited AI/Market/Core controllers for direct `DomainService` references; none remain.
+- Ran `mvn compile -DskipTests`; build succeeded across 31 reactor projects.
+- Ran `deploy/local/up-latest.ps1`; Maven package succeeded, Docker images rebuilt, and Core/Market/AI containers were recreated with the new app-service layer.
+- Verified Core, AI, and Market health endpoints all return `UP` after the container rebuild.
+- User rejected an nginx-style local proxy and requested a maintainable microservice Gateway.
+- Added `cynexus-gateway` and `cynexus-gateway-starter` to the Maven reactor.
+- Added `CynexusGatewayApplication` and Spring Cloud Gateway WebFlux route config for Core, AI, and Market through Nacos service names.
+- Added `deploy/nacos/cynexus-gateway.yml` as the service-specific config sample.
+- Added Gateway to `deploy/local/docker-compose.yml` on `127.0.0.1:18000`.
+- Updated `.dockerignore`, `Dockerfile.app`, `deploy/local/up-latest.ps1`, and `deploy/local/README.md` so Gateway participates in the latest-code Docker workflow.
+- Ran `mvn clean package -DskipTests`; build succeeded across 33 reactor projects.
+- Ran `docker compose -f deploy/local/docker-compose.yml config`; compose config succeeded.
+- Ran `deploy/local/up-latest.ps1`; Core, Market, AI, and Gateway were rebuilt and recreated.
+- Verified Gateway health and successful single-port forwarding to Core and AI.
+- Found `GET /api/market/data/overview-snapshots` reached Market through Gateway but failed because `MarketOverviewPO` still used old columns not present in the real database table.
+- Aligned `MarketOverviewPO`, `MarketOverviewBO`, `MarketOverviewDTO`, converters, assembler, and trade-date lookup with the real `cynexus_appl_market.market_overview_snapshots` columns.
+- Ran `mvn compile -DskipTests`; build succeeded after the Market overview model fix.
+- Ran `deploy/local/up-latest.ps1 -Service market,gateway`; Maven package succeeded and Docker services were recreated.
+- Verified through `http://127.0.0.1:18000`: Gateway health, Core info, AI provider list, and Market overview list all return success.

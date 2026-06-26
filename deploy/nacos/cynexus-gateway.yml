@@ -1,0 +1,21 @@
+server:
+  port: 18000
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: cynexus-core
+              uri: lb://cynexus-core
+              predicates:
+                - Path=/api/core/**
+            - id: cynexus-ai
+              uri: lb://cynexus-ai
+              predicates:
+                - Path=/api/ai/**
+            - id: cynexus-market
+              uri: lb://cynexus-market
+              predicates:
+                - Path=/api/market/**

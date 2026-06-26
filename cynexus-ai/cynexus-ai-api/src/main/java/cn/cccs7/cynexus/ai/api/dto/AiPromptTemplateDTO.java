@@ -1,4 +1,16 @@
 package cn.cccs7.cynexus.ai.api.dto;
 
-public record AiPromptTemplateDTO(String scenarioCode, String promptTemplate) {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AiPromptTemplateDTO {
+
+    private String scenarioCode;
+    private String promptTemplate;
 }

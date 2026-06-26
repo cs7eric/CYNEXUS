@@ -1,18 +1,29 @@
 package cn.cccs7.cynexus.core.domain.entity;
 
 import java.time.OffsetDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record SchedulerJobBO(
-        Long id,
-        String code,
-        String name,
-        String description,
-        String serviceModule,
-        String serviceClass,
-        String configFile,
-        Boolean enabled,
-        OffsetDateTime registeredAt,
-        String extra,
-        String remark
-) {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SchedulerJobBO {
+
+    private Long id;
+    private String code;
+    private String name;
+    private String description;
+    private String serviceModule;
+    private String serviceClass;
+    private String configFile;
+    private Boolean enabled;
+    private OffsetDateTime registeredAt;
+    private String extra;
+    private String remark;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private OffsetDateTime deletedAt;
 }

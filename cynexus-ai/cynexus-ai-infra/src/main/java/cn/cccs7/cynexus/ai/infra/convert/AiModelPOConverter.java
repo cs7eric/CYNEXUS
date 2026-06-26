@@ -18,6 +18,9 @@ public interface AiModelPOConverter extends BaseMapper<AiModelConfigPO, AiModelB
     AiModelPOConverter INSTANCE = Mappers.getMapper(AiModelPOConverter.class);
 
     @Override
+    @Mapping(target = "modelCode", source = "modelCode")
+    @Mapping(target = "providerCode", source = "providerCode")
+    @Mapping(target = "modelName", source = "modelName")
     @Mapping(target = "capability", expression = "java(new ModelCapability(true, true, false))")
     @Mapping(target = "runtimeOptions", expression = "java(new ModelRuntimeOptions(null, null, null))")
     @Mapping(target = "enabled", expression = "java(Boolean.TRUE.equals(source.getEnabled()))")
@@ -29,10 +32,10 @@ public interface AiModelPOConverter extends BaseMapper<AiModelConfigPO, AiModelB
             return null;
         }
         AiModelConfigPO source = new AiModelConfigPO();
-        source.setModelCode(target.modelCode());
-        source.setProviderCode(target.providerCode());
-        source.setModelName(target.modelName());
-        source.setEnabled(target.enabled());
+        source.setModelCode(target.getModelCode());
+        source.setProviderCode(target.getProviderCode());
+        source.setModelName(target.getModelName());
+        source.setEnabled(target.isEnabled());
         return source;
     }
 }
