@@ -1,0 +1,104 @@
+# Cynexus Setup Progress
+
+## 2026-06-26
+
+- Read `guide/TASKS.md`.
+- Tried the exact `guide/PROJECT_BRIEF .md` path; it does not exist.
+- Listed `guide` and found `guide/PROJECT_BRIEF.md`.
+- Read `guide/PROJECT_BRIEF.md`.
+- Read `guide/history.md` and extracted the Nacos/OpenFeign microservice requirements.
+- Inspected current root `pom.xml`; it is a minimal Maven file with the wrong group/version for this project.
+- Created planning files for the initial setup task.
+- User clarified Maven `groupId` should keep `cn.cccs7`.
+- User clarified Java package root should be `cn.cccs7.cynexus`, not `com.cynexus`.
+- Verified Java 21 and Maven 3.8.8 are installed.
+- Created Maven directory skeleton for common, AI, and market modules.
+- Added root, common, AI, and market POM files.
+- Added starter classes, market API DTOs, Feign client, mock market controller, AI market probe controller, and application configs.
+- Added `docker-compose.core.yml` with PostgreSQL, Redis, and Nacos only.
+- Ran first Maven package attempt; failed because `org.springframework.ai:spring-ai-tools` is not managed by the Spring AI 2.0.0 BOM.
+- Removed the unused `spring-ai-tools` dependency from `cynexus-ai-infra`.
+- Ran `mvn clean package -DskipTests` again; build succeeded across all 23 Maven reactor projects.
+- Checked root directories and confirmed only `cynexus-common`, `cynexus-ai`, and `cynexus-market` were created for first-phase services.
+- User pointed out the first pass was too empty versus `history.md`; reopened the history requirements.
+- Added common core/web/db/cloud baseline classes: error/result/page/trace/json/single-user/db id/web trace/cloud properties.
+- Added AI DTOs, domain model concepts, application services, model adapter registry, dynamic client factory, tool registry, secret resolver, trace/token recorders, and AI controllers.
+- Added market feature DTOs, Feign endpoints, domain objects, application services, and split controllers for overview, sectors, and stock features.
+- Added PostgreSQL SQL schema samples and Nacos config samples under `infrastructure/`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after the fuller first-phase implementation.
+- Counted Java/YAML/SQL content files under common/AI/market/infrastructure: 86.
+- User flagged that the implementation still ignored folder layering and pointed to `guide/folder-convention.md`.
+- Read `guide/folder-convention.md`.
+- Moved common classes into convention subpackages.
+- Moved AI application services into `application.service` and AI infra adapter/factory/registry into `infra.ai.*`.
+- Moved Market application services into `application.service`.
+- Moved Docker/Nacos/SQL files to `deploy/docker`, `deploy/nacos`, and `sql`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after package/folder refactor.
+- Removed empty legacy directories left by the move.
+- User flagged that the implementation still did not follow interface/impl, ORM, and object layering concepts; read `guide/layer-and-object-convention.md`.
+- Reworked common result/exception/enum/db base classes to match the layer/object convention.
+- Split AI domain services into interfaces and `service/impl` implementations, registered domain service beans from application config without adding Spring dependency to domain.
+- Moved AI domain records into `domain/entity/*BO` and `domain/valueobject`.
+- Added AI ORM basic layer: `AiModelConfigPO`, mapper, basic service/interface/impl, XML mapper, converter, and infra repository implementation.
+- Updated AI application routing to use `AiModelRepository` and injected domain service interfaces.
+- Updated AI controllers to return `Result<Response>` and added response records for model/scenario/prompt lists.
+- Updated Market sector/stock application flow to use BOs plus assemblers and API response records.
+- Updated Market Feign and AI market tool calls to use response contracts instead of DTO contracts.
+- Ran `mvn clean package -DskipTests`; build succeeded across all 23 Maven reactor projects.
+- Ran layer audit searches for domain/common-core/controller DTO leaks; no remaining violations found in the checked patterns.
+- Added MapStruct integration with a common `BaseMapper<S, T>` defining only `toTarget` and `toSource`.
+- Converted AI/Market PO converters and response assemblers to MapStruct mapper interfaces where the mapping is single-object.
+- Kept list mapping out of `BaseMapper`; list responses use stream mapping in the caller/assembler wrapper.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after MapStruct integration.
+- Updated API output convention to use DTOs instead of separate Response records.
+- Added list conversion methods to common `BaseMapper`.
+- Deleted duplicate `api/response` records and removed source references to `api.response`.
+- Updated controllers and Feign contracts to return `Result<DTO>` or `Result<List<DTO>>`.
+- Updated execution flow to build an `AiExecutionBO` and map it to `AiExecuteDTO`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after DTO convention cleanup.
+- Updated local Nacos registration config for AI and Market starters.
+- Changed default local Nacos namespace from `cynexus-dev` to public namespace by using an empty `NACOS_NAMESPACE` default.
+- Explicitly enabled Nacos discovery registration for `cynexus-ai` and `cynexus-market`.
+- Updated `deploy/local/docker-compose.yml` to expose Nacos 2.x gRPC server port `9849` in addition to `8848` and `9848`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after Nacos registration config changes.
+- Updated AI and Market datasource defaults to connect to the existing local Docker PostgreSQL at `127.0.0.1:25432`.
+- Default datasource user is now `postgres`, default password is `C020611.`, and default database is `postgres`.
+- Updated `deploy/nacos/cynexus-common.yml` datasource defaults to the same local PostgreSQL connection.
+- Verified TCP connectivity to `127.0.0.1:25432`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after PostgreSQL config changes.
+- Updated AI and Market Redis defaults to match the local Docker Redis service at `127.0.0.1:6379`.
+- Default Redis password is now `C020611.` in both starter `application.yml` files and shared Nacos config.
+- Updated `deploy/nacos/cynexus-common.yml` with shared Redis host, port, password, and timeout settings.
+- Verified TCP connectivity to `127.0.0.1:6379`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after Redis config changes.
+- Inspected the manually started Postgres container `62852359c804` and found the real data volume is anonymous Docker volume `f9b03225196ab4753a432dc502f3f74454ef4134a0973af24671c8038b5d9397`.
+- Verified Postgres readiness with `pg_isready`; it is accepting connections.
+- Listed non-template databases; only `postgres` exists.
+- Created a logical backup at `deploy/local/postgres-backups/postgres-dumpall-20260626-144554.sql`.
+- Added the existing Postgres 18 volume to `deploy/local/docker-compose.yml` as an external compose volume.
+- Added local Redis data and Postgres backup directories to `.gitignore`.
+- Validated `deploy/local/docker-compose.yml` with `docker compose -f deploy/local/docker-compose.yml config`.
+- Added the `postgres` profile to the compose Postgres service so default compose startup does not collide with the still-running original `postgres` container on port `25432`.
+- Validated the full Postgres profile with `docker compose -f deploy/local/docker-compose.yml --profile postgres config`.
+- Confirmed original container `62852359c804` / `postgres` is still running on `127.0.0.1:25432`; no compose-managed `cynexus-postgres` container has been created yet.
+- Changed local compose Postgres from the original anonymous external volume to `./postgres/data:/var/lib/postgresql`.
+- Changed project-owned local Postgres host port to `127.0.0.1:25433` so it can run at the same time as the original `postgres` container on `25432`.
+- Updated AI starter, Market starter, and shared Nacos datasource defaults from port `25432` to `25433`.
+- Added `deploy/local/postgres/data/` to `.gitignore`.
+- Validated local compose config after switching Postgres to a bind mount.
+- Started `cynexus-postgres` from `deploy/local/docker-compose.yml`; it is exposed on `127.0.0.1:25433`.
+- Confirmed the bind mount source is `E:\project-repo\cynexus\deploy\local\postgres\data` and it contains Postgres 18 data under `18/docker`.
+- Imported old container data with `pg_dump` from `62852359c804` into `cynexus-postgres`.
+- Verified old and new `postgres` databases both have 29 user base tables and 27068 total rows.
+- Verified TCP connectivity to `127.0.0.1:25433`.
+- Verified both containers are running: original `postgres` on `25432`, project `cynexus-postgres` on `25433`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after switching default datasource port to `25433`.
+- User requested the project initial database be `cynexus` instead of `postgres`.
+- Confirmed project Postgres currently has only non-template database `postgres`.
+- Changed local compose `POSTGRES_DB` to `cynexus`.
+- Changed AI starter, Market starter, and shared Nacos datasource defaults from database `postgres` to `cynexus`.
+- Created database `cynexus` inside `cynexus-postgres`.
+- Copied the previously imported project data from database `postgres` to database `cynexus` using `pg_dump | psql`.
+- Verified `postgres` and `cynexus` inside `cynexus-postgres` both have 29 user base tables and 27068 total rows.
+- Verified compose config now uses `POSTGRES_DB: cynexus`.
+- Re-ran `mvn clean package -DskipTests`; build succeeded after switching default database to `cynexus`.

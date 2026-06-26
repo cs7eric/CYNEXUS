@@ -1,0 +1,72 @@
+name: cynexus-dev
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: cynexus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: C020611.
+      POSTGRES_DB: cynexus
+      PGDATA: /var/lib/postgresql/18/docker
+    ports:
+      - "127.0.0.1:25433:5432"
+    volumes:
+      - ./postgres/data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nacos:
+    image: nacos/nacos-server:v2.5.1
+    container_name: cynexus-nacos
+    restart: unless-stopped
+
+    environment:
+      MODE: standalone
+
+      # 本地开发先关闭鉴权，方便微服务直接连
+      NACOS_AUTH_ENABLE: "false"
+
+      # Nacos 2.2.1+ 之后这些安全参数不能完全依赖默认值，建议显式写上
+      NACOS_AUTH_TOKEN: "VGhpcyBpcyBhIGN5bmV4dXMgbG9jYWwgZGV2IG5hY29zIHRva2VuIDIwMjY="
+      NACOS_AUTH_IDENTITY_KEY: "cynexus-nacos-key"
+      NACOS_AUTH_IDENTITY_VALUE: "cynexus-nacos-value"
+
+      # 降低本机开发时的内存占用
+      JVM_XMS: "256m"
+      JVM_XMX: "512m"
+      JVM_XMN: "128m"
+
+    ports:
+      # Nacos 控制台 / HTTP API / 客户端主端口
+      - "8848:8848"
+
+      # Nacos 2.x 客户端 gRPC 端口，Spring Cloud Alibaba 连接时需要
+      - "9848:9848"
+
+      # Nacos 2.x 服务端 gRPC 端口；本地单机一般不用，但显式暴露便于排查
+      - "9849:9849"
+
+    volumes:
+      - ./nacos/data:/home/nacos/data
+      - ./nacos/logs:/home/nacos/logs
+  redis:
+    image: redis:7.2-alpine
+    container_name: cynexus-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "C020611."
+      ]
+    volumes:
+      - ./redis/data:/data

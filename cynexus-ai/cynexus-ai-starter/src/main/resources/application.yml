@@ -1,0 +1,60 @@
+server:
+  port: 18081
+
+spring:
+  application:
+    name: cynexus-ai
+  config:
+    import:
+      - optional:nacos:cynexus-ai.yml
+      - optional:nacos:cynexus-common.yml
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:}
+      password: ${NACOS_PASSWORD:}
+      discovery:
+        enabled: true
+        register-enabled: true
+        service: ${spring.application.name}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        cluster-name: ${NACOS_CLUSTER_NAME:DEFAULT}
+        ephemeral: true
+        metadata:
+          management.port: ${server.port}
+      config:
+        enabled: true
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yml
+  datasource:
+      url: jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB_AI:${POSTGRES_DB:cynexus}}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:C020611.}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:C020611.}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+jobrunr:
+  background-job-server:
+    enabled: false
+  dashboard:
+    enabled: false

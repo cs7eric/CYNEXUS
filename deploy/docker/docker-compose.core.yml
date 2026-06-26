@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: cynexus-postgres
+    environment:
+      POSTGRES_USER: cynexus
+      POSTGRES_PASSWORD: cynexus
+      POSTGRES_DB: cynexus
+    ports:
+      - "5432:5432"
+    volumes:
+      - cynexus_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8
+    container_name: cynexus-redis
+    ports:
+      - "6379:6379"
+
+  nacos:
+    image: nacos/nacos-server:v3.1.1
+    container_name: cynexus-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+
+volumes:
+  cynexus_postgres_data:

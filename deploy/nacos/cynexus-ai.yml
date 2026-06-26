@@ -1,0 +1,17 @@
+cynexus:
+  ai:
+    scenario:
+      default-code: market_daily_review
+    model:
+      default-code: mock-model
+    secret:
+      resolver: env
+    tool:
+      market-enabled: true
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 10000
