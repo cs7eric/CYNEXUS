@@ -168,3 +168,64 @@ Status: complete
 - Copy existing imported data from database `postgres` to `cynexus`.
 - Verify table and row counts against the copied source.
 - Re-run Maven verification.
+
+## Phase 12 - Run Applications From Local Docker Compose
+
+Status: complete
+
+- Add an application Dockerfile for Java 21 Spring Boot starter jars.
+- Make AI and Market starter jars executable with Spring Boot repackage.
+- Add `market` and `ai` services to `deploy/local/docker-compose.yml`.
+- Use compose service names for container-to-container Nacos, PostgreSQL, and Redis connections.
+- Keep host port mappings for AI `18081` and Market `18082`.
+- Validate compose config, build images, start services, and check health endpoints.
+- Stop the previous IntelliJ-launched Java processes that were occupying ports `18081` and `18082`, then let Docker Compose own those ports.
+
+## Phase 13 - Split Service Schemas And Migrate IDs To BIGINT
+
+Status: complete
+
+- Treat the current `cynexus` PostgreSQL database as authoritative.
+- Back up the project-owned database before migration.
+- Move AI-owned tables into schema `cynexus_appl_ai`.
+- Move Market-owned tables into schema `cynexus_appl_market`.
+- Convert service-owned business primary keys from UUID to `BIGINT NOT NULL PRIMARY KEY`.
+- Preserve existing rows and remap service-owned foreign-key style columns consistently.
+- Leave third-party/public infrastructure tables alone unless explicitly required.
+- Configure each service datasource with its own `currentSchema`.
+- Rebuild/start compose applications and verify health.
+
+## Phase 13 Verification Results
+
+- Fresh backup was written before migration: `deploy/local/postgres-backups/cynexus-before-schema-bigint-20260626-153602.sql`.
+- `cynexus_appl_ai` contains 7 AI-owned business tables.
+- `cynexus_appl_market` contains 14 Market-owned business tables.
+- All 21 service-owned `id` columns are `BIGINT NOT NULL` with primary keys and no database default.
+- No UUID columns remain in `cynexus_appl_ai` or `cynexus_appl_market`.
+- Existing business row counts were preserved after the schema move and ID remap.
+- `docker compose -f deploy/local/docker-compose.yml config` succeeded.
+- `mvn clean package -DskipTests` succeeded.
+- `cynexus-ai` and `cynexus-market` both run from Docker Compose and report actuator health `UP`.
+
+## Phase 14 - Add Core Service And Move Scheduler Schema
+
+Status: complete
+
+- Add `cynexus-core` as a Maven aggregate module following the same AI/Market module layout.
+- Add minimal Core API/common/domain/infra/application-controller/starter code according to the guide folder and layer conventions.
+- Register `cynexus-core` with Nacos and local Docker Compose.
+- Configure Core datasource with `currentSchema=cynexus_appl_core` and Redis defaults.
+- Back up the project-owned database before moving data.
+- Move scheduler-related tables from `cynexus_appl_market` to `cynexus_appl_core`.
+- Add service-specific Nacos config for Core.
+- Build, start, and verify Core together with AI/Market.
+
+## Phase 14 Verification Results
+
+- `mvn clean package -DskipTests` succeeded across 31 Maven reactor projects.
+- Fresh backup was written before scheduler schema migration: `deploy/local/postgres-backups/cynexus-before-core-scheduler-schema-20260626-162425.sql`.
+- `cynexus_appl_core` contains all 5 scheduler tables.
+- `cynexus_appl_market` contains 9 business tables and no `scheduler_%` tables.
+- Local Docker Compose runs `cynexus-core`, `cynexus-ai`, and `cynexus-market` together.
+- Health endpoints return `UP` for Core `18080`, AI `18081`, and Market `18082`.
+- Core service info endpoint `http://127.0.0.1:18080/api/core/info` returns service name `cynexus-core` and schema `cynexus_appl_core`.

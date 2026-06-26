@@ -1,8 +1,10 @@
 package cn.cccs7.cynexus.common.core.result;
 
 import cn.cccs7.cynexus.common.core.constant.TraceId;
+import lombok.Getter;
 import java.io.Serializable;
 
+@Getter
 public class Result<T> implements Serializable {
 
     private String code;
@@ -43,29 +45,5 @@ public class Result<T> implements Serializable {
 
     public boolean isFailed() {
         return !success;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public T getData() {
-        return data;
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public Long getTimestamp() {
-        return timestamp;
-    }
-
-    public String getTraceId() {
-        return traceId;
     }
 }

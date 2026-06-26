@@ -2,6 +2,14 @@ server:
   port: 18081
 
 spring:
+  autoconfigure:
+    exclude:
+      - org.jobrunr.spring.autoconfigure.JobRunrAutoConfiguration
+      - org.jobrunr.spring.autoconfigure.storage.JobRunrInMemoryStorageAutoConfiguration
+      - org.jobrunr.spring.autoconfigure.storage.JobRunrMongoDBStorageAutoConfiguration
+      - org.jobrunr.spring.autoconfigure.storage.JobRunrDocumentDBStorageAutoConfiguration
+      - org.jobrunr.spring.autoconfigure.storage.JobRunrSqlStorageAutoConfiguration
+      - org.jobrunr.spring.autoconfigure.metrics.JobRunrMetricsAutoConfiguration
   application:
     name: cynexus-ai
   config:
@@ -29,7 +37,7 @@ spring:
         group: ${NACOS_GROUP:DEFAULT_GROUP}
         file-extension: yml
   datasource:
-      url: jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB_AI:${POSTGRES_DB:cynexus}}
+    url: "jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB_AI:${POSTGRES_DB:cynexus}}?currentSchema=${POSTGRES_SCHEMA:cynexus_appl_ai}"
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:C020611.}
     driver-class-name: org.postgresql.Driver
@@ -54,6 +62,8 @@ management:
         enabled: true
 
 jobrunr:
+  job-scheduler:
+    enabled: false
   background-job-server:
     enabled: false
   dashboard:

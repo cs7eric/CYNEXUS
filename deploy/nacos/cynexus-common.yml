@@ -7,10 +7,6 @@ cynexus:
     request-log-enabled: true
 
 spring:
-  datasource:
-      url: jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB:cynexus}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:C020611.}
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}

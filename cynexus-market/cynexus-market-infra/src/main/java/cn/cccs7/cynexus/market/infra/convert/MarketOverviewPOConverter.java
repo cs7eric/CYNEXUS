@@ -8,14 +8,16 @@ import cn.cccs7.cynexus.common.core.mapper.BaseMapper;
 import java.math.BigDecimal;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingConstants;
+import org.mapstruct.factory.Mappers;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, imports = {
+@Mapper(imports = {
         BigDecimal.class,
         MarketBreadth.class,
         MarketMoneyFlow.class
 })
 public interface MarketOverviewPOConverter extends BaseMapper<MarketOverviewPO, MarketOverviewBO> {
+
+    MarketOverviewPOConverter INSTANCE = Mappers.getMapper(MarketOverviewPOConverter.class);
 
     @Override
     @Mapping(target = "breadth", expression = "java(new MarketBreadth(source.getRiseCount(), source.getFallCount(), 0, 0))")

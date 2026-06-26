@@ -11,16 +11,13 @@ import org.springframework.stereotype.Repository;
 public class MarketOverviewRepositoryImpl implements MarketOverviewRepository {
 
     private final MarketOverviewBasicService marketOverviewBasicService;
-    private final MarketOverviewPOConverter marketOverviewPOConverter;
 
-    public MarketOverviewRepositoryImpl(MarketOverviewBasicService marketOverviewBasicService,
-                                        MarketOverviewPOConverter marketOverviewPOConverter) {
+    public MarketOverviewRepositoryImpl(MarketOverviewBasicService marketOverviewBasicService) {
         this.marketOverviewBasicService = marketOverviewBasicService;
-        this.marketOverviewPOConverter = marketOverviewPOConverter;
     }
 
     @Override
     public Optional<MarketOverviewBO> findByTradeDate(String tradeDate) {
-        return marketOverviewBasicService.findByTradeDate(tradeDate).map(marketOverviewPOConverter::toTarget);
+        return marketOverviewBasicService.findByTradeDate(tradeDate).map(MarketOverviewPOConverter.INSTANCE::toTarget);
     }
 }

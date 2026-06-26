@@ -11,18 +11,15 @@ import org.springframework.stereotype.Repository;
 public class AiModelRepositoryImpl implements AiModelRepository {
 
     private final AiModelConfigBasicService aiModelConfigBasicService;
-    private final AiModelPOConverter aiModelPOConverter;
 
-    public AiModelRepositoryImpl(AiModelConfigBasicService aiModelConfigBasicService,
-                                 AiModelPOConverter aiModelPOConverter) {
+    public AiModelRepositoryImpl(AiModelConfigBasicService aiModelConfigBasicService) {
         this.aiModelConfigBasicService = aiModelConfigBasicService;
-        this.aiModelPOConverter = aiModelPOConverter;
     }
 
     @Override
     public List<AiModelBO> findEnabledModels() {
         return aiModelConfigBasicService.listEnabled().stream()
-                .map(aiModelPOConverter::toTarget)
+                .map(AiModelPOConverter.INSTANCE::toTarget)
                 .toList();
     }
 }

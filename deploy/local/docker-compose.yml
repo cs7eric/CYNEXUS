@@ -70,3 +70,128 @@ services:
       ]
     volumes:
       - ./redis/data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "C020611.", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  core:
+    build:
+      context: ../..
+      dockerfile: deploy/local/Dockerfile.app
+      args:
+        MAVEN_PROJECT: cynexus-core/cynexus-core-starter
+        JAR_NAME: cynexus-core-starter-1.0.0-SNAPSHOT.jar
+    image: cynexus-core:local
+    container_name: cynexus-core
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    environment:
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75"
+      NACOS_SERVER_ADDR: nacos:8848
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cynexus
+      POSTGRES_SCHEMA: cynexus_appl_core
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: C020611.
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: C020611.
+    ports:
+      - "127.0.0.1:18080:18080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  market:
+    build:
+      context: ../..
+      dockerfile: deploy/local/Dockerfile.app
+      args:
+        MAVEN_PROJECT: cynexus-market/cynexus-market-starter
+        JAR_NAME: cynexus-market-starter-1.0.0-SNAPSHOT.jar
+    image: cynexus-market:local
+    container_name: cynexus-market
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+      core:
+        condition: service_healthy
+    environment:
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75"
+      NACOS_SERVER_ADDR: nacos:8848
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cynexus
+      POSTGRES_SCHEMA: cynexus_appl_market
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: C020611.
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: C020611.
+    ports:
+      - "127.0.0.1:18082:18082"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  ai:
+    build:
+      context: ../..
+      dockerfile: deploy/local/Dockerfile.app
+      args:
+        MAVEN_PROJECT: cynexus-ai/cynexus-ai-starter
+        JAR_NAME: cynexus-ai-starter-1.0.0-SNAPSHOT.jar
+    image: cynexus-ai:local
+    container_name: cynexus-ai
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+      core:
+        condition: service_healthy
+      market:
+        condition: service_healthy
+    environment:
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75"
+      NACOS_SERVER_ADDR: nacos:8848
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cynexus
+      POSTGRES_SCHEMA: cynexus_appl_ai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: C020611.
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: C020611.
+    ports:
+      - "127.0.0.1:18081:18081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s

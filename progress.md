@@ -102,3 +102,57 @@
 - Verified `postgres` and `cynexus` inside `cynexus-postgres` both have 29 user base tables and 27068 total rows.
 - Verified compose config now uses `POSTGRES_DB: cynexus`.
 - Re-ran `mvn clean package -DskipTests`; build succeeded after switching default database to `cynexus`.
+- User requested adding application services to local Docker Compose so AI and Market do not need to be run manually.
+- Found AI and Market starter jars were thin jars, so added Spring Boot `repackage` executions to both starter POMs.
+- Fixed datasource `url` indentation in AI and Market `application.yml` before runtime containerization.
+- Added `.dockerignore` to keep Git metadata, Maven targets, and local Docker data directories out of Docker build context.
+- Added `deploy/local/Dockerfile.app` as a generic Java 21 Spring Boot application image build.
+- Added `market` and `ai` services to `deploy/local/docker-compose.yml` with container DNS env vars for Nacos, PostgreSQL, and Redis.
+- Ran `mvn clean package -DskipTests`; build succeeded and Spring Boot repackage produced executable starter jars.
+- Validated `deploy/local/docker-compose.yml` with `docker compose -f deploy/local/docker-compose.yml config`.
+- First compose application startup built both images but failed to bind `127.0.0.1:18082` because IntelliJ-launched Java processes were still listening on `18081` and `18082`.
+- Confirmed the port owners were local Java processes running `CynexusAiApplication` and `CynexusMarketApplication`, then stopped them so compose could own those ports.
+- Started `market` and `ai` with Docker Compose. Both containers became healthy.
+- Verified host health endpoints: `http://127.0.0.1:18081/actuator/health` and `http://127.0.0.1:18082/actuator/health` both returned `status=UP`.
+- Verified compose now shows `cynexus-ai`, `cynexus-market`, `cynexus-nacos`, `cynexus-postgres`, and `cynexus-redis` running together.
+- Updated `deploy/local/Dockerfile.app` to expose the actual application ports `18081` and `18082`.
+- Rebuilt/recreated `market` and `ai` with Docker Compose after the Dockerfile update.
+- Re-verified both containers are healthy and both actuator health endpoints return `status=UP`.
+- User requested service-separated PostgreSQL schemas and BIGINT distributed-ID primary keys instead of UUID defaults.
+- Added Phase 13 to `task_plan.md`.
+- Confirmed only Postgres, Redis, and Nacos are currently running; AI and Market containers are stopped before migration.
+- Inspected the authoritative `cynexus` database: 21 service-owned business tables are in schema `app`, with UUID primary keys and related UUID reference columns.
+- Decided to leave `public` JobRunr and old public self-selected tables unchanged for this migration.
+- Created a fresh backup before migration at `deploy/local/postgres-backups/cynexus-before-schema-bigint-20260626-153602.sql`.
+- Added `deploy/local/postgres/migrations/20260626_split_service_schemas_bigint_ids.sql`.
+- Executed the migration successfully: business tables moved from `app` into `cynexus_appl_ai` and `cynexus_appl_market`.
+- Verified all 21 service-owned `id` columns are `bigint`, `NOT NULL`, primary-key-backed, and have no database default.
+- Verified no UUID columns remain in the two service schemas.
+- Updated AI and Market datasource URLs to use PostgreSQL `currentSchema`.
+- Added per-service `POSTGRES_SCHEMA` values to local compose.
+- Moved datasource settings out of shared Nacos common config and into service-specific Nacos config samples.
+- `docker compose -f deploy/local/docker-compose.yml config` succeeded with per-service `POSTGRES_SCHEMA`.
+- `mvn clean package -DskipTests` succeeded after config and migration-script changes.
+- First `docker compose up -d --build market ai` exceeded the command timeout; the partially started containers exited with code 137 from the timeout interruption.
+- Restarted with `docker compose -f deploy/local/docker-compose.yml up -d market ai`; both services recreated and started normally.
+- Verified `cynexus-ai`, `cynexus-market`, `cynexus-postgres`, `cynexus-redis`, and `cynexus-nacos` are all running; AI and Market are healthy.
+- Verified `http://127.0.0.1:18081/actuator/health` and `http://127.0.0.1:18082/actuator/health` both return `UP`.
+- Marked Phase 13 complete.
+- Found a post-migration startup issue: JobRunr SQL storage auto-configuration followed the service datasource `currentSchema` and looked for `jobrunr_migrations` outside `public`.
+- Added `spring.autoconfigure.exclude` entries for JobRunr auto-configuration in AI and Market starter configs because JobRunr server/dashboard/scheduler are disabled for now.
+- Rebuilt AI and Market images and restarted compose services; both are now healthy again.
+- User requested a new `cynexus-core` service matching AI/Market structure and moving scheduler tables to `cynexus_appl_core`.
+- Added Phase 14 to `task_plan.md`.
+- Read `guide/folder-convention.md` and `guide/layer-and-object-convention.md` before creating Core files.
+- Added `cynexus-core` to the root Maven modules.
+- Created Core api/common/domain/infra/application-controller/starter modules and a minimal `/api/core/info` endpoint.
+- Added `deploy/nacos/cynexus-core.yml`.
+- Added Core service to `deploy/local/docker-compose.yml` on `127.0.0.1:18080`.
+- Updated compose dependencies so AI and Market wait for Core health.
+- Created a fresh database backup at `deploy/local/postgres-backups/cynexus-before-core-scheduler-schema-20260626-162425.sql`.
+- Added and executed `deploy/local/postgres/migrations/20260626_move_scheduler_tables_to_core_schema.sql`.
+- Moved all five scheduler tables from `cynexus_appl_market` to `cynexus_appl_core`.
+- Ran `mvn clean package -DskipTests`; build succeeded across 31 reactor projects.
+- Rebuilt and started Core, Market, and AI with Docker Compose.
+- Verified Core, AI, and Market health endpoints all return `UP`.
+- Verified `http://127.0.0.1:18080/api/core/info` returns the Core service info payload.

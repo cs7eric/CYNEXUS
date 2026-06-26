@@ -1,5 +1,8 @@
 package cn.cccs7.cynexus.common.core.exception;
 
+import lombok.Getter;
+
+@Getter
 public class SystemException extends RuntimeException {
 
     private final String code;
@@ -12,9 +15,5 @@ public class SystemException extends RuntimeException {
     public SystemException(String code, String message) {
         super(message);
         this.code = code;
-    }
-
-    public String getCode() {
-        return code;
     }
 }

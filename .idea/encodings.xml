@@ -29,6 +29,22 @@
     <file url="file://$PROJECT_DIR$/cynexus-common/cynexus-common-web/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/cynexus-common/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/cynexus-common/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-api/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-api/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-application/cynexus-core-application-controller/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-application/cynexus-core-application-controller/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-application/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-application/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-common/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-common/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-domain/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-domain/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-infra/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-infra/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-starter/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/cynexus-core-starter/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/cynexus-core/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java" charset="UTF-8" />

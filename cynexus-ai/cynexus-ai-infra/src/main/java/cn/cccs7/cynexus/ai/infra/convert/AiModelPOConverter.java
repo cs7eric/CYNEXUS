@@ -7,13 +7,15 @@ import cn.cccs7.cynexus.ai.infra.basic.entity.AiModelConfigPO;
 import cn.cccs7.cynexus.common.core.mapper.BaseMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingConstants;
+import org.mapstruct.factory.Mappers;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, imports = {
+@Mapper(imports = {
         ModelCapability.class,
         ModelRuntimeOptions.class
 })
 public interface AiModelPOConverter extends BaseMapper<AiModelConfigPO, AiModelBO> {
+
+    AiModelPOConverter INSTANCE = Mappers.getMapper(AiModelPOConverter.class);
 
     @Override
     @Mapping(target = "capability", expression = "java(new ModelCapability(true, true, false))")

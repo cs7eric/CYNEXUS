@@ -122,3 +122,39 @@ Required market modules:
 - The compose service uses password `C020611.`.
 - AI and Market starter configs now use `spring.data.redis.*` defaults matching the local Redis service.
 - Shared Nacos config also carries the same Redis defaults for config-center driven runs.
+
+## Local Application Compose
+
+- AI starter runs on port `18081`; Market starter runs on port `18082`.
+- Application containers must use compose service names: `nacos:8848`, `postgres:5432`, and `redis:6379`.
+- Host-side application access remains `127.0.0.1:18081` for AI and `127.0.0.1:18082` for Market.
+- Starter jars need Spring Boot `repackage`; without it the generated jars are thin Maven jars and cannot be run with `java -jar`.
+- Existing IntelliJ-launched Java processes occupied `18081` and `18082`; stopping those processes allowed Docker Compose to bind the same host ports.
+- `cynexus-ai` and `cynexus-market` both register successfully to Nacos from containers and report actuator health `UP`.
+
+## Service Schema And BIGINT ID Migration
+
+- Current authoritative project database is `cynexus` in compose container `cynexus-postgres` on host port `25433`.
+- Before schema/ID migration, only Postgres, Redis, and Nacos are running; AI and Market application containers are stopped.
+- Business tables currently live in schema `app`.
+- `app` contains 21 business tables with about 27027 rows.
+- All service-owned UUID columns are in `app`; their `id` columns default to `gen_random_uuid()`.
+- `public` contains JobRunr infrastructure tables plus old imported `self_selected_groups` and `self_selected_items`; the old public self-selected tables currently have 0 rows.
+- `public` should be preserved as-is for now; JobRunr schema/data is third-party owned and should not be converted in this migration.
+- Target schemas are `cynexus_appl_ai` and `cynexus_appl_market`.
+- AI-owned tables: `ai_providers`, `ai_usage_bindings`, `application_analysis_configs`, `application_analysis_daily_snapshots`, `application_analysis_result_current`, `application_analysis_result_history`, `application_analysis_targets`.
+- Market-owned tables: `market_limit_daily_snapshots`, `market_limit_daily_stocks`, `market_overview_snapshots`, `market_pulse_capture_batches`, `market_pulse_sector_daily_snapshots`, `scheduler_job_categories`, `scheduler_job_category_mappings`, `scheduler_job_run_history`, `scheduler_job_statuses`, `scheduler_jobs`, `sector_fund_flow_capture_batches`, `sector_fund_flow_daily_snapshots`, `self_selected_list_items`, `self_selected_lists`.
+- Existing update triggers call `app.set_updated_at()`, so the function can remain in `app` even after tables move schemas.
+- PostgreSQL `currentSchema` affects every query issued through the shared datasource, including JobRunr auto-configuration.
+- JobRunr tables remain in `public`, so if JobRunr SQL storage auto-config is active while a service datasource uses `currentSchema=cynexus_appl_*`, startup fails looking for `jobrunr_migrations` in the service schema.
+- AI and Market currently have JobRunr server/dashboard/scheduler disabled, so the starter configs also exclude JobRunr auto-configuration until a dedicated JobRunr schema/datasource decision is made.
+
+## Core Service
+
+- `cynexus-core` follows the same Maven service layout as AI and Market: api, common, domain, infra, application/application-controller, and starter.
+- Core starter uses service name `cynexus-core` and local port `18080`.
+- Core datasource default is `jdbc:postgresql://.../cynexus?currentSchema=cynexus_appl_core`.
+- Core local compose service depends on Postgres, Redis, and Nacos, and AI/Market now wait for Core to be healthy.
+- Scheduler ownership moved from Market schema to Core schema.
+- `cynexus_appl_core` owns five scheduler tables: `scheduler_job_categories`, `scheduler_job_category_mappings`, `scheduler_job_run_history`, `scheduler_job_statuses`, and `scheduler_jobs`.
+- After the move, `cynexus_appl_market` contains 9 business tables and no `scheduler_%` tables.

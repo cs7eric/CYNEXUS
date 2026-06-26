@@ -1,0 +1,18 @@
+cynexus:
+  core:
+    scheduler:
+      enabled: true
+
+spring:
+  datasource:
+    url: "jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB_CORE:${POSTGRES_DB:cynexus}}?currentSchema=${POSTGRES_SCHEMA:cynexus_appl_core}"
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:C020611.}
+    driver-class-name: org.postgresql.Driver
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 10000

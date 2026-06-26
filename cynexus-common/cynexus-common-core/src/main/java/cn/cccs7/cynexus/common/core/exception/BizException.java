@@ -1,5 +1,8 @@
 package cn.cccs7.cynexus.common.core.exception;
 
+import lombok.Getter;
+
+@Getter
 public class BizException extends RuntimeException {
 
     private final String code;
@@ -22,9 +25,5 @@ public class BizException extends RuntimeException {
     public BizException(ErrorCode errorCode, String message) {
         super(message);
         this.code = errorCode.code();
-    }
-
-    public String getCode() {
-        return code;
     }
 }

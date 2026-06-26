@@ -1,5 +1,8 @@
 package cn.cccs7.cynexus.common.core.exception;
 
+import lombok.Getter;
+
+@Getter
 public class RemoteServiceException extends RuntimeException {
 
     private final String code;
@@ -7,9 +10,5 @@ public class RemoteServiceException extends RuntimeException {
     public RemoteServiceException(String message) {
         super(message);
         this.code = "200001";
-    }
-
-    public String getCode() {
-        return code;
     }
 }
