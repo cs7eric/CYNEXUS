@@ -19,6 +19,7 @@ public class AiProviderDTO {
     private String baseUrl;
     private String defaultModel;
     private String apiKey;
+    private String apiKeyMasked;
     private String apiKeyEnv;
     private String groupId;
     private String groupIdEnv;

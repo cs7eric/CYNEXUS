@@ -45,13 +45,15 @@ public class AiConfigurationCrudController {
 
     @GetMapping("/providers")
     public Result<List<AiProviderDTO>> listProviders() {
-        return Result.success(AiProviderDTOConverter.INSTANCE.toSourceList(appService.listProviders()));
+        return Result.success(appService.listProviders().stream()
+                .map(this::toReadableProviderDTO)
+                .toList());
     }
 
     @GetMapping("/providers/{id}")
     public Result<AiProviderDTO> getProvider(@PathVariable Long id) {
         AiProviderBO provider = appService.findProviderById(id);
-        return Result.success(provider == null ? null : AiProviderDTOConverter.INSTANCE.toSource(provider));
+        return Result.success(provider == null ? null : toReadableProviderDTO(provider));
     }
 
     @PostMapping("/providers")
@@ -67,6 +69,23 @@ public class AiConfigurationCrudController {
     @DeleteMapping("/providers/{id}")
     public Result<Boolean> deleteProvider(@PathVariable Long id) {
         return Result.success(appService.deleteProvider(id));
+    }
+
+    private AiProviderDTO toReadableProviderDTO(AiProviderBO provider) {
+        AiProviderDTO dto = AiProviderDTOConverter.INSTANCE.toSource(provider);
+        dto.setApiKeyMasked(maskSecret(dto.getApiKey()));
+        dto.setApiKey(null);
+        return dto;
+    }
+
+    private String maskSecret(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        if (value.length() <= 8) {
+            return "****";
+        }
+        return value.substring(0, 4) + "..." + value.substring(value.length() - 4);
     }
 
     @GetMapping("/usage-bindings")

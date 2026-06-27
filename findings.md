@@ -193,3 +193,88 @@ Required market modules:
 - Spring Cloud Gateway 5 uses the config prefix `spring.cloud.gateway.server.webflux`.
 - Local Docker rerun default now includes `gateway` in `deploy/local/up-latest.ps1`.
 - `market_overview_snapshots` database columns differ from the previous placeholder PO; the table is now represented by its real columns, including money-flow fields, breadth fields, manual override fields, JSON `extra`, and audit fields.
+
+## Collector Migration Inventory
+
+- Old project path is `F:\dev-repo\mp4-to-word-new`.
+- New collector placeholder path is `E:\project-repo\cynexus\cynexus-collector`; it currently has no files.
+- Old project Git status was clean during inspection.
+- Old `.env` exists but was intentionally not read.
+- Old backend entrypoint is Flask: `app.py` -> `backend.app_factory.create_app()` -> `backend.bootstrap.register_blueprints()`.
+- Old bootstrap registers stock chart, F10, scheduler, self-selected, AI provider, transcription, public, system, and MP4 history blueprints.
+- Old bootstrap can auto-start many scheduler jobs during Flask startup, so collector must not import old `app.py` or bootstrap wholesale.
+- Old `backend/runner.py` contains local dev behavior that can kill a process occupying port `5000`; this must not be used in Docker/service runtime.
+- Old `backend/config/database.py` uses lazy SQLAlchemy engine/session creation from `DATABASE_URL`.
+- Old `backend/config/settings.py` binds many runtime paths to the old repository root, including `reference`, `models`, `uploads`, `outputs`, `runtime`, and scheduler directories.
+- Old backend APIs are large: `backend/api/stock_chart.py` is about 149 KB and `backend/api/scheduler.py` is about 60 KB.
+- Old project contains large files that must not be copied into Git or Docker build context: Whisper model artifacts under `models`, DuckDB under `reference/stock/duckdb`, large `hsjday.zip` daily archives, and many media files under `uploads`.
+- Recommended service name is `cynexus-collector`, local port `18083`, Gateway route `/api/collector/**`, and Nacos service name `cynexus-collector`.
+- Core should own job scheduling metadata/history and call Collector for Python-only execution work.
+- Collector should own AkShare/THS/ELTDX quirks, TDX `.day`/hsjday handling, local DuckDB/day-file readers, Whisper transcription, and media processing.
+- Java services should keep owning AI config, application analysis tables, scheduler metadata/history, market overview/pulse/limit data, sector fund-flow data, and self-selected data.
+- Detailed inventory was written to `docs/collector-migration-inventory.md`.
+
+## DuckDB To ClickHouse Migration Foundation
+
+- The old DuckDB database is `F:\dev-repo\mp4-to-word-new\reference\stock\duckdb\market_data.duckdb`.
+- The DuckDB database contains schema `main` with 24 base tables.
+- Largest DuckDB tables are `daily_raw`, `daily_qfq`, and `daily_hfq`, each around 28.5 million rows.
+- Local ClickHouse should start as standalone infrastructure first; DuckDB data migration should be a later explicit phase.
+- ClickHouse local Docker service uses image `clickhouse/clickhouse-server:25.8`.
+- Local ClickHouse ports are HTTP `127.0.0.1:28123` and native `127.0.0.1:29000`.
+- Local ClickHouse database/user are both `cynexus`.
+- Local ClickHouse data/log bind mounts are `deploy/local/clickhouse/data` and `deploy/local/clickhouse/logs`.
+
+## DuckDB PostgreSQL Target Tables
+
+- User requested selected DuckDB tables to be created first in PostgreSQL under schema `cynexus_appl_market`.
+- MSI table name mapping:
+  - `market_sentiment_index_daily` -> `msi_index_daily`
+  - `limit_emotion_summary_daily` -> `msi_limit_emotion_daily`
+  - `ma_count_daily` -> `msi_ma_count_daily`
+  - `profit_effect_daily` -> `msi_profit_effect_daily`
+  - `risk_appetite_daily` -> `msi_risk_appetite_daily`
+  - `style_risk_appetite_daily` -> `msi_style_risk_daily`
+  - `turnover_activity_daily` -> `msi_turnover_activity_daily`
+  - `volatility_sentiment_daily` -> `msi_volatility_daily`
+  - `market_pulse_sector_breadth_daily` -> `msi_sector_breadth_daily`
+- General market table name mapping:
+  - `market_overview_daily` -> `mkt_overview_daily`
+  - `market_pulse_sector_daily` -> `mkt_sector_pulse_daily`
+  - `ths_industry_fund_flow_daily` -> `mkt_ths_industry_fund_flow_daily`
+  - `index_returns_daily` -> `mkt_index_return_daily`
+- Security master-data table name mapping:
+  - `stock_universe` -> `sec_stock_universe`
+  - `corp_events` -> `sec_corp_event`
+- PostgreSQL target tables intentionally use project-standard `id BIGINT NOT NULL PRIMARY KEY` with no default. DuckDB natural keys are partial unique indexes filtered by `deleted_at IS NULL`.
+- `mkt_index_return_daily` uses `current_close` and `current_trade_date` instead of DuckDB's `current` / `current_date` names to avoid PostgreSQL keyword ambiguity and improve clarity.
+- Local backup before DDL: `deploy/local/postgres-backups/cynexus-before-duckdb-target-tables-20260626-213927.sql`.
+- DDL migration file: `deploy/local/postgres/migrations/20260626_create_market_duckdb_target_tables.sql`.
+- DDL was applied successfully and re-run successfully for idempotency.
+
+## Remaining DuckDB Tables Migrated To ClickHouse
+
+- Tables not mapped to PostgreSQL were migrated to ClickHouse:
+  - `daily_raw`
+  - `daily_qfq`
+  - `daily_hfq`
+  - `adj_factors`
+  - `index_daily_raw`
+  - `ingest_state`
+  - `intraday_bars`
+  - `quotes`
+  - `schema_meta`
+- User explicitly named `daily_raw`, `daily_qfq`, `adj_factors`, and `index_daily_raw`; inspection showed `daily_hfq`, `ingest_state`, `intraday_bars`, `quotes`, and `schema_meta` were also not mapped to PostgreSQL.
+- ClickHouse keeps the original DuckDB table names for these detail/time-series/state tables.
+- Long-history daily tables use `MergeTree`, yearly partitions via `toYear(trade_date)`, and `ORDER BY (code, trade_date)`.
+- Initial monthly partition design failed for `daily_raw` because a single full-history insert touched more than ClickHouse's default `max_partitions_per_insert_block`.
+- ClickHouse data/log bind mounts on Windows failed during MergeTree atomic rename; switching to Docker named volumes fixed inserts.
+- Migration path is DuckDB `COPY ... FORMAT PARQUET` -> `docker cp` -> `clickhouse-client INSERT ... FORMAT Parquet`.
+- Row-count reconciliation succeeded for all 9 tables:
+  - `daily_raw`: 28,516,739
+  - `daily_qfq`: 28,482,626
+  - `daily_hfq`: 28,482,612
+  - `index_daily_raw`: 5,012
+  - `ingest_state`: 12,037
+  - `schema_meta`: 2
+  - empty tables: `adj_factors`, `intraday_bars`, `quotes`

@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.dao.MsiLimitEmotionDailyDao">
+
+    <resultMap type="cn.cccs7.cynexus.market.infra.basic.entity.MsiLimitEmotionDaily" id="MsiLimitEmotionDailyMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="tradeDate" column="trade_date" jdbcType="TIMESTAMP"/>
+        <result property="limitUpCount" column="limit_up_count" jdbcType="INTEGER"/>
+        <result property="limitDownCount" column="limit_down_count" jdbcType="INTEGER"/>
+        <result property="touchedCount" column="touched_count" jdbcType="INTEGER"/>
+        <result property="brokenCount" column="broken_count" jdbcType="INTEGER"/>
+        <result property="breakBoardRate" column="break_board_rate" jdbcType="VARCHAR"/>
+        <result property="limitUpDownRatio" column="limit_up_down_ratio" jdbcType="VARCHAR"/>
+        <result property="yesterdayLimitUpCount" column="yesterday_limit_up_count" jdbcType="INTEGER"/>
+        <result property="yesterdayLimitUpAvgReturn" column="yesterday_limit_up_avg_return" jdbcType="VARCHAR"/>
+        <result property="upDownScore" column="up_down_score" jdbcType="VARCHAR"/>
+        <result property="breakBoardScore" column="break_board_score" jdbcType="VARCHAR"/>
+        <result property="yesterdayReturnScore" column="yesterday_return_score" jdbcType="VARCHAR"/>
+        <result property="compositeScore" column="composite_score" jdbcType="VARCHAR"/>
+        <result property="level" column="level" jdbcType="VARCHAR"/>
+        <result property="elapsedMs" column="elapsed_ms" jdbcType="INTEGER"/>
+        <result property="source" column="source" jdbcType="VARCHAR"/>
+        <result property="ingestedAt" column="ingested_at" jdbcType="TIMESTAMP"/>
+        <result property="extra" column="extra" jdbcType="VARCHAR"/>
+        <result property="remark" column="remark" jdbcType="VARCHAR"/>
+        <result property="createdAt" column="created_at" jdbcType="TIMESTAMP"/>
+        <result property="updatedAt" column="updated_at" jdbcType="TIMESTAMP"/>
+        <result property="deletedAt" column="deleted_at" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!--查询单个-->
+    <select id="queryById" resultMap="MsiLimitEmotionDailyMap">
+        select
+id, trade_date, limit_up_count, limit_down_count, touched_count, broken_count, break_board_rate, limit_up_down_ratio, yesterday_limit_up_count, yesterday_limit_up_avg_return, up_down_score, break_board_score, yesterday_return_score, composite_score, level, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
+        from msi_limit_emotion_daily
+        where id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="queryAllByLimit" resultMap="MsiLimitEmotionDailyMap">
+        select
+id, trade_date, limit_up_count, limit_down_count, touched_count, broken_count, break_board_rate, limit_up_down_ratio, yesterday_limit_up_count, yesterday_limit_up_avg_return, up_down_score, break_board_score, yesterday_return_score, composite_score, level, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
+        from msi_limit_emotion_daily
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="tradeDate != null">
+                and trade_date = #{tradeDate}
+            </if>
+            <if test="limitUpCount != null">
+                and limit_up_count = #{limitUpCount}
+            </if>
+            <if test="limitDownCount != null">
+                and limit_down_count = #{limitDownCount}
+            </if>
+            <if test="touchedCount != null">
+                and touched_count = #{touchedCount}
+            </if>
+            <if test="brokenCount != null">
+                and broken_count = #{brokenCount}
+            </if>
+            <if test="breakBoardRate != null">
+                and break_board_rate = #{breakBoardRate}
+            </if>
+            <if test="limitUpDownRatio != null">
+                and limit_up_down_ratio = #{limitUpDownRatio}
+            </if>
+            <if test="yesterdayLimitUpCount != null">
+                and yesterday_limit_up_count = #{yesterdayLimitUpCount}
+            </if>
+            <if test="yesterdayLimitUpAvgReturn != null">
+                and yesterday_limit_up_avg_return = #{yesterdayLimitUpAvgReturn}
+            </if>
+            <if test="upDownScore != null">
+                and up_down_score = #{upDownScore}
+            </if>
+            <if test="breakBoardScore != null">
+                and break_board_score = #{breakBoardScore}
+            </if>
+            <if test="yesterdayReturnScore != null">
+                and yesterday_return_score = #{yesterdayReturnScore}
+            </if>
+            <if test="compositeScore != null">
+                and composite_score = #{compositeScore}
+            </if>
+            <if test="level != null and level != ''">
+                and level = #{level}
+            </if>
+            <if test="elapsedMs != null">
+                and elapsed_ms = #{elapsedMs}
+            </if>
+            <if test="source != null and source != ''">
+                and source = #{source}
+            </if>
+            <if test="ingestedAt != null">
+                and ingested_at = #{ingestedAt}
+            </if>
+            <if test="extra != null and extra != ''">
+                and extra = #{extra}
+            </if>
+            <if test="remark != null and remark != ''">
+                and remark = #{remark}
+            </if>
+            <if test="createdAt != null">
+                and created_at = #{createdAt}
+            </if>
+            <if test="updatedAt != null">
+                and updated_at = #{updatedAt}
+            </if>
+            <if test="deletedAt != null">
+                and deleted_at = #{deletedAt}
+            </if>
+        </where>
+        limit #{pageable.offset}, #{pageable.pageSize}
+    </select>
+
+    <!--统计总行数-->
+    <select id="count" resultType="java.lang.Long">
+        select count(1)
+        from msi_limit_emotion_daily
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="tradeDate != null">
+                and trade_date = #{tradeDate}
+            </if>
+            <if test="limitUpCount != null">
+                and limit_up_count = #{limitUpCount}
+            </if>
+            <if test="limitDownCount != null">
+                and limit_down_count = #{limitDownCount}
+            </if>
+            <if test="touchedCount != null">
+                and touched_count = #{touchedCount}
+            </if>
+            <if test="brokenCount != null">
+                and broken_count = #{brokenCount}
+            </if>
+            <if test="breakBoardRate != null">
+                and break_board_rate = #{breakBoardRate}
+            </if>
+            <if test="limitUpDownRatio != null">
+                and limit_up_down_ratio = #{limitUpDownRatio}
+            </if>
+            <if test="yesterdayLimitUpCount != null">
+                and yesterday_limit_up_count = #{yesterdayLimitUpCount}
+            </if>
+            <if test="yesterdayLimitUpAvgReturn != null">
+                and yesterday_limit_up_avg_return = #{yesterdayLimitUpAvgReturn}
+            </if>
+            <if test="upDownScore != null">
+                and up_down_score = #{upDownScore}
+            </if>
+            <if test="breakBoardScore != null">
+                and break_board_score = #{breakBoardScore}
+            </if>
+            <if test="yesterdayReturnScore != null">
+                and yesterday_return_score = #{yesterdayReturnScore}
+            </if>
+            <if test="compositeScore != null">
+                and composite_score = #{compositeScore}
+            </if>
+            <if test="level != null and level != ''">
+                and level = #{level}
+            </if>
+            <if test="elapsedMs != null">
+                and elapsed_ms = #{elapsedMs}
+            </if>
+            <if test="source != null and source != ''">
+                and source = #{source}
+            </if>
+            <if test="ingestedAt != null">
+                and ingested_at = #{ingestedAt}
+            </if>
+            <if test="extra != null and extra != ''">
+                and extra = #{extra}
+            </if>
+            <if test="remark != null and remark != ''">
+                and remark = #{remark}
+            </if>
+            <if test="createdAt != null">
+                and created_at = #{createdAt}
+            </if>
+            <if test="updatedAt != null">
+                and updated_at = #{updatedAt}
+            </if>
+            <if test="deletedAt != null">
+                and deleted_at = #{deletedAt}
+            </if>
+        </where>
+    </select>
+
+    <!--新增所有列-->
+    <insert id="insert" keyProperty="id" useGeneratedKeys="true">
+        insert into msi_limit_emotion_daily(trade_date, limit_up_count, limit_down_count, touched_count, broken_count, break_board_rate, limit_up_down_ratio, yesterday_limit_up_count, yesterday_limit_up_avg_return, up_down_score, break_board_score, yesterday_return_score, composite_score, level, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at)
+        values (#{tradeDate}, #{limitUpCount}, #{limitDownCount}, #{touchedCount}, #{brokenCount}, #{breakBoardRate}, #{limitUpDownRatio}, #{yesterdayLimitUpCount}, #{yesterdayLimitUpAvgReturn}, #{upDownScore}, #{breakBoardScore}, #{yesterdayReturnScore}, #{compositeScore}, #{level}, #{elapsedMs}, #{source}, #{ingestedAt}, #{extra}, #{remark}, #{createdAt}, #{updatedAt}, #{deletedAt})
+    </insert>
+
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into msi_limit_emotion_daily(trade_date, limit_up_count, limit_down_count, touched_count, broken_count, break_board_rate, limit_up_down_ratio, yesterday_limit_up_count, yesterday_limit_up_avg_return, up_down_score, break_board_score, yesterday_return_score, composite_score, level, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+        (#{entity.tradeDate}, #{entity.limitUpCount}, #{entity.limitDownCount}, #{entity.touchedCount}, #{entity.brokenCount}, #{entity.breakBoardRate}, #{entity.limitUpDownRatio}, #{entity.yesterdayLimitUpCount}, #{entity.yesterdayLimitUpAvgReturn}, #{entity.upDownScore}, #{entity.breakBoardScore}, #{entity.yesterdayReturnScore}, #{entity.compositeScore}, #{entity.level}, #{entity.elapsedMs}, #{entity.source}, #{entity.ingestedAt}, #{entity.extra}, #{entity.remark}, #{entity.createdAt}, #{entity.updatedAt}, #{entity.deletedAt})
+        </foreach>
+    </insert>
+
+    <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into msi_limit_emotion_daily(trade_date, limit_up_count, limit_down_count, touched_count, broken_count, break_board_rate, limit_up_down_ratio, yesterday_limit_up_count, yesterday_limit_up_avg_return, up_down_score, break_board_score, yesterday_return_score, composite_score, level, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.tradeDate}, #{entity.limitUpCount}, #{entity.limitDownCount}, #{entity.touchedCount}, #{entity.brokenCount}, #{entity.breakBoardRate}, #{entity.limitUpDownRatio}, #{entity.yesterdayLimitUpCount}, #{entity.yesterdayLimitUpAvgReturn}, #{entity.upDownScore}, #{entity.breakBoardScore}, #{entity.yesterdayReturnScore}, #{entity.compositeScore}, #{entity.level}, #{entity.elapsedMs}, #{entity.source}, #{entity.ingestedAt}, #{entity.extra}, #{entity.remark}, #{entity.createdAt}, #{entity.updatedAt}, #{entity.deletedAt})
+        </foreach>
+        on duplicate key update
+trade_date = values(trade_date),
+limit_up_count = values(limit_up_count),
+limit_down_count = values(limit_down_count),
+touched_count = values(touched_count),
+broken_count = values(broken_count),
+break_board_rate = values(break_board_rate),
+limit_up_down_ratio = values(limit_up_down_ratio),
+yesterday_limit_up_count = values(yesterday_limit_up_count),
+yesterday_limit_up_avg_return = values(yesterday_limit_up_avg_return),
+up_down_score = values(up_down_score),
+break_board_score = values(break_board_score),
+yesterday_return_score = values(yesterday_return_score),
+composite_score = values(composite_score),
+level = values(level),
+elapsed_ms = values(elapsed_ms),
+source = values(source),
+ingested_at = values(ingested_at),
+extra = values(extra),
+remark = values(remark),
+created_at = values(created_at),
+updated_at = values(updated_at),
+deleted_at = values(deleted_at)
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="update">
+        update msi_limit_emotion_daily
+        <set>
+            <if test="tradeDate != null">
+                trade_date = #{tradeDate},
+            </if>
+            <if test="limitUpCount != null">
+                limit_up_count = #{limitUpCount},
+            </if>
+            <if test="limitDownCount != null">
+                limit_down_count = #{limitDownCount},
+            </if>
+            <if test="touchedCount != null">
+                touched_count = #{touchedCount},
+            </if>
+            <if test="brokenCount != null">
+                broken_count = #{brokenCount},
+            </if>
+            <if test="breakBoardRate != null">
+                break_board_rate = #{breakBoardRate},
+            </if>
+            <if test="limitUpDownRatio != null">
+                limit_up_down_ratio = #{limitUpDownRatio},
+            </if>
+            <if test="yesterdayLimitUpCount != null">
+                yesterday_limit_up_count = #{yesterdayLimitUpCount},
+            </if>
+            <if test="yesterdayLimitUpAvgReturn != null">
+                yesterday_limit_up_avg_return = #{yesterdayLimitUpAvgReturn},
+            </if>
+            <if test="upDownScore != null">
+                up_down_score = #{upDownScore},
+            </if>
+            <if test="breakBoardScore != null">
+                break_board_score = #{breakBoardScore},
+            </if>
+            <if test="yesterdayReturnScore != null">
+                yesterday_return_score = #{yesterdayReturnScore},
+            </if>
+            <if test="compositeScore != null">
+                composite_score = #{compositeScore},
+            </if>
+            <if test="level != null and level != ''">
+                level = #{level},
+            </if>
+            <if test="elapsedMs != null">
+                elapsed_ms = #{elapsedMs},
+            </if>
+            <if test="source != null and source != ''">
+                source = #{source},
+            </if>
+            <if test="ingestedAt != null">
+                ingested_at = #{ingestedAt},
+            </if>
+            <if test="extra != null and extra != ''">
+                extra = #{extra},
+            </if>
+            <if test="remark != null and remark != ''">
+                remark = #{remark},
+            </if>
+            <if test="createdAt != null">
+                created_at = #{createdAt},
+            </if>
+            <if test="updatedAt != null">
+                updated_at = #{updatedAt},
+            </if>
+            <if test="deletedAt != null">
+                deleted_at = #{deletedAt},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteById">
+        delete from msi_limit_emotion_daily where id = #{id}
+    </delete>
+
+</mapper>
+

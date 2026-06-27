@@ -274,3 +274,101 @@ Status: complete
   - `GET /api/core/info` returns Core service info.
   - `GET /api/ai/config/providers` returns AI provider rows.
   - `GET /api/market/data/overview-snapshots` returns Market overview rows.
+
+## Phase 17 - Collector Migration Inventory And Safe Bridge
+
+Status: in_progress
+
+- Inspect old project `F:\dev-repo\mp4-to-word-new` without modifying it.
+- Identify Python-only capabilities that should become `cynexus-collector`.
+- Identify Java-owned capabilities that should not be copied back into Python.
+- Document large model/data/runtime directories that must become external mounts.
+- Propose the first safe collector microservice contract through Nacos and Gateway.
+- Do not migrate old code until the inventory boundary is clear.
+
+## Phase 18 - DuckDB To ClickHouse Migration Foundation
+
+Status: complete
+
+- Add a local Docker Compose ClickHouse service.
+- Persist ClickHouse data and logs under `deploy/local/clickhouse`.
+- Keep the ClickHouse container independent from Java application startup for now.
+- Validate ClickHouse starts and accepts queries.
+- Do not migrate DuckDB table data in this phase.
+
+## Phase 18 Verification Results
+
+- `docker compose -f deploy/local/docker-compose.yml config` succeeded.
+- `docker compose -f deploy/local/docker-compose.yml up -d clickhouse` pulled and started ClickHouse.
+- `cynexus-clickhouse` is healthy.
+- ClickHouse version is `25.8.24.21`.
+- Database `cynexus` was created by container initialization.
+
+## Phase 19 - Create PostgreSQL DuckDB Target Tables
+
+Status: complete
+
+- Create PostgreSQL target tables in schema `cynexus_appl_market` for the selected DuckDB market tables.
+- Apply the requested name mapping:
+  - MSI tables use `msi_*`.
+  - General market result tables use `mkt_*`.
+  - Security master data tables use `sec_*`.
+- Follow current PostgreSQL table conventions:
+  - `id BIGINT NOT NULL PRIMARY KEY`
+  - no database default for `id`
+  - application/migration generated distributed IDs
+  - natural DuckDB keys represented as alive-only unique indexes
+  - `extra jsonb`, `remark`, `created_at`, `updated_at`, and `deleted_at`
+- Back up the local `cynexus` database before applying DDL.
+- Validate table creation, id column shape, unique indexes, row counts, and idempotent rerun.
+- Do not migrate DuckDB rows in this phase.
+
+## Phase 19 Verification Results
+
+- Fresh backup was written before DDL: `deploy/local/postgres-backups/cynexus-before-duckdb-target-tables-20260626-213927.sql`.
+- Migration file added: `deploy/local/postgres/migrations/20260626_create_market_duckdb_target_tables.sql`.
+- 15 target tables now exist in `cynexus_appl_market`.
+- All 15 target `id` columns are `bigint NOT NULL` with no database default.
+- All 15 target tables are currently empty.
+- All requested natural-key unique indexes exist.
+- Re-running the migration succeeded with only `already exists` notices.
+
+## Phase 20 - Migrate Remaining DuckDB Tables To ClickHouse
+
+Status: complete
+
+- Identify DuckDB tables not mapped to PostgreSQL.
+- Create ClickHouse tables for remaining market detail/time-series/state data.
+- Keep DuckDB original table names in ClickHouse for simple migration and reconciliation.
+- Use MergeTree tables with yearly partitions for long-history daily data.
+- Use Parquet export/import from DuckDB to ClickHouse.
+- Migrate and reconcile:
+  - `daily_raw`
+  - `daily_qfq`
+  - `daily_hfq`
+  - `adj_factors`
+  - `index_daily_raw`
+  - `ingest_state`
+  - `intraday_bars`
+  - `quotes`
+  - `schema_meta`
+
+## Phase 20 Verification Results
+
+- ClickHouse DDL file added: `deploy/local/clickhouse/migrations/20260626_create_duckdb_market_tables.sql`.
+- Migration script added: `deploy/local/clickhouse/scripts/migrate_duckdb_to_clickhouse.py`.
+- ClickHouse data/log storage was changed from Windows bind mounts to Docker named volumes because MergeTree inserts failed on bind-mounted atomic renames.
+- All 9 remaining DuckDB tables now exist in ClickHouse database `cynexus`.
+- DuckDB and ClickHouse row counts match for all 9 migrated tables:
+  - `daily_raw`: 28,516,739
+  - `daily_qfq`: 28,482,626
+  - `daily_hfq`: 28,482,612
+  - `index_daily_raw`: 5,012
+  - `ingest_state`: 12,037
+  - `schema_meta`: 2
+  - `adj_factors`: 0
+  - `intraday_bars`: 0
+  - `quotes`: 0
+- Date ranges:
+  - `daily_raw`, `daily_qfq`, `daily_hfq`: 1990-12-19 through 2026-06-26
+  - `index_daily_raw`: 2018-03-21 through 2026-06-26

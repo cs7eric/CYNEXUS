@@ -14,3 +14,5 @@ deploy/local/nacos/logs
 deploy/local/postgres/data
 deploy/local/postgres-backups
 deploy/local/redis/data
+deploy/local/clickhouse/data
+deploy/local/clickhouse/logs

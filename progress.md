@@ -199,3 +199,52 @@
 - Ran `mvn compile -DskipTests`; build succeeded after the Market overview model fix.
 - Ran `deploy/local/up-latest.ps1 -Service market,gateway`; Maven package succeeded and Docker services were recreated.
 - Verified through `http://127.0.0.1:18000`: Gateway health, Core info, AI provider list, and Market overview list all return success.
+- User asked to inspect the old mixed Python/React/model project before migrating it into the new `cynexus-collector`.
+- Read the planning skill instructions and reloaded `task_plan.md`, `findings.md`, and `progress.md`.
+- Confirmed current repo has an empty `cynexus-collector` directory.
+- Confirmed old project `F:\dev-repo\mp4-to-word-new` Git status is clean.
+- Inspected old Flask entrypoints, app factory, bootstrap, database config, settings, requirements, frontend package metadata, scheduler config names, API route surfaces, and large data/model files.
+- Intentionally did not read the old `.env` file.
+- Added Phase 17 for collector migration inventory and safe bridge planning.
+- Added `docs/collector-migration-inventory.md` with service boundaries, startup risks, large data mount rules, and proposed collector contract.
+- User requested DuckDB migration in phases, starting with a Docker ClickHouse service.
+- Verified Docker can resolve `clickhouse/clickhouse-server:25.8`.
+- Added `clickhouse` to `deploy/local/docker-compose.yml` with persisted data/log bind mounts, local HTTP/native ports, database/user `cynexus`, and a `clickhouse-client` healthcheck.
+- Added ClickHouse local data/log directories to `.gitignore` and `.dockerignore`.
+- Documented local ClickHouse startup and connection details in `deploy/local/README.md`.
+- Added Phase 18 for the DuckDB-to-ClickHouse migration foundation.
+- Validated `deploy/local/docker-compose.yml` with `docker compose config`.
+- Started only the `clickhouse` service from local compose.
+- Confirmed `cynexus-clickhouse` became healthy.
+- Verified ClickHouse query access with `clickhouse-client`; version is `25.8.24.21`.
+- Verified the initialized databases include `cynexus`.
+- Marked Phase 18 complete.
+- User provided PostgreSQL table name mapping for selected DuckDB tables and requested target tables under `cynexus_appl_market`.
+- Inspected current `cynexus_appl_market` table conventions, constraints, and indexes.
+- Added `deploy/local/postgres/migrations/20260626_create_market_duckdb_target_tables.sql`.
+- Created a local PostgreSQL backup at `deploy/local/postgres-backups/cynexus-before-duckdb-target-tables-20260626-213927.sql` before applying DDL.
+- First DDL execution failed on `current_date` in `mkt_index_return_daily`; PostgreSQL treated it as keyword syntax. The transaction rolled back.
+- Renamed the target columns to `current_close` and `current_trade_date`.
+- Re-ran the DDL successfully and created 15 empty target tables in `cynexus_appl_market`.
+- Verified all 15 target `id` columns are `bigint NOT NULL` with no default.
+- Verified all requested natural-key unique indexes exist.
+- Verified all 15 target tables currently have 0 rows.
+- Re-ran the migration script successfully to confirm idempotency.
+- User requested remaining DuckDB tables not migrated to PostgreSQL be moved to ClickHouse, naming `daily_raw`, `daily_qfq`, `adj_factors`, and `index_daily_raw`.
+- Compared the full DuckDB table list against the PostgreSQL mapping and found additional ClickHouse candidates: `daily_hfq`, `ingest_state`, `intraday_bars`, `quotes`, and `schema_meta`.
+- Verified ClickHouse initially had no tables after the recent named-volume recreation.
+- Tested DuckDB Parquet export to ClickHouse with a 10-row sample.
+- First sample insert failed on Windows bind-mounted ClickHouse data due to MergeTree atomic rename permission errors.
+- Changed ClickHouse storage in `deploy/local/docker-compose.yml` from bind mounts to Docker named volumes `clickhouse-data` and `clickhouse-logs`.
+- Recreated `cynexus-clickhouse`; it became healthy and the Parquet smoke test succeeded.
+- Added ClickHouse DDL file `deploy/local/clickhouse/migrations/20260626_create_duckdb_market_tables.sql`.
+- Added migration script `deploy/local/clickhouse/scripts/migrate_duckdb_to_clickhouse.py`.
+- Applied ClickHouse DDL and created 9 target tables.
+- Migrated small/empty tables first: `adj_factors`, `index_daily_raw`, `ingest_state`, `intraday_bars`, `quotes`, and `schema_meta`.
+- First full `daily_raw` insert failed because monthly partitioning touched too many partitions in one insert block.
+- Changed daily/detail table partitioning from monthly to yearly using `toYear(trade_date)`.
+- Recreated ClickHouse target tables and reloaded the small/empty tables.
+- Migrated and reconciled `daily_raw` with 28,516,739 rows.
+- Migrated and reconciled `daily_qfq` with 28,482,626 rows.
+- Migrated and reconciled `daily_hfq` with 28,482,612 rows.
+- Final reconciliation confirmed all 9 DuckDB-to-ClickHouse target row counts match their DuckDB source counts.
