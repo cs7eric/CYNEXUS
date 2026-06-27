@@ -150,6 +150,12 @@ public final class TableLayerCodegenMain {
                 config.overwrite()
         );
         writeJava(
+                config.apiFeignDir(),
+                aggregateName + "FeignClient.java",
+                renderFeignClient(basePackage, aggregateName, tableMeta.tableName()),
+                config.overwrite()
+        );
+        writeJava(
                 config.infraConvertDir(),
                 aggregateName + "POConverter.java",
                 renderPoConverter(basePackage, aggregateName),
@@ -479,6 +485,50 @@ public final class TableLayerCodegenMain {
                 .replace("{basePackage}", basePackage)
                 .replace("{aggregateName}", aggregateName)
                 .replace("{serviceSegment}", serviceSegment(basePackage))
+                .replace("{path}", path);
+    }
+
+    private static String renderFeignClient(String basePackage, String aggregateName, String tableName) {
+        String service = serviceSegment(basePackage);
+        String serviceName = "cynexus-" + service;
+        String path = tableName.replace('_', '-');
+        return """
+                package {basePackage}.api.feign;
+
+                import cn.cccs7.cynexus.common.core.result.Result;
+                import {basePackage}.api.dto.{aggregateName}DTO;
+                import java.util.List;
+                import org.springframework.cloud.openfeign.FeignClient;
+                import org.springframework.web.bind.annotation.DeleteMapping;
+                import org.springframework.web.bind.annotation.GetMapping;
+                import org.springframework.web.bind.annotation.PathVariable;
+                import org.springframework.web.bind.annotation.PostMapping;
+                import org.springframework.web.bind.annotation.PutMapping;
+                import org.springframework.web.bind.annotation.RequestBody;
+
+                @FeignClient(name = "{serviceName}", path = "/api/{service}/{path}")
+                public interface {aggregateName}FeignClient {
+
+                    @GetMapping
+                    Result<List<{aggregateName}DTO>> list();
+
+                    @GetMapping("/{id}")
+                    Result<{aggregateName}DTO> get(@PathVariable("id") Long id);
+
+                    @PostMapping
+                    Result<Long> create(@RequestBody {aggregateName}DTO dto);
+
+                    @PutMapping
+                    Result<Boolean> update(@RequestBody {aggregateName}DTO dto);
+
+                    @DeleteMapping("/{id}")
+                    Result<Boolean> delete(@PathVariable("id") Long id);
+                }
+                """
+                .replace("{basePackage}", basePackage)
+                .replace("{aggregateName}", aggregateName)
+                .replace("{serviceName}", serviceName)
+                .replace("{service}", service)
                 .replace("{path}", path);
     }
 
@@ -862,6 +912,13 @@ public final class TableLayerCodegenMain {
                     .resolve("cynexus-" + service + "-api")
                     .resolve("src/main/java")
                     .resolve(packagePath("cn.cccs7.cynexus." + service + ".api.dto"));
+        }
+
+        Path apiFeignDir() {
+            return serviceRoot()
+                    .resolve("cynexus-" + service + "-api")
+                    .resolve("src/main/java")
+                    .resolve(packagePath("cn.cccs7.cynexus." + service + ".api.feign"));
         }
 
         Path domainEntityDir() {

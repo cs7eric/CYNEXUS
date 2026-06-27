@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.RiskAppetiteDailyMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.RiskAppetiteDailyPO">
+        <id property="id" column="id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="hs300Close" column="hs300_close"/>
+        <result property="hs300BaseClose" column="hs300_base_close"/>
+        <result property="hs300BaseDate" column="hs300_base_date"/>
+        <result property="hs30020dReturn" column="hs300_20d_return"/>
+        <result property="treasury511010Close" column="treasury_511010_close"/>
+        <result property="treasury511010BaseClose" column="treasury_511010_base_close"/>
+        <result property="treasury51101020dReturn" column="treasury_511010_20d_return"/>
+        <result property="treasury511090Close" column="treasury_511090_close"/>
+        <result property="treasury511090BaseClose" column="treasury_511090_base_close"/>
+        <result property="treasury51109020dReturn" column="treasury_511090_20d_return"/>
+        <result property="treasuryWeighted20dReturn" column="treasury_weighted_20d_return"/>
+        <result property="spread511010" column="spread_511010"/>
+        <result property="spread511090" column="spread_511090"/>
+        <result property="spreadWeighted" column="spread_weighted"/>
+        <result property="windowDays" column="window_days"/>
+        <result property="source" column="source"/>
+        <result property="elapsedMs" column="elapsed_ms"/>
+        <result property="ingestedAt" column="ingested_at"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, trade_date, hs300_close, hs300_base_close, hs300_base_date, hs300_20d_return, treasury_511010_close, treasury_511010_base_close, treasury_511010_20d_return, treasury_511090_close, treasury_511090_base_close, treasury_511090_20d_return, treasury_weighted_20d_return, spread_511010, spread_511090, spread_weighted, window_days, source, elapsed_ms, ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

@@ -5,6 +5,7 @@
 - `PO`
 - `BO`
 - `DTO`
+- `FeignClient`
 - `POConverter`
 - `DTOConverter`
 - `Controller`
@@ -19,6 +20,10 @@ Generated directories follow the current Cynexus layered structure automatically
 The generated CRUD chain is:
 
 - `Controller -> AppService -> DomainService -> Repository -> BasicService -> Mapper/XML`
+
+Cross-service access is generated in:
+
+- `api/feign/{Aggregate}FeignClient`
 
 ## Location
 

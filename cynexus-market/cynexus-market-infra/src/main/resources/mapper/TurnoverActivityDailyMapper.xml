@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.TurnoverActivityDailyMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.TurnoverActivityDailyPO">
+        <id property="id" column="id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="avg20dAmount" column="avg_20d_amount"/>
+        <result property="ratio" column="ratio"/>
+        <result property="elapsedMs" column="elapsed_ms"/>
+        <result property="source" column="source"/>
+        <result property="ingestedAt" column="ingested_at"/>
+        <result property="score" column="score"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, trade_date, total_amount, avg_20d_amount, ratio, elapsed_ms, source, ingested_at, score, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

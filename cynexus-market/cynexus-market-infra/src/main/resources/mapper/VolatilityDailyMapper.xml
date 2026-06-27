@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.VolatilityDailyMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.VolatilityDailyPO">
+        <id property="id" column="id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="underlyingCode" column="underlying_code"/>
+        <result property="underlyingName" column="underlying_name"/>
+        <result property="close" column="close"/>
+        <result property="dailyReturnPct" column="daily_return_pct"/>
+        <result property="realizedVol20d" column="realized_vol_20d"/>
+        <result property="volWindowDays" column="vol_window_days"/>
+        <result property="volLookbackDays" column="vol_lookback_days"/>
+        <result property="percentile1y" column="percentile_1y"/>
+        <result property="sentimentScore" column="sentiment_score"/>
+        <result property="sampleCount" column="sample_count"/>
+        <result property="elapsedMs" column="elapsed_ms"/>
+        <result property="source" column="source"/>
+        <result property="ingestedAt" column="ingested_at"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, trade_date, underlying_code, underlying_name, close, daily_return_pct, realized_vol_20d, vol_window_days, vol_lookback_days, percentile_1y, sentiment_score, sample_count, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

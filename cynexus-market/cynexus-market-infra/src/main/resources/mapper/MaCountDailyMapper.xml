@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.MaCountDailyMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.MaCountDailyPO">
+        <id property="id" column="id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="totalEligible" column="total_eligible"/>
+        <result property="aboveMa20" column="above_ma20"/>
+        <result property="aboveMa60" column="above_ma60"/>
+        <result property="aboveBoth" column="above_both"/>
+        <result property="pctMa20" column="pct_ma20"/>
+        <result property="pctMa60" column="pct_ma60"/>
+        <result property="pctBoth" column="pct_both"/>
+        <result property="byBoard" column="by_board" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="elapsedMs" column="elapsed_ms"/>
+        <result property="source" column="source"/>
+        <result property="ingestedAt" column="ingested_at"/>
+        <result property="up5dCount" column="up_5d_count"/>
+        <result property="up5dPct" column="up_5d_pct"/>
+        <result property="newLow60dCount" column="new_low_60d_count"/>
+        <result property="newLow60dPct" column="new_low_60d_pct"/>
+        <result property="newHigh252dCount" column="new_high_252d_count"/>
+        <result property="newHigh252dPct" column="new_high_252d_pct"/>
+        <result property="advancingCount" column="advancing_count"/>
+        <result property="advancingPct" column="advancing_pct"/>
+        <result property="breadthRaw" column="breadth_raw"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, trade_date, total_eligible, above_ma20, above_ma60, above_both, pct_ma20, pct_ma60, pct_both, by_board, elapsed_ms, source, ingested_at, up_5d_count, up_5d_pct, new_low_60d_count, new_low_60d_pct, new_high_252d_count, new_high_252d_pct, advancing_count, advancing_pct, breadth_raw, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+</mapper>
