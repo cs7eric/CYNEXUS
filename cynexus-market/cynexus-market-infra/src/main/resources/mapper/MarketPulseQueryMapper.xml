@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.MarketPulseQueryMapper">
+
+    <sql id="OverviewColumns">
+        id,
+        trade_date,
+        total_amount,
+        total_volume,
+        rising_count,
+        falling_count,
+        flat_count,
+        limit_up_count,
+        limit_down_count,
+        stock_count,
+        main_net_inflow,
+        super_large_net_inflow,
+        large_net_inflow,
+        medium_net_inflow,
+        small_net_inflow,
+        main_net_inflow_ratio,
+        super_large_net_ratio,
+        large_net_ratio,
+        medium_net_ratio,
+        small_net_ratio,
+        source,
+        is_manual_override as manual_override,
+        manual_updated_at,
+        extra,
+        remark,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
+    <sql id="IndexReturnColumns">
+        id,
+        trade_date,
+        index_code,
+        index_name,
+        window_days,
+        current_close,
+        current_trade_date,
+        base_close,
+        base_date,
+        return_pct,
+        source,
+        extra,
+        remark,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
+    <select id="findLatestOverview" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
+        select <include refid="OverviewColumns"/>
+          from market_overview_snapshots
+         where deleted_at is null
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="findOverviewByDate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
+        select <include refid="OverviewColumns"/>
+          from market_overview_snapshots
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="findPreviousOverview" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
+        select <include refid="OverviewColumns"/>
+          from market_overview_snapshots
+         where deleted_at is null
+           and trade_date &lt; #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listOverviewSince" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
+        select *
+          from (
+            select <include refid="OverviewColumns"/>
+              from market_overview_snapshots
+             where deleted_at is null
+               and trade_date &gt;= #{startDate}
+             order by trade_date desc
+             limit #{limit}
+          ) t
+         order by trade_date asc
+    </select>
+
+    <select id="findManualFundFlow" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
+        select <include refid="OverviewColumns"/>
+          from market_overview_snapshots
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+           and is_manual_override is true
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <update id="updateManualFundFlow">
+        update market_overview_snapshots
+           set main_net_inflow = #{mainNetInflow},
+               main_net_inflow_ratio = #{mainNetInflowRatio},
+               super_large_net_inflow = #{superLargeNetInflow},
+               super_large_net_ratio = #{superLargeNetRatio},
+               large_net_inflow = #{largeNetInflow},
+               large_net_ratio = #{largeNetRatio},
+               medium_net_inflow = #{mediumNetInflow},
+               medium_net_ratio = #{mediumNetRatio},
+               small_net_inflow = #{smallNetInflow},
+               small_net_ratio = #{smallNetRatio},
+               source = 'manual',
+               is_manual_override = true,
+               manual_updated_at = #{now},
+               updated_at = #{now}
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+    </update>
+
+    <insert id="insertManualFundFlow">
+        insert into market_overview_snapshots (
+            id,
+            trade_date,
+            main_net_inflow,
+            main_net_inflow_ratio,
+            super_large_net_inflow,
+            super_large_net_ratio,
+            large_net_inflow,
+            large_net_ratio,
+            medium_net_inflow,
+            medium_net_ratio,
+            small_net_inflow,
+            small_net_ratio,
+            source,
+            is_manual_override,
+            manual_updated_at,
+            created_at,
+            updated_at
+        ) values (
+            #{value.id},
+            #{value.tradeDate},
+            #{value.mainNetInflow},
+            #{value.mainNetInflowRatio},
+            #{value.superLargeNetInflow},
+            #{value.superLargeNetRatio},
+            #{value.largeNetInflow},
+            #{value.largeNetRatio},
+            #{value.mediumNetInflow},
+            #{value.mediumNetRatio},
+            #{value.smallNetInflow},
+            #{value.smallNetRatio},
+            'manual',
+            true,
+            #{value.manualUpdatedAt},
+            #{value.createdAt},
+            #{value.updatedAt}
+        )
+    </insert>
+
+    <select id="listLatestStyleSectors" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO">
+        select id,
+               trade_date,
+               name,
+               rank_by_change,
+               change_pct,
+               valid_size,
+               sample_size,
+               source,
+               payload,
+               ingested_at,
+               updated_at,
+               deleted_at
+          from mkt_style_sector_snapshot
+         where deleted_at is null
+           and trade_date = (
+               select max(trade_date)
+                 from mkt_style_sector_snapshot
+                where deleted_at is null
+           )
+         order by rank_by_change nulls last, change_pct desc nulls last, name
+    </select>
+
+    <select id="findLatestStyleSector" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO">
+        select id,
+               trade_date,
+               name,
+               rank_by_change,
+               change_pct,
+               valid_size,
+               sample_size,
+               source,
+               payload,
+               ingested_at,
+               updated_at,
+               deleted_at
+          from mkt_style_sector_snapshot
+         where deleted_at is null
+           and name = #{name}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="findLatestHeatmap" resultType="cn.cccs7.cynexus.market.infra.basic.entity.HeatmapSnapshotPO">
+        select id,
+               snapshot_date,
+               kind,
+               source,
+               payload,
+               item_count,
+               generated_at,
+               created_at,
+               updated_at,
+               deleted_at
+          from mkt_heatmap_snapshot
+         where deleted_at is null
+           and kind = #{kind}
+         order by snapshot_date desc, generated_at desc nulls last
+         limit 1
+    </select>
+
+    <select id="findLatestLimitEmotion" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailySnapshotPO">
+        select id,
+               trade_date,
+               limit_up_count,
+               limit_down_count,
+               touched_count,
+               broken_count,
+               break_board_rate,
+               max_streak_height,
+               promotion_overall_rate,
+               sentiment_level,
+               sentiment_text,
+               stock_count,
+               market_status,
+               data_status,
+               source,
+               extra,
+               created_at,
+               updated_at,
+               deleted_at
+          from market_limit_daily_snapshots
+         where deleted_at is null
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="findLimitEmotionByDate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailySnapshotPO">
+        select id,
+               trade_date,
+               limit_up_count,
+               limit_down_count,
+               touched_count,
+               broken_count,
+               break_board_rate,
+               max_streak_height,
+               promotion_overall_rate,
+               sentiment_level,
+               sentiment_text,
+               stock_count,
+               market_status,
+               data_status,
+               source,
+               extra,
+               created_at,
+               updated_at,
+               deleted_at
+          from market_limit_daily_snapshots
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by updated_at desc nulls last
+         limit 1
+    </select>
+
+    <select id="listLimitStocks" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailyStockPO">
+        select id,
+               trade_date,
+               code,
+               name,
+               category,
+               streak,
+               change_pct,
+               limit_up_price,
+               limit_down_price,
+               created_at,
+               updated_at,
+               deleted_at
+          from market_limit_daily_stocks
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+           and category = #{category}
+         order by streak desc nulls last, change_pct desc nulls last
+         limit #{limit}
+    </select>
+
+    <select id="listLatestIndexReturns" resultType="cn.cccs7.cynexus.market.infra.basic.entity.IndexReturnDailyPO">
+        select <include refid="IndexReturnColumns"/>
+          from mkt_index_return_daily
+         where deleted_at is null
+           and window_days = #{windowDays}
+           and trade_date = (
+               select max(trade_date)
+                 from mkt_index_return_daily
+                where deleted_at is null
+                  and window_days = #{windowDays}
+           )
+         order by index_name
+    </select>
+
+    <select id="listIndexReturnsHistory" resultType="cn.cccs7.cynexus.market.infra.basic.entity.IndexReturnDailyPO">
+        select <include refid="IndexReturnColumns"/>
+          from mkt_index_return_daily
+         where deleted_at is null
+           and window_days = #{windowDays}
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc, index_code asc
+    </select>
+
+    <select id="findLatestIndexReturnByCode" resultType="cn.cccs7.cynexus.market.infra.basic.entity.IndexReturnDailyPO">
+        select <include refid="IndexReturnColumns"/>
+          from mkt_index_return_daily
+         where deleted_at is null
+           and index_code = #{indexCode}
+         order by trade_date desc, window_days asc
+         limit 1
+    </select>
+</mapper>

@@ -4,7 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="10ccc847-cead-4e5a-97ce-11d43bd8ed64" name="Changes" comment="CYRUS-260628: init cynexus-data base" />
+    <list default="true" id="10ccc847-cead-4e5a-97ce-11d43bd8ed64" name="Changes" comment="CYRUS-260628: init cynexus-data base">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-starter/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-starter/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/local/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/local/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/nacos/cynexus-market.yml" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/nacos/cynexus-market.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/findings.md" beforeDir="false" afterPath="$PROJECT_DIR$/findings.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/progress.md" beforeDir="false" afterPath="$PROJECT_DIR$/progress.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/task_plan.md" beforeDir="false" afterPath="$PROJECT_DIR$/task_plan.md" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -33,43 +43,42 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Maven.cynexus [clean].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.cynexus [compile].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.cynexus [install].executor&quot;: &quot;Run&quot;,
-    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
-    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
-    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
-    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;Spring Boot.CynexusAiApplication.executor&quot;: &quot;Run&quot;,
-    &quot;Spring Boot.CynexusCoreApplication.executor&quot;: &quot;Run&quot;,
-    &quot;Spring Boot.CynexusGatewayApplication.executor&quot;: &quot;Run&quot;,
-    &quot;Spring Boot.CynexusMarketApplication.executor&quot;: &quot;Run&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/project-repo/cynexus/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
-    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.other&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Maven.cynexus [clean].executor": "Run",
+    "Maven.cynexus [compile].executor": "Run",
+    "Maven.cynexus [install].executor": "Run",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "Spring Boot.CynexusAiApplication.executor": "Run",
+    "Spring Boot.CynexusCoreApplication.executor": "Run",
+    "Spring Boot.CynexusGatewayApplication.executor": "Run",
+    "Spring Boot.CynexusMarketApplication.executor": "Run",
+    "git-widget-placeholder": "master",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "E:/project-repo/cynexus/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Project",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.0",
+    "run.configurations.included.in.services": "true",
+    "settings.editor.selected.configurable": "configurable.group.other",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;postgresql&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "postgresql"
     ]
   }
-}</component>
+}]]></component>
   <component name="RunDashboard">
     <option name="configurationTypes">
       <set>
@@ -127,7 +136,7 @@
       <workItem from="1782480528424" duration="9860000" />
       <workItem from="1782620265628" duration="4012000" />
       <workItem from="1782629710700" duration="1817000" />
-      <workItem from="1782636456572" duration="4601000" />
+      <workItem from="1782636456572" duration="9338000" />
     </task>
     <task id="LOCAL-00001" summary="CYRUS-260626: init repo">
       <option name="closed" value="true" />
@@ -193,7 +202,15 @@
       <option name="project" value="LOCAL" />
       <updated>1782650897073</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="CYRUS-260628: init cynexus-data base">
+      <option name="closed" value="true" />
+      <created>1782651889049</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1782651889049</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

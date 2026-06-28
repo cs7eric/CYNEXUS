@@ -1,6 +1,11 @@
 cynexus:
   market:
     mock-enabled: true
+    clickhouse:
+      url: ${CLICKHOUSE_HTTP_URL:http://127.0.0.1:28123}
+      database: ${CLICKHOUSE_DATABASE:cynexus}
+      username: ${CLICKHOUSE_USER:cynexus}
+      password: ${CLICKHOUSE_PASSWORD:C020611.}
     feature:
       compression-enabled: true
 

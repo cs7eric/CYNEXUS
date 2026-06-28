@@ -278,3 +278,43 @@ Required market modules:
   - `ingest_state`: 12,037
   - `schema_meta`: 2
   - empty tables: `adj_factors`, `intraday_bars`, `quotes`
+
+## Market Pulse Python Data Backfill Findings
+
+- User reports current Java Market Pulse data is stale/incomplete: funds tide / turnover trend only reaches 2026-05-27 in UI, limit emotion shows 2026-06-25 at 21:54:15 instead of latest trading day 2026-06-26, style/industry/concept heatmaps are empty, and three-index intraday charts have no points.
+- Initial search indicates old Python project stores relevant persisted data under `F:\dev-repo\mp4-to-word-new\reference`, including `market-overview`, `market-pulse`, `stock/cache/intraday`, and THS/heatmap-related directories. Precise route-to-file mapping is still being traced.
+- Existing Java endpoint `/api/market/pulse/**` currently reads PG tables in `cynexus_appl_market`: `market_overview_snapshots`, `market_limit_daily_snapshots`, `market_limit_daily_stocks`, `mkt_index_return_daily`, `mkt_style_sector_snapshot`, and `mkt_heatmap_snapshot`.
+- Principle to implement: for non-trading days, display the previous available trading day data.
+
+## Market Pulse Backfill Open Questions
+
+- Need confirm whether old Python has 2026-06-26 limit emotion JSON. If not, latest available raw snapshot may truly be 2026-06-25, and refresh/source collection must be fixed separately.
+- Need confirm whether three-index intraday files exist for 2026-06-26 in old `reference/stock/cache/intraday`; if only stock intraday files exist, Java must read ClickHouse minute/index data or another old API source.
+
+## 2026-06-28 Market Pulse Backfill Additional Findings
+
+- Old limit-emotion daily raw file exists for `2026-06-26`: `F:\dev-repo\mp4-to-word-new\reference\market-limit\daily\2026-06-26.json`, with `marketStatus=closed`, `updateTime=2026/6/26 15:30:00`, source `eltdx.list_by_category(6)+universe`, and `stockCount=5282`.
+- Java `MarketPulseQueryAppService.getLimitEmotion()` returns `market_limit_daily_snapshots.extra` directly when it contains key `limitUp`, so the PG import should store an old-Python-compatible payload in `extra` instead of relying only on summary columns.
+- Java `MarketPulseQueryAppService.getHeatmap()` returns `mkt_heatmap_snapshot.payload` directly when it is a JSON object, so heatmap imports should write frontend-compatible payloads to that JSONB column.
+- Old sector universe files under `F:\dev-repo\mp4-to-word-new\reference\stock-universe\sectors` were updated on `2026-06-26 17:16:05`, including `sectors_industries_0.json`, `sectors_concepts_2.json`, and `sectors_styles_4.json`.
+- No `index-*-2026-06-26.json` files were found under the old intraday cache directory in the first check, so three-index intraday needs either an alternate source/import table or a latest-available-date fallback.
+
+## Market Pulse Backfill Resolution Findings
+
+- `market_limit_daily_snapshots` now has a 2026-06-26 row with limit_up=57, limit_down=35, touched=96, broken=39, stock_count=5282, and `extra` contains the UI-compatible limit-emotion payload.
+- `mkt_style_sector_snapshot` now has 29 rows for 2026-06-26, matching the old Python style-sector whitelist.
+- `mkt_heatmap_snapshot` now has 2026-06-26 payloads for `industries` (90 items from THS industry constituents snapshots) and `concepts` (top 200 from stock-universe concepts plus ClickHouse daily quotes).
+- Three-index minute data source was not the old Python cache for 2026-06-26; the usable latest source was local TDX `.lc1` files under `D:\Program File\tdx\vipdoc\{sh,sz}\minline`. Those were inserted into ClickHouse `ch_dwd_kline_1m` for `sh000001`, `sz399001`, and `sz399006`.
+- `index_daily_raw` only had `sh000001`, `sh000300`, and `sh000852`; `sz399001` and `sz399006` daily rows were backfilled from local TDX `.day` files with `unit_scale=10` so Java can return previousClose for all three index cards.
+- Java `/api/market/pulse/index-kline/batch` now reads ClickHouse minute bars and falls back from a non-trading requested date to the latest available minute trading date.
+
+## Market Pulse Layering Repair Findings
+
+- Current Java Market Pulse query chain violates the project layering guide: `MarketPulseQueryRepository` exposes `Map<String,Object>`, `MarketPulseQueryRepositoryImpl` uses `JdbcTemplate` with inline PostgreSQL SQL, `MarketPulseQueryAppService` builds nested maps, and `MarketPulseQueryController` returns raw maps instead of `Result<T>`.
+- Existing table-layer PO classes already cover `market_overview_snapshots`, `market_limit_daily_snapshots`, `market_limit_daily_stocks`, `mkt_style_sector_snapshot`, and `mkt_heatmap_snapshot`.
+- `mkt_index_return_daily` does not have a Java table-layer class yet, so it needs PO/BO/mapper XML support before Market Pulse index-return endpoints can be typed.
+- Frontend Market Pulse page currently imports page-specific API wrappers and types from global `src/lib/api.ts`; this violates the requested page-module organization.
+- Follow-up correction: replacing raw maps with `Result<JsonNode>` is still non-compliant because the API contract remains dynamic and bypasses DTO/Request/converter conventions.
+- Market Pulse JSONB columns can be parsed in application code, but the parsed result must become typed DTOs before returning from AppService/Controller.
+- Heatmap persisted payload uses `changePercent` and `stockCount`; the Java DTO maps these to frontend-compatible `change_pct` and `count`.
+- Market Pulse `IndustryHeatmap` reuses `HeatmapSectorNode` from `industry-application`, so the backend heatmap DTO must preserve sector-node fields such as `changePercent`, `stockCount`, `conceptTags`, and `children`; otherwise frontend code calls `sector.children.filter(...)` on `undefined`.

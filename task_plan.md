@@ -372,3 +372,40 @@ Status: complete
 - Date ranges:
   - `daily_raw`, `daily_qfq`, `daily_hfq`: 1990-12-19 through 2026-06-26
   - `index_daily_raw`: 2018-03-21 through 2026-06-26
+
+## Phase 21 - Market Pulse Python Data Backfill And Previous Trading Day Display
+
+Status: complete
+
+- Trace old Python Market Pulse, limit emotion, heatmap, and index intraday endpoints to their raw data files/interfaces.
+- Compare old data dates with current Java/PG responses.
+- Import available latest old data into `cynexus_appl_market` tables used by Java `/api/market/pulse/**`.
+- Make Java Market Pulse reads use the latest available trading day, so non-trading days display the previous trading day.
+- Verify Gateway endpoints return data for the latest available trading day.
+
+## Phase 22 - Market Pulse Layering Repair
+
+Status: complete
+
+- Refactor Java Market Pulse query APIs to follow `infra/cynexus-layering-and-dataflow.md`.
+- Move PostgreSQL SQL from Java strings into MyBatis Mapper XML.
+- Replace repository/application/controller `Map<String,Object>` contracts with typed BO/DTO/`Result<T>` contracts.
+- Keep ClickHouse access isolated behind an infra client with typed rows.
+- Move Market Pulse frontend API wrappers out of global `src/lib/api.ts` into the page module.
+- Verify Java compile and frontend import/type impact.
+
+## Phase 22 Verification Results
+
+- Market Pulse controller methods now return concrete `Result<MarketPulse*DTO>` contracts, with no `Result<JsonNode>`.
+- Manual fund-flow save now accepts `MarketPulseManualFundFlowRequest`, not `JsonNode`.
+- Market Pulse application service assembles typed DTOs from BOs and parses JSONB payload strings into typed DTOs only inside application logic.
+- PostgreSQL reads stay behind `MarketPulseQueryMapper.xml` / BasicService / RepositoryImpl; no `JdbcTemplate` or inline PG SQL remains in the Market Pulse query path.
+- `mvn -pl cynexus-market/cynexus-market-starter -am package -DskipTests` succeeded.
+- Rebuilt/recreated the local `cynexus-market` container; it is healthy behind Gateway.
+- Verified Gateway endpoints return business DTO fields, not Jackson node metadata:
+  - `/api/market/pulse/market-overview-akshare`: `tradingDate=2026-06-26`
+  - `/api/market/pulse/limit-emotion`: `tradeDate=2026-06-26`, `limitUp=57`, `limitDown=35`
+  - `/api/market/pulse/style-sectors`: `count=29`
+  - `/api/market/pulse/heatmap?kind=industries`: `count=90`, first `change_pct=2.6545`
+  - `/api/market/pulse/heatmap?kind=concepts`: `count=200`, first `change_pct=-1.8299`
+  - `/api/market/pulse/index-kline/batch`: `date=2026-06-26`, 3 index items, first item 240 points

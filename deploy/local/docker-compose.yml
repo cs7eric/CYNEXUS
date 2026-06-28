@@ -173,6 +173,8 @@ services:
         condition: service_started
       core:
         condition: service_healthy
+      clickhouse:
+        condition: service_healthy
     environment:
       JAVA_OPTS: "-XX:MaxRAMPercentage=75"
       NACOS_SERVER_ADDR: nacos:8848
@@ -185,6 +187,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: C020611.
+      CLICKHOUSE_HTTP_URL: http://clickhouse:8123
+      CLICKHOUSE_DATABASE: cynexus
+      CLICKHOUSE_USER: cynexus
+      CLICKHOUSE_PASSWORD: C020611.
     ports:
       - "127.0.0.1:18082:18082"
     healthcheck:

@@ -248,3 +248,45 @@
 - Migrated and reconciled `daily_qfq` with 28,482,626 rows.
 - Migrated and reconciled `daily_hfq` with 28,482,612 rows.
 - Final reconciliation confirmed all 9 DuckDB-to-ClickHouse target row counts match their DuckDB source counts.
+
+## 2026-06-28 Market Pulse Data Backfill
+
+- User reported Market Pulse data mismatches after switching UI-serving APIs from Python to Java.
+- Started Phase 21 to trace old Python data sources, import latest persisted data into PG, and enforce previous-trading-day display for non-trading days.
+- Initial broad search found old Python references to `reference/market-overview`, `reference/market-pulse`, `reference/stock/cache/intraday`, THS fund-flow, heatmap, and limit-emotion routes/services; next step is precise route and file inspection.
+- Imported local TDX index `.lc1` files for `sh000001`, `sz399001`, and `sz399006` into ClickHouse `ch_dwd_kline_1m`; inserted 48,240 rows total, 16,080 rows per file.
+- Backfilled PostgreSQL Market Pulse tables for 2026-06-26 from local old reference files: limit snapshot/stocks, industry heatmap, concept heatmap, and 29 style sector rows.
+- Added Java Market Pulse ClickHouse read path for index minute bars; first compile failed because market-infra lacked an explicit Jackson dependency, so `jackson-databind` was added to that module.
+- `mvn clean package -DskipTests` succeeded through `deploy/local/up-latest.ps1`, but `-Service market,gateway` was parsed as one service name and Docker reported `no such service: market,gateway`; rerunning compose directly with separate `market gateway` service arguments.
+- Fixed ClickHouse `max(trade_date)` alias collision in Java index minute lookup and corrected ClickHouse time formatting from `%M` to `%i` for minutes.
+- Backfilled `sz399001` and `sz399006` rows into ClickHouse `index_daily_raw` from local TDX day files using `unit_scale=10`.
+- Rebuilt local Docker services and verified Gateway Market Pulse endpoints: limit emotion returns 2026-06-26; style sectors count=29; industries heatmap count=90; concepts heatmap count=200; index-kline request for 2026-06-28 returns 2026-06-26 with 240 points for each of 000001/399001/399006.
+- Phase 21 marked complete after final verification. Build commands succeeded: `mvn -pl cynexus-market/cynexus-market-starter -am package -DskipTests` and local Docker compose rebuild/recreate for Market/Gateway. Residual warnings were existing Maven duplicate-Lombok/model-mapping warnings, not blocking.
+
+## 2026-06-28 Market Pulse Layering Repair
+
+- User rejected the temporary Market Pulse implementation because SQL was embedded in Java, return contracts were raw `Map`, controller responses were not wrapped in `Result`, and frontend page API functions were placed in global `src/lib/api.ts`.
+- Re-read `infra/cynexus-layering-and-dataflow.md` and confirmed target flow: Controller -> AppService -> Domain repository abstraction -> infra repository/basic service/mapper XML -> DB, with DTO/BO/PO object boundaries.
+- Added Phase 22 to `task_plan.md` and recorded the violations in `findings.md`.
+- User rejected the attempted `Result<JsonNode>` fix as still non-compliant. Re-read the current Market Pulse controller/app service and confirmed the remaining violation is the API/application boundary returning and accepting `JsonNode` instead of explicit DTO/Request types.
+- Inspected the page-local frontend API contract under `F:\dev-repo\mp4-to-word-new\frontend\src\views\market\market-pulse\lib\api.ts`; Java can keep the existing response field shape through explicit DTO fields and `@JsonProperty` for legacy snake_case names.
+- Added explicit Market Pulse response DTOs and a manual fund-flow save request under `cynexus-market-api`.
+- Added application converters for Market Pulse overview, index returns, index kline points, style-sector items, and limit-emotion stocks.
+- Replaced `MarketPulseQueryAppService` public contracts from `JsonNode` to concrete DTO/Request types. JSONB strings are now parsed only into typed DTOs inside the application layer.
+- Replaced `MarketPulseQueryController` with concrete `Result<MarketPulse*DTO>` methods and removed `JsonNode` request/response usage.
+- Deleted the temporary starter-level `MarketJacksonConfig`; the app service now owns a private JSONB parser for persisted payload strings.
+- First Docker runtime verification failed because no global `ObjectMapper` bean existed after deleting the temporary config; changed the app service to use a private `new ObjectMapper().findAndRegisterModules()` instance and rebuilt.
+- Fixed heatmap DTO aliases after verifying the persisted payload uses `changePercent` and `stockCount`; output now includes frontend-compatible `change_pct` and `count`.
+- `mvn -pl cynexus-market/cynexus-market-starter -am package -DskipTests` succeeded after the DTO refactor. Remaining Maven warnings are pre-existing duplicate Lombok declarations in common-db/core-infra POMs.
+- Rebuilt/recreated `cynexus-market`; compose also recreated `cynexus-core` as part of dependency/build handling. `cynexus-market` and `cynexus-gateway` are healthy.
+- Gateway verification passed for Market Pulse overview, limit emotion, style sectors, heatmap industries/concepts, index returns, and index kline batch. Response payloads no longer contain Jackson node metadata fields.
+- User requested not to run cynexus applications in Docker. Stopped Docker application containers (`cynexus-market`, `cynexus-gateway`, `cynexus-core`, `cynexus-ai`) and kept only infrastructure containers running.
+- Restarted local Java `cynexus-market` and local Java `cynexus-gateway` from the packaged jars, with logs under `deploy/local/logs`.
+- Fixed the UI crash `Cannot read properties of undefined (reading 'filter')` by extending `MarketPulseHeatmapDTO` to preserve `children`, `conceptTags`, `changePercent`, `stockCount`, and related `HeatmapSectorNode` fields, and by normalizing missing arrays to `List.of()` in `MarketPulseQueryAppService`.
+- Verified through local Gateway that heatmap industries/concepts first items now return `children` as an array, `conceptTags` as an array, and both `changePercent` and `change_pct`.
+- Fixed Market Pulse serving data drift after Java API migration:
+  - `market-overview-akshare/history` now selects the latest N overview rows before returning them ascending, so 60d history reaches 2026-06-26 instead of stopping around 2026-05-27.
+  - Java overview DTO assembly overlays rising/falling/flat/stock counts from ClickHouse `daily_qfq` breadth facts and limit-up/limit-down counts from `market_limit_daily_snapshots`.
+  - Limit emotion JSON parsing now uses explicit DTOs plus `jackson-datatype-jsr310`; streak leaders, distribution, and broken-streak stocks are preserved from PG `extra`.
+  - Verified local Market and Gateway endpoints: 2026-06-26 overview shows rising/falling/flat `746/4407/53`, limit counts `57/35`, and limit emotion returns 20 leaders, 5 distribution buckets, first leader `兴业科技` at 6 boards.
+- Fixed expanded limit-streak tier rendering: Java now keeps `streak` on limit-up stocks and fills each `streak.distribution[].stocks` bucket from `limitUp.stocks`, because the persisted PG distribution only stores `height/count`. Verified local Market and Gateway distribution buckets: `6板=1`, `4板=1`, `3板=1`, `2板=3`, `1板=51`, all with matching stock lists.

@@ -68,3 +68,11 @@ jobrunr:
     enabled: false
   dashboard:
     enabled: false
+
+cynexus:
+  market:
+    clickhouse:
+      url: ${CLICKHOUSE_HTTP_URL:http://127.0.0.1:28123}
+      database: ${CLICKHOUSE_DATABASE:cynexus}
+      username: ${CLICKHOUSE_USER:cynexus}
+      password: ${CLICKHOUSE_PASSWORD:C020611.}
