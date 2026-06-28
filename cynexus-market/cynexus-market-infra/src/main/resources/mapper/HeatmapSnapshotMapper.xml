@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.HeatmapSnapshotMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.HeatmapSnapshotPO">
+        <id property="id" column="id"/>
+        <result property="snapshotDate" column="snapshot_date"/>
+        <result property="kind" column="kind"/>
+        <result property="source" column="source"/>
+        <result property="payload" column="payload" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="itemCount" column="item_count"/>
+        <result property="generatedAt" column="generated_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, snapshot_date, kind, source, payload, item_count, generated_at, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

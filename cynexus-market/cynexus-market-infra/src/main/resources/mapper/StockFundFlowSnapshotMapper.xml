@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.StockFundFlowSnapshotMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.StockFundFlowSnapshotPO">
+        <id property="id" column="id"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="code" column="code"/>
+        <result property="symbol" column="symbol"/>
+        <result property="name" column="name"/>
+        <result property="lastPrice" column="last_price"/>
+        <result property="preClose" column="pre_close"/>
+        <result property="open" column="open"/>
+        <result property="high" column="high"/>
+        <result property="low" column="low"/>
+        <result property="change" column="change"/>
+        <result property="changePct" column="change_pct"/>
+        <result property="volumeLots" column="volume_lots"/>
+        <result property="amountWan" column="amount_wan"/>
+        <result property="turnoverRate" column="turnover_rate"/>
+        <result property="outerDiscLots" column="outer_disc_lots"/>
+        <result property="insideDishLots" column="inside_dish_lots"/>
+        <result property="activeNetLots" column="active_net_lots"/>
+        <result property="activeNetAmountWan" column="active_net_amount_wan"/>
+        <result property="activeBuyRatio" column="active_buy_ratio"/>
+        <result property="activeSellRatio" column="active_sell_ratio"/>
+        <result property="buyBigRatio" column="buy_big_ratio"/>
+        <result property="buySmallRatio" column="buy_small_ratio"/>
+        <result property="sellBigRatio" column="sell_big_ratio"/>
+        <result property="sellSmallRatio" column="sell_small_ratio"/>
+        <result property="pe" column="pe"/>
+        <result property="pb" column="pb"/>
+        <result property="amplitude" column="amplitude"/>
+        <result property="floatMarketCapYi" column="float_market_cap_yi"/>
+        <result property="totalMarketCapYi" column="total_market_cap_yi"/>
+        <result property="source" column="source"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="capturedAt" column="captured_at"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, batch_id, trade_date, code, symbol, name, last_price, pre_close, open, high, low, change, change_pct, volume_lots, amount_wan, turnover_rate, outer_disc_lots, inside_dish_lots, active_net_lots, active_net_amount_wan, active_buy_ratio, active_sell_ratio, buy_big_ratio, buy_small_ratio, sell_big_ratio, sell_small_ratio, pe, pb, amplitude, float_market_cap_yi, total_market_cap_yi, source, source_type, captured_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

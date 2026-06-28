@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.StockBasicMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.StockBasicPO">
+        <id property="id" column="id"/>
+        <result property="code" column="code"/>
+        <result property="name" column="name"/>
+        <result property="market" column="market"/>
+        <result property="board" column="board"/>
+        <result property="st" column="is_st"/>
+        <result property="limitUpThreshold" column="limit_up_threshold"/>
+        <result property="active" column="is_active"/>
+        <result property="source" column="source"/>
+        <result property="fetchedAt" column="fetched_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="industry" column="industry"/>
+        <result property="totalMarketCap" column="total_market_cap"/>
+        <result property="floatMarketCap" column="float_market_cap"/>
+        <result property="capStyle" column="cap_style"/>
+        <result property="sectorIndexSymbol" column="sector_index_symbol"/>
+        <result property="sectorIndexName" column="sector_index_name"/>
+        <result property="industryQuery" column="industry_query"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, code, name, market, board, is_st, limit_up_threshold, is_active, source, fetched_at, updated_at, industry, total_market_cap, float_market_cap, cap_style, sector_index_symbol, sector_index_name, industry_query
+    </sql>
+</mapper>

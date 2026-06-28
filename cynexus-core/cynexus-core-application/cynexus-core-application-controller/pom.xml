@@ -16,6 +16,11 @@
     <dependencies>
         <dependency>
             <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-core-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-core-infra</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -23,6 +28,10 @@
             <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-common-web</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
         </dependency>
     </dependencies>
 </project>

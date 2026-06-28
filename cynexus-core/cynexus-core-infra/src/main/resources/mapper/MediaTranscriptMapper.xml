@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.core.infra.basic.mapper.MediaTranscriptMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.core.infra.basic.entity.MediaTranscriptPO">
+        <result property="transcriptId" column="transcript_id"/>
+        <result property="sourceUri" column="source_uri"/>
+        <result property="transcript" column="transcript"/>
+        <result property="language" column="language"/>
+        <result property="durationSeconds" column="duration_seconds"/>
+        <result property="metadata" column="metadata" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        transcript_id, source_uri, transcript, language, duration_seconds, metadata, created_at
+    </sql>
+</mapper>

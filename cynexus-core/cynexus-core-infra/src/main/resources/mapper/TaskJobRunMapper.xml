@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.core.infra.basic.mapper.TaskJobRunMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.core.infra.basic.entity.TaskJobRunPO">
+        <result property="runId" column="run_id"/>
+        <result property="jobKey" column="job_key"/>
+        <result property="triggerRequestId" column="trigger_request_id"/>
+        <result property="triggeredBy" column="triggered_by"/>
+        <result property="dryRun" column="dry_run"/>
+        <result property="status" column="status"/>
+        <result property="success" column="success"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="finishedAt" column="finished_at"/>
+        <result property="rowsRead" column="rows_read"/>
+        <result property="rowsWritten" column="rows_written"/>
+        <result property="warnings" column="warnings" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="errors" column="errors" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="params" column="params" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="metadata" column="metadata" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        run_id, job_key, trigger_request_id, triggered_by, dry_run, status, success, started_at, finished_at, rows_read, rows_written, warnings, errors, params, metadata, created_at, updated_at
+    </sql>
+</mapper>

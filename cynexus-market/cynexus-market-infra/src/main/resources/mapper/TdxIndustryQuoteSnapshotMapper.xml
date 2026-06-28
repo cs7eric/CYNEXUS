@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.TdxIndustryQuoteSnapshotMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.TdxIndustryQuoteSnapshotPO">
+        <id property="id" column="id"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="snapshotDate" column="snapshot_date"/>
+        <result property="code6" column="code6"/>
+        <result property="name" column="name"/>
+        <result property="fullCode" column="full_code"/>
+        <result property="exchange" column="exchange"/>
+        <result property="lastPrice" column="last_price"/>
+        <result property="preClosePrice" column="pre_close_price"/>
+        <result property="openPrice" column="open_price"/>
+        <result property="highPrice" column="high_price"/>
+        <result property="lowPrice" column="low_price"/>
+        <result property="change" column="change"/>
+        <result property="changePct" column="change_pct"/>
+        <result property="amount" column="amount"/>
+        <result property="totalHand" column="total_hand"/>
+        <result property="currentHand" column="current_hand"/>
+        <result property="source" column="source"/>
+        <result property="fetchedAt" column="fetched_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, batch_id, snapshot_date, code6, name, full_code, exchange, last_price, pre_close_price, open_price, high_price, low_price, change, change_pct, amount, total_hand, current_hand, source, fetched_at, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.StyleSectorSnapshotMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO">
+        <id property="id" column="id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="name" column="name"/>
+        <result property="rankByChange" column="rank_by_change"/>
+        <result property="changePct" column="change_pct"/>
+        <result property="validSize" column="valid_size"/>
+        <result property="sampleSize" column="sample_size"/>
+        <result property="source" column="source"/>
+        <result property="payload" column="payload" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="ingestedAt" column="ingested_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, trade_date, name, rank_by_change, change_pct, valid_size, sample_size, source, payload, ingested_at, updated_at, deleted_at
+    </sql>
+</mapper>

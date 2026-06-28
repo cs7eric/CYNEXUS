@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.core.infra.basic.mapper.TaskCheckpointMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.core.infra.basic.entity.TaskCheckpointPO">
+        <result property="checkpointKey" column="checkpoint_key"/>
+        <result property="jobKey" column="job_key"/>
+        <result property="checkpointValue" column="checkpoint_value" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        checkpoint_key, job_key, checkpoint_value, updated_at
+    </sql>
+</mapper>

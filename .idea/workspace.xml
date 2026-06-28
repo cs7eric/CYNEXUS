@@ -4,59 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="10ccc847-cead-4e5a-97ce-11d43bd8ed64" name="Changes" comment="CYRUS-260627: init pg base">
-      <change afterPath="$PROJECT_DIR$/cynexus-data/INFRA.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cynexus-data/migration.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/easyCodeTableSettingEncode.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/git_toolbox_blame.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/git_toolbox_prj.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/google-java-format.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/mybatisx/templates.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-ai/cynexus-ai-application/cynexus-ai-application-controller/src/main/java/cn/cccs7/cynexus/ai/application/controller/AiConfigurationCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-ai/cynexus-ai-application/cynexus-ai-application-controller/src/main/java/cn/cccs7/cynexus/ai/application/controller/AiConfigurationCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-ai/cynexus-ai-application/cynexus-ai-application-controller/src/main/java/cn/cccs7/cynexus/ai/application/controller/AiMarketProbeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-ai/cynexus-ai-application/cynexus-ai-application-controller/src/main/java/cn/cccs7/cynexus/ai/application/controller/AiMarketProbeController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-ai/cynexus-ai-starter/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-ai/cynexus-ai-starter/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-common/cynexus-common-db/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-common/cynexus-common-db/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-common/cynexus-common-db/src/main/java/cn/cccs7/cynexus/common/db/codegen/TableLayerCodegenMain.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-common/cynexus-common-db/src/main/java/cn/cccs7/cynexus/common/db/codegen/TableLayerCodegenMain.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-core/cynexus-core-application/cynexus-core-application-controller/src/main/java/cn/cccs7/cynexus/core/application/controller/SchedulerController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-core/cynexus-core-application/cynexus-core-application-controller/src/main/java/cn/cccs7/cynexus/core/application/controller/SchedulerController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-core/cynexus-core-infra/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-core/cynexus-core-infra/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-core/cynexus-core-starter/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-core/cynexus-core-starter/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-gateway/cynexus-gateway-starter/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-gateway/cynexus-gateway-starter/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/MaCountDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/MaCountDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/MarketFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/MarketFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/ProfitEffectDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/ProfitEffectDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/RiskAppetiteDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/RiskAppetiteDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/SectorBreadthDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/SectorBreadthDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/StyleRiskDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/StyleRiskDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/TurnoverActivityDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/TurnoverActivityDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/VolatilityDailyFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-api/src/main/java/cn/cccs7/cynexus/market/api/feign/VolatilityDailyFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/MaCountDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/MaCountDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/MarketDataCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/MarketDataCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/MarketOverviewController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/MarketOverviewController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/ProfitEffectDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/ProfitEffectDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/RiskAppetiteDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/RiskAppetiteDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/SectorBreadthDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/SectorBreadthDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/SectorController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/SectorController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/StockFeatureController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/StockFeatureController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/StyleRiskDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/StyleRiskDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/TurnoverActivityDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/TurnoverActivityDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/VolatilityDailyCrudController.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-application/cynexus-market-application-controller/src/main/java/cn/cccs7/cynexus/market/application/controller/VolatilityDailyCrudController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/MaCountDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/MaCountDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/ProfitEffectDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/ProfitEffectDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/RiskAppetiteDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/RiskAppetiteDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/SectorBreadthDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/SectorBreadthDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/StyleRiskDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/StyleRiskDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/TurnoverActivityDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/TurnoverActivityDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/VolatilityDailyMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic/mapper/VolatilityDailyMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cynexus-market/cynexus-market-starter/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/cynexus-market/cynexus-market-starter/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/local/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/local/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-    </list>
+    <list default="true" id="10ccc847-cead-4e5a-97ce-11d43bd8ed64" name="Changes" comment="CYRUS-260628: init cynexus-data base" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -85,43 +33,43 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Maven.cynexus [clean].executor": "Run",
-    "Maven.cynexus [compile].executor": "Run",
-    "Maven.cynexus [install].executor": "Run",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Spring Boot.CynexusAiApplication.executor": "Run",
-    "Spring Boot.CynexusCoreApplication.executor": "Run",
-    "Spring Boot.CynexusGatewayApplication.executor": "Run",
-    "Spring Boot.CynexusMarketApplication.executor": "Run",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "E:/project-repo/cynexus/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Project",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.0",
-    "run.configurations.included.in.services": "true",
-    "settings.editor.selected.configurable": "configurable.group.other",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Maven.cynexus [clean].executor&quot;: &quot;Run&quot;,
+    &quot;Maven.cynexus [compile].executor&quot;: &quot;Run&quot;,
+    &quot;Maven.cynexus [install].executor&quot;: &quot;Run&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Spring Boot.CynexusAiApplication.executor&quot;: &quot;Run&quot;,
+    &quot;Spring Boot.CynexusCoreApplication.executor&quot;: &quot;Run&quot;,
+    &quot;Spring Boot.CynexusGatewayApplication.executor&quot;: &quot;Run&quot;,
+    &quot;Spring Boot.CynexusMarketApplication.executor&quot;: &quot;Run&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/project-repo/cynexus/cynexus-market/cynexus-market-infra/src/main/java/cn/cccs7/cynexus/market/infra/basic&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.other&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "postgresql"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;postgresql&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RunDashboard">
     <option name="configurationTypes">
       <set>
@@ -179,6 +127,7 @@
       <workItem from="1782480528424" duration="9860000" />
       <workItem from="1782620265628" duration="4012000" />
       <workItem from="1782629710700" duration="1817000" />
+      <workItem from="1782636456572" duration="4601000" />
     </task>
     <task id="LOCAL-00001" summary="CYRUS-260626: init repo">
       <option name="closed" value="true" />
@@ -220,7 +169,31 @@
       <option name="project" value="LOCAL" />
       <updated>1782549695524</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="CYRUS-260628: init cynexus-data">
+      <option name="closed" value="true" />
+      <created>1782636847168</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1782636847168</updated>
+    </task>
+    <task id="LOCAL-00007" summary="CYRUS-260628: init cynexus-data base">
+      <option name="closed" value="true" />
+      <created>1782645330291</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1782645330291</updated>
+    </task>
+    <task id="LOCAL-00008" summary="CYRUS-260628: init cynexus-data base">
+      <option name="closed" value="true" />
+      <created>1782650897073</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1782650897073</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -230,6 +203,8 @@
     <MESSAGE value="CYRUS-260626: init repo" />
     <MESSAGE value="CYRUS-260627: init repo" />
     <MESSAGE value="CYRUS-260627: init pg base" />
-    <option name="LAST_COMMIT_MESSAGE" value="CYRUS-260627: init pg base" />
+    <MESSAGE value="CYRUS-260628: init cynexus-data" />
+    <MESSAGE value="CYRUS-260628: init cynexus-data base" />
+    <option name="LAST_COMMIT_MESSAGE" value="CYRUS-260628: init cynexus-data base" />
   </component>
 </project>

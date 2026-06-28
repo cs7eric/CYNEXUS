@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.ThsIndustryConstituentSnapshotMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.ThsIndustryConstituentSnapshotPO">
+        <id property="id" column="id"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="snapshotDate" column="snapshot_date"/>
+        <result property="industryCode" column="industry_code"/>
+        <result property="stockCode" column="stock_code"/>
+        <result property="stockName" column="stock_name"/>
+        <result property="rank" column="rank"/>
+        <result property="price" column="price"/>
+        <result property="changePct" column="change_pct"/>
+        <result property="change" column="change"/>
+        <result property="speedPct" column="speed_pct"/>
+        <result property="turnoverPct" column="turnover_pct"/>
+        <result property="volumeRatio" column="volume_ratio"/>
+        <result property="amplitudePct" column="amplitude_pct"/>
+        <result property="amountText" column="amount_text"/>
+        <result property="floatSharesText" column="float_shares_text"/>
+        <result property="floatMarketCapText" column="float_market_cap_text"/>
+        <result property="pe" column="pe"/>
+        <result property="source" column="source"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="capturedAt" column="captured_at"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, batch_id, snapshot_date, industry_code, stock_code, stock_name, rank, price, change_pct, change, speed_pct, turnover_pct, volume_ratio, amplitude_pct, amount_text, float_shares_text, float_market_cap_text, pe, source, source_type, captured_at, extra, created_at, updated_at, deleted_at
+    </sql>
+</mapper>
