@@ -3,12 +3,13 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from cynexus_data.domain.market.msi_factors import (
+    build_limit_snapshot_rows,
     calculate_limit_emotion,
     calculate_risk_appetite,
     calculate_style_risk,
     calculate_turnover_activity,
     calculate_volatility_sentiment,
-    build_limit_snapshot_rows,
+    extract_limit_stock_snapshots,
 )
 
 
@@ -55,6 +56,22 @@ def test_calculate_limit_emotion() -> None:
     assert payload["limitUpCount"] == 1
     assert payload["limitDownCount"] == 1
     assert payload["yesterdayLimitUpAvgReturn"] == 10
+
+
+def test_extract_limit_stock_snapshots() -> None:
+    rows = [
+        {"code": "1", "name": "平安", "isLimitUp": True, "limitUpStreak": 2, "changePct": 10.0, "limitUpPrice": 11.0, "close": 11.0},
+        {"code": "000002", "isLimitDown": True, "limitDownPrice": 9.0, "close": 9.0},
+        {"code": "000003", "isBrokenLimitUp": True, "previousLimitUpStreak": 3, "changePct": 5.0},
+        {"code": "000004", "changePct": 1.0},
+    ]
+
+    snapshots = extract_limit_stock_snapshots(rows, trade_date=date(2026, 6, 26))
+
+    assert [row["category"] for row in snapshots] == ["limit_up", "limit_down", "broken"]
+    assert snapshots[0]["code"] == "000001"
+    assert snapshots[0]["streak"] == 2
+    assert snapshots[2]["streak"] == 3
 
 
 def test_build_limit_snapshot_rows_uses_stock_meta_threshold() -> None:

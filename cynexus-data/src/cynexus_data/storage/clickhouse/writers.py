@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -14,6 +15,7 @@ DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "2026062
 DAILY_RAW_TABLE = "daily_raw"
 DAILY_RAW_DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260628_create_daily_raw.sql"
 DAILY_ADJUSTED_DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260628_create_daily_adjusted.sql"
+INTRADAY_DETAIL_DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260628_create_intraday_detail.sql"
 
 
 class ClickHouseKlineSink:
@@ -112,6 +114,44 @@ class ClickHouseAdjustedDailyKlineSink:
         return inserted
 
 
+class ClickHouseIntradayDetailSink:
+    def __init__(
+        self,
+        config: ClickHouseConfig,
+        auction_table: str = "ch_ods_stock_auction_point",
+        timeshare_table: str = "ch_ods_stock_timeshare_1m",
+    ) -> None:
+        self.config = config
+        self.auction_table = auction_table
+        self.timeshare_table = timeshare_table
+        _ensure_local_no_proxy(config.host)
+        self.client = ClickHouseClient(config)
+
+    def create_tables(self) -> None:
+        for statement in _split_sql(INTRADAY_DETAIL_DDL_PATH.read_text(encoding="utf-8")):
+            self.client.command(statement)
+
+    def insert_auction_points(self, frame: pd.DataFrame, batch_size: int = 50_000) -> int:
+        return self._insert_frame(self.auction_table, frame, batch_size=batch_size)
+
+    def insert_timeshare(self, frame: pd.DataFrame, batch_size: int = 50_000) -> int:
+        return self._insert_frame(self.timeshare_table, frame, batch_size=batch_size)
+
+    def _insert_frame(self, table: str, frame: pd.DataFrame, batch_size: int) -> int:
+        if frame.empty:
+            return 0
+        prepared = frame.copy()
+        if "raw_payload" in prepared.columns:
+            prepared["raw_payload"] = prepared["raw_payload"].map(_json_dumps)
+        inserted = 0
+        columns = list(prepared.columns)
+        for start in range(0, len(prepared), batch_size):
+            batch = prepared.iloc[start : start + batch_size]
+            self.client.insert_df(table, batch[columns], column_names=columns)
+            inserted += len(batch)
+        return inserted
+
+
 def _split_sql(sql: str) -> list[str]:
     statements: list[str] = []
     current: list[str] = []
@@ -128,6 +168,12 @@ def _split_sql(sql: str) -> list[str]:
     if current:
         statements.append("\n".join(current).strip())
     return statements
+
+
+def _json_dumps(value) -> str:
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
 
 
 def _ensure_local_no_proxy(host: str) -> None:

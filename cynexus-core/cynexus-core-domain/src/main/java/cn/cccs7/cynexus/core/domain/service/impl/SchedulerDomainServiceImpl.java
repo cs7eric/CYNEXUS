@@ -1,5 +1,8 @@
 package cn.cccs7.cynexus.core.domain.service.impl;
 
+import cn.cccs7.cynexus.core.domain.client.DataJobExecutorClient;
+import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerRequestBO;
+import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryMappingBO;
@@ -8,13 +11,16 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
 import cn.cccs7.cynexus.core.domain.repository.SchedulerRepository;
 import cn.cccs7.cynexus.core.domain.service.SchedulerDomainService;
 import java.util.List;
+import java.util.Map;
 
 public class SchedulerDomainServiceImpl implements SchedulerDomainService {
 
     private final SchedulerRepository schedulerRepository;
+    private final DataJobExecutorClient dataJobExecutorClient;
 
-    public SchedulerDomainServiceImpl(SchedulerRepository schedulerRepository) {
+    public SchedulerDomainServiceImpl(SchedulerRepository schedulerRepository, DataJobExecutorClient dataJobExecutorClient) {
         this.schedulerRepository = schedulerRepository;
+        this.dataJobExecutorClient = dataJobExecutorClient;
     }
 
     @Override
@@ -140,5 +146,30 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     @Override
     public boolean deleteStatus(Long id) {
         return schedulerRepository.deleteStatus(id);
+    }
+
+    @Override
+    public Map<String, Object> dataJobExecutorHealth() {
+        return dataJobExecutorClient.health();
+    }
+
+    @Override
+    public Map<String, Object> listDataJobs() {
+        return dataJobExecutorClient.listJobs();
+    }
+
+    @Override
+    public Map<String, Object> getDataJob(String jobKey) {
+        return dataJobExecutorClient.getJob(jobKey);
+    }
+
+    @Override
+    public DataJobTriggerResultBO triggerDataJob(String jobKey, DataJobTriggerRequestBO request) {
+        return dataJobExecutorClient.triggerJob(jobKey, request);
+    }
+
+    @Override
+    public Map<String, Object> getDataJobRun(String runId) {
+        return dataJobExecutorClient.getJobRun(runId);
     }
 }

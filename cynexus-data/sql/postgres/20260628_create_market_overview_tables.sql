@@ -33,3 +33,21 @@ CREATE TABLE IF NOT EXISTS cynexus_data.market_overview_snapshot
 CREATE INDEX IF NOT EXISTS idx_market_overview_snapshot_trade_date_alive
     ON cynexus_data.market_overview_snapshot (trade_date DESC)
     WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.market_overview_detail_snapshot
+(
+    trade_date date NOT NULL,
+    benchmark_code text NOT NULL,
+    source_table text NOT NULL,
+    payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    source text NOT NULL DEFAULT 'python',
+    generated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz,
+    PRIMARY KEY (trade_date, benchmark_code, source_table)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_overview_detail_snapshot_alive
+    ON cynexus_data.market_overview_detail_snapshot (trade_date DESC, benchmark_code)
+    WHERE deleted_at IS NULL;

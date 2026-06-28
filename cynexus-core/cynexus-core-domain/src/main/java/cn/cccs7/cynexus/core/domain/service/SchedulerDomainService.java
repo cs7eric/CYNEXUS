@@ -5,7 +5,10 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryMappingBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobRunHistoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
+import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerRequestBO;
+import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import java.util.List;
+import java.util.Map;
 
 public interface SchedulerDomainService {
 
@@ -58,4 +61,14 @@ public interface SchedulerDomainService {
     boolean updateStatus(SchedulerJobStatusBO status);
 
     boolean deleteStatus(Long id);
+
+    Map<String, Object> dataJobExecutorHealth();
+
+    Map<String, Object> listDataJobs();
+
+    Map<String, Object> getDataJob(String jobKey);
+
+    DataJobTriggerResultBO triggerDataJob(String jobKey, DataJobTriggerRequestBO request);
+
+    Map<String, Object> getDataJobRun(String runId);
 }

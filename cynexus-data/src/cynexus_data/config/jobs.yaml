@@ -4,6 +4,11 @@ jobs:
     params:
       check_storage: optional
 
+  trigger_probe:
+    description: Echo a trigger request for Java/Core to data-job-executor E2E smoke tests.
+    params:
+      any: optional
+
   sync_metadata:
     description: Sync metadata bundle by delegating to stock-basic sync in this foundation pass.
     params:
@@ -40,6 +45,25 @@ jobs:
       create_table: optional
       pool_size: optional
       timeout: optional
+
+  sync_stock_turnover:
+    description: Sync per-stock turnover-rate series snapshots into PostgreSQL.
+    params:
+      codes: optional
+      symbols: optional
+      target_type: optional
+      period: optional
+      adjust: optional
+      limit: optional
+      bar_limit: optional
+      limit_codes: optional
+      create_table: optional
+      bars_by_code: optional
+      shares_by_code: optional
+      pool_size: optional
+      timeout: optional
+      timeout_seconds: optional
+      source: optional
 
   sync_ths_industry_constituents:
     description: Sync THS industry constituent snapshots into PostgreSQL.
@@ -108,6 +132,23 @@ jobs:
       playwright_wait_ms: optional
       chunk_size_bytes: optional
 
+  sync_tdx_intraday_detail:
+    description: Sync eltdx auction points and historical 1m timeshare details into ClickHouse.
+    params:
+      trade_date: optional
+      datasets: optional
+      dataset: optional
+      codes: optional
+      symbols: optional
+      target_type: optional
+      create_table: optional
+      resume: optional
+      checkpoint_prefix: optional
+      timeout_seconds: optional
+      eltdx_timeout: optional
+      batch_size: optional
+      limit_codes: optional
+
   aggregate_kline_periods:
     description: Aggregate 1m kline into higher periods.
     params:
@@ -139,12 +180,79 @@ jobs:
       create_table: optional
       batch_size: optional
 
+  build_index_returns:
+    description: Build broad-index window return snapshots from ClickHouse index_daily_raw into PostgreSQL.
+    params:
+      trade_date: optional
+      window_days: optional
+      days: optional
+      source_table: optional
+      lookback_days: optional
+      create_table: optional
+      targets: optional
+      rows_by_code: optional
+      rows: optional
+
+  sync_tdx_industry_quotes:
+    description: Sync TDX 56 industry index quote snapshots into PostgreSQL.
+    params:
+      snapshot_date: optional
+      trade_date: optional
+      create_table: optional
+      rows: optional
+      mapping: optional
+      batch_size: optional
+      pool_size: optional
+      timeout: optional
+      timeout_seconds: optional
+      source: optional
+
+  sync_tdx_sector_quote_details:
+    description: Sync TDX sector theme-market detail snapshots into PostgreSQL.
+    params:
+      snapshot_date: optional
+      trade_date: optional
+      codes: optional
+      code: optional
+      mapping: optional
+      datasets: optional
+      dataset: optional
+      rows: optional
+      create_table: optional
+      pool_size: optional
+      timeout: optional
+      timeout_seconds: optional
+      source: optional
+
+  build_market_heatmap:
+    description: Build UI-ready market heatmap JSON snapshot from industry quote rows.
+    params:
+      snapshot_date: optional
+      trade_date: optional
+      kind: optional
+      source: optional
+      quote_source: optional
+      top_n: optional
+      topN: optional
+      rows: optional
+      create_table: optional
+
   build_market_pulse:
     description: Build market pulse sector snapshots from fund-flow data.
     params:
       trade_date: optional
       create_table: optional
       rows: optional
+
+  build_style_sector:
+    description: Build style-sector equal-weight change snapshots from stock-sector mappings and Tencent realtime quotes.
+    params:
+      trade_date: optional
+      create_table: optional
+      sectors: optional
+      quotes_by_code: optional
+      batch_size: optional
+      batch_sleep: optional
 
   build_market_overview:
     description: Build or merge one market overview daily snapshot.
@@ -161,9 +269,31 @@ jobs:
       eastmoney_max_pages: optional
       eastmoney_page_size: optional
       eastmoney_page_sleep: optional
+      codes: optional
+      symbols: optional
+      batch_size: optional
+      batch_sleep: optional
+      tencent_batch_size: optional
+      tencent_batch_sleep: optional
       fields: optional
       totalAmount: optional
       mainNetInflow: optional
+
+  build_market_overview_detail:
+    description: Build market overview technical/detail JSON snapshot from daily bars and breadth snapshots.
+    params:
+      trade_date: optional
+      benchmark_code: optional
+      source_table: optional
+      lookback_days: optional
+      create_table: optional
+      benchmark_rows: optional
+      rows: optional
+      index_bars_map: optional
+      style_indices: optional
+      today_breadth: optional
+      breadth_series: optional
+      industry_rows: optional
 
   sync_margin:
     description: Sync margin trading data.

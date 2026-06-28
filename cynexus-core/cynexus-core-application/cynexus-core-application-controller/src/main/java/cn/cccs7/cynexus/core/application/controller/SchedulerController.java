@@ -6,9 +6,12 @@ import cn.cccs7.cynexus.core.application.dto.SchedulerJobCategoryMappingDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerJobDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerJobRunHistoryDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerJobStatusDTO;
+import cn.cccs7.cynexus.core.application.dto.DataJobTriggerResultDTO;
+import cn.cccs7.cynexus.core.application.request.DataJobTriggerRequest;
 import cn.cccs7.cynexus.core.application.request.SchedulerJobCreateRequest;
 import cn.cccs7.cynexus.core.application.service.SchedulerAppService;
 import java.util.List;
+import java.util.Map;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -151,5 +154,31 @@ public class SchedulerController {
     @DeleteMapping("/statuses/{id}")
     public Result<Boolean> deleteStatus(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.deleteStatus(id));
+    }
+
+    @GetMapping("/data-jobs/health")
+    public Result<Map<String, Object>> dataJobExecutorHealth() {
+        return Result.success(schedulerAppService.dataJobExecutorHealth());
+    }
+
+    @GetMapping("/data-jobs")
+    public Result<Map<String, Object>> listDataJobs() {
+        return Result.success(schedulerAppService.listDataJobs());
+    }
+
+    @GetMapping("/data-jobs/{jobKey}")
+    public Result<Map<String, Object>> getDataJob(@PathVariable("jobKey") String jobKey) {
+        return Result.success(schedulerAppService.getDataJob(jobKey));
+    }
+
+    @PostMapping("/data-jobs/{jobKey}/trigger")
+    public Result<DataJobTriggerResultDTO> triggerDataJob(@PathVariable("jobKey") String jobKey,
+                                                         @RequestBody DataJobTriggerRequest request) {
+        return Result.success(schedulerAppService.triggerDataJob(jobKey, request));
+    }
+
+    @GetMapping("/data-job-runs/{runId}")
+    public Result<Map<String, Object>> getDataJobRun(@PathVariable("runId") String runId) {
+        return Result.success(schedulerAppService.getDataJobRun(runId));
     }
 }

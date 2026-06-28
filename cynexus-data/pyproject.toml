@@ -26,6 +26,14 @@ cynexus-sync-kline-daily = "cynexus_data.jobs.sync_kline_daily:main"
 cynexus-transcribe-media = "cynexus_data.jobs.transcribe_media:main"
 cynexus-sync-stock-fund-flow = "cynexus_data.jobs.sync_stock_fund_flow:main"
 cynexus-sync-ths-industry-constituents = "cynexus_data.jobs.sync_ths_industry_constituents:main"
+cynexus-sync-stock-turnover = "cynexus_data.jobs.sync_stock_turnover:main"
+cynexus-sync-tdx-intraday-detail = "cynexus_data.jobs.sync_tdx_intraday_detail:main"
+cynexus-build-market-overview-detail = "cynexus_data.jobs.build_market_overview_detail:main"
+cynexus-build-index-returns = "cynexus_data.jobs.build_index_returns:main"
+cynexus-sync-tdx-industry-quotes = "cynexus_data.jobs.sync_tdx_industry_quotes:main"
+cynexus-build-market-heatmap = "cynexus_data.jobs.build_market_heatmap:main"
+cynexus-build-style-sector = "cynexus_data.jobs.build_style_sector:main"
+cynexus-sync-tdx-sector-quote-details = "cynexus_data.jobs.sync_tdx_sector_quote_details:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

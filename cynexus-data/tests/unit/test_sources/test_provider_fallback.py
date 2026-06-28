@@ -21,6 +21,7 @@ def test_fetch_with_fallback_records_attempts() -> None:
 
 def test_provider_plan_and_symbol_helpers() -> None:
     assert provider_plan("kline_daily", requested="eastmoney,tencent") == ["eastmoney", "tencent"]
+    assert provider_plan("kline_minute", requested="mootdx,sina") == ["mootdx", "sina"]
     assert normalize_market_symbol("600000") == "sh600000"
     assert normalize_market_symbol("000001") == "sz000001"
     assert eastmoney_secid("600000") == "1.600000"

@@ -32,6 +32,7 @@ SOURCE_OVERWRITE_FIELDS = {
     "eltdx": MARKET_FIELDS,
     "akshare": FUND_FLOW_FIELDS,
     "eastmoney": MARKET_FIELDS,
+    "tencent": MARKET_FIELDS,
     "manual": FUND_FLOW_FIELDS,
 }
 

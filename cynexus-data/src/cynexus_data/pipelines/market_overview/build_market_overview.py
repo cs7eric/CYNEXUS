@@ -9,13 +9,14 @@ from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.sources.tdx.market_overview import fetch_eltdx_market_overview
 from cynexus_data.storage.postgres.market_overview import MarketOverviewRepository
+from cynexus_data.storage.postgres.stock_basic import StockBasicRepository
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
     source = str(request.params.get("source") or "manual")
     create_table = _truthy(request.params.get("create_table"))
     raw_fields = _collect_fields(request.params)
-    should_fetch_live = _truthy(request.params.get("fetch_live")) or (source in {"akshare", "eltdx", "eastmoney"} and not _has_overview_field_values(raw_fields))
+    should_fetch_live = _truthy(request.params.get("fetch_live")) or (source in {"akshare", "eltdx", "eastmoney", "tencent"} and not _has_overview_field_values(raw_fields))
     if not request.dry_run and should_fetch_live:
         raw_fields.update(_fetch_live_fields(context, source=source, params=request.params))
     trade_date = _parse_date(request.params.get("trade_date") or raw_fields.get("trade_date") or raw_fields.get("tradingDate"))
@@ -67,6 +68,15 @@ def _fetch_live_fields(context: PipelineContext, *, source: str, params: dict[st
             max_pages=max_pages,
             page_sleep=page_sleep,
         )
+    if source == "tencent":
+        codes = _normalize_codes(params.get("codes") or params.get("symbols"))
+        if not codes:
+            codes = StockBasicRepository(context.hooks.postgres.get_client()).list_codes(active_only=True)
+        if not codes:
+            raise ValueError("codes/symbols are required for tencent market overview or sec_stock_basic must contain active codes")
+        batch_size = int(params.get("batch_size") or params.get("tencent_batch_size") or 500)
+        batch_sleep = float(params.get("batch_sleep") or params.get("tencent_batch_sleep") or 0.22)
+        return context.hooks.tencent.get_client().fetch_market_overview(codes, batch_size=batch_size, batch_sleep=batch_sleep)
     raise ValueError(f"unsupported live market overview source: {source}")
 
 
@@ -88,7 +98,23 @@ def _collect_fields(params: dict[str, Any]) -> dict[str, Any]:
 
 def _has_overview_field_values(fields: dict[str, Any]) -> bool:
     date_keys = {"trade_date", "tradingDate", "tradeDate"}
-    ignored_keys = date_keys | {"fetch_live", "eltdx_timeout", "timeout_seconds", "page_size", "max_pages", "page_sleep", "eastmoney_page_size", "eastmoney_max_pages", "eastmoney_page_sleep"}
+    ignored_keys = date_keys | {
+        "fetch_live",
+        "eltdx_timeout",
+        "timeout_seconds",
+        "page_size",
+        "max_pages",
+        "page_sleep",
+        "eastmoney_page_size",
+        "eastmoney_max_pages",
+        "eastmoney_page_sleep",
+        "codes",
+        "symbols",
+        "batch_size",
+        "batch_sleep",
+        "tencent_batch_size",
+        "tencent_batch_sleep",
+    }
     return any(key not in ignored_keys and value not in (None, "") for key, value in fields.items())
 
 
@@ -109,6 +135,14 @@ def _truthy(value: Any) -> bool:
     if value is None:
         return False
     return str(value).lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _normalize_codes(value: Any) -> list[str] | None:
+    if value in (None, "", []):
+        return None
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return [str(item).strip() for item in value if str(item).strip()]
 
 
 def _jsonable(row: dict[str, Any]) -> dict[str, Any]:

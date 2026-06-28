@@ -28,10 +28,10 @@ Individual factor producers stay separate from the composite builder so each one
 
 - `build_ma_count` computes MA20/MA60 participation, 5-day up ratio, 60-day new lows, 252-day new highs, and `breadth_raw`.
 - `build_profit_effect` computes `0.60 * up_5d_pct + 0.40 * (100 - new_low_60d_pct)`.
-- `build_turnover_activity` computes current index amount divided by the prior window average. Historical percentile score can be passed as `score`; otherwise the factor stores neutral `50`.
+- `build_turnover_activity` computes current index amount divided by the prior window average. Historical percentile score can be passed as `score`; otherwise non-dry-run mode uses PostgreSQL history on `ratio` and falls back to neutral `50`.
 - `build_volatility_sentiment` computes annualized realized volatility and scores lower volatility as higher sentiment using in-window percentile rank.
-- `build_risk_appetite` computes HS300 return minus weighted treasury ETF return. Historical percentile score can be passed as `score`; otherwise the factor stores neutral `50`.
-- `build_style_risk` computes CSI1000 return minus HS300 return. Historical percentile score can be passed as `score`; otherwise the factor stores neutral `50`.
+- `build_risk_appetite` computes HS300 return minus weighted treasury ETF return. Historical percentile score can be passed as `score`; otherwise non-dry-run mode uses PostgreSQL history on `spread_weighted` and falls back to neutral `50`.
+- `build_style_risk` computes CSI1000 return minus HS300 return. Historical percentile score can be passed as `score`; otherwise non-dry-run mode uses PostgreSQL history on `spread` and falls back to neutral `50`.
 - `build_limit_emotion` computes limit-up/down ratio, break-board rate, yesterday limit-up average return, sub-scores, composite score, and level. Historical score overrides can be passed through `score_overrides` during repair.
 - In production mode `build_limit_emotion` reads OHLC/pre-close rows from ClickHouse and uses `sec_stock_basic.limit_up_threshold` / `is_st` to build ST-aware limit snapshots before summarizing. If stock metadata is unavailable, it falls back to code-prefix threshold rules and records a note.
 - It also reads a bounded historical OHLC window (`streak_lookback_days`, default `120`) to compute `previousLimitUpStreak`, `limitUpStreak`, `isPromoted`, `isBrokenStreak`, and `streakSummary`.

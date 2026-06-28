@@ -27,6 +27,14 @@
 
 `sync_tdx_hsjday` is the upstream preparation job for refreshing the local `.day` root from TDX `hsjday.zip`.
 
+## Daily Read Compatibility
+
+`storage/clickhouse/readers.py` migrates the legacy daily K-line read shape without importing the old backend:
+
+- `read_daily_kline_bars(client, code, adjust, start, end, limit)` reads `daily_raw`, `daily_qfq`, or `daily_hfq`.
+- `limit` follows the old behavior: take the latest N rows, then return them ascending by `trade_date`.
+- `get_latest_daily_trade_date`, `has_adjusted_daily`, and `list_codes_with_adjusted_daily` support lightweight coverage checks.
+
 ## Adjusted Daily Sync
 
 `sync_adjusted_kline_daily` pulls adjusted daily K-line data from `eltdx`.
@@ -38,6 +46,19 @@
 - Resume params: `resume`, `checkpoint_prefix`. When `resume=true`, completed `adjust + code + date range` batches are skipped through `PipelineContext.checkpoints`.
 
 `adjust=both` expands to `qfq,hfq`.
+
+## TDX Intraday Detail Sync
+
+`sync_tdx_intraday_detail` pulls eltdx auction points and historical 1m timeshare detail into ClickHouse.
+
+- `dry_run=true`: validate the request shape only, no eltdx or ClickHouse access.
+- `dry_run=false`: fetch selected datasets and write to `ch_ods_stock_auction_point` and/or `ch_ods_stock_timeshare_1m`.
+- Default datasets: `auction,timeshare`.
+- Optional params: `datasets` / `dataset`, `trade_date`, `codes` / `symbols`, `target_type`, `limit_codes`, `timeout_seconds`, `batch_size`, `create_table`.
+- Resume params: `resume`, `checkpoint_prefix`. When `resume=true`, completed `dataset + code + trade_date` batches are skipped through `PipelineContext.checkpoints`.
+- When `codes` are omitted in non-dry-run mode, active codes are read from `sec_stock_basic`.
+
+The pipeline intentionally does not migrate old auction AI analysis or UI cache assembly. Those remain outside the Python data executor boundary.
 
 ## Period Aggregation
 

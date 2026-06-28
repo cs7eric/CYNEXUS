@@ -73,3 +73,53 @@ Fields are aligned with `daily_raw`, with additional:
 
 - `adjust`: `qfq` or `hfq`.
 - `adj_factor`: factor reported by the provider when available, otherwise `1.0`.
+
+## ClickHouse Intraday Detail
+
+Primary tables:
+
+- `ch_ods_stock_auction_point`
+- `ch_ods_stock_timeshare_1m`
+
+These tables store eltdx-provided high-frequency intraday detail. They are ClickHouse facts, not PostgreSQL UI result tables.
+
+Auction identity:
+
+- `trade_date`
+- `market`
+- `symbol`
+- `trade_time`
+- `phase`
+- `source`
+
+Timeshare identity:
+
+- `trade_date`
+- `market`
+- `symbol`
+- `trade_time`
+- `source`
+
+Shared lineage fields:
+
+- `tdx_code`: provider-specific market-prefixed code.
+- `raw_payload`: compact JSON copy of the provider row used to build the normalized fact.
+- `fetched_at` and `ingested_at`: capture time and ClickHouse version column.
+
+`phase` is one of `opening`, `auction_0925`, `continuous`, or `closing`. Re-runs append newer versions through `ReplacingMergeTree(ingested_at)`.
+
+## Reader Compatibility Payload
+
+`storage/clickhouse/readers.py` exposes `read_daily_kline_bars` for legacy-compatible daily K-line reads.
+
+Returned rows contain:
+
+- `timestamp`: Beijing trading-session timestamp at 09:30 in epoch milliseconds.
+- `trade_date`, `open`, `high`, `low`, `close`, `volume`, `amount`.
+- `adj_factor` when reading `daily_qfq` or `daily_hfq`.
+
+Helper reads:
+
+- `get_latest_daily_trade_date`
+- `has_adjusted_daily`
+- `list_codes_with_adjusted_daily`

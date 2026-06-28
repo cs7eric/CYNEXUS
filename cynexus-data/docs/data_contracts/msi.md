@@ -45,6 +45,7 @@ Missing components are treated as neutral `50.0` during composite calculation. I
 `cynexus_data.msi_turnover_activity_daily`
 
 - Stores market amount activity, prior-window average, `ratio`, and `score`.
+- In non-dry-run producer mode, `score` is the historical percentile of `ratio` over PostgreSQL history when available.
 
 ## Volatility Sentiment Table
 
@@ -57,12 +58,14 @@ Missing components are treated as neutral `50.0` during composite calculation. I
 `cynexus_data.msi_risk_appetite_daily`
 
 - Stores HS300, treasury ETF returns, spread values, and `score`.
+- In non-dry-run producer mode, `score` is the historical percentile of `spread_weighted` when available.
 
 ## Style Risk Table
 
 `cynexus_data.msi_style_risk_daily`
 
 - Stores HS300/CSI1000 returns, spread, and `score`.
+- In non-dry-run producer mode, `score` is the historical percentile of `spread` when available.
 
 ## Limit Emotion Table
 

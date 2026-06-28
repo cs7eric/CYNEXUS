@@ -60,3 +60,34 @@ class StockSectorRepository:
                     mapping,
                 )
         return len(mappings)
+
+    def list_sectors_by_category(self, category_raw: int) -> list[dict[str, Any]]:
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    SELECT s.sector_id, s.category_raw, s.category_label, s.name, s.topic_id,
+                           array_agg(ss.code ORDER BY ss.code) AS stock_codes,
+                           count(ss.code) AS stock_count
+                      FROM {self.client.schema}.sec_sector s
+                      LEFT JOIN {self.client.schema}.sec_stock_sector ss
+                        ON ss.sector_id = s.sector_id
+                     WHERE s.category_raw = :category_raw
+                     GROUP BY s.sector_id, s.category_raw, s.category_label, s.name, s.topic_id
+                     ORDER BY count(ss.code) DESC, s.name
+                    """
+                ),
+                {"category_raw": category_raw},
+            ).mappings().all()
+        return [
+            {
+                "sector_id": row["sector_id"],
+                "category_raw": row["category_raw"],
+                "category_label": row["category_label"],
+                "name": row["name"],
+                "topic_id": row["topic_id"],
+                "stock_codes": list(row["stock_codes"] or []),
+                "stock_count": int(row["stock_count"] or 0),
+            }
+            for row in rows
+        ]

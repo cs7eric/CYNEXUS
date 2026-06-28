@@ -195,6 +195,42 @@ def calculate_limit_emotion(
     }
 
 
+def extract_limit_stock_snapshots(rows: list[dict[str, Any]], *, trade_date: date) -> list[dict[str, Any]]:
+    snapshots: list[dict[str, Any]] = []
+    for row in rows:
+        code = str(row.get("code") or "").zfill(6)
+        if not code or code == "000000":
+            continue
+        category: str | None = None
+        streak: int | None = None
+        if _truthy(row.get("isLimitUp") or row.get("is_limit_up")):
+            category = "limit_up"
+            streak = int(row.get("limitUpStreak") or row.get("limit_up_streak") or 0)
+        elif _truthy(row.get("isLimitDown") or row.get("is_limit_down")):
+            category = "limit_down"
+            streak = 0
+        elif _truthy(row.get("isBrokenLimitUp") or row.get("is_broken_limit_up") or row.get("is_broken")):
+            category = "broken"
+            streak = int(row.get("previousLimitUpStreak") or row.get("previous_limit_up_streak") or 0)
+        if category is None:
+            continue
+        snapshots.append(
+            {
+                "tradeDate": _ensure_date(trade_date).isoformat(),
+                "code": code,
+                "name": row.get("name"),
+                "category": category,
+                "streak": streak,
+                "changePct": _to_float(row.get("changePct") or row.get("change_pct")),
+                "limitUpPrice": _to_float(row.get("limitUpPrice") or row.get("limit_up_price")),
+                "limitDownPrice": _to_float(row.get("limitDownPrice") or row.get("limit_down_price")),
+                "close": _to_float(row.get("close")),
+                "payload": dict(row),
+            }
+        )
+    return snapshots
+
+
 def build_limit_snapshot_rows(
     rows: list[dict[str, Any]],
     *,

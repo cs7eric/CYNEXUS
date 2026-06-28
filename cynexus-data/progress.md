@@ -597,3 +597,391 @@
   - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
   - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage strings only.
   - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Tencent Realtime Snapshot Migration Pass
+
+- Reviewed legacy `backend/adapters/market/tencent.py` and current Tencent source/client/parser/provider-fallback implementation.
+- Confirmed Tencent daily/minute K-line fallback and stock fund-flow snapshot paths are already production-wired.
+- Added `parse_qt_realtime_snapshot_text` and `summarize_qt_realtime_snapshots` for `qt.gtimg.cn` quote rows.
+- Added `TencentClient.fetch_realtime_snapshots_batch` and `fetch_market_overview`.
+- Wired `build_market_overview source=tencent` to fetch live breadth from explicit `codes` or active `sec_stock_basic` codes.
+- Updated market-overview overwrite rules, job config, source docs, pipeline/data contract docs, and Tencent inventory status.
+
+## 2026-06-28 Tencent Realtime Snapshot Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_sources/test_tencent_fund_flow.py tests/unit/test_pipelines/test_market_overview_pipeline.py tests/unit/test_domain/test_market_overview.py -q`: passed, 9 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_market_overview --dry-run --source tencent --trade-date 2026-06-26 --codes 600000,000001`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 108 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Sina Minute Kline Hardening Pass
+
+- Reviewed legacy `backend/adapters/market/sina.py` and current Sina source/provider-fallback implementation.
+- Confirmed Sina minute K-line is already production-wired through `fetch_minute_kline_with_fallback`.
+- Hardened `parse_sina_minute_rows` to skip malformed rows, accept second/minute timestamps, and emit `volume_ratio` parity metadata.
+- Updated Sina source docs and legacy inventory/file inventory status.
+
+## 2026-06-28 Sina Minute Kline Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_sources/test_market_parsers.py tests/unit/test_sources/test_provider_fallback.py tests/unit/test_pipelines/test_kline_sync_minute.py -q`: passed, 9 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 108 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Mootdx Optional Fallback Migration Pass
+
+- Reviewed legacy `backend/adapters/market/mootdx_adapter.py` and current provider fallback implementation.
+- Added `sources/tdx/mootdx.py` with optional dependency guard, frequency mapping, daily/minute K-line normalization, volume-ratio metadata, and adjusted-minute rejection.
+- Wired explicit `providers=mootdx` into daily and minute provider fallback without changing default provider ordering.
+- Updated TDX source docs and legacy inventory/file inventory status.
+
+## 2026-06-28 Mootdx Optional Fallback Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_sources/test_tdx_mootdx.py tests/unit/test_sources/test_provider_fallback.py -q`: passed, 6 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 112 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 eltdx Inventory Reconciliation
+
+- Reconciled top-level `backend/adapters/market/eltdx_adapter.py` inventory with already migrated production paths.
+- Marked eltdx as `partial_production` because adjusted daily K-line, market overview breadth, stock topics, and minute/history K-line support already exist in focused modules.
+- Recorded remaining eltdx-specific gap as auction/timeshare detail capture.
+
+## 2026-06-28 eltdx Intraday Detail Migration Pass
+
+- Reviewed legacy `backend/adapters/market/eltdx_adapter.py` auction and history-timeshare functions plus old `auction_service.py` / `kline_service.py` boundaries.
+- Added `sources/tdx/intraday.py` with optional eltdx client creation, auction point normalization, historical timeshare normalization, response row extraction, timestamp tolerance, and volume-ratio metadata.
+- Added `TdxHook.get_intraday_detail_client`.
+- Added ClickHouse DDL for `ch_ods_stock_auction_point` and `ch_ods_stock_timeshare_1m`.
+- Added `ClickHouseIntradayDetailSink` with JSON serialization for provider raw payload lineage.
+- Added executable `pipelines/kline/sync_intraday_detail.py` and registered `jobs/sync_tdx_intraday_detail.py`.
+- Updated job config, console script, TDX source docs, K-line pipeline/data contracts, table design docs, and legacy inventory/file inventory.
+- Kept old auction AI analysis, UI phase summary/cache assembly, and JSON runtime cache out of scope.
+
+## 2026-06-28 eltdx Intraday Detail Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_sources/test_tdx_intraday.py tests/unit/test_pipelines/test_tdx_intraday_detail_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 9 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.sync_tdx_intraday_detail --dry-run --trade-date 2026-06-26 --codes 600000 --datasets auction,timeshare`: passed through `JobRunner`.
+
+## 2026-06-28 Market Overview Technical Helper Migration Pass
+
+- Reviewed legacy `backend/services/stock/market_overview/windows.py`, `support_resistance.py`, and `regime.py`.
+- Added `domain/market/market_technical.py` with pure moving average, window metric, volatility, regime bucket, and support/resistance level helpers.
+- Kept these helpers free of storage, source, hook, env, filesystem, and network imports.
+- Updated domain README, market-overview pipeline/data-contract docs, top-level inventory, and per-file inventory.
+- Left UI summary assembly and persisted detail pipeline staged until Java/UI needs a stable serving contract.
+
+## 2026-06-28 Market Overview Technical Helper Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_market_technical.py -q`: passed, 4 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 123 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Market Overview Detail Helper Migration Pass
+
+- Reviewed legacy `market_overview/style_rotation.py`, `industry_strength.py`, `sentiment.py`, and `similar_scenarios.py`.
+- Extended `domain/market/market_technical.py` with pure helpers for:
+  - style relative-return rows and dominant style selection;
+  - industry/index relative strength;
+  - breadth sentiment component scoring and rolling breadth state;
+  - similar-scenario matching and forward-return summaries.
+- Kept legacy provider calls, JSON cache reads, industry-index resolution, and detail persistence out of domain.
+- Updated market-overview docs and legacy inventory/file inventory.
+
+## 2026-06-28 Market Overview Detail Helper Validation
+
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_market_technical.py -q`: passed, 8 tests.
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 127 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 MSI Percentile Repository Migration Pass
+
+- Reviewed legacy `backend/repositories/market/percentile_helper.py`.
+- Added `storage/postgres/percentile.py` with allowlisted table/column resolution, `percentile_score`, and `enrich_history_scores`.
+- Wired non-dry-run `build_turnover_activity`, `build_risk_appetite`, and `build_style_risk` to use PostgreSQL historical percentiles when no explicit `score` is supplied.
+- Kept dry-run behavior storage-free and preserved neutral fallback when historical rows or storage access are unavailable.
+- Updated MSI docs, findings, task plan, and legacy inventory.
+
+## 2026-06-28 MSI Percentile Repository Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_storage/test_postgres_percentile.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py tests/unit/test_domain/test_msi_factors.py -q`: passed, 12 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 131 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Market Overview Detail Snapshot Migration Pass
+
+- Added `read_daily_bars_by_code` ClickHouse reader for compact per-code daily OHLCV windows.
+- Extended market overview PostgreSQL DDL with `market_overview_detail_snapshot`.
+- Extended `MarketOverviewRepository` with `list_snapshots`, `get_detail`, and `upsert_detail`.
+- Added executable `pipelines/market_overview/build_market_overview_detail.py`:
+  - dry-run uses supplied rows or deterministic synthetic rows;
+  - non-dry-run reads benchmark/style index bars from ClickHouse;
+  - breadth sentiment comes from supplied rows or `market_overview_snapshot`;
+  - final UI-ready detail payload is persisted as JSONB in PostgreSQL.
+- Added and registered `jobs/build_market_overview_detail.py`, job config, console script, docs, tests, and inventory updates.
+
+## 2026-06-28 Market Overview Detail Snapshot Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_pipelines/test_market_overview_pipeline.py tests/unit/test_storage/test_postgres_market_overview.py tests/unit/test_jobs_registry.py -q`: passed, 11 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_market_overview_detail --dry-run --trade-date 2026-06-26`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 135 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Kline Reader Compatibility Migration Pass
+
+- Reviewed legacy `backend/repositories/market/kline_repo.py`.
+- Added `read_daily_kline_bars` to `storage/clickhouse/readers.py` with legacy-compatible payload fields: Beijing 09:30 epoch-ms `timestamp`, `trade_date`, OHLCV, amount, and adjusted `adj_factor`.
+- Added lightweight helpers:
+  - `get_latest_daily_trade_date`
+  - `has_adjusted_daily`
+  - `list_codes_with_adjusted_daily`
+- Added unit tests with fake ClickHouse clients for SQL shape, latest-N ordering, adjusted/raw payloads, and helper queries.
+- Updated K-line data contract/pipeline docs and inventory rows.
+
+## 2026-06-28 Kline Reader Compatibility Validation
+
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_storage/test_clickhouse_readers.py -q`: passed, 4 tests.
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 139 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Index Returns Migration Pass
+
+- Reviewed legacy `backend/repositories/market/index_repo.py`.
+- Added pure `domain/market/index_returns.py` for default broad-index targets, daily return rows, and cumulative window return payloads.
+- Added ClickHouse readers for grouped `index_daily_raw` reads:
+  - `read_index_daily_bars`
+  - `latest_index_trade_date`
+  - `has_index_kline`
+- Added PostgreSQL DDL/repository for `mkt_index_return_daily`.
+- Added executable `pipelines/market/build_index_returns.py` and `jobs/build_index_returns.py`.
+- Registered job in registry/config/console scripts.
+- Added docs under `docs/data_contracts/index_returns.md` and `docs/pipeline_design/index_returns.md`.
+- Updated task plan, findings, jobs/storage/domain docs, and legacy inventory.
+
+## 2026-06-28 Index Returns Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_index_returns.py tests/unit/test_storage/test_clickhouse_readers.py tests/unit/test_storage/test_postgres_index_returns.py tests/unit/test_pipelines/test_index_returns_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 15 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_index_returns --dry-run --trade-date 2026-06-26 --window-days 5`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 148 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Index Code Catalog Migration Pass
+
+- Reviewed legacy `backend/services/stock/f10/index_codes.py`.
+- Added `domain/market/index_codes.py` with:
+  - TDX `sh8803XX` industry index catalog;
+  - TDX `sh8804XX` concept index catalog;
+  - pure normalization, kind inference, all-code listing, and lookup helpers;
+  - caller-supplied `extra_items` support instead of domain-level filesystem override reads.
+- Added unit tests and data-contract docs.
+- Updated domain README, findings, task plan, and legacy file inventory.
+
+## 2026-06-28 Index Code Catalog Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_index_codes.py tests/unit/test_domain/test_index_returns.py -q`: passed, 6 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 151 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 TDX Industry Quote Snapshot Migration Pass
+
+- Reviewed legacy `backend/services/stock/f10/tdx_industry_codes.py`, `tdx_industry_seeds.py`, and `tdx_industry_service.py`.
+- Extended `domain/market/index_codes.py` with TDX 56 industry catalog and representative seed stocks.
+- Added `sources/tdx/industry_quotes.py` for eltdx full-code resolution, quote normalization, and heatmap-compatible payload assembly.
+- Added PostgreSQL DDL/repository for:
+  - `tdx_industry_quote_batch`
+  - `tdx_industry_quote_snapshot`
+- Added executable `pipelines/market/sync_tdx_industry_quotes.py` and `jobs/sync_tdx_industry_quotes.py`.
+- Registered job in registry/config/console scripts.
+- Added docs under `docs/data_contracts/tdx_industry_quotes.md` and `docs/pipeline_design/tdx_industry_quotes.md`.
+- Updated TDX source docs, PG/table docs, findings, task plan, and legacy inventory.
+
+## 2026-06-28 TDX Industry Quote Snapshot Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_index_codes.py tests/unit/test_sources/test_tdx_industry_quotes.py tests/unit/test_storage/test_postgres_tdx_industry_quotes.py tests/unit/test_pipelines/test_tdx_industry_quotes_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 13 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.sync_tdx_industry_quotes --dry-run --snapshot-date 2026-06-26`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 159 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Market Heatmap Snapshot Migration Pass
+
+- Reviewed legacy `backend/services/stock/market_heatmap_service.py` and `sector_quote_service.py` boundaries.
+- Added pure `domain/market/market_heatmap.py` to normalize persisted industry quote rows into a legacy-compatible heatmap payload.
+- Added PostgreSQL DDL/repository for `market_heatmap_snapshot`.
+- Added executable `pipelines/market/build_market_heatmap.py` and `jobs/build_market_heatmap.py`.
+- Registered the job in registry/config/console scripts.
+- Added docs under `docs/data_contracts/market_heatmap.md` and `docs/pipeline_design/market_heatmap.md`.
+- Kept old Flask response wiring, local JSON runtime caches, stock-universe hotpath cache, and theme-market UI service out of scope.
+
+## 2026-06-28 Market Heatmap Snapshot Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_market_heatmap.py tests/unit/test_storage/test_postgres_market_heatmap.py tests/unit/test_pipelines/test_market_heatmap_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 7 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_market_heatmap --dry-run --snapshot-date 2026-06-26 --top-n 1`: passed through `JobRunner`.
+
+## 2026-06-28 TDX Sector Quote Detail Migration Pass
+
+- Reviewed legacy `backend/services/stock/sector_quote_service.py`.
+- Added `sources/tdx/sector_quote.py` for optional eltdx `f10.theme_market` ReqId parsing:
+  - `200741` period stats;
+  - `200742` main capital flow;
+  - `200743` related sectors;
+  - `200744` constituents;
+  - `200745` main control.
+- Added pure `domain/market/sector_quote.py` for JSONB payload wrapping and section-count metadata.
+- Added PostgreSQL DDL/repository for `tdx_sector_quote_detail_snapshot`.
+- Added executable `pipelines/market/sync_tdx_sector_quote_details.py` and `jobs/sync_tdx_sector_quote_details.py`.
+- Registered job in registry/config/console scripts.
+- Added docs under `docs/data_contracts/sector_quote.md` and `docs/pipeline_design/tdx_sector_quote_details.md`.
+- Kept old Flask API, stock-universe JSON seed lookup, and Tencent constituent fallback out of scope.
+
+## 2026-06-28 TDX Sector Quote Detail Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_sources/test_tdx_sector_quote.py tests/unit/test_domain/test_sector_quote.py tests/unit/test_storage/test_postgres_sector_quote.py tests/unit/test_pipelines/test_tdx_sector_quote_details_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 10 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.sync_tdx_sector_quote_details --dry-run --snapshot-date 2026-06-26 --codes 880471 --datasets period_stats,constituents`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 172 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are existing lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Stock Turnover Series Migration Pass
+
+- Reviewed legacy `backend/services/stock/f10/turnover.py`, `turnover_repo.py`, and eltdx turnover formula.
+- Added pure `domain/stock/turnover.py` for per-stock turnover series calculation.
+- Added `sources/tdx/stock_profile.py` for optional eltdx circulating/total share lookup.
+- Added PostgreSQL DDL/repository for `stock_turnover_series_snapshot`.
+- Added executable `pipelines/stock_basic/sync_stock_turnover.py` and `jobs/sync_stock_turnover.py`.
+- Registered job in registry/config/console scripts.
+- Added docs under `docs/data_contracts/stock_turnover.md` and `docs/pipeline_design/stock_turnover.md`.
+- Replaced old filesystem JSON turnover cache with PostgreSQL JSONB serving snapshots; K-line facts stay in ClickHouse.
+
+## 2026-06-28 Stock Turnover Series Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_stock_turnover.py tests/unit/test_sources/test_tdx_stock_profile.py tests/unit/test_storage/test_postgres_stock_turnover.py tests/unit/test_pipelines/test_stock_turnover_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 8 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.sync_stock_turnover --dry-run --codes 600000 --limit-codes 1`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 178 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Scope Reconciliation Pass
+
+- Reviewed legacy `backend/services/stock/_pg_writer.py`; confirmed market overview PG writes are now direct in `MarketOverviewRepository.upsert_fields` and `build_market_overview`.
+- Reviewed `config_service.py`, `search_service.py`, `self_selected_service.py`, and `workspace_service.py`.
+- Marked UI/config/user-state files as out of Python executor scope in `legacy_file_inventory.md`.
+- Kept `_limit_pg_writer.py` staged because existing MSI limit emotion covers summary scoring, but old stock-detail PG snapshot parity still needs a deliberate decision.
+- Validation after reconciliation: `python -m compileall -q src` passed; `$env:PYTHONPATH='src'; pytest tests/unit -q` passed, 178 tests.
+
+## 2026-06-28 Market Limit Stock Snapshot Migration Pass
+
+- Reviewed legacy `backend/services/stock/_limit_pg_writer.py` and `backend/repositories/market/market_limit_pg_repo.py`.
+- Added pure `extract_limit_stock_snapshots` in `domain/market/msi_factors.py` for limit-up, limit-down, and broken-board stock rows.
+- Added PostgreSQL DDL/repository for `market_limit_stock_snapshot`.
+- Enhanced `pipelines/msi/build_limit_emotion.py` so non-dry-run saves both `msi_limit_emotion_daily` and compact stock-level serving rows.
+- Added docs under `docs/data_contracts/market_limit.md` and `docs/pipeline_design/market_limit.md`.
+- Updated storage/domain READMEs and reconciled legacy inventory rows for `_limit_pg_writer.py` and `market_limit_pg_repo.py`.
+
+## 2026-06-28 Market Limit Stock Snapshot Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_msi_factors.py tests/unit/test_storage/test_postgres_market_limit.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py -q`: passed, 10 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 180 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_limit_emotion --dry-run --trade-date 2026-06-26 --rows ...`: passed through `JobRunner` and returned stock-level `stock_rows`.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+- Remaining `planned_after_skeleton` rows: 64.
+
+## 2026-06-28 UI/AI Reader Scope Reconciliation Pass
+
+- Reviewed legacy `backend/services/stock/analysis_data_reader.py`; marked out of scope because it is an AI feature-summary reader over old services/cache paths, not a data-production job.
+- Reviewed legacy `backend/services/stock/sample_data_service.py`; marked out of scope because it only creates synthetic UI fallback K-line samples.
+- `python -m compileall -q src`: passed after reconciliation.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_msi_factors.py tests/unit/test_storage/test_postgres_market_limit.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py -q`: passed, 10 tests.
+- Remaining `planned_after_skeleton` rows: 62.
+
+## 2026-06-28 Backlog Inventory Correction Pass
+
+- Recounted all remaining `planned_after_skeleton` rows after user questioned the inflated 60+ count.
+- Confirmed the count was stale inventory, not 60+ missing production modules:
+  - package/export rows;
+  - old `scripts/backfill_*.py` wrappers now covered by jobs;
+  - market repositories already covered by MSI/market-overview/market-pulse/fund-flow/kline jobs.
+- Updated repository, service, and script rows to `partial_production`, `reviewed`, or `out_of_scope` with concrete new paths.
+- Remaining `planned_after_skeleton` after correction: 3 (`etf_poc_service.py`, `stock_universe_service.py`, `style_sector_service.py`).
+
+## 2026-06-28 Style Sector Snapshot Migration Pass
+
+- Reviewed legacy `backend/services/stock/style_sector_service.py`.
+- Added pure `domain/market/style_sector.py` for 29 style-sector allowlist and equal-weight change calculation.
+- Extended `StockSectorRepository` with `list_sectors_by_category()` so pipelines can read category `4` style constituents from PostgreSQL instead of old JSON caches.
+- Added PostgreSQL DDL/repository for `market_style_sector_snapshot`.
+- Added executable `pipelines/market/build_style_sector.py` and `jobs/build_style_sector.py`.
+- Registered `build_style_sector` in registry, jobs config, and console scripts.
+- Added docs under `docs/data_contracts/style_sector.md` and `docs/pipeline_design/style_sector.md`.
+- Reconciled `stock_universe_service.py` as covered by stock-basic/stock-sector PG jobs and `etf_poc_service.py` as out of current stock-data scope.
+
+## 2026-06-28 Style Sector Snapshot Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_domain/test_style_sector.py tests/unit/test_storage/test_postgres_style_sector.py tests/unit/test_pipelines/test_style_sector_pipeline.py tests/unit/test_jobs_registry.py -q`: passed, 6 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_style_sector --dry-run --trade-date 2026-06-26 --sectors ... --quotes-by-code ...`: passed through `JobRunner`.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 184 tests.
+- Boundary audits:
+  - No `import backend` / `from backend` / `C020611` matches in `src` or `tests`.
+  - Domain/core scan has no source/storage/hook/env/network imports; matches are lineage/source strings only.
+  - Source scan has no storage writes or storage/hook imports added by this migration; the only runtime-context match is existing provider fallback infrastructure.
+
+## 2026-06-28 Design Inventory Reconciliation Pass
+
+- Added `docs/architecture/data_source_capability_matrix.md`.
+- Marked legacy design rows for data-source matrix, stock data source, MSI pipeline, MSI factor contract, and transcription runtime flow as migrated to current docs.
+- Remaining `planned_after_skeleton` rows: 0.

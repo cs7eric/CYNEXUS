@@ -8,6 +8,7 @@ from cynexus_data.pipelines.msi._params import parse_date, parse_int, parse_rows
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.storage.clickhouse.readers import read_close_series
 from cynexus_data.storage.postgres.msi import MsiRepository
+from cynexus_data.storage.postgres.percentile import PercentileRepository
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
@@ -28,7 +29,10 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     payload = calculate_style_risk(trade_date=trade_date, hs300_rows=hs300_rows, csi1000_rows=csi1000_rows, window=window, score=_score_param(request))
     if payload is None:
         return {**result, "rows_read": len(hs300_rows) + len(csi1000_rows), "skipped": True, "skip_reason": "insufficient_style_risk_input"}
-    repo = MsiRepository(context.hooks.postgres.get_client())
+    pg_client = context.hooks.postgres.get_client()
+    if _score_param(request) is None:
+        payload["score"] = PercentileRepository(pg_client).percentile_score("style_risk_appetite_daily", "spread", trade_date, payload.get("spread"))
+    repo = MsiRepository(pg_client)
     if truthy(request.params.get("create_table")):
         repo.create_table()
     result["rows_read"] = len(hs300_rows) + len(csi1000_rows)

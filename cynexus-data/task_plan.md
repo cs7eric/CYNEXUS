@@ -77,6 +77,25 @@ Status: in_progress
 - Completed in this pass: THS q.10jqka industry constituent production path with parser/client, stock-domain normalization, PostgreSQL snapshot tables, history import, live explicit-code sync, job registration, docs, unit tests, dry-run validation, full unit regression, and boundary scans.
 - Completed in this pass: EastMoney clist market-breadth live capture wired into `build_market_overview`, docs, unit tests, dry-run validation, full unit regression, and boundary scans.
 - Completed in this pass: EastMoney explicit-code stock metadata enrichment for `sync_stock_basic`, additive stock-basic PG columns, docs, unit tests, dry-run validation, full unit regression, and boundary scans.
+- Completed in this pass: Tencent qt batch realtime snapshot parser/client and `build_market_overview source=tencent`, docs, unit tests, dry-run validation, full unit regression, and boundary scans.
+- Completed in this pass: Sina minute K-line parser tolerance/volume-ratio parity and provider-fallback inventory hardening, docs, unit tests, full unit regression, and boundary scans.
+- Completed in this pass: optional mootdx daily/minute K-line fallback provider, docs, unit tests, full unit regression, and boundary scans.
+- Completed in this pass: eltdx auction point and historical 1m timeshare detail capture into ClickHouse, `sync_tdx_intraday_detail` job, docs, unit tests, dry-run validation, and boundary scans.
+- Completed in this pass: market-overview pure technical helpers for window metrics, regime buckets, and support/resistance levels, docs, unit tests, and inventory reconciliation.
+- Completed in this pass: market-overview pure detail helpers for style rotation, industry strength, breadth sentiment, similar-scenario backtests, docs, unit tests, and inventory reconciliation.
+- Completed in this pass: PostgreSQL historical percentile repository and non-dry-run percentile scoring for turnover activity, risk appetite, and style risk producers, docs, unit tests, and inventory reconciliation.
+- Completed in this pass: executable market-overview detail snapshot job, ClickHouse daily bar reader, PostgreSQL JSONB detail table/repository, docs, unit tests, dry-run validation, full unit regression, and boundary scans.
+- Completed in this pass: legacy-compatible ClickHouse daily K-line reader helpers for adjusted/raw daily bars, latest trade date, and adjusted coverage checks, with docs, unit tests, and inventory reconciliation.
+- Completed in this pass: broad-index return production path from ClickHouse `index_daily_raw` into PostgreSQL `mkt_index_return_daily`, including pure formulas, readers, repository, job, docs, tests, and dry-run validation.
+- Completed in this pass: TDX industry/concept index code catalog migration as pure domain helpers, with docs, tests, and inventory reconciliation.
+- Completed in this pass: TDX 56 industry code/seed catalog hardening plus eltdx industry quote snapshot production path into PostgreSQL, including source helper, repository, job, docs, tests, and dry-run validation.
+- Completed in this pass: market heatmap JSONB snapshot production from persisted TDX industry quote rows, including pure payload builder, PostgreSQL serving table/repository, job, docs, tests, and dry-run validation.
+- Completed in this pass: TDX sector quote detail snapshot production from eltdx `f10.theme_market`, including source parser, pure payload wrapper, PostgreSQL serving table/repository, job, docs, tests, and dry-run validation.
+- Completed in this pass: per-stock turnover-rate series production from ClickHouse daily bars and eltdx share profiles, replacing old filesystem JSON turnover cache with PostgreSQL JSONB serving snapshots, with docs, tests, and dry-run validation.
+- Completed in this pass: legacy limit-emotion JSON-to-PG stock-detail parity, including pure stock snapshot extraction, PostgreSQL `market_limit_stock_snapshot`, `build_limit_emotion` persistence, docs, tests, and inventory reconciliation.
+- Completed in this pass: backlog inventory correction from stale per-file wrappers to real capability status, reducing `planned_after_skeleton` to zero with evidence.
+- Completed in this pass: style-sector equal-weight change snapshot production from stock-sector mappings and Tencent realtime quotes, including PostgreSQL snapshot table, job, docs, tests, and dry-run validation.
+- Completed in this pass: legacy design-document inventory reconciliation, including the new data-source capability matrix and migrated kline/MSI/transcription docs.
 
 ## Errors Encountered
 

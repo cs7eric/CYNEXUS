@@ -73,9 +73,24 @@ class FakeMsiRepo:
         return 1
 
 
+class FakeMarketLimitRepo:
+    saved = None
+
+    def __init__(self, client) -> None:
+        self.client = client
+
+    def create_table(self) -> None:
+        pass
+
+    def replace_stock_snapshots(self, *, trade_date, rows, source="clickhouse.daily_raw"):
+        FakeMarketLimitRepo.saved = {"trade_date": trade_date, "rows": rows, "source": source}
+        return len(rows)
+
+
 def test_build_limit_emotion_uses_stock_meta_threshold(monkeypatch) -> None:
     monkeypatch.setattr(build_limit_emotion, "StockBasicRepository", FakeStockRepo)
     monkeypatch.setattr(build_limit_emotion, "MsiRepository", FakeMsiRepo)
+    monkeypatch.setattr(build_limit_emotion, "MarketLimitRepository", FakeMarketLimitRepo)
     monkeypatch.setattr(
         build_limit_emotion,
         "read_limit_emotion_ohlcv_rows",
@@ -83,9 +98,12 @@ def test_build_limit_emotion_uses_stock_meta_threshold(monkeypatch) -> None:
     )
     monkeypatch.setattr(build_limit_emotion, "read_limit_emotion_history_ohlcv_rows", lambda client, trade_date, codes, lookback_days=120, table="daily_raw": [])
     FakeMsiRepo.saved = None
+    FakeMarketLimitRepo.saved = None
 
     result = build_limit_emotion.run(PipelineContext(hooks=FakeHooks()), JobRequest(job_key="build_limit_emotion", dry_run=False, params={"trade_date": "2026-06-26"}))
 
     assert result["rows_written"] == 1
+    assert result["stock_rows_written"] == 1
     assert result["payload"]["limitUpCount"] == 1
     assert FakeMsiRepo.saved["limitUpCount"] == 1
+    assert FakeMarketLimitRepo.saved["rows"][0]["category"] == "limit_up"

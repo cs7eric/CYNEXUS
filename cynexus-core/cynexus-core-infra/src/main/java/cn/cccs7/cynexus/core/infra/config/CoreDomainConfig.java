@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.config;
 
+import cn.cccs7.cynexus.core.domain.client.DataJobExecutorClient;
 import cn.cccs7.cynexus.core.domain.repository.SchedulerRepository;
 import cn.cccs7.cynexus.core.domain.service.CoreServiceInfoDomainService;
 import cn.cccs7.cynexus.core.domain.service.SchedulerDomainService;
@@ -17,7 +18,8 @@ public class CoreDomainConfig {
     }
 
     @Bean
-    public SchedulerDomainService schedulerDomainService(SchedulerRepository schedulerRepository) {
-        return new SchedulerDomainServiceImpl(schedulerRepository);
+    public SchedulerDomainService schedulerDomainService(SchedulerRepository schedulerRepository,
+                                                         DataJobExecutorClient dataJobExecutorClient) {
+        return new SchedulerDomainServiceImpl(schedulerRepository, dataJobExecutorClient);
     }
 }

@@ -6,7 +6,7 @@ from typing import Any
 import requests
 
 from cynexus_data.core.market_symbol import normalize_market_symbol
-from cynexus_data.sources.tencent.parser import parse_qt_stock_fund_flow_text
+from cynexus_data.sources.tencent.parser import parse_qt_realtime_snapshot_text, parse_qt_stock_fund_flow_text, summarize_qt_realtime_snapshots
 
 
 @dataclass
@@ -37,3 +37,45 @@ class TencentClient:
         response.raise_for_status()
         text = response.content.decode("gb18030", errors="ignore")
         return parse_qt_stock_fund_flow_text(text)
+
+    def fetch_realtime_snapshots_batch(
+        self,
+        symbols: list[str],
+        *,
+        batch_size: int = 500,
+        batch_sleep: float = 0.22,
+    ) -> dict[str, dict[str, Any]]:
+        normalized = [normalize_market_symbol(symbol) for symbol in symbols if str(symbol or "").strip()]
+        if not normalized:
+            return {}
+        import time
+
+        out: dict[str, dict[str, Any]] = {}
+        for start in range(0, len(normalized), batch_size):
+            batch = normalized[start : start + batch_size]
+            response = self.session.get(
+                "https://qt.gtimg.cn/q=" + ",".join(batch),
+                headers={"Referer": "https://gu.qq.com/"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            text = response.content.decode("gb18030", errors="ignore")
+            out.update(parse_qt_realtime_snapshot_text(text))
+            if start + batch_size < len(normalized) and batch_sleep > 0:
+                time.sleep(batch_sleep)
+        return out
+
+    def fetch_market_overview(
+        self,
+        symbols: list[str],
+        *,
+        batch_size: int = 500,
+        batch_sleep: float = 0.22,
+    ) -> dict[str, Any]:
+        snapshots = self.fetch_realtime_snapshots_batch(symbols, batch_size=batch_size, batch_sleep=batch_sleep)
+        if not snapshots:
+            raise RuntimeError("Tencent qt returned no realtime snapshots")
+        payload = summarize_qt_realtime_snapshots(list(snapshots.values()))
+        payload["requestedCount"] = len(symbols)
+        payload["returnedCount"] = len(snapshots)
+        return payload

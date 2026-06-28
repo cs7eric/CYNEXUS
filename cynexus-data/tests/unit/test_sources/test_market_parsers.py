@@ -20,11 +20,17 @@ def test_parse_tencent_kline_rows() -> None:
 
 
 def test_parse_sina_minute_rows() -> None:
-    rows = parse_sina_minute_rows([
-        {"day": "2026-06-26 09:31:00", "open": "10", "high": "11", "low": "9", "close": "10.5", "volume": "20", "amount": "200"}
-    ])
+    rows = parse_sina_minute_rows(
+        [
+            {"day": "bad", "open": "x"},
+            {"day": "2026-06-26 09:31:00", "open": "10", "high": "11", "low": "9", "close": "10.5", "volume": "20", "amount": "200"},
+            {"day": "2026-06-26 09:32", "open": "10.5", "high": "12", "low": "10", "close": "11", "volume": "40", "amount": "500"},
+        ]
+    )
     assert rows[0]["trade_time"].hour == 9
     assert rows[0]["close"] == 10.5
+    assert rows[0]["volume_ratio"] is None
+    assert rows[1]["volume_ratio"] == 2.0
 
 
 def test_parse_ths_industry_fund_flow_html() -> None:

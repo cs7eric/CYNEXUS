@@ -13,7 +13,13 @@ Current jobs:
 - `sync_kline_minute.py`
 - `aggregate_kline_periods.py`
 - `sync_fund_flow.py`
+- `build_index_returns.py`
+- `build_market_heatmap.py`
+- `sync_tdx_industry_quotes.py`
+- `sync_tdx_sector_quote_details.py`
+- `sync_stock_turnover.py`
 - `build_market_overview.py`
+- `build_market_overview_detail.py`
 - `build_market_pulse.py`
 - `build_ma_count.py`
 - `build_turnover_activity.py`
@@ -24,6 +30,7 @@ Current jobs:
 - `build_msi.py`
 - `build_profit_effect.py`
 - `build_sector_breadth.py`
+- `trigger_probe.py`
 - `transcribe_media.py`
 
 All migrated jobs should be registered in `registry.py` and invoked through `runtime.job_runner.JobRunner`.

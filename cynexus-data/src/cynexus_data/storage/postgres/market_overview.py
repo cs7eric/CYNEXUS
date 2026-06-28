@@ -29,6 +29,22 @@ class MarketOverviewRepository:
             ).mappings().first()
         return dict(row) if row else None
 
+    def list_snapshots(self, *, end_date, limit: int = 260) -> list[dict[str, Any]]:
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    SELECT *
+                      FROM {self.client.schema}.market_overview_snapshot
+                     WHERE trade_date <= :end_date AND deleted_at IS NULL
+                     ORDER BY trade_date DESC
+                     LIMIT :limit
+                    """
+                ),
+                {"end_date": end_date, "limit": int(limit)},
+            ).mappings().all()
+        return [dict(row) for row in reversed(rows)]
+
     def upsert_fields(self, fields: dict[str, Any], *, source: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         trade_date = fields["trade_date"]
         existing = self.get(trade_date)
@@ -88,3 +104,64 @@ class MarketOverviewRepository:
                 {**merged, "extra": json.dumps(extra or {}, ensure_ascii=False, default=str)},
             )
         return self.get(trade_date) or merged
+
+    def get_detail(self, trade_date, *, benchmark_code: str, source_table: str) -> dict[str, Any] | None:
+        with self.client.session() as db:
+            row = db.execute(
+                text(
+                    f"""
+                    SELECT *
+                      FROM {self.client.schema}.market_overview_detail_snapshot
+                     WHERE trade_date = :trade_date
+                       AND benchmark_code = :benchmark_code
+                       AND source_table = :source_table
+                       AND deleted_at IS NULL
+                    """
+                ),
+                {"trade_date": trade_date, "benchmark_code": benchmark_code, "source_table": source_table},
+            ).mappings().first()
+        return dict(row) if row else None
+
+    def upsert_detail(
+        self,
+        *,
+        trade_date,
+        benchmark_code: str,
+        source_table: str,
+        payload: dict[str, Any],
+        source: str = "python",
+    ) -> dict[str, Any]:
+        with self.client.session() as db:
+            db.execute(
+                text(
+                    f"""
+                    INSERT INTO {self.client.schema}.market_overview_detail_snapshot (
+                        trade_date, benchmark_code, source_table, payload, source, generated_at,
+                        updated_at, deleted_at
+                    ) VALUES (
+                        :trade_date, :benchmark_code, :source_table, CAST(:payload AS jsonb), :source,
+                        now(), now(), NULL
+                    )
+                    ON CONFLICT (trade_date, benchmark_code, source_table) DO UPDATE SET
+                        payload = EXCLUDED.payload,
+                        source = EXCLUDED.source,
+                        generated_at = EXCLUDED.generated_at,
+                        updated_at = now(),
+                        deleted_at = NULL
+                    """
+                ),
+                {
+                    "trade_date": trade_date,
+                    "benchmark_code": benchmark_code,
+                    "source_table": source_table,
+                    "payload": json.dumps(payload, ensure_ascii=False, default=str),
+                    "source": source,
+                },
+            )
+        return self.get_detail(trade_date, benchmark_code=benchmark_code, source_table=source_table) or {
+            "trade_date": trade_date,
+            "benchmark_code": benchmark_code,
+            "source_table": source_table,
+            "payload": payload,
+            "source": source,
+        }

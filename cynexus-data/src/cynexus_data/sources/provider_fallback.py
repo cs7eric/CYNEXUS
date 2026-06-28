@@ -7,6 +7,7 @@ from cynexus_data.config.settings import load_yaml_config
 from cynexus_data.core.market_symbol import eastmoney_secid, normalize_market_symbol
 from cynexus_data.sources.eastmoney.adapter import adapt_kline_payload as adapt_eastmoney_kline_payload
 from cynexus_data.sources.sina.adapter import adapt_minute_payload as adapt_sina_minute_payload
+from cynexus_data.sources.tdx.mootdx import create_mootdx_client, fetch_mootdx_kline_rows
 from cynexus_data.sources.tencent.adapter import adapt_kline_payload as adapt_tencent_kline_payload
 
 if TYPE_CHECKING:
@@ -77,6 +78,7 @@ def fetch_daily_kline_with_fallback(hooks: HookBundle, *, symbol: str, providers
     fetchers: dict[str, FetchCallable] = {
         "tencent": lambda: _fetch_tencent_daily(hooks, market_symbol, adjust=adjust, limit=limit),
         "eastmoney": lambda: _fetch_eastmoney_daily(hooks, market_symbol, adjust=adjust, limit=limit),
+        "mootdx": lambda: _fetch_mootdx_daily(market_symbol, adjust=adjust, limit=limit),
     }
     return fetch_with_fallback([p for p in providers if p != "tdx"], fetchers)
 
@@ -87,6 +89,7 @@ def fetch_minute_kline_with_fallback(hooks: HookBundle, *, symbol: str, provider
         "sina": lambda: adapt_sina_minute_payload(hooks.sina.get_client().fetch_minute_kline_raw(market_symbol, scale=period, datalen=limit)),
         "eastmoney": lambda: _fetch_eastmoney_minute(hooks, market_symbol, period=period, limit=limit),
         "tencent": lambda: _fetch_tencent_minute(hooks, market_symbol, period=period, limit=limit),
+        "mootdx": lambda: _fetch_mootdx_minute(market_symbol, period=period, limit=limit),
     }
     return fetch_with_fallback([p for p in providers if p != "tdx"], fetchers)
 
@@ -111,6 +114,16 @@ def _fetch_eastmoney_daily(hooks: HookBundle, symbol: str, *, adjust: str, limit
 def _fetch_eastmoney_minute(hooks: HookBundle, symbol: str, *, period: int, limit: int) -> list[dict[str, Any]]:
     payload = hooks.eastmoney.get_client().fetch_kline_raw(eastmoney_secid(symbol), klt=str(int(period)), fqt="0", limit=limit)
     return adapt_eastmoney_kline_payload(payload)
+
+
+def _fetch_mootdx_daily(symbol: str, *, adjust: str, limit: int) -> list[dict[str, Any]]:
+    client = create_mootdx_client()
+    return fetch_mootdx_kline_rows(client, symbol=symbol, period="day", adjust=adjust, limit=limit)
+
+
+def _fetch_mootdx_minute(symbol: str, *, period: int, limit: int) -> list[dict[str, Any]]:
+    client = create_mootdx_client()
+    return fetch_mootdx_kline_rows(client, symbol=symbol, period=f"{int(period)}m", adjust="none", limit=limit)
 
 
 def _normalize_list(value: Any) -> list[str]:

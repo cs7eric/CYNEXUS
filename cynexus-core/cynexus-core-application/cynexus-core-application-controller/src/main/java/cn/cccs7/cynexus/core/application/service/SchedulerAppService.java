@@ -10,7 +10,11 @@ import cn.cccs7.cynexus.core.application.dto.SchedulerJobCategoryMappingDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerJobDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerJobRunHistoryDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerJobStatusDTO;
+import cn.cccs7.cynexus.core.application.dto.DataJobTriggerResultDTO;
+import cn.cccs7.cynexus.core.application.request.DataJobTriggerRequest;
 import cn.cccs7.cynexus.core.application.request.SchedulerJobCreateRequest;
+import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerRequestBO;
+import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryMappingBO;
@@ -18,6 +22,7 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerJobRunHistoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
 import cn.cccs7.cynexus.core.domain.service.SchedulerDomainService;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -148,5 +153,38 @@ public class SchedulerAppService {
 
     public boolean deleteStatus(Long id) {
         return schedulerDomainService.deleteStatus(id);
+    }
+
+    public Map<String, Object> dataJobExecutorHealth() {
+        return schedulerDomainService.dataJobExecutorHealth();
+    }
+
+    public Map<String, Object> listDataJobs() {
+        return schedulerDomainService.listDataJobs();
+    }
+
+    public Map<String, Object> getDataJob(String jobKey) {
+        return schedulerDomainService.getDataJob(jobKey);
+    }
+
+    public DataJobTriggerResultDTO triggerDataJob(String jobKey, DataJobTriggerRequest request) {
+        DataJobTriggerRequestBO bo = DataJobTriggerRequestBO.builder()
+                .triggerRequestId(request == null ? null : request.getTriggerRequestId())
+                .triggeredBy(request == null ? null : request.getTriggeredBy())
+                .dryRun(request != null && Boolean.TRUE.equals(request.getDryRun()))
+                .params(request == null || request.getParams() == null ? Map.of() : request.getParams())
+                .build();
+        DataJobTriggerResultBO result = schedulerDomainService.triggerDataJob(jobKey, bo);
+        return DataJobTriggerResultDTO.builder()
+                .accepted(result.getAccepted())
+                .runId(result.getRunId())
+                .jobKey(result.getJobKey())
+                .status(result.getStatus())
+                .result(result.getResult())
+                .build();
+    }
+
+    public Map<String, Object> getDataJobRun(String runId) {
+        return schedulerDomainService.getDataJobRun(runId);
     }
 }
