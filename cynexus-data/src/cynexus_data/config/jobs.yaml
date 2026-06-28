@@ -1,0 +1,309 @@
+jobs:
+  health_check:
+    description: Check Python job executor runtime and optional storage health.
+    params:
+      check_storage: optional
+
+  sync_metadata:
+    description: Sync metadata bundle by delegating to stock-basic sync in this foundation pass.
+    params:
+      trade_date: optional
+      force: optional
+
+  sync_trade_calendar:
+    description: Sync trade calendar data.
+    params:
+      start_date: optional
+      end_date: optional
+      providers: optional
+      create_table: optional
+      extra_holidays: optional
+      extra_workdays: optional
+      source: optional
+
+  sync_stock_basic:
+    description: Sync stock basic information.
+    params:
+      providers: optional
+      codes: optional
+      symbols: optional
+      limit: optional
+      create_table: optional
+      force: optional
+
+  sync_stock_sectors:
+    description: Sync stock to industry/concept/style sector mappings from eltdx topics.
+    params:
+      codes: optional
+      symbols: optional
+      limit_codes: optional
+      create_table: optional
+      pool_size: optional
+      timeout: optional
+
+  sync_ths_industry_constituents:
+    description: Sync THS industry constituent snapshots into PostgreSQL.
+    params:
+      snapshot_date: optional
+      trade_date: optional
+      industry_codes: optional
+      codes: optional
+      history_path: optional
+      create_table: optional
+      max_pages: optional
+      page_sleep: optional
+
+  sync_kline_daily:
+    description: Sync daily kline records.
+    params:
+      trade_date: optional
+      start_date: optional
+      end_date: optional
+      codes: optional
+      providers: optional
+      force: optional
+      resume: optional
+      checkpoint_prefix: optional
+
+  sync_adjusted_kline_daily:
+    description: Sync adjusted daily kline records from eltdx into daily_qfq/daily_hfq.
+    params:
+      adjust: optional
+      adjusts: optional
+      trade_date: optional
+      start_date: optional
+      end_date: optional
+      codes: required
+      symbols: optional
+      limit_codes: optional
+      create_table: optional
+      resume: optional
+      checkpoint_prefix: optional
+
+  sync_kline_minute:
+    description: Sync minute kline records.
+    params:
+      trade_date: optional
+      codes: optional
+      providers: optional
+      force: optional
+      resume: optional
+      checkpoint_prefix: optional
+
+  sync_tdx_hsjday:
+    description: Download, verify, extract, and atomically replace local TDX hsjday daily files.
+    params:
+      date: optional
+      trade_date: optional
+      url: optional
+      zip_path: optional
+      work_dir: optional
+      target_root: optional
+      extract_dir: optional
+      skip_download: optional
+      keep_zip: optional
+      timeout_seconds: optional
+      download_method: optional
+      playwright_headless: optional
+      playwright_wait_ms: optional
+      chunk_size_bytes: optional
+
+  aggregate_kline_periods:
+    description: Aggregate 1m kline into higher periods.
+    params:
+      periods: optional
+      trade_date: optional
+      codes: optional
+
+  sync_fund_flow:
+    description: Sync THS sector fund-flow snapshots into PostgreSQL.
+    params:
+      trade_date: optional
+      scope: optional
+      providers: optional
+      provider: optional
+      history_path: optional
+      create_table: optional
+      max_pages: optional
+      page_sleep: optional
+
+  sync_stock_fund_flow:
+    description: Sync Tencent stock fund-flow snapshots into PostgreSQL.
+    params:
+      trade_date: optional
+      providers: optional
+      provider: optional
+      codes: optional
+      symbols: optional
+      history_path: optional
+      create_table: optional
+      batch_size: optional
+
+  build_market_pulse:
+    description: Build market pulse sector snapshots from fund-flow data.
+    params:
+      trade_date: optional
+      create_table: optional
+      rows: optional
+
+  build_market_overview:
+    description: Build or merge one market overview daily snapshot.
+    params:
+      trade_date: optional
+      source: optional
+      create_table: optional
+      fetch_live: optional
+      eltdx_timeout: optional
+      timeout_seconds: optional
+      max_pages: optional
+      page_size: optional
+      page_sleep: optional
+      eastmoney_max_pages: optional
+      eastmoney_page_size: optional
+      eastmoney_page_sleep: optional
+      fields: optional
+      totalAmount: optional
+      mainNetInflow: optional
+
+  sync_margin:
+    description: Sync margin trading data.
+    params:
+      trade_date: optional
+      providers: optional
+
+  build_sector_breadth:
+    description: Build MSI sector breadth from sector fund-flow snapshots.
+    params:
+      trade_date: optional
+      create_table: optional
+      advancing: optional
+      declining: optional
+      flat: optional
+      total: optional
+
+  build_ma_count:
+    description: Build MSI MA count, price-strength, and breadth raw inputs from daily_qfq.
+    params:
+      trade_date: optional
+      create_table: optional
+      source_table: optional
+      rows: optional
+
+  build_profit_effect:
+    description: Build MSI profit-effect factor from MA count up-5d and new-low-60d percentages.
+    params:
+      trade_date: optional
+      create_table: optional
+      up_5d_pct: optional
+      new_low_60d_pct: optional
+
+  build_turnover_activity:
+    description: Build MSI turnover-activity factor from Shanghai/Shenzhen index amount rows.
+    params:
+      trade_date: optional
+      create_table: optional
+      source_table: optional
+      window: optional
+      rows: optional
+      score: optional
+
+  build_volatility_sentiment:
+    description: Build MSI volatility-sentiment factor from index close series.
+    params:
+      trade_date: optional
+      create_table: optional
+      source_table: optional
+      underlying_code: optional
+      underlying_name: optional
+      window: optional
+      lookback: optional
+      rows: optional
+
+  build_risk_appetite:
+    description: Build MSI risk-appetite factor from HS300 and treasury ETF returns.
+    params:
+      trade_date: optional
+      create_table: optional
+      source_table: optional
+      window: optional
+      score: optional
+      hs300_rows: optional
+      treasury_511010_rows: optional
+      treasury_511090_rows: optional
+
+  build_style_risk:
+    description: Build MSI style-risk factor from CSI1000 versus HS300 returns.
+    params:
+      trade_date: optional
+      create_table: optional
+      source_table: optional
+      window: optional
+      score: optional
+      hs300_rows: optional
+      csi1000_rows: optional
+
+  build_limit_emotion:
+    description: Build MSI limit-emotion factor from daily limit-up/limit-down snapshots.
+    params:
+      trade_date: optional
+      prev_trade_date: optional
+      create_table: optional
+      source_table: optional
+      rows: optional
+      today_rows: optional
+      prev_rows: optional
+      score_overrides: optional
+      streak_lookback_days: optional
+
+  build_msi:
+    description: Build market sentiment index for one trading date.
+    params:
+      trade_date: optional
+      force: optional
+      require_full: optional
+      create_table: optional
+      components: optional
+
+  rebuild_msi:
+    description: Rebuild market sentiment index over a date range.
+    params:
+      start_date: optional
+      end_date: optional
+      force: optional
+      require_full: optional
+      create_table: optional
+
+  backfill_history:
+    description: Backfill historical market data.
+    params:
+      start_date: optional
+      end_date: optional
+      dataset: optional
+      providers: optional
+
+  repair_missing_data:
+    description: Repair missing records for a dataset.
+    params:
+      dataset: optional
+      trade_date: optional
+      force: optional
+
+  quality_check:
+    description: Run data-quality checks.
+    params:
+      checks: optional
+      dataset: optional
+
+  transcribe_media:
+    description: Convert MP4 or audio input to transcript only.
+    params:
+      input_uri: required
+      transcript_id: optional
+      biz_id: optional
+      language: optional
+      force: optional
+      create_table: optional
+      work_dir: optional
+      ffmpeg_path: optional
+      transcriber: optional
+      transcript_text: optional

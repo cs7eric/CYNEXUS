@@ -1,0 +1,2 @@
+"""AkShare source adapter package."""
+

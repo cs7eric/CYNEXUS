@@ -34,7 +34,7 @@ public class SchedulerController {
     }
 
     @GetMapping("/jobs/{id}")
-    public Result<SchedulerJobDTO> getJob(@PathVariable Long id) {
+    public Result<SchedulerJobDTO> getJob(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.findJobById(id));
     }
 
@@ -49,7 +49,7 @@ public class SchedulerController {
     }
 
     @DeleteMapping("/jobs/{id}")
-    public Result<Boolean> deleteJob(@PathVariable Long id) {
+    public Result<Boolean> deleteJob(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.deleteJob(id));
     }
 
@@ -59,7 +59,7 @@ public class SchedulerController {
     }
 
     @GetMapping("/categories/{id}")
-    public Result<SchedulerJobCategoryDTO> getCategory(@PathVariable Long id) {
+    public Result<SchedulerJobCategoryDTO> getCategory(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.findCategoryById(id));
     }
 
@@ -74,7 +74,7 @@ public class SchedulerController {
     }
 
     @DeleteMapping("/categories/{id}")
-    public Result<Boolean> deleteCategory(@PathVariable Long id) {
+    public Result<Boolean> deleteCategory(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.deleteCategory(id));
     }
 
@@ -84,7 +84,7 @@ public class SchedulerController {
     }
 
     @GetMapping("/category-mappings/{id}")
-    public Result<SchedulerJobCategoryMappingDTO> getCategoryMapping(@PathVariable Long id) {
+    public Result<SchedulerJobCategoryMappingDTO> getCategoryMapping(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.findCategoryMappingById(id));
     }
 
@@ -99,7 +99,7 @@ public class SchedulerController {
     }
 
     @DeleteMapping("/category-mappings/{id}")
-    public Result<Boolean> deleteCategoryMapping(@PathVariable Long id) {
+    public Result<Boolean> deleteCategoryMapping(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.deleteCategoryMapping(id));
     }
 
@@ -109,7 +109,7 @@ public class SchedulerController {
     }
 
     @GetMapping("/run-history/{id}")
-    public Result<SchedulerJobRunHistoryDTO> getRunHistory(@PathVariable Long id) {
+    public Result<SchedulerJobRunHistoryDTO> getRunHistory(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.findRunHistoryById(id));
     }
 
@@ -124,7 +124,7 @@ public class SchedulerController {
     }
 
     @DeleteMapping("/run-history/{id}")
-    public Result<Boolean> deleteRunHistory(@PathVariable Long id) {
+    public Result<Boolean> deleteRunHistory(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.deleteRunHistory(id));
     }
 
@@ -134,7 +134,7 @@ public class SchedulerController {
     }
 
     @GetMapping("/statuses/{id}")
-    public Result<SchedulerJobStatusDTO> getStatus(@PathVariable Long id) {
+    public Result<SchedulerJobStatusDTO> getStatus(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.findStatusById(id));
     }
 
@@ -149,7 +149,7 @@ public class SchedulerController {
     }
 
     @DeleteMapping("/statuses/{id}")
-    public Result<Boolean> deleteStatus(@PathVariable Long id) {
+    public Result<Boolean> deleteStatus(@PathVariable("id") Long id) {
         return Result.success(schedulerAppService.deleteStatus(id));
     }
 }

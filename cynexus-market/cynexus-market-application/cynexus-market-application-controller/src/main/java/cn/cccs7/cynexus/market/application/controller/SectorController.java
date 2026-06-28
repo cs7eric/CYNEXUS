@@ -23,7 +23,8 @@ public class SectorController {
     }
 
     @GetMapping("/rank")
-    public Result<SectorRankDTO> getSectorRank(@RequestParam String tradeDate, @RequestParam Integer topN) {
+    public Result<SectorRankDTO> getSectorRank(@RequestParam("tradeDate") String tradeDate,
+                                               @RequestParam("topN") Integer topN) {
         return Result.success(sectorRankAssembler.toDTO(tradeDate, topN,
                 sectorRankAppService.getSectorRank(tradeDate, topN)));
     }

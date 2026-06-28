@@ -45,3 +45,13 @@ deploy/local/postgres/data/
 deploy/local/postgres-backups/
 deploy/local/clickhouse/data/
 deploy/local/clickhouse/logs/
+
+# local data job state
+cynexus-data/var/*
+!cynexus-data/var/README.md
+
+# Python local artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/

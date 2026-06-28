@@ -1,0 +1,56 @@
+connections:
+  clickhouse_default:
+    type: clickhouse
+    host: ${CLICKHOUSE_HOST:127.0.0.1}
+    port: ${CLICKHOUSE_HTTP_PORT:28123}
+    database: ${CLICKHOUSE_DATABASE:cynexus}
+    username: ${CLICKHOUSE_USER:cynexus}
+    password: ${CLICKHOUSE_PASSWORD:}
+    timeout: 1800
+
+  postgres_default:
+    type: postgres
+    url: ${DATABASE_URL:postgresql+psycopg://postgres@127.0.0.1:25433/cynexus}
+    schema: ${POSTGRES_SCHEMA:cynexus_data}
+
+  duckdb_default:
+    type: duckdb
+    path: ${DUCKDB_PATH:var/market_data.duckdb}
+
+  tdx_local:
+    type: filesystem
+    root_path: ${TDX_ROOT:D:/Program File/tdx}
+
+  eastmoney_default:
+    type: http
+    base_url: https://push2.eastmoney.com
+    timeout: 10
+    retry: 3
+
+  eastmoney_history:
+    type: http
+    base_url: https://push2his.eastmoney.com
+    timeout: 10
+    retry: 3
+
+  akshare_default:
+    type: python
+    timeout: 30
+
+  tencent_default:
+    type: http
+    base_url: https://web.ifzq.gtimg.cn
+    timeout: 10
+    retry: 3
+
+  sina_default:
+    type: http
+    base_url: https://money.finance.sina.com.cn
+    timeout: 10
+    retry: 3
+
+  ths_default:
+    type: http
+    base_url: https://data.10jqka.com.cn
+    timeout: 10
+    retry: 3

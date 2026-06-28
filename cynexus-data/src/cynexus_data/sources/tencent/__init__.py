@@ -1,0 +1,2 @@
+"""Tencent source adapter package."""
+

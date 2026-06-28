@@ -1,0 +1,2 @@
+"""Sina source adapter package."""
+

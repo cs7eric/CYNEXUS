@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "cynexus-market", path = "/api/market/msi-sector-breadth-daily")
+@FeignClient(name = "cynexus-market", contextId = "sectorBreadthDailyFeignClient", path = "/api/market/msi-sector-breadth-daily")
 public interface SectorBreadthDailyFeignClient {
 
     @GetMapping

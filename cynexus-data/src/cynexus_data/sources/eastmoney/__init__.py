@@ -1,0 +1,2 @@
+"""EastMoney source adapter package."""
+

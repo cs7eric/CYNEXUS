@@ -374,7 +374,9 @@ public final class TableLayerCodegenMain {
 
                 import cn.cccs7.cynexus.common.db.mapper.BaseMapperX;
                 import %s.infra.basic.entity.%sPO;
+                import org.apache.ibatis.annotations.Mapper;
 
+                @Mapper
                 public interface %sMapper extends BaseMapperX<%sPO> {
                 }
                 """.formatted(basePackage, basePackage, aggregateName, aggregateName, aggregateName);
@@ -462,7 +464,7 @@ public final class TableLayerCodegenMain {
                     }
 
                     @GetMapping("/{id}")
-                    public Result<{aggregateName}DTO> get(@PathVariable Long id) {
+                    public Result<{aggregateName}DTO> get(@PathVariable("id") Long id) {
                         return Result.success(appService.findById(id));
                     }
 
@@ -477,7 +479,7 @@ public final class TableLayerCodegenMain {
                     }
 
                     @DeleteMapping("/{id}")
-                    public Result<Boolean> delete(@PathVariable Long id) {
+                    public Result<Boolean> delete(@PathVariable("id") Long id) {
                         return Result.success(appService.delete(id));
                     }
                 }
@@ -506,7 +508,7 @@ public final class TableLayerCodegenMain {
                 import org.springframework.web.bind.annotation.PutMapping;
                 import org.springframework.web.bind.annotation.RequestBody;
 
-                @FeignClient(name = "{serviceName}", path = "/api/{service}/{path}")
+                @FeignClient(name = "{serviceName}", contextId = "{aggregateNameLowerCamel}FeignClient", path = "/api/{service}/{path}")
                 public interface {aggregateName}FeignClient {
 
                     @GetMapping
@@ -527,6 +529,7 @@ public final class TableLayerCodegenMain {
                 """
                 .replace("{basePackage}", basePackage)
                 .replace("{aggregateName}", aggregateName)
+                .replace("{aggregateNameLowerCamel}", lowerFirst(aggregateName))
                 .replace("{serviceName}", serviceName)
                 .replace("{service}", service)
                 .replace("{path}", path);

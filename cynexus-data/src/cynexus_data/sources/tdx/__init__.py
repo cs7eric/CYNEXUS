@@ -1,0 +1,2 @@
+"""TongDaXin source adapters."""
+

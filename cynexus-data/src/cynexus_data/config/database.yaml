@@ -1,0 +1,18 @@
+clickhouse:
+  tables:
+    kline_1m: ch_dwd_kline_1m
+    daily_raw: daily_raw
+    daily_qfq: daily_qfq
+    daily_hfq: daily_hfq
+
+postgres:
+  schema: cynexus_data
+  tables:
+    job_run: task_job_run
+    checkpoint: task_checkpoint
+    job_lock: task_job_lock
+    transcript: media_transcript
+
+write_policy:
+  default_batch_rows: 100000
+  minute_start_date: "2010-01-01"

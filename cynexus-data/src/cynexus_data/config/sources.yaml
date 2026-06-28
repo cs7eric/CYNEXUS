@@ -1,0 +1,24 @@
+sources:
+  kline:
+    daily:
+      providers: [tencent, eastmoney, tdx]
+      fallback: true
+    minute:
+      providers: [tdx, sina, eastmoney, tencent]
+      fallback: true
+
+  fund_flow:
+    stock:
+      providers: [eastmoney, ths, tencent]
+      fallback: true
+    sector:
+      providers: [ths, eastmoney]
+      fallback: true
+
+  stock_basic:
+    providers: [akshare, eastmoney, tencent]
+    fallback: true
+
+  trade_calendar:
+    providers: [tdx, akshare]
+    fallback: true

@@ -23,25 +23,25 @@ public class AiMarketProbeController {
     }
 
     @GetMapping("/overview")
-    public Result<MarketOverviewDTO> getMarketOverview(@RequestParam String tradeDate) {
+    public Result<MarketOverviewDTO> getMarketOverview(@RequestParam("tradeDate") String tradeDate) {
         return Result.success(marketDataTools.getMarketOverview(tradeDate));
     }
 
     @GetMapping("/sectors/rank")
-    public Result<SectorRankDTO> getSectorRank(@RequestParam String tradeDate,
-                                               @RequestParam(defaultValue = "10") Integer topN) {
+    public Result<SectorRankDTO> getSectorRank(@RequestParam("tradeDate") String tradeDate,
+                                               @RequestParam(name = "topN", defaultValue = "10") Integer topN) {
         return Result.success(marketDataTools.getSectorRank(tradeDate, topN));
     }
 
     @GetMapping("/stocks/{symbol}/daily-feature")
-    public Result<StockDailyFeatureDTO> getStockDailyFeature(@PathVariable String symbol,
-                                                             @RequestParam String tradeDate) {
+    public Result<StockDailyFeatureDTO> getStockDailyFeature(@PathVariable("symbol") String symbol,
+                                                             @RequestParam("tradeDate") String tradeDate) {
         return Result.success(marketDataTools.getStockDailyFeature(symbol, tradeDate));
     }
 
     @GetMapping("/stocks/{symbol}/intraday-feature")
-    public Result<StockIntradayFeatureDTO> getStockIntradayFeature(@PathVariable String symbol,
-                                                                   @RequestParam String tradeDate) {
+    public Result<StockIntradayFeatureDTO> getStockIntradayFeature(@PathVariable("symbol") String symbol,
+                                                                   @RequestParam("tradeDate") String tradeDate) {
         return Result.success(marketDataTools.getStockIntradayFeature(symbol, tradeDate));
     }
 }

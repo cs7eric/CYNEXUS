@@ -1,0 +1,2 @@
+"""Indicator domain helpers."""
+

@@ -51,7 +51,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/providers/{id}")
-    public Result<AiProviderDTO> getProvider(@PathVariable Long id) {
+    public Result<AiProviderDTO> getProvider(@PathVariable("id") Long id) {
         AiProviderBO provider = appService.findProviderById(id);
         return Result.success(provider == null ? null : toReadableProviderDTO(provider));
     }
@@ -67,7 +67,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/providers/{id}")
-    public Result<Boolean> deleteProvider(@PathVariable Long id) {
+    public Result<Boolean> deleteProvider(@PathVariable("id") Long id) {
         return Result.success(appService.deleteProvider(id));
     }
 
@@ -94,7 +94,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/usage-bindings/{id}")
-    public Result<AiUsageBindingDTO> getUsageBinding(@PathVariable Long id) {
+    public Result<AiUsageBindingDTO> getUsageBinding(@PathVariable("id") Long id) {
         AiUsageBindingBO binding = appService.findUsageBindingById(id);
         return Result.success(binding == null ? null : AiUsageBindingDTOConverter.INSTANCE.toSource(binding));
     }
@@ -110,7 +110,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/usage-bindings/{id}")
-    public Result<Boolean> deleteUsageBinding(@PathVariable Long id) {
+    public Result<Boolean> deleteUsageBinding(@PathVariable("id") Long id) {
         return Result.success(appService.deleteUsageBinding(id));
     }
 
@@ -121,7 +121,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/analysis-configs/{id}")
-    public Result<ApplicationAnalysisConfigDTO> getAnalysisConfig(@PathVariable Long id) {
+    public Result<ApplicationAnalysisConfigDTO> getAnalysisConfig(@PathVariable("id") Long id) {
         ApplicationAnalysisConfigBO config = appService.findAnalysisConfigById(id);
         return Result.success(config == null ? null : ApplicationAnalysisConfigDTOConverter.INSTANCE.toSource(config));
     }
@@ -139,7 +139,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/analysis-configs/{id}")
-    public Result<Boolean> deleteAnalysisConfig(@PathVariable Long id) {
+    public Result<Boolean> deleteAnalysisConfig(@PathVariable("id") Long id) {
         return Result.success(appService.deleteAnalysisConfig(id));
     }
 
@@ -150,7 +150,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/analysis-daily-snapshots/{id}")
-    public Result<ApplicationAnalysisDailySnapshotDTO> getAnalysisDailySnapshot(@PathVariable Long id) {
+    public Result<ApplicationAnalysisDailySnapshotDTO> getAnalysisDailySnapshot(@PathVariable("id") Long id) {
         ApplicationAnalysisDailySnapshotBO snapshot = appService.findAnalysisDailySnapshotById(id);
         return Result.success(snapshot == null ? null
                 : ApplicationAnalysisDailySnapshotDTOConverter.INSTANCE.toSource(snapshot));
@@ -169,7 +169,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/analysis-daily-snapshots/{id}")
-    public Result<Boolean> deleteAnalysisDailySnapshot(@PathVariable Long id) {
+    public Result<Boolean> deleteAnalysisDailySnapshot(@PathVariable("id") Long id) {
         return Result.success(appService.deleteAnalysisDailySnapshot(id));
     }
 
@@ -180,7 +180,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/analysis-result-current/{id}")
-    public Result<ApplicationAnalysisResultCurrentDTO> getAnalysisResultCurrent(@PathVariable Long id) {
+    public Result<ApplicationAnalysisResultCurrentDTO> getAnalysisResultCurrent(@PathVariable("id") Long id) {
         ApplicationAnalysisResultCurrentBO result = appService.findAnalysisResultCurrentById(id);
         return Result.success(result == null ? null
                 : ApplicationAnalysisResultCurrentDTOConverter.INSTANCE.toSource(result));
@@ -199,7 +199,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/analysis-result-current/{id}")
-    public Result<Boolean> deleteAnalysisResultCurrent(@PathVariable Long id) {
+    public Result<Boolean> deleteAnalysisResultCurrent(@PathVariable("id") Long id) {
         return Result.success(appService.deleteAnalysisResultCurrent(id));
     }
 
@@ -210,7 +210,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/analysis-result-history/{id}")
-    public Result<ApplicationAnalysisResultHistoryDTO> getAnalysisResultHistory(@PathVariable Long id) {
+    public Result<ApplicationAnalysisResultHistoryDTO> getAnalysisResultHistory(@PathVariable("id") Long id) {
         ApplicationAnalysisResultHistoryBO result = appService.findAnalysisResultHistoryById(id);
         return Result.success(result == null ? null
                 : ApplicationAnalysisResultHistoryDTOConverter.INSTANCE.toSource(result));
@@ -229,7 +229,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/analysis-result-history/{id}")
-    public Result<Boolean> deleteAnalysisResultHistory(@PathVariable Long id) {
+    public Result<Boolean> deleteAnalysisResultHistory(@PathVariable("id") Long id) {
         return Result.success(appService.deleteAnalysisResultHistory(id));
     }
 
@@ -240,7 +240,7 @@ public class AiConfigurationCrudController {
     }
 
     @GetMapping("/analysis-targets/{id}")
-    public Result<ApplicationAnalysisTargetDTO> getAnalysisTarget(@PathVariable Long id) {
+    public Result<ApplicationAnalysisTargetDTO> getAnalysisTarget(@PathVariable("id") Long id) {
         ApplicationAnalysisTargetBO target = appService.findAnalysisTargetById(id);
         return Result.success(target == null ? null : ApplicationAnalysisTargetDTOConverter.INSTANCE.toSource(target));
     }
@@ -258,7 +258,7 @@ public class AiConfigurationCrudController {
     }
 
     @DeleteMapping("/analysis-targets/{id}")
-    public Result<Boolean> deleteAnalysisTarget(@PathVariable Long id) {
+    public Result<Boolean> deleteAnalysisTarget(@PathVariable("id") Long id) {
         return Result.success(appService.deleteAnalysisTarget(id));
     }
 }

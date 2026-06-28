@@ -49,7 +49,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/overview-snapshots/{id}")
-    public Result<MarketOverviewDTO> getMarketOverview(@PathVariable Long id) {
+    public Result<MarketOverviewDTO> getMarketOverview(@PathVariable("id") Long id) {
         return get(id, appService::findMarketOverviewById, MarketOverviewDTOConverter.INSTANCE);
     }
 
@@ -64,7 +64,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/overview-snapshots/{id}")
-    public Result<Boolean> deleteMarketOverview(@PathVariable Long id) {
+    public Result<Boolean> deleteMarketOverview(@PathVariable("id") Long id) {
         return Result.success(appService.deleteMarketOverview(id));
     }
 
@@ -74,7 +74,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/limit-daily-snapshots/{id}")
-    public Result<MarketLimitDailySnapshotDTO> getLimitDailySnapshot(@PathVariable Long id) {
+    public Result<MarketLimitDailySnapshotDTO> getLimitDailySnapshot(@PathVariable("id") Long id) {
         return get(id, appService::findLimitDailySnapshotById, MarketLimitDailySnapshotDTOConverter.INSTANCE);
     }
 
@@ -89,7 +89,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/limit-daily-snapshots/{id}")
-    public Result<Boolean> deleteLimitDailySnapshot(@PathVariable Long id) {
+    public Result<Boolean> deleteLimitDailySnapshot(@PathVariable("id") Long id) {
         return Result.success(appService.deleteLimitDailySnapshot(id));
     }
 
@@ -99,7 +99,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/limit-daily-stocks/{id}")
-    public Result<MarketLimitDailyStockDTO> getLimitDailyStock(@PathVariable Long id) {
+    public Result<MarketLimitDailyStockDTO> getLimitDailyStock(@PathVariable("id") Long id) {
         return get(id, appService::findLimitDailyStockById, MarketLimitDailyStockDTOConverter.INSTANCE);
     }
 
@@ -114,7 +114,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/limit-daily-stocks/{id}")
-    public Result<Boolean> deleteLimitDailyStock(@PathVariable Long id) {
+    public Result<Boolean> deleteLimitDailyStock(@PathVariable("id") Long id) {
         return Result.success(appService.deleteLimitDailyStock(id));
     }
 
@@ -124,7 +124,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/pulse-capture-batches/{id}")
-    public Result<MarketPulseCaptureBatchDTO> getPulseCaptureBatch(@PathVariable Long id) {
+    public Result<MarketPulseCaptureBatchDTO> getPulseCaptureBatch(@PathVariable("id") Long id) {
         return get(id, appService::findPulseCaptureBatchById, MarketPulseCaptureBatchDTOConverter.INSTANCE);
     }
 
@@ -139,7 +139,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/pulse-capture-batches/{id}")
-    public Result<Boolean> deletePulseCaptureBatch(@PathVariable Long id) {
+    public Result<Boolean> deletePulseCaptureBatch(@PathVariable("id") Long id) {
         return Result.success(appService.deletePulseCaptureBatch(id));
     }
 
@@ -150,7 +150,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/pulse-sector-daily-snapshots/{id}")
-    public Result<MarketPulseSectorDailySnapshotDTO> getPulseSectorDailySnapshot(@PathVariable Long id) {
+    public Result<MarketPulseSectorDailySnapshotDTO> getPulseSectorDailySnapshot(@PathVariable("id") Long id) {
         return get(id, appService::findPulseSectorDailySnapshotById,
                 MarketPulseSectorDailySnapshotDTOConverter.INSTANCE);
     }
@@ -168,7 +168,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/pulse-sector-daily-snapshots/{id}")
-    public Result<Boolean> deletePulseSectorDailySnapshot(@PathVariable Long id) {
+    public Result<Boolean> deletePulseSectorDailySnapshot(@PathVariable("id") Long id) {
         return Result.success(appService.deletePulseSectorDailySnapshot(id));
     }
 
@@ -179,7 +179,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/sector-fund-flow-capture-batches/{id}")
-    public Result<SectorFundFlowCaptureBatchDTO> getSectorFundFlowCaptureBatch(@PathVariable Long id) {
+    public Result<SectorFundFlowCaptureBatchDTO> getSectorFundFlowCaptureBatch(@PathVariable("id") Long id) {
         return get(id, appService::findSectorFundFlowCaptureBatchById,
                 SectorFundFlowCaptureBatchDTOConverter.INSTANCE);
     }
@@ -197,7 +197,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/sector-fund-flow-capture-batches/{id}")
-    public Result<Boolean> deleteSectorFundFlowCaptureBatch(@PathVariable Long id) {
+    public Result<Boolean> deleteSectorFundFlowCaptureBatch(@PathVariable("id") Long id) {
         return Result.success(appService.deleteSectorFundFlowCaptureBatch(id));
     }
 
@@ -208,7 +208,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/sector-fund-flow-daily-snapshots/{id}")
-    public Result<SectorFundFlowDailySnapshotDTO> getSectorFundFlowDailySnapshot(@PathVariable Long id) {
+    public Result<SectorFundFlowDailySnapshotDTO> getSectorFundFlowDailySnapshot(@PathVariable("id") Long id) {
         return get(id, appService::findSectorFundFlowDailySnapshotById,
                 SectorFundFlowDailySnapshotDTOConverter.INSTANCE);
     }
@@ -226,7 +226,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/sector-fund-flow-daily-snapshots/{id}")
-    public Result<Boolean> deleteSectorFundFlowDailySnapshot(@PathVariable Long id) {
+    public Result<Boolean> deleteSectorFundFlowDailySnapshot(@PathVariable("id") Long id) {
         return Result.success(appService.deleteSectorFundFlowDailySnapshot(id));
     }
 
@@ -236,7 +236,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/self-selected-lists/{id}")
-    public Result<SelfSelectedListDTO> getSelfSelectedList(@PathVariable Long id) {
+    public Result<SelfSelectedListDTO> getSelfSelectedList(@PathVariable("id") Long id) {
         return get(id, appService::findSelfSelectedListById, SelfSelectedListDTOConverter.INSTANCE);
     }
 
@@ -251,7 +251,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/self-selected-lists/{id}")
-    public Result<Boolean> deleteSelfSelectedList(@PathVariable Long id) {
+    public Result<Boolean> deleteSelfSelectedList(@PathVariable("id") Long id) {
         return Result.success(appService.deleteSelfSelectedList(id));
     }
 
@@ -261,7 +261,7 @@ public class MarketDataCrudController {
     }
 
     @GetMapping("/self-selected-list-items/{id}")
-    public Result<SelfSelectedListItemDTO> getSelfSelectedListItem(@PathVariable Long id) {
+    public Result<SelfSelectedListItemDTO> getSelfSelectedListItem(@PathVariable("id") Long id) {
         return get(id, appService::findSelfSelectedListItemById, SelfSelectedListItemDTOConverter.INSTANCE);
     }
 
@@ -276,7 +276,7 @@ public class MarketDataCrudController {
     }
 
     @DeleteMapping("/self-selected-list-items/{id}")
-    public Result<Boolean> deleteSelfSelectedListItem(@PathVariable Long id) {
+    public Result<Boolean> deleteSelfSelectedListItem(@PathVariable("id") Long id) {
         return Result.success(appService.deleteSelfSelectedListItem(id));
     }
 

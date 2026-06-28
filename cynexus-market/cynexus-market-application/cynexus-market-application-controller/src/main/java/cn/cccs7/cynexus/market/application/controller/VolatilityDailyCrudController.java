@@ -29,7 +29,7 @@ public class VolatilityDailyCrudController {
     }
 
     @GetMapping("/{id}")
-    public Result<VolatilityDailyDTO> get(@PathVariable Long id) {
+    public Result<VolatilityDailyDTO> get(@PathVariable("id") Long id) {
         return Result.success(appService.findById(id));
     }
 
@@ -44,7 +44,7 @@ public class VolatilityDailyCrudController {
     }
 
     @DeleteMapping("/{id}")
-    public Result<Boolean> delete(@PathVariable Long id) {
+    public Result<Boolean> delete(@PathVariable("id") Long id) {
         return Result.success(appService.delete(id));
     }
 }

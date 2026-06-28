@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "cynexus-market", path = "/api/market")
+@FeignClient(name = "cynexus-market", contextId = "marketFeignClient", path = "/api/market")
 public interface MarketFeignClient {
 
     @GetMapping("/overview")

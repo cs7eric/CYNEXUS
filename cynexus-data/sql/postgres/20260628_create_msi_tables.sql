@@ -1,0 +1,212 @@
+CREATE SCHEMA IF NOT EXISTS cynexus_data;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_index_daily
+(
+    trade_date date PRIMARY KEY,
+    vol_score numeric(12,6),
+    turnover_score numeric(12,6),
+    price_strength_score numeric(12,6),
+    risk_appetite_score numeric(12,6),
+    breadth_score numeric(12,6),
+    limit_emotion_score numeric(12,6),
+    profit_effect_score numeric(12,6),
+    sector_breadth_score numeric(12,6),
+    style_risk_score numeric(12,6),
+    composite_score numeric(12,6),
+    component_count integer NOT NULL DEFAULT 0,
+    level text NOT NULL DEFAULT 'normal',
+    source text NOT NULL DEFAULT 'composite',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_index_daily_trade_date_alive
+    ON cynexus_data.msi_index_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_sector_breadth_daily
+(
+    trade_date date PRIMARY KEY,
+    advancing integer NOT NULL DEFAULT 0,
+    declining integer NOT NULL DEFAULT 0,
+    flat integer NOT NULL DEFAULT 0,
+    total integer NOT NULL DEFAULT 0,
+    advance_pct numeric(12,6),
+    score numeric(12,6),
+    source text NOT NULL DEFAULT 'sector_fund_flow_daily_snapshot',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_sector_breadth_daily_trade_date_alive
+    ON cynexus_data.msi_sector_breadth_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_ma_count_daily
+(
+    trade_date date PRIMARY KEY,
+    total_eligible integer NOT NULL DEFAULT 0,
+    above_ma20 integer NOT NULL DEFAULT 0,
+    above_ma60 integer NOT NULL DEFAULT 0,
+    above_both integer NOT NULL DEFAULT 0,
+    pct_ma20 numeric(12,6),
+    pct_ma60 numeric(12,6),
+    pct_both numeric(12,6),
+    up_5d_count integer NOT NULL DEFAULT 0,
+    up_5d_pct numeric(12,6),
+    new_low_60d_count integer NOT NULL DEFAULT 0,
+    new_low_60d_pct numeric(12,6),
+    new_high_252d_count integer NOT NULL DEFAULT 0,
+    new_high_252d_pct numeric(12,6),
+    advancing_count integer NOT NULL DEFAULT 0,
+    advancing_pct numeric(12,6),
+    breadth_raw numeric(12,6),
+    price_strength_score numeric(12,6),
+    breadth_score numeric(12,6),
+    source text NOT NULL DEFAULT 'clickhouse.daily_qfq',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_ma_count_daily_trade_date_alive
+    ON cynexus_data.msi_ma_count_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+ALTER TABLE cynexus_data.msi_ma_count_daily
+    ADD COLUMN IF NOT EXISTS price_strength_score numeric(12,6),
+    ADD COLUMN IF NOT EXISTS breadth_score numeric(12,6);
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_profit_effect_daily
+(
+    trade_date date PRIMARY KEY,
+    up_5d_pct numeric(12,6),
+    new_low_60d_pct numeric(12,6),
+    score numeric(12,6),
+    source text NOT NULL DEFAULT 'postgres.msi_ma_count_daily',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_profit_effect_daily_trade_date_alive
+    ON cynexus_data.msi_profit_effect_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_turnover_activity_daily
+(
+    trade_date date PRIMARY KEY,
+    total_amount numeric(20,6),
+    sh_amount numeric(20,6),
+    sz_amount numeric(20,6),
+    avg_20d_amount numeric(20,6),
+    ratio numeric(12,6),
+    score numeric(12,6),
+    sample_count integer NOT NULL DEFAULT 0,
+    source text NOT NULL DEFAULT 'clickhouse.daily_raw.999999+399001',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_turnover_activity_daily_trade_date_alive
+    ON cynexus_data.msi_turnover_activity_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_volatility_daily
+(
+    trade_date date PRIMARY KEY,
+    underlying_code text,
+    underlying_name text,
+    close numeric(20,6),
+    daily_return_pct numeric(12,6),
+    realized_vol_20d numeric(12,6),
+    vol_window_days integer NOT NULL DEFAULT 20,
+    vol_lookback_days integer NOT NULL DEFAULT 252,
+    percentile_1y numeric(12,6),
+    sentiment_score numeric(12,6),
+    sample_count integer NOT NULL DEFAULT 0,
+    source text NOT NULL DEFAULT 'clickhouse.index_daily_raw',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_volatility_daily_trade_date_alive
+    ON cynexus_data.msi_volatility_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_risk_appetite_daily
+(
+    trade_date date PRIMARY KEY,
+    hs300_close numeric(20,6),
+    hs300_base_close numeric(20,6),
+    hs300_base_date date,
+    hs300_20d_return numeric(12,6),
+    treasury_511010_close numeric(20,6),
+    treasury_511010_base_close numeric(20,6),
+    treasury_511010_20d_return numeric(12,6),
+    treasury_511090_close numeric(20,6),
+    treasury_511090_base_close numeric(20,6),
+    treasury_511090_20d_return numeric(12,6),
+    treasury_weighted_20d_return numeric(12,6),
+    spread_511010 numeric(12,6),
+    spread_511090 numeric(12,6),
+    spread_weighted numeric(12,6),
+    score numeric(12,6),
+    window_days integer NOT NULL DEFAULT 20,
+    source text NOT NULL DEFAULT 'clickhouse.daily_qfq',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_risk_appetite_daily_trade_date_alive
+    ON cynexus_data.msi_risk_appetite_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_style_risk_daily
+(
+    trade_date date PRIMARY KEY,
+    window_days integer NOT NULL DEFAULT 5,
+    hs300_return numeric(12,6),
+    csi1000_return numeric(12,6),
+    spread numeric(12,6),
+    score numeric(12,6),
+    source text NOT NULL DEFAULT 'clickhouse.daily_qfq',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_style_risk_daily_trade_date_alive
+    ON cynexus_data.msi_style_risk_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_data.msi_limit_emotion_daily
+(
+    trade_date date PRIMARY KEY,
+    limit_up_count integer NOT NULL DEFAULT 0,
+    limit_down_count integer NOT NULL DEFAULT 0,
+    touched_count integer NOT NULL DEFAULT 0,
+    broken_count integer NOT NULL DEFAULT 0,
+    break_board_rate numeric(12,6),
+    limit_up_down_ratio numeric(12,6),
+    yesterday_limit_up_count integer NOT NULL DEFAULT 0,
+    yesterday_limit_up_avg_return numeric(12,6),
+    up_down_score numeric(12,6),
+    break_board_score numeric(12,6),
+    yesterday_return_score numeric(12,6),
+    composite_score numeric(12,6),
+    level text NOT NULL DEFAULT 'normal',
+    source text NOT NULL DEFAULT 'clickhouse.daily_raw',
+    ingested_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    deleted_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_msi_limit_emotion_daily_trade_date_alive
+    ON cynexus_data.msi_limit_emotion_daily (trade_date DESC)
+    WHERE deleted_at IS NULL;

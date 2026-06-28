@@ -29,12 +29,14 @@ public class StockFeatureController {
     }
 
     @GetMapping("/{symbol}/daily-feature")
-    public Result<StockDailyFeatureDTO> getStockDailyFeature(@PathVariable String symbol, @RequestParam String tradeDate) {
+    public Result<StockDailyFeatureDTO> getStockDailyFeature(@PathVariable("symbol") String symbol,
+                                                             @RequestParam("tradeDate") String tradeDate) {
         return Result.success(stockDailyFeatureAssembler.toTarget(stockFeatureAppService.getDailyFeature(symbol, tradeDate)));
     }
 
     @GetMapping("/{symbol}/intraday-feature")
-    public Result<StockIntradayFeatureDTO> getStockIntradayFeature(@PathVariable String symbol, @RequestParam String tradeDate) {
+    public Result<StockIntradayFeatureDTO> getStockIntradayFeature(@PathVariable("symbol") String symbol,
+                                                                   @RequestParam("tradeDate") String tradeDate) {
         return Result.success(stockIntradayFeatureAssembler.toTarget(stockFeatureAppService.getIntradayFeature(symbol, tradeDate)));
     }
 }

@@ -23,7 +23,7 @@ public class MarketOverviewController {
     }
 
     @GetMapping("/overview")
-    public Result<MarketOverviewDTO> getMarketOverview(@RequestParam String tradeDate) {
+    public Result<MarketOverviewDTO> getMarketOverview(@RequestParam("tradeDate") String tradeDate) {
         return Result.success(marketOverviewAssembler.toTarget(marketOverviewAppService.getOverview(tradeDate)));
     }
 }

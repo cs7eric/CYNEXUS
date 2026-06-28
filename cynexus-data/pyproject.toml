@@ -1,0 +1,35 @@
+[project]
+name = "cynexus-data"
+version = "0.1.0"
+description = "Cynexus data ingestion jobs and market data utilities."
+requires-python = ">=3.10"
+dependencies = [
+    "clickhouse-connect>=0.8.0",
+    "duckdb>=1.0.0",
+    "fastapi>=0.111.0",
+    "pandas>=2.0.0",
+    "psycopg[binary]>=3.2.0",
+    "pyarrow>=15.0.0",
+    "pytdx>=1.72",
+    "PyYAML>=6.0.0",
+    "requests>=2.31.0",
+    "SQLAlchemy>=2.0.0",
+    "uvicorn>=0.30.0",
+]
+
+[project.scripts]
+cynexus-ingest-tdx-1m = "cynexus_data.jobs.ingest_tdx_1m_to_clickhouse:main"
+cynexus-ingest-parquet-1m = "cynexus_data.jobs.ingest_parquet_1m_to_clickhouse:main"
+cynexus-health-check = "cynexus_data.jobs.health_check:main"
+cynexus-trigger-api = "cynexus_data.interfaces.trigger_api.app:main"
+cynexus-sync-kline-daily = "cynexus_data.jobs.sync_kline_daily:main"
+cynexus-transcribe-media = "cynexus_data.jobs.transcribe_media:main"
+cynexus-sync-stock-fund-flow = "cynexus_data.jobs.sync_stock_fund_flow:main"
+cynexus-sync-ths-industry-constituents = "cynexus_data.jobs.sync_ths_industry_constituents:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cynexus_data*"]
+
+[tool.setuptools.package-data]
+cynexus_data = ["config/*.yaml"]
