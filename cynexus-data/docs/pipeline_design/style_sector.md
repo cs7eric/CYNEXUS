@@ -9,7 +9,7 @@ Migrates the scoped data-production part of legacy `backend/services/stock/style
 1. Read category `4` style-sector constituents from PostgreSQL stock-sector mappings.
 2. Fetch Tencent qt realtime snapshots for the union of constituent stock codes.
 3. Compute each style sector as an equal-weight average of constituent `change_pct`.
-4. Replace same-date `market_style_sector_snapshot` rows for source `tencent.qt`.
+4. Replace same-date `mkt_style_sector_snapshot` rows for source `tencent.qt`.
 
 ## Boundary
 

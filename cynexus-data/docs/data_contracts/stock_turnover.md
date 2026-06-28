@@ -12,7 +12,7 @@ The migrated formula follows legacy `f10/turnover.py` and `eltdx_adapter.py`:
 
 ## Output Table
 
-`cynexus_data.stock_turnover_series_snapshot`
+`cynexus_appl_market.stock_turnover_series_snapshot`
 
 - `symbol`: six-digit stock code.
 - `target_type`: normally `stock`.

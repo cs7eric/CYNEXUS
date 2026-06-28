@@ -1,8 +1,8 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.ths_industry_constituent_capture_batch
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.ths_industry_constituent_capture_batch
 (
-    batch_id bigserial PRIMARY KEY,
+    id bigint PRIMARY KEY,
     snapshot_date date NOT NULL,
     source_type text NOT NULL,
     status text NOT NULL DEFAULT 'success',
@@ -19,12 +19,13 @@ CREATE TABLE IF NOT EXISTS cynexus_data.ths_industry_constituent_capture_batch
 );
 
 CREATE INDEX IF NOT EXISTS idx_ths_industry_constituent_batch_date_source
-    ON cynexus_data.ths_industry_constituent_capture_batch (snapshot_date, source)
+    ON cynexus_appl_market.ths_industry_constituent_capture_batch (snapshot_date, source)
     WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.ths_industry_constituent_snapshot
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.ths_industry_constituent_snapshot
 (
-    batch_id bigint NOT NULL REFERENCES cynexus_data.ths_industry_constituent_capture_batch(batch_id) ON DELETE CASCADE,
+    id bigint PRIMARY KEY,
+    batch_id bigint NOT NULL REFERENCES cynexus_appl_market.ths_industry_constituent_capture_batch(id) ON DELETE CASCADE,
     snapshot_date date NOT NULL,
     industry_code text NOT NULL,
     stock_code text NOT NULL,
@@ -51,9 +52,9 @@ CREATE TABLE IF NOT EXISTS cynexus_data.ths_industry_constituent_snapshot
 );
 
 CREATE INDEX IF NOT EXISTS idx_ths_industry_constituent_snapshot_industry
-    ON cynexus_data.ths_industry_constituent_snapshot (snapshot_date, industry_code, rank)
+    ON cynexus_appl_market.ths_industry_constituent_snapshot (snapshot_date, industry_code, rank)
     WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_ths_industry_constituent_snapshot_stock
-    ON cynexus_data.ths_industry_constituent_snapshot (stock_code, snapshot_date)
+    ON cynexus_appl_market.ths_industry_constituent_snapshot (stock_code, snapshot_date)
     WHERE deleted_at IS NULL;

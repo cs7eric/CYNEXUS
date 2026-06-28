@@ -1,8 +1,9 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.tdx_industry_quote_batch
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.tdx_industry_quote_batch
 (
-    batch_id text PRIMARY KEY,
+    id bigint PRIMARY KEY,
+    batch_key text NOT NULL,
     snapshot_date date NOT NULL,
     source text NOT NULL DEFAULT 'eltdx',
     row_count integer NOT NULL DEFAULT 0,
@@ -12,9 +13,14 @@ CREATE TABLE IF NOT EXISTS cynexus_data.tdx_industry_quote_batch
     deleted_at timestamptz
 );
 
-CREATE TABLE IF NOT EXISTS cynexus_data.tdx_industry_quote_snapshot
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tdx_industry_quote_batch_key_alive
+    ON cynexus_appl_market.tdx_industry_quote_batch (batch_key)
+    WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.tdx_industry_quote_snapshot
 (
-    batch_id text NOT NULL REFERENCES cynexus_data.tdx_industry_quote_batch(batch_id),
+    id bigint PRIMARY KEY,
+    batch_id bigint NOT NULL REFERENCES cynexus_appl_market.tdx_industry_quote_batch(id),
     snapshot_date date NOT NULL,
     code6 text NOT NULL,
     name text NOT NULL,
@@ -34,10 +40,13 @@ CREATE TABLE IF NOT EXISTS cynexus_data.tdx_industry_quote_snapshot
     fetched_at timestamptz NOT NULL DEFAULT now(),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    deleted_at timestamptz,
-    PRIMARY KEY (snapshot_date, code6, source)
+    deleted_at timestamptz
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tdx_industry_quote_snapshot_date_code_source_alive
+    ON cynexus_appl_market.tdx_industry_quote_snapshot (snapshot_date, code6, source)
+    WHERE deleted_at IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx_tdx_industry_quote_snapshot_alive
-    ON cynexus_data.tdx_industry_quote_snapshot (snapshot_date DESC, change_pct DESC)
+    ON cynexus_appl_market.tdx_industry_quote_snapshot (snapshot_date DESC, change_pct DESC)
     WHERE deleted_at IS NULL;

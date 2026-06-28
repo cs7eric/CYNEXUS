@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 
 class PostgresClient:
-    def __init__(self, url: str, schema: str = "cynexus_data") -> None:
+    def __init__(self, url: str, schema: str = "cynexus_appl_market") -> None:
         self.url = url
         self.schema = schema
         self.engine: Engine = create_engine(url, pool_pre_ping=True, future=True)
@@ -151,4 +151,3 @@ def _jsonable_record(record: dict[str, Any]) -> dict[str, Any]:
         "params": json.dumps(record.get("params") or {}, ensure_ascii=False),
         "metadata": json.dumps(record.get("metadata") or {}, ensure_ascii=False),
     }
-

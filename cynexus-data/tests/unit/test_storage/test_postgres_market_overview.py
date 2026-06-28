@@ -53,7 +53,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self, result):
         self.session_obj = FakeSession(result)
@@ -69,7 +69,7 @@ def test_list_snapshots_queries_market_overview_snapshot() -> None:
 
     sql, params = client.session_obj.calls[0]
     assert len(rows) == 2
-    assert "cynexus_data.market_overview_snapshot" in sql
+    assert "cynexus_appl_market.market_overview_snapshots" in sql
     assert params["limit"] == 2
 
 
@@ -86,7 +86,7 @@ def test_upsert_detail_writes_json_payload_to_detail_table() -> None:
     )
 
     sql, params = client.session_obj.calls[0]
-    assert "cynexus_data.market_overview_detail_snapshot" in sql
+    assert "cynexus_appl_market.mkt_overview_detail_snapshot" in sql
     assert "ON CONFLICT (trade_date, benchmark_code, source_table)" in sql
     assert params["benchmark_code"] == "999999"
     assert params["source_table"] == "daily_raw"

@@ -20,7 +20,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self):
         self.session_obj = FakeSession()
@@ -38,8 +38,8 @@ def test_replace_snapshots_soft_deletes_and_upserts_rows() -> None:
     assert count == 1
     delete_sql, delete_params = client.session_obj.calls[0]
     insert_sql, insert_params = client.session_obj.calls[1]
-    assert "UPDATE cynexus_data.market_style_sector_snapshot" in delete_sql
-    assert "INSERT INTO cynexus_data.market_style_sector_snapshot" in insert_sql
-    assert "ON CONFLICT (trade_date, name, source)" in insert_sql
+    assert "UPDATE cynexus_appl_market.mkt_style_sector_snapshot" in delete_sql
+    assert "INSERT INTO cynexus_appl_market.mkt_style_sector_snapshot" in insert_sql
+    assert "ON CONFLICT (trade_date, name, source) WHERE deleted_at IS NULL" in insert_sql
     assert delete_params["source"] == "tencent.qt"
     assert insert_params["name"] == "昨日涨停"

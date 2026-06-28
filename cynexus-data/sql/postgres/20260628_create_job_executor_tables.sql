@@ -1,6 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_core;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.task_job_run (
+CREATE TABLE IF NOT EXISTS cynexus_appl_core.task_job_run (
     run_id text PRIMARY KEY,
     job_key text NOT NULL,
     trigger_request_id text,
@@ -21,24 +21,24 @@ CREATE TABLE IF NOT EXISTS cynexus_data.task_job_run (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_task_job_run_trigger_request
-    ON cynexus_data.task_job_run (job_key, trigger_request_id)
+    ON cynexus_appl_core.task_job_run (job_key, trigger_request_id)
     WHERE trigger_request_id IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.task_checkpoint (
+CREATE TABLE IF NOT EXISTS cynexus_appl_core.task_checkpoint (
     checkpoint_key text PRIMARY KEY,
     job_key text NOT NULL,
     checkpoint_value jsonb NOT NULL DEFAULT '{}'::jsonb,
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS cynexus_data.task_job_lock (
+CREATE TABLE IF NOT EXISTS cynexus_appl_core.task_job_lock (
     lock_key text PRIMARY KEY,
     owner text NOT NULL,
     expires_at timestamptz NOT NULL,
     acquired_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS cynexus_data.media_transcript (
+CREATE TABLE IF NOT EXISTS cynexus_appl_core.media_transcript (
     transcript_id text PRIMARY KEY,
     source_uri text NOT NULL,
     transcript text NOT NULL,

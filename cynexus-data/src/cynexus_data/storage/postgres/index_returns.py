@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_index_return_tables.sql"
@@ -30,15 +31,15 @@ class IndexReturnRepository:
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.mkt_index_return_daily (
-                            trade_date, index_code, index_name, window_days, current_close,
+                            id, trade_date, index_code, index_name, window_days, current_close,
                             current_trade_date, base_close, base_date, return_pct, source,
                             ingested_at, updated_at, deleted_at
                         ) VALUES (
-                            :trade_date, :index_code, :index_name, :window_days, :current_close,
+                            :id, :trade_date, :index_code, :index_name, :window_days, :current_close,
                             :current_trade_date, :base_close, :base_date, :return_pct, :source,
                             now(), now(), NULL
                         )
-                        ON CONFLICT (trade_date, index_code, window_days) DO UPDATE SET
+                        ON CONFLICT (trade_date, index_code, window_days) WHERE deleted_at IS NULL DO UPDATE SET
                             index_name = EXCLUDED.index_name,
                             current_close = EXCLUDED.current_close,
                             current_trade_date = EXCLUDED.current_trade_date,
@@ -52,6 +53,7 @@ class IndexReturnRepository:
                     ),
                     {
                         "trade_date": trade_date,
+                        "id": next_bigint_id(),
                         "index_code": str(item.get("fullCode") or ""),
                         "index_name": str(item.get("name") or ""),
                         "window_days": int(window_days),

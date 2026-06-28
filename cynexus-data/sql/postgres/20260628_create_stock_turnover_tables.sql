@@ -1,7 +1,8 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.stock_turnover_series_snapshot
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.stock_turnover_series_snapshot
 (
+    id bigint PRIMARY KEY,
     symbol text NOT NULL,
     target_type text NOT NULL DEFAULT 'stock',
     period text NOT NULL DEFAULT '1d',
@@ -16,10 +17,13 @@ CREATE TABLE IF NOT EXISTS cynexus_data.stock_turnover_series_snapshot
     generated_at timestamptz NOT NULL DEFAULT now(),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    deleted_at timestamptz,
-    PRIMARY KEY (symbol, target_type, period, adjust, source)
+    deleted_at timestamptz
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_stock_turnover_series_snapshot_natural_alive
+    ON cynexus_appl_market.stock_turnover_series_snapshot (symbol, target_type, period, adjust, source)
+    WHERE deleted_at IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx_stock_turnover_series_snapshot_alive
-    ON cynexus_data.stock_turnover_series_snapshot (symbol, target_type, latest_trade_date DESC)
+    ON cynexus_appl_market.stock_turnover_series_snapshot (symbol, target_type, latest_trade_date DESC)
     WHERE deleted_at IS NULL;

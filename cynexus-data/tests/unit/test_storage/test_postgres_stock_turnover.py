@@ -35,7 +35,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self):
         self.session_obj = FakeSession()
@@ -62,7 +62,7 @@ def test_upsert_series_writes_payload_and_latest_fields() -> None:
     )
 
     sql, params = client.session_obj.calls[0]
-    assert "cynexus_data.stock_turnover_series_snapshot" in sql
+    assert "cynexus_appl_market.stock_turnover_series_snapshot" in sql
     assert "ON CONFLICT (symbol, target_type, period, adjust, source)" in sql
     assert params["latest_trade_date"] == "2026-06-26"
     assert params["latest_turnover_rate"] == 0.12

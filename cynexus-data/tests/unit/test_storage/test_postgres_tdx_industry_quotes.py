@@ -12,6 +12,9 @@ class FakeExecuteResult:
     def all(self):
         return self.rows
 
+    def scalar_one(self):
+        return 1001
+
 
 class FakeSession:
     def __init__(self, rows=None):
@@ -30,7 +33,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self, rows=None):
         self.session_obj = FakeSession(rows)
@@ -50,9 +53,9 @@ def test_replace_snapshot_soft_deletes_and_upserts_rows() -> None:
 
     sqls = [call[0] for call in client.session_obj.calls]
     assert result["rows_written"] == 1
-    assert "UPDATE cynexus_data.tdx_industry_quote_snapshot" in sqls[0]
-    assert "INSERT INTO cynexus_data.tdx_industry_quote_batch" in sqls[1]
-    assert "INSERT INTO cynexus_data.tdx_industry_quote_snapshot" in sqls[2]
+    assert "UPDATE cynexus_appl_market.tdx_industry_quote_snapshot" in sqls[0]
+    assert "INSERT INTO cynexus_appl_market.tdx_industry_quote_batch" in sqls[1]
+    assert "INSERT INTO cynexus_appl_market.tdx_industry_quote_snapshot" in sqls[2]
     assert client.session_obj.calls[2][1]["code6"] == "880471"
 
 

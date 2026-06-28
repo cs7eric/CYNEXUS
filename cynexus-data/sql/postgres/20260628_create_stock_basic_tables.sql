@@ -1,8 +1,9 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.sec_stock_basic
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.sec_stock_basic
 (
-    code text PRIMARY KEY,
+    id bigint PRIMARY KEY,
+    code text NOT NULL,
     name text NOT NULL DEFAULT '',
     market text NOT NULL DEFAULT '',
     board text NOT NULL DEFAULT 'unknown',
@@ -14,7 +15,10 @@ CREATE TABLE IF NOT EXISTS cynexus_data.sec_stock_basic
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE cynexus_data.sec_stock_basic
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sec_stock_basic_code
+    ON cynexus_appl_market.sec_stock_basic (code);
+
+ALTER TABLE cynexus_appl_market.sec_stock_basic
     ADD COLUMN IF NOT EXISTS industry text,
     ADD COLUMN IF NOT EXISTS total_market_cap numeric(24,4),
     ADD COLUMN IF NOT EXISTS float_market_cap numeric(24,4),
@@ -24,15 +28,16 @@ ALTER TABLE cynexus_data.sec_stock_basic
     ADD COLUMN IF NOT EXISTS industry_query text;
 
 CREATE INDEX IF NOT EXISTS idx_sec_stock_basic_active_code
-    ON cynexus_data.sec_stock_basic (is_active, code);
+    ON cynexus_appl_market.sec_stock_basic (is_active, code);
 
 CREATE INDEX IF NOT EXISTS idx_sec_stock_basic_industry
-    ON cynexus_data.sec_stock_basic (industry, code)
+    ON cynexus_appl_market.sec_stock_basic (industry, code)
     WHERE industry IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.sec_trade_calendar
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.sec_trade_calendar
 (
-    trade_date date PRIMARY KEY,
+    id bigint PRIMARY KEY,
+    trade_date date NOT NULL,
     is_trading_day boolean NOT NULL DEFAULT false,
     reason text NOT NULL DEFAULT 'weekday',
     source text NOT NULL DEFAULT 'local_rules',
@@ -40,5 +45,8 @@ CREATE TABLE IF NOT EXISTS cynexus_data.sec_trade_calendar
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sec_trade_calendar_trade_date
+    ON cynexus_appl_market.sec_trade_calendar (trade_date);
+
 CREATE INDEX IF NOT EXISTS idx_sec_trade_calendar_trading_day
-    ON cynexus_data.sec_trade_calendar (is_trading_day, trade_date);
+    ON cynexus_appl_market.sec_trade_calendar (is_trading_day, trade_date);

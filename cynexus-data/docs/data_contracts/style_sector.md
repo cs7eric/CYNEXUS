@@ -9,7 +9,7 @@
 
 ## Output Table
 
-`cynexus_data.market_style_sector_snapshot`
+`cynexus_appl_market.mkt_style_sector_snapshot`
 
 - `trade_date`: snapshot date.
 - `name`: style sector name, such as `昨日涨停`.

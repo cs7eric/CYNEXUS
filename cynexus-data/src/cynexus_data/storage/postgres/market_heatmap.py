@@ -8,9 +8,11 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_market_heatmap_tables.sql"
+TABLE_NAME = "mkt_heatmap_snapshot"
 
 
 class MarketHeatmapRepository:
@@ -33,14 +35,14 @@ class MarketHeatmapRepository:
             db.execute(
                 text(
                     f"""
-                    INSERT INTO {self.client.schema}.market_heatmap_snapshot (
-                        snapshot_date, kind, source, payload, item_count,
+                    INSERT INTO {self.client.schema}.{TABLE_NAME} (
+                        id, snapshot_date, kind, source, payload, item_count,
                         generated_at, updated_at, deleted_at
                     ) VALUES (
-                        :snapshot_date, :kind, :source, CAST(:payload AS jsonb), :item_count,
+                        :id, :snapshot_date, :kind, :source, CAST(:payload AS jsonb), :item_count,
                         now(), now(), NULL
                     )
-                    ON CONFLICT (snapshot_date, kind, source) DO UPDATE SET
+                    ON CONFLICT (snapshot_date, kind, source) WHERE deleted_at IS NULL DO UPDATE SET
                         payload = EXCLUDED.payload,
                         item_count = EXCLUDED.item_count,
                         generated_at = EXCLUDED.generated_at,
@@ -50,6 +52,7 @@ class MarketHeatmapRepository:
                 ),
                 {
                     "snapshot_date": snapshot_date,
+                    "id": next_bigint_id(),
                     "kind": kind,
                     "source": source,
                     "payload": json.dumps(payload, ensure_ascii=False, default=str),
@@ -70,7 +73,7 @@ class MarketHeatmapRepository:
                 text(
                     f"""
                     SELECT snapshot_date, kind, source, payload, item_count, generated_at
-                      FROM {self.client.schema}.market_heatmap_snapshot
+                      FROM {self.client.schema}.{TABLE_NAME}
                      WHERE snapshot_date = :snapshot_date
                        AND kind = :kind
                        AND source = :source

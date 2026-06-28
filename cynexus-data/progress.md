@@ -985,3 +985,30 @@
 - Added `docs/architecture/data_source_capability_matrix.md`.
 - Marked legacy design rows for data-source matrix, stock data source, MSI pipeline, MSI factor contract, and transcription runtime flow as migrated to current docs.
 - Remaining `planned_after_skeleton` rows: 0.
+
+## 2026-06-28 PostgreSQL Schema Alignment Pass
+
+- Updated Python/PostgreSQL connection design for split schemas:
+  - `postgres_market` defaults to `cynexus_appl_market`.
+  - `postgres_core` defaults to `cynexus_appl_core`.
+  - runtime job state uses core; market/serving repositories use market.
+- Added Python-side bigint id generation and wired it into affected repositories.
+- Aligned table targets with the user-approved mapping:
+  - reused existing `market_overview_snapshots`, `market_pulse_capture_batches`, `market_pulse_sector_daily_snapshots`, `sector_fund_flow_capture_batches`, `sector_fund_flow_daily_snapshots`;
+  - changed new `market_*` serving tables to `mkt_heatmap_snapshot`, `mkt_overview_detail_snapshot`, and `mkt_style_sector_snapshot`;
+  - changed limit stock detail persistence from the parallel `market_limit_stock_snapshot` proposal to existing `market_limit_daily_stocks`.
+- Added `sh_amount`, `sz_amount`, and `sample_count` to `msi_turnover_activity_daily` DDL and verified the calculation/ClickHouse reader/repository path writes them.
+- Converted new PostgreSQL tables to explicit `id bigint PRIMARY KEY` plus natural unique indexes where needed.
+- Applied all 16 `sql/postgres/*.sql` files successfully to local PG at `127.0.0.1:25433/cynexus`.
+- Live PG verification confirmed target market/core tables exist and `msi_turnover_activity_daily` has `sh_amount`, `sz_amount`, and `sample_count`.
+
+## 2026-06-28 PostgreSQL Schema Alignment Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest tests/unit/test_storage -q`: passed, 23 tests.
+- `$env:PYTHONPATH='src'; pytest tests/unit -q`: passed, 184 tests.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.health_check`: passed.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_turnover_activity --dry-run ...`: passed and returned `shAmount`, `szAmount`, `sampleCount`.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_limit_emotion --dry-run ...`: passed and produced stock rows targeting `market_limit_daily_stocks` persistence in non-dry-run mode.
+- `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_market_heatmap --dry-run ...`: passed.
+- Boundary scans found no remaining `cynexus_data.<table>` schema docs, no old `market_limit_stock_snapshot`, and no stale singular `sector_fund_flow_*` / `market_pulse_*` table references in active docs/code/tests/sql.

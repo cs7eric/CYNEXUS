@@ -96,6 +96,7 @@ Status: in_progress
 - Completed in this pass: backlog inventory correction from stale per-file wrappers to real capability status, reducing `planned_after_skeleton` to zero with evidence.
 - Completed in this pass: style-sector equal-weight change snapshot production from stock-sector mappings and Tencent realtime quotes, including PostgreSQL snapshot table, job, docs, tests, and dry-run validation.
 - Completed in this pass: legacy design-document inventory reconciliation, including the new data-source capability matrix and migrated kline/MSI/transcription docs.
+- Completed in this pass: PostgreSQL schema/table alignment with live `cynexus_appl_market` and `cynexus_appl_core`, including split connection hooks, `mkt_` table renames, old Java-facing table reuse, `msi_turnover_activity_daily` additive columns, bigint ids for new tables, live DDL application, unit regression, and dry-run validation.
 
 ## Errors Encountered
 

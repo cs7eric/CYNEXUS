@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_tdx_industry_quote_tables.sql"
@@ -42,39 +43,40 @@ class TdxIndustryQuoteRepository:
                 ),
                 {"snapshot_date": snapshot_date, "source": source},
             )
-            db.execute(
+            batch_pk = db.execute(
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.tdx_industry_quote_batch (
-                        batch_id, snapshot_date, source, row_count, fetched_at, updated_at, deleted_at
+                        id, batch_key, snapshot_date, source, row_count, fetched_at, updated_at, deleted_at
                     ) VALUES (
-                        :batch_id, :snapshot_date, :source, :row_count, :fetched_at, now(), NULL
+                        :id, :batch_key, :snapshot_date, :source, :row_count, :fetched_at, now(), NULL
                     )
-                    ON CONFLICT (batch_id) DO UPDATE SET
+                    ON CONFLICT (batch_key) WHERE deleted_at IS NULL DO UPDATE SET
                         row_count = EXCLUDED.row_count,
                         fetched_at = EXCLUDED.fetched_at,
                         updated_at = now(),
                         deleted_at = NULL
+                    RETURNING id
                     """
                 ),
-                {"batch_id": batch, "snapshot_date": snapshot_date, "source": source, "row_count": len(rows), "fetched_at": fetched_at},
-            )
+                {"id": next_bigint_id(), "batch_key": batch, "snapshot_date": snapshot_date, "source": source, "row_count": len(rows), "fetched_at": fetched_at},
+            ).scalar_one()
             for row in rows:
                 db.execute(
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.tdx_industry_quote_snapshot (
-                            batch_id, snapshot_date, code6, name, full_code, exchange,
+                            id, batch_id, snapshot_date, code6, name, full_code, exchange,
                             last_price, pre_close_price, open_price, high_price, low_price,
                             change, change_pct, amount, total_hand, current_hand,
                             source, fetched_at, updated_at, deleted_at
                         ) VALUES (
-                            :batch_id, :snapshot_date, :code6, :name, :full_code, :exchange,
+                            :id, :batch_id, :snapshot_date, :code6, :name, :full_code, :exchange,
                             :last_price, :pre_close_price, :open_price, :high_price, :low_price,
                             :change, :change_pct, :amount, :total_hand, :current_hand,
                             :source, :fetched_at, now(), NULL
                         )
-                        ON CONFLICT (snapshot_date, code6, source) DO UPDATE SET
+                        ON CONFLICT (snapshot_date, code6, source) WHERE deleted_at IS NULL DO UPDATE SET
                             batch_id = EXCLUDED.batch_id,
                             name = EXCLUDED.name,
                             full_code = EXCLUDED.full_code,
@@ -95,7 +97,8 @@ class TdxIndustryQuoteRepository:
                         """
                     ),
                     {
-                        "batch_id": batch,
+                        "id": next_bigint_id(),
+                        "batch_id": batch_pk,
                         "snapshot_date": snapshot_date,
                         "code6": str(row.get("code6") or ""),
                         "name": str(row.get("name") or ""),

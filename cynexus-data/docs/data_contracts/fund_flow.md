@@ -2,13 +2,13 @@
 
 ## PostgreSQL Tables
 
-`cynexus_data.sector_fund_flow_capture_batch`
+`cynexus_appl_market.sector_fund_flow_capture_batches`
 
 - One active capture batch per `scope + trade_date`.
 - Old batches are soft-deleted before a retry writes the replacement batch.
 - Stores source metadata: `source`, `source_type`, `total_pages`, `page_row_counts`, `fetched_at`, and `extra`.
 
-`cynexus_data.sector_fund_flow_daily_snapshot`
+`cynexus_appl_market.sector_fund_flow_daily_snapshots`
 
 - One active row per `scope + trade_date + sector_name`.
 - Stores normalized THS industry fund-flow fields:

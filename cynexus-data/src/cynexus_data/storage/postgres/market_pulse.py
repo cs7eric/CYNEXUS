@@ -9,9 +9,12 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_market_pulse_tables.sql"
+CAPTURE_TABLE = "market_pulse_capture_batches"
+SNAPSHOT_TABLE = "market_pulse_sector_daily_snapshots"
 
 
 class MarketPulseRepository:
@@ -27,7 +30,7 @@ class MarketPulseRepository:
         trade_date: date,
         rows: list[dict[str, Any]],
         source_kind: str = "fund_flow_snapshot",
-        source_name: str = "sector_fund_flow_daily_snapshot",
+        source_name: str = "sector_fund_flow_daily_snapshots",
         fetched_at: datetime | None = None,
         extra: dict[str, Any] | None = None,
     ) -> int:
@@ -37,7 +40,7 @@ class MarketPulseRepository:
             db.execute(
                 text(
                     f"""
-                    UPDATE {self.client.schema}.market_pulse_sector_daily_snapshot
+                    UPDATE {self.client.schema}.{SNAPSHOT_TABLE}
                        SET deleted_at = now(), updated_at = now()
                      WHERE trade_date = :trade_date AND deleted_at IS NULL
                     """
@@ -47,7 +50,7 @@ class MarketPulseRepository:
             db.execute(
                 text(
                     f"""
-                    UPDATE {self.client.schema}.market_pulse_capture_batch
+                    UPDATE {self.client.schema}.{CAPTURE_TABLE}
                        SET deleted_at = now(), updated_at = now(), status = 'partial'
                      WHERE trade_date = :trade_date AND deleted_at IS NULL
                     """
@@ -57,17 +60,18 @@ class MarketPulseRepository:
             batch_id = db.execute(
                 text(
                     f"""
-                    INSERT INTO {self.client.schema}.market_pulse_capture_batch (
-                        trade_date, source_kind, status, source_name, row_count, fetched_at, extra, updated_at
+                    INSERT INTO {self.client.schema}.{CAPTURE_TABLE} (
+                        id, trade_date, source_kind, status, source_name, row_count, fetched_at, extra, updated_at
                     ) VALUES (
-                        :trade_date, :source_kind, :status, :source_name, :row_count, :fetched_at,
+                        :id, :trade_date, :source_kind, :status, :source_name, :row_count, :fetched_at,
                         CAST(:extra AS jsonb), now()
                     )
-                    RETURNING batch_id
+                    RETURNING id
                     """
                 ),
                 {
                     "trade_date": trade_date,
+                    "id": next_bigint_id(),
                     "source_kind": source_kind,
                     "status": status,
                     "source_name": source_name,
@@ -80,12 +84,12 @@ class MarketPulseRepository:
                 db.execute(
                     text(
                         f"""
-                        INSERT INTO {self.client.schema}.market_pulse_sector_daily_snapshot (
-                            batch_id, trade_date, sector_name, sector_index, rank_by_change, change_pct,
+                        INSERT INTO {self.client.schema}.{SNAPSHOT_TABLE} (
+                            id, batch_id, trade_date, sector_name, sector_index, rank_by_change, change_pct,
                             inflow, outflow, main_net, stock_count, leading_stock, leading_change_pct,
                             leading_price, source_kind, source_name, captured_at, extra, updated_at
                         ) VALUES (
-                            :batch_id, :trade_date, :sector_name, :sector_index, :rank_by_change, :change_pct,
+                            :id, :batch_id, :trade_date, :sector_name, :sector_index, :rank_by_change, :change_pct,
                             :inflow, :outflow, :main_net, :stock_count, :leading_stock, :leading_change_pct,
                             :leading_price, :source_kind, :source_name, :captured_at, CAST(:extra AS jsonb), now()
                         )
@@ -103,7 +107,7 @@ class MarketPulseRepository:
                     SELECT trade_date, sector_name, sector_index, rank_by_change, change_pct, inflow,
                            outflow, main_net, stock_count, leading_stock, leading_change_pct,
                            leading_price, source_kind, source_name
-                      FROM {self.client.schema}.market_pulse_sector_daily_snapshot
+                      FROM {self.client.schema}.{SNAPSHOT_TABLE}
                      WHERE trade_date = :trade_date AND deleted_at IS NULL
                      ORDER BY rank_by_change ASC NULLS LAST, change_pct DESC NULLS LAST, sector_name ASC
                     """
@@ -115,6 +119,7 @@ class MarketPulseRepository:
 
 def _row_params(row: dict[str, Any], *, batch_id: Any, source_kind: str, source_name: str, captured_at: datetime) -> dict[str, Any]:
     payload = dict(row)
+    payload["id"] = next_bigint_id()
     payload["batch_id"] = batch_id
     payload["source_kind"] = source_kind
     payload["source_name"] = source_name

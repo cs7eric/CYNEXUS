@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_sector_quote_detail_tables.sql"
@@ -48,13 +49,13 @@ class TdxSectorQuoteDetailRepository:
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.tdx_sector_quote_detail_snapshot (
-                            snapshot_date, code6, name, seed_code, source, payload,
+                            id, snapshot_date, code6, name, seed_code, source, payload,
                             section_counts, generated_at, updated_at, deleted_at
                         ) VALUES (
-                            :snapshot_date, :code6, :name, :seed_code, :source, CAST(:payload AS jsonb),
+                            :id, :snapshot_date, :code6, :name, :seed_code, :source, CAST(:payload AS jsonb),
                             CAST(:section_counts AS jsonb), now(), now(), NULL
                         )
-                        ON CONFLICT (snapshot_date, code6, source) DO UPDATE SET
+                        ON CONFLICT (snapshot_date, code6, source) WHERE deleted_at IS NULL DO UPDATE SET
                             name = EXCLUDED.name,
                             seed_code = EXCLUDED.seed_code,
                             payload = EXCLUDED.payload,
@@ -65,6 +66,7 @@ class TdxSectorQuoteDetailRepository:
                         """
                     ),
                     {
+                        "id": next_bigint_id(),
                         "snapshot_date": snapshot_date,
                         "code6": row.get("code6"),
                         "name": row.get("name"),

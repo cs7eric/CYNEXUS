@@ -105,3 +105,7 @@
 - Legacy `style_sector_service.py` has a scoped production responsibility: compute 29 style-sector equal-weight change percentages from category `4` stock-sector constituents and Tencent qt quotes. The migrated boundary stores compact `market_style_sector_snapshot` rows and leaves old JSON cache/UI service behavior out of scope.
 - Legacy `stock_universe_service.py` is covered by PostgreSQL stock-basic and stock-sector jobs/tables. The old daily JSON/sectors cache is intentionally not restored.
 - Legacy `etf_poc_service.py` is an ETF POC/UI aggregation path, not part of the current stock-data executor scope. It should be reintroduced only as a separate formal ETF pipeline if ETF coverage becomes a requirement.
+- Current PG alignment uses two schemas: `cynexus_appl_market` for market/serving/data-production tables and `cynexus_appl_core` for Python job runtime and transcription tables.
+- User-approved old Java-facing tables should be reused instead of shadowed: limit stock rows write `market_limit_daily_stocks`; overview/pulse/sector fund-flow write their existing plural old tables.
+- New market serving tables that do not already exist in Java are named with `mkt_` rather than `market_`: `mkt_heatmap_snapshot`, `mkt_overview_detail_snapshot`, and `mkt_style_sector_snapshot`.
+- `msi_turnover_activity_daily` now carries `sh_amount`, `sz_amount`, and `sample_count`; the dry-run payload uses `shAmount`, `szAmount`, and `sampleCount`.

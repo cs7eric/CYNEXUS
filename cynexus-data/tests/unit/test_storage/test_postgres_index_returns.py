@@ -30,7 +30,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self, rows=None):
         self.session_obj = FakeSession(rows)
@@ -53,7 +53,7 @@ def test_save_many_upserts_only_available_items() -> None:
 
     sql, params = client.session_obj.calls[0]
     assert count == 1
-    assert "cynexus_data.mkt_index_return_daily" in sql
+    assert "cynexus_appl_market.mkt_index_return_daily" in sql
     assert "ON CONFLICT (trade_date, index_code, window_days)" in sql
     assert params["index_code"] == "sh000300"
     assert params["window_days"] == 5

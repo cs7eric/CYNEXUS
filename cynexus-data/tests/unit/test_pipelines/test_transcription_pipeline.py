@@ -33,6 +33,7 @@ class FakePostgresHook:
 
 class FakeHooks:
     postgres = FakePostgresHook()
+    postgres_core = FakePostgresHook()
 
 
 def test_media_kind() -> None:

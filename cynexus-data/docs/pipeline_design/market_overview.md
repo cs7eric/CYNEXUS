@@ -63,5 +63,5 @@ When `source=akshare`, `source=eltdx`, `source=eastmoney`, or `source=tencent` a
 
 - Dry-run mode uses caller-supplied rows, or deterministic synthetic rows when none are supplied.
 - Non-dry-run reads compact daily bars from ClickHouse with `read_daily_bars_by_code`.
-- Breadth/sentiment rows come from `market_overview_snapshot` unless explicitly supplied.
-- The pipeline writes one UI-ready JSON payload into PostgreSQL `market_overview_detail_snapshot`; it does not copy daily bar facts into PostgreSQL.
+- Breadth/sentiment rows come from `market_overview_snapshots` unless explicitly supplied.
+- The pipeline writes one UI-ready JSON payload into PostgreSQL `mkt_overview_detail_snapshot`; it does not copy daily bar facts into PostgreSQL.

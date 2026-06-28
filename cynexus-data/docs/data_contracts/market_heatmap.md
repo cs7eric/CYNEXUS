@@ -4,11 +4,11 @@
 
 ## Source
 
-The first production path reads `cynexus_data.tdx_industry_quote_snapshot`, which is populated by `sync_tdx_industry_quotes`.
+The first production path reads `cynexus_appl_market.tdx_industry_quote_snapshot`, which is populated by `sync_tdx_industry_quotes`.
 
 ## Output Table
 
-`cynexus_data.market_heatmap_snapshot`
+`cynexus_appl_market.mkt_heatmap_snapshot`
 
 - `snapshot_date`: trading/snapshot date.
 - `kind`: currently `industries`.

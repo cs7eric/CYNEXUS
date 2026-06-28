@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_stock_sector_tables.sql"
@@ -27,9 +28,9 @@ class StockSectorRepository:
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.sec_sector (
-                            sector_id, category_raw, category_label, name, topic_id, source, updated_at
+                            id, sector_id, category_raw, category_label, name, topic_id, source, updated_at
                         ) VALUES (
-                            :sector_id, :category_raw, :category_label, :name, :topic_id, :source, now()
+                            :id, :sector_id, :category_raw, :category_label, :name, :topic_id, :source, now()
                         )
                         ON CONFLICT (sector_id) DO UPDATE SET
                             category_raw = EXCLUDED.category_raw,
@@ -40,15 +41,15 @@ class StockSectorRepository:
                             updated_at = now()
                         """
                     ),
-                    mapping,
+                    {**mapping, "id": next_bigint_id()},
                 )
                 db.execute(
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.sec_stock_sector (
-                            code, sector_id, relation_level, reason, source, updated_at
+                            id, code, sector_id, relation_level, reason, source, updated_at
                         ) VALUES (
-                            :code, :sector_id, :relation_level, :reason, :source, now()
+                            :id, :code, :sector_id, :relation_level, :reason, :source, now()
                         )
                         ON CONFLICT (code, sector_id) DO UPDATE SET
                             relation_level = EXCLUDED.relation_level,
@@ -57,7 +58,7 @@ class StockSectorRepository:
                             updated_at = now()
                         """
                     ),
-                    mapping,
+                    {**mapping, "id": next_bigint_id()},
                 )
         return len(mappings)
 

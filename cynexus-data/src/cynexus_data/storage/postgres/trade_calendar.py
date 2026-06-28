@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_stock_basic_tables.sql"
@@ -28,9 +29,9 @@ class TradeCalendarRepository:
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.sec_trade_calendar (
-                            trade_date, is_trading_day, reason, source, ingested_at, updated_at
+                            id, trade_date, is_trading_day, reason, source, ingested_at, updated_at
                         ) VALUES (
-                            :trade_date, :is_trading_day, :reason, :source, now(), now()
+                            :id, :trade_date, :is_trading_day, :reason, :source, now(), now()
                         )
                         ON CONFLICT (trade_date) DO UPDATE SET
                             is_trading_day = EXCLUDED.is_trading_day,
@@ -39,6 +40,6 @@ class TradeCalendarRepository:
                             updated_at = now()
                         """
                     ),
-                    {**record, "source": source},
+                    {**record, "id": next_bigint_id(), "source": source},
                 )
         return len(records)

@@ -27,7 +27,15 @@ class HookBundle:
 
     @property
     def postgres(self) -> PostgresHook:
-        return PostgresHook("postgres_default", self.registry)
+        return self.postgres_market
+
+    @property
+    def postgres_market(self) -> PostgresHook:
+        return PostgresHook("postgres_market", self.registry)
+
+    @property
+    def postgres_core(self) -> PostgresHook:
+        return PostgresHook("postgres_core", self.registry)
 
     @property
     def duckdb(self) -> DuckDBHook:
@@ -75,7 +83,7 @@ class PipelineContext:
         registry = ConnectionRegistry()
         if not persist_job_state:
             return cls(registry=registry)
-        pg = PostgresHook("postgres_default", registry).get_client()
+        pg = PostgresHook("postgres_core", registry).get_client()
         return cls(
             registry=registry,
             job_store=JobStore.postgres(pg),

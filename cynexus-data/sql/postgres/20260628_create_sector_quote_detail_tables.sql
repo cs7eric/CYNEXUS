@@ -1,7 +1,8 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.tdx_sector_quote_detail_snapshot
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.tdx_sector_quote_detail_snapshot
 (
+    id bigint PRIMARY KEY,
     snapshot_date date NOT NULL,
     code6 text NOT NULL,
     name text NOT NULL,
@@ -12,10 +13,13 @@ CREATE TABLE IF NOT EXISTS cynexus_data.tdx_sector_quote_detail_snapshot
     generated_at timestamptz NOT NULL DEFAULT now(),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    deleted_at timestamptz,
-    PRIMARY KEY (snapshot_date, code6, source)
+    deleted_at timestamptz
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tdx_sector_quote_detail_date_code_source_alive
+    ON cynexus_appl_market.tdx_sector_quote_detail_snapshot (snapshot_date, code6, source)
+    WHERE deleted_at IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx_tdx_sector_quote_detail_alive
-    ON cynexus_data.tdx_sector_quote_detail_snapshot (snapshot_date DESC, code6, source)
+    ON cynexus_appl_market.tdx_sector_quote_detail_snapshot (snapshot_date DESC, code6, source)
     WHERE deleted_at IS NULL;

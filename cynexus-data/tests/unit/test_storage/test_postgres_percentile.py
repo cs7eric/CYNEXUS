@@ -36,7 +36,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self, result):
         self.session_obj = FakeSession(result)
@@ -53,7 +53,7 @@ def test_percentile_score_queries_allowlisted_table_and_column() -> None:
 
     sql, params = client.session_obj.calls[0]
     assert score == 72.3
-    assert "cynexus_data.msi_turnover_activity_daily" in sql
+    assert "cynexus_appl_market.msi_turnover_activity_daily" in sql
     assert "ratio" in sql
     assert params["current_value"] == 1.23
 

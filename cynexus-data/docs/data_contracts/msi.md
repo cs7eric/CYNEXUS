@@ -2,7 +2,7 @@
 
 ## Composite Table
 
-`cynexus_data.msi_index_daily`
+`cynexus_appl_market.msi_index_daily`
 
 - `trade_date`: primary key.
 - `*_score`: the 9 MSI component scores, each normalized to `0..100` when present.
@@ -17,16 +17,16 @@ Missing components are treated as neutral `50.0` during composite calculation. I
 
 ## Sector Breadth Table
 
-`cynexus_data.msi_sector_breadth_daily`
+`cynexus_appl_market.msi_sector_breadth_daily`
 
 - `advancing`, `declining`, `flat`, `total`: counts from industry fund-flow rows.
 - `advance_pct`: `advancing / total`.
 - `score`: `advance_pct * 100`.
-- `source`: expected to be `postgres.sector_fund_flow_daily_snapshot` for production runs.
+- `source`: expected to be `postgres.sector_fund_flow_daily_snapshots` for production runs.
 
 ## MA Count Table
 
-`cynexus_data.msi_ma_count_daily`
+`cynexus_appl_market.msi_ma_count_daily`
 
 - Shared upstream raw values for MSI price strength and market breadth.
 - `new_high_252d_pct` feeds `price_strength`.
@@ -35,41 +35,41 @@ Missing components are treated as neutral `50.0` during composite calculation. I
 
 ## Profit Effect Table
 
-`cynexus_data.msi_profit_effect_daily`
+`cynexus_appl_market.msi_profit_effect_daily`
 
 - `score = 0.60 * up_5d_pct + 0.40 * (100 - new_low_60d_pct)`.
 - The composite layer may percentile-normalize this raw score later, matching the legacy cache-aside behavior.
 
 ## Turnover Activity Table
 
-`cynexus_data.msi_turnover_activity_daily`
+`cynexus_appl_market.msi_turnover_activity_daily`
 
 - Stores market amount activity, prior-window average, `ratio`, and `score`.
 - In non-dry-run producer mode, `score` is the historical percentile of `ratio` over PostgreSQL history when available.
 
 ## Volatility Sentiment Table
 
-`cynexus_data.msi_volatility_daily`
+`cynexus_appl_market.msi_volatility_daily`
 
 - Stores realized volatility, one-year percentile, and `sentiment_score`.
 
 ## Risk Appetite Table
 
-`cynexus_data.msi_risk_appetite_daily`
+`cynexus_appl_market.msi_risk_appetite_daily`
 
 - Stores HS300, treasury ETF returns, spread values, and `score`.
 - In non-dry-run producer mode, `score` is the historical percentile of `spread_weighted` when available.
 
 ## Style Risk Table
 
-`cynexus_data.msi_style_risk_daily`
+`cynexus_appl_market.msi_style_risk_daily`
 
 - Stores HS300/CSI1000 returns, spread, and `score`.
 - In non-dry-run producer mode, `score` is the historical percentile of `spread` when available.
 
 ## Limit Emotion Table
 
-`cynexus_data.msi_limit_emotion_daily`
+`cynexus_appl_market.msi_limit_emotion_daily`
 
 - Stores limit-up/down summary counts, sub-scores, composite score, and level.
 - Upstream snapshot generation should prefer `sec_stock_basic.limit_up_threshold` and `is_st` for ST-aware limit-up/down detection.

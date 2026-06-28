@@ -9,6 +9,7 @@ from sqlalchemy import text
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.domain.stock.turnover import latest_turnover_entry
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_stock_turnover_tables.sql"
@@ -30,15 +31,15 @@ class StockTurnoverRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.stock_turnover_series_snapshot (
-                        symbol, target_type, period, adjust, circulating_shares, total_shares,
+                        id, symbol, target_type, period, adjust, circulating_shares, total_shares,
                         latest_trade_date, latest_turnover_rate, entry_count, source, payload,
                         generated_at, updated_at, deleted_at
                     ) VALUES (
-                        :symbol, :target_type, :period, :adjust, :circulating_shares, :total_shares,
+                        :id, :symbol, :target_type, :period, :adjust, :circulating_shares, :total_shares,
                         :latest_trade_date, :latest_turnover_rate, :entry_count, :source, CAST(:payload AS jsonb),
                         now(), now(), NULL
                     )
-                    ON CONFLICT (symbol, target_type, period, adjust, source) DO UPDATE SET
+                    ON CONFLICT (symbol, target_type, period, adjust, source) WHERE deleted_at IS NULL DO UPDATE SET
                         circulating_shares = EXCLUDED.circulating_shares,
                         total_shares = EXCLUDED.total_shares,
                         latest_trade_date = EXCLUDED.latest_trade_date,
@@ -51,6 +52,7 @@ class StockTurnoverRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "symbol": str(series.get("symbol") or ""),
                     "target_type": str(series.get("target_type") or "stock"),
                     "period": str(series.get("period") or "1d"),

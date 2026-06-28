@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_stock_basic_tables.sql"
@@ -28,11 +29,11 @@ class StockBasicRepository:
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.sec_stock_basic (
-                            code, name, market, board, is_st, limit_up_threshold, is_active, source,
+                            id, code, name, market, board, is_st, limit_up_threshold, is_active, source,
                             industry, total_market_cap, float_market_cap, cap_style, sector_index_symbol,
                             sector_index_name, industry_query, fetched_at, updated_at
                         ) VALUES (
-                            :code, :name, :market, :board, :is_st, :limit_up_threshold, :is_active, :source,
+                            :id, :code, :name, :market, :board, :is_st, :limit_up_threshold, :is_active, :source,
                             :industry, :total_market_cap, :float_market_cap, :cap_style, :sector_index_symbol,
                             :sector_index_name, :industry_query, now(), now()
                         )
@@ -89,6 +90,7 @@ class StockBasicRepository:
 
 def _record_params(record: dict[str, Any]) -> dict[str, Any]:
     payload = dict(record)
+    payload["id"] = next_bigint_id()
     for key in [
         "industry",
         "total_market_cap",

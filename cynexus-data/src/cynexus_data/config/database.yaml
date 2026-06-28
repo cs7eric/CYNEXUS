@@ -6,7 +6,8 @@ clickhouse:
     daily_hfq: daily_hfq
 
 postgres:
-  schema: cynexus_data
+  market_schema: cynexus_appl_market
+  core_schema: cynexus_appl_core
   tables:
     job_run: task_job_run
     checkpoint: task_checkpoint

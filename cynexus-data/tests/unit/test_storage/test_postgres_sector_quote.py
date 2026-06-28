@@ -37,7 +37,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self):
         self.session_obj = FakeSession()
@@ -64,6 +64,6 @@ def test_replace_snapshots_soft_deletes_requested_codes_and_upserts() -> None:
 
     sqls = [call[0] for call in client.session_obj.calls]
     assert count == 1
-    assert "UPDATE cynexus_data.tdx_sector_quote_detail_snapshot" in sqls[0]
-    assert "INSERT INTO cynexus_data.tdx_sector_quote_detail_snapshot" in sqls[1]
+    assert "UPDATE cynexus_appl_market.tdx_sector_quote_detail_snapshot" in sqls[0]
+    assert "INSERT INTO cynexus_appl_market.tdx_sector_quote_detail_snapshot" in sqls[1]
     assert client.session_obj.calls[1][1]["code6"] == "880471"

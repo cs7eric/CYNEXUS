@@ -9,10 +9,13 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_sector_fund_flow_tables.sql"
 STOCK_DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_stock_fund_flow_tables.sql"
+SECTOR_CAPTURE_TABLE = "sector_fund_flow_capture_batches"
+SECTOR_SNAPSHOT_TABLE = "sector_fund_flow_daily_snapshots"
 
 
 class SectorFundFlowRepository:
@@ -41,7 +44,7 @@ class SectorFundFlowRepository:
             db.execute(
                 text(
                     f"""
-                    UPDATE {self.client.schema}.sector_fund_flow_daily_snapshot
+                    UPDATE {self.client.schema}.{SECTOR_SNAPSHOT_TABLE}
                        SET deleted_at = now(), updated_at = now()
                      WHERE scope = :scope AND trade_date = :trade_date AND deleted_at IS NULL
                     """
@@ -51,7 +54,7 @@ class SectorFundFlowRepository:
             db.execute(
                 text(
                     f"""
-                    UPDATE {self.client.schema}.sector_fund_flow_capture_batch
+                    UPDATE {self.client.schema}.{SECTOR_CAPTURE_TABLE}
                        SET deleted_at = now(), updated_at = now()
                      WHERE scope = :scope AND trade_date = :trade_date AND deleted_at IS NULL
                     """
@@ -61,18 +64,19 @@ class SectorFundFlowRepository:
             batch_id = db.execute(
                 text(
                     f"""
-                    INSERT INTO {self.client.schema}.sector_fund_flow_capture_batch (
-                        scope, trade_date, source_type, status, source, total_pages, row_count,
+                    INSERT INTO {self.client.schema}.{SECTOR_CAPTURE_TABLE} (
+                        id, scope, trade_date, source_type, status, source, total_pages, row_count,
                         page_row_counts, fetched_at, extra, updated_at
                     ) VALUES (
-                        :scope, :trade_date, :source_type, :status, :source, :total_pages, :row_count,
+                        :id, :scope, :trade_date, :source_type, :status, :source, :total_pages, :row_count,
                         CAST(:page_row_counts AS jsonb), :fetched_at, CAST(:extra AS jsonb), now()
                     )
-                    RETURNING batch_id
+                    RETURNING id
                     """
                 ),
                 {
                     "scope": scope,
+                    "id": next_bigint_id(),
                     "trade_date": trade_date,
                     "source_type": source_type,
                     "status": status,
@@ -88,12 +92,12 @@ class SectorFundFlowRepository:
                 db.execute(
                     text(
                         f"""
-                        INSERT INTO {self.client.schema}.sector_fund_flow_daily_snapshot (
-                            batch_id, scope, trade_date, sector_code, sector_name, rank, change_pct,
+                        INSERT INTO {self.client.schema}.{SECTOR_SNAPSHOT_TABLE} (
+                            id, batch_id, scope, trade_date, sector_code, sector_name, rank, change_pct,
                             inflow, outflow, net, company_count, leader_stock, leader_change,
                             leader_price, source, source_type, captured_at, extra, updated_at
                         ) VALUES (
-                            :batch_id, :scope, :trade_date, :sector_code, :sector_name, :rank, :change_pct,
+                            :id, :batch_id, :scope, :trade_date, :sector_code, :sector_name, :rank, :change_pct,
                             :inflow, :outflow, :net, :company_count, :leader_stock, :leader_change,
                             :leader_price, :source, :source_type, :captured_at, CAST(:extra AS jsonb), now()
                         )
@@ -110,7 +114,7 @@ class SectorFundFlowRepository:
                     f"""
                     SELECT trade_date, sector_code, sector_name, rank, change_pct, inflow, outflow, net,
                            company_count, leader_stock, leader_change, leader_price, source, source_type, captured_at
-                      FROM {self.client.schema}.sector_fund_flow_daily_snapshot
+                      FROM {self.client.schema}.{SECTOR_SNAPSHOT_TABLE}
                      WHERE scope = :scope AND trade_date = :trade_date AND deleted_at IS NULL
                      ORDER BY net DESC NULLS LAST, rank ASC NULLS LAST
                     """
@@ -122,6 +126,7 @@ class SectorFundFlowRepository:
 
 def _record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)
+    payload["id"] = next_bigint_id()
     payload["batch_id"] = batch_id
     payload["captured_at"] = payload.get("captured_at") or captured_at
     payload["extra"] = json.dumps(payload.get("extra") or {}, ensure_ascii=False, default=str)
@@ -173,16 +178,17 @@ class StockFundFlowRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.stock_fund_flow_capture_batch (
-                        trade_date, source_type, status, source, row_count, requested_codes,
+                        id, trade_date, source_type, status, source, row_count, requested_codes,
                         fetched_at, extra, updated_at
                     ) VALUES (
-                        :trade_date, :source_type, :status, :source, :row_count, CAST(:requested_codes AS jsonb),
+                        :id, :trade_date, :source_type, :status, :source, :row_count, CAST(:requested_codes AS jsonb),
                         :fetched_at, CAST(:extra AS jsonb), now()
                     )
-                    RETURNING batch_id
+                    RETURNING id
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": trade_date,
                     "source_type": source_type,
                     "status": status,
@@ -196,16 +202,16 @@ class StockFundFlowRepository:
             for record in records:
                 db.execute(
                     text(
-                        f"""
-                        INSERT INTO {self.client.schema}.stock_fund_flow_snapshot (
-                            batch_id, trade_date, code, symbol, name, last_price, pre_close, open, high, low,
+                    f"""
+                    INSERT INTO {self.client.schema}.stock_fund_flow_snapshot (
+                            id, batch_id, trade_date, code, symbol, name, last_price, pre_close, open, high, low,
                             change, change_pct, volume_lots, amount_wan, turnover_rate, outer_disc_lots,
                             inside_dish_lots, active_net_lots, active_net_amount_wan, active_buy_ratio,
                             active_sell_ratio, buy_big_ratio, buy_small_ratio, sell_big_ratio, sell_small_ratio,
                             pe, pb, amplitude, float_market_cap_yi, total_market_cap_yi, source, source_type,
                             captured_at, extra, updated_at
                         ) VALUES (
-                            :batch_id, :trade_date, :code, :symbol, :name, :last_price, :pre_close, :open, :high, :low,
+                            :id, :batch_id, :trade_date, :code, :symbol, :name, :last_price, :pre_close, :open, :high, :low,
                             :change, :change_pct, :volume_lots, :amount_wan, :turnover_rate, :outer_disc_lots,
                             :inside_dish_lots, :active_net_lots, :active_net_amount_wan, :active_buy_ratio,
                             :active_sell_ratio, :buy_big_ratio, :buy_small_ratio, :sell_big_ratio, :sell_small_ratio,
@@ -243,6 +249,7 @@ class StockFundFlowRepository:
 
 def _stock_record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)
+    payload["id"] = next_bigint_id()
     payload["batch_id"] = batch_id
     payload["captured_at"] = payload.get("captured_at") or captured_at
     payload["extra"] = json.dumps(payload.get("extra") or {}, ensure_ascii=False, default=str)

@@ -9,9 +9,12 @@ from sqlalchemy import text
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.domain.market.market_overview import NUMERIC_FIELDS, merge_source, should_overwrite_field
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_market_overview_tables.sql"
+OVERVIEW_TABLE = "market_overview_snapshots"
+DETAIL_TABLE = "mkt_overview_detail_snapshot"
 
 
 class MarketOverviewRepository:
@@ -24,7 +27,7 @@ class MarketOverviewRepository:
     def get(self, trade_date) -> dict[str, Any] | None:
         with self.client.session() as db:
             row = db.execute(
-                text(f"SELECT * FROM {self.client.schema}.market_overview_snapshot WHERE trade_date = :trade_date AND deleted_at IS NULL"),
+                text(f"SELECT * FROM {self.client.schema}.{OVERVIEW_TABLE} WHERE trade_date = :trade_date AND deleted_at IS NULL"),
                 {"trade_date": trade_date},
             ).mappings().first()
         return dict(row) if row else None
@@ -35,7 +38,7 @@ class MarketOverviewRepository:
                 text(
                     f"""
                     SELECT *
-                      FROM {self.client.schema}.market_overview_snapshot
+                      FROM {self.client.schema}.{OVERVIEW_TABLE}
                      WHERE trade_date <= :end_date AND deleted_at IS NULL
                      ORDER BY trade_date DESC
                      LIMIT :limit
@@ -59,14 +62,14 @@ class MarketOverviewRepository:
             db.execute(
                 text(
                     f"""
-                    INSERT INTO {self.client.schema}.market_overview_snapshot (
-                        trade_date, total_amount, total_volume, rising_count, falling_count, flat_count,
+                    INSERT INTO {self.client.schema}.{OVERVIEW_TABLE} (
+                        id, trade_date, total_amount, total_volume, rising_count, falling_count, flat_count,
                         limit_up_count, limit_down_count, stock_count, main_net_inflow,
                         super_large_net_inflow, large_net_inflow, medium_net_inflow, small_net_inflow,
                         main_net_inflow_ratio, super_large_net_ratio, large_net_ratio, medium_net_ratio,
                         small_net_ratio, source, is_manual_override, manual_updated_at, extra, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :total_amount, :total_volume, :rising_count, :falling_count, :flat_count,
+                        :id, :trade_date, :total_amount, :total_volume, :rising_count, :falling_count, :flat_count,
                         :limit_up_count, :limit_down_count, :stock_count, :main_net_inflow,
                         :super_large_net_inflow, :large_net_inflow, :medium_net_inflow, :small_net_inflow,
                         :main_net_inflow_ratio, :super_large_net_ratio, :large_net_ratio, :medium_net_ratio,
@@ -74,7 +77,7 @@ class MarketOverviewRepository:
                         CASE WHEN :is_manual_override THEN now() ELSE NULL END,
                         CAST(:extra AS jsonb), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         total_amount = EXCLUDED.total_amount,
                         total_volume = EXCLUDED.total_volume,
                         rising_count = EXCLUDED.rising_count,
@@ -95,13 +98,13 @@ class MarketOverviewRepository:
                         small_net_ratio = EXCLUDED.small_net_ratio,
                         source = EXCLUDED.source,
                         is_manual_override = EXCLUDED.is_manual_override,
-                        manual_updated_at = COALESCE(EXCLUDED.manual_updated_at, {self.client.schema}.market_overview_snapshot.manual_updated_at),
+                        manual_updated_at = COALESCE(EXCLUDED.manual_updated_at, {self.client.schema}.{OVERVIEW_TABLE}.manual_updated_at),
                         extra = EXCLUDED.extra,
                         updated_at = now(),
                         deleted_at = NULL
                     """
                 ),
-                {**merged, "extra": json.dumps(extra or {}, ensure_ascii=False, default=str)},
+                {**merged, "id": next_bigint_id(), "extra": json.dumps(extra or {}, ensure_ascii=False, default=str)},
             )
         return self.get(trade_date) or merged
 
@@ -111,7 +114,7 @@ class MarketOverviewRepository:
                 text(
                     f"""
                     SELECT *
-                      FROM {self.client.schema}.market_overview_detail_snapshot
+                      FROM {self.client.schema}.{DETAIL_TABLE}
                      WHERE trade_date = :trade_date
                        AND benchmark_code = :benchmark_code
                        AND source_table = :source_table
@@ -135,14 +138,14 @@ class MarketOverviewRepository:
             db.execute(
                 text(
                     f"""
-                    INSERT INTO {self.client.schema}.market_overview_detail_snapshot (
-                        trade_date, benchmark_code, source_table, payload, source, generated_at,
+                    INSERT INTO {self.client.schema}.{DETAIL_TABLE} (
+                        id, trade_date, benchmark_code, source_table, payload, source, generated_at,
                         updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :benchmark_code, :source_table, CAST(:payload AS jsonb), :source,
+                        :id, :trade_date, :benchmark_code, :source_table, CAST(:payload AS jsonb), :source,
                         now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date, benchmark_code, source_table) DO UPDATE SET
+                    ON CONFLICT (trade_date, benchmark_code, source_table) WHERE deleted_at IS NULL DO UPDATE SET
                         payload = EXCLUDED.payload,
                         source = EXCLUDED.source,
                         generated_at = EXCLUDED.generated_at,
@@ -152,6 +155,7 @@ class MarketOverviewRepository:
                 ),
                 {
                     "trade_date": trade_date,
+                    "id": next_bigint_id(),
                     "benchmark_code": benchmark_code,
                     "source_table": source_table,
                     "payload": json.dumps(payload, ensure_ascii=False, default=str),

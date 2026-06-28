@@ -1,9 +1,7 @@
-CREATE SCHEMA IF NOT EXISTS cynexus_data;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE TABLE IF NOT EXISTS cynexus_data.stock_fund_flow_capture_batch
+CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.stock_fund_flow_capture_batch
 (
-    batch_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id bigint PRIMARY KEY,
     trade_date date NOT NULL,
     source_type text NOT NULL DEFAULT 'crawler',
     status text NOT NULL DEFAULT 'success',
@@ -21,17 +19,17 @@ CREATE TABLE IF NOT EXISTS cynexus_data.stock_fund_flow_capture_batch
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_stock_fund_flow_capture_batch_trade_date_source_alive
-    ON cynexus_data.stock_fund_flow_capture_batch (trade_date, source)
+    ON cynexus_appl_market.stock_fund_flow_capture_batch (trade_date, source)
     WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_stock_fund_flow_capture_batch_fetched_at
-    ON cynexus_data.stock_fund_flow_capture_batch (fetched_at DESC)
+    ON cynexus_appl_market.stock_fund_flow_capture_batch (fetched_at DESC)
     WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS cynexus_data.stock_fund_flow_snapshot
+CREATE TABLE IF NOT EXISTS cynexus_appl_market.stock_fund_flow_snapshot
 (
-    snapshot_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    batch_id uuid NOT NULL REFERENCES cynexus_data.stock_fund_flow_capture_batch(batch_id) ON DELETE CASCADE,
+    id bigint PRIMARY KEY,
+    batch_id bigint NOT NULL REFERENCES cynexus_appl_market.stock_fund_flow_capture_batch(id) ON DELETE CASCADE,
     trade_date date NOT NULL,
     code text NOT NULL,
     symbol text,
@@ -73,13 +71,13 @@ CREATE TABLE IF NOT EXISTS cynexus_data.stock_fund_flow_snapshot
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_stock_fund_flow_snapshot_trade_date_code_source_alive
-    ON cynexus_data.stock_fund_flow_snapshot (trade_date, code, source)
+    ON cynexus_appl_market.stock_fund_flow_snapshot (trade_date, code, source)
     WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_stock_fund_flow_snapshot_trade_date_net
-    ON cynexus_data.stock_fund_flow_snapshot (trade_date, active_net_amount_wan DESC)
+    ON cynexus_appl_market.stock_fund_flow_snapshot (trade_date, active_net_amount_wan DESC)
     WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_stock_fund_flow_snapshot_code_trade_date
-    ON cynexus_data.stock_fund_flow_snapshot (code, trade_date DESC)
+    ON cynexus_appl_market.stock_fund_flow_snapshot (code, trade_date DESC)
     WHERE deleted_at IS NULL;

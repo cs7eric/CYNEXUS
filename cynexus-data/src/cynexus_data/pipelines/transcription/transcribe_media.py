@@ -40,7 +40,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         raise FileNotFoundError(str(path))
     if context.hooks is None:
         raise RuntimeError("PipelineContext.hooks is required")
-    repo = TranscriptRepository(context.hooks.postgres.get_client())
+    repo = TranscriptRepository(context.hooks.postgres_core.get_client())
     if create_table:
         repo.create_table()
     if not force:

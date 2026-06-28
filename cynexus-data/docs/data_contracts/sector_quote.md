@@ -16,7 +16,7 @@ Supported datasets:
 
 ## Output Table
 
-`cynexus_data.tdx_sector_quote_detail_snapshot`
+`cynexus_appl_market.tdx_sector_quote_detail_snapshot`
 
 - `snapshot_date`: snapshot/trading date.
 - `code6`: TDX industry code, such as `880471`.

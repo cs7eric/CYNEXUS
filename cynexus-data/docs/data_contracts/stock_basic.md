@@ -1,6 +1,6 @@
 # Stock Basic Data Contract
 
-Primary table: `cynexus_data.sec_stock_basic` in PostgreSQL.
+Primary table: `cynexus_appl_market.sec_stock_basic` in PostgreSQL.
 
 This table is the Python-owned stock universe used by data jobs. Java may still own UI-facing stock configuration; this table exists to let Python jobs resolve active stock codes without hard-coded lists.
 
@@ -29,8 +29,8 @@ Consumers:
 
 Tables:
 
-- `cynexus_data.sec_sector`
-- `cynexus_data.sec_stock_sector`
+- `cynexus_appl_market.sec_sector`
+- `cynexus_appl_market.sec_stock_sector`
 
 `sec_sector` stores normalized industry/concept/style buckets. `sec_stock_sector` stores stock membership and relation metadata.
 
@@ -46,8 +46,8 @@ Mappings are replaced per stock by `sync_stock_sectors`, so stale topics for tha
 
 Tables:
 
-- `cynexus_data.ths_industry_constituent_capture_batch`
-- `cynexus_data.ths_industry_constituent_snapshot`
+- `cynexus_appl_market.ths_industry_constituent_capture_batch`
+- `cynexus_appl_market.ths_industry_constituent_snapshot`
 
 The snapshot table stores q.10jqka industry membership plus the 14-column quote fields exposed by the source page.
 
@@ -61,7 +61,7 @@ Large historical quote/time-series details still belong in ClickHouse. This tabl
 
 ## Trade Calendar
 
-`cynexus_data.sec_trade_calendar`
+`cynexus_appl_market.sec_trade_calendar`
 
 - `trade_date`: calendar date.
 - `is_trading_day`: whether the date is an A-share trading day.

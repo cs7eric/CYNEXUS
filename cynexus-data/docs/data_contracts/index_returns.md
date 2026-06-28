@@ -2,7 +2,7 @@
 
 ## PostgreSQL Table
 
-`cynexus_data.mkt_index_return_daily`
+`cynexus_appl_market.mkt_index_return_daily`
 
 One row per:
 

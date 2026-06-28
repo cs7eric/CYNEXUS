@@ -9,7 +9,7 @@ Migrates the scoped production part of legacy `market_heatmap_service.py`: build
 1. Accept explicit `rows` for dry-run/manual repair, or read `tdx_industry_quote_snapshot` by `snapshot_date`.
 2. Normalize TDX industry quote rows in pure domain code.
 3. Sort industries by amount and apply `top_n`.
-4. Persist the final payload to `market_heatmap_snapshot`.
+4. Persist the final payload to `mkt_heatmap_snapshot`.
 
 ## Boundary
 

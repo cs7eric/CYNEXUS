@@ -10,7 +10,7 @@ Migrates the scoped data-production part of legacy `_limit_pg_writer.py` and `ma
 2. Build ST-aware limit-up, limit-down, broken-board, and streak flags in pure domain code.
 3. Calculate the MSI limit-emotion summary.
 4. Persist the summary to `msi_limit_emotion_daily`.
-5. Extract stock-level limit snapshots and replace same-date, same-source rows in `market_limit_stock_snapshot`.
+5. Extract stock-level limit snapshots and replace same-date rows in the existing Java-facing `market_limit_daily_stocks`.
 
 ## Boundary
 

@@ -9,6 +9,7 @@ from sqlalchemy import text
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.domain.market.msi import WEIGHTS, sector_breadth_score
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_msi_tables.sql"
@@ -61,15 +62,15 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_index_daily (
-                        trade_date, vol_score, turnover_score, price_strength_score, risk_appetite_score,
+                        id, trade_date, vol_score, turnover_score, price_strength_score, risk_appetite_score,
                         breadth_score, limit_emotion_score, profit_effect_score, sector_breadth_score,
                         style_risk_score, composite_score, component_count, level, source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :vol_score, :turnover_score, :price_strength_score, :risk_appetite_score,
+                        :id, :trade_date, :vol_score, :turnover_score, :price_strength_score, :risk_appetite_score,
                         :breadth_score, :limit_emotion_score, :profit_effect_score, :sector_breadth_score,
                         :style_risk_score, :composite_score, :component_count, :level, :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         vol_score = EXCLUDED.vol_score,
                         turnover_score = EXCLUDED.turnover_score,
                         price_strength_score = EXCLUDED.price_strength_score,
@@ -87,7 +88,7 @@ class MsiRepository:
                         deleted_at = NULL
                     """
                 ),
-                params,
+                {**params, "id": next_bigint_id()},
             )
         return 1
 
@@ -108,7 +109,7 @@ class MsiRepository:
                                COUNT(*) FILTER (WHERE change_pct < 0) AS declining,
                                COUNT(*) FILTER (WHERE change_pct = 0) AS flat,
                                COUNT(*) AS total
-                          FROM {self.client.schema}.sector_fund_flow_daily_snapshot
+                          FROM {self.client.schema}.sector_fund_flow_daily_snapshots
                          WHERE trade_date = :trade_date AND scope = 'industry' AND deleted_at IS NULL
                         """
                     ),
@@ -131,7 +132,7 @@ class MsiRepository:
             "total": total,
             "advancePct": round(advancing / total, 6),
             "score": score,
-            "source": "postgres.sector_fund_flow_daily_snapshot",
+            "source": "postgres.sector_fund_flow_daily_snapshots",
         }
 
     def save_sector_breadth(self, payload: dict[str, Any]) -> int:
@@ -140,13 +141,13 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_sector_breadth_daily (
-                        trade_date, advancing, declining, flat, total, advance_pct, score, source,
+                        id, trade_date, advancing, declining, flat, total, advance_pct, score, source,
                         ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :advancing, :declining, :flat, :total, :advance_pct, :score, :source,
+                        :id, :trade_date, :advancing, :declining, :flat, :total, :advance_pct, :score, :source,
                         now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         advancing = EXCLUDED.advancing,
                         declining = EXCLUDED.declining,
                         flat = EXCLUDED.flat,
@@ -160,13 +161,14 @@ class MsiRepository:
                 ),
                 {
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
+                    "id": next_bigint_id(),
                     "advancing": int(payload.get("advancing") or 0),
                     "declining": int(payload.get("declining") or 0),
                     "flat": int(payload.get("flat") or 0),
                     "total": int(payload.get("total") or 0),
                     "advance_pct": payload.get("advancePct"),
                     "score": payload.get("score"),
-                    "source": payload.get("source") or "postgres.sector_fund_flow_daily_snapshot",
+                    "source": payload.get("source") or "postgres.sector_fund_flow_daily_snapshots",
                 },
             )
         return 1
@@ -199,19 +201,19 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_ma_count_daily (
-                        trade_date, total_eligible, above_ma20, above_ma60, above_both,
+                        id, trade_date, total_eligible, above_ma20, above_ma60, above_both,
                         pct_ma20, pct_ma60, pct_both, up_5d_count, up_5d_pct,
                         new_low_60d_count, new_low_60d_pct, new_high_252d_count, new_high_252d_pct,
                         advancing_count, advancing_pct, breadth_raw, price_strength_score, breadth_score,
                         source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :total_eligible, :above_ma20, :above_ma60, :above_both,
+                        :id, :trade_date, :total_eligible, :above_ma20, :above_ma60, :above_both,
                         :pct_ma20, :pct_ma60, :pct_both, :up_5d_count, :up_5d_pct,
                         :new_low_60d_count, :new_low_60d_pct, :new_high_252d_count, :new_high_252d_pct,
                         :advancing_count, :advancing_pct, :breadth_raw, :price_strength_score, :breadth_score,
                         :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         total_eligible = EXCLUDED.total_eligible,
                         above_ma20 = EXCLUDED.above_ma20,
                         above_ma60 = EXCLUDED.above_ma60,
@@ -235,7 +237,7 @@ class MsiRepository:
                         deleted_at = NULL
                     """
                 ),
-                params,
+                {**params, "id": next_bigint_id()},
             )
         return 1
 
@@ -287,11 +289,11 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_profit_effect_daily (
-                        trade_date, up_5d_pct, new_low_60d_pct, score, source, ingested_at, updated_at, deleted_at
+                        id, trade_date, up_5d_pct, new_low_60d_pct, score, source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :up_5d_pct, :new_low_60d_pct, :score, :source, now(), now(), NULL
+                        :id, :trade_date, :up_5d_pct, :new_low_60d_pct, :score, :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         up_5d_pct = EXCLUDED.up_5d_pct,
                         new_low_60d_pct = EXCLUDED.new_low_60d_pct,
                         score = EXCLUDED.score,
@@ -301,6 +303,7 @@ class MsiRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
                     "up_5d_pct": payload.get("up5dPct"),
                     "new_low_60d_pct": payload.get("newLow60dPct"),
@@ -316,13 +319,13 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_turnover_activity_daily (
-                        trade_date, total_amount, sh_amount, sz_amount, avg_20d_amount,
+                        id, trade_date, total_amount, sh_amount, sz_amount, avg_20d_amount,
                         ratio, score, sample_count, source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :total_amount, :sh_amount, :sz_amount, :avg_20d_amount,
+                        :id, :trade_date, :total_amount, :sh_amount, :sz_amount, :avg_20d_amount,
                         :ratio, :score, :sample_count, :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         total_amount = EXCLUDED.total_amount,
                         sh_amount = EXCLUDED.sh_amount,
                         sz_amount = EXCLUDED.sz_amount,
@@ -336,6 +339,7 @@ class MsiRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
                     "total_amount": payload.get("totalAmount"),
                     "sh_amount": payload.get("shAmount"),
@@ -355,15 +359,15 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_volatility_daily (
-                        trade_date, underlying_code, underlying_name, close, daily_return_pct,
+                        id, trade_date, underlying_code, underlying_name, close, daily_return_pct,
                         realized_vol_20d, vol_window_days, vol_lookback_days, percentile_1y,
                         sentiment_score, sample_count, source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :underlying_code, :underlying_name, :close, :daily_return_pct,
+                        :id, :trade_date, :underlying_code, :underlying_name, :close, :daily_return_pct,
                         :realized_vol_20d, :vol_window_days, :vol_lookback_days, :percentile_1y,
                         :sentiment_score, :sample_count, :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         underlying_code = EXCLUDED.underlying_code,
                         underlying_name = EXCLUDED.underlying_name,
                         close = EXCLUDED.close,
@@ -380,6 +384,7 @@ class MsiRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
                     "underlying_code": payload.get("underlyingCode"),
                     "underlying_name": payload.get("underlyingName"),
@@ -407,18 +412,18 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_risk_appetite_daily (
-                        trade_date, hs300_close, hs300_base_close, hs300_base_date, hs300_20d_return,
+                        id, trade_date, hs300_close, hs300_base_close, hs300_base_date, hs300_20d_return,
                         treasury_511010_close, treasury_511010_base_close, treasury_511010_20d_return,
                         treasury_511090_close, treasury_511090_base_close, treasury_511090_20d_return,
                         treasury_weighted_20d_return, spread_511010, spread_511090, spread_weighted,
                         score, window_days, source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :hs300_close, :hs300_base_close, :hs300_base_date, :hs300_20d_return,
+                        :id, :trade_date, :hs300_close, :hs300_base_close, :hs300_base_date, :hs300_20d_return,
                         :t1_close, :t1_base_close, :t1_return, :t2_close, :t2_base_close, :t2_return,
                         :treasury_weighted_return, :spread_511010, :spread_511090, :spread_weighted,
                         :score, :window_days, :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         hs300_close = EXCLUDED.hs300_close,
                         hs300_base_close = EXCLUDED.hs300_base_close,
                         hs300_base_date = EXCLUDED.hs300_base_date,
@@ -441,6 +446,7 @@ class MsiRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
                     "hs300_close": hs.get("close"),
                     "hs300_base_close": hs.get("baseClose"),
@@ -469,13 +475,13 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_style_risk_daily (
-                        trade_date, window_days, hs300_return, csi1000_return,
+                        id, trade_date, window_days, hs300_return, csi1000_return,
                         spread, score, source, ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :window_days, :hs300_return, :csi1000_return,
+                        :id, :trade_date, :window_days, :hs300_return, :csi1000_return,
                         :spread, :score, :source, now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         window_days = EXCLUDED.window_days,
                         hs300_return = EXCLUDED.hs300_return,
                         csi1000_return = EXCLUDED.csi1000_return,
@@ -487,6 +493,7 @@ class MsiRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
                     "window_days": int(payload.get("windowDays") or 5),
                     "hs300_return": (payload.get("hs300") or {}).get("returnPct"),
@@ -505,19 +512,19 @@ class MsiRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.msi_limit_emotion_daily (
-                        trade_date, limit_up_count, limit_down_count, touched_count, broken_count,
+                        id, trade_date, limit_up_count, limit_down_count, touched_count, broken_count,
                         break_board_rate, limit_up_down_ratio, yesterday_limit_up_count,
                         yesterday_limit_up_avg_return, up_down_score, break_board_score,
                         yesterday_return_score, composite_score, level, source,
                         ingested_at, updated_at, deleted_at
                     ) VALUES (
-                        :trade_date, :limit_up_count, :limit_down_count, :touched_count, :broken_count,
+                        :id, :trade_date, :limit_up_count, :limit_down_count, :touched_count, :broken_count,
                         :break_board_rate, :limit_up_down_ratio, :yesterday_limit_up_count,
                         :yesterday_limit_up_avg_return, :up_down_score, :break_board_score,
                         :yesterday_return_score, :composite_score, :level, :source,
                         now(), now(), NULL
                     )
-                    ON CONFLICT (trade_date) DO UPDATE SET
+                    ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
                         limit_up_count = EXCLUDED.limit_up_count,
                         limit_down_count = EXCLUDED.limit_down_count,
                         touched_count = EXCLUDED.touched_count,
@@ -537,6 +544,7 @@ class MsiRepository:
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "trade_date": date.fromisoformat(str(payload["tradeDate"])),
                     "limit_up_count": int(payload.get("limitUpCount") or 0),
                     "limit_down_count": int(payload.get("limitDownCount") or 0),

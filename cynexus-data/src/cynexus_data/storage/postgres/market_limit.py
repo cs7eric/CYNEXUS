@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -9,9 +8,11 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_market_limit_tables.sql"
+STOCK_TABLE = "market_limit_daily_stocks"
 
 
 class MarketLimitRepository:
@@ -32,14 +33,13 @@ class MarketLimitRepository:
             db.execute(
                 text(
                     f"""
-                    UPDATE {self.client.schema}.market_limit_stock_snapshot
+                    UPDATE {self.client.schema}.{STOCK_TABLE}
                        SET deleted_at = now(), updated_at = now()
                      WHERE trade_date = :trade_date
-                       AND source = :source
                        AND deleted_at IS NULL
                     """
                 ),
-                {"trade_date": trade_date, "source": source},
+                {"trade_date": trade_date},
             )
             count = 0
             for row in rows:
@@ -50,28 +50,26 @@ class MarketLimitRepository:
                 db.execute(
                     text(
                         f"""
-                        INSERT INTO {self.client.schema}.market_limit_stock_snapshot (
-                            trade_date, code, name, category, streak, change_pct,
-                            limit_up_price, limit_down_price, close, source, payload,
-                            ingested_at, updated_at, deleted_at
+                        INSERT INTO {self.client.schema}.{STOCK_TABLE} (
+                            id, trade_date, code, name, category, streak, change_pct,
+                            limit_up_price, limit_down_price, updated_at, deleted_at
                         ) VALUES (
-                            :trade_date, :code, :name, :category, :streak, :change_pct,
-                            :limit_up_price, :limit_down_price, :close, :source, CAST(:payload AS jsonb),
-                            now(), now(), NULL
+                            :id, :trade_date, :code, :name, :category, :streak, :change_pct,
+                            :limit_up_price, :limit_down_price, now(), NULL
                         )
-                        ON CONFLICT (trade_date, code, category, source) DO UPDATE SET
+                        ON CONFLICT (trade_date, code) WHERE deleted_at IS NULL DO UPDATE SET
                             name = EXCLUDED.name,
+                            category = EXCLUDED.category,
                             streak = EXCLUDED.streak,
                             change_pct = EXCLUDED.change_pct,
                             limit_up_price = EXCLUDED.limit_up_price,
                             limit_down_price = EXCLUDED.limit_down_price,
-                            close = EXCLUDED.close,
-                            payload = EXCLUDED.payload,
                             updated_at = now(),
                             deleted_at = NULL
                         """
                     ),
                     {
+                        "id": next_bigint_id(),
                         "trade_date": trade_date,
                         "code": code,
                         "name": row.get("name"),
@@ -80,9 +78,6 @@ class MarketLimitRepository:
                         "change_pct": row.get("changePct"),
                         "limit_up_price": row.get("limitUpPrice"),
                         "limit_down_price": row.get("limitDownPrice"),
-                        "close": row.get("close"),
-                        "source": source,
-                        "payload": json.dumps(row.get("payload") or row, ensure_ascii=False, default=str),
                     },
                 )
                 count += 1
@@ -96,21 +91,19 @@ class MarketLimitRepository:
         source: str = "clickhouse.daily_raw",
     ) -> list[dict[str, Any]]:
         category_sql = "AND category = :category" if category else ""
-        params = {"trade_date": trade_date, "source": source, "category": category}
         with self.client.session() as db:
             rows = db.execute(
                 text(
                     f"""
                     SELECT trade_date, code, name, category, streak, change_pct,
-                           limit_up_price, limit_down_price, close, source, payload
-                      FROM {self.client.schema}.market_limit_stock_snapshot
+                           limit_up_price, limit_down_price
+                      FROM {self.client.schema}.{STOCK_TABLE}
                      WHERE trade_date = :trade_date
-                       AND source = :source
                        AND deleted_at IS NULL
                        {category_sql}
                      ORDER BY streak DESC NULLS LAST, code
                     """
                 ),
-                params,
+                {"trade_date": trade_date, "category": category},
             ).mappings().all()
         return [dict(row) for row in rows]

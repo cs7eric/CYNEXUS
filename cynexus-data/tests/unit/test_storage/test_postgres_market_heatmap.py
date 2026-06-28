@@ -38,7 +38,7 @@ class FakeSession:
 
 
 class FakeClient:
-    schema = "cynexus_data"
+    schema = "cynexus_appl_market"
 
     def __init__(self, row=None):
         self.session_obj = FakeSession(row)
@@ -58,7 +58,7 @@ def test_upsert_snapshot_writes_json_payload() -> None:
     )
 
     sql, params = client.session_obj.calls[0]
-    assert "cynexus_data.market_heatmap_snapshot" in sql
+    assert "cynexus_appl_market.mkt_heatmap_snapshot" in sql
     assert "ON CONFLICT (snapshot_date, kind, source)" in sql
     assert params["item_count"] == 1
     assert '"name": "软件服务"' in params["payload"]

@@ -8,7 +8,7 @@ In scope:
 - Convert video to 16 kHz mono WAV when needed.
 - Run a transcriber implementation provided by `params.transcriber` (`module:attribute`) or accept `params.transcript_text` / `params.mock_transcript` for controlled repair/tests.
 - Return transcript text and metadata.
-- Write transcript rows to PostgreSQL `cynexus_data.media_transcript`.
+- Write transcript rows to PostgreSQL `cynexus_appl_core.media_transcript`.
 
 ## Job
 

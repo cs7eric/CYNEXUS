@@ -12,7 +12,7 @@ Current production-enabled provider:
 ## Behavior
 
 - `dry_run=true`: return plan only; no provider or PostgreSQL access.
-- `dry_run=false`: fetch provider data, normalize board/ST/limit threshold fields, and upsert `cynexus_data.sec_stock_basic`.
+- `dry_run=false`: fetch provider data, normalize board/ST/limit threshold fields, and upsert `cynexus_appl_market.sec_stock_basic`.
 - `providers=eastmoney`: fetch industry, total market cap, float market cap, and cap style for explicit `codes`, or for active codes already present in `sec_stock_basic`.
 
 Optional params:

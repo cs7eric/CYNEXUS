@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
+from cynexus_data.storage.postgres.ids import next_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_ths_industry_constituent_tables.sql"
@@ -75,16 +76,17 @@ class ThsIndustryConstituentRepository:
                 text(
                     f"""
                     INSERT INTO {self.client.schema}.ths_industry_constituent_capture_batch (
-                        snapshot_date, source_type, status, source, requested_industry_codes,
+                        id, snapshot_date, source_type, status, source, requested_industry_codes,
                         industry_count, row_count, page_row_counts, fetched_at, extra, updated_at
                     ) VALUES (
-                        :snapshot_date, :source_type, :status, :source, CAST(:requested_industry_codes AS jsonb),
+                        :id, :snapshot_date, :source_type, :status, :source, CAST(:requested_industry_codes AS jsonb),
                         :industry_count, :row_count, CAST(:page_row_counts AS jsonb), :fetched_at, CAST(:extra AS jsonb), now()
                     )
-                    RETURNING batch_id
+                    RETURNING id
                     """
                 ),
                 {
+                    "id": next_bigint_id(),
                     "snapshot_date": snapshot_date,
                     "source_type": source_type,
                     "status": status,
@@ -102,12 +104,12 @@ class ThsIndustryConstituentRepository:
                     text(
                         f"""
                         INSERT INTO {self.client.schema}.ths_industry_constituent_snapshot (
-                            batch_id, snapshot_date, industry_code, stock_code, stock_name, rank,
+                            id, batch_id, snapshot_date, industry_code, stock_code, stock_name, rank,
                             price, change_pct, change, speed_pct, turnover_pct, volume_ratio,
                             amplitude_pct, amount_text, float_shares_text, float_market_cap_text,
                             pe, source, source_type, captured_at, extra, updated_at
                         ) VALUES (
-                            :batch_id, :snapshot_date, :industry_code, :stock_code, :stock_name, :rank,
+                            :id, :batch_id, :snapshot_date, :industry_code, :stock_code, :stock_name, :rank,
                             :price, :change_pct, :change, :speed_pct, :turnover_pct, :volume_ratio,
                             :amplitude_pct, :amount_text, :float_shares_text, :float_market_cap_text,
                             :pe, :source, :source_type, :captured_at, CAST(:extra AS jsonb), now()
@@ -141,6 +143,7 @@ class ThsIndustryConstituentRepository:
 
 def _record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)
+    payload["id"] = next_bigint_id()
     payload["batch_id"] = batch_id
     payload["captured_at"] = payload.get("captured_at") or captured_at
     payload["extra"] = json.dumps(payload.get("extra") or {}, ensure_ascii=False, default=str)

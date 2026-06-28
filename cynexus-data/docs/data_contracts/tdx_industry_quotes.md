@@ -2,12 +2,12 @@
 
 ## PostgreSQL Tables
 
-`cynexus_data.tdx_industry_quote_batch`
+`cynexus_appl_market.tdx_industry_quote_batch`
 
 - One capture batch per job run.
 - Stores `batch_id`, `snapshot_date`, `source`, `row_count`, and capture timestamps.
 
-`cynexus_data.tdx_industry_quote_snapshot`
+`cynexus_appl_market.tdx_industry_quote_snapshot`
 
 - One active row per `snapshot_date, code6, source`.
 - Stores TDX 56 industry quote fields from eltdx:

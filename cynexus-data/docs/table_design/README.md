@@ -17,8 +17,8 @@ Both tables use `ReplacingMergeTree(ingested_at)` so repeated syncs can converge
 
 `sql/postgres/20260628_create_market_overview_tables.sql` creates:
 
-- `market_overview_snapshot`: daily lightweight breadth/fund-flow fields with source-aware merge rules.
-- `market_overview_detail_snapshot`: one compact JSONB technical/detail payload per `trade_date, benchmark_code, source_table`.
+- `market_overview_snapshots`: existing Java-facing daily lightweight breadth/fund-flow table with source-aware merge rules.
+- `mkt_overview_detail_snapshot`: one compact JSONB technical/detail payload per `trade_date, benchmark_code, source_table`.
 
 The detail table stores UI-serving summaries only. Daily/index OHLCV facts remain in ClickHouse and are read by `build_market_overview_detail` when the detail payload is rebuilt.
 
@@ -41,7 +41,7 @@ The snapshot table is a lightweight UI-serving surface for industry heatmaps and
 
 `sql/postgres/20260628_create_market_heatmap_tables.sql` creates:
 
-- `market_heatmap_snapshot`: compact JSONB heatmap snapshots keyed by `snapshot_date, kind, source`.
+- `mkt_heatmap_snapshot`: compact JSONB heatmap snapshots keyed by `snapshot_date, kind, source`.
 
 `sql/postgres/20260628_create_sector_quote_detail_tables.sql` creates:
 

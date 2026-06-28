@@ -2,7 +2,7 @@
 
 ## PostgreSQL Table
 
-`cynexus_data.market_overview_snapshot`
+`cynexus_appl_market.market_overview_snapshots`
 
 One active daily row stores:
 
@@ -21,7 +21,7 @@ One active daily row stores:
 
 `build_market_overview_detail` persists the UI-ready detail payload in:
 
-`cynexus_data.market_overview_detail_snapshot`
+`cynexus_appl_market.mkt_overview_detail_snapshot`
 
 Primary key:
 
