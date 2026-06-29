@@ -35,4 +35,19 @@
     <sql id="BaseColumnList">
         id, batch_id, snapshot_date, industry_code, stock_code, stock_name, rank, price, change_pct, change, speed_pct, turnover_pct, volume_ratio, amplitude_pct, amount_text, float_shares_text, float_market_cap_text, pe, source, source_type, captured_at, extra, created_at, updated_at, deleted_at
     </sql>
+
+    <select id="selectLatestByIndustryCode" resultMap="BaseResultMap">
+        select
+        <include refid="BaseColumnList"/>
+        from ths_industry_constituent_snapshot
+        where deleted_at is null
+          and industry_code = #{industryCode}
+          and snapshot_date = (
+              select max(snapshot_date)
+              from ths_industry_constituent_snapshot
+              where deleted_at is null
+                and industry_code = #{industryCode}
+          )
+        order by rank asc nulls last, stock_code asc
+    </select>
 </mapper>

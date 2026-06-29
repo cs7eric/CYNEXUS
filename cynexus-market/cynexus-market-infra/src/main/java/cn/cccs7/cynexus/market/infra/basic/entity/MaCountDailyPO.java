@@ -43,6 +43,8 @@ public class MaCountDailyPO extends BasePO {
     private Integer advancingCount;
     private BigDecimal advancingPct;
     private BigDecimal breadthRaw;
+    private BigDecimal priceStrengthScore;
+    private BigDecimal breadthScore;
     @TableField(typeHandler = JsonbTypeHandler.class)
     private String extra;
     private String remark;

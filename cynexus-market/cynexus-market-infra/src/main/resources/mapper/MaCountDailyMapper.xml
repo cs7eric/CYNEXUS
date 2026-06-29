@@ -27,6 +27,8 @@
         <result property="advancingCount" column="advancing_count"/>
         <result property="advancingPct" column="advancing_pct"/>
         <result property="breadthRaw" column="breadth_raw"/>
+        <result property="priceStrengthScore" column="price_strength_score"/>
+        <result property="breadthScore" column="breadth_score"/>
         <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
         <result property="remark" column="remark"/>
         <result property="createdAt" column="created_at"/>
@@ -35,6 +37,6 @@
     </resultMap>
 
     <sql id="BaseColumnList">
-        id, trade_date, total_eligible, above_ma20, above_ma60, above_both, pct_ma20, pct_ma60, pct_both, by_board, elapsed_ms, source, ingested_at, up_5d_count, up_5d_pct, new_low_60d_count, new_low_60d_pct, new_high_252d_count, new_high_252d_pct, advancing_count, advancing_pct, breadth_raw, extra, remark, created_at, updated_at, deleted_at
+        id, trade_date, total_eligible, above_ma20, above_ma60, above_both, pct_ma20, pct_ma60, pct_both, by_board, elapsed_ms, source, ingested_at, up_5d_count, up_5d_pct, new_low_60d_count, new_low_60d_pct, new_high_252d_count, new_high_252d_pct, advancing_count, advancing_pct, breadth_raw, price_strength_score, breadth_score, extra, remark, created_at, updated_at, deleted_at
     </sql>
 </mapper>

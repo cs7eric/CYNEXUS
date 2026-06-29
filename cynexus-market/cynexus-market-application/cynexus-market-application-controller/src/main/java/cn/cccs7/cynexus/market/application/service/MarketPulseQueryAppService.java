@@ -21,7 +21,9 @@ import cn.cccs7.cynexus.market.domain.entity.IndexMinuteBarBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketLimitDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketOverviewBO;
 import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
+import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
+import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -47,12 +49,15 @@ public class MarketPulseQueryAppService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MarketPulseQueryAppService.class);
 
     private final MarketPulseQueryRepository marketPulseQueryRepository;
+    private final ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository) {
+    public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository,
+                                      ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository) {
         this.marketPulseQueryRepository = marketPulseQueryRepository;
+        this.thsIndustryConstituentSnapshotRepository = thsIndustryConstituentSnapshotRepository;
     }
 
     public MarketPulseOverviewDTO getOverviewAkshare() {
@@ -237,6 +242,41 @@ public class MarketPulseQueryAppService {
                 .build();
     }
 
+    public MarketPulseStyleSectorConstituentsDTO getIndustryConstituents(String industryCode) {
+        List<ThsIndustryConstituentSnapshotBO> rows = thsIndustryConstituentSnapshotRepository.listLatestByIndustryCode(industryCode);
+        LocalDate snapshotDate = rows.stream()
+                .map(ThsIndustryConstituentSnapshotBO::getSnapshotDate)
+                .filter(item -> item != null)
+                .findFirst()
+                .orElse(null);
+        String rowsFetchedAt = rows.stream()
+                .map(ThsIndustryConstituentSnapshotBO::getCapturedAt)
+                .filter(item -> item != null)
+                .max(Comparator.naturalOrder())
+                .map(OffsetDateTime::toString)
+                .orElse(null);
+        String name = rows.stream()
+                .map(ThsIndustryConstituentSnapshotBO::getIndustryCode)
+                .filter(item -> item != null && !item.isBlank())
+                .findFirst()
+                .orElse(industryCode);
+        return MarketPulseStyleSectorConstituentsDTO.builder()
+                .ok(true)
+                .name(name)
+                .code(industryCode)
+                .count(rows.size())
+                .matched(rows.size())
+                .indexFetchedAt(null)
+                .rowsFetchedAt(rowsFetchedAt)
+                .dataSource("pg")
+                .isTradingDay(true)
+                .isMarketOpen(false)
+                .tradingHoursMode("trading_day_off_hours")
+                .snapshotDate(snapshotDate)
+                .rows(rows.stream().map(this::industryRow).toList())
+                .build();
+    }
+
     public MarketPulseHeatmapDTO getHeatmap(String kind) {
         return marketPulseQueryRepository.findLatestHeatmap(kind)
                 .map(row -> {
@@ -286,6 +326,25 @@ public class MarketPulseQueryAppService {
                 .build();
     }
 
+    private MarketPulseStyleSectorConstituentsDTO.IndustryRowDTO industryRow(ThsIndustryConstituentSnapshotBO row) {
+        return MarketPulseStyleSectorConstituentsDTO.IndustryRowDTO.builder()
+                .rank(row.getRank())
+                .code(row.getStockCode())
+                .name(row.getStockName())
+                .price(row.getPrice())
+                .changePct(row.getChangePct())
+                .change(row.getChange())
+                .speedPct(row.getSpeedPct())
+                .turnoverPct(row.getTurnoverPct())
+                .volumeRatio(row.getVolumeRatio())
+                .amplitudePct(row.getAmplitudePct())
+                .amount(row.getAmountText())
+                .floatShares(row.getFloatSharesText())
+                .floatMarketCap(row.getFloatMarketCapText())
+                .pe(row.getPe())
+                .build();
+    }
+
     private MarketPulseOverviewDTO overviewPayload(MarketOverviewBO row, MarketOverviewBO previous) {
         MarketPulseOverviewDTO payload = MarketPulseOverviewResponseDTOConverter.INSTANCE.toSource(row);
         payload.setSource(row.getSource() == null ? "java-pg" : row.getSource());
@@ -308,6 +367,7 @@ public class MarketPulseQueryAppService {
     private MarketPulseOverviewHistoryDTO.ItemDTO historyItem(MarketOverviewBO row) {
         return MarketPulseOverviewHistoryDTO.ItemDTO.builder()
                 .date(row.getTradeDate())
+                .tradeDate(row.getTradeDate())
                 .totalAmount(row.getTotalAmount())
                 .totalVolume(row.getTotalVolume())
                 .risingCount(row.getRisingCount())

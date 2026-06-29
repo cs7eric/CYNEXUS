@@ -11,6 +11,7 @@
         <result property="hs300Return" column="hs300_return"/>
         <result property="csi1000Return" column="csi1000_return"/>
         <result property="spread" column="spread"/>
+        <result property="score" column="score"/>
         <result property="elapsedMs" column="elapsed_ms"/>
         <result property="source" column="source"/>
         <result property="ingestedAt" column="ingested_at"/>
@@ -22,6 +23,6 @@
     </resultMap>
 
     <sql id="BaseColumnList">
-        id, trade_date, window_days, hs300_return, csi1000_return, spread, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
+        id, trade_date, window_days, hs300_return, csi1000_return, spread, score, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
     </sql>
 </mapper>

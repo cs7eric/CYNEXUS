@@ -7,6 +7,8 @@ public interface ThsIndustryConstituentSnapshotRepository {
 
     List<ThsIndustryConstituentSnapshotBO> list();
 
+    List<ThsIndustryConstituentSnapshotBO> listLatestByIndustryCode(String industryCode);
+
     ThsIndustryConstituentSnapshotBO findById(Long id);
 
     Long create(ThsIndustryConstituentSnapshotBO value);

@@ -8,8 +8,11 @@
         <id property="id" column="id"/>
         <result property="tradeDate" column="trade_date"/>
         <result property="totalAmount" column="total_amount"/>
+        <result property="shAmount" column="sh_amount"/>
+        <result property="szAmount" column="sz_amount"/>
         <result property="avg20dAmount" column="avg_20d_amount"/>
         <result property="ratio" column="ratio"/>
+        <result property="sampleCount" column="sample_count"/>
         <result property="elapsedMs" column="elapsed_ms"/>
         <result property="source" column="source"/>
         <result property="ingestedAt" column="ingested_at"/>
@@ -22,6 +25,6 @@
     </resultMap>
 
     <sql id="BaseColumnList">
-        id, trade_date, total_amount, avg_20d_amount, ratio, elapsed_ms, source, ingested_at, score, extra, remark, created_at, updated_at, deleted_at
+        id, trade_date, total_amount, sh_amount, sz_amount, avg_20d_amount, ratio, sample_count, elapsed_ms, source, ingested_at, score, extra, remark, created_at, updated_at, deleted_at
     </sql>
 </mapper>

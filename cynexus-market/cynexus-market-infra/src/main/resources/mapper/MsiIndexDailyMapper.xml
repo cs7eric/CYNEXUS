@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.MsiIndexDailyMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.MsiIndexDailyPO">
+        <id property="id" column="id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="volScore" column="vol_score"/>
+        <result property="turnoverScore" column="turnover_score"/>
+        <result property="priceStrengthScore" column="price_strength_score"/>
+        <result property="riskAppetiteScore" column="risk_appetite_score"/>
+        <result property="breadthScore" column="breadth_score"/>
+        <result property="limitEmotionScore" column="limit_emotion_score"/>
+        <result property="profitEffectScore" column="profit_effect_score"/>
+        <result property="sectorBreadthScore" column="sector_breadth_score"/>
+        <result property="styleRiskScore" column="style_risk_score"/>
+        <result property="compositeScore" column="composite_score"/>
+        <result property="componentCount" column="component_count"/>
+        <result property="level" column="level"/>
+        <result property="elapsedMs" column="elapsed_ms"/>
+        <result property="source" column="source"/>
+        <result property="ingestedAt" column="ingested_at"/>
+        <result property="extra" column="extra"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, trade_date, vol_score, turnover_score, price_strength_score, risk_appetite_score, breadth_score, limit_emotion_score, profit_effect_score, sector_breadth_score, style_risk_score, composite_score, component_count, level, elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+</mapper>

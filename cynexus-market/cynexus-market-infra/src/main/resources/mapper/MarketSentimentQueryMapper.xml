@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.MarketSentimentQueryMapper">
+
+    <sql id="MaCountColumns">
+        id, trade_date, total_eligible, above_ma20, above_ma60, above_both,
+        pct_ma20, pct_ma60, pct_both, by_board, elapsed_ms, source, ingested_at,
+        up_5d_count, up_5d_pct, new_low_60d_count, new_low_60d_pct,
+        new_high_252d_count, new_high_252d_pct, advancing_count, advancing_pct,
+        breadth_raw, price_strength_score, breadth_score, extra, remark,
+        created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="RiskAppetiteColumns">
+        id, trade_date, hs300_close, hs300_base_close, hs300_base_date, hs300_20d_return,
+        treasury_511010_close, treasury_511010_base_close, treasury_511010_20d_return,
+        treasury_511090_close, treasury_511090_base_close, treasury_511090_20d_return,
+        treasury_weighted_20d_return, spread_511010, spread_511090, spread_weighted,
+        score, window_days, source, elapsed_ms, ingested_at, extra, remark,
+        created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="LimitEmotionColumns">
+        id, trade_date, limit_up_count, limit_down_count, touched_count, broken_count,
+        break_board_rate, limit_up_down_ratio, yesterday_limit_up_count,
+        yesterday_limit_up_avg_return, up_down_score, break_board_score,
+        yesterday_return_score, composite_score, level, elapsed_ms, source,
+        ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="VolatilityColumns">
+        id, trade_date, underlying_code, underlying_name, close, daily_return_pct,
+        realized_vol_20d, vol_window_days, vol_lookback_days, percentile_1y,
+        sentiment_score, sample_count, elapsed_ms, source, ingested_at, extra,
+        remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="TurnoverColumns">
+        id, trade_date, total_amount, sh_amount, sz_amount, avg_20d_amount, ratio,
+        sample_count, elapsed_ms, source, ingested_at, score, extra, remark,
+        created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="StyleRiskColumns">
+        id, trade_date, window_days, hs300_return, csi1000_return, spread, score,
+        elapsed_ms, source, ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="ProfitEffectColumns">
+        id, trade_date, up_5d_pct, new_low_60d_pct, score, elapsed_ms, source,
+        ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="SectorBreadthColumns">
+        id, trade_date, advancing, declining, flat, total, advance_pct, score,
+        source, elapsed_ms, ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="MsiIndexColumns">
+        id, trade_date, vol_score, turnover_score, price_strength_score,
+        risk_appetite_score, breadth_score, limit_emotion_score,
+        profit_effect_score, sector_breadth_score, style_risk_score,
+        composite_score, component_count, level, elapsed_ms, source,
+        ingested_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <sql id="OverviewColumns">
+        id, trade_date, total_amount, total_volume, rising_count, falling_count,
+        flat_count, limit_up_count, limit_down_count, stock_count, main_net_inflow,
+        super_large_net_inflow, large_net_inflow, medium_net_inflow, small_net_inflow,
+        main_net_inflow_ratio, super_large_net_ratio, large_net_ratio,
+        medium_net_ratio, small_net_ratio, source, is_manual_override as manual_override,
+        manual_updated_at, extra, remark, created_at, updated_at, deleted_at
+    </sql>
+
+    <select id="findMaCount" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.MaCountDailyMapper.BaseResultMap">
+        select <include refid="MaCountColumns"/>
+          from msi_ma_count_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listMaCount" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.MaCountDailyMapper.BaseResultMap">
+        select <include refid="MaCountColumns"/>
+          from msi_ma_count_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findRiskAppetite" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.RiskAppetiteDailyMapper.BaseResultMap">
+        select <include refid="RiskAppetiteColumns"/>
+          from msi_risk_appetite_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listRiskAppetite" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.RiskAppetiteDailyMapper.BaseResultMap">
+        select <include refid="RiskAppetiteColumns"/>
+          from msi_risk_appetite_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findLimitEmotion" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketSentimentLimitEmotionDailyPO">
+        select <include refid="LimitEmotionColumns"/>
+          from msi_limit_emotion_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listLimitEmotion" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketSentimentLimitEmotionDailyPO">
+        select <include refid="LimitEmotionColumns"/>
+          from msi_limit_emotion_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findVolatility" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.VolatilityDailyMapper.BaseResultMap">
+        select <include refid="VolatilityColumns"/>
+          from msi_volatility_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listVolatility" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.VolatilityDailyMapper.BaseResultMap">
+        select <include refid="VolatilityColumns"/>
+          from msi_volatility_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findTurnover" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.TurnoverActivityDailyMapper.BaseResultMap">
+        select <include refid="TurnoverColumns"/>
+          from msi_turnover_activity_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listTurnover" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.TurnoverActivityDailyMapper.BaseResultMap">
+        select <include refid="TurnoverColumns"/>
+          from msi_turnover_activity_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findStyleRisk" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.StyleRiskDailyMapper.BaseResultMap">
+        select <include refid="StyleRiskColumns"/>
+          from msi_style_risk_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listStyleRisk" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.StyleRiskDailyMapper.BaseResultMap">
+        select <include refid="StyleRiskColumns"/>
+          from msi_style_risk_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findProfitEffect" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.ProfitEffectDailyMapper.BaseResultMap">
+        select <include refid="ProfitEffectColumns"/>
+          from msi_profit_effect_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listProfitEffect" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.ProfitEffectDailyMapper.BaseResultMap">
+        select <include refid="ProfitEffectColumns"/>
+          from msi_profit_effect_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findSectorBreadth" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.SectorBreadthDailyMapper.BaseResultMap">
+        select <include refid="SectorBreadthColumns"/>
+          from msi_sector_breadth_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listSectorBreadth" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.SectorBreadthDailyMapper.BaseResultMap">
+        select <include refid="SectorBreadthColumns"/>
+          from msi_sector_breadth_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="findMsiIndex" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.MsiIndexDailyMapper.BaseResultMap">
+        select <include refid="MsiIndexColumns"/>
+          from msi_index_daily
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc
+         limit 1
+    </select>
+
+    <select id="listMsiIndex" resultMap="cn.cccs7.cynexus.market.infra.basic.mapper.MsiIndexDailyMapper.BaseResultMap">
+        select <include refid="MsiIndexColumns"/>
+          from msi_index_daily
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="listOverview" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
+        select <include refid="OverviewColumns"/>
+          from market_overview_snapshots
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+
+    <select id="listIndexDaily" resultType="cn.cccs7.cynexus.market.infra.basic.entity.IndexDailyBarPO">
+        select trade_date,
+               index_code as code,
+               index_name as name,
+               current_close as close,
+               null::numeric as amount
+          from mkt_index_return_daily
+         where deleted_at is null
+           and index_code = #{code}
+           and window_days = 1
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc
+    </select>
+</mapper>

@@ -17,9 +17,12 @@ public class TurnoverActivityDailyPO extends BasePO {
 
     private LocalDate tradeDate;
     private BigDecimal totalAmount;
+    private BigDecimal shAmount;
+    private BigDecimal szAmount;
     @TableField("avg_20d_amount")
     private BigDecimal avg20dAmount;
     private BigDecimal ratio;
+    private Integer sampleCount;
     private Integer elapsedMs;
     private String source;
     private OffsetDateTime ingestedAt;

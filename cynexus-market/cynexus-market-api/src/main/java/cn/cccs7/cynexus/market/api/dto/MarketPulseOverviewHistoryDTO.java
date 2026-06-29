@@ -26,6 +26,7 @@ public class MarketPulseOverviewHistoryDTO {
     @AllArgsConstructor
     public static class ItemDTO {
         private LocalDate date;
+        private LocalDate tradeDate;
         private BigDecimal totalAmount;
         private BigDecimal totalVolume;
         private Integer risingCount;

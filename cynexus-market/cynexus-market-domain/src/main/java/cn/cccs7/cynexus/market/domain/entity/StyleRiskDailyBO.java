@@ -20,6 +20,7 @@ public class StyleRiskDailyBO {
     private BigDecimal hs300Return;
     private BigDecimal csi1000Return;
     private BigDecimal spread;
+    private BigDecimal score;
     private Integer elapsedMs;
     private String source;
     private OffsetDateTime ingestedAt;

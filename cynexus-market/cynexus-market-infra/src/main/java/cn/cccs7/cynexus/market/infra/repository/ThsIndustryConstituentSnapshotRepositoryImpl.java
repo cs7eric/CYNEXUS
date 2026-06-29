@@ -23,6 +23,13 @@ public class ThsIndustryConstituentSnapshotRepositoryImpl implements ThsIndustry
     }
 
     @Override
+    public List<ThsIndustryConstituentSnapshotBO> listLatestByIndustryCode(String industryCode) {
+        return ThsIndustryConstituentSnapshotPOConverter.INSTANCE.toTargetList(
+                thsIndustryConstituentSnapshotBasicService.listLatestByIndustryCode(industryCode)
+        );
+    }
+
+    @Override
     public ThsIndustryConstituentSnapshotBO findById(Long id) {
         return Optional.ofNullable(thsIndustryConstituentSnapshotBasicService.getById(id))
                 .map(ThsIndustryConstituentSnapshotPOConverter.INSTANCE::toTarget)

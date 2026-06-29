@@ -110,6 +110,11 @@ public class MarketPulseQueryController {
         return Result.success(marketPulseQueryAppService.getStyleSectorConstituents(name));
     }
 
+    @GetMapping("/industries/{code}/constituents")
+    public Result<MarketPulseStyleSectorConstituentsDTO> getIndustryConstituents(@PathVariable String code) {
+        return Result.success(marketPulseQueryAppService.getIndustryConstituents(code));
+    }
+
     @GetMapping("/heatmap")
     public Result<MarketPulseHeatmapDTO> getHeatmap(@RequestParam(defaultValue = "industries") String kind,
                                                     @RequestParam(defaultValue = "200") int top_n) {

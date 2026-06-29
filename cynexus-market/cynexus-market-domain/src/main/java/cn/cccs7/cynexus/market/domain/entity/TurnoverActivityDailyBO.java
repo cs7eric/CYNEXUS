@@ -17,8 +17,11 @@ public class TurnoverActivityDailyBO {
     private Long id;
     private LocalDate tradeDate;
     private BigDecimal totalAmount;
+    private BigDecimal shAmount;
+    private BigDecimal szAmount;
     private BigDecimal avg20dAmount;
     private BigDecimal ratio;
+    private Integer sampleCount;
     private Integer elapsedMs;
     private String source;
     private OffsetDateTime ingestedAt;

@@ -21,6 +21,7 @@
         <result property="spread511010" column="spread_511010"/>
         <result property="spread511090" column="spread_511090"/>
         <result property="spreadWeighted" column="spread_weighted"/>
+        <result property="score" column="score"/>
         <result property="windowDays" column="window_days"/>
         <result property="source" column="source"/>
         <result property="elapsedMs" column="elapsed_ms"/>
@@ -33,6 +34,6 @@
     </resultMap>
 
     <sql id="BaseColumnList">
-        id, trade_date, hs300_close, hs300_base_close, hs300_base_date, hs300_20d_return, treasury_511010_close, treasury_511010_base_close, treasury_511010_20d_return, treasury_511090_close, treasury_511090_base_close, treasury_511090_20d_return, treasury_weighted_20d_return, spread_511010, spread_511090, spread_weighted, window_days, source, elapsed_ms, ingested_at, extra, remark, created_at, updated_at, deleted_at
+        id, trade_date, hs300_close, hs300_base_close, hs300_base_date, hs300_20d_return, treasury_511010_close, treasury_511010_base_close, treasury_511010_20d_return, treasury_511090_close, treasury_511090_base_close, treasury_511090_20d_return, treasury_weighted_20d_return, spread_511010, spread_511090, spread_weighted, score, window_days, source, elapsed_ms, ingested_at, extra, remark, created_at, updated_at, deleted_at
     </sql>
 </mapper>

@@ -30,6 +30,7 @@ public class RiskAppetiteDailyBO {
     private BigDecimal spread511010;
     private BigDecimal spread511090;
     private BigDecimal spreadWeighted;
+    private BigDecimal score;
     private Integer windowDays;
     private String source;
     private Integer elapsedMs;

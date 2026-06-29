@@ -12,6 +12,7 @@
         <result property="flat" column="flat"/>
         <result property="total" column="total"/>
         <result property="advancePct" column="advance_pct"/>
+        <result property="score" column="score"/>
         <result property="source" column="source"/>
         <result property="elapsedMs" column="elapsed_ms"/>
         <result property="ingestedAt" column="ingested_at"/>
@@ -23,6 +24,6 @@
     </resultMap>
 
     <sql id="BaseColumnList">
-        id, trade_date, advancing, declining, flat, total, advance_pct, source, elapsed_ms, ingested_at, extra, remark, created_at, updated_at, deleted_at
+        id, trade_date, advancing, declining, flat, total, advance_pct, score, source, elapsed_ms, ingested_at, extra, remark, created_at, updated_at, deleted_at
     </sql>
 </mapper>

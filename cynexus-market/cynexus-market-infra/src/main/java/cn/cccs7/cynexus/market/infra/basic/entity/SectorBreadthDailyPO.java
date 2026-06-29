@@ -21,6 +21,7 @@ public class SectorBreadthDailyPO extends BasePO {
     private Integer flat;
     private Integer total;
     private BigDecimal advancePct;
+    private BigDecimal score;
     private String source;
     private Integer elapsedMs;
     private OffsetDateTime ingestedAt;

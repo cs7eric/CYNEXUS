@@ -36,6 +36,8 @@ public class MaCountDailyBO {
     private Integer advancingCount;
     private BigDecimal advancingPct;
     private BigDecimal breadthRaw;
+    private BigDecimal priceStrengthScore;
+    private BigDecimal breadthScore;
     private String extra;
     private String remark;
     private OffsetDateTime createdAt;
