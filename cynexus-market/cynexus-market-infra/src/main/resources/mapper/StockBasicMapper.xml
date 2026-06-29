@@ -28,4 +28,28 @@
     <sql id="BaseColumnList">
         id, code, name, market, board, is_st, limit_up_threshold, is_active, source, fetched_at, updated_at, industry, total_market_cap, float_market_cap, cap_style, sector_index_symbol, sector_index_name, industry_query
     </sql>
+
+    <select id="searchForStockChart" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumnList"/>
+        FROM sec_stock_basic
+        WHERE is_active IS TRUE
+          AND (
+              code ILIKE CONCAT('%', #{keyword}, '%')
+              OR name ILIKE CONCAT('%', #{keyword}, '%')
+              OR industry ILIKE CONCAT('%', #{keyword}, '%')
+          )
+        ORDER BY
+            CASE WHEN code = #{keyword} THEN 0 ELSE 1 END,
+            CASE WHEN code LIKE CONCAT(#{keyword}, '%') THEN 0 ELSE 1 END,
+            code
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByCodeForStockChart" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumnList"/>
+        FROM sec_stock_basic
+        WHERE code = #{code}
+        ORDER BY updated_at DESC NULLS LAST
+        LIMIT 1
+    </select>
 </mapper>

@@ -5,6 +5,8 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryMappingBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobRunHistoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public interface SchedulerRepository {
@@ -13,9 +15,13 @@ public interface SchedulerRepository {
 
     SchedulerJobBO findJobById(Long id);
 
+    SchedulerJobBO findJobByCode(String code);
+
     Long createJob(SchedulerJobBO job);
 
     boolean updateJob(SchedulerJobBO job);
+
+    boolean updateJobEnabled(Long id, Boolean enabled);
 
     boolean deleteJob(Long id);
 
@@ -41,6 +47,10 @@ public interface SchedulerRepository {
 
     List<SchedulerJobRunHistoryBO> listRunHistory();
 
+    List<SchedulerJobRunHistoryBO> listRunHistoryByJobId(Long jobId, Integer limit);
+
+    List<SchedulerJobRunHistoryBO> listRunHistorySince(OffsetDateTime startedAt);
+
     SchedulerJobRunHistoryBO findRunHistoryById(Long id);
 
     Long createRunHistory(SchedulerJobRunHistoryBO runHistory);
@@ -51,11 +61,22 @@ public interface SchedulerRepository {
 
     List<SchedulerJobStatusBO> listStatuses();
 
+    SchedulerJobStatusBO findStatusByJobId(Long jobId);
+
     SchedulerJobStatusBO findStatusById(Long id);
 
     Long createStatus(SchedulerJobStatusBO status);
 
     boolean updateStatus(SchedulerJobStatusBO status);
+
+    boolean updateStatusEnabled(Long id, Boolean enabled);
+
+    boolean updateStatusRunResult(Long id,
+                                  OffsetDateTime lastRunAt,
+                                  Boolean lastRunOk,
+                                  String lastRunStatus,
+                                  String lastRunErrorMessage,
+                                  BigDecimal lastDurationSeconds);
 
     boolean deleteStatus(Long id);
 }

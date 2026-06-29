@@ -318,3 +318,45 @@ Required market modules:
 - Market Pulse JSONB columns can be parsed in application code, but the parsed result must become typed DTOs before returning from AppService/Controller.
 - Heatmap persisted payload uses `changePercent` and `stockCount`; the Java DTO maps these to frontend-compatible `change_pct` and `count`.
 - Market Pulse `IndustryHeatmap` reuses `HeatmapSectorNode` from `industry-application`, so the backend heatmap DTO must preserve sector-node fields such as `changePercent`, `stockCount`, `conceptTags`, and `children`; otherwise frontend code calls `sector.children.filter(...)` on `undefined`.
+
+## Industry Application API Migration Findings
+
+- Frontend page route `/stock-overview/industry-application` resolves to `F:\dev-repo\mp4-to-word-new\frontend\src\views\industry-application\index.tsx`.
+- The page currently imports industry application API helpers from global `F:\dev-repo\mp4-to-word-new\frontend\src\lib\api.ts`, which violates the migration guide rule for Java API clients.
+- The old global API segment calls Python paths under `/api/stock-chart/industry-application/**`: `targets`, `target-codes`, `kline`, `refresh`, `results/{targetId}`, and `overview`.
+- The page also calls `fetchMarketHeatmap`, which now routes through the Java Market Pulse API base and may be reusable instead of duplicating heatmap logic.
+- Frontend industry application types are currently page-local under `views/industry-application/lib/types.ts`; new service should either import those stable view types temporarily or define service-level models and keep component-facing normalization in the service layer.
+- Java Industry Application migration needs a real application boundary in addition to infra/repository: controller returns `Result<IndustryApplicationDTO.*>`, AppService orchestrates refresh/read/write, and frontend calls move to `src/services/market/industry-application.ts`.
+- Old Python result storage was local JSON; Java migration stores target config and refreshed K-line result snapshots in PostgreSQL tables `mkt_industry_application_config`, `mkt_industry_application_target`, and `mkt_industry_application_result`.
+- The industry application overview heatmap uses the existing Market Pulse heatmap endpoint. `styles` was empty because Market Pulse heatmap reads `mkt_heatmap_snapshot`, while style-sector data lives in `mkt_style_sector_snapshot`; the Java query app service now adapts style-sector rows into `MarketPulseHeatmapDTO` for `kind=styles`.
+- TDX local day-file reads for `sh880301` returned latest trading date `2026-06-26`; on the current date `2026-06-29` this satisfies the non-trading-day display rule by serving latest available trading data.
+
+## Industry Application Constituents Drawer Repair Findings
+
+- The right drawer was empty because the fund-flow rows returned by Java had `code: null`; the drawer only fetches constituents by THS industry code through `/api/market/pulse/industries/{code}/constituents`.
+- PostgreSQL `cynexus_appl_market.ths_industry_constituent_snapshot` and `ths_industry_constituent_capture_batch` were empty before repair.
+- The old project already had usable persisted source data under `F:\dev-repo\mp4-to-word-new\reference\ths-industry`: `industry_list.json` plus 90 files under `constituents\*.json`.
+- `industry_list.json` provides `nameToCode`, allowing existing `sector_fund_flow_daily_snapshots.sector_name` values to be repaired to THS `881xxx` codes.
+- Import source files contain 90 successful industry snapshots and 4,663 constituent rows, fetched on `2026-06-26`.
+- After import, `/api/market/pulse/industries/881121/constituents` returns 100 rows for `半导体`; `/api/market/pulse/industries/881270/constituents` returns 62 rows for `元件`.
+- `SectorHeatmap` still had a drill-down import from global `src/lib/api.ts`, which would route that entry point back to the old Python API. It now imports `fetchIndustryConstituentsByCode` from `src/services/market/pulse.ts`.
+
+## Stock Overview Application Analysis Migration Findings
+
+- Frontend route `/stock-overview/application-analysis` resolves to `F:\dev-repo\mp4-to-word-new\frontend\src\views\application-analysis\index.tsx`.
+- The page currently imports application-analysis helpers from global `F:\dev-repo\mp4-to-word-new\frontend\src\lib\api.ts`.
+- Old Python application-analysis endpoints are `GET/PUT /api/stock-chart/application-analysis/targets`, `GET /api/stock-chart/application-analysis/results/{target_id}`, `POST /api/stock-chart/application-analysis/refresh`, `GET/POST /api/stock-chart/application-analysis/scheduler[/start|/stop]`, `POST /api/stock-chart/application-analysis`, `POST /api/stock-chart/application-analysis/recent30/refresh`, `GET /api/stock-chart/application-analysis/recent30/{target_id}`, `GET /api/stock-chart/application-analysis/recent30/{target_id}/full`, and `GET /api/stock-chart/application-analysis/recent30/{target_id}/{date}`.
+- Java-owned backing tables already exist in `cynexus_appl_ai`: `application_analysis_configs`, `application_analysis_targets`, `application_analysis_result_current`, `application_analysis_result_history`, and `application_analysis_daily_snapshots`.
+- Local PG verification before migration showed: targets=4, current=4, history=1128, daily=22, configs=1.
+- The page also calls old stock-chart K-line API through `fetchStockKlines`; current Java Market service only has special-purpose industry and market-pulse K-line endpoints, not a general stock-chart K-line contract. This remains out of Phase 24 unless a general Java stock-chart K-line endpoint is added.
+
+## Application Analysis Stock Chart Runtime Findings
+
+- ClickHouse `ch_dwd_kline_1m` is populated for application-analysis stock symbols, including `SH 600021` from `2010-01-04` through `2026-06-26` with 964,000 rows.
+- Therefore application-analysis intraday/timeshare and minute K should not return stable empty DTOs; they can be served from Java Market through ClickHouse.
+- `stock_fund_flow_snapshot` exists in `cynexus_appl_market` but currently has 0 rows, so true Tencent/EM per-stock active fund-flow is not yet available in PG.
+- Old project reference only had a few stale `reference/stock-universe/qt_fund_flow/*.json` files dated `2026-06-07`, not enough for a proper complete stock fund-flow backfill.
+- Until `stock_fund_flow_snapshot` is collected/imported, the Java stock-chart fund-flow endpoint uses local TDX daily bars as an explicit fallback for amount/change/history only. Active net amount and buy/sell ratio remain null so UI does not confuse derived daily data with real fund-flow.
+- Jackson field aliasing on Lombok DTOs needed getter-level `@JsonProperty` for `effective_adjust` and `requested_adjust`; field-level annotation alone still emitted camelCase in this project runtime.
+- Application-analysis B/S annotation data in the old project is file-backed under `reference/stock/data/annotations/*.json`. Java currently has no `stock_chart_annotation` table or repository contract, so the frontend service keeps localStorage as a non-Python temporary path rather than writing a new file-backed Java API.
+- Auction data in the old project is fetched through `eltdx` and scheduler/cache code. There is no current Java-owned auction snapshot table, so the Java endpoint returns a typed empty/not-wired payload instead of pretending to serve real persisted data.

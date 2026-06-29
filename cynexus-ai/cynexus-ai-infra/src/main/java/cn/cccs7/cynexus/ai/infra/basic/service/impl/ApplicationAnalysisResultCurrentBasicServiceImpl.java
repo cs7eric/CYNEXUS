@@ -12,8 +12,16 @@ public class ApplicationAnalysisResultCurrentBasicServiceImpl
         extends AbstractCrudBasicService<ApplicationAnalysisResultCurrentPO>
         implements ApplicationAnalysisResultCurrentBasicService {
 
+    private final ApplicationAnalysisResultCurrentMapper mapper;
+
     public ApplicationAnalysisResultCurrentBasicServiceImpl(ApplicationAnalysisResultCurrentMapper mapper,
-                                                           SnowflakeIdGenerator snowflakeIdGenerator) {
+                                                            SnowflakeIdGenerator snowflakeIdGenerator) {
         super(mapper, snowflakeIdGenerator);
+        this.mapper = mapper;
+    }
+
+    @Override
+    public ApplicationAnalysisResultCurrentPO getActiveByTargetKey(String targetKey) {
+        return mapper.selectActiveByTargetKey(targetKey);
     }
 }

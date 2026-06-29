@@ -409,3 +409,102 @@ Status: complete
   - `/api/market/pulse/heatmap?kind=industries`: `count=90`, first `change_pct=2.6545`
   - `/api/market/pulse/heatmap?kind=concepts`: `count=200`, first `change_pct=-1.8299`
   - `/api/market/pulse/index-kline/batch`: `date=2026-06-26`, 3 index items, first item 240 points
+
+## Phase 23 - Stock Overview Industry Application API Migration
+
+Status: complete
+
+- Follow `docs/migration-guides/python-to-java-api-migration-guide.md`.
+- Migrate `F:\dev-repo\mp4-to-word-new\frontend\src\views\industry-application` API usage from old Python `/api/stock-chart/industry-application/**` to Java/Gateway.
+- Review old Python route/service/store logic before implementation.
+- Keep Java implementation layered: Controller -> AppService -> DomainService/Repository -> Infra BasicService/Mapper XML -> DB/ClickHouse.
+- Use explicit Request/DTO/BO/PO contracts; no controller/app-service `Map` or `JsonNode` public contracts.
+- Put frontend Java API client under `F:\dev-repo\mp4-to-word-new\frontend\src\services\market`, not page-local or global `src/lib/api.ts`.
+- Preserve UI contract compatibility where practical, but move field normalization into the service layer.
+
+## Phase 23 Verification Plan
+
+- Java compile/package for impacted service modules: complete.
+- Frontend type check or build for impacted frontend: attempted; blocked by existing unrelated TS errors in `calendar.tsx`, global `src/lib/api.ts`, `poc/sentiment-overlay`, self-selected, and stock-overview market-pulse files. The new `src/services/market/industry-application.ts` did not produce reported TS errors.
+- Direct Java/Gateway endpoint smoke checks for targets, target-codes, kline/result, overview/heatmap: complete.
+- Confirm the page imports the new `src/services/market/...` client and no longer imports industry-application functions from global `src/lib/api.ts`: complete.
+
+## Phase 24 - Industry Application Constituents Drawer Data Repair
+
+Status: complete
+
+- Diagnose right-side constituents drawer after clicking Industry Application fund-flow / heatmap items.
+- Import persisted THS industry constituent reference snapshots into `cynexus_appl_market.ths_industry_constituent_snapshot`.
+- Repair `sector_fund_flow_daily_snapshots.sector_code` so fund-flow rows carry THS `881xxx` codes for drawer lookup.
+- Move Industry Application heatmap drill-down constituent fetch from old global Python `src/lib/api.ts` to Java/Gateway service `src/services/market/pulse.ts`.
+- Keep the shared drawer title stable when Java returns code as the data name.
+
+## Phase 24 Verification Results
+
+- Imported 90 THS industries and 4,663 constituent rows for snapshot date `2026-06-26`.
+- Repaired 1,080 industry fund-flow rows; remaining missing `sector_code` rows: 0.
+- Gateway `/api/market/industry-application/fund-flow?top=10` returns THS codes including `881270`, `881121`, `881129`, `881157`, and `881130`.
+- Gateway `/api/market/pulse/industries/881270/constituents` returns `count=62`, `matched=62`, `snapshotDate=2026-06-26`.
+- `python deploy/local/postgres/scripts/import_ths_industry_constituents.py --dry-run` succeeded.
+- `python -m py_compile deploy/local/postgres/scripts/import_ths_industry_constituents.py` succeeded.
+- Frontend `tsc -b --pretty false` still fails on existing unrelated files (`calendar.tsx`, global `src/lib/api.ts`, `poc/sentiment-overlay`, self-selected, stock-chart, stock-overview market-pulse); no Industry Application page/component errors remain.
+
+## Phase 24 - Stock Overview Application Analysis API Migration
+
+Status: complete
+
+- Follow `docs/migration-guides/python-to-java-api-migration-guide.md`.
+- Migrate `F:\dev-repo\mp4-to-word-new\frontend\src\views\application-analysis` application-analysis API calls from old Python `/api/stock-chart/application-analysis/**` endpoints to Java/Gateway.
+- Keep frontend Java client under `frontend/src/services/ai/application-analysis.ts`, not `src/lib/api.ts`.
+- Java implementation must follow Controller -> AppService -> Domain Repository -> Infra BasicService/Mapper XML -> DB.
+- SQL belongs in MyBatis XML; public controller results must be explicit DTOs wrapped in `Result`.
+- Support page contracts for targets, target save, current result, history metadata, scheduler status/control, trigger status, and recent30 snapshots.
+- Scope note: the page also calls old stock-chart K-line APIs through `fetchStockKlines`; Java does not yet have a general stock K-line page API, so that dependency must be recorded as remaining work instead of silently hidden.
+
+### Phase 24 Acceptance
+
+- No application-analysis imports from frontend `src/lib/api.ts` remain in the page scope except unrelated stock-chart K-line types/helpers if explicitly documented.
+- Java AI service compiles with the new typed DTO/request/controller/app-service path.
+- Gateway/AI endpoint smoke checks return application-analysis target/result/recent30 data from `cynexus_appl_ai`.
+- Frontend type check is attempted; any failures are classified as in-scope or pre-existing.
+
+### Phase 24 Verification Results
+
+- Java AI compile succeeded: `mvn -pl cynexus-ai/cynexus-ai-starter -am compile -DskipTests`.
+- Java AI package succeeded: `mvn -pl cynexus-ai/cynexus-ai-starter -am package -DskipTests`.
+- Started local `cynexus-ai` jar on `127.0.0.1:18081`; did not start Cynexus applications through Docker.
+- Direct AI endpoint smoke:
+  - `/api/ai/application-analysis/targets`: success=true, items=4, horizon.days=120.
+  - `/api/ai/application-analysis/results/stock-600021`: success=true, `analysis_result` present, history=20.
+  - `/api/ai/application-analysis/recent30/stock-000636/full?limit=5`: success=true, ok=true, items=2, firstDate=2026-06-20, `short_term_trend` present.
+- Gateway smoke:
+  - `/api/ai/application-analysis/targets`: success=true, items=4.
+  - `/api/ai/application-analysis/refresh`: success=true, ok=false with explicit `Java application-analysis executor is not connected yet`.
+  - `/api/ai/application-analysis/scheduler`: success=true, running=false, enabled=0, total=4, runs=4.
+  - `/api/ai/application-analysis/recent30/refresh`: success=true, ok=false with explicit executor-not-connected status.
+  - `POST /api/ai/application-analysis`: `Result.fail` with code `AI_APPLICATION_ANALYSIS_EXECUTOR_NOT_CONNECTED`.
+- Frontend `tsc -b --pretty false` was attempted and still fails on existing unrelated files: `calendar.tsx`, global `src/lib/api.ts`, `poc/sentiment-overlay`, self-selected, stock-chart chart panel, and old stock-overview market-pulse notification usage. No new error was reported for `src/services/ai/application-analysis.ts` or `views/application-analysis`.
+- Residual scope: `fetchStockKlines`, stock intraday, stock annotations, auction, technical indicator, and fund-flow subcomponents still call old stock-chart APIs. They are not application-analysis persistence APIs and need a separate Java stock-chart migration.
+
+## Phase 25 - Application Analysis Stock Chart Runtime Repair
+
+Status: complete
+
+- Follow `docs/migration-guides/python-to-java-api-migration-guide.md`.
+- Repair the remaining `/stock-overview/application-analysis` stock-chart runtime dependencies that made the page partially non-working after AI API migration.
+- Add a typed Market stock-chart query path: Controller -> AppService -> Domain Repository -> Infra Repository -> TDX/ClickHouse/PG.
+- Move intraday/timeshare and minute K queries to Java Market API backed by ClickHouse `ch_dwd_kline_1m`.
+- Keep SQL templates under `cynexus-market-infra/src/main/resources/clickhouse/stock-chart`, not inline in Java.
+- Keep public API contracts as typed DTOs; avoid `Map`/`JsonNode` on stock-chart controller results.
+- Add a documented stock fund-flow fallback: if `stock_fund_flow_snapshot` is empty, derive amount/change history from local TDX daily bars while leaving true active fund-flow fields null and marking source as `java-tdx-local-daily-fallback`.
+
+## Phase 25 Verification Results
+
+- `mvn -pl cynexus-market/cynexus-market-starter -am compile -DskipTests` succeeded.
+- `mvn -pl cynexus-market/cynexus-market-starter -am package -DskipTests` succeeded.
+- Restarted local `cynexus-market` jar on `127.0.0.1:18082`; did not use Docker for Cynexus applications.
+- Gateway `GET /api/market/stock-chart/intraday?target_type=stock&symbol=600021&trade_date=2026-06-26&periods=1m,5m,15m,30m` returns `source=clickhouse.ch_dwd_kline_1m`, `timeshare=241`, `1m=241`, `5m=50`.
+- Gateway `GET /api/market/stock-chart/klines?target_type=stock&symbol=600021&period=1d` returns 520 daily bars through `2026-06-26`, latest close `15.04`.
+- Gateway `GET /api/market/stock-chart/fund-flow?symbol=600021` returns `ok=true`, 30 fallback history rows, `tradeDate=2026-06-26`, and source `java-tdx-local-daily-fallback`.
+- Search over the application-analysis page/service scope found no remaining `@/lib/api`, old `/api/stock-chart`, `localhost:5000`, or `VITE_API_BASE` references.
+- Frontend `npx tsc -b --pretty false` was attempted; it still fails on pre-existing unrelated files (`calendar.tsx`, global `src/lib/api.ts`, `poc/sentiment-overlay`, self-selected, stock-chart chart panel, and old stock-overview market-pulse notification usage).

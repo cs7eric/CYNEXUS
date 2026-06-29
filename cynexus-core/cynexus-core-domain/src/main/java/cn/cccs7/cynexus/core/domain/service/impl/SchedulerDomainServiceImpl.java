@@ -10,6 +10,8 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerJobRunHistoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
 import cn.cccs7.cynexus.core.domain.repository.SchedulerRepository;
 import cn.cccs7.cynexus.core.domain.service.SchedulerDomainService;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +36,11 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     }
 
     @Override
+    public SchedulerJobBO findJobByCode(String code) {
+        return schedulerRepository.findJobByCode(code);
+    }
+
+    @Override
     public Long createJob(SchedulerJobBO job) {
         return schedulerRepository.createJob(job);
     }
@@ -41,6 +48,11 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     @Override
     public boolean updateJob(SchedulerJobBO job) {
         return schedulerRepository.updateJob(job);
+    }
+
+    @Override
+    public boolean updateJobEnabled(Long id, Boolean enabled) {
+        return schedulerRepository.updateJobEnabled(id, enabled);
     }
 
     @Override
@@ -104,6 +116,16 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     }
 
     @Override
+    public List<SchedulerJobRunHistoryBO> listRunHistoryByJobId(Long jobId, Integer limit) {
+        return schedulerRepository.listRunHistoryByJobId(jobId, limit);
+    }
+
+    @Override
+    public List<SchedulerJobRunHistoryBO> listRunHistorySince(OffsetDateTime startedAt) {
+        return schedulerRepository.listRunHistorySince(startedAt);
+    }
+
+    @Override
     public SchedulerJobRunHistoryBO findRunHistoryById(Long id) {
         return schedulerRepository.findRunHistoryById(id);
     }
@@ -129,6 +151,11 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     }
 
     @Override
+    public SchedulerJobStatusBO findStatusByJobId(Long jobId) {
+        return schedulerRepository.findStatusByJobId(jobId);
+    }
+
+    @Override
     public SchedulerJobStatusBO findStatusById(Long id) {
         return schedulerRepository.findStatusById(id);
     }
@@ -141,6 +168,27 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     @Override
     public boolean updateStatus(SchedulerJobStatusBO status) {
         return schedulerRepository.updateStatus(status);
+    }
+
+    @Override
+    public boolean updateStatusEnabled(Long id, Boolean enabled) {
+        return schedulerRepository.updateStatusEnabled(id, enabled);
+    }
+
+    @Override
+    public boolean updateStatusRunResult(Long id,
+                                         OffsetDateTime lastRunAt,
+                                         Boolean lastRunOk,
+                                         String lastRunStatus,
+                                         String lastRunErrorMessage,
+                                         BigDecimal lastDurationSeconds) {
+        return schedulerRepository.updateStatusRunResult(
+                id,
+                lastRunAt,
+                lastRunOk,
+                lastRunStatus,
+                lastRunErrorMessage,
+                lastDurationSeconds);
     }
 
     @Override

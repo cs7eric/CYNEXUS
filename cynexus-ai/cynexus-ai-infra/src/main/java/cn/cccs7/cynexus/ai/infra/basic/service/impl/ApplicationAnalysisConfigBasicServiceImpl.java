@@ -11,8 +11,16 @@ import org.springframework.stereotype.Service;
 public class ApplicationAnalysisConfigBasicServiceImpl extends AbstractCrudBasicService<ApplicationAnalysisConfigPO>
         implements ApplicationAnalysisConfigBasicService {
 
+    private final ApplicationAnalysisConfigMapper mapper;
+
     public ApplicationAnalysisConfigBasicServiceImpl(ApplicationAnalysisConfigMapper mapper,
                                                      SnowflakeIdGenerator snowflakeIdGenerator) {
         super(mapper, snowflakeIdGenerator);
+        this.mapper = mapper;
+    }
+
+    @Override
+    public ApplicationAnalysisConfigPO getDefaultActive() {
+        return mapper.selectDefaultActive();
     }
 }

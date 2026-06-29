@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.IndustryApplicationMapper">
+
+    <resultMap id="ConfigResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationConfigPO">
+        <id property="id" column="id"/>
+        <result property="configKey" column="config_key"/>
+        <result property="version" column="version"/>
+        <result property="horizonDays" column="horizon_days"/>
+        <result property="horizonSegments" column="horizon_segments"/>
+        <result property="source" column="source"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <resultMap id="TargetResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationTargetPO">
+        <id property="id" column="id"/>
+        <result property="targetKey" column="target_key"/>
+        <result property="targetType" column="target_type"/>
+        <result property="symbol" column="symbol"/>
+        <result property="name" column="name"/>
+        <result property="enabled" column="enabled"/>
+        <result property="intervalMinutes" column="interval_minutes"/>
+        <result property="tags" column="tags" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="displayOrder" column="display_order"/>
+        <result property="source" column="source"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <resultMap id="ResultResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationResultPO">
+        <id property="id" column="id"/>
+        <result property="targetKey" column="target_key"/>
+        <result property="targetType" column="target_type"/>
+        <result property="symbol" column="symbol"/>
+        <result property="name" column="name"/>
+        <result property="updatedAtResult" column="updated_at_result"/>
+        <result property="kline" column="kline" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="indicators" column="indicators" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="meta" column="meta" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="source" column="source"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <select id="findConfig" resultMap="ConfigResultMap">
+        SELECT id, config_key, version, horizon_days, horizon_segments, source, remark,
+               created_at, updated_at, deleted_at
+          FROM mkt_industry_application_config
+         WHERE config_key = #{configKey}
+           AND deleted_at IS NULL
+         LIMIT 1
+    </select>
+
+    <insert id="upsertConfig">
+        INSERT INTO mkt_industry_application_config (
+            id, config_key, version, horizon_days, horizon_segments, source, remark,
+            created_at, updated_at, deleted_at
+        )
+        VALUES (
+            #{value.id}, #{value.configKey}, #{value.version}, #{value.horizonDays}, #{value.horizonSegments},
+            #{value.source}, #{value.remark}, COALESCE(#{value.createdAt}, now()), COALESCE(#{value.updatedAt}, now()), NULL
+        )
+        ON CONFLICT (config_key) DO UPDATE SET
+            version = EXCLUDED.version,
+            horizon_days = EXCLUDED.horizon_days,
+            horizon_segments = EXCLUDED.horizon_segments,
+            source = EXCLUDED.source,
+            remark = EXCLUDED.remark,
+            updated_at = now(),
+            deleted_at = NULL
+    </insert>
+
+    <select id="listTargets" resultMap="TargetResultMap">
+        SELECT id, target_key, target_type, symbol, name, enabled, interval_minutes, tags,
+               display_order, source, remark, created_at, updated_at, deleted_at
+          FROM mkt_industry_application_target
+         WHERE deleted_at IS NULL
+         ORDER BY display_order ASC, target_key ASC
+    </select>
+
+    <select id="findTarget" resultMap="TargetResultMap">
+        SELECT id, target_key, target_type, symbol, name, enabled, interval_minutes, tags,
+               display_order, source, remark, created_at, updated_at, deleted_at
+          FROM mkt_industry_application_target
+         WHERE target_key = #{targetKey}
+           AND deleted_at IS NULL
+         LIMIT 1
+    </select>
+
+    <update id="softDeleteAllTargets">
+        UPDATE mkt_industry_application_target
+           SET deleted_at = #{now},
+               updated_at = #{now}
+         WHERE deleted_at IS NULL
+    </update>
+
+    <insert id="upsertTarget">
+        INSERT INTO mkt_industry_application_target (
+            id, target_key, target_type, symbol, name, enabled, interval_minutes, tags,
+            display_order, source, remark, created_at, updated_at, deleted_at
+        )
+        VALUES (
+            #{value.id}, #{value.targetKey}, #{value.targetType}, #{value.symbol}, #{value.name},
+            #{value.enabled}, #{value.intervalMinutes},
+            #{value.tags,typeHandler=cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler},
+            #{value.displayOrder}, #{value.source}, #{value.remark},
+            COALESCE(#{value.createdAt}, now()), COALESCE(#{value.updatedAt}, now()), NULL
+        )
+        ON CONFLICT (target_key) DO UPDATE SET
+            target_type = EXCLUDED.target_type,
+            symbol = EXCLUDED.symbol,
+            name = EXCLUDED.name,
+            enabled = EXCLUDED.enabled,
+            interval_minutes = EXCLUDED.interval_minutes,
+            tags = EXCLUDED.tags,
+            display_order = EXCLUDED.display_order,
+            source = EXCLUDED.source,
+            remark = EXCLUDED.remark,
+            updated_at = now(),
+            deleted_at = NULL
+    </insert>
+
+    <select id="findResult" resultMap="ResultResultMap">
+        SELECT id, target_key, target_type, symbol, name, updated_at_result, kline, indicators, meta,
+               source, remark, created_at, updated_at, deleted_at
+          FROM mkt_industry_application_result
+         WHERE target_key = #{targetKey}
+           AND deleted_at IS NULL
+         LIMIT 1
+    </select>
+
+    <insert id="upsertResult">
+        INSERT INTO mkt_industry_application_result (
+            id, target_key, target_type, symbol, name, updated_at_result, kline, indicators, meta,
+            source, remark, created_at, updated_at, deleted_at
+        )
+        VALUES (
+            #{value.id}, #{value.targetKey}, #{value.targetType}, #{value.symbol}, #{value.name},
+            #{value.updatedAtResult},
+            #{value.kline,typeHandler=cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler},
+            #{value.indicators,typeHandler=cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler},
+            #{value.meta,typeHandler=cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler},
+            #{value.source}, #{value.remark}, COALESCE(#{value.createdAt}, now()), COALESCE(#{value.updatedAt}, now()), NULL
+        )
+        ON CONFLICT (target_key) DO UPDATE SET
+            target_type = EXCLUDED.target_type,
+            symbol = EXCLUDED.symbol,
+            name = EXCLUDED.name,
+            updated_at_result = EXCLUDED.updated_at_result,
+            kline = EXCLUDED.kline,
+            indicators = EXCLUDED.indicators,
+            meta = EXCLUDED.meta,
+            source = EXCLUDED.source,
+            remark = EXCLUDED.remark,
+            updated_at = now(),
+            deleted_at = NULL
+    </insert>
+</mapper>

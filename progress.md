@@ -290,3 +290,104 @@
   - Limit emotion JSON parsing now uses explicit DTOs plus `jackson-datatype-jsr310`; streak leaders, distribution, and broken-streak stocks are preserved from PG `extra`.
   - Verified local Market and Gateway endpoints: 2026-06-26 overview shows rising/falling/flat `746/4407/53`, limit counts `57/35`, and limit emotion returns 20 leaders, 5 distribution buckets, first leader `兴业科技` at 6 boards.
 - Fixed expanded limit-streak tier rendering: Java now keeps `streak` on limit-up stocks and fills each `streak.distribution[].stocks` bucket from `limitUp.stocks`, because the persisted PG distribution only stores `height/count`. Verified local Market and Gateway distribution buckets: `6板=1`, `4板=1`, `3板=1`, `2板=3`, `1板=51`, all with matching stock lists.
+
+## 2026-06-29 Industry Application API Migration
+
+- Started Phase 23 for migrating Stock Overview -> Industry / Concept Application page APIs from old Python routes to Java/Gateway.
+- Re-read `docs/migration-guides/python-to-java-api-migration-guide.md` and the existing planning files before implementation.
+- Inspected `F:\dev-repo\mp4-to-word-new\frontend\src\views\industry-application\index.tsx` and confirmed it imports industry application helpers from global `src/lib/api.ts`.
+- Inspected the global API segment and confirmed current Python endpoints are `/api/stock-chart/industry-application/targets`, `target-codes`, `kline`, `refresh`, `results/{targetId}`, and `overview`.
+- Next step: inspect old Python `industry_application_service` / store details and Java Market layering to choose typed API/storage contracts.
+- Added Java Industry Application application-layer DTO converter, AppService, and Controller under the existing Market application-controller module.
+- Added frontend Java client at `F:\dev-repo\mp4-to-word-new\frontend\src\services\market\industry-application.ts` and changed the industry-application page to import Java API helpers from that service instead of global `src/lib/api.ts`.
+- Fixed repository implementation details while wiring the app layer: avoided `List.getLast()` usage and replaced dynamic meta `Map` read/write with typed `IndustryApplicationBO.Result` JSON.
+- First Java compile failed because `cynexus-market-infra` used `jackson-datatype-jsr310` for TDX day-bar JSON snapshots without declaring the module dependency; added the dependency to the infra POM.
+- During endpoint smoke, `GET /api/market/pulse/heatmap?kind=styles` returned an empty payload because styles live in `mkt_style_sector_snapshot`, not `mkt_heatmap_snapshot`; added a Java adapter so the industry-application page can keep using one heatmap service for industry/concept/style tabs.
+- Frontend heatmap service now applies the old `亿 -> 元` conversion only to industry/concept heatmaps; styles use sample counts and are left unscaled.
+- Applied `deploy/local/postgres/migrations/20260629_create_industry_application_tables.sql` to local PostgreSQL `cynexus`; verified counts: config=1, target=12, result=0 before refresh.
+- `mvn -pl cynexus-market/cynexus-market-starter -am compile -DskipTests` passed after adding the Jackson JSR310 dependency.
+- `mvn -pl cynexus-market/cynexus-market-starter,cynexus-gateway/cynexus-gateway-starter -am package -DskipTests` initially failed because the running local Market jar locked the target jar; stopped local Market/Gateway jar processes, reran package successfully, and restarted local jars.
+- Verified local Java services through `http://127.0.0.1:18082/actuator/health` and `http://127.0.0.1:18000/actuator/health`, both `UP`.
+- Verified Gateway endpoints:
+  - `/api/market/industry-application/targets` returns 12 configured targets.
+  - `/api/market/industry-application/target-codes?kind=industry` returns 32 industry codes.
+  - `/api/market/industry-application/kline?target_type=industry&symbol=sh880301&period=day&count=5` returns bars through `2026-06-26`.
+  - `POST /api/market/industry-application/refresh` with `industry-sh880301` returns `ok=true`, `kline_count=240`.
+  - `/api/market/industry-application/results/industry-sh880301` returns persisted result data.
+  - PG result table for `industry-sh880301` has `jsonb_array_length(kline)=240`, `latestTime=2026-06-26 15:00:00+08:00`, `source=tdx.local_day`.
+  - `/api/market/pulse/heatmap?kind=styles` now returns 29 style items from `mkt_style_sector_snapshot`.
+- Ran frontend `node_modules/.bin/tsc.cmd -b`; it failed on existing unrelated TypeScript errors in shared UI/global API/other pages. Reported errors did not identify the new `src/services/market/industry-application.ts` file.
+
+## 2026-06-29 Industry Application Drawer Data Repair
+
+- User reported that clicking an item opened the right constituents drawer but showed no data.
+- Verified Gateway `/api/market/industry-application/fund-flow?top=5` returned rows with `code: null`.
+- Verified Gateway `/api/market/pulse/industries/881121/constituents` returned `count=0`, `rows=[]`.
+- Verified PG before repair: `sector_fund_flow_daily_snapshots` had 1,080 rows and 0 non-empty `sector_code`; `ths_industry_constituent_snapshot` had 0 rows.
+- Inspected old reference data under `F:\dev-repo\mp4-to-word-new\reference\ths-industry`; found 90 successful constituent files and 4,663 rows, fetched on `2026-06-26`.
+- Imported the reference snapshots into PG with one capture batch and 4,663 constituent rows.
+- Updated existing industry fund-flow snapshots from `industry_list.json` `nameToCode`; all 1,080 fund-flow rows now have non-empty `sector_code`.
+- Added repeatable local migration script `deploy/local/postgres/scripts/import_ths_industry_constituents.py`.
+- Changed `F:\dev-repo\mp4-to-word-new\frontend\src\views\industry-application\components\sector-heatmap.tsx` to use `@/services/market/pulse` instead of old global `@/lib/api` for constituent drill-down.
+- Changed shared drawer title fallback so `industryName` remains visible when backend `name` equals the code.
+- Cleaned unused imports/options in Industry Application heatmap and removed unused `Separator` import from the page.
+- Verified PG after repair: 4,663 constituent rows, 90 industries, snapshot date `2026-06-26`; fund-flow missing `sector_code` count is 0.
+- Verified Gateway after repair: fund-flow top10 carries THS codes; `/api/market/pulse/industries/881270/constituents` returns 62 rows.
+- `python deploy/local/postgres/scripts/import_ths_industry_constituents.py --dry-run` succeeded.
+- `python -m py_compile deploy/local/postgres/scripts/import_ths_industry_constituents.py` succeeded.
+- `frontend tsc -b --pretty false` still fails, but remaining errors are outside Industry Application (`calendar.tsx`, global `src/lib/api.ts`, `poc/sentiment-overlay`, self-selected, stock-chart, stock-overview market-pulse).
+- Added the drawer repair lessons to `docs/migration-guides/python-to-java-api-migration-guide.md` as reusable migration rules:
+  - Do not stop at the main list API; inventory drawer/dialog/drill-down secondary entry points.
+  - Verify backing PG/CH tables, row counts, date ranges, and join keys before declaring an endpoint complete.
+  - Ensure list DTOs carry stable business keys needed by detail queries.
+  - Search shared components for old Python/global API imports.
+  - Turn manual data backfills into repeatable scripts with dry-run and verification output.
+
+## 2026-06-29 Stock Overview Application Analysis API Migration
+
+- Started Phase 24 for migrating `/stock-overview/application-analysis` application-analysis APIs from old Python `/api/stock-chart/application-analysis/**` to Java AI/Gateway.
+- Reviewed the migration guide and confirmed the page calls targets, result, trigger, scheduler, recent30, and manual run APIs; it also still calls broader stock-chart K-line/intraday/annotation/auction helpers that are outside this phase.
+- Verified backing PG data exists in `cynexus_appl_ai`: targets=4, current=4, history=1128, daily=22, configs=1.
+- Added Java AI page contract DTOs and requests under `cynexus-ai-api`: `ApplicationAnalysisPageDTO` and `ApplicationAnalysisPageRequest`.
+- Added domain aggregate/repository abstraction: `ApplicationAnalysisPageBO` and `ApplicationAnalysisPageRepository`.
+- Added infra mapper XML queries and BasicService methods for default config, active targets, current result by target key, history by target key, and recent30 daily snapshots.
+- Added `ApplicationAnalysisPageRepositoryImpl` with target upsert/soft-delete behavior and stable `target_key` as the UI id.
+- Added `ApplicationAnalysisPageAppService` and `ApplicationAnalysisPageController` under `/api/ai/application-analysis/**`.
+- Kept public controller results as typed DTOs wrapped in `Result`; JSONB payload parsing stays internal to AppService and is emitted through explicit DTO fields, not `Result<JsonNode>`.
+- Added Jackson dependencies to `cynexus-ai-application-controller` after the first compile exposed missing `ObjectMapper`/`JsonNode` classes.
+- Added frontend Java API client at `F:\dev-repo\mp4-to-word-new\frontend\src\services\ai\application-analysis.ts`.
+- Changed `views/application-analysis/index.tsx`, `components/ai-direction-card.tsx`, `components/target-card.tsx`, `components/chart-header.tsx`, and `components/intraday-analysis-dialog.tsx` to import application-analysis functions/types from `src/services/ai/application-analysis`.
+- Java compile succeeded: `mvn -pl cynexus-ai/cynexus-ai-starter -am compile -DskipTests`.
+- Java package succeeded: `mvn -pl cynexus-ai/cynexus-ai-starter -am package -DskipTests`.
+- Started local `cynexus-ai` jar on `127.0.0.1:18081`; did not use Docker for Cynexus applications.
+- Direct AI smoke passed:
+  - targets: success=true, items=4, horizon.days=120.
+  - result `stock-600021`: success=true, `analysis_result` present, history=20.
+  - recent30 full `stock-000636`: success=true, ok=true, items=2, firstDate=2026-06-20, trend present.
+- Gateway smoke passed:
+  - targets: success=true, items=4.
+  - scheduler: success=true, running=false, enabled=0, total=4, runs=4.
+  - trigger/recent30 refresh: success=true with business `ok=false` and explicit Java executor-not-connected error.
+  - manual run: `Result.fail` with `AI_APPLICATION_ANALYSIS_EXECUTOR_NOT_CONNECTED`.
+- Frontend `tsc -b --pretty false` still fails on pre-existing unrelated files (`calendar.tsx`, global `src/lib/api.ts`, `poc/sentiment-overlay`, self-selected, stock-chart chart panel, old stock-overview market-pulse notification usage); no error was reported for the new AI service or application-analysis page changes.
+
+## 2026-06-29 Application Analysis Stock Chart Runtime Repair
+
+- User reported the application-analysis page still had many non-working functions after migrating the AI persistence APIs.
+- Confirmed remaining page dependencies were the shared stock-chart runtime calls: K-line, intraday/timeshare, annotations, auction, technical indicator context, and fund-flow.
+- Confirmed `ch_dwd_kline_1m` has large post-2010 1m data for stocks: `SH 600021` has 964,000 rows through `2026-06-26`.
+- Added typed domain boundary `StockChartBO` and `StockChartQueryRepository`.
+- Added infra `ClickHouseStockChartClient` and SQL templates under `cynexus-market-infra/src/main/resources/clickhouse/stock-chart`.
+- Added `StockChartQueryRepositoryImpl` to centralize TDX daily bars, ClickHouse minute bars/timeshare, PG stock metadata, and PG/fallback fund-flow reads.
+- Replaced the old stock-chart AppService direct infra access with a repository-backed AppService.
+- Changed stock-chart intraday and auction API DTOs from empty/dynamic map contracts to explicit DTOs.
+- Wired `/api/market/stock-chart/intraday` to ClickHouse and `/api/market/stock-chart/klines` minute periods to ClickHouse aggregation.
+- Added fund-flow fallback from TDX daily bars because `cynexus_appl_market.stock_fund_flow_snapshot` is currently empty.
+- Fixed `effective_adjust` / `requested_adjust` JSON aliases by adding getter-level `@JsonProperty`.
+- Built and restarted local Market jar; Gateway remained local jar on `127.0.0.1:18000`.
+- Verified Gateway intraday for `600021` on `2026-06-26`: `timeshare=241`, `1m=241`, `5m=50`, source `clickhouse.ch_dwd_kline_1m`.
+- Verified Gateway daily K for `600021`: 520 bars, last date `2026-06-26`, close `15.04`.
+- Verified Gateway fund-flow fallback for `600021`: `ok=true`, source `java-tdx-local-daily-fallback`, 30 history rows.
+- Searched application-analysis scope and found no remaining old Python/global API references.
+- Frontend `npx tsc -b --pretty false` still fails on unrelated pre-existing TypeScript errors; no application-analysis-specific error appeared in the reported output.
+- Recorded residual data-contract gaps: server-side annotation persistence needs a proper PG table/repository, and auction snapshots need either a Java table-backed import or a collector/executor contract. Current implementation avoids old Python calls and avoids introducing Java file-backed stopgaps.

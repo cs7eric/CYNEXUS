@@ -49,4 +49,22 @@
     <sql id="BaseColumnList">
         id, batch_id, trade_date, code, symbol, name, last_price, pre_close, open, high, low, change, change_pct, volume_lots, amount_wan, turnover_rate, outer_disc_lots, inside_dish_lots, active_net_lots, active_net_amount_wan, active_buy_ratio, active_sell_ratio, buy_big_ratio, buy_small_ratio, sell_big_ratio, sell_small_ratio, pe, pb, amplitude, float_market_cap_yi, total_market_cap_yi, source, source_type, captured_at, extra, remark, created_at, updated_at, deleted_at
     </sql>
+
+    <select id="findLatestByCode" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumnList"/>
+        FROM stock_fund_flow_snapshot
+        WHERE deleted_at IS NULL
+          AND code = #{code}
+        ORDER BY trade_date DESC, captured_at DESC NULLS LAST
+        LIMIT 1
+    </select>
+
+    <select id="listRecentByCode" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumnList"/>
+        FROM stock_fund_flow_snapshot
+        WHERE deleted_at IS NULL
+          AND code = #{code}
+        ORDER BY trade_date DESC, captured_at DESC NULLS LAST
+        LIMIT #{limit}
+    </select>
 </mapper>

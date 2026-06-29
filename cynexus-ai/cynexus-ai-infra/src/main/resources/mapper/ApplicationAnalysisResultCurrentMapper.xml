@@ -2,4 +2,12 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.ApplicationAnalysisResultCurrentMapper">
+    <select id="selectActiveByTargetKey" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisResultCurrentPO">
+        SELECT *
+        FROM application_analysis_result_current
+        WHERE target_key = #{targetKey}
+          AND deleted_at IS NULL
+        ORDER BY analysis_run_at DESC, updated_at DESC, id DESC
+        LIMIT 1
+    </select>
 </mapper>

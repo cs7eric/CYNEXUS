@@ -16,6 +16,8 @@ import cn.cccs7.cynexus.core.infra.convert.SchedulerJobCategoryPOConverter;
 import cn.cccs7.cynexus.core.infra.convert.SchedulerJobPOConverter;
 import cn.cccs7.cynexus.core.infra.convert.SchedulerJobRunHistoryPOConverter;
 import cn.cccs7.cynexus.core.infra.convert.SchedulerJobStatusPOConverter;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -53,6 +55,13 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     }
 
     @Override
+    public SchedulerJobBO findJobByCode(String code) {
+        return Optional.ofNullable(schedulerJobBasicService.getByCode(code))
+                .map(SchedulerJobPOConverter.INSTANCE::toTarget)
+                .orElse(null);
+    }
+
+    @Override
     public Long createJob(SchedulerJobBO job) {
         return schedulerJobBasicService.create(SchedulerJobPOConverter.INSTANCE.toSource(job));
     }
@@ -60,6 +69,11 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     @Override
     public boolean updateJob(SchedulerJobBO job) {
         return schedulerJobBasicService.update(SchedulerJobPOConverter.INSTANCE.toSource(job));
+    }
+
+    @Override
+    public boolean updateJobEnabled(Long id, Boolean enabled) {
+        return schedulerJobBasicService.updateEnabled(id, enabled);
     }
 
     @Override
@@ -127,6 +141,18 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     }
 
     @Override
+    public List<SchedulerJobRunHistoryBO> listRunHistoryByJobId(Long jobId, Integer limit) {
+        return SchedulerJobRunHistoryPOConverter.INSTANCE.toTargetList(
+                schedulerJobRunHistoryBasicService.listByJobId(jobId, limit));
+    }
+
+    @Override
+    public List<SchedulerJobRunHistoryBO> listRunHistorySince(OffsetDateTime startedAt) {
+        return SchedulerJobRunHistoryPOConverter.INSTANCE.toTargetList(
+                schedulerJobRunHistoryBasicService.listSince(startedAt));
+    }
+
+    @Override
     public SchedulerJobRunHistoryBO findRunHistoryById(Long id) {
         return Optional.ofNullable(schedulerJobRunHistoryBasicService.getById(id))
                 .map(SchedulerJobRunHistoryPOConverter.INSTANCE::toTarget)
@@ -154,6 +180,13 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     }
 
     @Override
+    public SchedulerJobStatusBO findStatusByJobId(Long jobId) {
+        return Optional.ofNullable(schedulerJobStatusBasicService.getByJobId(jobId))
+                .map(SchedulerJobStatusPOConverter.INSTANCE::toTarget)
+                .orElse(null);
+    }
+
+    @Override
     public SchedulerJobStatusBO findStatusById(Long id) {
         return Optional.ofNullable(schedulerJobStatusBasicService.getById(id))
                 .map(SchedulerJobStatusPOConverter.INSTANCE::toTarget)
@@ -168,6 +201,27 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     @Override
     public boolean updateStatus(SchedulerJobStatusBO status) {
         return schedulerJobStatusBasicService.update(SchedulerJobStatusPOConverter.INSTANCE.toSource(status));
+    }
+
+    @Override
+    public boolean updateStatusEnabled(Long id, Boolean enabled) {
+        return schedulerJobStatusBasicService.updateEnabled(id, enabled);
+    }
+
+    @Override
+    public boolean updateStatusRunResult(Long id,
+                                         OffsetDateTime lastRunAt,
+                                         Boolean lastRunOk,
+                                         String lastRunStatus,
+                                         String lastRunErrorMessage,
+                                         BigDecimal lastDurationSeconds) {
+        return schedulerJobStatusBasicService.updateRunResult(
+                id,
+                lastRunAt,
+                lastRunOk,
+                lastRunStatus,
+                lastRunErrorMessage,
+                lastDurationSeconds);
     }
 
     @Override

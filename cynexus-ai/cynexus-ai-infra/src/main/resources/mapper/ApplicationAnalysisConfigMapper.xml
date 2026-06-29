@@ -2,4 +2,12 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.ApplicationAnalysisConfigMapper">
+    <select id="selectDefaultActive" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisConfigPO">
+        SELECT *
+        FROM application_analysis_configs
+        WHERE config_key = 'default'
+          AND deleted_at IS NULL
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+    </select>
 </mapper>

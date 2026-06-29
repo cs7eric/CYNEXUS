@@ -2,4 +2,24 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.ApplicationAnalysisDailySnapshotMapper">
+    <select id="selectRecent30ByTargetKey" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisDailySnapshotPO">
+        SELECT *
+        FROM application_analysis_daily_snapshots
+        WHERE target_key = #{targetKey}
+          AND snapshot_kind = 'recent30'
+          AND deleted_at IS NULL
+        ORDER BY trade_date DESC, updated_at DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRecent30ByTargetKeyAndDate" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisDailySnapshotPO">
+        SELECT *
+        FROM application_analysis_daily_snapshots
+        WHERE target_key = #{targetKey}
+          AND trade_date = #{tradeDate}
+          AND snapshot_kind = 'recent30'
+          AND deleted_at IS NULL
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+    </select>
 </mapper>

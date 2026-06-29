@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.core.infra.basic.entity.SchedulerJobRunHistoryPO;
 import cn.cccs7.cynexus.core.infra.basic.mapper.SchedulerJobRunHistoryMapper;
 import cn.cccs7.cynexus.core.infra.basic.service.SchedulerJobRunHistoryBasicService;
 import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,16 @@ public class SchedulerJobRunHistoryBasicServiceImpl implements SchedulerJobRunHi
     @Override
     public SchedulerJobRunHistoryPO getById(Long id) {
         return schedulerJobRunHistoryMapper.selectById(id);
+    }
+
+    @Override
+    public List<SchedulerJobRunHistoryPO> listByJobId(Long jobId, Integer limit) {
+        return schedulerJobRunHistoryMapper.selectByJobId(jobId, limit);
+    }
+
+    @Override
+    public List<SchedulerJobRunHistoryPO> listSince(OffsetDateTime startedAt) {
+        return schedulerJobRunHistoryMapper.selectSince(startedAt);
     }
 
     @Override

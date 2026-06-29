@@ -2,4 +2,31 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.core.infra.basic.mapper.SchedulerJobStatusMapper">
+    <select id="selectByJobId" resultType="cn.cccs7.cynexus.core.infra.basic.entity.SchedulerJobStatusPO">
+        SELECT *
+        FROM scheduler_job_statuses
+        WHERE job_id = #{jobId}
+        ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, id DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateEnabledById">
+        UPDATE scheduler_job_statuses
+        SET is_enabled = #{enabled},
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateRunResultById">
+        UPDATE scheduler_job_statuses
+        SET last_run_at = #{lastRunAt},
+            last_run_ok = #{lastRunOk},
+            last_run_status = #{lastRunStatus},
+            last_run_error_message = #{lastRunErrorMessage},
+            last_duration_seconds = #{lastDurationSeconds},
+            total_runs = COALESCE(total_runs, 0) + 1,
+            total_failures = COALESCE(total_failures, 0) + CASE WHEN #{lastRunOk} THEN 0 ELSE 1 END,
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
 </mapper>

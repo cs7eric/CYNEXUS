@@ -2,4 +2,36 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.ApplicationAnalysisTargetMapper">
+    <select id="selectActiveTargets" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisTargetPO">
+        SELECT *
+        FROM application_analysis_targets
+        WHERE deleted_at IS NULL
+        ORDER BY sort_order ASC, created_at ASC, id ASC
+    </select>
+
+    <select id="selectActiveByTargetKey" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisTargetPO">
+        SELECT *
+        FROM application_analysis_targets
+        WHERE target_key = #{targetKey}
+          AND deleted_at IS NULL
+        LIMIT 1
+    </select>
+
+    <update id="softDeleteMissing">
+        UPDATE application_analysis_targets
+        SET deleted_at = #{deletedAt},
+            updated_at = #{deletedAt}
+        WHERE deleted_at IS NULL
+        <choose>
+            <when test="targetKeys != null and targetKeys.size() > 0">
+                AND target_key NOT IN
+                <foreach collection="targetKeys" item="targetKey" open="(" separator="," close=")">
+                    #{targetKey}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 1
+            </otherwise>
+        </choose>
+    </update>
 </mapper>

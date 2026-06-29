@@ -9,9 +9,13 @@ public interface SchedulerJobBasicService {
 
     SchedulerJobPO getById(Long id);
 
+    SchedulerJobPO getByCode(String code);
+
     Long create(SchedulerJobPO po);
 
     boolean update(SchedulerJobPO po);
+
+    boolean updateEnabled(Long id, Boolean enabled);
 
     boolean delete(Long id);
 }

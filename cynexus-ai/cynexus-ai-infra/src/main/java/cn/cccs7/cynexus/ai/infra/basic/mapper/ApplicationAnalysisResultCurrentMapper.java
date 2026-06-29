@@ -3,7 +3,10 @@ package cn.cccs7.cynexus.ai.infra.basic.mapper;
 import cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisResultCurrentPO;
 import cn.cccs7.cynexus.common.db.mapper.BaseMapperX;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface ApplicationAnalysisResultCurrentMapper extends BaseMapperX<ApplicationAnalysisResultCurrentPO> {
+
+    ApplicationAnalysisResultCurrentPO selectActiveByTargetKey(@Param("targetKey") String targetKey);
 }

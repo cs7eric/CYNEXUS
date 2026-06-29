@@ -29,6 +29,11 @@ public class SchedulerJobBasicServiceImpl implements SchedulerJobBasicService {
     }
 
     @Override
+    public SchedulerJobPO getByCode(String code) {
+        return schedulerJobMapper.selectByCode(code);
+    }
+
+    @Override
     public Long create(SchedulerJobPO po) {
         if (po.getId() == null) {
             po.setId(snowflakeIdGenerator.nextId());
@@ -40,6 +45,11 @@ public class SchedulerJobBasicServiceImpl implements SchedulerJobBasicService {
     @Override
     public boolean update(SchedulerJobPO po) {
         return schedulerJobMapper.updateById(po) > 0;
+    }
+
+    @Override
+    public boolean updateEnabled(Long id, Boolean enabled) {
+        return schedulerJobMapper.updateEnabledById(id, enabled) > 0;
     }
 
     @Override

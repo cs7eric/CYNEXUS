@@ -278,6 +278,9 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseHeatmapDTO getHeatmap(String kind) {
+        if ("styles".equals(kind)) {
+            return styleHeatmap();
+        }
         return marketPulseQueryRepository.findLatestHeatmap(kind)
                 .map(row -> {
                     MarketPulseHeatmapDTO parsed = readJson(row.getPayload(), MarketPulseHeatmapDTO.class);
@@ -301,6 +304,40 @@ public class MarketPulseQueryAppService {
                     return parsed;
                 })
                 .orElseGet(() -> emptyHeatmap(kind));
+    }
+
+    private MarketPulseHeatmapDTO styleHeatmap() {
+        List<StyleSectorSnapshotBO> rows = marketPulseQueryRepository.listLatestStyleSectors();
+        List<MarketPulseHeatmapDTO.ItemDTO> items = rows.stream()
+                .map(row -> {
+                    BigDecimal sizeValue = BigDecimal.valueOf(row.getValidSize() == null ? 0 : row.getValidSize());
+                    return MarketPulseHeatmapDTO.ItemDTO.builder()
+                            .name(row.getName())
+                            .value(sizeValue)
+                            .changePct(row.getChangePct())
+                            .changePercent(row.getChangePct())
+                            .kind("styles")
+                            .sectorCode(row.getName())
+                            .kindLabel("风格")
+                            .validSize(row.getValidSize())
+                            .stockCount(row.getSampleSize())
+                            .count(row.getSampleSize())
+                            .amount(sizeValue)
+                            .mainNetInflow(BigDecimal.ZERO)
+                            .circulatingMarketCap(BigDecimal.ZERO)
+                            .limitStreakCount(0)
+                            .conceptTags(List.of())
+                            .children(List.of())
+                            .build();
+                })
+                .toList();
+        return MarketPulseHeatmapDTO.builder()
+                .ok(true)
+                .kind("styles")
+                .source("mkt_style_sector_snapshot")
+                .count(items.size())
+                .items(items)
+                .build();
     }
 
     public MarketPulseLimitEmotionDTO getLimitEmotion() {

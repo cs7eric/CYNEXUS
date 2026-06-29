@@ -2,4 +2,18 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.core.infra.basic.mapper.SchedulerJobRunHistoryMapper">
+    <select id="selectByJobId" resultType="cn.cccs7.cynexus.core.infra.basic.entity.SchedulerJobRunHistoryPO">
+        SELECT *
+        FROM scheduler_job_run_history
+        WHERE job_id = #{jobId}
+        ORDER BY started_at DESC NULLS LAST, created_at DESC NULLS LAST, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectSince" resultType="cn.cccs7.cynexus.core.infra.basic.entity.SchedulerJobRunHistoryPO">
+        SELECT *
+        FROM scheduler_job_run_history
+        WHERE started_at &gt;= #{startedAt}
+        ORDER BY started_at ASC NULLS LAST, created_at ASC NULLS LAST, id ASC
+    </select>
 </mapper>
