@@ -49,8 +49,8 @@ class PercentileRepository:
             return None
         trade_date = _ensure_date(target_date)
         lookback_start = trade_date - timedelta(days=int(lookback_days))
-        table_name, column_name = self._resolve(table, column)
         try:
+            table_name, column_name = self._resolve(table, column)
             with self.client.session() as db:
                 row = db.execute(
                     text(
@@ -86,8 +86,8 @@ class PercentileRepository:
             return items
         end = _ensure_date(end_date)
         lookback_start = end - timedelta(days=int(lookback_days))
-        table_name, column_name = self._resolve(table, column)
         try:
+            table_name, column_name = self._resolve(table, column)
             with self.client.session() as db:
                 rows = db.execute(
                     text(

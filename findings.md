@@ -360,3 +360,53 @@ Required market modules:
 - Jackson field aliasing on Lombok DTOs needed getter-level `@JsonProperty` for `effective_adjust` and `requested_adjust`; field-level annotation alone still emitted camelCase in this project runtime.
 - Application-analysis B/S annotation data in the old project is file-backed under `reference/stock/data/annotations/*.json`. Java currently has no `stock_chart_annotation` table or repository contract, so the frontend service keeps localStorage as a non-Python temporary path rather than writing a new file-backed Java API.
 - Auction data in the old project is fetched through `eltdx` and scheduler/cache code. There is no current Java-owned auction snapshot table, so the Java endpoint returns a typed empty/not-wired payload instead of pretending to serve real persisted data.
+
+## Core Scheduler Runtime And Python Executor Findings
+
+- `cynexus-data` exposes the trigger API on `127.0.0.1:18083`; after starting it locally, `/internal/health` returns `{"ok": true, "service": "cynexus-data"}`.
+- With `cynexus-data` running, Gateway/Core manual trigger works: `POST /api/core/scheduler/management/jobs/test_scheduler_demo/trigger` returns `status=success` and a Python `run_id`.
+- Python `cynexus-data` currently has registered jobs such as `sync_tdx_intraday_detail`, `build_market_overview`, `build_market_pulse`, `build_msi`, and `trigger_probe`; it does not have registered jobs named `application_analysis`, `auction_ai_analysis`, or `daily_eod_incremental`.
+- The old scheduler metadata describes `daily_eod_incremental` as deprecated and split into independent jobs such as initial backfill, QFQ reconciliation, limit emotion, market overview daily, and turnover activity.
+- `auction_ai_analysis` is an AI analysis job, but the data-sync part for auction facts can use the existing Python job `sync_tdx_intraday_detail` with `datasets=["auction"]`.
+- Existing Core manual trigger records run history as `triggerType="manual"` and has no automatic runner consuming `run_time`, `cron`, `every_minutes`, or `intraday_windows`.
+- Generic MyBatis entity updates on `scheduler_job_statuses` can fail because the `schedule` column is PostgreSQL `jsonb` while the Java entity serializes it as text; runtime state changes should use a narrow SQL update for running timestamps instead of `updateById`.
+
+## Scheduler Chain Progress And History Findings
+
+- Old Python `market_sentiment_chain_scheduler.py` treated `market_sentiment_chain_refresh` as an orchestrated chain, not a single MSI rebuild. It ran steps in order: `tdx_hsjday_download`, `initial_backfill_refresh`, `qfq_reconciliation_refresh`, `limit_emotion_refresh`, `risk_appetite_refresh`, `ma_count_refresh`, `volatility_sentiment_refresh`, `style_risk_appetite_refresh`, `profit_effect_refresh`, `market_overview_daily`, `turnover_activity_refresh`, `ths_industry_fund_flow_daily`, `sector_breadth_refresh`, and `market_sentiment_index_refresh`.
+- Old Python chain status updated `lastStep`, `lastCompletedSteps`, `lastStepResults`, `lastTargetsProcessed`, and `lastMessage` during the run, while history used `begin_run` with `processing` then `update_run` to final `success`/`failed`.
+- The Java scheduler frontend already reads `config.lastStep`, `config.lastCompletedSteps`, `config.lastStepResults`, `live.lastMessage`, and history `message/error`; the backend just was not populating those fields from Python executor results.
+- Current Java mapping incorrectly points `market_sentiment_chain_refresh` to `rebuild_msi`, which only rebuilds the final MSI index over dates and does not execute the full old chain.
+- Current Java `recordTriggerResult` only writes status/duration/error and a generic remark (`Triggered by Java ...`), so history rows have no row counts, run id, pipeline, or chain summary for the UI to display.
+
+## Scheduler Progress JSON Field Findings
+
+- `scheduler_jobs` is the static job definition table and should not own mutable runtime progress.
+- Current runtime progress belongs in `scheduler_job_statuses.progress`, while completed run summaries belong in `scheduler_job_run_history.result_summary`.
+- `extra` remains useful for backwards compatibility and legacy fields, but should no longer be the canonical UI progress contract.
+- Both new columns are PostgreSQL `jsonb`; Java PO fields need `JsonbTypeHandler` and `autoResultMap = true` like existing `task_job_run.metadata`.
+- The API should expose a stable progress envelope (`schemaVersion`, `type`, `status`, `percent`, `currentStep`, `completedSteps`, `stepResults`, `message`, `metrics`, `payload`, `updatedAt`) so job-specific details can live under `payload` without forcing page code to parse arbitrary top-level JSON.
+
+## TDX Hsjday Var-Root Alignment Findings
+
+- The old design document `F:\dev-repo\mp4-to-word-new\design\backend\tdx-hsjday-download-pipeline.md` defines the important flow as download zip, extract to a dated `hsjday-{date}` directory, verify, then replace the live `hsjday` directory.
+- The old literal paths under `reference` should not be carried forward; the new Python project should map them under `E:\project-repo\cynexus\cynexus-data\var`.
+- New canonical paths are:
+  - zip: `cynexus-data\var\stock\download\{date}\hsjday.zip`
+  - temporary extract: `cynexus-data\var\stock\download\{date}\hsjday_extract_tmp`
+  - dated verified target: `cynexus-data\var\tdx\day\hsjday-{date}`
+  - live target consumed by downstream daily sync: `cynexus-data\var\tdx\day\hsjday`
+- The earlier new-project default wrote live files to `cynexus-data\var\tdx\hsjday`, while downstream sync could read a different root unless the chain passed an explicit `day_root`; this caused `tdx_hsjday_download` to report files but `initial_backfill_refresh` to read/write 0 rows.
+- The current downloaded local data was moved from `var\tdx\hsjday` to `var\tdx\day\hsjday`; it contains 12,246 `.day` files, about 0.87 GB.
+- TDX hsjday packages can include non-stock `.day` files such as `sz200b07.day`; local discovery must skip files that do not contain a 6-digit symbol instead of failing the whole chain.
+
+## MSI Historical Percentile Repair Findings
+
+- Old MSI semantics were mixed by design: some factor tables stored raw values, while the serving/MSI path converted those raw values into historical percentile scores.
+- The migrated Python code had drifted for `price_strength`, `breadth`, `profit_effect`, and `limit_emotion` by feeding raw formula values into UI/MSI score fields.
+- `msi_ma_count_daily` has both raw fields (`new_high_252d_pct`, `breadth_raw`) and score fields, so the producer can write percentile scores while the MSI assembler can still recompute from raw rows for resilience.
+- `msi_profit_effect_daily.score` is the old raw formula value; final MSI and Java profit-effect display should prefer the percentile component score from `msi_index_daily.profit_effect_score`.
+- `limit_emotion` must percentile-rank `limit_up_down_ratio`, inverse-rank `break_board_rate`, percentile-rank `yesterday_limit_up_avg_return`, then percentile-rank the weighted composite raw score.
+- `market_sentiment_chain_refresh` must default the final `market_sentiment_index_refresh` step to `force=true` and `require_full=true`; otherwise the chain can finish upstream factor refresh but return a cached or partial MSI composite.
+- The 2026-06-30 local MSI rerun showed `msi_sector_breadth_daily` currently has only 14 rows (`2026-06-09` through `2026-06-29`), so `require_full=true` can only safely rewrite those 14 MSI dates; older `msi_index_daily` rows remain unchanged until sector breadth history is backfilled.
+- Direct ClickHouse rerun of recent `build_limit_emotion` hit `ATTEMPT_TO_READ_AFTER_EOF` from the limit-emotion OHLCV reader. For the rerun, existing PostgreSQL raw factor rows were used to batch recompute percentile score columns in `msi_ma_count_daily` and `msi_limit_emotion_daily`, then final MSI was rebuilt from PostgreSQL factors.

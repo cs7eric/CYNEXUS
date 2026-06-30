@@ -9,6 +9,7 @@ from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.storage.clickhouse.readers import read_ma_count_input_rows
 from cynexus_data.storage.postgres.msi import MsiRepository
+from cynexus_data.storage.postgres.percentile import PercentileRepository
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
@@ -30,13 +31,22 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         raise RuntimeError("PipelineContext.hooks is required")
     input_rows = rows if rows is not None else read_ma_count_input_rows(context.hooks.clickhouse.get_client(), trade_date, table=str(request.params.get("source_table") or "daily_qfq"))
     payload = calculate_ma_count_summary(input_rows, trade_date=trade_date)
-    repo = MsiRepository(context.hooks.postgres.get_client())
+    pg_client = context.hooks.postgres.get_client()
+    _apply_history_scores(payload, PercentileRepository(pg_client), trade_date)
+    repo = MsiRepository(pg_client)
     if create_table:
         repo.create_table()
     result["rows_read"] = len(input_rows)
     result["rows_written"] = repo.save_ma_count(payload)
     result["payload"] = payload
     return result
+
+
+def _apply_history_scores(payload: dict[str, Any], percentile_repo: PercentileRepository, trade_date: date) -> None:
+    if payload.get("pctNewHigh252d") is not None:
+        payload["priceStrengthScore"] = percentile_repo.percentile_score("ma_count_daily", "new_high_252d_pct", trade_date, payload.get("pctNewHigh252d"))
+    if payload.get("breadthRaw") is not None:
+        payload["breadthScore"] = percentile_repo.percentile_score("ma_count_daily", "breadth_raw", trade_date, payload.get("breadthRaw"))
 
 
 def _parse_rows(value: Any) -> list[dict[str, Any]] | None:

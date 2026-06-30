@@ -125,12 +125,17 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentProfitEffectDTO getProfitEffect(LocalDate date) {
-        return repository.findProfitEffect(servingDate(date)).map(this::profitEffect).orElseGet(() -> emptyProfitEffect(date));
+        return repository.findProfitEffect(servingDate(date))
+                .map(row -> profitEffect(row, repository.findMsiIndex(row.getTradeDate()).map(MsiIndexDailyBO::getProfitEffectScore).orElse(null)))
+                .orElseGet(() -> emptyProfitEffect(date));
     }
 
     public MarketSentimentProfitEffectDTO.HistoryResponseDTO getProfitEffectHistory(LocalDate start, LocalDate end) {
+        Map<LocalDate, BigDecimal> msiScores = repository.listMsiIndex(start, end).stream()
+                .filter(row -> row.getTradeDate() != null)
+                .collect(Collectors.toMap(MsiIndexDailyBO::getTradeDate, MsiIndexDailyBO::getProfitEffectScore, (left, right) -> left));
         List<MarketSentimentProfitEffectDTO.HistoryItemDTO> items = repository.listProfitEffect(start, end).stream()
-                .map(this::profitHistoryItem)
+                .map(row -> profitHistoryItem(row, msiScores.get(row.getTradeDate())))
                 .toList();
         return MarketSentimentProfitEffectDTO.HistoryResponseDTO.builder()
                 .ok(true).start(start).end(end).count(items.size()).items(items).build();
@@ -330,15 +335,17 @@ public class MarketSentimentQueryAppService {
                 .tradeDate(row.getTradeDate()).spread(row.getSpread()).score(row.getScore()).fromCache(true).build();
     }
 
-    private MarketSentimentProfitEffectDTO profitEffect(ProfitEffectDailyBO row) {
+    private MarketSentimentProfitEffectDTO profitEffect(ProfitEffectDailyBO row, BigDecimal msiScore) {
+        BigDecimal score = msiScore == null ? row.getScore() : msiScore;
         return MarketSentimentProfitEffectDTO.builder()
                 .ok(true).tradeDate(row.getTradeDate()).up5dPct(row.getUp5dPct()).newLow60dPct(row.getNewLow60dPct())
-                .score(row.getScore()).rawValue(row.getScore()).elapsedMs(row.getElapsedMs()).source(row.getSource()).fromCache(true).build();
+                .score(score).rawValue(row.getScore()).elapsedMs(row.getElapsedMs()).source(row.getSource()).fromCache(true).build();
     }
 
-    private MarketSentimentProfitEffectDTO.HistoryItemDTO profitHistoryItem(ProfitEffectDailyBO row) {
+    private MarketSentimentProfitEffectDTO.HistoryItemDTO profitHistoryItem(ProfitEffectDailyBO row, BigDecimal msiScore) {
+        BigDecimal score = msiScore == null ? row.getScore() : msiScore;
         return MarketSentimentProfitEffectDTO.HistoryItemDTO.builder()
-                .tradeDate(row.getTradeDate()).score(row.getScore()).fromCache(true).build();
+                .tradeDate(row.getTradeDate()).score(score).fromCache(true).build();
     }
 
     private MarketSentimentSectorBreadthDTO sectorBreadth(SectorBreadthDailyBO row) {

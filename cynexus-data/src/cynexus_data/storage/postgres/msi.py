@@ -10,6 +10,7 @@ from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.domain.market.msi import WEIGHTS, sector_breadth_score
 from cynexus_data.storage.postgres.client import PostgresClient
 from cynexus_data.storage.postgres.ids import next_bigint_id
+from cynexus_data.storage.postgres.percentile import PercentileRepository
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_msi_tables.sql"
@@ -94,12 +95,52 @@ class MsiRepository:
 
     def read_component_scores(self, trade_date: date) -> dict[str, float | None]:
         scores: dict[str, float | None] = {key: None for key in WEIGHTS}
+        percentile_repo = PercentileRepository(self.client)
         for key, table, column, multiplier in _COMPONENT_SOURCES:
             value = self._fetch_optional_column(table, column, trade_date)
             scores[key] = round(float(value) * multiplier, 2) if value is not None else None
+        scores["turnover"] = _prefer_score(scores["turnover"], self._percentile_component(percentile_repo, "turnover_activity_daily", "ratio", "msi_turnover_activity_daily", "ratio", trade_date))
+        scores["price_strength"] = _prefer_score(
+            self._percentile_component(percentile_repo, "ma_count_daily", "new_high_252d_pct", "msi_ma_count_daily", "new_high_252d_pct", trade_date),
+            scores["price_strength"],
+        )
+        scores["risk_appetite"] = _prefer_score(scores["risk_appetite"], self._percentile_component(percentile_repo, "risk_appetite_daily", "spread_weighted", "msi_risk_appetite_daily", "spread_weighted", trade_date))
+        scores["breadth"] = _prefer_score(self._percentile_component(percentile_repo, "ma_count_daily", "breadth_raw", "msi_ma_count_daily", "breadth_raw", trade_date), scores["breadth"])
+        scores["profit_effect"] = _prefer_score(self._percentile_component(percentile_repo, "profit_effect_daily", "score", "msi_profit_effect_daily", "score", trade_date), scores["profit_effect"])
+        scores["style_risk"] = _prefer_score(scores["style_risk"], self._percentile_component(percentile_repo, "style_risk_appetite_daily", "spread", "msi_style_risk_daily", "spread", trade_date))
         return scores
 
+    def _percentile_component(
+        self,
+        percentile_repo: PercentileRepository,
+        percentile_table: str,
+        percentile_column: str,
+        source_table: str,
+        source_column: str,
+        trade_date: date,
+    ) -> float | None:
+        raw_value = self._fetch_optional_column(source_table, source_column, trade_date)
+        if raw_value is None:
+            return None
+        return percentile_repo.percentile_score(percentile_table, percentile_column, trade_date, raw_value)
+
     def compute_sector_breadth_from_fund_flow(self, trade_date: date) -> dict[str, Any] | None:
+        row = self._compute_sector_breadth_row(
+            "mkt_ths_industry_fund_flow_daily",
+            trade_date,
+            "trade_date = :trade_date AND deleted_at IS NULL",
+            "postgres.mkt_ths_industry_fund_flow_daily",
+        )
+        if row is None:
+            row = self._compute_sector_breadth_row(
+                "sector_fund_flow_daily_snapshots",
+                trade_date,
+                "trade_date = :trade_date AND scope = 'industry' AND deleted_at IS NULL",
+                "postgres.sector_fund_flow_daily_snapshots",
+            )
+        return row
+
+    def _compute_sector_breadth_row(self, table: str, trade_date: date, where_sql: str, source: str) -> dict[str, Any] | None:
         try:
             with self.client.session() as db:
                 row = db.execute(
@@ -109,8 +150,8 @@ class MsiRepository:
                                COUNT(*) FILTER (WHERE change_pct < 0) AS declining,
                                COUNT(*) FILTER (WHERE change_pct = 0) AS flat,
                                COUNT(*) AS total
-                          FROM {self.client.schema}.sector_fund_flow_daily_snapshots
-                         WHERE trade_date = :trade_date AND scope = 'industry' AND deleted_at IS NULL
+                          FROM {self.client.schema}.{table}
+                         WHERE {where_sql}
                         """
                     ),
                     {"trade_date": trade_date},
@@ -132,7 +173,7 @@ class MsiRepository:
             "total": total,
             "advancePct": round(advancing / total, 6),
             "score": score,
-            "source": "postgres.sector_fund_flow_daily_snapshots",
+            "source": source,
         }
 
     def save_sector_breadth(self, payload: dict[str, Any]) -> int:
@@ -553,7 +594,7 @@ class MsiRepository:
                     "break_board_rate": payload.get("breakBoardRate"),
                     "limit_up_down_ratio": payload.get("limitUpDownRatio"),
                     "yesterday_limit_up_count": int(payload.get("yesterdayLimitUpCount") or 0),
-                    "yesterday_limit_up_avg_return": payload.get("yesterdayLimitUpAvgReturn"),
+                    "yesterday_limit_up_avg_return": payload.get("yesterdayLimitUpAvgReturn") or 0,
                     "up_down_score": components.get("upDownScore"),
                     "break_board_score": components.get("breakBoardScore"),
                     "yesterday_return_score": components.get("yesterdayReturnScore"),
@@ -620,6 +661,10 @@ def _row_to_payload(row: Any) -> dict[str, Any]:
 
 def _float_or_none(value: Any) -> float | None:
     return float(value) if value is not None else None
+
+
+def _prefer_score(primary: float | None, fallback: float | None) -> float | None:
+    return primary if primary is not None else fallback
 
 
 def _date_or_none(value: Any) -> date | None:

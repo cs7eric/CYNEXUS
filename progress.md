@@ -391,3 +391,119 @@
 - Searched application-analysis scope and found no remaining old Python/global API references.
 - Frontend `npx tsc -b --pretty false` still fails on unrelated pre-existing TypeScript errors; no application-analysis-specific error appeared in the reported output.
 - Recorded residual data-contract gaps: server-side annotation persistence needs a proper PG table/repository, and auction snapshots need either a Java table-backed import or a collector/executor contract. Current implementation avoids old Python calls and avoids introducing Java file-backed stopgaps.
+
+## 2026-06-29 Core Scheduler Runtime And Python Executor Bridge
+
+- Started Phase 26 to make Scheduler UI manual triggers reach `cynexus-data`, add Core automatic scheduled triggering, and add safe scheduler-to-Python mappings.
+- Started local `cynexus-data` FastAPI trigger API on `127.0.0.1:18083` with PostgreSQL/ClickHouse environment variables; `/internal/health` returned `ok=true`.
+- Verified Gateway/Core data job health now succeeds and manual Scheduler trigger for `test_scheduler_demo` returns `status=success` with a Python `run_id`.
+- Inspected `cynexus-data` job registry and confirmed `application_analysis`, `auction_ai_analysis`, and `daily_eod_incremental` are not registered Python jobs.
+- Added a Java mapping for `auction_ai_analysis` to `sync_tdx_intraday_detail` with default params `datasets=["auction"]` and `create_table=true`.
+- Left `application_analysis` and deprecated `daily_eod_incremental` unsupported for now because current migration docs place AI analysis out of `cynexus-data`, and the EOD monolith was intentionally split into independent jobs.
+- Added `SchedulerRuntimeService` with a scheduled scan for enabled jobs/statuses and support for `run_time`, 5/6-field `cron`, `every_minutes`, and `intraday_windows`.
+- Added `SchedulerAppService.triggerScheduledJob` so auto triggers reuse manual trigger execution while writing run history with `triggerType=auto`.
+- First Core compile failed because `SchedulerRuntimeService` used `this::pickLatestStatus` for a static merge method; changed it to `SchedulerRuntimeService::pickLatestStatus`.
+- Added a narrow scheduler-status update path for `is_running`, `scheduler_started_at`, and `stopped_at` so the runtime no longer uses generic JSONB entity updates that fail PostgreSQL `schedule` typing.
+- Enabled Spring scheduling in the Core starter and rebuilt Core with `mvn -pl cynexus-core/cynexus-core-starter -am package -DskipTests`.
+- Restarted local Core on `127.0.0.1:18080` and confirmed `/actuator/health` is `UP`.
+- Confirmed Gateway data job health succeeds through Core and `cynexus-data`.
+- Verified manual Scheduler trigger through Gateway for `test_scheduler_demo`: returned `status=success` and Python run id `job_run_9b115828c7494ee99abfeeace941a91a`.
+- Verified the new auction mapping safely with Gateway dry-run trigger for `auction_ai_analysis`: returned `status=success` and Python run id `job_run_c0ecba934385421fa91ab93fc60281f9`.
+- Checked Core logs after restart/tick; no new Scheduler runtime SQL or trigger errors were reported.
+
+## 2026-06-29 Scheduler Chain Progress And History Data
+
+- User reported Scheduler UI can trigger jobs but cannot tell whether runs succeeded, progress does not update, history only shows bare `run`, and `market_sentiment_chain_refresh` should be a chain.
+- Compared the old Python scheduler implementation in `F:\dev-repo\mp4-to-word-new`; confirmed `market_sentiment_chain_refresh` runs a 14-step chain and writes `lastStep`, `lastCompletedSteps`, `lastStepResults`, `lastTargetsProcessed`, and `lastMessage` while keeping a `processing -> success/failed` history run.
+- Confirmed the Java frontend already reads those progress fields from scheduler management jobs/history responses, so the repair belongs in Core/Data integration rather than a large UI redesign.
+- Added `cynexus-data` chain job `market_sentiment_chain_refresh` with the old step order: TDX HSJ day download, initial backfill, QFQ reconciliation, limit emotion, risk appetite, MA count, volatility sentiment, style risk, profit effect, market overview daily, turnover activity, THS industry fund flow, sector breadth, and final MSI build.
+- Added Python job-store progress persistence so chain steps can update run metadata while executing.
+- Registered the new Python chain job in `cynexus-data` and added job config metadata.
+- Changed the trigger API to persist job state into PostgreSQL-backed `task_job_run` instead of memory-only state for this local integration.
+- Fixed Core job mapping so `market_sentiment_chain_refresh` maps to the new Python chain job instead of the old single MSI rebuild key.
+- Added narrow Core status update methods for progress/result JSONB writes and run summary fields, avoiding generic MyBatis updates against JSONB columns.
+- Changed Core chain manual trigger to create a processing history row, return `processing` immediately to the UI, run the Python chain asynchronously, and update the same history row plus scheduler status after completion.
+- Enriched normal and chain scheduler result handling with Python `run_id`, data job key, rows read/written, pipeline, completed step count, last message, and per-step summaries.
+- Updated scheduler history DTO assembly so remarks like `completed_steps=14` or `rows_written=N` populate visible `target_count` and `succeeded`.
+- Increased the Core data-job executor timeout default to 600 seconds for long-running chain jobs.
+- Restarted local `cynexus-data` on `127.0.0.1:18083` and local Core on `127.0.0.1:18080`; Gateway remained the local jar entry point.
+- Verified Core actuator health is `UP`, `cynexus-data` `/internal/health` returns ok, and Gateway `/api/core/scheduler/data-jobs/health` returns ok.
+- Verified Gateway dry-run trigger for `market_sentiment_chain_refresh`: initial response `status=processing`, final management status `success`, 14 completed steps, `lastTargetsProcessed=14`, and `live.lastMessage=completed 14 MSI steps`.
+- Verified latest Gateway history now shows the chain run message with Python run id, rows, `completed_steps=14`, `target_count=14`, and `succeeded=14`.
+- Java Core `compile` and `package` with `-DskipTests` succeeded; Python compile for changed `cynexus-data` scheduler/job files succeeded. Existing Maven duplicate-Lombok/MapStruct warnings remain unrelated.
+
+## 2026-06-29 Scheduler Progress JSON Fields
+
+- User clarified the desired model: add JSON fields for jobs to write progress-specific content, then render that content in UI.
+- Decided not to put mutable progress on `scheduler_jobs`; kept static job definition separate from runtime state.
+- Added migration `deploy/local/postgres/migrations/20260629_add_scheduler_progress_fields.sql`:
+  - `cynexus_appl_core.scheduler_job_statuses.progress jsonb NOT NULL DEFAULT '{}'::jsonb`
+  - `cynexus_appl_core.scheduler_job_run_history.result_summary jsonb NOT NULL DEFAULT '{}'::jsonb`
+- Applied the migration to local PostgreSQL through `cynexus-postgres`; verified both columns are `jsonb`.
+- Added `progress` / `resultSummary` through Java Core PO/BO/DTO layers and added `JsonbTypeHandler` to the JSONB PO fields.
+- Extended narrow scheduler status update SQL so `updateRunResultDetailById` and `updateProgressById` write `progress = CAST(#{progress} AS jsonb)` alongside legacy `extra`.
+- Changed `SchedulerAppService` to build a stable progress envelope and result summary envelope, while preserving existing `extra` compatibility fields.
+- Changed Scheduler frontend types and page logic to prefer `job.progress.currentStep/completedSteps/stepResults` and fall back to legacy `job.config.lastStep/lastCompletedSteps/lastStepResults`.
+- Rebuilt and restarted local Core jar.
+- Verified Gateway `test_scheduler_demo` trigger:
+  - jobs response includes `progress.status=success`, `progress.percent=100`, `progress.metrics.rowsRead=0`, `progress.metrics.rowsWritten=0`, and payload run id / data job key.
+  - history response includes `result_summary.status=success` with rows metrics and payload run id / data job key.
+- `mvn -pl cynexus-core/cynexus-core-starter -am compile -DskipTests` succeeded.
+- `mvn -pl cynexus-core/cynexus-core-starter -am package -DskipTests` succeeded.
+- Frontend `npx tsc -b --pretty false` still fails on existing unrelated TypeScript errors, but the scheduler-specific type error introduced during this change was fixed.
+
+## 2026-06-29 TDX Hsjday Var-Root Alignment
+
+- User pointed to `F:\dev-repo\mp4-to-word-new\design\backend\tdx-hsjday-download-pipeline.md` and clarified that the design should be followed, but the new project should store data under `E:\project-repo\cynexus\cynexus-data\var`, not old `reference` paths.
+- Reviewed the old design and mapped paths to the new project:
+  - `reference\stock\download\{date}\hsjday.zip` -> `cynexus-data\var\stock\download\{date}\hsjday.zip`
+  - `reference\tdx\day\hsjday-{date}` -> `cynexus-data\var\tdx\day\hsjday-{date}`
+  - `reference\tdx\day\hsjday` -> `cynexus-data\var\tdx\day\hsjday`
+- Updated `sync_tdx_hsjday` to perform existing-data freshness checks, use the new var paths, extract to a temp directory, move to dated target, verify, then replace live target.
+- Added hsjday source helpers for existing live-root freshness and old zip cleanup.
+- Expanded verification samples across SH/SZ/BJ based on the design intent.
+- Moved the already downloaded 12,246-file local hsjday directory from `cynexus-data\var\tdx\hsjday` to `cynexus-data\var\tdx\day\hsjday`.
+- Fixed `discover_day_files` to skip non-stock TDX `.day` files such as `sz200b07.day`.
+- Updated related unit tests for the expanded hsjday samples and non-stock day-file skip behavior.
+- Verification:
+  - `python -m compileall -q src` passed.
+  - `PYTHONPATH=src pytest -q tests/unit/test_sources/test_tdx_hsjday.py tests/unit/test_sources/test_tdx_local_day.py tests/unit/test_pipelines/test_tdx_hsjday_pipeline.py tests/unit/test_pipelines/test_kline_sync_daily.py` passed: 10 tests.
+  - Restarted local `cynexus-data` on `127.0.0.1:18083`; `/internal/health` returned ok.
+  - Direct `sync_tdx_hsjday` dry-run shows zip/extract/live paths under `cynexus-data\var`.
+  - Direct `market_sentiment_chain_refresh` dry-run completed all 14 steps and reports `hsjday_root=E:\project-repo\cynexus\cynexus-data\var\tdx\day\hsjday`.
+
+## 2026-06-30 MSI Historical Percentile Repair
+
+- User asked to fix the MSI calculation/storage/history percentile issues found in review.
+- Changed `build_ma_count` so non-dry-run writes historical percentile scores for `priceStrengthScore` and `breadthScore`.
+- Changed `build_limit_emotion` so non-overridden runs apply old-project history percentile semantics to up/down, inverse break-board, yesterday return, and composite score.
+- Changed `MsiRepository.read_component_scores` so final MSI assembly recomputes percentile components from raw fields for MA count and profit effect, and keeps fallback percentile support for turnover/risk/style raw values.
+- Changed `market_sentiment_chain_refresh` so the final `market_sentiment_index_refresh` step defaults to `force=true` and `require_full=true`.
+- Changed Java `MarketSentimentQueryAppService` so profit-effect display/history prefer `msi_index_daily.profit_effect_score` while retaining the factor-table score as `rawValue`.
+- Added targeted Python tests for MSI component percentile assembly, MA count percentile writes, limit emotion percentile writes, and chain final-step defaults.
+- Verification:
+  - `PYTHONPATH=src pytest -q tests/unit/test_domain/test_msi.py tests/unit/test_pipelines/test_msi_pipeline.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py` passed: 15 tests.
+  - `python -m compileall -q src` passed.
+  - `mvn -pl cynexus-market/cynexus-market-starter -am compile -DskipTests` succeeded with existing unrelated Maven/MapStruct warnings.
+
+## 2026-06-30 MSI Rerun And Before/After Comparison
+
+- User asked to rerun MSI and record before/after comparison.
+- Exported full before snapshot to `cynexus-data/var/reports/msi-rerun-20260630-115929/msi_before.csv`.
+- Ran `rebuild_msi` for `2018-04-02` through `2026-06-29` with `force=true` and `require_full=true`.
+- The full-factor constraint rewrote 14 dates only because `msi_sector_breadth_daily` currently has 14 rows (`2026-06-09` through `2026-06-29`); older MSI rows were left unchanged instead of being overwritten with missing-factor neutral scores.
+- Attempted recent factor-level rerun for `build_ma_count` and `build_limit_emotion`; direct ClickHouse limit-emotion OHLCV read failed with `ATTEMPT_TO_READ_AFTER_EOF`.
+- Switched to a safer PostgreSQL raw-factor batch recalculation:
+  - Updated `msi_ma_count_daily.price_strength_score` and `breadth_score` for 1997 rows from historical percentiles of `new_high_252d_pct` and `breadth_raw`.
+  - Updated `msi_limit_emotion_daily` sub-scores/composite/level for 1597 rows from historical percentiles of existing raw factor columns.
+- Re-ran final `rebuild_msi` with `force=true` and `require_full=true`; 14 full-factor dates were rewritten.
+- Exported final after snapshot to `cynexus-data/var/reports/msi-rerun-20260630-115929/msi_after.csv`.
+- Generated diff CSV and summary:
+  - `cynexus-data/var/reports/msi-rerun-20260630-115929/msi_diff.csv`
+  - `cynexus-data/var/reports/msi-rerun-20260630-115929/summary.md`
+- Final comparison: 1997 before rows, 1997 after rows, 14 changed rows, composite delta min/max `-3.39 / +2.97`.
+- Notable level changes:
+  - `2026-06-18`: `45.80 -> 44.63`, `normal -> weak`.
+  - `2026-06-26`: `28.63 -> 31.60`, `ice -> weak`.
+- Verification after rerun:
+  - `PYTHONPATH=src pytest -q tests/unit/test_domain/test_msi.py tests/unit/test_pipelines/test_msi_pipeline.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py` passed: 15 tests.
