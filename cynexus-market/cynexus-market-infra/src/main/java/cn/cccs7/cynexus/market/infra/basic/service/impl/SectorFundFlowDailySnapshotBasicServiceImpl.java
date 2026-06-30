@@ -31,4 +31,9 @@ public class SectorFundFlowDailySnapshotBasicServiceImpl
     public List<SectorFundFlowDailySnapshotPO> listByTradeDate(String scope, LocalDate tradeDate, int limit) {
         return mapper.listByTradeDate(scope, tradeDate, limit);
     }
+
+    @Override
+    public List<SectorFundFlowDailySnapshotPO> listRecent(String scope, LocalDate maxTradeDate, int days, int top) {
+        return mapper.listRecent(scope, maxTradeDate, days, top);
+    }
 }

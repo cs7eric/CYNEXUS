@@ -72,6 +72,14 @@ public class IndustryApplicationController {
         return Result.success(industryApplicationAppService.getFundFlow(tradeDate, top));
     }
 
+    @GetMapping("/fund-flow/history")
+    public Result<IndustryApplicationDTO.FundFlowHistoryResponse> getFundFlowHistory(
+            @RequestParam(name = "max_trade_date", required = false) String maxTradeDate,
+            @RequestParam(defaultValue = "365") int days,
+            @RequestParam(required = false) Integer top) {
+        return Result.success(industryApplicationAppService.getFundFlowHistory(maxTradeDate, days, top));
+    }
+
     @PostMapping("/fund-flow/refresh")
     public Result<IndustryApplicationDTO.FundFlowResponse> refreshFundFlow(@RequestParam(name = "trade_date", required = false) String tradeDate,
                                                                           @RequestParam(required = false) Integer top) {

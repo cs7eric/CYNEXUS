@@ -90,6 +90,15 @@ public class IndustryApplicationAppService {
         return converter.toFundFlowResponse(industryApplicationRepository.getFundFlow(parsedTradeDate, normalizedTop));
     }
 
+    public IndustryApplicationDTO.FundFlowHistoryResponse getFundFlowHistory(String maxTradeDate, int days, Integer top) {
+        LocalDate parsedMaxTradeDate = parseTradeDate(maxTradeDate);
+        int normalizedDays = Math.max(1, Math.min(days <= 0 ? 365 : days, 500));
+        Integer normalizedTop = top == null || top <= 0 ? null : Math.min(top, 500);
+        return converter.toFundFlowHistoryResponse(
+                industryApplicationRepository.getFundFlowHistory(parsedMaxTradeDate, normalizedDays, normalizedTop)
+        );
+    }
+
     private List<IndustryApplicationBO.Target> resolveRefreshTargets(String targetId) {
         if (targetId != null && !targetId.isBlank()) {
             return industryApplicationRepository.findTarget(targetId.trim()).stream().toList();

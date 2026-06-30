@@ -24,4 +24,6 @@ public interface IndustryApplicationRepository {
     List<IndustryApplicationBO.SectorOverviewItem> listOverview(String sortBy, boolean ascending, int count);
 
     IndustryApplicationBO.FundFlowSnapshot getFundFlow(LocalDate tradeDate, Integer top);
+
+    IndustryApplicationBO.FundFlowHistory getFundFlowHistory(LocalDate maxTradeDate, int days, Integer top);
 }

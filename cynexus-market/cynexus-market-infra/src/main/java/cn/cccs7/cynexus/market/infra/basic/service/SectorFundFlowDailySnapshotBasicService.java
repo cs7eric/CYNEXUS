@@ -10,4 +10,6 @@ public interface SectorFundFlowDailySnapshotBasicService extends CrudBasicServic
     LocalDate findLatestTradeDate(String scope, LocalDate maxTradeDate);
 
     List<SectorFundFlowDailySnapshotPO> listByTradeDate(String scope, LocalDate tradeDate, int limit);
+
+    List<SectorFundFlowDailySnapshotPO> listRecent(String scope, LocalDate maxTradeDate, int days, int top);
 }

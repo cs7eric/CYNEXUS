@@ -198,6 +198,42 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                 .build();
     }
 
+    @Override
+    public IndustryApplicationBO.FundFlowHistory getFundFlowHistory(LocalDate maxTradeDate, int days, Integer top) {
+        int normalizedDays = Math.max(1, Math.min(days <= 0 ? 365 : days, 500));
+        int normalizedTop = Math.max(1, Math.min(top == null || top <= 0 ? FUND_FLOW_FULL_LIMIT : top, FUND_FLOW_FULL_LIMIT));
+        List<SectorFundFlowDailySnapshotPO> rows = sectorFundFlowDailySnapshotBasicService.listRecent(
+                FUND_FLOW_SCOPE,
+                maxTradeDate,
+                normalizedDays,
+                normalizedTop
+        );
+        List<LocalDate> dates = rows.stream()
+                .map(SectorFundFlowDailySnapshotPO::getTradeDate)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        return IndustryApplicationBO.FundFlowHistory.builder()
+                .ok(!rows.isEmpty())
+                .days(normalizedDays)
+                .dates(dates)
+                .rowCount(rows.size())
+                .fetchedAt(rows.stream()
+                        .map(SectorFundFlowDailySnapshotPO::getCapturedAt)
+                        .filter(Objects::nonNull)
+                        .max(Comparator.naturalOrder())
+                        .orElse(null))
+                .rows(rows.stream().map(this::toFundFlowRow).toList())
+                .source(rows.stream()
+                        .map(SectorFundFlowDailySnapshotPO::getSource)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse("sector_fund_flow_daily_snapshots"))
+                .error(rows.isEmpty() ? "no industry fund-flow history found" : null)
+                .build();
+    }
+
     private IndustryApplicationBO.Target toTarget(IndustryApplicationTargetPO po) {
         return IndustryApplicationBO.Target.builder()
                 .id(po.getId())

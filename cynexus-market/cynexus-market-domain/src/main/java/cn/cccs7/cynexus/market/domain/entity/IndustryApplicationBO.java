@@ -169,6 +169,21 @@ public final class IndustryApplicationBO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class FundFlowHistory {
+        private Boolean ok;
+        private Integer days;
+        private List<LocalDate> dates;
+        private Integer rowCount;
+        private OffsetDateTime fetchedAt;
+        private List<FundFlowRow> rows;
+        private String source;
+        private String error;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FundFlowRow {
         private Integer rank;
         private String industry;

@@ -15,4 +15,9 @@ public interface SectorFundFlowDailySnapshotMapper extends BaseMapperX<SectorFun
     List<SectorFundFlowDailySnapshotPO> listByTradeDate(@Param("scope") String scope,
                                                         @Param("tradeDate") LocalDate tradeDate,
                                                         @Param("limit") int limit);
+
+    List<SectorFundFlowDailySnapshotPO> listRecent(@Param("scope") String scope,
+                                                   @Param("maxTradeDate") LocalDate maxTradeDate,
+                                                   @Param("days") int days,
+                                                   @Param("top") int top);
 }

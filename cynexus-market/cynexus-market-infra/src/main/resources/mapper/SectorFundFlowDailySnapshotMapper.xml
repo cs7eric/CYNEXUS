@@ -28,6 +28,45 @@
         deleted_at
     </sql>
 
+    <sql id="ColumnsWithResolvedSectorCode">
+        s.id,
+        s.batch_id,
+        s.scope,
+        s.trade_date,
+        coalesce(
+            s.sector_code,
+            (
+                select prev.sector_code
+                  from sector_fund_flow_daily_snapshots prev
+                 where prev.deleted_at is null
+                   and prev.scope = s.scope
+                   and prev.sector_name = s.sector_name
+                   and prev.trade_date &lt;= s.trade_date
+                   and prev.sector_code is not null
+                 order by prev.trade_date desc
+                 limit 1
+            )
+        ) as sector_code,
+        s.sector_name,
+        s.rank,
+        s.change_pct,
+        s.inflow,
+        s.outflow,
+        s.net,
+        s.company_count,
+        s.leader_stock,
+        s.leader_change,
+        s.leader_price,
+        s.source,
+        s.source_type,
+        s.captured_at,
+        s.extra,
+        s.remark,
+        s.created_at,
+        s.updated_at,
+        s.deleted_at
+    </sql>
+
     <select id="findLatestTradeDate" resultType="java.time.LocalDate">
         select max(trade_date)
           from sector_fund_flow_daily_snapshots
@@ -39,12 +78,44 @@
     </select>
 
     <select id="listByTradeDate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.SectorFundFlowDailySnapshotPO">
-        select <include refid="BaseColumns"/>
-          from sector_fund_flow_daily_snapshots
+        select <include refid="ColumnsWithResolvedSectorCode"/>
+          from sector_fund_flow_daily_snapshots s
          where deleted_at is null
            and scope = #{scope}
            and trade_date = #{tradeDate}
          order by net desc nulls last, rank asc nulls last, sector_name asc
          limit #{limit}
+    </select>
+
+    <select id="listRecent" resultType="cn.cccs7.cynexus.market.infra.basic.entity.SectorFundFlowDailySnapshotPO">
+        with recent_dates as (
+            select trade_date
+              from (
+                select distinct trade_date
+                  from sector_fund_flow_daily_snapshots
+                 where deleted_at is null
+                   and scope = #{scope}
+                <if test="maxTradeDate != null">
+                   and trade_date &lt;= #{maxTradeDate}
+                </if>
+                 order by trade_date desc
+                 limit #{days}
+              ) d
+        ),
+        ranked_rows as (
+            select <include refid="ColumnsWithResolvedSectorCode"/>,
+                   row_number() over (
+                       partition by trade_date
+                       order by net desc nulls last, rank asc nulls last, sector_name asc
+                   ) as row_no
+              from sector_fund_flow_daily_snapshots s
+             where s.deleted_at is null
+               and s.scope = #{scope}
+               and s.trade_date in (select trade_date from recent_dates)
+        )
+        select <include refid="BaseColumns"/>
+          from ranked_rows
+         where row_no &lt;= #{top}
+         order by trade_date asc, row_no asc
     </select>
 </mapper>

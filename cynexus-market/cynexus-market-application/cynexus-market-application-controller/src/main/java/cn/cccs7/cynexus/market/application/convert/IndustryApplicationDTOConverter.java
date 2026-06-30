@@ -236,6 +236,29 @@ public interface IndustryApplicationDTOConverter {
                 .build();
     }
 
+    default IndustryApplicationDTO.FundFlowHistoryResponse toFundFlowHistoryResponse(IndustryApplicationBO.FundFlowHistory value) {
+        if (value == null) {
+            return IndustryApplicationDTO.FundFlowHistoryResponse.builder()
+                    .ok(false)
+                    .days(0)
+                    .dates(List.of())
+                    .rowCount(0)
+                    .rows(List.of())
+                    .error("no industry fund-flow history found")
+                    .build();
+        }
+        return IndustryApplicationDTO.FundFlowHistoryResponse.builder()
+                .ok(value.getOk())
+                .days(value.getDays())
+                .dates(value.getDates() == null ? List.of() : value.getDates().stream().map(Object::toString).toList())
+                .rowCount(value.getRowCount())
+                .fetchedAt(value.getFetchedAt())
+                .rows(toFundFlowRows(value.getRows()))
+                .source(value.getSource())
+                .error(value.getError())
+                .build();
+    }
+
     default IndustryApplicationDTO.FundFlowRow toFundFlowRow(IndustryApplicationBO.FundFlowRow value) {
         if (value == null) {
             return null;

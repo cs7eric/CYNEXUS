@@ -269,6 +269,21 @@ public final class IndustryApplicationDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class FundFlowHistoryResponse {
+        private Boolean ok;
+        private Integer days;
+        private List<String> dates;
+        private Integer rowCount;
+        private OffsetDateTime fetchedAt;
+        private List<FundFlowRow> rows;
+        private String source;
+        private String error;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FundFlowRow {
         @JsonProperty("序号")
         private Integer rank;
