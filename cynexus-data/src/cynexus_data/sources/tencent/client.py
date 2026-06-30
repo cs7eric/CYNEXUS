@@ -24,6 +24,16 @@ class TencentClient:
         response.raise_for_status()
         return response.json()
 
+    def fetch_minute_query_raw(self, code: str) -> dict:
+        response = self.session.get(
+            f"{self.base_url}/appstock/app/minute/query",
+            params={"code": code},
+            headers={"Referer": "https://gu.qq.com/"},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def fetch_stock_fund_flow_batch(self, symbols: list[str]) -> dict[str, dict[str, Any]]:
         normalized = [normalize_market_symbol(symbol) for symbol in symbols if str(symbol or "").strip()]
         if not normalized:

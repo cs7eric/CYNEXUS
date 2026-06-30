@@ -71,12 +71,36 @@ public interface SchedulerRepository {
 
     boolean updateStatusEnabled(Long id, Boolean enabled);
 
+    boolean updateStatusRunning(Long id,
+                                Boolean running,
+                                OffsetDateTime schedulerStartedAt,
+                                OffsetDateTime stoppedAt);
+
     boolean updateStatusRunResult(Long id,
                                   OffsetDateTime lastRunAt,
                                   Boolean lastRunOk,
                                   String lastRunStatus,
                                   String lastRunErrorMessage,
                                   BigDecimal lastDurationSeconds);
+
+    boolean updateStatusRunResult(Long id,
+                                  OffsetDateTime lastRunAt,
+                                  Boolean lastRunOk,
+                                  String lastRunStatus,
+                                  String lastRunErrorMessage,
+                                  BigDecimal lastDurationSeconds,
+                                  Integer lastTargetsProcessed,
+                                  String progress,
+                                  String extra,
+                                  String remark);
+
+    boolean updateStatusProgress(Long id,
+                                 Boolean running,
+                                 OffsetDateTime lastRunAt,
+                                 String lastRunStatus,
+                                 String progress,
+                                 String extra,
+                                 String remark);
 
     boolean deleteStatus(Long id);
 }

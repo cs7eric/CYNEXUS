@@ -209,6 +209,14 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     }
 
     @Override
+    public boolean updateStatusRunning(Long id,
+                                       Boolean running,
+                                       OffsetDateTime schedulerStartedAt,
+                                       OffsetDateTime stoppedAt) {
+        return schedulerJobStatusBasicService.updateRunning(id, running, schedulerStartedAt, stoppedAt);
+    }
+
+    @Override
     public boolean updateStatusRunResult(Long id,
                                          OffsetDateTime lastRunAt,
                                          Boolean lastRunOk,
@@ -222,6 +230,41 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
                 lastRunStatus,
                 lastRunErrorMessage,
                 lastDurationSeconds);
+    }
+
+    @Override
+    public boolean updateStatusRunResult(Long id,
+                                         OffsetDateTime lastRunAt,
+                                         Boolean lastRunOk,
+                                         String lastRunStatus,
+                                         String lastRunErrorMessage,
+                                         BigDecimal lastDurationSeconds,
+                                         Integer lastTargetsProcessed,
+                                         String progress,
+                                         String extra,
+                                         String remark) {
+        return schedulerJobStatusBasicService.updateRunResult(
+                id,
+                lastRunAt,
+                lastRunOk,
+                lastRunStatus,
+                lastRunErrorMessage,
+                lastDurationSeconds,
+                lastTargetsProcessed,
+                progress,
+                extra,
+                remark);
+    }
+
+    @Override
+    public boolean updateStatusProgress(Long id,
+                                        Boolean running,
+                                        OffsetDateTime lastRunAt,
+                                        String lastRunStatus,
+                                        String progress,
+                                        String extra,
+                                        String remark) {
+        return schedulerJobStatusBasicService.updateProgress(id, running, lastRunAt, lastRunStatus, progress, extra, remark);
     }
 
     @Override

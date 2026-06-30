@@ -57,8 +57,16 @@ class JobStore:
             self._client.upsert_job_run(record)
         self._runs[result.run_id] = record
 
+    def mark_progress(self, run_id: str, updates: dict[str, Any]) -> None:
+        record = {
+            **self._runs.get(run_id, {}),
+            **updates,
+        }
+        if self._client is not None:
+            self._client.upsert_job_run(record)
+        self._runs[run_id] = record
+
     def get(self, run_id: str) -> dict[str, Any] | None:
         if self._client is not None:
             return self._client.get_job_run(run_id)
         return self._runs.get(run_id)
-

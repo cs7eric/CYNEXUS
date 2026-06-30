@@ -46,6 +46,60 @@ class JobRunner:
         run_id = f"job_run_{uuid4().hex}"
         started_at = datetime.now(timezone.utc)
         self.context.job_store.mark_started(run_id, request, started_at)
+        return self.run_started(request, run_id, started_at)
+
+    def start(self, request: JobRequest) -> JobResult:
+        job = self.registry.get(request.job_key)
+        now = datetime.now(timezone.utc)
+        if job is None:
+            return JobResult(
+                run_id=f"job_run_{uuid4().hex}",
+                job_key=request.job_key,
+                success=False,
+                status="unknown_job",
+                started_at=now,
+                finished_at=now,
+                errors=[f"unknown job_key: {request.job_key}"],
+            )
+
+        existing = self.context.job_store.find_by_trigger(request.job_key, request.trigger_request_id)
+        if existing and existing.get("status") in {"success", "skipped"}:
+            return JobResult(
+                run_id=str(existing["run_id"]),
+                job_key=request.job_key,
+                success=bool(existing.get("success")),
+                status=str(existing.get("status")),
+                started_at=existing.get("started_at") if isinstance(existing.get("started_at"), datetime) else now,
+                finished_at=existing.get("finished_at") if isinstance(existing.get("finished_at"), datetime) else now,
+                metadata={"idempotent_replay": True},
+            )
+
+        run_id = f"job_run_{uuid4().hex}"
+        self.context.job_store.mark_started(run_id, request, now)
+        return JobResult(
+            run_id=run_id,
+            job_key=request.job_key,
+            success=False,
+            status="running",
+            started_at=now,
+            finished_at=None,
+            metadata={"accepted_async": True},
+        )
+
+    def run_started(self, request: JobRequest, run_id: str, started_at: datetime) -> JobResult:
+        job = self.registry.get(request.job_key)
+        if job is None:
+            result = JobResult(
+                run_id=run_id,
+                job_key=request.job_key,
+                success=False,
+                status="unknown_job",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                errors=[f"unknown job_key: {request.job_key}"],
+            )
+            self.context.job_store.mark_finished(result)
+            return result
         lock_key = f"job:{request.job_key}"
         with self.context.locks.acquire(lock_key, run_id) as acquired:
             if not acquired:
@@ -76,4 +130,3 @@ class JobRunner:
             result.finished_at = datetime.now(timezone.utc)
         self.context.job_store.mark_finished(result)
         return result
-

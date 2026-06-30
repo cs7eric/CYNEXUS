@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import lombok.Builder;
 import lombok.Data;
@@ -33,6 +34,8 @@ public class ClickHouseStockChartClient {
     private final String latestMinuteDateSql;
     private final String listMinuteBarsSql;
     private final String listTimeshareSql;
+    private final String latestAuctionDateSql;
+    private final String listAuctionPointsSql;
 
     public ClickHouseStockChartClient(
             @Value("${cynexus.market.clickhouse.url:http://127.0.0.1:28123}") String clickHouseUrl,
@@ -47,6 +50,8 @@ public class ClickHouseStockChartClient {
         this.latestMinuteDateSql = loadSql("clickhouse/stock-chart/find-latest-minute-date.sql");
         this.listMinuteBarsSql = loadSql("clickhouse/stock-chart/list-minute-bars.sql");
         this.listTimeshareSql = loadSql("clickhouse/stock-chart/list-timeshare.sql");
+        this.latestAuctionDateSql = loadSql("clickhouse/stock-chart/find-latest-auction-date.sql");
+        this.listAuctionPointsSql = loadSql("clickhouse/stock-chart/list-auction-points.sql");
     }
 
     public Optional<LocalDate> findLatestMinuteDate(String market, String symbol, LocalDate requestedDate) {
@@ -100,6 +105,146 @@ public class ClickHouseStockChartClient {
                 .toList();
     }
 
+    public Optional<LocalDate> findLatestAuctionDate(String market, String symbol, LocalDate requestedDate) {
+        if (market == null || symbol == null || requestedDate == null) {
+            return Optional.empty();
+        }
+        List<LatestTradeDateRow> rows = query(latestAuctionDateSql.formatted(market, symbol, requestedDate), LatestTradeDateRow.class);
+        if (rows.isEmpty() || rows.getFirst().latestTradeDate() == null || rows.getFirst().latestTradeDate().isBlank()) {
+            return Optional.empty();
+        }
+        String value = rows.getFirst().latestTradeDate();
+        if ("1970-01-01".equals(value)) {
+            return Optional.empty();
+        }
+        return Optional.of(LocalDate.parse(value));
+    }
+
+    public List<AuctionPoint> listAuctionPoints(String market, String symbol, LocalDate tradeDate) {
+        if (market == null || symbol == null || tradeDate == null) {
+            return List.of();
+        }
+        return query(listAuctionPointsSql.formatted(market, symbol, tradeDate), AuctionPointRow.class).stream()
+                .map(row -> AuctionPoint.builder()
+                        .timestamp(row.timestamp())
+                        .tradeDate(row.tradeDate() == null ? tradeDate : LocalDate.parse(row.tradeDate()))
+                        .timeLabel(row.timeLabel())
+                        .phase(row.phase())
+                        .price(row.price())
+                        .matchedVolume(row.matchedVolume())
+                        .matchedAmount(row.matchedAmount())
+                        .unmatchedBuyVolume(row.unmatchedBuyVolume())
+                        .unmatchedSellVolume(row.unmatchedSellVolume())
+                        .build())
+                .toList();
+    }
+
+    public List<DailyQuote> listLatestDailyQuotes(List<MarketSymbol> symbols) {
+        if (symbols == null || symbols.isEmpty()) {
+            return List.of();
+        }
+        String condition = symbols.stream()
+                .filter(item -> item.market() != null && item.symbol() != null)
+                .map(item -> "(market = '%s' AND symbol = '%s')".formatted(
+                        escapeSql(item.market().toUpperCase(Locale.ROOT)),
+                        escapeSql(item.symbol())
+                ))
+                .distinct()
+                .reduce((left, right) -> left + " OR " + right)
+                .orElse("");
+        if (condition.isBlank()) {
+            return List.of();
+        }
+        String sql = """
+                WITH daily AS
+                (
+                    SELECT
+                        market,
+                        symbol,
+                        trade_date,
+                        max(open) AS open,
+                        max(high) AS high,
+                        min(low) AS low,
+                        max(close) AS close,
+                        max(volume) AS volume,
+                        max(amount) AS amount
+                    FROM daily_raw
+                    WHERE %s
+                    GROUP BY market, symbol, trade_date
+                ),
+                ranked AS
+                (
+                    SELECT
+                        *,
+                        row_number() OVER (PARTITION BY market, symbol ORDER BY trade_date DESC) AS rn
+                    FROM daily
+                )
+                SELECT
+                    cur.market AS market,
+                    cur.symbol AS symbol,
+                    toString(cur.trade_date) AS tradeDate,
+                    cur.open AS open,
+                    cur.high AS high,
+                    cur.low AS low,
+                    cur.close AS close,
+                    prev.close AS preClose,
+                    cur.close - prev.close AS change,
+                    if(prev.close = 0 OR isNull(prev.close), NULL, (cur.close - prev.close) * 100 / prev.close) AS changePct,
+                    cur.volume AS volume,
+                    cur.amount AS amount,
+                    if(prev.close = 0 OR isNull(prev.close), NULL, (cur.high - cur.low) * 100 / prev.close) AS amplitude,
+                    if(ret.close5d = 0 OR isNull(ret.close5d), NULL, (cur.close - ret.close5d) * 100 / ret.close5d) AS returnPct5d,
+                    if(ret.close10d = 0 OR isNull(ret.close10d), NULL, (cur.close - ret.close10d) * 100 / ret.close10d) AS returnPct10d,
+                    if(ret.close30d = 0 OR isNull(ret.close30d), NULL, (cur.close - ret.close30d) * 100 / ret.close30d) AS returnPct30d,
+                    if(ret.close60d = 0 OR isNull(ret.close60d), NULL, (cur.close - ret.close60d) * 100 / ret.close60d) AS returnPct60d,
+                    if(ret.close252d = 0 OR isNull(ret.close252d), NULL, (cur.close - ret.close252d) * 100 / ret.close252d) AS returnPct252d
+                FROM ranked cur
+                LEFT JOIN ranked prev
+                  ON cur.market = prev.market
+                 AND cur.symbol = prev.symbol
+                 AND prev.rn = 2
+                LEFT JOIN
+                (
+                    SELECT
+                        market,
+                        symbol,
+                        maxIf(close, rn = 6) AS close5d,
+                        maxIf(close, rn = 11) AS close10d,
+                        maxIf(close, rn = 31) AS close30d,
+                        maxIf(close, rn = 61) AS close60d,
+                        maxIf(close, rn = 253) AS close252d
+                    FROM ranked
+                    GROUP BY market, symbol
+                ) ret
+                  ON cur.market = ret.market
+                 AND cur.symbol = ret.symbol
+                WHERE cur.rn = 1
+                FORMAT JSONEachRow
+                """.formatted(condition);
+        return query(sql, DailyQuoteRow.class).stream()
+                .map(row -> DailyQuote.builder()
+                        .market(row.market())
+                        .symbol(row.symbol())
+                        .tradeDate(row.tradeDate() == null ? null : LocalDate.parse(row.tradeDate()))
+                        .open(row.open())
+                        .high(row.high())
+                        .low(row.low())
+                        .close(row.close())
+                        .preClose(row.preClose())
+                        .change(row.change())
+                        .changePct(row.changePct())
+                        .volume(row.volume())
+                        .amount(row.amount())
+                        .amplitude(row.amplitude())
+                        .returnPct5d(row.returnPct5d())
+                        .returnPct10d(row.returnPct10d())
+                        .returnPct30d(row.returnPct30d())
+                        .returnPct60d(row.returnPct60d())
+                        .returnPct252d(row.returnPct252d())
+                        .build())
+                .toList();
+    }
+
     private <T> List<T> query(String sql, Class<T> rowType) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -144,6 +289,10 @@ public class ClickHouseStockChartClient {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 
+    private String escapeSql(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("'", "''");
+    }
+
     private String loadSql(String path) {
         try {
             return new String(new ClassPathResource(path).getInputStream().readAllBytes(), StandardCharsets.UTF_8);
@@ -178,6 +327,46 @@ public class ClickHouseStockChartClient {
         private BigDecimal turnover;
     }
 
+    @Data
+    @Builder
+    public static class AuctionPoint {
+        private Long timestamp;
+        private LocalDate tradeDate;
+        private String timeLabel;
+        private String phase;
+        private BigDecimal price;
+        private BigDecimal matchedVolume;
+        private BigDecimal matchedAmount;
+        private BigDecimal unmatchedBuyVolume;
+        private BigDecimal unmatchedSellVolume;
+    }
+
+    public record MarketSymbol(String market, String symbol) {
+    }
+
+    @Data
+    @Builder
+    public static class DailyQuote {
+        private String market;
+        private String symbol;
+        private LocalDate tradeDate;
+        private BigDecimal open;
+        private BigDecimal high;
+        private BigDecimal low;
+        private BigDecimal close;
+        private BigDecimal preClose;
+        private BigDecimal change;
+        private BigDecimal changePct;
+        private BigDecimal volume;
+        private BigDecimal amount;
+        private BigDecimal amplitude;
+        private BigDecimal returnPct5d;
+        private BigDecimal returnPct10d;
+        private BigDecimal returnPct30d;
+        private BigDecimal returnPct60d;
+        private BigDecimal returnPct252d;
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record LatestTradeDateRow(String latestTradeDate) {
     }
@@ -205,6 +394,43 @@ public class ClickHouseStockChartClient {
             BigDecimal avgPrice,
             BigDecimal volume,
             BigDecimal turnover
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record AuctionPointRow(
+            Long timestamp,
+            String tradeDate,
+            String timeLabel,
+            String phase,
+            BigDecimal price,
+            BigDecimal matchedVolume,
+            BigDecimal matchedAmount,
+            BigDecimal unmatchedBuyVolume,
+            BigDecimal unmatchedSellVolume
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record DailyQuoteRow(
+            String market,
+            String symbol,
+            String tradeDate,
+            BigDecimal open,
+            BigDecimal high,
+            BigDecimal low,
+            BigDecimal close,
+            BigDecimal preClose,
+            BigDecimal change,
+            BigDecimal changePct,
+            BigDecimal volume,
+            BigDecimal amount,
+            BigDecimal amplitude,
+            BigDecimal returnPct5d,
+            BigDecimal returnPct10d,
+            BigDecimal returnPct30d,
+            BigDecimal returnPct60d,
+            BigDecimal returnPct252d
     ) {
     }
 }

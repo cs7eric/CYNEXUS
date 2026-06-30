@@ -262,10 +262,12 @@ def build_limit_snapshot_rows(
         out.append(
             {
                 "code": code,
+                "name": (meta_by_code.get(code) or {}).get("name"),
                 "open": _to_float(row.get("open")),
                 "high": high,
                 "low": _to_float(row.get("low")),
                 "close": close,
+                "latestPrice": close,
                 "preClose": pre_close,
                 "limitUpPrice": round(limit_up_price, 4),
                 "limitDownPrice": round(limit_down_price, 4),

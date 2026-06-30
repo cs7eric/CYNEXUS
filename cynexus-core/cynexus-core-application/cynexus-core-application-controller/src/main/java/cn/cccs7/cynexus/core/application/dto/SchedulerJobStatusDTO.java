@@ -30,6 +30,7 @@ public class SchedulerJobStatusDTO {
     private Integer totalFailures;
     private OffsetDateTime schedulerStartedAt;
     private OffsetDateTime stoppedAt;
+    private String progress;
     private String extra;
     private String remark;
     private OffsetDateTime createdAt;

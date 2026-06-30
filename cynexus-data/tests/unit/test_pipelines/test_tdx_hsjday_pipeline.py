@@ -16,8 +16,13 @@ def _day_record(trade_date: int) -> bytes:
 
 def _write_hsjday_zip(path) -> None:
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("hsjday/sh/lday/sh000001.day", _day_record(20260626))
-        archive.writestr("hsjday/sz/lday/sz399001.day", _day_record(20260626))
+        for market, codes in {
+            "sh": ["000001", "600036", "601318"],
+            "sz": ["000001", "002415", "300750"],
+            "bj": ["430047", "830799", "899050"],
+        }.items():
+            for code in codes:
+                archive.writestr(f"hsjday/{market}/lday/{market}{code}.day", _day_record(20260626))
 
 
 def test_sync_tdx_hsjday_pipeline_skip_download_replaces_target(tmp_path) -> None:
@@ -42,9 +47,10 @@ def test_sync_tdx_hsjday_pipeline_skip_download_replaces_target(tmp_path) -> Non
         ),
     )
 
-    assert result["rows_written"] == 2
+    assert result["rows_written"] == 9
     assert (target_root / "sh" / "lday" / "sh000001.day").exists()
-    assert (target_root / "sz" / "lday" / "sz399001.day").exists()
+    assert (target_root / "sz" / "lday" / "sz000001.day").exists()
+    assert (target_root / "bj" / "lday" / "bj430047.day").exists()
 
 
 def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) -> None:
@@ -93,4 +99,5 @@ def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) 
     assert captured["playwright_headless"] is False
     assert captured["playwright_wait_ms"] == 123
     assert captured["chunk_size_bytes"] == 1024
-    assert result["steps"][0]["method"] == "playwright"
+    download_step = next(step for step in result["steps"] if step["step"] == "download")
+    assert download_step["method"] == "playwright"

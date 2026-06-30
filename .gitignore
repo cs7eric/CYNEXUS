@@ -8,6 +8,7 @@ target/
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
+.idea/workspace.xml
 *.iws
 *.iml
 *.ipr
@@ -36,6 +37,12 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+# logs and crash dumps
+logs/
+*.log
+hs_err_pid*.log
+deploy/local/logs/
 
 # local docker infra data
 deploy/local/nacos/data/

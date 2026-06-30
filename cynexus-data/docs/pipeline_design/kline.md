@@ -17,11 +17,13 @@
 
 - `dry_run=true`: discover files only, no ClickHouse connection.
 - `dry_run=false`: parse local `.day` files and write normalized rows into `daily_raw`.
-- Optional params: `day_root`, `tdx_root`, `market` / `markets`, `codes` / `symbols`, `start_date`, `end_date`, `trade_date`, `limit_files`, `unit_scale`, `batch_size`, `create_table`.
+- Optional params: `day_root`, `tdx_root`, `market` / `markets`, `codes` / `symbols`, `start_date`, `end_date`, `trade_date`, `limit_files`, `unit_scale`, `batch_size`, `create_table`, `target_table`, `replace_existing`, `flush_rows`.
 - Provider fallback params: `providers`, `adjust`, `limit`.
 - When `providers` excludes `tdx` and `codes` are provided, the pipeline fetches daily bars through `sources/provider_fallback.py` and writes normalized rows to `daily_raw`.
 - Network provider attempts are returned in `provider_results` with `source`, `dataQuality`, and attempt metadata.
 - Resume params: `resume`, `checkpoint_prefix`. When `resume=true`, completed TDX files or network provider code/date/provider batches are skipped through `PipelineContext.checkpoints`.
+- Maintenance rebuilds should write a staging table through `target_table`, use `replace_existing=false` only for known-empty staging tables, and set `flush_rows` to batch many `.day` files into large inserts. This avoids thousands of small ClickHouse parts during historical rebuilds.
+- `flush_rows` cannot be combined with `resume=true`, because a batched insert no longer has unambiguous per-file checkpoint semantics.
 
 `backfill_history` delegates to this daily sync path for `dataset=kline_daily`, `dataset=daily_raw`, or default `dataset=kline`.
 
@@ -84,3 +86,6 @@ Supported filters:
 - `dry_run=true`: return planned checks only.
 - `dry_run=true, estimate=true`: count invalid rows in ClickHouse.
 - `dry_run=false`: run the same read-only checks for operational execution.
+- Daily raw source sampling uses `checks=daily_source_sample`. It samples ClickHouse daily rows with `sample_every` (default `100`), calls configured daily providers with unadjusted bars (`adjust=none`), and compares OHLC values against `price_tolerance_pct` / `price_tolerance_abs`.
+- Useful params: `daily_table`, `trade_date`, `sample_every`, `sample_limit`, `sample_markets`, `sample_scope`, `source_providers`, `source_limit`.
+- `sample_scope=stock` limits the sample to A-share stock code ranges. Use it when validating stock UI/MSI inputs so bonds, funds, ETFs, and indices with different TDX price scales do not mask stock-data quality.

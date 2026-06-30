@@ -34,10 +34,10 @@ def parse_day_file(path: Path, unit_scale: int = 1) -> DayParseResult:
         {
             "code": path.stem[2:],
             "trade_date": trade_date,
-            "open": raw["open_raw"] / 1000.0 * unit_scale,
-            "high": raw["high_raw"] / 1000.0 * unit_scale,
-            "low": raw["low_raw"] / 1000.0 * unit_scale,
-            "close": raw["close_raw"] / 1000.0 * unit_scale,
+            "open": raw["open_raw"] / 100.0 * unit_scale,
+            "high": raw["high_raw"] / 100.0 * unit_scale,
+            "low": raw["low_raw"] / 100.0 * unit_scale,
+            "close": raw["close_raw"] / 100.0 * unit_scale,
             "volume": raw["volume"].astype("int64"),
             "amount": raw["amount"].astype("float64"),
             "unit_scale": unit_scale,
@@ -45,4 +45,3 @@ def parse_day_file(path: Path, unit_scale: int = 1) -> DayParseResult:
         }
     )
     return DayParseResult(code=str(frame["code"].iloc[0]) if not frame.empty else path.stem[2:], frame=frame, unit_scale=unit_scale)
-

@@ -24,13 +24,14 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     if context.hooks is None:
         raise RuntimeError("PipelineContext.hooks is required")
     ch = context.hooks.clickhouse.get_client()
-    table = str(request.params.get("source_table") or "daily_qfq")
+    table = str(request.params.get("source_table") or "daily_raw")
     hs300_rows = hs300_rows if hs300_rows is not None else read_close_series(ch, str(request.params.get("hs300_code") or "000300"), trade_date, table=table, limit=window + 1)
     t1_rows = t1_rows if t1_rows is not None else read_close_series(ch, "511010", trade_date, table=table, limit=window + 1)
     t2_rows = t2_rows if t2_rows is not None else read_close_series(ch, "511090", trade_date, table=table, limit=window + 1)
     payload = calculate_risk_appetite(trade_date=trade_date, hs300_rows=hs300_rows, treasury_511010_rows=t1_rows, treasury_511090_rows=t2_rows, window=window, score=_score_param(request))
     if payload is None:
         return {**result, "rows_read": len(hs300_rows) + len(t1_rows) + len(t2_rows), "skipped": True, "skip_reason": "insufficient_risk_appetite_input"}
+    payload["source"] = f"clickhouse.{table}"
     pg_client = context.hooks.postgres.get_client()
     if _score_param(request) is None:
         payload["score"] = PercentileRepository(pg_client).percentile_score("risk_appetite_daily", "spread_weighted", trade_date, payload.get("rawValue"))

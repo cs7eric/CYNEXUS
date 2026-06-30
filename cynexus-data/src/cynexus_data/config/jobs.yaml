@@ -45,6 +45,16 @@ jobs:
       create_table: optional
       pool_size: optional
       timeout: optional
+      workers: optional
+      shard_size: optional
+      batch_size: optional
+      sleep_first: optional
+      sleep_retry: optional
+      max_retry_rounds: optional
+      batch_timeout_seconds: optional
+      replace_empty: optional
+      trading_day_only: optional
+      hosts: optional
 
   sync_stock_turnover:
     description: Sync per-stock turnover-rate series snapshots into PostgreSQL.
@@ -393,6 +403,20 @@ jobs:
       require_full: optional
       create_table: optional
       components: optional
+
+  market_sentiment_chain_refresh:
+    description: Run the full market sentiment refresh chain and report per-step progress.
+    params:
+      trade_date: optional
+      target_date: optional
+      snapshot_date: optional
+      create_table: optional
+      force: optional
+      require_full: optional
+      codes: optional
+      limit_codes: optional
+      limit_files: optional
+      skip_download: optional
 
   rebuild_msi:
     description: Rebuild market sentiment index over a date range.

@@ -42,7 +42,15 @@ def fetch_adjusted_daily_frame(
     if adjust not in {"qfq", "hfq"}:
         raise ValueError("adjust must be qfq or hfq")
     tdx_code = stock_symbol_to_tdx_code(symbol)
-    response = client.get_adjusted_kline_all("day", tdx_code, adjust=adjust, page_size=page_size, max_pages=max_pages)
+    response = _fetch_adjusted_series(
+        client,
+        tdx_code,
+        adjust,
+        start_date=start_date,
+        end_date=end_date,
+        page_size=page_size,
+        max_pages=max_pages,
+    )
     bars = getattr(response, "bars", None)
     if bars is None:
         bars = getattr(response, "items", response)
@@ -59,6 +67,21 @@ def fetch_adjusted_daily_frame(
     if frame.empty:
         return _empty_frame()
     return frame.sort_values("trade_date")
+
+
+def _fetch_adjusted_series(
+    client: AdjustedKlineClient,
+    tdx_code: str,
+    adjust: str,
+    *,
+    start_date=None,
+    end_date=None,
+    page_size: int,
+    max_pages: int,
+):
+    if start_date is not None and end_date is not None and str(start_date)[:10] == str(end_date)[:10] and hasattr(client, "get_adjusted_kline"):
+        return client.get_adjusted_kline("day", tdx_code, adjust=adjust, anchor_date=str(end_date)[:10], start=0, count=10)
+    return client.get_adjusted_kline_all("day", tdx_code, adjust=adjust, page_size=page_size, max_pages=max_pages)
 
 
 def _bar_to_record(symbol: str, tdx_code: str, adjust: str, bar: Any) -> dict[str, Any]:

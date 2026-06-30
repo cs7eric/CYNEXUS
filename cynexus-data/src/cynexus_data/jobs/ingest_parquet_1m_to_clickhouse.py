@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--workers", type=int, default=1, help="Concurrent parquet ingest workers.")
     parser.add_argument("--replace-state", action="store_true", help="Ignore previous successful state entries.")
+    parser.add_argument("--replace-existing", action="store_true", help="Delete existing same symbol/date/source 1m rows before inserting each parquet file.")
     parser.add_argument("--clickhouse-host", default=None)
     parser.add_argument("--clickhouse-port", type=int, default=None)
     parser.add_argument("--clickhouse-database", default=None)
@@ -95,6 +96,7 @@ def main() -> None:
                 start_date,
                 args.batch_rows,
                 args.max_partitions_per_insert_block,
+                args.replace_existing,
             )
             for file in pending
         ]
@@ -153,6 +155,7 @@ def _ingest_one(
     start_date: date | None,
     batch_rows: int,
     max_partitions_per_insert_block: int,
+    replace_existing: bool,
 ) -> dict:
     file_started = monotonic()
     table = read_parquet_1m_arrow(file, max_rows=max_rows_per_file, start_date=start_date)
@@ -161,6 +164,7 @@ def _ingest_one(
         table,
         batch_rows=batch_rows,
         max_partitions_per_insert_block=max_partitions_per_insert_block,
+        replace_existing=replace_existing,
     )
     elapsed = monotonic() - file_started
     return {

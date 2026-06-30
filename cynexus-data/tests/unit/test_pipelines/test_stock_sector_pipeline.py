@@ -52,7 +52,7 @@ def test_sync_stock_sectors_dry_run_skips_external_access() -> None:
 def test_sync_stock_sectors_fetches_topics_and_writes(monkeypatch) -> None:
     FakeSectorRepo.created = 0
     FakeSectorRepo.written = []
-    monkeypatch.setattr(sync_stock_sectors, "create_eltdx_client", lambda pool_size=8, timeout=8: FakeClient())
+    monkeypatch.setattr(sync_stock_sectors, "create_eltdx_client", lambda pool_size=8, timeout=8, host=None: FakeClient())
     monkeypatch.setattr(sync_stock_sectors, "fetch_stock_topics", lambda client, code: [{"topic_id": "T1", "topic_name": "人工智能", "reason": "公司属于软件服务（通达信研究行业）", "relation_level": 0.9, "category_raw": 2}])
     monkeypatch.setattr(sync_stock_sectors, "StockBasicRepository", FakeStockBasicRepo)
     monkeypatch.setattr(sync_stock_sectors, "StockSectorRepository", FakeSectorRepo)

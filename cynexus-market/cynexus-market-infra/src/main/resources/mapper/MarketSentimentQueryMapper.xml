@@ -238,15 +238,24 @@
 
     <select id="listIndexDaily" resultType="cn.cccs7.cynexus.market.infra.basic.entity.IndexDailyBarPO">
         select trade_date,
-               index_code as code,
-               index_name as name,
-               current_close as close,
-               null::numeric as amount
-          from mkt_index_return_daily
-         where deleted_at is null
-           and index_code = #{code}
-           and window_days = 1
-           and trade_date between #{startDate} and #{endDate}
+               code,
+               name,
+               close,
+               amount
+          from (
+            select distinct on (trade_date)
+                   trade_date,
+                   index_code as code,
+                   index_name as name,
+                   current_close as close,
+                   null::numeric as amount,
+                   window_days
+              from mkt_index_return_daily
+             where deleted_at is null
+               and index_code = #{code}
+               and trade_date between #{startDate} and #{endDate}
+             order by trade_date asc, window_days asc
+          ) t
          order by trade_date asc
     </select>
 </mapper>

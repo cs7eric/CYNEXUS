@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Any
 
+from cynexus_data.core.calendar import is_trading_day
 from cynexus_data.domain.stock.turnover import build_turnover_series
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.msi._params import parse_int, truthy
@@ -20,6 +22,13 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
     source = str(request.params.get("source") or "clickhouse+eltdx")
     limit = parse_int(request.params.get("limit") or request.params.get("bar_limit"), 260)
     create_table = truthy(request.params.get("create_table"))
+    trading_day_only = truthy(request.params.get("trading_day_only"))
+    target_date = _parse_date(
+        request.params.get("target_date")
+        or request.params.get("trade_date")
+        or request.params.get("snapshot_date")
+        or request.params.get("date")
+    )
     codes = _parse_csv(request.params.get("codes") or request.params.get("symbols"))
     bars_by_code = _parse_json_mapping(request.params.get("bars_by_code"))
     shares_by_code = _parse_json_mapping(request.params.get("shares_by_code"))
@@ -28,9 +37,15 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         "dry_run": request.dry_run,
         "period": period,
         "adjust": adjust,
+        "target_date": target_date.isoformat() if target_date else None,
+        "trading_day_only": trading_day_only,
         "rows_read": 0,
         "rows_written": 0,
     }
+    if trading_day_only and target_date is not None and not is_trading_day(target_date):
+        result["skipped"] = True
+        result["skip_reason"] = "non_trading_day"
+        return result
     if request.dry_run:
         planned_codes = codes or list(bars_by_code) or ["000001"]
         series = [
@@ -134,6 +149,14 @@ def _float_or_none(value: Any) -> float | None:
     if value in (None, ""):
         return None
     return float(value)
+
+
+def _parse_date(value: Any) -> date | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
 
 
 def _sample_bars() -> list[dict[str, Any]]:

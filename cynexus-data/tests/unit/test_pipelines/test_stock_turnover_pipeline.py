@@ -61,6 +61,21 @@ def test_sync_stock_turnover_dry_run_uses_supplied_bars_and_shares() -> None:
     assert result["sample"][0]["entries"][0]["turnover_rate"] == 0.12
 
 
+def test_sync_stock_turnover_skips_non_trading_day() -> None:
+    result = sync_stock_turnover.run(
+        PipelineContext(),
+        JobRequest(
+            job_key="sync_stock_turnover",
+            dry_run=False,
+            params={"trading_day_only": True, "target_date": "2026-01-01"},
+        ),
+    )
+
+    assert result["skipped"] is True
+    assert result["skip_reason"] == "non_trading_day"
+    assert result["target_date"] == "2026-01-01"
+
+
 def test_sync_stock_turnover_reads_clickhouse_and_persists(monkeypatch) -> None:
     FakeRepo.created = 0
     FakeRepo.calls = []

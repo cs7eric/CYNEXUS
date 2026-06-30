@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -42,5 +43,23 @@ public class SchedulerManagementJobHistoryResponseDTO {
         @JsonProperty("target_count")
         private Integer targetCount;
         private Integer succeeded;
+        @JsonProperty("result_summary")
+        private ResultSummary resultSummary;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResultSummary {
+        private Integer schemaVersion;
+        private String type;
+        private String status;
+        private String message;
+        private Integer completedCount;
+        private Integer failedCount;
+        private Map<String, Object> metrics;
+        private Map<String, Object> payload;
+        private OffsetDateTime updatedAt;
     }
 }

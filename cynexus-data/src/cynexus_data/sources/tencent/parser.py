@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 
@@ -23,6 +23,55 @@ def parse_tencent_kline_rows(rows: list[list[str]]) -> list[dict]:
             }
         )
     return out
+
+
+def parse_tencent_minute_query_rows(rows: list[str], *, trade_date: str | None = None) -> list[dict]:
+    out: list[dict] = []
+    resolved_date = _parse_trade_date(trade_date) if trade_date else date.today()
+    previous_price: float | None = None
+    previous_volume: float = 0.0
+    previous_amount: float = 0.0
+    for row in rows:
+        parts = str(row or "").split()
+        if len(parts) < 2:
+            continue
+        try:
+            trade_time = datetime.strptime(f"{resolved_date:%Y%m%d}{parts[0]}", "%Y%m%d%H%M")
+            price = float(parts[1])
+            cumulative_volume = float(parts[2]) if len(parts) > 2 else 0.0
+            cumulative_amount = float(parts[3]) if len(parts) > 3 else 0.0
+        except (TypeError, ValueError):
+            continue
+        if price <= 0:
+            continue
+        open_price = previous_price if previous_price and previous_price > 0 else price
+        out.append(
+            {
+                "trade_time": trade_time,
+                "trade_date": trade_time.date(),
+                "open": open_price,
+                "close": price,
+                "high": max(open_price, price),
+                "low": min(open_price, price),
+                "volume": max(cumulative_volume - previous_volume, 0.0),
+                "amount": max(cumulative_amount - previous_amount, 0.0),
+                "source": "tencent.minute_query.derived",
+            }
+        )
+        previous_price = price
+        previous_volume = cumulative_volume
+        previous_amount = cumulative_amount
+    return out
+
+
+def _parse_trade_date(value: str | None) -> date:
+    text = str(value or "").strip()
+    for fmt in ("%Y-%m-%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return date.today()
 
 
 def parse_qt_stock_fund_flow_text(text: str, *, fetched_at: datetime | None = None) -> dict[str, dict[str, Any]]:

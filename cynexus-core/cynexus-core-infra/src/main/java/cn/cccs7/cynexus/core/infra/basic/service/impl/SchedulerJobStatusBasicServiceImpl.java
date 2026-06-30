@@ -56,6 +56,14 @@ public class SchedulerJobStatusBasicServiceImpl implements SchedulerJobStatusBas
     }
 
     @Override
+    public boolean updateRunning(Long id,
+                                 Boolean running,
+                                 OffsetDateTime schedulerStartedAt,
+                                 OffsetDateTime stoppedAt) {
+        return schedulerJobStatusMapper.updateRunningById(id, running, schedulerStartedAt, stoppedAt) > 0;
+    }
+
+    @Override
     public boolean updateRunResult(Long id,
                                    OffsetDateTime lastRunAt,
                                    Boolean lastRunOk,
@@ -69,6 +77,41 @@ public class SchedulerJobStatusBasicServiceImpl implements SchedulerJobStatusBas
                 lastRunStatus,
                 lastRunErrorMessage,
                 lastDurationSeconds) > 0;
+    }
+
+    @Override
+    public boolean updateRunResult(Long id,
+                                   OffsetDateTime lastRunAt,
+                                   Boolean lastRunOk,
+                                   String lastRunStatus,
+                                   String lastRunErrorMessage,
+                                   BigDecimal lastDurationSeconds,
+                                   Integer lastTargetsProcessed,
+                                   String progress,
+                                   String extra,
+                                   String remark) {
+        return schedulerJobStatusMapper.updateRunResultDetailById(
+                id,
+                lastRunAt,
+                lastRunOk,
+                lastRunStatus,
+                lastRunErrorMessage,
+                lastDurationSeconds,
+                lastTargetsProcessed,
+                progress,
+                extra,
+                remark) > 0;
+    }
+
+    @Override
+    public boolean updateProgress(Long id,
+                                  Boolean running,
+                                  OffsetDateTime lastRunAt,
+                                  String lastRunStatus,
+                                  String progress,
+                                  String extra,
+                                  String remark) {
+        return schedulerJobStatusMapper.updateProgressById(id, running, lastRunAt, lastRunStatus, progress, extra, remark) > 0;
     }
 
     @Override

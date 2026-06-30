@@ -61,6 +61,86 @@ public final class StockChartBO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class SectorEntry {
+        private String sectorId;
+        private String name;
+        private String topicId;
+        private Integer categoryRaw;
+        private BigDecimal changePercent;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StockSectors {
+        private String code;
+        private List<SectorEntry> industries;
+        private List<SectorEntry> concepts;
+        private List<SectorEntry> styles;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorMeta {
+        private String sectorId;
+        private String name;
+        private Integer categoryRaw;
+        private String categoryLabel;
+        private String topicId;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorStock {
+        private String symbol;
+        private String name;
+        private String market;
+        private BigDecimal relationLevel;
+        private LocalDate tradeDate;
+        private BigDecimal lastPrice;
+        private BigDecimal preClose;
+        private BigDecimal open;
+        private BigDecimal high;
+        private BigDecimal low;
+        private BigDecimal change;
+        private BigDecimal changePct;
+        private BigDecimal volumeLots;
+        private BigDecimal amountWan;
+        private BigDecimal turnoverRate;
+        private BigDecimal amplitude;
+        private BigDecimal totalMarketCap;
+        private BigDecimal floatMarketCap;
+        private BigDecimal returnPct5d;
+        private BigDecimal returnPct10d;
+        private BigDecimal returnPct30d;
+        private BigDecimal returnPct60d;
+        private BigDecimal returnPct252d;
+        private OffsetDateTime capturedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorStocks {
+        private SectorMeta sector;
+        private List<SectorStock> stocks;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FundFlowSnapshot {
         private Boolean ok;
         private String symbol;
@@ -126,5 +206,21 @@ public final class StockChartBO {
         private List<IntradayPoint> timeshare;
         private Map<String, List<Bar>> minuteBars;
         private String error;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AuctionPoint {
+        private Long timestamp;
+        private LocalDate tradeDate;
+        private String timeLabel;
+        private String phase;
+        private BigDecimal price;
+        private BigDecimal matchedVolume;
+        private BigDecimal matchedAmount;
+        private BigDecimal unmatchedBuyVolume;
+        private BigDecimal unmatchedSellVolume;
     }
 }

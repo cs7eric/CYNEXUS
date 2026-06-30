@@ -10,6 +10,13 @@ DEFAULT_KLINE_TABLE = "ch_dwd_kline_1m"
 _TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 _BEIJING_TZ = timezone(timedelta(hours=8))
 _TRADE_TS = time(9, 30)
+_RAW_INDEX_TDX_CODE_BY_CODE = {
+    "999999": "sh999999",
+    "000300": "sh000300",
+    "000852": "sh000852",
+    "399001": "sz399001",
+    "399006": "sz399006",
+}
 
 
 def read_daily_kline(
@@ -31,7 +38,22 @@ def read_daily_kline(
     if end is not None:
         where.append("trade_date <= %(end)s")
         params["end"] = end
-    sql = f"SELECT trade_date, open, high, low, close, volume, amount FROM {table} WHERE {' AND '.join(where)} ORDER BY trade_date ASC"
+    sql = f"""
+        SELECT trade_date, open, high, low, close, volume, amount
+          FROM (
+            SELECT trade_date,
+                   argMax(open, close) AS open,
+                   argMax(high, close) AS high,
+                   argMax(low, close) AS low,
+                   max(close) AS close,
+                   argMax(volume, close) AS volume,
+                   max(amount) AS amount
+              FROM {table}
+             WHERE {' AND '.join(where)}
+             GROUP BY trade_date
+          )
+         ORDER BY trade_date ASC
+    """
     if limit is not None:
         sql += f" LIMIT {int(limit)}"
     return [
@@ -61,6 +83,13 @@ def read_daily_kline_bars(
         raise ValueError("adjust must be one of: none, qfq, hfq")
     has_adj = table != "daily_raw"
     cols = "trade_date, open, high, low, close, volume, amount, adj_factor" if has_adj else "trade_date, open, high, low, close, volume, amount"
+    grouped_cols = (
+        "trade_date, anyIf(open, close = max_close) AS open, anyIf(high, close = max_close) AS high, anyIf(low, close = max_close) AS low, "
+        "max_close AS close, anyIf(volume, close = max_close) AS volume, max(amount) AS amount, anyIf(adj_factor, close = max_close) AS adj_factor"
+        if has_adj
+        else "trade_date, anyIf(open, close = max_close) AS open, anyIf(high, close = max_close) AS high, anyIf(low, close = max_close) AS low, "
+        "max_close AS close, anyIf(volume, close = max_close) AS volume, max(amount) AS amount"
+    )
     where = ["code = %(code)s"]
     params: dict[str, Any] = {"code": code}
     if start is not None:
@@ -71,15 +100,60 @@ def read_daily_kline_bars(
         params["end"] = _to_date(end)
     where_sql = " AND ".join(where)
     if limit is not None:
-        sql = f"SELECT {cols} FROM (SELECT {cols} FROM {table} WHERE {where_sql} ORDER BY trade_date DESC LIMIT %(limit)s) ORDER BY trade_date ASC"
+        sql = f"""
+            SELECT {cols}
+              FROM (
+                SELECT {grouped_cols}
+                  FROM (
+                    SELECT *, max(close) OVER (PARTITION BY trade_date) AS max_close
+                      FROM {table}
+                     WHERE {where_sql}
+                  )
+                 GROUP BY trade_date, max_close
+                 ORDER BY trade_date DESC
+                 LIMIT %(limit)s
+              )
+             ORDER BY trade_date ASC
+        """
         params["limit"] = int(limit)
     else:
-        sql = f"SELECT {cols} FROM {table} WHERE {where_sql} ORDER BY trade_date ASC"
+        sql = f"""
+            SELECT {cols}
+              FROM (
+                SELECT {grouped_cols}
+                  FROM (
+                    SELECT *, max(close) OVER (PARTITION BY trade_date) AS max_close
+                      FROM {table}
+                     WHERE {where_sql}
+                  )
+                 GROUP BY trade_date, max_close
+              )
+             ORDER BY trade_date ASC
+        """
     return [_daily_row_to_bar(row, has_adj_factor=has_adj) for row in client.query_rows(sql, params)]
 
 
 def get_latest_daily_trade_date(client: ClickHouseClient, code: str, table: str = "daily_raw") -> date | None:
     row = client.query_one(f"SELECT max(trade_date) FROM {_safe_table_name(table)} WHERE code = %(code)s", {"code": code})
+    value = row[0] if row else None
+    if value is None:
+        return None
+    return value.date() if hasattr(value, "date") and not isinstance(value, date) else value
+
+
+def get_latest_table_trade_date(client: ClickHouseClient, table: str = "daily_raw") -> date | None:
+    row = client.query_one(f"SELECT max(trade_date) FROM {_safe_table_name(table)}")
+    value = row[0] if row else None
+    if value is None:
+        return None
+    return value.date() if hasattr(value, "date") and not isinstance(value, date) else value
+
+
+def get_previous_table_trade_date(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw") -> date | None:
+    row = client.query_one(
+        f"SELECT max(trade_date) FROM {_safe_table_name(table)} WHERE trade_date < %(trade_date)s",
+        {"trade_date": _to_date(trade_date)},
+    )
     value = row[0] if row else None
     if value is None:
         return None
@@ -110,29 +184,40 @@ def read_index_daily_bars(
     table: str = "index_daily_raw",
 ) -> list[dict[str, Any]]:
     limit = max(1, min(int(days), 1500))
+    storage_code = _index_storage_code(code, table)
     where = ["code = %(code)s"]
-    params: dict[str, Any] = {"code": code, "limit": limit}
+    params: dict[str, Any] = {"code": storage_code, "limit": limit}
     if as_of_date is not None:
         where.append("trade_date <= %(as_of_date)s")
         params["as_of_date"] = _to_date(as_of_date)
     sql = f"""
-        SELECT code, trade_date, anyLast(open), anyLast(high), anyLast(low), anyLast(close),
-               anyLast(volume), anyLast(amount)
-          FROM {_safe_table_name(table)}
-         WHERE {' AND '.join(where)}
-         GROUP BY code, trade_date
-         ORDER BY trade_date DESC
-         LIMIT %(limit)s
+        SELECT code, trade_date, open, high, low, close_price, volume, amount
+          FROM (
+            SELECT code,
+                   trade_date,
+                   argMax(open, close) AS open,
+                   argMax(high, close) AS high,
+                   argMax(low, close) AS low,
+                   max(close) AS close_price,
+                   argMax(volume, close) AS volume,
+                   max(amount) AS amount
+              FROM {_safe_table_name(table)}
+             WHERE {' AND '.join(where)}
+             GROUP BY code, trade_date
+             ORDER BY trade_date DESC
+             LIMIT %(limit)s
+          )
     """
     rows = client.query_rows(sql, params)
+    price_scale = 10.0 if table == "daily_raw" else 1.0
     return [
         {
             "code": str(row[0]),
             "trade_date": row[1].isoformat() if hasattr(row[1], "isoformat") else str(row[1]),
-            "open": _float_or_none(row[2]),
-            "high": _float_or_none(row[3]),
-            "low": _float_or_none(row[4]),
-            "close": _float_or_none(row[5]),
+            "open": _scaled_float_or_none(row[2], price_scale),
+            "high": _scaled_float_or_none(row[3], price_scale),
+            "low": _scaled_float_or_none(row[4], price_scale),
+            "close": _scaled_float_or_none(row[5], price_scale),
             "volume": int(row[6] or 0),
             "amount": _float_or_none(row[7]),
         }
@@ -185,8 +270,18 @@ def read_daily_bars_by_code(
     start = td - timedelta(days=int(lookback_days) * 2)
     sql = f"""
         SELECT trade_date, open, high, low, close, volume, amount
-          FROM {_safe_table_name(table)}
-         WHERE code = %(code)s AND trade_date >= %(start)s AND trade_date <= %(trade_date)s
+          FROM (
+            SELECT trade_date,
+                   argMax(open, close) AS open,
+                   argMax(high, close) AS high,
+                   argMax(low, close) AS low,
+                   max(close) AS close,
+                   argMax(volume, close) AS volume,
+                   max(amount) AS amount
+              FROM {_safe_table_name(table)}
+             WHERE code = %(code)s AND trade_date >= %(start)s AND trade_date <= %(trade_date)s
+             GROUP BY trade_date
+          )
          ORDER BY trade_date DESC
          LIMIT %(limit)s
     """
@@ -221,8 +316,12 @@ def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, t
                 min(close) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS min_60d,
                 lagInFrame(close, 251) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS close_251d_ago,
                 max(close) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS max_252d
-            FROM {_safe_table_name(table)}
-            WHERE trade_date <= %(trade_date)s
+            FROM (
+                SELECT code, trade_date, max(close) AS close
+                  FROM {_safe_table_name(table)}
+                 WHERE trade_date <= %(trade_date)s
+                 GROUP BY code, trade_date
+            )
         )
         WHERE trade_date = %(trade_date)s
     """
@@ -244,27 +343,39 @@ def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, t
 
 
 def read_close_series(client: ClickHouseClient, code: str, trade_date: date | str, table: str = "daily_qfq", limit: int = 260) -> list[dict[str, Any]]:
+    identity_where, params = _daily_identity_filter(code, table)
+    params.update({"trade_date": trade_date, "limit": int(limit)})
     sql = f"""
-        SELECT trade_date, close
+        SELECT trade_date, max(close) AS close
           FROM {_safe_table_name(table)}
-         WHERE code = %(code)s AND trade_date <= %(trade_date)s
+         WHERE {identity_where} AND trade_date <= %(trade_date)s
+         GROUP BY trade_date
          ORDER BY trade_date DESC
          LIMIT %(limit)s
     """
-    rows = client.query_rows(sql, {"code": code, "trade_date": trade_date, "limit": int(limit)})
+    rows = client.query_rows(sql, params)
     return [{"trade_date": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]), "close": _float_or_none(row[1])} for row in reversed(rows)]
 
 
 def read_turnover_activity_rows(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw", limit_days: int = 40) -> list[dict[str, Any]]:
+    has_raw_identity = _is_wide_daily_raw_table(table)
+    sh_filter = "tdx_code = 'sh999999'" if has_raw_identity else "code = '999999'"
+    sz_filter = "tdx_code = 'sz399001'" if has_raw_identity else "code = '399001'"
+    source_filter = "tdx_code IN ('sh999999', 'sz399001')" if has_raw_identity else "code IN ('999999', '399001')"
+    group_key = "tdx_code" if has_raw_identity else "code"
     sql = f"""
         SELECT trade_date,
-               sumIf(amount, code = '999999') / 100000000.0 AS sh_amount,
-               sumIf(amount, code = '399001') / 100000000.0 AS sz_amount,
-               (sumIf(amount, code = '999999') + sumIf(amount, code = '399001')) / 100000000.0 AS total_amount
-          FROM {_safe_table_name(table)}
-         WHERE trade_date <= %(trade_date)s AND code IN ('999999', '399001')
+               sumIf(amount, {sh_filter}) / 100000000.0 AS sh_amount,
+               sumIf(amount, {sz_filter}) / 100000000.0 AS sz_amount,
+               (sumIf(amount, {sh_filter}) + sumIf(amount, {sz_filter})) / 100000000.0 AS total_amount
+          FROM (
+            SELECT {group_key}, trade_date, max(amount) AS amount
+              FROM {_safe_table_name(table)}
+             WHERE trade_date <= %(trade_date)s AND {source_filter}
+             GROUP BY {group_key}, trade_date
+          )
          GROUP BY trade_date
-        HAVING countDistinct(code) = 2
+        HAVING countDistinct({group_key}) = 2
          ORDER BY trade_date DESC
          LIMIT %(limit)s
     """
@@ -278,6 +389,111 @@ def read_turnover_activity_rows(client: ClickHouseClient, trade_date: date | str
         }
         for row in reversed(rows)
     ]
+
+
+def read_market_overview_fact_row(client: ClickHouseClient, trade_date: date | str, table: str = "daily_qfq") -> dict[str, Any] | None:
+    sql = f"""
+        SELECT trade_date,
+               sum(amount) / 100000000.0 AS total_amount,
+               sum(volume) AS total_volume,
+               count() AS stock_count,
+               sum(close > pre_close) AS rising_count,
+               sum(close < pre_close) AS falling_count,
+               sum(close = pre_close) AS flat_count,
+               sum(change_pct >= 9.5) AS limit_up_count,
+               sum(change_pct <= -9.5) AS limit_down_count
+          FROM (
+            SELECT code,
+                   trade_date,
+                   close_price AS close,
+                   amount_value AS amount,
+                   volume_value AS volume,
+                   pre_close,
+                   CASE WHEN pre_close > 0 THEN (close_price - pre_close) / pre_close * 100 ELSE NULL END AS change_pct
+              FROM (
+                SELECT code,
+                       trade_date,
+                       close_price,
+                       amount_value,
+                       volume_value,
+                       lagInFrame(close_price, 1) OVER (
+                           PARTITION BY code
+                           ORDER BY trade_date
+                           ROWS BETWEEN 1 PRECEDING AND CURRENT ROW
+                       ) AS pre_close
+                  FROM (
+                    SELECT code,
+                           trade_date,
+                           max(close) AS close_price,
+                           max(amount) AS amount_value,
+                           argMax(volume, close) AS volume_value
+                      FROM {_safe_table_name(table)}
+                     WHERE trade_date <= %(trade_date)s
+                     GROUP BY code, trade_date
+                  )
+              )
+             WHERE trade_date = %(trade_date)s
+               AND pre_close > 0
+          )
+         GROUP BY trade_date
+    """
+    row = client.query_one(sql, {"trade_date": _to_date(trade_date)})
+    if not row:
+        return None
+    return {
+        "trade_date": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
+        "totalAmount": round(float(row[1] or 0), 2),
+        "totalVolume": float(row[2] or 0),
+        "stockCount": int(row[3] or 0),
+        "risingCount": int(row[4] or 0),
+        "fallingCount": int(row[5] or 0),
+        "flatCount": int(row[6] or 0),
+        "limitUpCount": int(row[7] or 0),
+        "limitDownCount": int(row[8] or 0),
+    }
+
+
+def read_daily_change_pct_by_codes(
+    client: ClickHouseClient,
+    codes: Sequence[str],
+    trade_date: date | str,
+    table: str = "daily_qfq",
+) -> dict[str, dict[str, Any]]:
+    normalized_codes = sorted({str(code)[-6:].zfill(6) for code in codes if str(code or "").strip()})
+    if not normalized_codes:
+        return {}
+    sql = f"""
+        SELECT code, close_price, pre_close,
+               CASE WHEN pre_close > 0 THEN (close_price - pre_close) / pre_close * 100 ELSE NULL END AS change_pct
+          FROM (
+            SELECT code,
+                   trade_date,
+                   close_price,
+                   lagInFrame(close_price, 1) OVER (
+                       PARTITION BY code
+                       ORDER BY trade_date
+                       ROWS BETWEEN 1 PRECEDING AND CURRENT ROW
+                   ) AS pre_close
+              FROM (
+                SELECT code, trade_date, max(close) AS close_price
+                  FROM {_safe_table_name(table)}
+                 WHERE code IN %(codes)s
+                   AND trade_date <= %(trade_date)s
+                 GROUP BY code, trade_date
+              )
+          )
+         WHERE trade_date = %(trade_date)s
+    """
+    rows = client.query_rows(sql, {"codes": normalized_codes, "trade_date": _to_date(trade_date)})
+    return {
+        str(row[0]).zfill(6): {
+            "code": str(row[0]).zfill(6),
+            "close": _float_or_none(row[1]),
+            "pre_close": _float_or_none(row[2]),
+            "change_pct": _float_or_none(row[3]),
+        }
+        for row in rows
+    }
 
 
 def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw") -> list[dict[str, Any]]:
@@ -320,24 +536,44 @@ def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date 
 
 def read_limit_emotion_ohlcv_rows(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw") -> list[dict[str, Any]]:
     sql = f"""
-        SELECT code, trade_date, open, high, low, close, pre_close
+        SELECT market, code, tdx_code, trade_date, open, high, low, close, pre_close
           FROM (
-            SELECT code, trade_date, open, high, low, close,
-                   lagInFrame(close, 1) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS pre_close
-              FROM {_safe_table_name(table)}
-             WHERE trade_date <= %(trade_date)s
-          )
+              SELECT market, code, tdx_code, trade_date, open, high, low, close_price AS close,
+                     lagInFrame(close_price, 1) OVER (PARTITION BY tdx_code ORDER BY trade_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS pre_close
+                FROM (
+                    SELECT market,
+                           code,
+                           tdx_code,
+                           trade_date,
+                           raw_open AS open,
+                           raw_high AS high,
+                           raw_low AS low,
+                           raw_close AS close_price
+                      FROM (
+                        SELECT market, code, tdx_code, trade_date,
+                               argMax(open, close) AS raw_open,
+                               argMax(high, close) AS raw_high,
+                               argMax(low, close) AS raw_low,
+                               max(close) AS raw_close
+                           FROM {_safe_table_name(table)}
+                          WHERE trade_date <= %(trade_date)s
+                          GROUP BY market, code, tdx_code, trade_date
+                       )
+                )
+            )
          WHERE trade_date = %(trade_date)s
     """
     return [
         {
-            "code": str(row[0]),
-            "trade_date": row[1].isoformat() if hasattr(row[1], "isoformat") else str(row[1]),
-            "open": _float_or_none(row[2]),
-            "high": _float_or_none(row[3]),
-            "low": _float_or_none(row[4]),
-            "close": _float_or_none(row[5]),
-            "preClose": _float_or_none(row[6]),
+            "market": str(row[0]),
+            "code": str(row[1]),
+            "tdxCode": str(row[2]),
+            "trade_date": row[3].isoformat() if hasattr(row[3], "isoformat") else str(row[3]),
+            "open": _float_or_none(row[4]),
+            "high": _float_or_none(row[5]),
+            "low": _float_or_none(row[6]),
+            "close": _float_or_none(row[7]),
+            "preClose": _float_or_none(row[8]),
         }
         for row in client.query_rows(sql, {"trade_date": trade_date})
     ]
@@ -348,21 +584,45 @@ def read_limit_emotion_history_ohlcv_rows(
     trade_date: date | str,
     *,
     codes: Sequence[str],
+    tdx_codes: Sequence[str] | None = None,
     lookback_days: int = 120,
     table: str = "daily_raw",
 ) -> list[dict[str, Any]]:
-    if not codes:
+    if not codes and not tdx_codes:
         return []
     td = date.fromisoformat(str(trade_date)[:10]) if not isinstance(trade_date, date) else trade_date
     start = td - timedelta(days=int(lookback_days))
+    if table == "daily_raw" and tdx_codes:
+        identity_column = "tdx_code"
+        identity_filter = "tdx_code IN %(identities)s"
+        identity_select = "code, tdx_code"
+        identity_group_by = "code, tdx_code, trade_date"
+        identities = list(tdx_codes)
+    else:
+        identity_column = "code"
+        identity_filter = "code IN %(identities)s"
+        identity_select = "code"
+        identity_group_by = "code, trade_date"
+        identities = list(codes)
     sql = f"""
         SELECT code, trade_date, close, pre_close
           FROM (
-            SELECT code, trade_date, close,
-                   lagInFrame(close, 1) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS pre_close
-              FROM {_safe_table_name(table)}
-             WHERE trade_date >= %(start)s AND trade_date < %(trade_date)s AND code IN %(codes)s
-          )
+              SELECT code, trade_date, close_price AS close,
+                     lagInFrame(close_price, 1) OVER (PARTITION BY {identity_column} ORDER BY trade_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS pre_close
+                FROM (
+                    SELECT {identity_select},
+                           trade_date,
+                           raw_close AS close_price
+                       FROM (
+                        SELECT {identity_select},
+                               trade_date,
+                               max(close) AS raw_close
+                           FROM {_safe_table_name(table)}
+                          WHERE trade_date >= %(start)s AND trade_date < %(trade_date)s AND {identity_filter}
+                          GROUP BY {identity_group_by}
+                       )
+                )
+            )
          ORDER BY code, trade_date
     """
     return [
@@ -372,7 +632,7 @@ def read_limit_emotion_history_ohlcv_rows(
             "close": _float_or_none(row[2]),
             "preClose": _float_or_none(row[3]),
         }
-        for row in client.query_rows(sql, {"start": start, "trade_date": td, "codes": list(codes)})
+        for row in client.query_rows(sql, {"start": start, "trade_date": td, "identities": identities})
     ]
 
 
@@ -438,6 +698,134 @@ def count_invalid_ohlcv_rows(
     return int(row[0]) if row else 0
 
 
+def count_duplicate_daily_keys(
+    client: ClickHouseClient,
+    table: str = "daily_raw",
+    start_date: date | str | None = None,
+    end_date: date | str | None = None,
+) -> int:
+    where, params = _daily_where(start_date=start_date, end_date=end_date)
+    key_columns = "market, symbol, trade_date" if _is_wide_daily_raw_table(table) else "code, trade_date"
+    sql = f"""
+        SELECT count()
+          FROM (
+            SELECT {key_columns}, count() AS row_count
+              FROM {_safe_table_name(table)}
+             WHERE {' AND '.join(where)}
+             GROUP BY {key_columns}
+            HAVING row_count > 1
+          )
+    """
+    row = client.query_one(sql, params)
+    return int(row[0]) if row else 0
+
+
+def count_scaled_duplicate_daily_keys(
+    client: ClickHouseClient,
+    table: str = "daily_raw",
+    start_date: date | str | None = None,
+    end_date: date | str | None = None,
+    ratio_threshold: float = 100.0,
+) -> int:
+    where, params = _daily_where(start_date=start_date, end_date=end_date)
+    params["ratio_threshold"] = float(ratio_threshold)
+    key_columns = "market, symbol, trade_date" if _is_wide_daily_raw_table(table) else "code, trade_date"
+    sql = f"""
+        SELECT count()
+          FROM (
+            SELECT {key_columns}, count() AS row_count,
+                   min(close) AS min_close,
+                   max(close) AS max_close
+              FROM {_safe_table_name(table)}
+             WHERE {' AND '.join(where)}
+             GROUP BY {key_columns}
+            HAVING row_count > 1
+               AND min_close > 0
+               AND max_close / min_close > %(ratio_threshold)s
+          )
+    """
+    row = client.query_one(sql, params)
+    return int(row[0]) if row else 0
+
+
+def sample_daily_rows_for_source_validation(
+    client: ClickHouseClient,
+    *,
+    table: str = "daily_raw",
+    trade_date: date | str,
+    sample_every: int = 100,
+    limit: int | None = None,
+    markets: Sequence[str] | None = None,
+    sample_scope: str = "all",
+) -> list[dict[str, Any]]:
+    every = max(1, int(sample_every))
+    params: dict[str, Any] = {"trade_date": _to_date(trade_date), "sample_every": every}
+    where = ["trade_date = %(trade_date)s"]
+    if markets and _is_wide_daily_raw_table(table):
+        params["markets"] = [str(market).strip().upper() for market in markets if str(market).strip()]
+        if params["markets"]:
+            where.append("market IN %(markets)s")
+    if sample_scope == "stock" and _is_wide_daily_raw_table(table):
+        where.append(
+            "("
+            "(market = 'SH' AND (startsWith(symbol, '600') OR startsWith(symbol, '601') OR startsWith(symbol, '603') OR startsWith(symbol, '605') OR startsWith(symbol, '688') OR startsWith(symbol, '689'))) "
+            "OR (market = 'SZ' AND (startsWith(symbol, '000') OR startsWith(symbol, '001') OR startsWith(symbol, '002') OR startsWith(symbol, '003') OR startsWith(symbol, '300') OR startsWith(symbol, '301'))) "
+            "OR (market = 'BJ' AND (startsWith(symbol, '4') OR startsWith(symbol, '8') OR startsWith(symbol, '9')))"
+            ")"
+        )
+    limit_sql = ""
+    if limit is not None:
+        params["limit"] = max(1, int(limit))
+        limit_sql = "LIMIT %(limit)s"
+    if _is_wide_daily_raw_table(table):
+        identity_select = "market, symbol, code, tdx_code"
+        group_cols = "market, symbol, code, tdx_code"
+        order_cols = "market, symbol"
+    else:
+        identity_select = "'' AS market, code AS symbol, code, code AS tdx_code"
+        group_cols = "code"
+        order_cols = "code"
+    sql = f"""
+        SELECT market, symbol, code, tdx_code, trade_date, open, high, low, close_price AS close, volume, amount
+          FROM (
+            SELECT *,
+                   row_number() OVER (ORDER BY {order_cols}) AS rn
+              FROM (
+                SELECT {identity_select},
+                   trade_date,
+                   argMax(open, close) AS open,
+                   argMax(high, close) AS high,
+                   argMax(low, close) AS low,
+                   max(close) AS close_price,
+                   argMax(volume, close) AS volume,
+                   max(amount) AS amount
+                  FROM {_safe_table_name(table)}
+                 WHERE {' AND '.join(where)}
+                 GROUP BY {group_cols}, trade_date
+              )
+          )
+         WHERE modulo(rn - 1, %(sample_every)s) = 0
+         ORDER BY {order_cols}
+         {limit_sql}
+    """
+    return [
+        {
+            "market": str(row[0]) if row[0] is not None else None,
+            "symbol": str(row[1]),
+            "code": str(row[2]),
+            "tdx_code": str(row[3]),
+            "trade_date": row[4].isoformat() if hasattr(row[4], "isoformat") else str(row[4]),
+            "open": _float_or_none(row[5]),
+            "high": _float_or_none(row[6]),
+            "low": _float_or_none(row[7]),
+            "close": _float_or_none(row[8]),
+            "volume": int(row[9] or 0),
+            "amount": _float_or_none(row[10]),
+        }
+        for row in client.query_rows(sql, params)
+    ]
+
+
 def aggregate_kline_period_to_clickhouse(
     client: ClickHouseClient,
     interval_minutes: int,
@@ -460,6 +848,14 @@ def aggregate_kline_period_to_clickhouse(
 
     interval = _validate_interval(interval_minutes)
     where, params = _kline_where(period=1, start_date=start_date, end_date=end_date, symbols=symbols)
+    target_where, target_params = _kline_where(period=interval, start_date=start_date, end_date=end_date, symbols=symbols)
+    target_where.append("source = %(target_source)s")
+    target_params["target_source"] = "aggregate_1m"
+    client.command(
+        f"ALTER TABLE {_safe_table_name(target_table)} DELETE WHERE {' AND '.join(target_where)}",
+        target_params,
+        settings={"mutations_sync": 1},
+    )
     sql = f"""
         INSERT INTO {_safe_table_name(target_table)}
             (
@@ -532,6 +928,21 @@ def _kline_where(
     return where, params
 
 
+def _daily_where(
+    start_date: date | str | None = None,
+    end_date: date | str | None = None,
+) -> tuple[list[str], dict[str, Any]]:
+    where = ["1 = 1"]
+    params: dict[str, Any] = {}
+    if start_date is not None:
+        where.append("trade_date >= %(start_date)s")
+        params["start_date"] = _to_date(start_date)
+    if end_date is not None:
+        where.append("trade_date <= %(end_date)s")
+        params["end_date"] = _to_date(end_date)
+    return where, params
+
+
 def _validate_interval(interval_minutes: int) -> int:
     interval = int(interval_minutes)
     if interval <= 1:
@@ -547,14 +958,41 @@ def _safe_table_name(table: str) -> str:
     return table
 
 
+def _daily_identity_filter(code: str, table: str) -> tuple[str, dict[str, Any]]:
+    normalized = str(code).strip()
+    if _is_wide_daily_raw_table(table) and normalized in _RAW_INDEX_TDX_CODE_BY_CODE:
+        return "tdx_code = %(tdx_code)s", {"tdx_code": _RAW_INDEX_TDX_CODE_BY_CODE[normalized]}
+    return "code = %(code)s", {"code": normalized}
+
+
+def _is_wide_daily_raw_table(table: str) -> bool:
+    return table.split(".")[-1] in {"daily_raw", "daily_raw_rebuild"}
+
+
 def _float_or_none(value: Any) -> float | None:
     return float(value) if value is not None else None
+
+
+def _scaled_float_or_none(value: Any, scale: float) -> float | None:
+    parsed = _float_or_none(value)
+    return parsed * scale if parsed is not None else None
 
 
 def _to_date(value: date | str) -> date:
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value)[:10])
+
+
+def _index_storage_code(code: str, table: str) -> str:
+    value = str(code or "").strip().lower()
+    if table != "daily_raw":
+        return value
+    short_code = value[2:] if value.startswith(("sh", "sz", "bj")) else value
+    short_code = short_code[-6:].zfill(6)
+    if value == "sh000001" or short_code == "999999":
+        return "999999"
+    return short_code
 
 
 def _epoch_ms(value: date) -> int:

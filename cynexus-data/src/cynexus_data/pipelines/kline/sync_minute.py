@@ -19,6 +19,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     limit_files = request.params.get("limit_files")
     batch_size = int(request.params.get("batch_size") or 50_000)
     create_table = _truthy(request.params.get("create_table"))
+    replace_existing = _truthy(request.params.get("replace_existing"))
     period = int(request.params.get("period") or 1)
     files = discover_1m_files(root) if "tdx" in providers and str(root) else []
     if limit_files is not None:
@@ -34,6 +35,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "rows_written": 0,
         "file_results": [],
         "provider_results": [],
+        "replace_existing": replace_existing,
     }
     if request.dry_run:
         if codes and any(provider != "tdx" for provider in providers):
@@ -47,7 +49,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     total_written = 0
     for file, frame in iter_tdx_1m_frames(files):
         rows = len(frame)
-        written = sink.insert_1m(frame, batch_size=batch_size)
+        written = sink.insert_1m(frame, batch_size=batch_size, replace_existing=replace_existing)
         total_rows += rows
         total_written += written
         result["file_results"].append(
@@ -69,7 +71,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 limit=int(request.params.get("limit") or 500),
             )
             frame = minute_provider_rows_to_frame(code, fetched.items, source=fetched.source, period=period)
-            written = sink.insert_1m(frame, batch_size=batch_size)
+            written = sink.insert_1m(frame, batch_size=batch_size, replace_existing=replace_existing)
             total_rows += len(frame)
             total_written += written
             result["provider_results"].append(

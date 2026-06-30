@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--create-table", action="store_true", help="Create ClickHouse table before inserting.")
     parser.add_argument("--dry-run", action="store_true", help="Read and normalize files without writing ClickHouse.")
     parser.add_argument("--batch-size", type=int, default=50_000, help="ClickHouse insert batch size.")
+    parser.add_argument("--replace-existing", action="store_true", help="Delete existing same symbol/date/source 1m rows before inserting each file.")
 
     parser.add_argument("--clickhouse-host", default=None)
     parser.add_argument("--clickhouse-port", type=int, default=None)
@@ -59,7 +60,7 @@ def main() -> None:
             continue
 
         assert sink is not None
-        inserted = sink.insert_1m(frame, batch_size=args.batch_size)
+        inserted = sink.insert_1m(frame, batch_size=args.batch_size, replace_existing=args.replace_existing)
         print(f"[insert] {file.tdx_code} rows={inserted}")
 
     action = "read" if args.dry_run else "inserted"

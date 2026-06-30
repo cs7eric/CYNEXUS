@@ -19,12 +19,36 @@ public interface SchedulerJobStatusBasicService {
 
     boolean updateEnabled(Long id, Boolean enabled);
 
+    boolean updateRunning(Long id,
+                          Boolean running,
+                          OffsetDateTime schedulerStartedAt,
+                          OffsetDateTime stoppedAt);
+
     boolean updateRunResult(Long id,
                             OffsetDateTime lastRunAt,
                             Boolean lastRunOk,
                             String lastRunStatus,
                             String lastRunErrorMessage,
                             BigDecimal lastDurationSeconds);
+
+    boolean updateRunResult(Long id,
+                            OffsetDateTime lastRunAt,
+                            Boolean lastRunOk,
+                            String lastRunStatus,
+                            String lastRunErrorMessage,
+                            BigDecimal lastDurationSeconds,
+                            Integer lastTargetsProcessed,
+                            String progress,
+                            String extra,
+                            String remark);
+
+    boolean updateProgress(Long id,
+                           Boolean running,
+                           OffsetDateTime lastRunAt,
+                           String lastRunStatus,
+                           String progress,
+                           String extra,
+                           String remark);
 
     boolean delete(Long id);
 }

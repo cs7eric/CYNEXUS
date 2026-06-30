@@ -9,6 +9,7 @@ from cynexus_data.sources.eastmoney.adapter import adapt_kline_payload as adapt_
 from cynexus_data.sources.sina.adapter import adapt_minute_payload as adapt_sina_minute_payload
 from cynexus_data.sources.tdx.mootdx import create_mootdx_client, fetch_mootdx_kline_rows
 from cynexus_data.sources.tencent.adapter import adapt_kline_payload as adapt_tencent_kline_payload
+from cynexus_data.sources.tencent.adapter import adapt_minute_query_payload as adapt_tencent_minute_query_payload
 
 if TYPE_CHECKING:
     from cynexus_data.runtime.context import HookBundle
@@ -102,7 +103,13 @@ def _fetch_tencent_daily(hooks: HookBundle, symbol: str, *, adjust: str, limit: 
 
 def _fetch_tencent_minute(hooks: HookBundle, symbol: str, *, period: int, limit: int) -> list[dict[str, Any]]:
     payload = hooks.tencent.get_client().fetch_kline_raw(symbol, unit=f"m{int(period)}", limit=limit, adjust="none")
-    return adapt_tencent_kline_payload(payload, symbol, key=f"m{int(period)}")
+    rows = adapt_tencent_kline_payload(payload, symbol, key=f"m{int(period)}")
+    if rows:
+        return rows
+    if int(period) != 1:
+        return rows
+    minute_payload = hooks.tencent.get_client().fetch_minute_query_raw(symbol)
+    return adapt_tencent_minute_query_payload(minute_payload, symbol)
 
 
 def _fetch_eastmoney_daily(hooks: HookBundle, symbol: str, *, adjust: str, limit: int) -> list[dict[str, Any]]:

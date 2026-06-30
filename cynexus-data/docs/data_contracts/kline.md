@@ -44,6 +44,8 @@ Identity:
 - `trade_date`
 - `source`
 
+`code + trade_date` is not a valid raw-table identity because six-digit symbols can collide across markets. For example, `SH 000852` and `SZ 000852` are different instruments. Readers that need a broad index should use `tdx_code` (`sh000852`, `sh999999`, `sz399001`, etc.) or an explicit market-aware filter.
+
 Fields:
 
 - `market`: `SH`, `SZ`, or `BJ`.
@@ -51,6 +53,11 @@ Fields:
 - `tdx_code`: TDX market-prefixed code such as `sz000001`.
 - `unit_scale`: applied TDX price unit correction. Default is `1`.
 - `source_file` and `source_file_mtime`: lineage back to the local `.day` file.
+
+Retention:
+
+- Local rebuilt history keeps `trade_date >= 2010-01-01`.
+- Older TDX records are intentionally excluded from the cleaned ClickHouse fact table.
 
 ## ClickHouse Adjusted Daily
 

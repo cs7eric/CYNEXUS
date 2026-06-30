@@ -6,11 +6,13 @@ from typing import Any
 from cynexus_data.domain.stock.sector_meta import extract_industry_from_reason, industry_to_sector_mapping, topic_to_sector_mapping
 
 
-def create_eltdx_client(pool_size: int = 8, timeout: float = 8.0):
+def create_eltdx_client(pool_size: int = 8, timeout: float = 8.0, host: str | None = None):
     try:
         import eltdx  # type: ignore
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError("eltdx is required for stock sector sync") from exc
+    if host:
+        return eltdx.TdxClient(host=host, pool_size=pool_size, timeout=timeout)
     return eltdx.TdxClient(pool_size=pool_size, timeout=timeout)
 
 

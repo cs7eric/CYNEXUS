@@ -176,6 +176,14 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     }
 
     @Override
+    public boolean updateStatusRunning(Long id,
+                                       Boolean running,
+                                       OffsetDateTime schedulerStartedAt,
+                                       OffsetDateTime stoppedAt) {
+        return schedulerRepository.updateStatusRunning(id, running, schedulerStartedAt, stoppedAt);
+    }
+
+    @Override
     public boolean updateStatusRunResult(Long id,
                                          OffsetDateTime lastRunAt,
                                          Boolean lastRunOk,
@@ -189,6 +197,41 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
                 lastRunStatus,
                 lastRunErrorMessage,
                 lastDurationSeconds);
+    }
+
+    @Override
+    public boolean updateStatusRunResult(Long id,
+                                         OffsetDateTime lastRunAt,
+                                         Boolean lastRunOk,
+                                         String lastRunStatus,
+                                         String lastRunErrorMessage,
+                                         BigDecimal lastDurationSeconds,
+                                         Integer lastTargetsProcessed,
+                                         String progress,
+                                         String extra,
+                                         String remark) {
+        return schedulerRepository.updateStatusRunResult(
+                id,
+                lastRunAt,
+                lastRunOk,
+                lastRunStatus,
+                lastRunErrorMessage,
+                lastDurationSeconds,
+                lastTargetsProcessed,
+                progress,
+                extra,
+                remark);
+    }
+
+    @Override
+    public boolean updateStatusProgress(Long id,
+                                        Boolean running,
+                                        OffsetDateTime lastRunAt,
+                                        String lastRunStatus,
+                                        String progress,
+                                        String extra,
+                                        String remark) {
+        return schedulerRepository.updateStatusProgress(id, running, lastRunAt, lastRunStatus, progress, extra, remark);
     }
 
     @Override

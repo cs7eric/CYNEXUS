@@ -58,6 +58,7 @@ class MarketOverviewRepository:
             merged[field] = new_value if new_value is not None and should_overwrite_field(source=source, field=field, current_value=current_value) else current_value
         merged["source"] = merge_source(existing.get("source") if existing else None, source)
         merged["is_manual_override"] = bool((existing or {}).get("is_manual_override") or source == "manual")
+        is_manual_source = source == "manual"
         with self.client.session() as db:
             db.execute(
                 text(
@@ -74,7 +75,7 @@ class MarketOverviewRepository:
                         :super_large_net_inflow, :large_net_inflow, :medium_net_inflow, :small_net_inflow,
                         :main_net_inflow_ratio, :super_large_net_ratio, :large_net_ratio, :medium_net_ratio,
                         :small_net_ratio, :source, :is_manual_override,
-                        CASE WHEN :is_manual_override THEN now() ELSE NULL END,
+                        CASE WHEN :is_manual_source THEN now() ELSE NULL END,
                         CAST(:extra AS jsonb), now(), NULL
                     )
                     ON CONFLICT (trade_date) WHERE deleted_at IS NULL DO UPDATE SET
@@ -104,7 +105,7 @@ class MarketOverviewRepository:
                         deleted_at = NULL
                     """
                 ),
-                {**merged, "id": next_bigint_id(), "extra": json.dumps(extra or {}, ensure_ascii=False, default=str)},
+                {**merged, "id": next_bigint_id(), "is_manual_source": is_manual_source, "extra": json.dumps(extra or {}, ensure_ascii=False, default=str)},
             )
         return self.get(trade_date) or merged
 

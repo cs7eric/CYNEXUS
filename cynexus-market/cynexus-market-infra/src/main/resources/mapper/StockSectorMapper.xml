@@ -17,4 +17,111 @@
     <sql id="BaseColumnList">
         id, code, sector_id, relation_level, reason, source, updated_at
     </sql>
+
+    <select id="listJoinedByCode" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StockSectorJoinedPO">
+        SELECT
+            ss.code,
+            ss.sector_id AS sectorId,
+            s.category_raw AS categoryRaw,
+            s.category_label AS categoryLabel,
+            s.name,
+            s.topic_id AS topicId,
+            ss.relation_level AS relationLevel,
+            COALESCE(ss.source, s.source) AS source
+        FROM sec_stock_sector ss
+        JOIN sec_sector s ON s.sector_id = ss.sector_id
+        WHERE ss.code = #{code}
+        ORDER BY s.category_raw ASC, s.name ASC
+    </select>
+
+    <select id="listConstituentsBySector" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StockSectorConstituentPO">
+        SELECT
+            ss.sector_id AS sectorId,
+            s.category_raw AS categoryRaw,
+            s.category_label AS categoryLabel,
+            s.name AS sectorName,
+            s.topic_id AS topicId,
+            s.source AS sectorSource,
+            ss.code,
+            b.name AS stockName,
+            b.market,
+            b.total_market_cap AS totalMarketCap,
+            b.float_market_cap AS floatMarketCap,
+            ss.relation_level AS relationLevel,
+            q.trade_date AS tradeDate,
+            q.last_price AS lastPrice,
+            q.pre_close AS preClose,
+            q.open,
+            q.high,
+            q.low,
+            q.change,
+            q.change_pct AS changePct,
+            q.volume_lots AS volumeLots,
+            q.amount_wan AS amountWan,
+            COALESCE(q.turnover_rate, t.latest_turnover_rate) AS turnoverRate,
+            q.amplitude,
+            q.total_market_cap_yi AS fundFlowTotalMarketCapYi,
+            q.float_market_cap_yi AS fundFlowFloatMarketCapYi,
+            t.total_shares AS totalShares,
+            t.circulating_shares AS circulatingShares,
+            q.captured_at AS capturedAt,
+            COALESCE(ss.source, s.source) AS source
+        FROM sec_stock_sector ss
+        JOIN sec_sector s ON s.sector_id = ss.sector_id
+        LEFT JOIN sec_stock_basic b ON b.code = ss.code
+        LEFT JOIN LATERAL (
+            SELECT
+                trade_date,
+                last_price,
+                pre_close,
+                open,
+                high,
+                low,
+                change,
+                change_pct,
+                volume_lots,
+                amount_wan,
+                turnover_rate,
+                amplitude,
+                total_market_cap_yi,
+                float_market_cap_yi,
+                captured_at
+            FROM stock_fund_flow_snapshot
+            WHERE deleted_at IS NULL
+              AND code = ss.code
+            ORDER BY trade_date DESC, captured_at DESC NULLS LAST
+            LIMIT 1
+        ) q ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT latest_turnover_rate, circulating_shares, total_shares
+            FROM stock_turnover_series_snapshot
+            WHERE deleted_at IS NULL
+              AND symbol = ss.code
+              AND target_type = 'stock'
+              AND period = '1d'
+              AND adjust = 'qfq'
+            ORDER BY latest_trade_date DESC NULLS LAST, generated_at DESC NULLS LAST
+            LIMIT 1
+        ) t ON TRUE
+        <where>
+            <choose>
+                <when test="sectorId != null and sectorId != ''">
+                    ss.sector_id = #{sectorId}
+                </when>
+                <otherwise>
+                    <if test="categoryRaw != null">
+                        AND s.category_raw = #{categoryRaw}
+                    </if>
+                    <if test="topicId != null and topicId != ''">
+                        AND s.topic_id = #{topicId}
+                    </if>
+                    <if test="name != null and name != ''">
+                        AND s.name = #{name}
+                    </if>
+                </otherwise>
+            </choose>
+        </where>
+        ORDER BY ss.relation_level ASC NULLS LAST, ss.code ASC
+        LIMIT #{limit}
+    </select>
 </mapper>

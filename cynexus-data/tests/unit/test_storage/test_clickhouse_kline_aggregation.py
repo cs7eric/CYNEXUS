@@ -35,8 +35,13 @@ def test_aggregate_kline_period_inserts_aggregate_rows() -> None:
     rows = aggregate_kline_period_to_clickhouse(client, 30, symbols=["000001"])
 
     assert rows == 7
-    assert len(client.commands) == 1
-    sql, params = client.commands[0]
+    assert len(client.commands) == 2
+    delete_sql, delete_params = client.commands[0]
+    assert "ALTER TABLE ch_dwd_kline_1m DELETE" in delete_sql
+    assert "period = %(period)s" in delete_sql
+    assert "source = %(target_source)s" in delete_sql
+    assert delete_params == {"period": 30, "symbols": ["000001"], "target_source": "aggregate_1m"}
+    sql, params = client.commands[1]
     assert "INSERT INTO ch_dwd_kline_1m" in sql
     assert "30 AS period" in sql
     assert "'aggregate_1m' AS source" in sql

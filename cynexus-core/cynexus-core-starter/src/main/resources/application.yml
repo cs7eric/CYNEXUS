@@ -58,4 +58,4 @@ cynexus:
     job-executor:
       base-url: ${CYNEXUS_DATA_JOB_EXECUTOR_BASE_URL:http://127.0.0.1:18083}
       internal-token: ${CYNEXUS_DATA_INTERNAL_TOKEN:}
-      timeout-ms: ${CYNEXUS_DATA_JOB_EXECUTOR_TIMEOUT_MS:30000}
+      timeout-ms: ${CYNEXUS_DATA_JOB_EXECUTOR_TIMEOUT_MS:600000}

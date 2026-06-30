@@ -1012,3 +1012,215 @@
 - `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_limit_emotion --dry-run ...`: passed and produced stock rows targeting `market_limit_daily_stocks` persistence in non-dry-run mode.
 - `$env:PYTHONPATH='src'; python -m cynexus_data.jobs.build_market_heatmap --dry-run ...`: passed.
 - Boundary scans found no remaining `cynexus_data.<table>` schema docs, no old `market_limit_stock_snapshot`, and no stale singular `sector_fund_flow_*` / `market_pulse_*` table references in active docs/code/tests/sql.
+
+## 2026-06-29 ClickHouse Daily Writer Schema Compatibility Pass
+
+- Investigated `ProgrammingError: Unrecognized column 'market' in table daily_raw`.
+- Confirmed the live ClickHouse daily tables are narrower than the newer DDL and already contain large migrated datasets, so rebuilding/dropping them is not an acceptable fix.
+- Updated `ClickHouseDailyKlineSink` and `ClickHouseAdjustedDailyKlineSink` to describe the target table once, project inserts to real table columns, and validate required daily fact columns.
+- Preserved wide-table support: when a future table has metadata columns such as `market`, `symbol`, `tdx_code`, `source_file`, or `adjust`, the writer keeps those columns if the source frame provides them.
+
+## 2026-06-29 ClickHouse Daily Writer Schema Compatibility Validation
+
+- `python -m compileall -q src`: passed.
+- `$env:PYTHONPATH='src'; pytest -q tests/unit/test_storage/test_clickhouse_writers.py tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_pipelines/test_kline_sync_adjusted_daily.py`: passed, 10 tests.
+
+## 2026-06-29 Scheduler Chain Timeout / Progress Bridge Fix
+
+- Investigated `Data job executor request failed: request timed out` on `market_sentiment_chain_refresh`.
+- Root cause: Java called the long-running Python chain synchronously, while UI progress reads `cynexus_appl_core.scheduler_job_statuses`; Python progress was only in `task_job_run.metadata`.
+- Updated Python trigger API / `JobRunner` so `market_sentiment_chain_refresh` creates a running `task_job_run` immediately and executes the chain in a FastAPI background task.
+- Updated Java scheduler management path so the trigger returns `processing` immediately, then polls `/internal/job-runs/{run_id}` and writes chain progress into `scheduler_job_statuses.progress`.
+- Hardened Java polling condition: any non-terminal Python run with a `run_id` is polled, preventing `running` from being recorded as a failed final result.
+- Added default chain `target_date` resolution from ClickHouse `index_daily_raw` latest `sh000001` trade date, so non-trading-day/manual triggers use the latest available trading day (`2026-06-26` in local verification).
+- Validation:
+  - `python -m compileall -q src`: passed.
+  - `mvn -pl cynexus-core/cynexus-core-starter -am -DskipTests package`: passed after stopping the local core process that held the jar.
+  - Dry-run trigger via Java returned in 0.08s and completed 14/14 steps with `scheduler_job_statuses.progress.percent=100`.
+  - Real trigger via Java returned in 0.11s and is running in background with `is_running=true`, `currentStep=initial_backfill_refresh`, and `percent=7.14`.
+
+## 2026-06-29 MSI/QFQ Freshness and Idempotency Retrospective
+
+- Investigated user-reported MSI data freshness and QFQ parity problems:
+  - MSI default target date had been inferred from `index_daily_raw.sh000001`, which lagged at `2026-06-26`.
+  - `style_risk` used `daily_qfq.000300/000852`; `daily_qfq.000300` lagged at `2026-06-15`.
+  - `risk_appetite` still used `daily_qfq.000300/511010/511090`; all three lagged at `2026-06-15`.
+  - `daily_raw` had same-code same-date duplicates and bad scaled rows such as `000852` close `0.501/0.504` beside normal `859-860` values.
+- Root causes captured:
+  - Migration compared function names but missed old-code behavior contracts, especially DELETE-before-INSERT and single-day QFQ anchor-date fetch.
+  - Code DDL was trusted without verifying live ClickHouse physical DDL; live `daily_raw/daily_qfq/daily_hfq` are still `MergeTree`, not `ReplacingMergeTree`.
+  - Factor producers lacked a freshness matrix per input table/code, allowing stale qfq input to be written as current-date factor output.
+  - Reader-side grouping was used as emergency protection before the write path was made idempotent.
+- Fixes implemented:
+  - `market_sentiment_chain_refresh` now defaults target date from ClickHouse `daily_raw` latest date instead of `index_daily_raw`.
+  - `build_style_risk` defaults to `daily_raw` for `000300/000852` and persists `source=clickhouse.daily_raw`.
+  - `build_risk_appetite` now defaults to `daily_raw` for `000300/511010/511090` and persists `source=clickhouse.daily_raw`.
+  - `read_close_series`, limit-emotion OHLC readers, and limit-emotion history readers group duplicate `code/trade_date` rows and use the high close as a defensive guard against low-scale dirty rows.
+  - `build_limit_emotion` automatically resolves the previous trading date from the same ClickHouse source table when `prev_trade_date` is not passed.
+  - `build_limit_emotion` filters OHLC rows to active `sec_stock_basic` codes when metadata exists, preventing non-stock instruments from entering limit/streak counts.
+  - `sync_adjusted_kline_daily` keeps eltdx as the qfq/hfq source of truth, adds the old single-date `get_adjusted_kline(anchor_date, count=10)` fast path, and supports `workers` for parallel fetches.
+  - `ClickHouseDailyKlineSink.insert_daily` and `ClickHouseAdjustedDailyKlineSink.replace_daily` now delete affected `code/date` ranges before insert, preserving old-code idempotent overwrite semantics even on legacy `MergeTree` tables.
+- Local repair results for `2026-06-29`:
+  - `sync_fund_flow`: wrote 90 THS industry fund-flow snapshot rows.
+  - `build_sector_breadth`: wrote 90-row sector breadth, `score=45.56`.
+  - `build_limit_emotion`: wrote active-stock limit emotion, `yesterday_limit_up_count=58`, `yesterday_limit_up_avg_return=1.2418`.
+  - `sync_adjusted_kline_daily adjust=qfq workers=32`: wrote 5204 qfq rows for 2026-06-29.
+  - `build_ma_count`: rewrote qfq-derived MA sample with `total_eligible=5204`.
+  - `build_profit_effect`: rewrote `score=39.53`.
+  - `build_risk_appetite`: rewrote from `daily_raw`, with `hs300_base_date=2026-06-01`, `spread_weighted=1.8909`, `source=clickhouse.daily_raw`.
+  - `build_msi`: rewrote final MSI with `component_count=9`, `composite_score=44.71`, `level=weak`.
+- Validation:
+  - `python -m compileall -q src`: passed.
+  - `$env:PYTHONPATH='E:\project-repo\cynexus\cynexus-data\src'; pytest -q tests/unit/test_storage/test_clickhouse_writers.py tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_pipelines/test_kline_sync_adjusted_daily.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py tests/unit/test_storage/test_clickhouse_readers.py`: passed, 23 tests.
+- Follow-up risk:
+  - Existing duplicate/dirty `daily_raw` rows remain in the historical fact table. Readers are now defensive and future writes are idempotent, but a separate cleanup/rebuild plan is still needed if downstream analytics must scan raw history without these guards.
+
+## 2026-06-30 ClickHouse Fact Write Audit And Root-Cause Hardening
+
+- Audited active Python write paths:
+  - ClickHouse writers: `ClickHouseKlineSink`, `ClickHouseDailyKlineSink`, `ClickHouseAdjustedDailyKlineSink`, `ClickHouseIntradayDetailSink`, minute aggregation insert-select.
+  - Legacy-style direct ingest CLIs: `ingest_tdx_1m_to_clickhouse.py`, `ingest_parquet_1m_to_clickhouse.py`.
+  - PostgreSQL repositories: confirmed most serving/factor writes use natural-key `ON CONFLICT` or scoped soft-delete/replace patterns, so the turnover inflation class is concentrated in ClickHouse fact tables.
+- Verified live ClickHouse state:
+  - `daily_raw` has `10,756,728` duplicate `code + trade_date` keys.
+  - `daily_qfq` currently has `0` duplicate keys.
+  - `daily_hfq` has `193` duplicate keys.
+  - `daily_raw.999999/399001` on 2026-06-29 each had two rows; summing both explains the old `70355` 亿 turnover, while max-per-index gives about `35177` 亿.
+  - Recent-window scale scan showed 2026-06-29 duplicates with `max(close)/min(close) > 100`, for example `000852` had both `0.501` and `859.789`.
+  - A full-table scale scan exceeded the local ClickHouse memory limit, so future audits should be date-windowed or use a staged materialized quality table.
+- Reviewed legacy code before finalizing the fix:
+  - `scripts/initial_backfill.py` used `ALTER TABLE daily_raw DELETE ... mutations_sync=1` before insert.
+  - `scripts/tdx_parser.py` documented/detected TDX unit-scale anomalies.
+  - `scripts/validate_daily_raw.py` had a post-backfill unit-scale anomaly check.
+- Fixes implemented:
+  - Daily raw/qfq/hfq writer now deduplicates input frames by `code + trade_date` before delete/insert, keeping the highest-close row for observed low-scale duplicate anomalies.
+  - 1m writer now deduplicates input frames by `(market, symbol, period, trade_time, source)` and supports `replace_existing` deletion by symbol/date/source before insert.
+  - TDX/parquet 1m ingest CLIs expose `--replace-existing`; `sync_kline_minute` exposes `replace_existing`.
+  - Intraday auction/timeshare writer now deduplicates by natural key and deletes same symbol/date/source rows before insert.
+  - Minute-period aggregation now deletes existing `source='aggregate_1m'` target rows for the requested period/date/symbol scope before inserting regenerated bars.
+  - Daily ClickHouse readers now group duplicate daily rows before returning chart/MSI inputs, preventing historical dirty rows from leaking into calculations while cleanup is pending.
+  - `quality_check` supports `daily_duplicate_keys` and `daily_scale_anomaly`.
+- Validation:
+  - `python -m compileall -q src`: passed.
+  - Targeted regression passed: `31 passed`.
+  - Full Python unit regression passed: `199 passed`.
+  - Live `quality_check --dry-run --estimate --checks daily_duplicate_keys,daily_scale_anomaly --trade-date 2026-06-29` passed with `CLICKHOUSE_PASSWORD` set and reported `duplicate_keys=9460`, `anomaly_keys=81` for `daily_raw`.
+- Error encountered:
+  - First live `quality_check` attempt failed with ClickHouse authentication because the shell did not include `CLICKHOUSE_PASSWORD`; reran with the local ClickHouse password set successfully.
+- Remaining data task:
+  - Historical `daily_raw` and `daily_hfq` still need a cleanup/rebuild plan. The code now prevents the same class of future writes and protects current readers, but it has not physically rewritten the existing large ClickHouse fact tables.
+
+## 2026-06-30 Market Pulse Serving-Date Repair
+
+- Investigated Market Pulse mixed/stale data after the Python-to-Java API migration:
+  - PG serving tables were split by freshness: overview, heatmap, style-sector, and limit snapshots had `2026-06-29`, while `mkt_index_return_daily` still stopped at `2026-06-26`.
+  - ClickHouse `ch_dwd_kline_1m` had only `2026-06-26` rows for the three index symbols, so the Java API correctly fell back to old minute bars even when overview displayed `2026-06-29`.
+  - `daily_raw` held newer broad-index daily rows, but index codes were stored as TDX/raw codes (`999999`, `000300`, `000852`) rather than Java-facing `sh000001`, `sh000300`, `sh000852`.
+- Fixes implemented:
+  - `read_index_daily_bars` now maps Java-facing broad-index codes onto the available `daily_raw` storage codes and groups duplicate same-date rows by max close.
+  - `build_index_returns --source-table daily_raw --trade-date 2026-06-29` rewrote Java-facing index returns for `sh000001`, `sh000300`, and `sh000852`.
+  - Tencent source support was extended with `appstock/app/minute/query`, parsing index minute timeshare points into derived 1m OHLC bars.
+  - `sync_kline_minute --codes sh000001,sz399001,sz399006 --providers tencent --replace-existing` wrote 726 index 1m rows for `2026-06-29`.
+  - TDX local `.day` parser price restoration was corrected from `/1000` to `/100`, matching the live TDX day file format and preventing future low-scale raw-price writes.
+  - Limit emotion now reads `daily_raw` with a temporary 10x price-scale guard for existing low-scale rows, while avoiding `daily_raw.amount` because one old ClickHouse part currently raises a checksum mismatch on that column.
+- Local repair results:
+  - `market_overview`: API returns `tradingDate=2026-06-29`, `totalAmount=35171.36`, `rising=2384`, `falling=2697`, `limitUp=101`, `limitDown=54`.
+  - `index-kline/batch`: API returns `date=2026-06-29` and 242 points per index for `000001`, `399001`, `399006`.
+  - `limit-emotion`: API returns `tradeDate=2026-06-29`, `limitUp=101`, `limitDown=54`, `touched=177`, `broken=76`, `maxHeight=2`, `promotion=8.77`, and stock prices in normal scale, e.g. `000777 latestPrice=18.48`.
+  - Frontend Vite proxy (`localhost:5173/api/market/pulse/...`) returns the same repaired Java payloads.
+- Validation:
+  - `python -m compileall -q src`: passed.
+  - Targeted regression passed: `25 passed`.
+- Remaining data task:
+  - ClickHouse reported `CHECKSUM_DOESNT_MATCH` while reading `/var/lib/clickhouse/.../daily_raw/.../amount.bin` from an old part. Current Market Pulse readers avoid that damaged column where possible, but the damaged part should be cleaned by a dedicated rebuild/partition repair plan rather than hidden inside UI logic.
+
+## 2026-06-30 ClickHouse daily_raw Cleanup/Rebuild
+
+- Started dedicated cleanup/rebuild after user approved "清理重建".
+- Re-read migration plan/findings/progress before destructive maintenance.
+- Verified live ClickHouse `daily_raw` DDL is the narrow legacy `MergeTree` shape with `PARTITION BY toYear(trade_date)` and `ORDER BY (code, trade_date)`.
+- Located the corrupted physical part reported by ClickHouse:
+  - table: `cynexus.daily_raw`
+  - part: `2007_786_54179_239`
+  - partition: `2007`
+  - active: `1`
+  - rows: `249114`
+  - path: `/var/lib/clickhouse/store/631/6319661d-8a9d-4c19-9c7e-e5576b33f64b/2007_786_54179_239/`
+- Active partition metadata shows `daily_raw` still contains `1990-2009` data. This conflicts with the later rule that data before 2010 should not be imported, so the cleanup plan should rebuild/keep only `trade_date >= 2010-01-01`.
+- Added rebuild-safe daily sync parameters:
+  - `target_table` lets `sync_kline_daily` write a staging table such as `daily_raw_rebuild`.
+  - `replace_existing=false` disables per-file delete mutations when inserting into a known-empty rebuild table.
+  - Normal daily sync keeps the previous default `replace_existing=true`.
+- Validation after the parameter change:
+  - `python -m compileall -q src`: passed.
+  - `$env:PYTHONPATH='src'; pytest -q tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_storage/test_clickhouse_writers.py`: passed, 9 tests.
+- Created staging table `daily_raw_rebuild` with the live narrow `daily_raw` schema.
+- Dry-run over `E:\project-repo\cynexus\cynexus-data\var\tdx\day\hsjday` discovered `12243` TDX `.day` files for markets `sh,sz,bj` with `start_date=2010-01-01`.
+- First background import launch failed because PowerShell expanded `$env:` variables before passing the command to the child process; no rows were written. Restarted with escaped `$env:` assignments.
+- Started local Python import into `daily_raw_rebuild` with `replace_existing=false`; initial monitor showed `897491` rows, `700` codes, date range `2010-01-04` to `2026-06-29`.
+- Stopped the first staging import after `total_parts` grew to `17506`; root cause was one insert per `.day` file. Dropped the staging table instead of trying to repair that part layout.
+- Added `flush_rows` batching to `sync_kline_daily`; `flush_rows=1000000` batches many TDX files into large inserts and avoids small-part explosion.
+- Validation after batching change:
+  - `python -m compileall -q src`: passed.
+  - `$env:PYTHONPATH='src'; pytest -q tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_storage/test_clickhouse_writers.py`: passed, 10 tests.
+- Rebuilt narrow-schema `daily_raw_rebuild` with `flush_rows=1000000`; final staging state was `23719531` rows, `11664` codes, date range `2010-01-04` to `2026-06-29`, and `86` active parts.
+- Rejected the narrow-schema staging table because it still had `486291` duplicate `code + trade_date` keys. The duplicates are not only dirty data: the narrow schema drops market identity, so valid `SH` and `SZ` instruments can collide on the same six-digit code, for example `SH 000852` index versus `SZ 000852` stock.
+- Changed daily raw writer deduplication to use `market + symbol + trade_date` when the source frame carries market identity; legacy/narrow adjusted tables still fall back to `code + trade_date`.
+- Updated daily raw read paths for the rebuilt wide table:
+  - turnover activity uses `tdx_code='sh999999'` and `tdx_code='sz399001'`;
+  - raw index close-series reads resolve broad-index codes such as `000300` and `000852` to explicit `tdx_code`;
+  - limit-emotion OHLC/history reads partition by `tdx_code`, return `market/tdxCode`, filter against stock metadata market, and no longer apply the old temporary `daily_raw * 10` price scale workaround.
+  - quality checks use `market + symbol + trade_date` for `daily_raw` and `daily_raw_rebuild`.
+- Rebuilt wide-schema `daily_raw_rebuild` from `E:\project-repo\cynexus\cynexus-data\var\tdx\day\hsjday` with:
+  - `start_date=2010-01-01`
+  - `target_table=daily_raw_rebuild`
+  - `replace_existing=false`
+  - `flush_rows=1000000`
+  - `batch_size=1000000`
+- Wide staging validation passed:
+  - `23719531` rows.
+  - `11856` instruments by `tdx_code`.
+  - date range `2010-01-04` to `2026-06-29`.
+  - `84` active parts.
+  - duplicate `(market, symbol, trade_date)` keys: `0`.
+  - pre-2010 rows: `0`.
+  - scaled duplicate anomaly keys: `0`.
+  - `2026-06-29` `sh999999 + sz399001` amount: `35177.53851904` 亿.
+- Swapped tables with ClickHouse `RENAME TABLE`: old `daily_raw` -> `daily_raw_dirty_backup_20260630`, `daily_raw_rebuild` -> `daily_raw`.
+- Verified new production `daily_raw` DDL is the wide `ReplacingMergeTree(ingested_at)` schema ordered by `(market, symbol, trade_date, source)`.
+- Deleted `daily_raw_dirty_backup_20260630` after validation to remove the corrupt/dirty old data and reclaim ClickHouse storage.
+- Final live state:
+  - only `daily_raw` remains among `daily_raw%` tables.
+  - active rows: `23719531`.
+  - active size: `797.85 MiB`.
+  - inactive `daily_raw%` parts: none reported.
+  - duplicate `(market, symbol, trade_date)` keys: `0`.
+  - `SH 000852` and `SZ 000852` both exist independently on `2026-06-29`.
+- Validation:
+  - `python -m compileall -q src`: passed.
+  - Targeted regression: `30 passed`.
+  - Full unit regression: `$env:PYTHONPATH='src'; pytest -q tests/unit`: passed, `202 passed`.
+
+## 2026-06-30 Daily Raw Source Sampling Validation
+
+- Added `quality_check` support for `checks=daily_source_sample`.
+- The check samples ClickHouse daily rows using `sample_every` (default `100`), calls daily source providers with `adjust=none`, and compares OHLC fields using `price_tolerance_pct` and `price_tolerance_abs`.
+- Added sampling filters:
+  - `sample_limit` for smoke runs.
+  - `sample_markets` for market-scoped validation.
+  - `sample_scope=stock` for A-share stock-only validation, excluding bonds/funds/ETFs/indices from stock-quality checks.
+- Added provider retry behavior for date-aware validation: if one provider returns rows but not the requested trade date, the check tries the next provider before reporting a miss.
+- Live smoke findings:
+  - `sample_scope=all` over SH/SZ exposed non-stock unit-scale mismatches, for example convertible bonds and funds where TDX local `.day` price units differ from ordinary stock units.
+  - BJ samples did not validate through the current Tencent/EastMoney fallback for the target date, so BJ needs a separate provider/scale pass before all-market validation is meaningful.
+- Live stock validation result:
+  - Command: `quality_check --dry-run --estimate --checks daily_source_sample --daily-table daily_raw --trade-date 2026-06-29 --sample-every 100 --sample-markets sh,sz --sample-scope stock --source-providers tencent,eastmoney --source-limit 20`.
+  - Sampled rows: `52`.
+  - Checked rows: `52`.
+  - OHLC mismatches: `0`.
+  - Missing source rows: `0`.
+  - Fetch errors: `0`.
+- Validation:
+  - `python -m compileall -q src`: passed.
+  - Targeted regression: `15 passed`.
+  - Full unit regression: `$env:PYTHONPATH='src'; pytest -q tests/unit`: passed, `204 passed`.

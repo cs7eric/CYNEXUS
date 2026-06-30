@@ -21,9 +21,13 @@ def _day_record(trade_date: int) -> bytes:
 
 def _write_hsjday_zip(path) -> None:
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("hsjday/sh/lday/sh000001.day", _day_record(20260626))
-        archive.writestr("hsjday/sz/lday/sz399001.day", _day_record(20260626))
-        archive.writestr("hsjday/bj/lday/bj430001.day", _day_record(20260626))
+        for market, codes in {
+            "sh": ["000001", "600036", "601318"],
+            "sz": ["000001", "002415", "300750"],
+            "bj": ["430047", "830799", "899050"],
+        }.items():
+            for code in codes:
+                archive.writestr(f"hsjday/{market}/lday/{market}{code}.day", _day_record(20260626))
 
 
 def test_inspect_extract_and_verify_hsjday_zip(tmp_path) -> None:
@@ -36,8 +40,9 @@ def test_inspect_extract_and_verify_hsjday_zip(tmp_path) -> None:
 
     assert zip_check.ok is True
     assert root_check.ok is True
-    assert root_check.per_market["sh"]["files"] == 1
-    assert root_check.per_market["sz"]["files"] == 1
+    assert root_check.per_market["sh"]["files"] == 3
+    assert root_check.per_market["sz"]["files"] == 3
+    assert root_check.per_market["bj"]["files"] == 3
 
 
 class _FakeUrlopenResponse:

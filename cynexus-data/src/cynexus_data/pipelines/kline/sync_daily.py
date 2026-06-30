@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
+
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.domain.stock.kline_records import daily_provider_rows_to_frame
@@ -23,8 +25,14 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     limit_files = params.get("limit_files")
     unit_scale = int(params.get("unit_scale") or 1)
     batch_size = int(params.get("batch_size") or 100_000)
+    flush_rows = int(params.get("flush_rows") or 0)
     create_table = _truthy(params.get("create_table"))
+    target_table = str(params.get("target_table") or "daily_raw")
+    replace_existing = params.get("replace_existing")
+    replace_existing = True if replace_existing is None else _truthy(replace_existing)
     resume = _truthy(params.get("resume"))
+    if resume and flush_rows > 0:
+        raise ValueError("flush_rows cannot be used with resume because per-file checkpoints would be ambiguous")
     checkpoint_prefix = str(params.get("checkpoint_prefix") or "kline.sync_daily")
 
     files = []
@@ -47,7 +55,11 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "end_date": end_date,
         "rows_read": 0,
         "rows_written": 0,
+        "target_table": target_table,
+        "replace_existing": replace_existing,
+        "flush_rows": flush_rows,
         "file_results": [],
+        "batch_results": [],
         "provider_results": [],
         "resume": resume,
         "skipped_checkpoints": 0,
@@ -57,11 +69,14 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
             result["network_provider_plan"] = [provider for provider in providers if provider != "tdx"]
         return result
 
-    sink = ClickHouseDailyKlineSink(context.hooks.clickhouse.get_config())
+    sink = ClickHouseDailyKlineSink(context.hooks.clickhouse.get_config(), table=target_table)
     if create_table:
         sink.create_table()
     total_rows = 0
     total_written = 0
+    pending_frames: list[pd.DataFrame] = []
+    pending_rows = 0
+    pending_files: list[str] = []
     for file, frame in iter_tdx_day_frames(files, unit_scale=unit_scale, start_date=start_date, end_date=end_date):
         checkpoint_key = _file_checkpoint_key(checkpoint_prefix, file, start_date, end_date)
         if resume and _is_completed_checkpoint(context, checkpoint_key):
@@ -79,24 +94,45 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
             )
             continue
         rows = len(frame)
-        written = sink.insert_daily(frame, batch_size=batch_size)
         total_rows += rows
-        total_written += written
-        if resume:
-            context.checkpoints.put(
-                checkpoint_key,
-                request.job_key,
-                {
-                    "status": "completed",
-                    "path": str(file.path),
-                    "market": file.market,
-                    "symbol": file.symbol,
-                    "rows_read": rows,
-                    "rows_written": written,
-                    "start_date": start_date,
-                    "end_date": end_date,
-                },
-            )
+        if flush_rows > 0:
+            if rows:
+                pending_frames.append(frame)
+                pending_rows += rows
+                pending_files.append(str(file.path))
+            written = 0
+            if pending_rows >= flush_rows:
+                written = _flush_daily_frames(
+                    sink,
+                    pending_frames,
+                    batch_size=batch_size,
+                    replace_existing=replace_existing,
+                )
+                result["batch_results"].append(
+                    {"files": len(pending_files), "rows_read": pending_rows, "rows_written": written}
+                )
+                total_written += written
+                pending_frames = []
+                pending_rows = 0
+                pending_files = []
+        else:
+            written = sink.insert_daily(frame, batch_size=batch_size, replace_existing=replace_existing)
+            total_written += written
+            if resume:
+                context.checkpoints.put(
+                    checkpoint_key,
+                    request.job_key,
+                    {
+                        "status": "completed",
+                        "path": str(file.path),
+                        "market": file.market,
+                        "symbol": file.symbol,
+                        "rows_read": rows,
+                        "rows_written": written,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                    },
+                )
         result["file_results"].append(
             {
                 "path": str(file.path),
@@ -104,8 +140,20 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 "symbol": file.symbol,
                 "rows_read": rows,
                 "rows_written": written,
+                "batched": flush_rows > 0,
             }
             )
+    if pending_frames:
+        written = _flush_daily_frames(
+            sink,
+            pending_frames,
+            batch_size=batch_size,
+            replace_existing=replace_existing,
+        )
+        result["batch_results"].append(
+            {"files": len(pending_files), "rows_read": pending_rows, "rows_written": written}
+        )
+        total_written += written
     if codes and any(provider != "tdx" for provider in providers) and ("tdx" not in providers or not files):
         for code in codes:
             checkpoint_key = _provider_checkpoint_key(checkpoint_prefix, code, start_date, end_date, providers)
@@ -121,7 +169,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 limit=int(params.get("limit") or 2000),
             )
             frame = daily_provider_rows_to_frame(code, fetched.items, source=fetched.source, unit_scale=unit_scale)
-            written = sink.insert_daily(frame, batch_size=batch_size)
+            written = sink.insert_daily(frame, batch_size=batch_size, replace_existing=replace_existing)
             total_rows += len(frame)
             total_written += written
             if resume:
@@ -152,9 +200,18 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         **result,
         "file_results": result["file_results"][:20],
         "file_results_truncated": len(result["file_results"]) > 20,
+        "batch_results": result["batch_results"][:20],
+        "batch_results_truncated": len(result["batch_results"]) > 20,
         "provider_results": result["provider_results"][:20],
         "provider_results_truncated": len(result["provider_results"]) > 20,
     }
+
+
+def _flush_daily_frames(sink: ClickHouseDailyKlineSink, frames: list[pd.DataFrame], *, batch_size: int, replace_existing: bool) -> int:
+    if not frames:
+        return 0
+    combined = pd.concat(frames, ignore_index=True)
+    return sink.insert_daily(combined, batch_size=batch_size, replace_existing=replace_existing)
 
 
 def _normalize_codes(value) -> list[str] | None:

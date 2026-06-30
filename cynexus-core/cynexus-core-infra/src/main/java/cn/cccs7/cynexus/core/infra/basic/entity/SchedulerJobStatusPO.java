@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.core.infra.basic.entity;
 
 import cn.cccs7.cynexus.common.db.entity.BasePO;
+import cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
@@ -10,7 +11,7 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("scheduler_job_statuses")
+@TableName(value = "scheduler_job_statuses", autoResultMap = true)
 public class SchedulerJobStatusPO extends BasePO {
 
     private Long jobId;
@@ -31,6 +32,9 @@ public class SchedulerJobStatusPO extends BasePO {
     private Integer totalFailures;
     private OffsetDateTime schedulerStartedAt;
     private OffsetDateTime stoppedAt;
+    @TableField(typeHandler = JsonbTypeHandler.class)
+    private String progress;
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private String extra;
     private String remark;
 }

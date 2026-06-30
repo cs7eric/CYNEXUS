@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from cynexus_data.interfaces.trigger_api.auth import require_internal_token
 from cynexus_data.interfaces.trigger_api.schemas import TriggerRequest, TriggerResponse
@@ -11,7 +11,8 @@ from cynexus_data.runtime.job_runner import JobRunner
 
 
 router = APIRouter()
-_context = PipelineContext.default(persist_job_state=False)
+_context = PipelineContext.default(persist_job_state=True)
+ASYNC_TRIGGER_JOBS = {"market_sentiment_chain_refresh"}
 
 
 @router.get("/internal/health")
@@ -33,19 +34,23 @@ def job_detail(job_key: str) -> dict:
 
 
 @router.post("/internal/jobs/{job_key}/trigger", response_model=TriggerResponse, dependencies=[Depends(require_internal_token)])
-def trigger_job(job_key: str, payload: TriggerRequest) -> TriggerResponse:
+def trigger_job(job_key: str, payload: TriggerRequest, background_tasks: BackgroundTasks) -> TriggerResponse:
     runner = JobRunner(JOB_REGISTRY, context=_context)
-    result = runner.run(
-        JobRequest(
-            job_key=job_key,
-            trigger_request_id=payload.trigger_request_id,
-            triggered_by=payload.triggered_by,
-            dry_run=payload.dry_run,
-            params=payload.params,
-        )
+    request = JobRequest(
+        job_key=job_key,
+        trigger_request_id=payload.trigger_request_id,
+        triggered_by=payload.triggered_by,
+        dry_run=payload.dry_run,
+        params=payload.params,
     )
+    if job_key in ASYNC_TRIGGER_JOBS:
+        result = runner.start(request)
+        if result.status == "running":
+            background_tasks.add_task(runner.run_started, request, result.run_id, result.started_at)
+    else:
+        result = runner.run(request)
     return TriggerResponse(
-        accepted=result.status != "unknown_job",
+        accepted=result.status not in {"unknown_job", "locked"},
         run_id=result.run_id,
         job_key=result.job_key,
         status=result.status,
@@ -59,4 +64,3 @@ def get_job_run(run_id: str) -> dict:
     if record is None:
         raise HTTPException(status_code=404, detail="job run not found")
     return record
-

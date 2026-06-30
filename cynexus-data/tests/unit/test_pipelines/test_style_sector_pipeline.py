@@ -76,7 +76,7 @@ def test_build_style_sector_reads_sectors_fetches_quotes_and_persists(monkeypatc
     monkeypatch.setattr(build_style_sector, "StockSectorRepository", FakeSectorRepo)
     monkeypatch.setattr(build_style_sector, "StyleSectorRepository", FakeStyleRepo)
 
-    result = build_style_sector.run(PipelineContext(hooks=FakeHooks()), JobRequest(job_key="build_style_sector", dry_run=False, params={"trade_date": "2026-06-26"}))
+    result = build_style_sector.run(PipelineContext(hooks=FakeHooks()), JobRequest(job_key="build_style_sector", dry_run=False, params={"trade_date": "2026-06-26", "quote_source": "tencent"}))
 
     assert result["rows_read"] == 1
     assert result["rows_written"] == 1

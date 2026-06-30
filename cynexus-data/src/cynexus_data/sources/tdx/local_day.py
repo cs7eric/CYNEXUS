@@ -34,7 +34,10 @@ def discover_day_files(root: Path, markets: Iterable[str] = ("sh", "sz", "bj")) 
             for path in sorted(lday.glob(f"{market}*.day")):
                 if path.stat().st_size == 0:
                     continue
-                files.append(parse_tdx_day_file(path))
+                try:
+                    files.append(parse_tdx_day_file(path))
+                except ValueError:
+                    continue
     return sorted({file.path: file for file in files}.values(), key=lambda item: str(item.path).lower())
 
 

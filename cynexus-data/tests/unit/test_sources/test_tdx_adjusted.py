@@ -30,6 +30,20 @@ class FakeClient:
         return FakeSeries([FakeBar(datetime(2026, 6, 26), 10, 11, 9, 10.5, 100, 1000.0)])
 
 
+class FakeSingleDateClient(FakeClient):
+    def __init__(self) -> None:
+        self.single_date_calls = []
+
+    def get_adjusted_kline(self, period, code, adjust, anchor_date, start=0, count=10):
+        self.single_date_calls.append({"period": period, "code": code, "adjust": adjust, "anchor_date": anchor_date, "start": start, "count": count})
+        return FakeSeries(
+            [
+                FakeBar(datetime(2026, 6, 26), 9, 10, 8, 9.5, 90, 900.0),
+                FakeBar(datetime(2026, 6, 29), 10, 11, 9, 10.5, 100, 1000.0),
+            ]
+        )
+
+
 def test_stock_symbol_to_tdx_code() -> None:
     assert stock_symbol_to_tdx_code("600000") == "sh600000"
     assert stock_symbol_to_tdx_code("000001") == "sz000001"
@@ -43,3 +57,13 @@ def test_fetch_adjusted_daily_frame_from_client() -> None:
     assert frame["symbol"].tolist() == ["000001"]
     assert frame["close"].tolist() == [10.5]
     assert frame["adjust"].tolist() == ["qfq"]
+
+
+def test_fetch_adjusted_daily_frame_uses_single_date_fast_path() -> None:
+    client = FakeSingleDateClient()
+
+    frame = fetch_adjusted_daily_frame(client, "000001", "qfq", start_date="2026-06-29", end_date="2026-06-29")
+
+    assert client.single_date_calls == [{"period": "day", "code": "sz000001", "adjust": "qfq", "anchor_date": "2026-06-29", "start": 0, "count": 10}]
+    assert frame["trade_date"].astype(str).tolist() == ["2026-06-29"]
+    assert frame["close"].tolist() == [10.5]

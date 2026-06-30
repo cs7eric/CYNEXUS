@@ -51,6 +51,11 @@ class PercentileRepository:
         lookback_start = trade_date - timedelta(days=int(lookback_days))
         try:
             table_name, column_name = self._resolve(table, column)
+        except ValueError:
+            raise
+        except Exception:
+            return fallback
+        try:
             with self.client.session() as db:
                 row = db.execute(
                     text(
@@ -88,6 +93,14 @@ class PercentileRepository:
         lookback_start = end - timedelta(days=int(lookback_days))
         try:
             table_name, column_name = self._resolve(table, column)
+        except ValueError:
+            raise
+        except Exception:
+            table_name = None
+            column_name = None
+        try:
+            if table_name is None or column_name is None:
+                raise RuntimeError("percentile source unavailable")
             with self.client.session() as db:
                 rows = db.execute(
                     text(

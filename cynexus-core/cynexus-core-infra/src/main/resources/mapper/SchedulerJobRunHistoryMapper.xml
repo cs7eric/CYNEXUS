@@ -16,4 +16,18 @@
         WHERE started_at &gt;= #{startedAt}
         ORDER BY started_at ASC NULLS LAST, created_at ASC NULLS LAST, id ASC
     </select>
+
+    <update id="updateDetailById">
+        UPDATE scheduler_job_run_history
+        SET job_id = #{po.jobId},
+            started_at = #{po.startedAt},
+            ended_at = #{po.endedAt},
+            trigger_type = #{po.triggerType},
+            status = #{po.status},
+            error_message = #{po.errorMessage},
+            duration_seconds = #{po.durationSeconds},
+            remark = #{po.remark},
+            result_summary = CAST(#{po.resultSummary} AS jsonb)
+        WHERE id = #{po.id}
+    </update>
 </mapper>

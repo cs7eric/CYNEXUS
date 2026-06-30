@@ -4,13 +4,17 @@ import shutil
 import struct
 import zipfile
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 
 TDX_HSJDAY_URL = "https://data.tdx.com.cn/vipdoc/hsjday.zip"
-VERIFY_SAMPLES = {"sh": ["000001"], "sz": ["399001"]}
+VERIFY_SAMPLES = {
+    "sh": ["000001", "600036", "601318"],
+    "sz": ["000001", "002415", "300750"],
+    "bj": ["430047", "830799", "899050"],
+}
 DEFAULT_CHUNK_SIZE_BYTES = 4 * 1024 * 1024
 
 
@@ -316,6 +320,23 @@ def verify_hsjday_root(root: Path, target_date: date) -> HsjdayVerifyResult:
     return HsjdayVerifyResult(ok=not errors, per_market=per_market, samples=samples, errors=errors)
 
 
+def inspect_existing_hsjday_root(root: Path, target_date: date) -> dict[str, object]:
+    sample = root / "sh" / "lday" / "sh000001.day"
+    if not sample.is_file():
+        return {"ok": True, "latest_date": None, "already_have_data": False, "sample_path": str(sample)}
+    try:
+        _, last_date = read_day_first_last(sample.read_bytes())
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "latest_date": None, "already_have_data": False, "sample_path": str(sample), "error": f"{type(exc).__name__}: {exc}"}
+    target_int = _date_int(target_date)
+    return {
+        "ok": True,
+        "latest_date": str(last_date) if last_date is not None else None,
+        "already_have_data": last_date is not None and last_date >= target_int,
+        "sample_path": str(sample),
+    }
+
+
 def replace_hsjday_root(new_root: Path, target_root: Path) -> None:
     target_root.parent.mkdir(parents=True, exist_ok=True)
     backup = target_root.with_name(f"{target_root.name}.bak")
@@ -333,6 +354,32 @@ def replace_hsjday_root(new_root: Path, target_root: Path) -> None:
         raise
     if backup.exists():
         shutil.rmtree(backup)
+
+
+def cleanup_old_hsjday_zips(download_base: Path, *, today: date | None = None, keep_days: int = 2) -> list[str]:
+    if not download_base.is_dir():
+        return []
+    cutoff = (today or date.today()) - timedelta(days=keep_days)
+    deleted: list[str] = []
+    for child in sorted(download_base.iterdir()):
+        if not child.is_dir():
+            continue
+        try:
+            folder_date = date.fromisoformat(child.name)
+        except ValueError:
+            continue
+        if folder_date >= cutoff:
+            continue
+        zip_path = child / "hsjday.zip"
+        if zip_path.exists():
+            zip_path.unlink()
+            deleted.append(str(zip_path))
+        try:
+            if not any(child.iterdir()):
+                child.rmdir()
+        except OSError:
+            pass
+    return deleted
 
 
 def read_day_first_last(raw: bytes) -> tuple[int | None, int | None]:

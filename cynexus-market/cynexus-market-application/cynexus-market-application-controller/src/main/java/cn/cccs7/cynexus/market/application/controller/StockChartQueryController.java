@@ -38,6 +38,20 @@ public class StockChartQueryController {
         return Result.success(stockChartQueryAppService.stockMeta(symbol));
     }
 
+    @GetMapping("/stock-sectors")
+    public Result<StockChartDTO.StockSectorsResponseDTO> stockSectors(@RequestParam String symbol) {
+        return Result.success(stockChartQueryAppService.stockSectors(symbol));
+    }
+
+    @GetMapping("/sector-stocks")
+    public Result<StockChartDTO.SectorStocksResponseDTO> sectorStocks(@RequestParam(name = "sector_id", required = false) String sectorId,
+                                                                      @RequestParam(name = "category_raw", required = false) Integer categoryRaw,
+                                                                      @RequestParam(name = "topic_id", required = false) String topicId,
+                                                                      @RequestParam(required = false) String name,
+                                                                      @RequestParam(defaultValue = "200") int limit) {
+        return Result.success(stockChartQueryAppService.sectorStocks(sectorId, categoryRaw, topicId, name, limit));
+    }
+
     @GetMapping("/fund-flow")
     public Result<StockChartDTO.FundFlowSnapshotDTO> fundFlow(@RequestParam String symbol) {
         return Result.success(stockChartQueryAppService.fundFlow(symbol));

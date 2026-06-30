@@ -30,7 +30,8 @@ def resolve_env_template(value: Any) -> Any:
     if value.startswith("${") and value.endswith("}"):
         expr = value[2:-1]
         name, _, default = expr.partition(":")
-        return os.getenv(name, default)
+        resolved = os.getenv(name)
+        return resolved if resolved is not None else resolve_env_template(default)
     return value
 
 

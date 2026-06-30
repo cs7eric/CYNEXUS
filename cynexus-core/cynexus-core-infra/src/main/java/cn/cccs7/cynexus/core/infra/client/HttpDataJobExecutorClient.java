@@ -32,7 +32,7 @@ public class HttpDataJobExecutorClient implements DataJobExecutorClient {
     public HttpDataJobExecutorClient(
             @Value("${cynexus.data.job-executor.base-url:http://127.0.0.1:18083}") String baseUrl,
             @Value("${cynexus.data.job-executor.internal-token:${CYNEXUS_DATA_INTERNAL_TOKEN:}}") String internalToken,
-            @Value("${cynexus.data.job-executor.timeout-ms:30000}") long timeoutMs) {
+            @Value("${cynexus.data.job-executor.timeout-ms:600000}") long timeoutMs) {
         this.baseUrl = trimTrailingSlash(baseUrl);
         this.internalToken = internalToken == null ? "" : internalToken;
         this.requestTimeout = Duration.ofMillis(Math.max(timeoutMs, 1000));

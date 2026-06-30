@@ -33,6 +33,8 @@ SOURCE_OVERWRITE_FIELDS = {
     "akshare": FUND_FLOW_FIELDS,
     "eastmoney": MARKET_FIELDS,
     "tencent": MARKET_FIELDS,
+    "clickhouse_daily_qfq": MARKET_FIELDS,
+    "clickhouse.daily_qfq": MARKET_FIELDS,
     "manual": FUND_FLOW_FIELDS,
 }
 

@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -89,6 +90,111 @@ public final class StockChartDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class StockSectorEntryDTO {
+        @JsonProperty("sector_id")
+        private String sectorId;
+        private String name;
+        @JsonProperty("topic_id")
+        private String topicId;
+        @JsonProperty("category_raw")
+        private Integer categoryRaw;
+        private BigDecimal changePercent;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StockSectorsResponseDTO {
+        private String code;
+        private List<StockSectorEntryDTO> industries;
+        private List<StockSectorEntryDTO> concepts;
+        private List<StockSectorEntryDTO> styles;
+        private Integer count;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorMetaDTO {
+        @JsonProperty("sector_id")
+        private String sectorId;
+        private String name;
+        @JsonProperty("category_raw")
+        private Integer categoryRaw;
+        @JsonProperty("category_label")
+        private String categoryLabel;
+        @JsonProperty("topic_id")
+        private String topicId;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorStockDTO {
+        private String symbol;
+        private String name;
+        private String market;
+        @JsonProperty("relation_level")
+        private BigDecimal relationLevel;
+        @JsonProperty("trade_date")
+        private LocalDate tradeDate;
+        @JsonProperty("last_price")
+        private BigDecimal lastPrice;
+        @JsonProperty("pre_close")
+        private BigDecimal preClose;
+        private BigDecimal open;
+        private BigDecimal high;
+        private BigDecimal low;
+        private BigDecimal change;
+        @JsonProperty("change_pct")
+        private BigDecimal changePct;
+        @JsonProperty("volume_lots")
+        private BigDecimal volumeLots;
+        @JsonProperty("amount_wan")
+        private BigDecimal amountWan;
+        @JsonProperty("turnover_rate")
+        private BigDecimal turnoverRate;
+        private BigDecimal amplitude;
+        @JsonProperty("total_market_cap")
+        private BigDecimal totalMarketCap;
+        @JsonProperty("float_market_cap")
+        private BigDecimal floatMarketCap;
+        @JsonProperty("return_pct_5d")
+        private BigDecimal returnPct5d;
+        @JsonProperty("return_pct_10d")
+        private BigDecimal returnPct10d;
+        @JsonProperty("return_pct_30d")
+        private BigDecimal returnPct30d;
+        @JsonProperty("return_pct_60d")
+        private BigDecimal returnPct60d;
+        @JsonProperty("return_pct_252d")
+        private BigDecimal returnPct252d;
+        @JsonProperty("captured_at")
+        private OffsetDateTime capturedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorStocksResponseDTO {
+        private SectorMetaDTO sector;
+        private List<SectorStockDTO> stocks;
+        private Integer count;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FundFlowSnapshotDTO {
         private Boolean ok;
         private String symbol;
@@ -133,6 +239,8 @@ public final class StockChartDTO {
         private String symbol;
         @JsonProperty("trade_date")
         private LocalDate tradeDate;
+        private String source;
+        private String error;
         private AuctionPhaseDTO opening;
         private AuctionPhaseDTO closing;
         private AuctionDetailsDTO details;
@@ -146,7 +254,23 @@ public final class StockChartDTO {
         private BigDecimal price;
         private BigDecimal volume;
         private BigDecimal amount;
+        private BigDecimal matchPrice;
+        private BigDecimal unmatchedBuyVolume;
+        private BigDecimal unmatchedSellVolume;
         private String time;
+        private BigDecimal unmatchedDelta;
+        private String strengthLabel;
+        private Boolean anchorExact;
+        private String anchorSource;
+        private String anchorTargetTime;
+        private AuctionPriceRangeDTO priceRange;
+        private String recentPriceTrend;
+        private BigDecimal recentPriceChange;
+        private BigDecimal recentVolumeDelta;
+        private String directionStability;
+        private Integer directionFlipCount;
+        private String dominantDirection;
+        private BigDecimal imbalancePressure;
         private String dataConfidence;
     }
 
@@ -154,7 +278,19 @@ public final class StockChartDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class AuctionPriceRangeDTO {
+        private BigDecimal low;
+        private BigDecimal high;
+        private BigDecimal spread;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class AuctionDetailsDTO {
+        private Map<String, Object> quote;
+        private Map<String, Object> auction0925;
         private List<AuctionPointDTO> openingPoints;
         private List<AuctionPointDTO> closingPoints;
         private List<AuctionPointDTO> allPoints;
@@ -172,6 +308,8 @@ public final class StockChartDTO {
         private BigDecimal matchedVolume;
         @JsonProperty("unmatched_volume")
         private BigDecimal unmatchedVolume;
+        @JsonProperty("unmatched_direction_raw")
+        private Integer unmatchedDirectionRaw;
         @JsonProperty("matched_amount_estimated")
         private BigDecimal matchedAmountEstimated;
     }

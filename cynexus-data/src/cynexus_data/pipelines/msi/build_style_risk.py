@@ -23,12 +23,13 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     if context.hooks is None:
         raise RuntimeError("PipelineContext.hooks is required")
     ch = context.hooks.clickhouse.get_client()
-    table = str(request.params.get("source_table") or "daily_qfq")
+    table = str(request.params.get("source_table") or "daily_raw")
     hs300_rows = hs300_rows if hs300_rows is not None else read_close_series(ch, str(request.params.get("hs300_code") or "000300"), trade_date, table=table, limit=window + 1)
     csi1000_rows = csi1000_rows if csi1000_rows is not None else read_close_series(ch, str(request.params.get("csi1000_code") or "000852"), trade_date, table=table, limit=window + 1)
     payload = calculate_style_risk(trade_date=trade_date, hs300_rows=hs300_rows, csi1000_rows=csi1000_rows, window=window, score=_score_param(request))
     if payload is None:
         return {**result, "rows_read": len(hs300_rows) + len(csi1000_rows), "skipped": True, "skip_reason": "insufficient_style_risk_input"}
+    payload["source"] = f"clickhouse.{table}"
     pg_client = context.hooks.postgres.get_client()
     if _score_param(request) is None:
         payload["score"] = PercentileRepository(pg_client).percentile_score("style_risk_appetite_daily", "spread", trade_date, payload.get("spread"))

@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.core.application.dto;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -44,6 +45,7 @@ public class SchedulerManagementJobsResponseDTO {
         private Boolean configEnabled;
         private Config config;
         private Live live;
+        private Progress progress;
         @com.fasterxml.jackson.annotation.JsonProperty("last_run")
         private LastRun lastRun;
     }
@@ -110,5 +112,23 @@ public class SchedulerManagementJobsResponseDTO {
         private String lastStatus;
         private String lastRunError;
         private String lastMessage;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Progress {
+        private Integer schemaVersion;
+        private String type;
+        private String status;
+        private BigDecimal percent;
+        private String currentStep;
+        private List<String> completedSteps;
+        private List<ChainStepResult> stepResults;
+        private String message;
+        private Map<String, Object> metrics;
+        private Map<String, Object> payload;
+        private OffsetDateTime updatedAt;
     }
 }

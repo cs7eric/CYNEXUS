@@ -22,6 +22,7 @@ public class SchedulerJobRunHistoryDTO {
     private String errorMessage;
     private BigDecimal durationSeconds;
     private String remark;
+    private String resultSummary;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private OffsetDateTime deletedAt;

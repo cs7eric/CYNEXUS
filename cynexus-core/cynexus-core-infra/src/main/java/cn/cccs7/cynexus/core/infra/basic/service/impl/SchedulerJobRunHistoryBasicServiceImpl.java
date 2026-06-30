@@ -51,7 +51,7 @@ public class SchedulerJobRunHistoryBasicServiceImpl implements SchedulerJobRunHi
 
     @Override
     public boolean update(SchedulerJobRunHistoryPO po) {
-        return schedulerJobRunHistoryMapper.updateById(po) > 0;
+        return schedulerJobRunHistoryMapper.updateDetailById(po) > 0;
     }
 
     @Override

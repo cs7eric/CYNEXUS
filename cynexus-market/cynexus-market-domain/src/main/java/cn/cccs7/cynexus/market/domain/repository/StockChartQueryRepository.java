@@ -17,7 +17,15 @@ public interface StockChartQueryRepository {
 
     List<StockChartBO.IntradayPoint> listTimeshare(String targetType, String symbol, LocalDate tradeDate);
 
+    Optional<LocalDate> findLatestAuctionDate(String targetType, String symbol, LocalDate requestedDate);
+
+    List<StockChartBO.AuctionPoint> listAuctionPoints(String targetType, String symbol, LocalDate tradeDate);
+
     StockChartBO.StockMeta stockMeta(String symbol);
+
+    StockChartBO.StockSectors stockSectors(String symbol);
+
+    StockChartBO.SectorStocks sectorStocks(String sectorId, Integer categoryRaw, String topicId, String name, int limit);
 
     StockChartBO.FundFlowSnapshot fundFlow(String symbol);
 }

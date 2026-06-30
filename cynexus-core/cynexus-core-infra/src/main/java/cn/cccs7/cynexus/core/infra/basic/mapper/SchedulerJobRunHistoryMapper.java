@@ -13,4 +13,6 @@ public interface SchedulerJobRunHistoryMapper extends BaseMapperX<SchedulerJobRu
     List<SchedulerJobRunHistoryPO> selectByJobId(@Param("jobId") Long jobId, @Param("limit") Integer limit);
 
     List<SchedulerJobRunHistoryPO> selectSince(@Param("startedAt") OffsetDateTime startedAt);
+
+    int updateDetailById(@Param("po") SchedulerJobRunHistoryPO po);
 }

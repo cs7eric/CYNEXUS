@@ -17,6 +17,15 @@
         WHERE id = #{id}
     </update>
 
+    <update id="updateRunningById">
+        UPDATE scheduler_job_statuses
+        SET is_running = #{running},
+            scheduler_started_at = #{schedulerStartedAt},
+            stopped_at = #{stoppedAt},
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
     <update id="updateRunResultById">
         UPDATE scheduler_job_statuses
         SET last_run_at = #{lastRunAt},
@@ -26,6 +35,38 @@
             last_duration_seconds = #{lastDurationSeconds},
             total_runs = COALESCE(total_runs, 0) + 1,
             total_failures = COALESCE(total_failures, 0) + CASE WHEN #{lastRunOk} THEN 0 ELSE 1 END,
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateRunResultDetailById">
+        UPDATE scheduler_job_statuses
+        SET is_running = false,
+            last_run_at = #{lastRunAt},
+            last_run_ok = #{lastRunOk},
+            last_run_status = #{lastRunStatus},
+            last_run_error_message = #{lastRunErrorMessage},
+            last_duration_seconds = #{lastDurationSeconds},
+            last_targets_processed = #{lastTargetsProcessed},
+            progress = CAST(#{progress} AS jsonb),
+            extra = CAST(#{extra} AS jsonb),
+            remark = #{remark},
+            total_runs = COALESCE(total_runs, 0) + 1,
+            total_failures = COALESCE(total_failures, 0) + CASE WHEN #{lastRunOk} THEN 0 ELSE 1 END,
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateProgressById">
+        UPDATE scheduler_job_statuses
+        SET is_running = #{running},
+            last_run_at = #{lastRunAt},
+            last_run_ok = NULL,
+            last_run_status = #{lastRunStatus},
+            last_run_error_message = NULL,
+            progress = CAST(#{progress} AS jsonb),
+            extra = CAST(#{extra} AS jsonb),
+            remark = #{remark},
             updated_at = now()
         WHERE id = #{id}
     </update>

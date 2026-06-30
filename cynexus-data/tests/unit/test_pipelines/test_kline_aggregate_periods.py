@@ -62,4 +62,4 @@ def test_aggregate_periods_executes_clickhouse_insert_when_not_dry_run() -> None
     assert result["rows_read"] == 12
     assert result["rows_written"] == 3
     assert result["period_results"] == [{"period": 5, "expected_rows": 3, "rows_written": 3}]
-    assert client.command_count == 1
+    assert client.command_count == 2
