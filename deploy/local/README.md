@@ -7,6 +7,7 @@ Use `up-latest.ps1` when you want Docker services to run the newest source code.
 ```
 
 It runs `mvn clean package -DskipTests`, then rebuilds and recreates `core`, `market`, `ai`, and `gateway` from the current workspace.
+It also starts the Dockerized Python data job executor on `127.0.0.1:18083` unless `-SkipDataJobExecutor` is passed.
 
 The local gateway is the single backend entrypoint:
 
@@ -20,6 +21,25 @@ For a full rebuild without Docker layer cache:
 
 ```powershell
 .\deploy\local\up-latest.ps1 -NoCache
+```
+
+To start only the Python data job executor used by Java scheduler UI triggers:
+
+```powershell
+.\deploy\local\start-data-job-executor.cmd
+```
+
+The executor runs as the `data-job-executor` compose service. In Docker, Java services should use:
+
+```text
+CYNEXUS_DATA_JOB_EXECUTOR_BASE_URL=http://data-job-executor:18083
+```
+
+For TDX hsjday browser fallback inside Docker, rebuild with Chromium included:
+
+```powershell
+$env:INSTALL_PLAYWRIGHT_BROWSER='true'
+.\deploy\local\start-data-job-executor.cmd
 ```
 
 ClickHouse is available as local analytical storage for DuckDB migration tests:

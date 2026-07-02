@@ -615,3 +615,44 @@ Status: complete
 - `PYTHONPATH=src pytest -q tests/unit/test_domain/test_msi.py tests/unit/test_pipelines/test_msi_pipeline.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py` passed: 15 tests.
 - `python -m compileall -q src` passed under `cynexus-data`.
 - `mvn -pl cynexus-market/cynexus-market-starter -am compile -DskipTests` succeeded; existing duplicate-Lombok and MapStruct warnings remain unrelated.
+
+## Phase 31 - QFQ Reconciliation Runtime Optimization
+
+Status: complete
+
+- Diagnose why `market_sentiment_chain_refresh` step 3 is much slower than before.
+- Keep the pipeline layering intact: chain defaults in `jobs`, kline logic in `pipelines`, ClickHouse write behavior in `storage/clickhouse`.
+- Make the chain's QFQ reconciliation step run only `qfq`, not both `qfq` and `hfq`.
+- Reduce ClickHouse mutation pressure by supporting date-scope replacement for adjusted daily writes.
+- Add/repair targeted tests for adjusted daily batching and progress.
+- Rebuild/restart the data job executor and verify the running job uses the optimized path.
+
+## Phase 31 Verification Results
+
+- `PYTHONPATH=src python -m pytest tests/unit/test_pipelines/test_kline_sync_adjusted_daily.py tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_pipelines/test_fund_flow_pipeline.py -q` passed: 19 tests.
+- Interrupted old slow run `job_run_0e05248405a24059996b71d6a2dcf9e6`, marked it failed with an explicit deployment-interruption message, and cleared its lock.
+- Rebuilt/recreated `cynexus-data-job-executor`; `/internal/health` returns ok.
+- Verified the container-loaded source has `replace_scope`, `flush_rows`, deferred `pending_checkpoints`, and the chain `qfq`/date-scope defaults.
+- Verified `cynexus_appl_core.task_job_lock` is empty after restart.
+- Verified ClickHouse has no active `daily_qfq` / `daily_hfq` mutations after stopping the old run.
+
+## Phase 32 - THS Industry Constituents Job Fallback
+
+Status: complete
+
+- Restore the old-system behavior where THS industry constituents sync can discover industry codes itself instead of requiring Core to pass 90 codes.
+- Prefer explicit `industry_codes` / `codes`, then fall back to latest stored THS constituent snapshots or historical industry fund-flow name/code mappings.
+- Keep the fallback inside `cynexus-data` storage/pipeline layers, not in Core scheduler mappings.
+- Enrich THS industry fund-flow rows with stable historical `sector_name -> sector_code` mappings when the live source omits codes.
+- Add targeted tests and, if needed, repair existing rows with empty latest `sector_code`.
+
+## Phase 32 Verification Results
+
+- `sync_ths_industry_constituents` now resolves codes from latest `ths_industry_constituent_snapshot` first, then `sector_fund_flow_daily_snapshots` historical mappings.
+- `sync_sector_flow` now enriches missing THS industry `sector_code` values from stored `sector_name -> sector_code` mappings before writing snapshots.
+- Existing local missing `sector_code` rows for 2026-06-29, 2026-06-30, and 2026-07-01 were repaired: 270 rows updated.
+- Local latest industry fund-flow rows now have 90 distinct sector codes and 0 missing codes.
+- Container-loaded repository fallback check returns `constituent_codes=90` and `fund_flow_name_code=90`.
+- `PYTHONPATH=src python -m pytest tests/unit/test_pipelines/test_ths_industry_constituents_pipeline.py tests/unit/test_pipelines/test_fund_flow_pipeline.py tests/unit/test_domain/test_fund_flow.py -q` passed: 15 tests.
+- `python -m compileall -q src` passed.
+- Rebuilt/recreated `cynexus-data-job-executor`; `/internal/health` returns ok.

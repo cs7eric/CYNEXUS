@@ -10,6 +10,7 @@ from cynexus_data.runtime.context import PipelineContext
 class FakeRepo:
     created = 0
     calls = []
+    latest_codes = []
 
     def __init__(self, client):
         self.client = client
@@ -20,6 +21,19 @@ class FakeRepo:
     def replace_snapshot(self, **kwargs):
         FakeRepo.calls.append(kwargs)
         return len(kwargs["records"])
+
+    def list_latest_industry_codes(self):
+        return list(FakeRepo.latest_codes)
+
+
+class FakeSectorRepo:
+    latest_codes = []
+
+    def __init__(self, client):
+        self.client = client
+
+    def latest_sector_codes(self, *, scope="industry", source=None):
+        return list(FakeSectorRepo.latest_codes)
 
 
 class FakePostgresHook:
@@ -69,6 +83,8 @@ def test_sync_ths_industry_constituents_dry_run_counts_history(tmp_path) -> None
 def test_sync_ths_industry_constituents_imports_history_json(monkeypatch, tmp_path) -> None:
     FakeRepo.created = 0
     FakeRepo.calls = []
+    FakeRepo.latest_codes = []
+    FakeSectorRepo.latest_codes = []
     history_file = tmp_path / "881103.json"
     history_file.write_text(
         json.dumps(
@@ -85,6 +101,7 @@ def test_sync_ths_industry_constituents_imports_history_json(monkeypatch, tmp_pa
         encoding="utf-8",
     )
     monkeypatch.setattr(sync_ths_industry_constituents, "ThsIndustryConstituentRepository", FakeRepo)
+    monkeypatch.setattr(sync_ths_industry_constituents, "SectorFundFlowRepository", FakeSectorRepo)
 
     result = sync_ths_industry_constituents.run(
         PipelineContext(hooks=FakeHooks()),
@@ -107,7 +124,10 @@ def test_sync_ths_industry_constituents_imports_history_json(monkeypatch, tmp_pa
 def test_sync_ths_industry_constituents_live_uses_ths_client(monkeypatch) -> None:
     FakeRepo.created = 0
     FakeRepo.calls = []
+    FakeRepo.latest_codes = []
+    FakeSectorRepo.latest_codes = []
     monkeypatch.setattr(sync_ths_industry_constituents, "ThsIndustryConstituentRepository", FakeRepo)
+    monkeypatch.setattr(sync_ths_industry_constituents, "SectorFundFlowRepository", FakeSectorRepo)
 
     result = sync_ths_industry_constituents.run(
         PipelineContext(hooks=FakeHooks()),
@@ -123,3 +143,27 @@ def test_sync_ths_industry_constituents_live_uses_ths_client(monkeypatch) -> Non
     call = FakeRepo.calls[0]
     assert call["source_type"] == "crawler"
     assert call["records"][0]["industry_code"] == "881103"
+
+
+def test_sync_ths_industry_constituents_live_uses_latest_snapshot_codes(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    FakeRepo.latest_codes = ["881103"]
+    FakeSectorRepo.latest_codes = []
+    monkeypatch.setattr(sync_ths_industry_constituents, "ThsIndustryConstituentRepository", FakeRepo)
+    monkeypatch.setattr(sync_ths_industry_constituents, "SectorFundFlowRepository", FakeSectorRepo)
+
+    result = sync_ths_industry_constituents.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_ths_industry_constituents",
+            dry_run=False,
+            params={"snapshot_date": "2026-06-26", "max_pages": 1},
+        ),
+    )
+
+    assert result["code_source"] == "ths_industry_constituent_snapshot"
+    assert result["planned_industry_codes"] == 1
+    assert result["rows_written"] == 1
+    call = FakeRepo.calls[0]
+    assert call["requested_industry_codes"] == ["881103"]

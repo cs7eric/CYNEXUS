@@ -17,6 +17,14 @@ dependencies = [
     "uvicorn>=0.30.0",
 ]
 
+[project.optional-dependencies]
+live = [
+    "akshare>=1.18.0",
+    "eltdx>=1.0.2",
+    "mootdx>=0.11.0",
+    "playwright>=1.50.0",
+]
+
 [project.scripts]
 cynexus-ingest-tdx-1m = "cynexus_data.jobs.ingest_tdx_1m_to_clickhouse:main"
 cynexus-ingest-parquet-1m = "cynexus_data.jobs.ingest_parquet_1m_to_clickhouse:main"

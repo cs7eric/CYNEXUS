@@ -1,6 +1,7 @@
 param(
     [string[]] $Service = @("core", "market", "ai", "gateway"),
-    [switch] $NoCache
+    [switch] $NoCache,
+    [switch] $SkipDataJobExecutor
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,3 +32,8 @@ Write-Host "  curl http://127.0.0.1:18081/actuator/health"
 Write-Host "  curl http://127.0.0.1:18082/actuator/health"
 Write-Host "  curl http://127.0.0.1:18000/actuator/health"
 Write-Host "  curl http://127.0.0.1:18000/api/core/info"
+
+if (-not $SkipDataJobExecutor) {
+    & (Join-Path $scriptDir "start-data-job-executor.cmd")
+    Write-Host "  curl http://127.0.0.1:18083/internal/health"
+}

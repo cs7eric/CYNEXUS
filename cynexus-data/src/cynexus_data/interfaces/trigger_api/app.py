@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from fastapi import FastAPI
 
 from cynexus_data.interfaces.trigger_api.routes import router
+from cynexus_data.interfaces.trigger_api.routes import _context
+
+
+log = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="cynexus-data internal trigger API", version="0.1.0")
     app.include_router(router)
+
+    @app.on_event("startup")
+    def recover_interrupted_runs() -> None:
+        count = _context.job_store.mark_interrupted_running_jobs("interrupted by data-job-executor restart")
+        if count:
+            log.warning("Marked %s interrupted data job run(s) as failed on startup", count)
+
     return app
 
 

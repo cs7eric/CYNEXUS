@@ -8,6 +8,7 @@ from typing import Any
 from cynexus_data.domain.market.fund_flow import normalize_sector_fund_flow_snapshot
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.runtime.progress import mark_parent_step_progress
 from cynexus_data.storage.postgres.fund_flow import SectorFundFlowRepository
 
 
@@ -45,12 +46,26 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     repo = SectorFundFlowRepository(pg)
     if create_table:
         repo.create_table()
+    sector_code_by_name = repo.latest_sector_code_by_name(scope=scope, source=source) if scope == "industry" else {}
+    result["sector_code_mapping_count"] = len(sector_code_by_name)
 
     payloads = (
         _load_history_payloads(Path(str(history_path)), trade_date=trade_date)
         if history_path
         else [_fetch_live_payload(context, trade_date=trade_date, max_pages=max_pages, page_sleep=page_sleep)]
     )
+    mark_parent_step_progress(
+        context,
+        request.params,
+        processed=0,
+        total=len(payloads),
+        rows_read=0,
+        rows_written=0,
+        message="ths_industry_fund_flow_daily fetched payloads",
+        unit_label="快照",
+        force=True,
+    )
+    processed_payloads = 0
     for payload_trade_date, payload in payloads:
         fetched_at = _parse_datetime(payload.get("fetchedAt"))
         rows = list(payload.get("rows") or [])
@@ -61,6 +76,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
             source=source,
             source_type="json_import" if history_path else "crawler",
             captured_at=fetched_at,
+            sector_code_by_name=sector_code_by_name,
         )
         written = repo.replace_snapshot(
             trade_date=payload_trade_date,
@@ -76,6 +92,17 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         result["rows_read"] += len(rows)
         result["rows_written"] += written
         result["snapshots_written"] += 1
+        processed_payloads += 1
+        mark_parent_step_progress(
+            context,
+            request.params,
+            processed=processed_payloads,
+            total=len(payloads),
+            rows_read=result["rows_read"],
+            rows_written=result["rows_written"],
+            unit_label="快照",
+            force=True,
+        )
     return result
 
 

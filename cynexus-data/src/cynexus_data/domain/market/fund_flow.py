@@ -49,15 +49,19 @@ def normalize_sector_fund_flow_row(
     source: str = "ths.10jqka.com.cn",
     source_type: str = "crawler",
     captured_at: datetime | None = None,
+    sector_code_by_name: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     canonical = _canonicalize_keys(row)
     sector_name = _strip(canonical.get("sector_name") or canonical.get("industry"))
     if not sector_name:
         return None
+    sector_code = _strip(canonical.get("sector_code") or canonical.get("industry_code"))
+    if not sector_code and sector_code_by_name:
+        sector_code = _strip(sector_code_by_name.get(sector_name))
     return {
         "scope": scope,
         "trade_date": trade_date,
-        "sector_code": _strip(canonical.get("sector_code") or canonical.get("industry_code")),
+        "sector_code": sector_code,
         "sector_name": sector_name,
         "rank": _to_int(canonical.get("rank")),
         "change_pct": _to_float(canonical.get("change_pct")),
@@ -83,6 +87,7 @@ def normalize_sector_fund_flow_snapshot(
     source: str = "ths.10jqka.com.cn",
     source_type: str = "crawler",
     captured_at: datetime | None = None,
+    sector_code_by_name: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     records = [
         record
@@ -96,6 +101,7 @@ def normalize_sector_fund_flow_snapshot(
                 source=source,
                 source_type=source_type,
                 captured_at=captured_at,
+                sector_code_by_name=sector_code_by_name,
             )
         ]
         if record is not None

@@ -130,6 +130,31 @@ class PostgresClient:
         with self.session() as db:
             db.execute(text(f"DELETE FROM {self.schema}.task_job_lock WHERE lock_key=:lock_key AND owner=:owner"), {"lock_key": lock_key, "owner": owner})
 
+    def mark_interrupted_running_jobs(self, message: str) -> int:
+        with self.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    UPDATE {self.schema}.task_job_run
+                       SET status = 'failed',
+                           success = false,
+                           finished_at = now(),
+                           errors = jsonb_build_array(CAST(:message AS text)),
+                           metadata = COALESCE(metadata, '{{}}'::jsonb)
+                               || jsonb_build_object('lastMessage', CAST(:message AS text), 'interrupted', true),
+                           updated_at = now()
+                     WHERE status = 'running'
+                       AND finished_at IS NULL
+                    RETURNING run_id
+                    """
+                ),
+                {"message": message},
+            ).mappings().all()
+            run_ids = [str(row["run_id"]) for row in rows]
+            for run_id in run_ids:
+                db.execute(text(f"DELETE FROM {self.schema}.task_job_lock WHERE owner=:owner"), {"owner": run_id})
+            return len(run_ids)
+
 
 def _jsonable_record(record: dict[str, Any]) -> dict[str, Any]:
     import json

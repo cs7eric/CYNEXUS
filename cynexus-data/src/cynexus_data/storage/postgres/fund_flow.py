@@ -123,6 +123,38 @@ class SectorFundFlowRepository:
             ).mappings().all()
         return [dict(row) for row in rows]
 
+    def latest_sector_code_by_name(self, *, scope: str = "industry", source: str | None = None) -> dict[str, str]:
+        filters = [
+            "scope = :scope",
+            "deleted_at IS NULL",
+            "sector_name IS NOT NULL",
+            "sector_name <> ''",
+            "sector_code IS NOT NULL",
+            "sector_code <> ''",
+        ]
+        params: dict[str, Any] = {"scope": scope}
+        if source:
+            filters.append("source = :source")
+            params["source"] = source
+        where_sql = " AND ".join(filters)
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    SELECT DISTINCT ON (sector_name) sector_name, sector_code
+                      FROM {self.client.schema}.{SECTOR_SNAPSHOT_TABLE}
+                     WHERE {where_sql}
+                     ORDER BY sector_name, trade_date DESC, updated_at DESC
+                    """
+                ),
+                params,
+            ).mappings().all()
+        return {str(row["sector_name"]).strip(): str(row["sector_code"]).strip() for row in rows if row["sector_name"] and row["sector_code"]}
+
+    def latest_sector_codes(self, *, scope: str = "industry", source: str | None = None) -> list[str]:
+        code_by_name = self.latest_sector_code_by_name(scope=scope, source=source)
+        return sorted({code for code in code_by_name.values() if code})
+
 
 def _record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)

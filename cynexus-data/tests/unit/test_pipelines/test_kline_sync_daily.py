@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+from datetime import datetime, timezone
 
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.kline.sync_daily import _file_checkpoint_key, run
@@ -47,6 +48,7 @@ class FakeSink:
     frames = []
     init_tables = []
     insert_replace_existing = []
+    insert_replace_scopes = []
 
     def __init__(self, config, table="daily_raw") -> None:
         self.config = config
@@ -56,9 +58,10 @@ class FakeSink:
     def create_table(self) -> None:
         pass
 
-    def insert_daily(self, frame, batch_size=100_000, *, replace_existing=True):
+    def insert_daily(self, frame, batch_size=100_000, *, replace_existing=True, replace_scope="keys"):
         FakeSink.frames.append(frame)
         FakeSink.insert_replace_existing.append(replace_existing)
+        FakeSink.insert_replace_scopes.append(replace_scope)
         return len(frame)
 
 
@@ -77,6 +80,7 @@ def test_sync_daily_uses_network_provider_fallback(monkeypatch, tmp_path) -> Non
     FakeSink.frames = []
     FakeSink.init_tables = []
     FakeSink.insert_replace_existing = []
+    FakeSink.insert_replace_scopes = []
     monkeypatch.setattr("cynexus_data.pipelines.kline.sync_daily.ClickHouseDailyKlineSink", FakeSink)
     monkeypatch.setattr(
         "cynexus_data.pipelines.kline.sync_daily.fetch_daily_kline_with_fallback",
@@ -99,6 +103,7 @@ def test_sync_daily_uses_network_provider_fallback(monkeypatch, tmp_path) -> Non
     assert FakeSink.frames[0].iloc[0]["symbol"] == "600000"
     assert FakeSink.init_tables == ["daily_raw"]
     assert FakeSink.insert_replace_existing == [True]
+    assert FakeSink.insert_replace_scopes == ["keys"]
 
 
 def test_sync_daily_resume_skips_completed_file(monkeypatch, tmp_path) -> None:
@@ -107,6 +112,7 @@ def test_sync_daily_resume_skips_completed_file(monkeypatch, tmp_path) -> None:
     FakeSink.frames = []
     FakeSink.init_tables = []
     FakeSink.insert_replace_existing = []
+    FakeSink.insert_replace_scopes = []
     monkeypatch.setattr("cynexus_data.pipelines.kline.sync_daily.ClickHouseDailyKlineSink", FakeSink)
     context = PipelineContext(hooks=FakeNetworkHooks(tmp_path))
     discovered = discover_day_files(tmp_path, markets=["sh"])
@@ -125,6 +131,7 @@ def test_sync_daily_can_write_rebuild_table_without_replace(monkeypatch, tmp_pat
     FakeSink.frames = []
     FakeSink.init_tables = []
     FakeSink.insert_replace_existing = []
+    FakeSink.insert_replace_scopes = []
     monkeypatch.setattr("cynexus_data.pipelines.kline.sync_daily.ClickHouseDailyKlineSink", FakeSink)
     context = PipelineContext(hooks=FakeNetworkHooks(tmp_path))
 
@@ -142,6 +149,7 @@ def test_sync_daily_can_write_rebuild_table_without_replace(monkeypatch, tmp_pat
     assert result["rows_written"] == 1
     assert FakeSink.init_tables == ["daily_raw_rebuild"]
     assert FakeSink.insert_replace_existing == [False]
+    assert FakeSink.insert_replace_scopes == ["keys"]
 
 
 def test_sync_daily_can_flush_multiple_files_in_one_batch(monkeypatch, tmp_path) -> None:
@@ -150,6 +158,7 @@ def test_sync_daily_can_flush_multiple_files_in_one_batch(monkeypatch, tmp_path)
     FakeSink.frames = []
     FakeSink.init_tables = []
     FakeSink.insert_replace_existing = []
+    FakeSink.insert_replace_scopes = []
     monkeypatch.setattr("cynexus_data.pipelines.kline.sync_daily.ClickHouseDailyKlineSink", FakeSink)
     context = PipelineContext(hooks=FakeNetworkHooks(tmp_path))
 
@@ -168,3 +177,47 @@ def test_sync_daily_can_flush_multiple_files_in_one_batch(monkeypatch, tmp_path)
     assert len(FakeSink.frames) == 1
     assert set(FakeSink.frames[0]["code"]) == {"600000", "600001"}
     assert FakeSink.insert_replace_existing == [False]
+    assert FakeSink.insert_replace_scopes == ["keys"]
+
+
+def test_sync_daily_reports_parent_progress(monkeypatch, tmp_path) -> None:
+    _write_day(tmp_path / "vipdoc" / "sh" / "lday" / "sh600000.day")
+    _write_day(tmp_path / "vipdoc" / "sh" / "lday" / "sh600001.day")
+    FakeSink.frames = []
+    FakeSink.init_tables = []
+    FakeSink.insert_replace_existing = []
+    FakeSink.insert_replace_scopes = []
+    monkeypatch.setattr("cynexus_data.pipelines.kline.sync_daily.ClickHouseDailyKlineSink", FakeSink)
+    context = PipelineContext(hooks=FakeNetworkHooks(tmp_path))
+    context.job_store.mark_started(
+        "parent_run",
+        JobRequest(job_key="market_sentiment_chain_refresh", dry_run=False, params={}),
+        datetime.now(timezone.utc),
+    )
+
+    run(
+        context,
+        JobRequest(
+            job_key="sync_kline_daily",
+            dry_run=False,
+            params={
+                "market": "sh",
+                "flush_rows": 10,
+                "replace_scope": "date",
+                "progress_run_id": "parent_run",
+                "progress_step_code": "initial_backfill_refresh",
+                "progress_base_metadata": {"lastCompletedSteps": ["tdx_hsjday_download"]},
+                "progress_parent_rows_read": 5,
+                "progress_parent_rows_written": 5,
+                "progress_update_every_files": 1,
+            },
+        ),
+    )
+
+    record = context.job_store.get("parent_run")
+    assert record["rows_read"] == 7
+    assert record["rows_written"] == 7
+    assert record["metadata"]["currentStepProgress"]["processedFiles"] == 2
+    assert record["metadata"]["currentStepProgress"]["totalFiles"] == 2
+    assert record["metadata"]["lastCompletedSteps"] == ["tdx_hsjday_download"]
+    assert FakeSink.insert_replace_scopes == ["date"]

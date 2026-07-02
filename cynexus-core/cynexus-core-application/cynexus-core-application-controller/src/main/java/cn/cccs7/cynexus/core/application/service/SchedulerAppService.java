@@ -918,6 +918,7 @@ public class SchedulerAppService {
             extra.put("pipeline", pipeline);
         }
         copyIfPresent(metadata, extra, "lastStep");
+        copyIfPresent(metadata, extra, "currentStepProgress");
         copyIfPresent(metadata, extra, "lastCompletedSteps");
         copyIfPresent(metadata, extra, "lastStepResults");
         Object plannedSteps = firstNumber(resultMap, metadata, "planned_steps", "plannedSteps");
@@ -999,6 +1000,7 @@ public class SchedulerAppService {
         progress.put("status", status);
         progress.put("percent", inferPercent(safeExtra, status));
         progress.put("currentStep", firstPresent(safeExtra, Set.of("lastStep", "currentStep")));
+        progress.put("currentStepProgress", firstPresent(safeExtra, Set.of("currentStepProgress", "stepProgress")));
         progress.put("completedSteps", firstPresent(safeExtra, Set.of("lastCompletedSteps", "completedSteps")));
         progress.put("stepResults", firstPresent(safeExtra, Set.of("lastStepResults", "stepResults")));
         progress.put("totalSteps", firstPresent(safeExtra, Set.of("plannedSteps", "planned_steps", "totalSteps")));
@@ -1392,6 +1394,7 @@ public class SchedulerAppService {
                 .status(asString(progress.get("status")))
                 .percent(asBigDecimal(progress.get("percent")))
                 .currentStep(asString(progress.get("currentStep")))
+                .currentStepProgress(asMap(progress.get("currentStepProgress")))
                 .completedSteps(asStringList(progress.get("completedSteps")))
                 .stepResults(readChainStepResults(toJsonMapValue(progress.get("stepResults")), "value"))
                 .message(asString(progress.get("message")))

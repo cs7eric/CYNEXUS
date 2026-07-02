@@ -24,6 +24,18 @@ def test_normalize_sector_fund_flow_snapshot_sorts_and_reranks() -> None:
     assert records[1]["rank"] == 2
 
 
+def test_normalize_sector_fund_flow_snapshot_enriches_code_by_name() -> None:
+    rows = [{"行业": "软件服务", "净额(亿)": "6"}]
+
+    records = normalize_sector_fund_flow_snapshot(
+        rows,
+        trade_date=date(2026, 6, 26),
+        sector_code_by_name={"软件服务": "881121"},
+    )
+
+    assert records[0]["sector_code"] == "881121"
+
+
 def test_sector_fund_flow_top_bottom() -> None:
     records = [{"sector_name": "A"}, {"sector_name": "B"}, {"sector_name": "C"}]
     payload = sector_fund_flow_top_bottom(records, top_n=2)

@@ -507,3 +507,45 @@
   - `2026-06-26`: `28.63 -> 31.60`, `ice -> weak`.
 - Verification after rerun:
   - `PYTHONPATH=src pytest -q tests/unit/test_domain/test_msi.py tests/unit/test_pipelines/test_msi_pipeline.py tests/unit/test_pipelines/test_msi_remaining_factor_pipeline.py` passed: 15 tests.
+
+## 2026-07-02 QFQ Reconciliation Runtime Optimization
+
+- Diagnosed the slow `qfq_reconciliation_refresh` step: the chain was defaulting adjusted daily sync to both `qfq` and `hfq`, producing roughly double the planned items, and adjusted writes were issuing per-code ClickHouse `ALTER TABLE ... DELETE` mutations.
+- Added chain defaults for `qfq_reconciliation_refresh`: `adjust=qfq`, `flush_rows=100000`, `replace_scope=date`, and `workers=4`.
+- Added `replace_scope` support to `ClickHouseAdjustedDailyKlineSink.replace_daily`, preserving old key-scope behavior by default while allowing date-scope replacement for one-day chain refreshes.
+- Added batched adjusted-frame flushing in `sync_adjusted_daily` so the chain can collect fetched rows and write them to ClickHouse in one date-scope replacement instead of per-code replacements.
+- Fixed a concurrency bug introduced during the optimization: the `workers > 1` branch now only builds the per-code error string inside the `except` block.
+- Added a regression test for successful `workers > 1` adjusted-daily fetches.
+- Changed batched adjusted-daily checkpointing so `resume=true` checkpoints are written only after the batch flush succeeds.
+- Verification: `PYTHONPATH=src python -m pytest tests/unit/test_pipelines/test_kline_sync_adjusted_daily.py tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_pipelines/test_fund_flow_pipeline.py -q` passed: 19 tests.
+- Triggered full `market_sentiment_chain_refresh` run `job_run_f9a1e8c6e1d946fdac44a8c4099f2b85` at 2026-07-02 00:20:08 +08:00 to measure runtime.
+- The run verified the intended QFQ optimization shape: step 3 `qfq_reconciliation_refresh` planned `totalItems=5530` instead of the old `11060`, and fetched roughly `5400/5530` symbols by elapsed second 264.
+- The run failed at elapsed 266s during adjusted daily date-scope ClickHouse delete because `daily_qfq` has no `source` column while the shared date delete helper added `source IN ('eltdx')` from the input frame.
+- Fixed date-scope delete to apply the source filter only when the target ClickHouse table actually has a `source` column.
+- Added ClickHouse writer tests covering date-scope delete with source on `daily_raw` and without source on `daily_qfq`.
+- Verification after the source-filter fix: `PYTHONPATH=src python -m pytest tests/unit/test_storage/test_clickhouse_writers.py tests/unit/test_pipelines/test_kline_sync_adjusted_daily.py tests/unit/test_pipelines/test_kline_sync_daily.py tests/unit/test_pipelines/test_fund_flow_pipeline.py -q` passed: 27 tests.
+- Rebuilt/recreated `cynexus-data-job-executor` after the source-filter fix and verified `/internal/health` returned ok.
+- Triggered second full `market_sentiment_chain_refresh` run `job_run_fcfb6c2978fb479496de76b06c79fc7a` at 2026-07-02 00:27:11 +08:00.
+- The second run completed successfully in 346 seconds (5m46s), with 14/14 steps complete, rows_read=43771, rows_written=27095.
+- Step 3 `qfq_reconciliation_refresh` completed with rows_read=5185 and rows_written=5185; polling showed it started after about 201-212s elapsed and the chain had entered step 4 by 284s elapsed, so QFQ reconciliation took roughly 70-80s.
+- ClickHouse mutation check after the successful run showed `daily_qfq` had 1 mutation and 0 active mutations for the run, confirming date-scope replacement avoided thousands of per-code mutations.
+- Core scheduler history and Gateway history both report success and duration around 346 seconds, but two success history rows were written for the same Python run id; this duplicate history write is a separate Core-side cleanup item.
+
+## 2026-07-02 THS Industry Constituents Job Fallback
+
+- User confirmed that if live THS industry codes cannot be fetched, using previous stored code data is acceptable because the industry list is stable.
+- Added Phase 32 to `task_plan.md`.
+- Re-read the current `sync_ths_industry_constituents`, THS constituent repository, sector fund-flow pipeline, sector fund-flow repository, and related tests.
+- Added `ThsIndustryConstituentRepository.list_latest_industry_codes()` to read distinct industry codes from the latest alive THS constituent snapshot.
+- Added `SectorFundFlowRepository.latest_sector_code_by_name()` and `latest_sector_codes()` to read stable historical THS industry mappings from sector fund-flow snapshots.
+- Changed `sync_ths_industry_constituents` so live mode prefers explicit params, then latest constituent snapshot codes, then historical fund-flow codes. It now returns `code_source` and planned count in the result.
+- Changed sector fund-flow normalization to accept an injected `sector_code_by_name` mapping and fill missing industry codes by sector name while keeping domain logic DB-free.
+- Changed `sync_sector_flow` to load the historical mapping from the repository and pass it into normalization for industry fund-flow writes.
+- Added tests covering constituent-code fallback and fund-flow code enrichment.
+- Verification: `PYTHONPATH=src python -m pytest tests/unit/test_pipelines/test_ths_industry_constituents_pipeline.py tests/unit/test_pipelines/test_fund_flow_pipeline.py tests/unit/test_domain/test_fund_flow.py -q` passed with 15 tests.
+- Queried local PostgreSQL and confirmed latest industry fund-flow rows for 2026-06-29, 2026-06-30, and 2026-07-01 each had 90 missing codes before repair.
+- Repaired existing local sector fund-flow rows from historical mappings; 270 rows updated.
+- Verified recent industry fund-flow dates now have 0 missing codes, latest date has 90 distinct codes, and THS constituent snapshot fallback has 90 codes.
+- Rebuilt/recreated `cynexus-data-job-executor`; `/internal/health` returned ok.
+- Container-loaded code verification returned `{'constituent_codes': 90, 'fund_flow_name_code': 90}`.
+- Verification: `python -m compileall -q src` passed under `cynexus-data`.

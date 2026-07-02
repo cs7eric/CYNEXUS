@@ -124,6 +124,7 @@ public class SchedulerManagementJobsResponseDTO {
         private String status;
         private BigDecimal percent;
         private String currentStep;
+        private Map<String, Object> currentStepProgress;
         private List<String> completedSteps;
         private List<ChainStepResult> stepResults;
         private String message;

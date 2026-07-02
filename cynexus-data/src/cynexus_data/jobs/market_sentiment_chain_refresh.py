@@ -21,6 +21,7 @@ from cynexus_data.pipelines.msi import (
     build_volatility_sentiment,
 )
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.runtime.progress import mark_parent_step_progress
 from cynexus_data.storage.clickhouse.readers import get_latest_table_trade_date
 
 
@@ -71,7 +72,16 @@ def run(context: PipelineContext, request: JobRequest, run_id: str) -> JobResult
     _mark_progress(context, run_id, metadata, rows_read=rows_read, rows_written=rows_written)
 
     for step_code, step_runner in CHAIN_STEPS:
+        step_index = len(completed_steps)
         metadata["lastStep"] = step_code
+        metadata["currentStepProgress"] = {
+            "step": step_code,
+            "unitLabel": "阶段",
+            "processedItems": 0,
+            "totalItems": 1,
+            "rowsRead": 0,
+            "rowsWritten": 0,
+        }
         metadata["lastMessage"] = f"running {step_code}"
         _mark_progress(context, run_id, metadata, rows_read=rows_read, rows_written=rows_written)
         try:
@@ -84,6 +94,18 @@ def run(context: PipelineContext, request: JobRequest, run_id: str) -> JobResult
                 child_params.setdefault("force", True)
                 child_params.setdefault("require_full", True)
             _apply_step_path_defaults(step_code, child_params, hsjday_root)
+            _apply_step_progress_defaults(step_code, child_params, run_id, metadata, rows_read, rows_written)
+            mark_parent_step_progress(
+                context,
+                child_params,
+                processed=0,
+                total=1,
+                rows_read=0,
+                rows_written=0,
+                message=f"running {step_code} ({step_index + 1}/{len(CHAIN_STEPS)})",
+                unit_label="阶段",
+                force=True,
+            )
             child_request = JobRequest(
                 job_key=step_code,
                 trigger_request_id=request.trigger_request_id,
@@ -123,6 +145,14 @@ def run(context: PipelineContext, request: JobRequest, run_id: str) -> JobResult
                     "lastCompletedSteps": completed_steps,
                     "lastStepResults": step_results,
                     "lastMessage": f"stopped_at={step_code}",
+                    "currentStepProgress": {
+                        "step": step_code,
+                        "unitLabel": "阶段",
+                        "processedItems": 0,
+                        "totalItems": 1,
+                        "rowsRead": 0,
+                        "rowsWritten": 0,
+                    },
                     "rows_read": rows_read,
                     "rows_written": rows_written,
                 }
@@ -148,6 +178,14 @@ def run(context: PipelineContext, request: JobRequest, run_id: str) -> JobResult
                 "lastCompletedSteps": completed_steps.copy(),
                 "lastStepResults": step_results.copy(),
                 "lastMessage": f"completed {len(completed_steps)}/{len(CHAIN_STEPS)} steps",
+                "currentStepProgress": {
+                    "step": step_code,
+                    "unitLabel": "阶段",
+                    "processedItems": 1,
+                    "totalItems": 1,
+                    "rowsRead": step_rows_read,
+                    "rowsWritten": step_rows_written,
+                },
                 "rows_read": rows_read,
                 "rows_written": rows_written,
             }
@@ -224,3 +262,38 @@ def _apply_step_path_defaults(step_code: str, params: dict[str, Any], hsjday_roo
     if step_code == "initial_backfill_refresh":
         params.setdefault("day_root", str(hsjday_root))
         params.setdefault("tdx_root", str(hsjday_root))
+        params.setdefault("flush_rows", 100_000)
+        params.setdefault("replace_scope", "date")
+        return
+    if step_code == "qfq_reconciliation_refresh":
+        params.setdefault("adjust", "qfq")
+        params.setdefault("flush_rows", 100_000)
+        params.setdefault("replace_scope", "date")
+        params.setdefault("workers", 4)
+
+
+def _apply_step_progress_defaults(
+    step_code: str,
+    params: dict[str, Any],
+    run_id: str,
+    metadata: dict[str, Any],
+    rows_read: int,
+    rows_written: int,
+) -> None:
+    params.setdefault("progress_run_id", run_id)
+    params.setdefault("progress_step_code", step_code)
+    params.setdefault("progress_base_metadata", metadata.copy())
+    params.setdefault("progress_parent_rows_read", rows_read)
+    params.setdefault("progress_parent_rows_written", rows_written)
+    if step_code == "initial_backfill_refresh":
+        params.setdefault("progress_update_every_items", 100)
+        params.setdefault("progress_unit_label", "文件")
+    elif step_code == "qfq_reconciliation_refresh":
+        params.setdefault("progress_update_every_items", 50)
+        params.setdefault("progress_unit_label", "标的")
+    elif step_code == "ths_industry_fund_flow_daily":
+        params.setdefault("progress_update_every_items", 1)
+        params.setdefault("progress_unit_label", "快照")
+    else:
+        params.setdefault("progress_update_every_items", 1)
+        params.setdefault("progress_unit_label", "阶段")

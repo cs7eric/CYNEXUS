@@ -140,6 +140,31 @@ class ThsIndustryConstituentRepository:
             ).mappings().all()
         return [dict(row) for row in rows]
 
+    def list_latest_industry_codes(self, *, source: str = "q.10jqka.com.cn") -> list[str]:
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    WITH latest AS (
+                        SELECT max(snapshot_date) AS snapshot_date
+                          FROM {self.client.schema}.ths_industry_constituent_snapshot
+                         WHERE source = :source
+                           AND deleted_at IS NULL
+                    )
+                    SELECT DISTINCT s.industry_code
+                      FROM {self.client.schema}.ths_industry_constituent_snapshot s
+                      JOIN latest l ON s.snapshot_date = l.snapshot_date
+                     WHERE s.source = :source
+                       AND s.deleted_at IS NULL
+                       AND s.industry_code IS NOT NULL
+                       AND s.industry_code <> ''
+                     ORDER BY s.industry_code
+                    """
+                ),
+                {"source": source},
+            ).scalars().all()
+        return [str(code).strip() for code in rows if str(code).strip()]
+
 
 def _record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)

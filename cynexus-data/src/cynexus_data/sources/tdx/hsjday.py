@@ -11,9 +11,9 @@ from urllib.request import Request, urlopen
 
 TDX_HSJDAY_URL = "https://data.tdx.com.cn/vipdoc/hsjday.zip"
 VERIFY_SAMPLES = {
-    "sh": ["000001", "600036", "601318"],
-    "sz": ["000001", "002415", "300750"],
-    "bj": ["430047", "830799", "899050"],
+    "sh": ["000001"],
+    "sz": ["399001", "399006"],
+    "bj": ["899050"],
 }
 DEFAULT_CHUNK_SIZE_BYTES = 4 * 1024 * 1024
 
@@ -240,7 +240,8 @@ def inspect_zip_freshness(zip_path: Path, target_date: date) -> HsjdayVerifyResu
     target_int = _date_int(target_date)
     try:
         with zipfile.ZipFile(zip_path) as archive:
-            names = archive.namelist()
+            member_by_name = {_normalize_zip_member_name(name): name for name in archive.namelist()}
+            names = list(member_by_name)
             name_set = set(names)
             for market in ("sh", "sz", "bj"):
                 market_files = [name for name in names if _zip_day_member_market(name) == market]
@@ -256,7 +257,7 @@ def inspect_zip_freshness(zip_path: Path, target_date: date) -> HsjdayVerifyResu
                         errors.append(error)
                         samples.append({"market": market, "code": code, "ok": False, "error": error})
                         continue
-                    with archive.open(member) as handle:
+                    with archive.open(member_by_name[member]) as handle:
                         raw = handle.read()
                     first_date, last_date = read_day_first_last(raw)
                     ok = last_date is not None and last_date >= target_int
@@ -275,10 +276,18 @@ def safe_extract_hsjday_zip(zip_path: Path, extract_dir: Path) -> Path:
     base = extract_dir.resolve()
     with zipfile.ZipFile(zip_path) as archive:
         for member in archive.infolist():
-            target = (extract_dir / member.filename).resolve()
-            if not str(target).startswith(str(base)):
+            normalized_name = _normalize_zip_member_name(member.filename)
+            target = (extract_dir / normalized_name).resolve()
+            try:
+                target.relative_to(base)
+            except ValueError:
                 raise ValueError(f"unsafe zip member path: {member.filename}")
-            archive.extract(member, extract_dir)
+            if member.is_dir() or normalized_name.endswith("/"):
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(member) as source, target.open("wb") as destination:
+                shutil.copyfileobj(source, destination)
     return find_hsjday_root(extract_dir)
 
 
@@ -391,11 +400,15 @@ def read_day_first_last(raw: bytes) -> tuple[int | None, int | None]:
 
 
 def _zip_day_member_market(name: str) -> str | None:
-    parts = [part.lower() for part in Path(name).parts]
+    parts = [part.lower() for part in _normalize_zip_member_name(name).split("/") if part]
     for market in ("sh", "sz", "bj"):
         if len(parts) >= 3 and parts[-3:-1] == [market, "lday"] and parts[-1].endswith(".day"):
             return market
     return None
+
+
+def _normalize_zip_member_name(name: str) -> str:
+    return name.replace("\\", "/")
 
 
 def _date_int(value: date) -> int:

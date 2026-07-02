@@ -8,6 +8,7 @@ from typing import Any
 from cynexus_data.domain.stock.ths_industry_constituents import normalize_industry_constituent_snapshot
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.storage.postgres.fund_flow import SectorFundFlowRepository
 from cynexus_data.storage.postgres.ths_industry_constituents import ThsIndustryConstituentRepository
 
 
@@ -24,6 +25,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "dry_run": request.dry_run,
         "snapshot_date": snapshot_date.isoformat(),
         "history_path": str(history_path) if history_path else None,
+        "code_source": "params" if industry_codes else None,
         "planned_industry_codes": len(industry_codes or []),
         "rows_read": 0,
         "rows_written": 0,
@@ -41,6 +43,10 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     repo = ThsIndustryConstituentRepository(pg)
     if create_table:
         repo.create_table()
+    if not industry_codes:
+        industry_codes, code_source = _resolve_industry_codes(repo, SectorFundFlowRepository(pg))
+        result["code_source"] = code_source
+        result["planned_industry_codes"] = len(industry_codes or [])
 
     payloads = (
         _load_history_payloads(Path(str(history_path)), snapshot_date=snapshot_date, industry_codes=industry_codes)
@@ -90,6 +96,19 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     result["planned_industry_codes"] = len(requested_codes)
     result["rows_written"] = written
     return result
+
+
+def _resolve_industry_codes(
+    repo: ThsIndustryConstituentRepository,
+    sector_repo: SectorFundFlowRepository,
+) -> tuple[list[str] | None, str | None]:
+    codes = repo.list_latest_industry_codes()
+    if codes:
+        return codes, "ths_industry_constituent_snapshot"
+    codes = sector_repo.latest_sector_codes(scope="industry", source="ths.10jqka.com.cn")
+    if codes:
+        return codes, "sector_fund_flow_daily_snapshots"
+    return None, None
 
 
 def _fetch_live_payloads(

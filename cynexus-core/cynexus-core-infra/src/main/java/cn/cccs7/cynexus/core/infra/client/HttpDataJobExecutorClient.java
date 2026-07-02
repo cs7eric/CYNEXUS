@@ -116,8 +116,16 @@ public class HttpDataJobExecutorClient implements DataJobExecutorClient {
         } catch (BizException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new BizException(ErrorCode.INTERNAL_ERROR, "Data job executor request failed: " + exception.getMessage());
+            throw new BizException(ErrorCode.INTERNAL_ERROR, buildRequestFailureMessage(request.uri(), exception));
         }
+    }
+
+    private static String buildRequestFailureMessage(URI uri, Exception exception) {
+        String detail = exception.getMessage();
+        if (detail == null || detail.isBlank()) {
+            detail = exception.getClass().getSimpleName();
+        }
+        return "Data job executor request failed: " + uri + " (" + detail + ")";
     }
 
     private String toJson(Object value) {

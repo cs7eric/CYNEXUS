@@ -109,13 +109,25 @@ class ClickHouseDailyKlineSink:
         for statement in _split_sql(DAILY_RAW_DDL_PATH.read_text(encoding="utf-8")):
             self.client.command(statement)
 
-    def insert_daily(self, frame: pd.DataFrame, batch_size: int = 100_000, *, replace_existing: bool = True) -> int:
+    def insert_daily(
+        self,
+        frame: pd.DataFrame,
+        batch_size: int = 100_000,
+        *,
+        replace_existing: bool = True,
+        replace_scope: str = "keys",
+    ) -> int:
         if frame.empty:
             return 0
         table_columns = self._get_table_columns()
         frame = _deduplicate_daily_frame(frame)
         if replace_existing:
-            _delete_existing_daily_rows(self.client, self.table, frame, table_columns=table_columns)
+            if replace_scope == "date":
+                _delete_existing_daily_date_rows(self.client, self.table, frame, table_columns=table_columns)
+            elif replace_scope == "keys":
+                _delete_existing_daily_rows(self.client, self.table, frame, table_columns=table_columns)
+            else:
+                raise ValueError("replace_scope must be one of: keys, date")
         inserted = 0
         columns = _resolve_insert_columns(
             frame,
@@ -150,14 +162,20 @@ class ClickHouseAdjustedDailyKlineSink:
         for statement in _split_sql(DAILY_ADJUSTED_DDL_PATH.read_text(encoding="utf-8")):
             self.client.command(statement)
 
-    def replace_daily(self, frame: pd.DataFrame, batch_size: int = 100_000) -> int:
+    def replace_daily(self, frame: pd.DataFrame, batch_size: int = 100_000, *, replace_scope: str = "keys") -> int:
         if frame.empty:
             return 0
         frame = _deduplicate_daily_frame(frame)
-        _delete_existing_daily_rows(self.client, self.table, frame)
+        table_columns = self._get_table_columns()
+        if replace_scope == "date":
+            _delete_existing_daily_date_rows(self.client, self.table, frame, table_columns=table_columns)
+        elif replace_scope == "keys":
+            _delete_existing_daily_rows(self.client, self.table, frame, table_columns=table_columns)
+        else:
+            raise ValueError("replace_scope must be one of: keys, date")
         columns = _resolve_insert_columns(
             frame,
-            table_columns=self._get_table_columns(),
+            table_columns=table_columns,
             required_columns=DAILY_ADJUSTED_REQUIRED_COLUMNS,
             table=self.table,
         )
@@ -271,6 +289,31 @@ def _delete_existing_daily_rows(
         f"ALTER TABLE {table} DELETE "
         f"WHERE ({key_where}) "
         f"AND trade_date BETWEEN toDate('{min_date}') AND toDate('{max_date}')",
+        settings={"mutations_sync": 1},
+    )
+
+
+def _delete_existing_daily_date_rows(
+    client: ClickHouseClient,
+    table: str,
+    frame: pd.DataFrame,
+    *,
+    table_columns: list[str] | None = None,
+) -> None:
+    if frame.empty or "trade_date" not in frame.columns:
+        return
+    min_date = pd.to_datetime(frame["trade_date"].min()).date()
+    max_date = pd.to_datetime(frame["trade_date"].max()).date()
+    source_filter = ""
+    table_has_source = table_columns is None or "source" in table_columns
+    if table_has_source and "source" in frame.columns:
+        sources = sorted(str(value) for value in frame["source"].dropna().unique())
+        if sources:
+            source_filter = f" AND source IN ({_quote_ch_strings(sources)})"
+    client.command(
+        f"ALTER TABLE {table} DELETE "
+        f"WHERE trade_date BETWEEN toDate('{min_date}') AND toDate('{max_date}')"
+        f"{source_filter}",
         settings={"mutations_sync": 1},
     )
 

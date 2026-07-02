@@ -16,3 +16,8 @@ deploy/local/postgres-backups
 deploy/local/redis/data
 deploy/local/clickhouse/data
 deploy/local/clickhouse/logs
+cynexus-data/var
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache

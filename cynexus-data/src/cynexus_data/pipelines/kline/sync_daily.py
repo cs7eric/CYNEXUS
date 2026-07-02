@@ -6,6 +6,7 @@ import pandas as pd
 
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.runtime.progress import mark_parent_step_progress
 from cynexus_data.domain.stock.kline_records import daily_provider_rows_to_frame
 from cynexus_data.sources.provider_fallback import fetch_daily_kline_with_fallback, provider_plan
 from cynexus_data.sources.tdx.local_day import discover_day_files, iter_tdx_day_frames
@@ -26,6 +27,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     unit_scale = int(params.get("unit_scale") or 1)
     batch_size = int(params.get("batch_size") or 100_000)
     flush_rows = int(params.get("flush_rows") or 0)
+    replace_scope = str(params.get("replace_scope") or "keys")
     create_table = _truthy(params.get("create_table"))
     target_table = str(params.get("target_table") or "daily_raw")
     replace_existing = params.get("replace_existing")
@@ -57,6 +59,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "rows_written": 0,
         "target_table": target_table,
         "replace_existing": replace_existing,
+        "replace_scope": replace_scope,
         "flush_rows": flush_rows,
         "file_results": [],
         "batch_results": [],
@@ -74,12 +77,23 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         sink.create_table()
     total_rows = 0
     total_written = 0
+    processed_files = 0
     pending_frames: list[pd.DataFrame] = []
     pending_rows = 0
     pending_files: list[str] = []
+    _mark_parent_progress(
+        context,
+        params,
+        discovered_files=len(files),
+        processed_files=processed_files,
+        rows_read=total_rows,
+        rows_written=total_written,
+        message="initial_backfill_refresh discovered files",
+    )
     for file, frame in iter_tdx_day_frames(files, unit_scale=unit_scale, start_date=start_date, end_date=end_date):
         checkpoint_key = _file_checkpoint_key(checkpoint_prefix, file, start_date, end_date)
         if resume and _is_completed_checkpoint(context, checkpoint_key):
+            processed_files += 1
             result["skipped_checkpoints"] += 1
             result["file_results"].append(
                 {
@@ -91,6 +105,14 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                     "skipped": True,
                     "skip_reason": "checkpoint_completed",
                 }
+            )
+            _mark_parent_progress(
+                context,
+                params,
+                discovered_files=len(files),
+                processed_files=processed_files,
+                rows_read=total_rows,
+                rows_written=total_written,
             )
             continue
         rows = len(frame)
@@ -107,6 +129,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                     pending_frames,
                     batch_size=batch_size,
                     replace_existing=replace_existing,
+                    replace_scope=replace_scope,
                 )
                 result["batch_results"].append(
                     {"files": len(pending_files), "rows_read": pending_rows, "rows_written": written}
@@ -116,7 +139,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 pending_rows = 0
                 pending_files = []
         else:
-            written = sink.insert_daily(frame, batch_size=batch_size, replace_existing=replace_existing)
+            written = sink.insert_daily(frame, batch_size=batch_size, replace_existing=replace_existing, replace_scope=replace_scope)
             total_written += written
             if resume:
                 context.checkpoints.put(
@@ -143,17 +166,37 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 "batched": flush_rows > 0,
             }
             )
+        processed_files += 1
+        _mark_parent_progress(
+            context,
+            params,
+            discovered_files=len(files),
+            processed_files=processed_files,
+            rows_read=total_rows,
+            rows_written=total_written,
+        )
     if pending_frames:
         written = _flush_daily_frames(
             sink,
             pending_frames,
             batch_size=batch_size,
             replace_existing=replace_existing,
+            replace_scope=replace_scope,
         )
         result["batch_results"].append(
             {"files": len(pending_files), "rows_read": pending_rows, "rows_written": written}
         )
         total_written += written
+        _mark_parent_progress(
+            context,
+            params,
+            discovered_files=len(files),
+            processed_files=processed_files,
+            rows_read=total_rows,
+            rows_written=total_written,
+            message="initial_backfill_refresh flushed pending rows",
+            force=True,
+        )
     if codes and any(provider != "tdx" for provider in providers) and ("tdx" not in providers or not files):
         for code in codes:
             checkpoint_key = _provider_checkpoint_key(checkpoint_prefix, code, start_date, end_date, providers)
@@ -196,6 +239,16 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
             )
     result["rows_read"] = total_rows
     result["rows_written"] = total_written
+    _mark_parent_progress(
+        context,
+        params,
+        discovered_files=len(files),
+        processed_files=processed_files,
+        rows_read=total_rows,
+        rows_written=total_written,
+        message="initial_backfill_refresh finished",
+        force=True,
+    )
     return {
         **result,
         "file_results": result["file_results"][:20],
@@ -207,11 +260,42 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     }
 
 
-def _flush_daily_frames(sink: ClickHouseDailyKlineSink, frames: list[pd.DataFrame], *, batch_size: int, replace_existing: bool) -> int:
+def _flush_daily_frames(
+    sink: ClickHouseDailyKlineSink,
+    frames: list[pd.DataFrame],
+    *,
+    batch_size: int,
+    replace_existing: bool,
+    replace_scope: str,
+) -> int:
     if not frames:
         return 0
     combined = pd.concat(frames, ignore_index=True)
-    return sink.insert_daily(combined, batch_size=batch_size, replace_existing=replace_existing)
+    return sink.insert_daily(combined, batch_size=batch_size, replace_existing=replace_existing, replace_scope=replace_scope)
+
+
+def _mark_parent_progress(
+    context: PipelineContext,
+    params: dict,
+    *,
+    discovered_files: int,
+    processed_files: int,
+    rows_read: int,
+    rows_written: int,
+    message: str | None = None,
+    force: bool = False,
+) -> None:
+    mark_parent_step_progress(
+        context,
+        params,
+        processed=processed_files,
+        total=discovered_files,
+        rows_read=rows_read,
+        rows_written=rows_written,
+        message=message,
+        unit_label="文件",
+        force=force,
+    )
 
 
 def _normalize_codes(value) -> list[str] | None:

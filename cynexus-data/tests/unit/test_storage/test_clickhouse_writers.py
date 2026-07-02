@@ -153,6 +153,89 @@ def test_adjusted_daily_writer_projects_to_existing_legacy_table_columns() -> No
     assert client.command_calls[0]["sql"] == "ALTER TABLE daily_qfq DELETE WHERE (code IN ('000001')) AND trade_date BETWEEN toDate('2026-06-26') AND toDate('2026-06-26')"
 
 
+def test_daily_raw_date_replace_keeps_source_filter_when_table_has_source() -> None:
+    columns = [
+        "code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "amount",
+        "unit_scale",
+        "source",
+        "ingested_at",
+    ]
+    client = FakeClickHouseClient(columns)
+    sink = ClickHouseDailyKlineSink.__new__(ClickHouseDailyKlineSink)
+    sink.table = "daily_raw"
+    sink.client = client
+    sink._table_columns = None
+    frame = pd.DataFrame(
+        [
+            {
+                "code": "600000",
+                "trade_date": date(2026, 6, 30),
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10.5,
+                "volume": 100,
+                "amount": 1000,
+                "unit_scale": 1,
+                "source": "tdx_day",
+                "ingested_at": datetime(2026, 7, 1),
+            }
+        ]
+    )
+
+    assert sink.insert_daily(frame, replace_scope="date") == 1
+
+    assert client.command_calls[0]["sql"] == "ALTER TABLE daily_raw DELETE WHERE trade_date BETWEEN toDate('2026-06-30') AND toDate('2026-06-30') AND source IN ('tdx_day')"
+
+
+def test_adjusted_daily_date_replace_omits_source_filter_when_table_has_no_source() -> None:
+    legacy_columns = [
+        "code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "amount",
+        "adj_factor",
+        "ingested_at",
+    ]
+    client = FakeClickHouseClient(legacy_columns)
+    sink = ClickHouseAdjustedDailyKlineSink.__new__(ClickHouseAdjustedDailyKlineSink)
+    sink.table = "daily_qfq"
+    sink.client = client
+    sink._table_columns = None
+    frame = pd.DataFrame(
+        [
+            {
+                "code": "000001",
+                "trade_date": date(2026, 6, 30),
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10.5,
+                "volume": 100,
+                "amount": 1000,
+                "adj_factor": 1.0,
+                "source": "eltdx",
+                "ingested_at": datetime(2026, 7, 1),
+            }
+        ]
+    )
+
+    assert sink.replace_daily(frame, replace_scope="date") == 1
+
+    assert client.command_calls[0]["sql"] == "ALTER TABLE daily_qfq DELETE WHERE trade_date BETWEEN toDate('2026-06-30') AND toDate('2026-06-30')"
+
+
 def test_daily_raw_writer_keeps_metadata_when_table_has_wide_columns() -> None:
     wide_columns = [
         "market",

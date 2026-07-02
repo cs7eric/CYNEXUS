@@ -17,9 +17,9 @@ def _day_record(trade_date: int) -> bytes:
 def _write_hsjday_zip(path) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         for market, codes in {
-            "sh": ["000001", "600036", "601318"],
-            "sz": ["000001", "002415", "300750"],
-            "bj": ["430047", "830799", "899050"],
+            "sh": ["000001"],
+            "sz": ["399001", "399006"],
+            "bj": ["899050"],
         }.items():
             for code in codes:
                 archive.writestr(f"hsjday/{market}/lday/{market}{code}.day", _day_record(20260626))
@@ -47,10 +47,10 @@ def test_sync_tdx_hsjday_pipeline_skip_download_replaces_target(tmp_path) -> Non
         ),
     )
 
-    assert result["rows_written"] == 9
+    assert result["rows_written"] == 4
     assert (target_root / "sh" / "lday" / "sh000001.day").exists()
-    assert (target_root / "sz" / "lday" / "sz000001.day").exists()
-    assert (target_root / "bj" / "lday" / "bj430047.day").exists()
+    assert (target_root / "sz" / "lday" / "sz399001.day").exists()
+    assert (target_root / "bj" / "lday" / "bj899050.day").exists()
 
 
 def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) -> None:

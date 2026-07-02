@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from cynexus_data.jobs.contracts import JobRequest, JobResult
@@ -70,3 +70,22 @@ class JobStore:
         if self._client is not None:
             return self._client.get_job_run(run_id)
         return self._runs.get(run_id)
+
+    def mark_interrupted_running_jobs(self, message: str) -> int:
+        if self._client is not None:
+            return int(self._client.mark_interrupted_running_jobs(message))
+        count = 0
+        now = datetime.now(timezone.utc)
+        for record in self._runs.values():
+            if record.get("status") == "running" and record.get("finished_at") is None:
+                record.update(
+                    {
+                        "status": "failed",
+                        "success": False,
+                        "finished_at": now,
+                        "errors": [message],
+                        "metadata": {**(record.get("metadata") or {}), "lastMessage": message, "interrupted": True},
+                    }
+                )
+                count += 1
+        return count

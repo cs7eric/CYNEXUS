@@ -410,3 +410,20 @@ Required market modules:
 - `market_sentiment_chain_refresh` must default the final `market_sentiment_index_refresh` step to `force=true` and `require_full=true`; otherwise the chain can finish upstream factor refresh but return a cached or partial MSI composite.
 - The 2026-06-30 local MSI rerun showed `msi_sector_breadth_daily` currently has only 14 rows (`2026-06-09` through `2026-06-29`), so `require_full=true` can only safely rewrite those 14 MSI dates; older `msi_index_daily` rows remain unchanged until sector breadth history is backfilled.
 - Direct ClickHouse rerun of recent `build_limit_emotion` hit `ATTEMPT_TO_READ_AFTER_EOF` from the limit-emotion OHLCV reader. For the rerun, existing PostgreSQL raw factor rows were used to batch recompute percentile score columns in `msi_ma_count_daily` and `msi_limit_emotion_daily`, then final MSI was rebuilt from PostgreSQL factors.
+
+## QFQ Reconciliation Runtime Findings
+
+- `sync_adjusted_daily` defaults to both `qfq` and `hfq` when no `adjust` is provided. In the market sentiment chain this made the `qfq_reconciliation_refresh` step plan about `active_code_count * 2` items even though the chain step is semantically QFQ-only.
+- The old adjusted daily write path called `ClickHouseAdjustedDailyKlineSink.replace_daily` per stock. With key-scope replacement, every stock produces a synchronous ClickHouse mutation, which is expensive during full-market refresh.
+- The chain resolves a single `target_date` from ClickHouse `daily_raw` and passes it to child steps as `trade_date/date/snapshot_date`, so QFQ reconciliation in this chain is a one-day refresh. Date-scope replacement is therefore appropriate and avoids per-code mutation pressure.
+- The optimized shape is: fetch all QFQ frames for the target day, concatenate them, delete the target date range once from `daily_qfq`, then insert the combined frame in batches.
+- `replace_scope="keys"` remains the default for direct adjusted-daily pipeline use, preserving existing behavior outside the chain.
+
+## THS Industry Constituents Job Fallback Findings
+
+- New system scheduler jobs already exist for `ths_industry_fund_flow_daily` and `ths_industry_constituents_daily` / `weekly`, but `sync_ths_industry_constituents` previously failed in live mode unless Core passed `industry_codes` or `codes`.
+- The old Python constituents scheduler did not require external codes; it derived the 90 THS industry codes from `industry_list.json` / live industry-list fallback before refreshing constituents.
+- The user accepted using previously stored industry/code data when the live list cannot be fetched, because THS industry codes are stable enough for this job.
+- Current local `ths_industry_constituent_snapshot` has snapshot date `2026-06-26`, 4,663 rows, and 90 distinct industry codes.
+- Before repair, latest local industry fund-flow rows for 2026-06-29, 2026-06-30, and 2026-07-01 each had 90 rows with 90 missing `sector_code` values.
+- Historical industry fund-flow rows contain a full 90-row `sector_name -> sector_code` mapping, so the safe repair path is to update only alive `scope='industry'` rows where `sector_code` is null/empty and the name matches a historical mapped row.

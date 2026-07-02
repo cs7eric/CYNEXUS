@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.fund_flow import sync_sector_flow, sync_stock_flow
@@ -10,6 +11,7 @@ from cynexus_data.runtime.context import PipelineContext
 class FakeRepo:
     created = 0
     calls = []
+    code_by_name = {}
 
     def __init__(self, client):
         self.client = client
@@ -20,6 +22,9 @@ class FakeRepo:
     def replace_snapshot(self, **kwargs):
         FakeRepo.calls.append(kwargs)
         return len(kwargs["records"])
+
+    def latest_sector_code_by_name(self, *, scope="industry", source=None):
+        return dict(FakeRepo.code_by_name)
 
 
 class FakeStockRepo:
@@ -88,6 +93,7 @@ def test_sync_sector_flow_dry_run_skips_external_access(tmp_path) -> None:
 def test_sync_sector_flow_imports_history_json(monkeypatch, tmp_path) -> None:
     FakeRepo.created = 0
     FakeRepo.calls = []
+    FakeRepo.code_by_name = {}
     history_file = tmp_path / "2026-06-26.json"
     history_file.write_text(
         json.dumps(
@@ -115,6 +121,86 @@ def test_sync_sector_flow_imports_history_json(monkeypatch, tmp_path) -> None:
     call = FakeRepo.calls[0]
     assert call["source_type"] == "json_import"
     assert call["records"][0]["sector_name"] == "软件服务"
+
+
+def test_sync_sector_flow_reports_parent_progress(monkeypatch, tmp_path) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    FakeRepo.code_by_name = {}
+    history_file = tmp_path / "2026-06-26.json"
+    history_file.write_text(
+        json.dumps(
+            {
+                "totalPages": 1,
+                "pageRowCounts": [1],
+                "fetchedAt": "2026-06-26T15:10:00",
+                "rows": [{"行业": "软件服务", "净额(亿)": "6", "流入资金(亿)": "10", "流出资金(亿)": "4"}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sync_sector_flow, "SectorFundFlowRepository", FakeRepo)
+    context = PipelineContext(hooks=FakeHooks())
+    context.job_store.mark_started(
+        "parent_run",
+        JobRequest(job_key="market_sentiment_chain_refresh", dry_run=False, params={}),
+        datetime.now(timezone.utc),
+    )
+
+    sync_sector_flow.run(
+        context,
+        JobRequest(
+            job_key="sync_fund_flow",
+            dry_run=False,
+            params={
+                "history_path": str(history_file),
+                "trade_date": "2026-06-26",
+                "progress_run_id": "parent_run",
+                "progress_step_code": "ths_industry_fund_flow_daily",
+                "progress_base_metadata": {"lastCompletedSteps": ["market_overview_daily"]},
+                "progress_parent_rows_read": 10,
+                "progress_parent_rows_written": 10,
+                "progress_update_every_items": 1,
+            },
+        ),
+    )
+
+    record = context.job_store.get("parent_run")
+    progress = record["metadata"]["currentStepProgress"]
+    assert record["rows_read"] == 11
+    assert record["rows_written"] == 11
+    assert progress["step"] == "ths_industry_fund_flow_daily"
+    assert progress["unitLabel"] == "快照"
+    assert progress["processedItems"] == 1
+    assert progress["totalItems"] == 1
+
+
+def test_sync_sector_flow_enriches_missing_industry_code(monkeypatch, tmp_path) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    FakeRepo.code_by_name = {"软件服务": "881121"}
+    history_file = tmp_path / "2026-06-26.json"
+    history_file.write_text(
+        json.dumps(
+            {
+                "totalPages": 1,
+                "pageRowCounts": [1],
+                "rows": [{"行业": "软件服务", "净额(亿)": "6"}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sync_sector_flow, "SectorFundFlowRepository", FakeRepo)
+
+    result = sync_sector_flow.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(job_key="sync_fund_flow", dry_run=False, params={"history_path": str(history_file), "trade_date": "2026-06-26"}),
+    )
+
+    assert result["sector_code_mapping_count"] == 1
+    assert FakeRepo.calls[0]["records"][0]["sector_code"] == "881121"
 
 
 def test_sync_stock_flow_dry_run_skips_external_access(tmp_path) -> None:
