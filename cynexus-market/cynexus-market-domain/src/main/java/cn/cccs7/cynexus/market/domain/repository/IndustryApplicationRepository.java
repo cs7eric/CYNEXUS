@@ -26,4 +26,6 @@ public interface IndustryApplicationRepository {
     IndustryApplicationBO.FundFlowSnapshot getFundFlow(LocalDate tradeDate, Integer top);
 
     IndustryApplicationBO.FundFlowHistory getFundFlowHistory(LocalDate maxTradeDate, int days, Integer top);
+
+    IndustryApplicationBO.TdxFundFlowSnapshot getTdxFundFlow(String targetType, String symbol, LocalDate tradeDate, int days);
 }

@@ -10,6 +10,8 @@ import cn.cccs7.cynexus.market.api.dto.MarketPulseManualFundFlowDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewEltdxDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewHistoryDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseSectorSnapshotDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseSectorSnapshotHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseStyleSectorConstituentsDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseStyleSectorListDTO;
 import cn.cccs7.cynexus.market.api.request.MarketPulseManualFundFlowRequest;
@@ -64,6 +66,16 @@ public class MarketPulseQueryController {
     @GetMapping("/market-overview-akshare/history")
     public Result<MarketPulseOverviewHistoryDTO> getMarketOverviewHistory(@RequestParam(defaultValue = "60d") String range) {
         return Result.success(marketPulseQueryAppService.getOverviewHistory(range));
+    }
+
+    @GetMapping("/sector-snapshot/latest")
+    public Result<MarketPulseSectorSnapshotDTO> getLatestSectorSnapshot() {
+        return Result.success(marketPulseQueryAppService.getLatestSectorSnapshot());
+    }
+
+    @GetMapping("/sector-snapshot/history")
+    public Result<MarketPulseSectorSnapshotHistoryDTO> getSectorSnapshotHistory(@RequestParam(defaultValue = "120") int days) {
+        return Result.success(marketPulseQueryAppService.getSectorSnapshotHistory(days));
     }
 
     @GetMapping("/market-overview-manual-fund-flow")

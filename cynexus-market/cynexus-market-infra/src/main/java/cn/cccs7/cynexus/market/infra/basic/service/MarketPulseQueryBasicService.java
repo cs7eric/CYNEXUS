@@ -4,7 +4,9 @@ import cn.cccs7.cynexus.market.infra.basic.entity.HeatmapSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndexReturnDailyPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailySnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailyStockPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseCaptureBatchPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseSectorDailySnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +25,16 @@ public interface MarketPulseQueryBasicService {
     Optional<MarketOverviewPO> findManualFundFlow(LocalDate tradeDate);
 
     void upsertManualFundFlow(LocalDate tradeDate, MarketOverviewPO value);
+
+    Optional<LocalDate> findLatestPulseTradeDate(LocalDate endDate);
+
+    Optional<MarketPulseCaptureBatchPO> findLatestPulseBatch(LocalDate tradeDate);
+
+    List<LocalDate> listLatestPulseTradeDates(int limit);
+
+    List<MarketPulseSectorDailySnapshotPO> listPulseRowsByTradeDate(LocalDate tradeDate);
+
+    List<MarketPulseSectorDailySnapshotPO> listPulseRowsByTradeDates(List<LocalDate> tradeDates);
 
     List<StyleSectorSnapshotPO> listLatestStyleSectors();
 

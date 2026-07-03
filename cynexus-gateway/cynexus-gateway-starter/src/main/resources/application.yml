@@ -12,7 +12,7 @@ spring:
       - optional:nacos:cynexus-common.yml
   cloud:
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:10848}
       username: ${NACOS_USERNAME:}
       password: ${NACOS_PASSWORD:}
       discovery:

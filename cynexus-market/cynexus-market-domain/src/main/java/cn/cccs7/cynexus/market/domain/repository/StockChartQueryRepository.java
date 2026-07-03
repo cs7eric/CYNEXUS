@@ -9,7 +9,7 @@ public interface StockChartQueryRepository {
 
     List<StockChartBO.SearchItem> search(String keyword, int limit);
 
-    List<StockChartBO.Bar> listDailyBars(String targetType, String symbol, int limit);
+    List<StockChartBO.Bar> listDailyBars(String targetType, String symbol, int limit, String adjust);
 
     Optional<LocalDate> findLatestMinuteDate(String targetType, String symbol, LocalDate requestedDate);
 
@@ -28,4 +28,20 @@ public interface StockChartQueryRepository {
     StockChartBO.SectorStocks sectorStocks(String sectorId, Integer categoryRaw, String topicId, String name, int limit);
 
     StockChartBO.FundFlowSnapshot fundFlow(String symbol);
+
+    StockChartBO.F10Valuation valuation(String symbol, String reqId);
+
+    StockChartBO.F10FinanceReport financeReport(String symbol, String reportType);
+
+    StockChartBO.F10BusinessComposition businessComposition(String symbol, String reportDate);
+
+    StockChartBO.F10ProfitForecast profitForecast(String symbol);
+
+    StockChartBO.F10Announcements announcements(String symbol);
+
+    StockChartBO.F10News news(String symbol);
+
+    StockChartBO.F10Roadshows roadshows(String symbol);
+
+    StockChartBO.F10CompanyNews companyNews(String symbol, String section);
 }

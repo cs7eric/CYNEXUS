@@ -7,6 +7,7 @@ from typing import Any
 from cynexus_data.domain.market.market_pulse import build_market_pulse_rows, build_strong_and_flow_payload
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.sources.akshare.client import AkshareClient
 from cynexus_data.storage.postgres.fund_flow import SectorFundFlowRepository
 from cynexus_data.storage.postgres.market_pulse import MarketPulseRepository
 
@@ -36,13 +37,35 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     repo = MarketPulseRepository(pg)
     if create_table:
         repo.create_table()
-    raw_rows = manual_rows if manual_rows is not None else SectorFundFlowRepository(pg).get_daily_snapshot(trade_date)
+    raw_rows: list[dict[str, Any]]
+    source_kind = "json_import" if manual_rows is not None else "fund_flow_snapshot"
+    source_name = "manual.rows" if manual_rows is not None else "sector_fund_flow_daily_snapshots"
+    extra: dict[str, Any] = {}
+    if manual_rows is not None:
+        raw_rows = manual_rows
+    else:
+        live_rows = _fetch_live_rows_if_needed(trade_date=trade_date, params=request.params)
+        if live_rows:
+            raw_rows = live_rows
+            source_kind = "live_capture"
+            source_name = "akshare.stock_fund_flow_industry"
+            extra = {"capturedDuringTrading": True}
+        else:
+            raw_rows = SectorFundFlowRepository(pg).get_daily_snapshot(trade_date)
     pulse_rows = build_market_pulse_rows(raw_rows, trade_date=trade_date)
     if not pulse_rows:
         return {**result, "skipped": True, "skip_reason": "no_sector_fund_flow_rows"}
     result["rows_read"] = len(raw_rows)
-    result["rows_written"] = repo.replace_snapshot(trade_date=trade_date, rows=pulse_rows)
+    result["rows_written"] = repo.replace_snapshot(
+        trade_date=trade_date,
+        rows=pulse_rows,
+        source_kind=source_kind,
+        source_name=source_name,
+        extra=extra,
+    )
     result["payload"] = build_strong_and_flow_payload(pulse_rows, trade_date=trade_date)
+    result["source_kind"] = source_kind
+    result["source_name"] = source_name
     return result
 
 
@@ -71,3 +94,14 @@ def _truthy(value: Any) -> bool:
     if value is None:
         return False
     return str(value).lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _fetch_live_rows_if_needed(*, trade_date: date, params: dict[str, Any]) -> list[dict[str, Any]]:
+    if _truthy(params.get("disable_live")):
+        return []
+    if trade_date != date.today() and not _truthy(params.get("force_live")):
+        return []
+    try:
+        return AkshareClient().fetch_market_pulse_industry()
+    except Exception:
+        return []

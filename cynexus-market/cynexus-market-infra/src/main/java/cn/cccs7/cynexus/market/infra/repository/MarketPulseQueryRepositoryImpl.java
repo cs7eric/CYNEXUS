@@ -5,7 +5,9 @@ import cn.cccs7.cynexus.market.domain.entity.IndexMinuteBarBO;
 import cn.cccs7.cynexus.market.domain.entity.IndexReturnDailyBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketLimitDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketLimitDailyStockBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketPulseCaptureBatchBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketOverviewBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketPulseSectorDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
 import cn.cccs7.cynexus.market.infra.basic.service.MarketPulseQueryBasicService;
@@ -14,7 +16,9 @@ import cn.cccs7.cynexus.market.infra.convert.HeatmapSnapshotPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.IndexReturnDailyPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.MarketLimitDailySnapshotPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.MarketLimitDailyStockPOConverter;
+import cn.cccs7.cynexus.market.infra.convert.MarketPulseCaptureBatchPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.MarketOverviewPOConverter;
+import cn.cccs7.cynexus.market.infra.convert.MarketPulseSectorDailySnapshotPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.StyleSectorSnapshotPOConverter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -62,6 +66,36 @@ public class MarketPulseQueryRepositoryImpl implements MarketPulseQueryRepositor
     @Override
     public void upsertManualFundFlow(LocalDate tradeDate, MarketOverviewBO value) {
         marketPulseQueryBasicService.upsertManualFundFlow(tradeDate, MarketOverviewPOConverter.INSTANCE.toSource(value));
+    }
+
+    @Override
+    public Optional<LocalDate> findLatestPulseTradeDate(LocalDate endDate) {
+        return marketPulseQueryBasicService.findLatestPulseTradeDate(endDate);
+    }
+
+    @Override
+    public Optional<MarketPulseCaptureBatchBO> findLatestPulseBatch(LocalDate tradeDate) {
+        return marketPulseQueryBasicService.findLatestPulseBatch(tradeDate)
+                .map(MarketPulseCaptureBatchPOConverter.INSTANCE::toTarget);
+    }
+
+    @Override
+    public List<LocalDate> listLatestPulseTradeDates(int limit) {
+        return marketPulseQueryBasicService.listLatestPulseTradeDates(limit);
+    }
+
+    @Override
+    public List<MarketPulseSectorDailySnapshotBO> listPulseRowsByTradeDate(LocalDate tradeDate) {
+        return MarketPulseSectorDailySnapshotPOConverter.INSTANCE.toTargetList(
+                marketPulseQueryBasicService.listPulseRowsByTradeDate(tradeDate)
+        );
+    }
+
+    @Override
+    public List<MarketPulseSectorDailySnapshotBO> listPulseRowsByTradeDates(List<LocalDate> tradeDates) {
+        return MarketPulseSectorDailySnapshotPOConverter.INSTANCE.toTargetList(
+                marketPulseQueryBasicService.listPulseRowsByTradeDates(tradeDates)
+        );
     }
 
     @Override

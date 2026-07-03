@@ -4,7 +4,9 @@ import cn.cccs7.cynexus.market.infra.basic.entity.HeatmapSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndexReturnDailyPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailySnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailyStockPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseCaptureBatchPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseSectorDailySnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -42,6 +44,16 @@ public interface MarketPulseQueryMapper {
     );
 
     int insertManualFundFlow(@Param("value") MarketOverviewPO value);
+
+    LocalDate findLatestPulseTradeDate(@Param("endDate") LocalDate endDate);
+
+    MarketPulseCaptureBatchPO findLatestPulseBatch(@Param("tradeDate") LocalDate tradeDate);
+
+    List<LocalDate> listLatestPulseTradeDates(@Param("limit") int limit);
+
+    List<MarketPulseSectorDailySnapshotPO> listPulseRowsByTradeDate(@Param("tradeDate") LocalDate tradeDate);
+
+    List<MarketPulseSectorDailySnapshotPO> listPulseRowsByTradeDates(@Param("tradeDates") List<LocalDate> tradeDates);
 
     List<StyleSectorSnapshotPO> listLatestStyleSectors();
 

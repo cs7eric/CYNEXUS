@@ -223,4 +223,211 @@ public final class StockChartBO {
         private BigDecimal unmatchedBuyVolume;
         private BigDecimal unmatchedSellVolume;
     }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ValuationRow {
+        private String date;
+        private BigDecimal peTtm;
+        private BigDecimal peBfw;
+        private BigDecimal pbMrq;
+        private BigDecimal pbBfw;
+        private BigDecimal pcfOcfTtm;
+        private BigDecimal pcfBfw;
+        private BigDecimal psTtm;
+        private BigDecimal psBfw;
+        private BigDecimal peg;
+        private BigDecimal avgMarketCap;
+        private BigDecimal aliqMarketCap;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10Valuation {
+        private String symbol;
+        private String reqId;
+        private List<F10ValuationRow> rows;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10FinanceReportRow {
+        private String rq;
+        private Map<String, Object> fields;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10FinanceReport {
+        private String symbol;
+        private String reportType;
+        private List<F10FinanceReportRow> rows;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10BusinessCompositionItem {
+        private String category;
+        private String subType;
+        private String name;
+        private BigDecimal revenue;
+        private BigDecimal ratio;
+        private List<Object> extras;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10BusinessComposition {
+        private String symbol;
+        private String reportDate;
+        private List<F10BusinessCompositionItem> items;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ProfitForecastItem {
+        private String year;
+        private BigDecimal netProfit;
+        private BigDecimal eps;
+        private BigDecimal revenue;
+        private List<Object> extras;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ProfitForecast {
+        private String symbol;
+        private List<F10ProfitForecastItem> items;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10AnnouncementItem {
+        private String issueDate;
+        private String title;
+        private String typecode;
+        private String typename;
+        private String recId;
+        private String tableid;
+        private String url;
+        private String redistime;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10Announcements {
+        private String symbol;
+        private List<F10AnnouncementItem> items;
+        private Integer count;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10NewsItem {
+        private String issueDate;
+        private String title;
+        private String recId;
+        private String tableid;
+        private String redistime;
+        private String source;
+        private String relatecolumn;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10News {
+        private String symbol;
+        private List<F10NewsItem> items;
+        private Integer count;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10RoadshowItem {
+        private String title;
+        private String roadshowType;
+        private String startDate;
+        private String startTime;
+        private String endTime;
+        private String summary;
+        private String url;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10Roadshows {
+        private String symbol;
+        private List<F10RoadshowItem> items;
+        private Integer count;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10CompanyNewsItem {
+        private String rating;
+        private String analysts;
+        private String recId;
+        private String issueDate;
+        private String title;
+        private String nflag;
+        private String docHash;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10CompanyNews {
+        private String symbol;
+        private String section;
+        private List<F10CompanyNewsItem> items;
+        private Integer count;
+        private OffsetDateTime fetchedAt;
+        private String source;
+    }
 }

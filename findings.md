@@ -427,3 +427,27 @@ Required market modules:
 - Current local `ths_industry_constituent_snapshot` has snapshot date `2026-06-26`, 4,663 rows, and 90 distinct industry codes.
 - Before repair, latest local industry fund-flow rows for 2026-06-29, 2026-06-30, and 2026-07-01 each had 90 rows with 90 missing `sector_code` values.
 - Historical industry fund-flow rows contain a full 90-row `sector_name -> sector_code` mapping, so the safe repair path is to update only alive `scope='industry'` rows where `sector_code` is null/empty and the name matches a historical mapped row.
+
+## F10 Query Chain Migration Findings
+
+- User confirmed the target architecture is `cynexus-ui -> cynexus-market -> cynexus-data`; UI must not call old Python F10 routes directly.
+- `cynexus-ui/src/components/stock-detail-dialog.tsx` still imports all F10 data from `@/services/legacy/f10`, while stock K-line/meta/sector data already comes from `@/services/market/stock-chart`.
+- The current dialog actually uses these F10 scopes:
+  - `valuation`
+  - `business-composition`
+  - `finance-report`
+  - `announcements`
+  - `news`
+  - `roadshows`
+  - `company-news`
+- The legacy Python F10 surface also includes `profit-forecast`, and it should be migrated with the same chain for completeness even if the dialog does not render it yet.
+- Old Python F10 is a cached source-facing adapter layer over `eltdx`; cache lives under `reference/stock/cache/f10/<scope>/...`, but the user explicitly wants the new path to be service-to-service, not UI-to-Python.
+- `cynexus-data` already has a single FastAPI internal app at `src/cynexus_data/interfaces/trigger_api/app.py` with `/internal/*` endpoints. There is no existing internal query router beyond job-trigger/status APIs.
+- `cynexus-core` already demonstrates the preferred new-project cross-service pattern for Python calls: a typed domain client backed by a small infra HTTP client (`HttpDataJobExecutorClient`), not a frontend proxy or ad hoc controller shortcut.
+- `cynexus-market` stock-chart query stack already uses the right layering for this page family:
+  - controller: `StockChartQueryController`
+  - app service: `StockChartQueryAppService`
+  - domain repository: `StockChartQueryRepository`
+  - infra repo/client: `StockChartQueryRepositoryImpl`
+- `StockChartDTO` / `StockChartBO` currently have no F10 DTO/BO types, so the migration needs explicit typed contracts instead of reusing `Map`/`JsonNode`.
+- Attempting the planning skill catch-up script at `C:\Users\Cs7er\.claude\skills\planning-with-files\scripts\session-catchup.py` failed because that path does not exist in this environment. The actual installed script is under `C:\Users\Cs7er\.agents\skills\planning-with-files\scripts\session-catchup.py`.

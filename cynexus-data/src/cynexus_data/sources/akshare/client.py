@@ -22,6 +22,33 @@ class AkshareClient:
             raise RuntimeError("akshare returned empty market overview datasets")
         return out
 
+    def fetch_market_pulse_industry(self) -> list[dict[str, Any]]:
+        ak = self.require_module()
+        frame = ak.stock_fund_flow_industry()
+        if frame is None or frame.empty:
+            return []
+        out: list[dict[str, Any]] = []
+        for _, row in frame.iterrows():
+            name = _clean_text(row.get("行业"))
+            if not name:
+                continue
+            out.append({
+                "sector_name": name,
+                "sector_index": _clean_text(row.get("行业指数")),
+                "change_pct": _single_numeric(row.get("行业-涨跌幅")),
+                "inflow": _single_numeric(row.get("流入资金")),
+                "outflow": _single_numeric(row.get("流出资金")),
+                "main_net": _single_numeric(row.get("净额")),
+                "stock_count": _single_int(row.get("公司家数")),
+                "leading_stock": _clean_text(row.get("领涨股")),
+                "leading_change_pct": _single_numeric(row.get("领涨股-涨跌幅")),
+                "leading_price": _single_numeric(row.get("当前价")),
+                "extra": {
+                    "source": "akshare.stock_fund_flow_industry",
+                },
+            })
+        return out
+
 
 def _summarize_spot(frame) -> dict[str, Any]:
     out: dict[str, Any] = {}
@@ -116,3 +143,15 @@ def _single_numeric(value: Any) -> float | None:
     if pd.isna(parsed):
         return None
     return float(parsed)
+
+
+def _single_int(value: Any) -> int | None:
+    parsed = _single_numeric(value)
+    return int(parsed) if parsed is not None else None
+
+
+def _clean_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None

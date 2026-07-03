@@ -27,6 +27,9 @@ final class SchedulerDataJobKeyResolver {
             entry("ths_industry_constituents_daily", "sync_ths_industry_constituents"),
             entry("ths_industry_constituents_weekly", "sync_ths_industry_constituents"),
             entry("ths_industry_fund_flow_daily", "sync_fund_flow"),
+            entry("tdx_industry_fund_flow_daily", "sync_tdx_industry_fund_flow", Map.ofEntries(
+                    Map.entry("create_table", true)
+            )),
             entry("turnover", "sync_stock_turnover", Map.ofEntries(
                     Map.entry("create_table", true),
                     Map.entry("target_type", "stock"),
@@ -61,15 +64,45 @@ final class SchedulerDataJobKeyResolver {
             entry("turnover_activity_refresh", "build_turnover_activity"),
             entry("volatility_sentiment_refresh", "build_volatility_sentiment"),
             entry("market_overview_daily", "build_market_overview"),
-            entry("market_overview_inside", "build_market_overview"),
-            entry("market_overview_close", "build_market_overview"),
-            entry("market_overview_warmup", "build_market_overview"),
-            entry("eltdx_overview_inside", "build_market_overview"),
-            entry("eltdx_overview_close", "build_market_overview"),
-            entry("eltdx_overview_warmup", "build_market_overview"),
-            entry("market_pulse_inside", "build_market_pulse"),
-            entry("market_pulse_close", "build_market_pulse"),
-            entry("market_pulse_constituents", "build_market_pulse"),
+            entry("market_overview_inside", "build_market_overview", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("source", "akshare"),
+                    Map.entry("lock_scope", "akshare")
+            )),
+            entry("market_overview_close", "build_market_overview", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("source", "akshare"),
+                    Map.entry("lock_scope", "akshare")
+            )),
+            entry("market_overview_warmup", "build_market_overview", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("source", "akshare"),
+                    Map.entry("lock_scope", "akshare")
+            )),
+            entry("eltdx_overview_inside", "build_market_overview", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("source", "eltdx"),
+                    Map.entry("lock_scope", "eltdx")
+            )),
+            entry("eltdx_overview_close", "build_market_overview", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("source", "eltdx"),
+                    Map.entry("lock_scope", "eltdx")
+            )),
+            entry("eltdx_overview_warmup", "build_market_overview", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("source", "eltdx"),
+                    Map.entry("lock_scope", "eltdx")
+            )),
+            entry("market_pulse_inside", "build_market_pulse", Map.ofEntries(
+                    Map.entry("create_table", true)
+            )),
+            entry("market_pulse_close", "build_market_pulse", Map.ofEntries(
+                    Map.entry("create_table", true)
+            )),
+            entry("market_pulse_constituents", "sync_ths_industry_constituents", Map.ofEntries(
+                    Map.entry("create_table", true)
+            )),
             entry("auction_ai_analysis", "sync_tdx_intraday_detail", Map.of(
                     "datasets", List.of("auction"),
                     "create_table", true

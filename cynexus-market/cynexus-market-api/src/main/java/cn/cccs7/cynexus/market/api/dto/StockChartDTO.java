@@ -384,4 +384,211 @@ public final class StockChartDTO {
         @JsonProperty("60m")
         private List<KlineBarDTO> sixtyMinute;
     }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ValuationRowDTO {
+        private String date;
+        private BigDecimal peTtm;
+        private BigDecimal peBfw;
+        private BigDecimal pbMrq;
+        private BigDecimal pbBfw;
+        private BigDecimal pcfOcfTtm;
+        private BigDecimal pcfBfw;
+        private BigDecimal psTtm;
+        private BigDecimal psBfw;
+        private BigDecimal peg;
+        private BigDecimal avgMarketCap;
+        private BigDecimal aliqMarketCap;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ValuationDTO {
+        private String symbol;
+        private String reqId;
+        private List<F10ValuationRowDTO> rows;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10FinanceReportRowDTO {
+        private String rq;
+        private Map<String, Object> fields;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10FinanceReportDTO {
+        private String symbol;
+        private String reportType;
+        private List<F10FinanceReportRowDTO> rows;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10BusinessCompositionItemDTO {
+        private String category;
+        private String subType;
+        private String name;
+        private BigDecimal revenue;
+        private BigDecimal ratio;
+        private List<Object> extras;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10BusinessCompositionDTO {
+        private String symbol;
+        private String reportDate;
+        private List<F10BusinessCompositionItemDTO> items;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ProfitForecastItemDTO {
+        private String year;
+        private BigDecimal netProfit;
+        private BigDecimal eps;
+        private BigDecimal revenue;
+        private List<Object> extras;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10ProfitForecastDTO {
+        private String symbol;
+        private List<F10ProfitForecastItemDTO> items;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10AnnouncementItemDTO {
+        private String issueDate;
+        private String title;
+        private String typecode;
+        private String typename;
+        private String recId;
+        private String tableid;
+        private String url;
+        private String redistime;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10AnnouncementsDTO {
+        private String symbol;
+        private List<F10AnnouncementItemDTO> items;
+        private Integer count;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10NewsItemDTO {
+        private String issueDate;
+        private String title;
+        private String recId;
+        private String tableid;
+        private String redistime;
+        private String source;
+        private String relatecolumn;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10NewsDTO {
+        private String symbol;
+        private List<F10NewsItemDTO> items;
+        private Integer count;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10RoadshowItemDTO {
+        private String title;
+        private String roadshowType;
+        private String startDate;
+        private String startTime;
+        private String endTime;
+        private String summary;
+        private String url;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10RoadshowsDTO {
+        private String symbol;
+        private List<F10RoadshowItemDTO> items;
+        private Integer count;
+        private String fetchedAt;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10CompanyNewsItemDTO {
+        private String rating;
+        private String analysts;
+        private String recId;
+        private String issueDate;
+        private String title;
+        private String nflag;
+        private String docHash;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class F10CompanyNewsDTO {
+        private String symbol;
+        private String section;
+        private List<F10CompanyNewsItemDTO> items;
+        private Integer count;
+        private String fetchedAt;
+        private String source;
+    }
 }

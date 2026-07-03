@@ -43,7 +43,7 @@ public class IndustryApplicationAppService {
         return IndustryApplicationDTO.TargetCodesResponse.builder()
                 .items(items)
                 .count(items.size())
-                .source("java-static-tdx-index-codes")
+                .source("clickhouse.daily_raw+postgres.target_catalog")
                 .build();
     }
 
@@ -80,7 +80,7 @@ public class IndustryApplicationAppService {
                 .industryCount((int) items.stream().filter(item -> "industry".equals(item.getKind())).count())
                 .conceptCount((int) items.stream().filter(item -> "concept".equals(item.getKind())).count())
                 .fetchedAt(OffsetDateTime.now())
-                .source("tdx.local_day")
+                .source("clickhouse.daily_raw")
                 .build();
     }
 
@@ -96,6 +96,14 @@ public class IndustryApplicationAppService {
         Integer normalizedTop = top == null || top <= 0 ? null : Math.min(top, 500);
         return converter.toFundFlowHistoryResponse(
                 industryApplicationRepository.getFundFlowHistory(parsedMaxTradeDate, normalizedDays, normalizedTop)
+        );
+    }
+
+    public IndustryApplicationDTO.TdxFundFlowResponse getTdxFundFlow(String targetType, String symbol, String tradeDate, int days) {
+        LocalDate parsedTradeDate = parseTradeDate(tradeDate);
+        int normalizedDays = Math.max(1, Math.min(days <= 0 ? 30 : days, 252));
+        return converter.toTdxFundFlowResponse(
+                industryApplicationRepository.getTdxFundFlow(targetType, symbol, parsedTradeDate, normalizedDays)
         );
     }
 

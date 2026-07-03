@@ -18,6 +18,8 @@ Market heatmaps use `mkt_heatmap_snapshot` for compact JSONB UI payloads derived
 
 TDX sector quote details use `tdx_sector_quote_detail_snapshot` for JSONB `theme_market` sections keyed by date and industry code.
 
+TDX industry fund flow uses `tdx_industry_fund_flow_*` for one selected daily `theme_market 200742` serving row per TDX 56 industry.
+
 Stock turnover uses `stock_turnover_series_snapshot` for compact per-stock turnover JSONB series; raw OHLCV stays in ClickHouse.
 
 Limit emotion stock lists write the existing Java-facing `market_limit_daily_stocks` for compact limit-up, limit-down, and broken-board serving rows. Raw OHLCV and intraday facts stay in ClickHouse.

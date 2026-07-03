@@ -42,14 +42,14 @@ services:
       JVM_XMN: "128m"
 
     ports:
-      # Nacos 控制台 / HTTP API / 客户端主端口
-      - "8848:8848"
+      # 宿主机改用 10848/11848/11849，避开当前 Windows 预留的 9848/9849 端口区间
+      - "10848:8848"
 
-      # Nacos 2.x 客户端 gRPC 端口，Spring Cloud Alibaba 连接时需要
-      - "9848:9848"
+      # 本机直连 Nacos 2.x 客户端时，gRPC 端口会按主端口偏移到 11848
+      - "11848:9848"
 
-      # Nacos 2.x 服务端 gRPC 端口；本地单机一般不用，但显式暴露便于排查
-      - "9849:9849"
+      # 服务端 gRPC 端口一并平移，便于本地排查
+      - "11849:9849"
 
     volumes:
       - ./nacos/data:/home/nacos/data
@@ -145,10 +145,16 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-C020611.}
       DUCKDB_PATH: /app/var/market_data.duckdb
       TDX_ROOT: /app/var/tdx/day/hsjday
+      CYNEXUS_MEDIA_TRANSCRIPTION_WORK_ROOT: /app/var/media-transcription
+      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER:-cynexus_data.pipelines.transcription.providers.transformers_whisper:TransformersWhisperTranscriber}
+      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS:-}
+      CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE: ${CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE:-zh}
+      CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH: ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH:-/models/transcription/whisper-large-v3}
     ports:
       - "127.0.0.1:18083:18083"
     volumes:
       - ../../cynexus-data/var:/app/var
+      - ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_HOST_PATH:-../../cynexus-data/var/models}:/models/transcription:ro
     healthcheck:
       test:
         [

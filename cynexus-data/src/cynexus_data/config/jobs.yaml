@@ -217,6 +217,20 @@ jobs:
       timeout_seconds: optional
       source: optional
 
+  sync_tdx_industry_fund_flow:
+    description: Sync TDX 56 industry fund-flow daily snapshots into PostgreSQL.
+    params:
+      snapshot_date: optional
+      trade_date: optional
+      codes: optional
+      code: optional
+      rows: optional
+      create_table: optional
+      pool_size: optional
+      timeout: optional
+      timeout_seconds: optional
+      source: optional
+
   sync_tdx_sector_quote_details:
     description: Sync TDX sector theme-market detail snapshots into PostgreSQL.
     params:

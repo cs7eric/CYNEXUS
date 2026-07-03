@@ -5,6 +5,9 @@ import logging
 
 from fastapi import FastAPI
 
+from cynexus_data.interfaces.trigger_api.f10_routes import router as f10_router
+from cynexus_data.interfaces.trigger_api.industry_application_routes import router as industry_application_router
+from cynexus_data.interfaces.trigger_api.media_transcription_routes import router as media_transcription_router
 from cynexus_data.interfaces.trigger_api.routes import router
 from cynexus_data.interfaces.trigger_api.routes import _context
 
@@ -15,6 +18,9 @@ log = logging.getLogger(__name__)
 def create_app() -> FastAPI:
     app = FastAPI(title="cynexus-data internal trigger API", version="0.1.0")
     app.include_router(router)
+    app.include_router(f10_router)
+    app.include_router(industry_application_router)
+    app.include_router(media_transcription_router)
 
     @app.on_event("startup")
     def recover_interrupted_runs() -> None:

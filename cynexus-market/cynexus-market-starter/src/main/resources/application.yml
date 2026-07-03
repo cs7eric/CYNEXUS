@@ -18,7 +18,7 @@ spring:
       - optional:nacos:cynexus-common.yml
   cloud:
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:10848}
       username: ${NACOS_USERNAME:}
       password: ${NACOS_PASSWORD:}
       discovery:
@@ -70,6 +70,11 @@ jobrunr:
     enabled: false
 
 cynexus:
+  data:
+    query-api:
+      base-url: ${CYNEXUS_DATA_QUERY_API_BASE_URL:http://127.0.0.1:18083}
+      internal-token: ${CYNEXUS_DATA_INTERNAL_TOKEN:}
+      timeout-ms: ${CYNEXUS_DATA_QUERY_API_TIMEOUT_MS:10000}
   market:
     clickhouse:
       url: ${CLICKHOUSE_HTTP_URL:http://127.0.0.1:28123}

@@ -100,7 +100,7 @@ class JobRunner:
             )
             self.context.job_store.mark_finished(result)
             return result
-        lock_key = f"job:{request.job_key}"
+        lock_key = self._build_lock_key(request)
         with self.context.locks.acquire(lock_key, run_id) as acquired:
             if not acquired:
                 result = JobResult(
@@ -130,3 +130,14 @@ class JobRunner:
             result.finished_at = datetime.now(timezone.utc)
         self.context.job_store.mark_finished(result)
         return result
+
+    @staticmethod
+    def _build_lock_key(request: JobRequest) -> str:
+        params = request.params or {}
+        scope = params.get("lock_scope")
+        if scope is None:
+            return f"job:{request.job_key}"
+        text = str(scope).strip()
+        if not text:
+            return f"job:{request.job_key}"
+        return f"job:{request.job_key}:{text}"

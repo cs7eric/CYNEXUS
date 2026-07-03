@@ -23,6 +23,36 @@ class MarketPulseRepository:
 
     def create_table(self) -> None:
         self.client.apply_sql_file(Path(DDL_PATH))
+        self.ensure_runtime_compat()
+
+    def ensure_runtime_compat(self) -> None:
+        with self.client.session() as db:
+            db.execute(
+                text(
+                    f"""
+                    DO $$
+                    DECLARE
+                        constraint_def text;
+                    BEGIN
+                        SELECT pg_get_constraintdef(c.oid)
+                          INTO constraint_def
+                          FROM pg_constraint c
+                          JOIN pg_class t ON c.conrelid = t.oid
+                          JOIN pg_namespace n ON t.relnamespace = n.oid
+                         WHERE n.nspname = '{self.client.schema}'
+                           AND t.relname = '{CAPTURE_TABLE}'
+                           AND c.conname = 'ck_market_pulse_capture_batches_source_kind';
+                        IF constraint_def IS NULL OR position('fund_flow_snapshot' in constraint_def) = 0 THEN
+                            ALTER TABLE {self.client.schema}.{CAPTURE_TABLE}
+                                DROP CONSTRAINT IF EXISTS ck_market_pulse_capture_batches_source_kind;
+                            ALTER TABLE {self.client.schema}.{CAPTURE_TABLE}
+                                ADD CONSTRAINT ck_market_pulse_capture_batches_source_kind
+                                CHECK (source_kind IN ('fund_flow_snapshot', 'live_capture', 'duckdb_import', 'json_import'));
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
 
     def replace_snapshot(
         self,
@@ -34,6 +64,7 @@ class MarketPulseRepository:
         fetched_at: datetime | None = None,
         extra: dict[str, Any] | None = None,
     ) -> int:
+        self.ensure_runtime_compat()
         captured_at = fetched_at or datetime.now(timezone.utc)
         status = "success" if len(rows) >= 80 else "partial"
         with self.client.session() as db:

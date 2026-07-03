@@ -242,6 +242,17 @@ def test_market_sentiment_chain_forces_final_msi_require_full(monkeypatch) -> No
     assert captured["require_full"] is True
 
 
+def test_market_sentiment_chain_includes_market_pulse_snapshot_steps() -> None:
+    steps = [code for code, _ in market_sentiment_chain_refresh.CHAIN_STEPS]
+
+    assert "build_style_sector" in steps
+    assert "build_index_returns" in steps
+    assert "build_market_heatmap" in steps
+    assert steps.index("build_style_sector") > steps.index("qfq_reconciliation_refresh")
+    assert steps.index("build_index_returns") > steps.index("qfq_reconciliation_refresh")
+    assert steps.index("build_market_heatmap") > steps.index("ths_industry_fund_flow_daily")
+
+
 def test_build_style_risk_defaults_to_raw_index_codes(monkeypatch) -> None:
     calls = []
 

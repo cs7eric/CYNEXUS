@@ -69,6 +69,8 @@ public final class IndustryApplicationDTO {
         private String code;
         private String name;
         private String kind;
+        @JsonProperty("tdx_fund_flow_supported")
+        private Boolean tdxFundFlowSupported;
     }
 
     @Data
@@ -254,12 +256,16 @@ public final class IndustryApplicationDTO {
     public static class FundFlowResponse {
         private Boolean ok;
         private String tradeDate;
+        private String requestedTradeDate;
+        private Boolean fallbackTradeDate;
+        private String servingMode;
         private Integer rowCount;
         private Integer totalPages;
         private List<Integer> pageRowCounts;
         private OffsetDateTime fetchedAt;
         private List<FundFlowRow> rows;
         private String source;
+        private String sourceKind;
         private Boolean stale;
         private String staleReason;
         private String error;
@@ -308,5 +314,119 @@ public final class IndustryApplicationDTO {
         private BigDecimal leaderPrice;
         private String tradeDate;
         private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxFundFlowResponse {
+        private Boolean applicable;
+        private Boolean ok;
+        @JsonProperty("target_type")
+        private String targetType;
+        private String symbol;
+        @JsonProperty("requested_trade_date")
+        private String requestedTradeDate;
+        @JsonProperty("trade_date")
+        private String tradeDate;
+        private String code6;
+        @JsonProperty("full_code")
+        private String fullCode;
+        @JsonProperty("tdx_name")
+        private String tdxName;
+        @JsonProperty("flow_sector_name")
+        private String flowSectorName;
+        @JsonProperty("seed_code")
+        private String seedCode;
+        @JsonProperty("flow_trade_date")
+        private String flowTradeDate;
+        @JsonProperty("snapshot_status")
+        private String snapshotStatus;
+        @JsonProperty("selection_mode")
+        private String selectionMode;
+        @JsonProperty("name_match_type")
+        private String nameMatchType;
+        @JsonProperty("main_net")
+        private BigDecimal mainNet;
+        @JsonProperty("large_order_net")
+        private BigDecimal largeOrderNet;
+        @JsonProperty("medium_order_net")
+        private BigDecimal mediumOrderNet;
+        @JsonProperty("small_order_net")
+        private BigDecimal smallOrderNet;
+        @JsonProperty("row_count")
+        private Integer rowCount;
+        @JsonProperty("history_days")
+        private Integer historyDays;
+        private List<TdxFundFlowPoint> history;
+        @JsonProperty("ths_mappings")
+        private List<TdxThsIndustryMapping> thsMappings;
+        private List<TdxFundFlowConstituent> constituents;
+        private String source;
+        private String error;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxFundFlowConstituent {
+        private String code;
+        private String name;
+        private BigDecimal price;
+        @JsonProperty("change_pct")
+        private BigDecimal changePct;
+        @JsonProperty("turnover_pct")
+        private BigDecimal turnoverPct;
+        @JsonProperty("amount_text")
+        private String amountText;
+        private List<String> sources;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxThsIndustryMapping {
+        @JsonProperty("tdx_code6")
+        private String tdxCode6;
+        @JsonProperty("tdx_name")
+        private String tdxName;
+        @JsonProperty("ths_code")
+        private String thsCode;
+        @JsonProperty("ths_name")
+        private String thsName;
+        @JsonProperty("match_type")
+        private String matchType;
+        private BigDecimal confidence;
+        private Integer priority;
+        @JsonProperty("is_primary")
+        private Boolean isPrimary;
+        private String remark;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxFundFlowPoint {
+        @JsonProperty("trade_date")
+        private String tradeDate;
+        @JsonProperty("flow_trade_date")
+        private String flowTradeDate;
+        @JsonProperty("snapshot_status")
+        private String snapshotStatus;
+        @JsonProperty("selection_mode")
+        private String selectionMode;
+        @JsonProperty("main_net")
+        private BigDecimal mainNet;
+        @JsonProperty("large_order_net")
+        private BigDecimal largeOrderNet;
+        @JsonProperty("medium_order_net")
+        private BigDecimal mediumOrderNet;
+        @JsonProperty("small_order_net")
+        private BigDecimal smallOrderNet;
     }
 }

@@ -50,6 +50,7 @@ public final class IndustryApplicationBO {
         private String code;
         private String name;
         private String kind;
+        private Boolean tdxFundFlowSupported;
     }
 
     @Data
@@ -154,12 +155,16 @@ public final class IndustryApplicationBO {
     public static class FundFlowSnapshot {
         private Boolean ok;
         private LocalDate tradeDate;
+        private LocalDate requestedTradeDate;
+        private Boolean fallbackTradeDate;
+        private String servingMode;
         private Integer rowCount;
         private Integer totalPages;
         private List<Integer> pageRowCounts;
         private OffsetDateTime fetchedAt;
         private List<FundFlowRow> rows;
         private String source;
+        private String sourceKind;
         private Boolean stale;
         private String staleReason;
         private String error;
@@ -198,5 +203,84 @@ public final class IndustryApplicationBO {
         private BigDecimal leaderPrice;
         private LocalDate tradeDate;
         private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxFundFlowSnapshot {
+        private Boolean applicable;
+        private Boolean ok;
+        private String targetType;
+        private String symbol;
+        private LocalDate requestedTradeDate;
+        private LocalDate tradeDate;
+        private String code6;
+        private String fullCode;
+        private String tdxName;
+        private String flowSectorName;
+        private String seedCode;
+        private LocalDate flowTradeDate;
+        private String snapshotStatus;
+        private String selectionMode;
+        private String nameMatchType;
+        private BigDecimal mainNet;
+        private BigDecimal largeOrderNet;
+        private BigDecimal mediumOrderNet;
+        private BigDecimal smallOrderNet;
+        private Integer rowCount;
+        private Integer historyDays;
+        private List<TdxFundFlowPoint> history;
+        private List<TdxThsIndustryMapping> thsMappings;
+        private List<TdxFundFlowConstituent> constituents;
+        private String source;
+        private String error;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxFundFlowConstituent {
+        private String code;
+        private String name;
+        private BigDecimal price;
+        private BigDecimal changePct;
+        private BigDecimal turnoverPct;
+        private String amountText;
+        private List<String> sources;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxThsIndustryMapping {
+        private String tdxCode6;
+        private String tdxName;
+        private String thsCode;
+        private String thsName;
+        private String matchType;
+        private BigDecimal confidence;
+        private Integer priority;
+        private Boolean primary;
+        private String remark;
+        private String source;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TdxFundFlowPoint {
+        private LocalDate tradeDate;
+        private LocalDate flowTradeDate;
+        private String snapshotStatus;
+        private String selectionMode;
+        private BigDecimal mainNet;
+        private BigDecimal largeOrderNet;
+        private BigDecimal mediumOrderNet;
+        private BigDecimal smallOrderNet;
     }
 }

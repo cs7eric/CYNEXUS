@@ -11,6 +11,7 @@ import cn.cccs7.cynexus.market.infra.basic.mapper.StockSectorMapper;
 import cn.cccs7.cynexus.market.infra.basic.service.StockBasicBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.StockFundFlowSnapshotBasicService;
 import cn.cccs7.cynexus.market.infra.client.ClickHouseStockChartClient;
+import cn.cccs7.cynexus.market.infra.client.HttpStockChartF10DataClient;
 import cn.cccs7.cynexus.market.infra.client.TdxLocalDayKlineClient;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,17 +35,20 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     private final StockSectorMapper stockSectorMapper;
     private final TdxLocalDayKlineClient tdxLocalDayKlineClient;
     private final ClickHouseStockChartClient clickHouseStockChartClient;
+    private final HttpStockChartF10DataClient stockChartF10DataClient;
 
     public StockChartQueryRepositoryImpl(StockBasicBasicService stockBasicBasicService,
                                          StockFundFlowSnapshotBasicService stockFundFlowSnapshotBasicService,
                                          StockSectorMapper stockSectorMapper,
                                          TdxLocalDayKlineClient tdxLocalDayKlineClient,
-                                         ClickHouseStockChartClient clickHouseStockChartClient) {
+                                         ClickHouseStockChartClient clickHouseStockChartClient,
+                                         HttpStockChartF10DataClient stockChartF10DataClient) {
         this.stockBasicBasicService = stockBasicBasicService;
         this.stockFundFlowSnapshotBasicService = stockFundFlowSnapshotBasicService;
         this.stockSectorMapper = stockSectorMapper;
         this.tdxLocalDayKlineClient = tdxLocalDayKlineClient;
         this.clickHouseStockChartClient = clickHouseStockChartClient;
+        this.stockChartF10DataClient = stockChartF10DataClient;
     }
 
     @Override
@@ -83,7 +87,23 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     }
 
     @Override
-    public List<StockChartBO.Bar> listDailyBars(String targetType, String symbol, int limit) {
+    public List<StockChartBO.Bar> listDailyBars(String targetType, String symbol, int limit, String adjust) {
+        String normalizedTargetType = blankToNull(targetType) == null ? "stock" : targetType.trim();
+        String normalizedAdjust = blankToNull(adjust) == null ? "qfq" : adjust.trim().toLowerCase();
+        if ("stock".equalsIgnoreCase(normalizedTargetType) && "qfq".equals(normalizedAdjust)) {
+            String code = normalizeCode(symbol);
+            return clickHouseStockChartClient.listQfqDailyBars(code, limit).stream()
+                    .map(row -> StockChartBO.Bar.builder()
+                            .tradeDate(row.getTradeDate())
+                            .open(row.getOpen())
+                            .high(row.getHigh())
+                            .low(row.getLow())
+                            .close(row.getClose())
+                            .volume(row.getVolume())
+                            .turnover(row.getAmount())
+                            .build())
+                    .toList();
+        }
         String resolvedSymbol = normalizeTdxSymbol(targetType, symbol);
         return tdxLocalDayKlineClient.readDailyBars(resolvedSymbol, limit).stream()
                 .map(this::dailyBar)
@@ -345,6 +365,46 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                 .build();
     }
 
+    @Override
+    public StockChartBO.F10Valuation valuation(String symbol, String reqId) {
+        return stockChartF10DataClient.valuation(normalizeCode(symbol), reqId);
+    }
+
+    @Override
+    public StockChartBO.F10FinanceReport financeReport(String symbol, String reportType) {
+        return stockChartF10DataClient.financeReport(normalizeCode(symbol), reportType);
+    }
+
+    @Override
+    public StockChartBO.F10BusinessComposition businessComposition(String symbol, String reportDate) {
+        return stockChartF10DataClient.businessComposition(normalizeCode(symbol), reportDate);
+    }
+
+    @Override
+    public StockChartBO.F10ProfitForecast profitForecast(String symbol) {
+        return stockChartF10DataClient.profitForecast(normalizeCode(symbol));
+    }
+
+    @Override
+    public StockChartBO.F10Announcements announcements(String symbol) {
+        return stockChartF10DataClient.announcements(normalizeCode(symbol));
+    }
+
+    @Override
+    public StockChartBO.F10News news(String symbol) {
+        return stockChartF10DataClient.news(normalizeCode(symbol));
+    }
+
+    @Override
+    public StockChartBO.F10Roadshows roadshows(String symbol) {
+        return stockChartF10DataClient.roadshows(normalizeCode(symbol));
+    }
+
+    @Override
+    public StockChartBO.F10CompanyNews companyNews(String symbol, String section) {
+        return stockChartF10DataClient.companyNews(normalizeCode(symbol), blankToNull(section) == null ? "gsyj" : section.trim());
+    }
+
     private StockChartBO.Bar dailyBar(IndustryApplicationBO.Bar bar) {
         return StockChartBO.Bar.builder()
                 .tradeDate(bar.getTradeDate())
@@ -358,7 +418,7 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     }
 
     private StockChartBO.FundFlowSnapshot fundFlowDailyFallback(String code) {
-        List<StockChartBO.Bar> bars = listDailyBars("stock", code, 31);
+        List<StockChartBO.Bar> bars = listDailyBars("stock", code, 31, "none");
         if (bars.isEmpty()) {
             return StockChartBO.FundFlowSnapshot.builder()
                     .ok(false)

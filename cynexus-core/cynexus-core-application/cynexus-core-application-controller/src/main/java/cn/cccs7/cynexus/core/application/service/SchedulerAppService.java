@@ -56,7 +56,7 @@ public class SchedulerAppService {
     private static final Logger log = LoggerFactory.getLogger(SchedulerAppService.class);
     private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String MARKET_SENTIMENT_CHAIN_JOB_CODE = "market_sentiment_chain_refresh";
-    private static final int MARKET_SENTIMENT_CHAIN_STEP_COUNT = 14;
+    private static final int MARKET_SENTIMENT_CHAIN_STEP_COUNT = 17;
 
     private final SchedulerDomainService schedulerDomainService;
     private final ObjectMapper objectMapper;
@@ -879,6 +879,9 @@ public class SchedulerAppService {
     private static String normalizeTriggerStatus(DataJobTriggerResultBO result) {
         if (result == null || result.getStatus() == null || result.getStatus().isBlank()) {
             return "failed";
+        }
+        if ("locked".equalsIgnoreCase(result.getStatus())) {
+            return "skipped";
         }
         return result.getStatus();
     }

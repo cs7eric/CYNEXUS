@@ -39,8 +39,14 @@ public class StockChartQueryAppService {
         List<StockChartBO.Bar> rows;
         String source;
         if ("1d".equals(normalizedPeriod)) {
-            rows = stockChartQueryRepository.listDailyBars(targetType, symbol, DEFAULT_KLINE_COUNT);
-            source = rows.isEmpty() ? "java-tdx-local-empty" : "java-tdx-local";
+            String normalizedTargetType = blankDefault(targetType, "stock");
+            String normalizedAdjust = blankDefault(adjust, "qfq");
+            rows = stockChartQueryRepository.listDailyBars(targetType, symbol, DEFAULT_KLINE_COUNT, adjust);
+            if ("stock".equalsIgnoreCase(normalizedTargetType) && "qfq".equalsIgnoreCase(normalizedAdjust)) {
+                source = rows.isEmpty() ? "clickhouse.daily_qfq-empty" : "clickhouse.daily_qfq";
+            } else {
+                source = rows.isEmpty() ? "java-tdx-local-empty" : "java-tdx-local";
+            }
         } else {
             int periodMinutes = periodMinutes(normalizedPeriod);
             LocalDate effectiveDate = stockChartQueryRepository
@@ -240,6 +246,94 @@ public class StockChartQueryAppService {
                 .build();
     }
 
+    public StockChartDTO.F10ValuationDTO valuation(String symbol, String reqId) {
+        StockChartBO.F10Valuation value = stockChartQueryRepository.valuation(symbol, reqId);
+        return StockChartDTO.F10ValuationDTO.builder()
+                .symbol(value.getSymbol())
+                .reqId(value.getReqId())
+                .rows(value.getRows() == null ? List.of() : value.getRows().stream().map(this::valuationRow).toList())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10FinanceReportDTO financeReport(String symbol, String reportType) {
+        StockChartBO.F10FinanceReport value = stockChartQueryRepository.financeReport(symbol, reportType);
+        return StockChartDTO.F10FinanceReportDTO.builder()
+                .symbol(value.getSymbol())
+                .reportType(value.getReportType())
+                .rows(value.getRows() == null ? List.of() : value.getRows().stream().map(this::financeReportRow).toList())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10BusinessCompositionDTO businessComposition(String symbol, String reportDate) {
+        StockChartBO.F10BusinessComposition value = stockChartQueryRepository.businessComposition(symbol, reportDate);
+        return StockChartDTO.F10BusinessCompositionDTO.builder()
+                .symbol(value.getSymbol())
+                .reportDate(value.getReportDate())
+                .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::businessCompositionItem).toList())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10ProfitForecastDTO profitForecast(String symbol) {
+        StockChartBO.F10ProfitForecast value = stockChartQueryRepository.profitForecast(symbol);
+        return StockChartDTO.F10ProfitForecastDTO.builder()
+                .symbol(value.getSymbol())
+                .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::profitForecastItem).toList())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10AnnouncementsDTO announcements(String symbol) {
+        StockChartBO.F10Announcements value = stockChartQueryRepository.announcements(symbol);
+        return StockChartDTO.F10AnnouncementsDTO.builder()
+                .symbol(value.getSymbol())
+                .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::announcementItem).toList())
+                .count(value.getCount())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10NewsDTO news(String symbol) {
+        StockChartBO.F10News value = stockChartQueryRepository.news(symbol);
+        return StockChartDTO.F10NewsDTO.builder()
+                .symbol(value.getSymbol())
+                .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::newsItem).toList())
+                .count(value.getCount())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10RoadshowsDTO roadshows(String symbol) {
+        StockChartBO.F10Roadshows value = stockChartQueryRepository.roadshows(symbol);
+        return StockChartDTO.F10RoadshowsDTO.builder()
+                .symbol(value.getSymbol())
+                .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::roadshowItem).toList())
+                .count(value.getCount())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
+    public StockChartDTO.F10CompanyNewsDTO companyNews(String symbol, String section) {
+        StockChartBO.F10CompanyNews value = stockChartQueryRepository.companyNews(symbol, section);
+        return StockChartDTO.F10CompanyNewsDTO.builder()
+                .symbol(value.getSymbol())
+                .section(value.getSection())
+                .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::companyNewsItem).toList())
+                .count(value.getCount())
+                .fetchedAt(formatOffsetDateTime(value.getFetchedAt()))
+                .source(value.getSource())
+                .build();
+    }
+
     private StockChartDTO.SearchItemDTO searchItem(StockChartBO.SearchItem value) {
         return StockChartDTO.SearchItemDTO.builder()
                 .targetType(value.getTargetType())
@@ -347,6 +441,101 @@ public class StockChartQueryAppService {
                 .unmatchedVolume(unmatchedVolume)
                 .unmatchedDirectionRaw(directionRaw(unmatchedBuy, unmatchedSell))
                 .matchedAmountEstimated(value.getMatchedAmount())
+                .build();
+    }
+
+    private StockChartDTO.F10ValuationRowDTO valuationRow(StockChartBO.F10ValuationRow value) {
+        return StockChartDTO.F10ValuationRowDTO.builder()
+                .date(value.getDate())
+                .peTtm(value.getPeTtm())
+                .peBfw(value.getPeBfw())
+                .pbMrq(value.getPbMrq())
+                .pbBfw(value.getPbBfw())
+                .pcfOcfTtm(value.getPcfOcfTtm())
+                .pcfBfw(value.getPcfBfw())
+                .psTtm(value.getPsTtm())
+                .psBfw(value.getPsBfw())
+                .peg(value.getPeg())
+                .avgMarketCap(value.getAvgMarketCap())
+                .aliqMarketCap(value.getAliqMarketCap())
+                .build();
+    }
+
+    private StockChartDTO.F10FinanceReportRowDTO financeReportRow(StockChartBO.F10FinanceReportRow value) {
+        return StockChartDTO.F10FinanceReportRowDTO.builder()
+                .rq(value.getRq())
+                .fields(value.getFields() == null ? Map.of() : value.getFields())
+                .build();
+    }
+
+    private StockChartDTO.F10BusinessCompositionItemDTO businessCompositionItem(StockChartBO.F10BusinessCompositionItem value) {
+        return StockChartDTO.F10BusinessCompositionItemDTO.builder()
+                .category(value.getCategory())
+                .subType(value.getSubType())
+                .name(value.getName())
+                .revenue(value.getRevenue())
+                .ratio(value.getRatio())
+                .extras(value.getExtras() == null ? List.of() : value.getExtras())
+                .build();
+    }
+
+    private StockChartDTO.F10ProfitForecastItemDTO profitForecastItem(StockChartBO.F10ProfitForecastItem value) {
+        return StockChartDTO.F10ProfitForecastItemDTO.builder()
+                .year(value.getYear())
+                .netProfit(value.getNetProfit())
+                .eps(value.getEps())
+                .revenue(value.getRevenue())
+                .extras(value.getExtras() == null ? List.of() : value.getExtras())
+                .build();
+    }
+
+    private StockChartDTO.F10AnnouncementItemDTO announcementItem(StockChartBO.F10AnnouncementItem value) {
+        return StockChartDTO.F10AnnouncementItemDTO.builder()
+                .issueDate(value.getIssueDate())
+                .title(value.getTitle())
+                .typecode(value.getTypecode())
+                .typename(value.getTypename())
+                .recId(value.getRecId())
+                .tableid(value.getTableid())
+                .url(value.getUrl())
+                .redistime(value.getRedistime())
+                .source(value.getSource())
+                .build();
+    }
+
+    private StockChartDTO.F10NewsItemDTO newsItem(StockChartBO.F10NewsItem value) {
+        return StockChartDTO.F10NewsItemDTO.builder()
+                .issueDate(value.getIssueDate())
+                .title(value.getTitle())
+                .recId(value.getRecId())
+                .tableid(value.getTableid())
+                .redistime(value.getRedistime())
+                .source(value.getSource())
+                .relatecolumn(value.getRelatecolumn())
+                .build();
+    }
+
+    private StockChartDTO.F10RoadshowItemDTO roadshowItem(StockChartBO.F10RoadshowItem value) {
+        return StockChartDTO.F10RoadshowItemDTO.builder()
+                .title(value.getTitle())
+                .roadshowType(value.getRoadshowType())
+                .startDate(value.getStartDate())
+                .startTime(value.getStartTime())
+                .endTime(value.getEndTime())
+                .summary(value.getSummary())
+                .url(value.getUrl())
+                .build();
+    }
+
+    private StockChartDTO.F10CompanyNewsItemDTO companyNewsItem(StockChartBO.F10CompanyNewsItem value) {
+        return StockChartDTO.F10CompanyNewsItemDTO.builder()
+                .rating(value.getRating())
+                .analysts(value.getAnalysts())
+                .recId(value.getRecId())
+                .issueDate(value.getIssueDate())
+                .title(value.getTitle())
+                .nflag(value.getNflag())
+                .docHash(value.getDocHash())
                 .build();
     }
 
@@ -586,5 +775,9 @@ public class StockChartQueryAppService {
 
     private LocalDate parseDateOrToday(String value) {
         return value == null || value.isBlank() ? LocalDate.now(SHANGHAI) : LocalDate.parse(value);
+    }
+
+    private String formatOffsetDateTime(OffsetDateTime value) {
+        return value == null ? null : value.toString();
     }
 }

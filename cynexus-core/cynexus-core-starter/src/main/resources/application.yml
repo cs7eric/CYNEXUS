@@ -10,7 +10,7 @@ spring:
       - optional:nacos:cynexus-common.yml
   cloud:
     nacos:
-      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:10848}
       username: ${NACOS_USERNAME:}
       password: ${NACOS_PASSWORD:}
       discovery:
@@ -59,3 +59,8 @@ cynexus:
       base-url: ${CYNEXUS_DATA_JOB_EXECUTOR_BASE_URL:http://127.0.0.1:18083}
       internal-token: ${CYNEXUS_DATA_INTERNAL_TOKEN:}
       timeout-ms: ${CYNEXUS_DATA_JOB_EXECUTOR_TIMEOUT_MS:600000}
+  media-transcription:
+    worker:
+      base-url: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_BASE_URL:http://127.0.0.1:18083/internal/media-transcription}
+      internal-token: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_INTERNAL_TOKEN:${CYNEXUS_DATA_INTERNAL_TOKEN:}}
+      timeout-ms: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_TIMEOUT_MS:600000}

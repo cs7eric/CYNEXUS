@@ -76,4 +76,48 @@ public class StockChartQueryController {
     public Result<StockChartDTO.AuctionDTO> auction(@RequestParam String symbol) {
         return Result.success(stockChartQueryAppService.auction(symbol));
     }
+
+    @GetMapping("/f10/valuation")
+    public Result<StockChartDTO.F10ValuationDTO> valuation(@RequestParam String symbol,
+                                                           @RequestParam(name = "req_id", defaultValue = "200191") String reqId) {
+        return Result.success(stockChartQueryAppService.valuation(symbol, reqId));
+    }
+
+    @GetMapping("/f10/finance-report")
+    public Result<StockChartDTO.F10FinanceReportDTO> financeReport(@RequestParam String symbol,
+                                                                   @RequestParam(name = "report_type", defaultValue = "zcfzb") String reportType) {
+        return Result.success(stockChartQueryAppService.financeReport(symbol, reportType));
+    }
+
+    @GetMapping("/f10/business-composition")
+    public Result<StockChartDTO.F10BusinessCompositionDTO> businessComposition(@RequestParam String symbol,
+                                                                               @RequestParam(name = "report_date", required = false) String reportDate) {
+        return Result.success(stockChartQueryAppService.businessComposition(symbol, reportDate));
+    }
+
+    @GetMapping("/f10/profit-forecast")
+    public Result<StockChartDTO.F10ProfitForecastDTO> profitForecast(@RequestParam String symbol) {
+        return Result.success(stockChartQueryAppService.profitForecast(symbol));
+    }
+
+    @GetMapping("/f10/announcements")
+    public Result<StockChartDTO.F10AnnouncementsDTO> announcements(@RequestParam String symbol) {
+        return Result.success(stockChartQueryAppService.announcements(symbol));
+    }
+
+    @GetMapping("/f10/news")
+    public Result<StockChartDTO.F10NewsDTO> news(@RequestParam String symbol) {
+        return Result.success(stockChartQueryAppService.news(symbol));
+    }
+
+    @GetMapping("/f10/roadshows")
+    public Result<StockChartDTO.F10RoadshowsDTO> roadshows(@RequestParam String symbol) {
+        return Result.success(stockChartQueryAppService.roadshows(symbol));
+    }
+
+    @GetMapping("/f10/company-news")
+    public Result<StockChartDTO.F10CompanyNewsDTO> companyNews(@RequestParam String symbol,
+                                                               @RequestParam(defaultValue = "gsyj") String section) {
+        return Result.success(stockChartQueryAppService.companyNews(symbol, section));
+    }
 }

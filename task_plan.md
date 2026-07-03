@@ -656,3 +656,51 @@ Status: complete
 - `PYTHONPATH=src python -m pytest tests/unit/test_pipelines/test_ths_industry_constituents_pipeline.py tests/unit/test_pipelines/test_fund_flow_pipeline.py tests/unit/test_domain/test_fund_flow.py -q` passed: 15 tests.
 - `python -m compileall -q src` passed.
 - Rebuilt/recreated `cynexus-data-job-executor`; `/internal/health` returns ok.
+
+## Phase 33 - F10 Query Chain Migration
+
+Status: complete
+
+- Follow `docs/migration-guides/python-to-java-api-migration-guide.md`.
+- Migrate the stock-detail-dialog F10 query chain from legacy Python page calls to the new layered path:
+  - `cynexus-ui` -> `cynexus-market` -> `cynexus-data`
+- Keep frontend Java client under `cynexus-ui/src/services/market/f10.ts`; do not leave business API usage in `src/services/legacy/f10.ts`.
+- Add internal `cynexus-data` F10 query endpoints under the existing FastAPI internal app instead of routing UI traffic to Python directly.
+- Keep `cynexus-data` focused on source-facing/raw structured payloads; keep UI normalization in `cynexus-market`.
+- Cover the F10 scopes currently used by `stock-detail-dialog`:
+  - valuation
+  - finance-report
+  - business-composition
+  - profit-forecast
+  - announcements
+  - news
+  - roadshows
+  - company-news
+- Keep Java layering explicit:
+  - Controller -> AppService -> Domain Repository -> Infra HTTP client -> `cynexus-data`
+- Verify with targeted Java compile, Python compile, and frontend type/build checks after migration.
+
+## Phase 33 Verification Results
+
+- Added `cynexus-data` internal F10 query endpoints under the existing FastAPI app:
+  - `/internal/f10/valuation`
+  - `/internal/f10/finance-report`
+  - `/internal/f10/business-composition`
+  - `/internal/f10/profit-forecast`
+  - `/internal/f10/announcements`
+  - `/internal/f10/news`
+  - `/internal/f10/roadshows`
+  - `/internal/f10/company-news`
+- Added the `cynexus-market` stock-chart F10 query chain:
+  - controller endpoints under `/api/market/stock-chart/f10/*`
+  - app-service mapping
+  - domain repository methods
+  - infra HTTP client `HttpStockChartF10DataClient`
+- Added frontend market service `cynexus-ui/src/services/market/f10.ts` and switched `StockDetailDialog` plus compatibility barrel exports away from `src/services/legacy/f10.ts`.
+- Scope search found no remaining `@/services/legacy/f10` imports under `cynexus-ui/src`.
+- Verification succeeded:
+  - `python -m compileall -q src` under `cynexus-data`
+  - `mvn -pl cynexus-market/cynexus-market-starter -am compile -DskipTests`
+  - `npx tsc -b --pretty false` under `cynexus-ui`
+  - `npm run build` under `cynexus-ui`
+- Runtime note: this pass did not restart local `cynexus-data` / `cynexus-market` processes, so live HTTP smoke of the new endpoints was not executed in this turn.

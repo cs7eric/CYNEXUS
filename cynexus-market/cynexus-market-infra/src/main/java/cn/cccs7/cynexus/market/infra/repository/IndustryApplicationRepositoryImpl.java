@@ -1,17 +1,26 @@
 package cn.cccs7.cynexus.market.infra.repository;
 
 import cn.cccs7.cynexus.market.domain.entity.IndustryApplicationBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketPulseCaptureBatchBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketPulseSectorDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.IndustryApplicationRepository;
+import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
+import cn.cccs7.cynexus.market.domain.repository.TdxSectorQuoteDetailSnapshotRepository;
+import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationConfigPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationResultPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationTargetPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.SectorFundFlowDailySnapshotPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.TdxThsIndustryMappingPO;
 import cn.cccs7.cynexus.market.infra.basic.service.IndustryApplicationBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.SectorFundFlowDailySnapshotBasicService;
-import cn.cccs7.cynexus.market.infra.client.TdxLocalDayKlineClient;
+import cn.cccs7.cynexus.market.infra.basic.service.TdxThsIndustryMappingBasicService;
+import cn.cccs7.cynexus.market.infra.client.ClickHouseStockChartClient;
+import cn.cccs7.cynexus.market.infra.client.HttpIndustryApplicationDataClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.math.BigDecimal;
@@ -20,15 +29,18 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class IndustryApplicationRepositoryImpl implements IndustryApplicationRepository {
 
-    private static final List<IndustryApplicationBO.TargetCode> TARGET_CODES = buildTargetCodes();
     private static final String FUND_FLOW_SCOPE = "industry";
     private static final int FUND_FLOW_FULL_LIMIT = 500;
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
@@ -37,18 +49,36 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
     };
 
     private final IndustryApplicationBasicService industryApplicationBasicService;
+    private final IndustryApplicationTargetCatalogProvider industryApplicationTargetCatalogProvider;
     private final SectorFundFlowDailySnapshotBasicService sectorFundFlowDailySnapshotBasicService;
-    private final TdxLocalDayKlineClient tdxLocalDayKlineClient;
+    private final MarketPulseQueryRepository marketPulseQueryRepository;
+    private final ClickHouseStockChartClient clickHouseStockChartClient;
+    private final HttpIndustryApplicationDataClient industryApplicationDataClient;
+    private final TdxThsIndustryMappingBasicService tdxThsIndustryMappingBasicService;
+    private final ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository;
+    private final TdxSectorQuoteDetailSnapshotRepository tdxSectorQuoteDetailSnapshotRepository;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public IndustryApplicationRepositoryImpl(IndustryApplicationBasicService industryApplicationBasicService,
+                                             IndustryApplicationTargetCatalogProvider industryApplicationTargetCatalogProvider,
                                              SectorFundFlowDailySnapshotBasicService sectorFundFlowDailySnapshotBasicService,
-                                             TdxLocalDayKlineClient tdxLocalDayKlineClient) {
+                                             MarketPulseQueryRepository marketPulseQueryRepository,
+                                             ClickHouseStockChartClient clickHouseStockChartClient,
+                                             HttpIndustryApplicationDataClient industryApplicationDataClient,
+                                             TdxThsIndustryMappingBasicService tdxThsIndustryMappingBasicService,
+                                             ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
+                                             TdxSectorQuoteDetailSnapshotRepository tdxSectorQuoteDetailSnapshotRepository) {
         this.industryApplicationBasicService = industryApplicationBasicService;
+        this.industryApplicationTargetCatalogProvider = industryApplicationTargetCatalogProvider;
         this.sectorFundFlowDailySnapshotBasicService = sectorFundFlowDailySnapshotBasicService;
-        this.tdxLocalDayKlineClient = tdxLocalDayKlineClient;
+        this.marketPulseQueryRepository = marketPulseQueryRepository;
+        this.clickHouseStockChartClient = clickHouseStockChartClient;
+        this.industryApplicationDataClient = industryApplicationDataClient;
+        this.tdxThsIndustryMappingBasicService = tdxThsIndustryMappingBasicService;
+        this.thsIndustryConstituentSnapshotRepository = thsIndustryConstituentSnapshotRepository;
+        this.tdxSectorQuoteDetailSnapshotRepository = tdxSectorQuoteDetailSnapshotRepository;
     }
 
     @Override
@@ -83,11 +113,12 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
 
     @Override
     public List<IndustryApplicationBO.TargetCode> listTargetCodes(String kind) {
+        List<IndustryApplicationBO.TargetCode> targetCodes = currentTargetCodes();
         String normalized = kind == null ? "" : kind.trim().toLowerCase();
-        if (!List.of("industry", "concept").contains(normalized)) {
-            return TARGET_CODES;
+        if (!List.of("industry", "concept", "index").contains(normalized)) {
+            return targetCodes;
         }
-        return TARGET_CODES.stream().filter(item -> normalized.equals(item.getKind())).toList();
+        return targetCodes.stream().filter(item -> normalized.equals(item.getKind())).toList();
     }
 
     @Override
@@ -98,9 +129,9 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
     @Override
     public IndustryApplicationBO.Kline getKline(String targetType, String symbol, String period, int count) {
         String normalizedType = normalizeTargetType(targetType, symbol);
-        String normalizedSymbol = normalizeSymbol(symbol);
+        String normalizedSymbol = normalizeSymbol(normalizedType, symbol);
         int normalizedCount = Math.max(1, Math.min(count <= 0 ? 120 : count, 2000));
-        List<IndustryApplicationBO.Bar> bars = tdxLocalDayKlineClient.readDailyBars(normalizedSymbol, normalizedCount);
+        List<IndustryApplicationBO.Bar> bars = loadBarsFromClickHouse(normalizedSymbol, normalizedCount);
         return IndustryApplicationBO.Kline.builder()
                 .targetType(normalizedType)
                 .code(normalizedSymbol)
@@ -109,7 +140,7 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                 .bars(bars)
                 .indicators(computeIndicators(bars))
                 .fetchedAt(OffsetDateTime.now())
-                .source("tdx.local_day")
+                .source("clickhouse.daily_raw")
                 .build();
     }
 
@@ -140,8 +171,21 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
 
     @Override
     public List<IndustryApplicationBO.SectorOverviewItem> listOverview(String sortBy, boolean ascending, int count) {
-        List<IndustryApplicationBO.SectorOverviewItem> items = TARGET_CODES.stream()
-                .map(code -> toOverviewItem(code, tdxLocalDayKlineClient.readDailyBars(code.getCode(), 2)))
+        List<IndustryApplicationBO.TargetCode> targetCodes = currentTargetCodes();
+        List<ClickHouseStockChartClient.MarketSymbol> symbols = targetCodes.stream()
+                .filter(code -> !"index".equals(code.getKind()))
+                .map(code -> toMarketSymbol(code.getCode()))
+                .distinct()
+                .toList();
+        Map<String, ClickHouseStockChartClient.DailyQuote> quotesByCode = clickHouseStockChartClient.listLatestDailyQuotes(symbols).stream()
+                .collect(Collectors.toMap(
+                        quote -> toFullCode(quote.getMarket(), quote.getSymbol()),
+                        quote -> quote,
+                        (left, right) -> left
+                ));
+        List<IndustryApplicationBO.SectorOverviewItem> items = targetCodes.stream()
+                .filter(code -> !"index".equals(code.getKind()))
+                .map(code -> toOverviewItem(code, quotesByCode.get(code.getCode())))
                 .filter(Objects::nonNull)
                 .sorted(comparator(sortBy, ascending))
                 .toList();
@@ -151,16 +195,31 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
 
     @Override
     public IndustryApplicationBO.FundFlowSnapshot getFundFlow(LocalDate tradeDate, Integer top) {
+        int normalizedTop = top == null ? 0 : Math.max(0, Math.min(top, FUND_FLOW_FULL_LIMIT));
+        if (tradeDate == null || LocalDate.now().equals(tradeDate)) {
+            IndustryApplicationBO.FundFlowSnapshot intradaySnapshot = getLatestPulseFundFlow(tradeDate, normalizedTop);
+            if (intradaySnapshot != null) {
+                return intradaySnapshot;
+            }
+        }
+        return getDailyFundFlow(tradeDate, normalizedTop);
+    }
+
+    private IndustryApplicationBO.FundFlowSnapshot getDailyFundFlow(LocalDate tradeDate, int normalizedTop) {
         LocalDate resolvedTradeDate = sectorFundFlowDailySnapshotBasicService.findLatestTradeDate(FUND_FLOW_SCOPE, tradeDate);
         if (resolvedTradeDate == null) {
             return IndustryApplicationBO.FundFlowSnapshot.builder()
                     .ok(false)
                     .tradeDate(tradeDate)
+                    .requestedTradeDate(tradeDate)
+                    .fallbackTradeDate(false)
+                    .servingMode("close")
                     .rowCount(0)
                     .totalPages(0)
                     .pageRowCounts(List.of())
                     .rows(List.of())
                     .source("sector_fund_flow_daily_snapshots")
+                    .sourceKind("daily_snapshot")
                     .error("no industry fund-flow snapshot found")
                     .build();
         }
@@ -170,7 +229,6 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                 resolvedTradeDate,
                 FUND_FLOW_FULL_LIMIT
         );
-        int normalizedTop = top == null ? 0 : Math.max(0, Math.min(top, FUND_FLOW_FULL_LIMIT));
         List<SectorFundFlowDailySnapshotPO> visibleRows = normalizedTop > 0 && allRows.size() > normalizedTop
                 ? allRows.subList(0, normalizedTop)
                 : allRows;
@@ -178,6 +236,9 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         return IndustryApplicationBO.FundFlowSnapshot.builder()
                 .ok(!visibleRows.isEmpty())
                 .tradeDate(resolvedTradeDate)
+                .requestedTradeDate(tradeDate)
+                .fallbackTradeDate(stale)
+                .servingMode("close")
                 .rowCount(visibleRows.size())
                 .totalPages((allRows.size() + 49) / 50)
                 .pageRowCounts(pageRowCounts(allRows.size()))
@@ -192,9 +253,51 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                         .filter(Objects::nonNull)
                         .findFirst()
                         .orElse("sector_fund_flow_daily_snapshots"))
+                .sourceKind("daily_snapshot")
                 .stale(stale)
                 .staleReason(stale ? "requested trade date has no snapshot; using latest previous snapshot" : null)
                 .error(visibleRows.isEmpty() ? "no industry fund-flow rows found" : null)
+                .build();
+    }
+
+    private IndustryApplicationBO.FundFlowSnapshot getLatestPulseFundFlow(LocalDate requestedTradeDate, int normalizedTop) {
+        LocalDate effectiveRequestedTradeDate = requestedTradeDate == null ? LocalDate.now() : requestedTradeDate;
+        LocalDate resolvedTradeDate = marketPulseQueryRepository.findLatestPulseTradeDate(effectiveRequestedTradeDate)
+                .or(() -> marketPulseQueryRepository.findLatestPulseTradeDate(null))
+                .orElse(null);
+        if (resolvedTradeDate == null) {
+            return null;
+        }
+        List<MarketPulseSectorDailySnapshotBO> allRows = marketPulseQueryRepository.listPulseRowsByTradeDate(resolvedTradeDate).stream()
+                .sorted(Comparator
+                        .comparing(MarketPulseSectorDailySnapshotBO::getMainNet, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(MarketPulseSectorDailySnapshotBO::getChangePct, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(MarketPulseSectorDailySnapshotBO::getSectorName, Comparator.nullsLast(String::compareTo)))
+                .toList();
+        if (allRows.isEmpty()) {
+            return null;
+        }
+        List<MarketPulseSectorDailySnapshotBO> visibleRows = normalizedTop > 0 && allRows.size() > normalizedTop
+                ? allRows.subList(0, normalizedTop)
+                : allRows;
+        MarketPulseCaptureBatchBO batch = marketPulseQueryRepository.findLatestPulseBatch(resolvedTradeDate).orElse(null);
+        Map<String, String> codeByIndustry = latestFundFlowCodeByIndustry();
+        return IndustryApplicationBO.FundFlowSnapshot.builder()
+                .ok(true)
+                .tradeDate(resolvedTradeDate)
+                .requestedTradeDate(effectiveRequestedTradeDate)
+                .fallbackTradeDate(!resolvedTradeDate.equals(effectiveRequestedTradeDate))
+                .servingMode(resolvePulseServingMode(resolvedTradeDate, batch))
+                .rowCount(visibleRows.size())
+                .totalPages(1)
+                .pageRowCounts(List.of(allRows.size()))
+                .fetchedAt(batch == null ? null : batch.getFetchedAt())
+                .rows(toPulseFundFlowRows(visibleRows, codeByIndustry))
+                .source(batch == null ? "postgres.market_pulse" : batch.getSourceName())
+                .sourceKind(batch == null ? null : batch.getSourceKind())
+                .stale(false)
+                .staleReason(null)
+                .error(null)
                 .build();
     }
 
@@ -234,13 +337,110 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                 .build();
     }
 
+    @Override
+    public IndustryApplicationBO.TdxFundFlowSnapshot getTdxFundFlow(String targetType, String symbol, LocalDate tradeDate, int days) {
+        String normalizedType = normalizeTargetType(targetType, symbol);
+        String normalizedSymbol = normalizeSymbol(normalizedType, symbol);
+        int normalizedDays = Math.max(1, Math.min(days <= 0 ? 30 : days, 252));
+        IndustryApplicationBO.TdxFundFlowSnapshot snapshot =
+                industryApplicationDataClient.tdxFundFlow(normalizedType, normalizedSymbol, tradeDate, normalizedDays);
+        if (snapshot != null && snapshot.getCode6() != null && !snapshot.getCode6().isBlank()) {
+            List<IndustryApplicationBO.TdxThsIndustryMapping> mappings = listThsMappings(snapshot.getCode6());
+            snapshot.setThsMappings(mappings);
+            snapshot.setConstituents(mergeConstituents(snapshot.getCode6(), mappings));
+        }
+        return snapshot;
+    }
+
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> mergeConstituents(
+            String tdxCode6,
+            List<IndustryApplicationBO.TdxThsIndustryMapping> mappings
+    ) {
+        Map<String, ConstituentAccumulator> merged = new LinkedHashMap<>();
+        for (IndustryApplicationBO.TdxThsIndustryMapping mapping : mappings == null ? List.<IndustryApplicationBO.TdxThsIndustryMapping>of() : mappings) {
+            String thsCode = mapping.getThsCode();
+            if (thsCode == null || thsCode.isBlank()) {
+                continue;
+            }
+            for (IndustryApplicationBO.TdxFundFlowConstituent item : listThsConstituents(thsCode)) {
+                mergeConstituent(merged, item);
+            }
+        }
+        for (IndustryApplicationBO.TdxFundFlowConstituent item : listTdxConstituents(tdxCode6)) {
+            mergeConstituent(merged, item);
+        }
+        return merged.values().stream()
+                .map(ConstituentAccumulator::toValue)
+                .sorted(Comparator
+                        .comparing(IndustryApplicationBO.TdxFundFlowConstituent::getChangePct,
+                                Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(IndustryApplicationBO.TdxFundFlowConstituent::getCode, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private void mergeConstituent(Map<String, ConstituentAccumulator> merged, IndustryApplicationBO.TdxFundFlowConstituent item) {
+        if (item == null || item.getCode() == null || item.getCode().isBlank()) {
+            return;
+        }
+        merged.computeIfAbsent(item.getCode(), ignored -> new ConstituentAccumulator(item.getCode())).merge(item);
+    }
+
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> listTdxConstituents(String code6) {
+        return tdxSectorQuoteDetailSnapshotRepository.findLatestByCode6(code6)
+                .map(snapshot -> {
+                    try {
+                        JsonNode root = objectMapper.readTree(snapshot.getPayload());
+                        JsonNode rows = root.path("sections").path("constituents");
+                        if (!rows.isArray()) {
+                            return List.<IndustryApplicationBO.TdxFundFlowConstituent>of();
+                        }
+                        List<IndustryApplicationBO.TdxFundFlowConstituent> items = new ArrayList<>();
+                        for (JsonNode row : rows) {
+                            String code = text(row, "code");
+                            if (code == null || code.isBlank()) {
+                                continue;
+                            }
+                            items.add(IndustryApplicationBO.TdxFundFlowConstituent.builder()
+                                    .code(code)
+                                    .name(text(row, "name"))
+                                    .price(decimal(row, "last_price"))
+                                    .changePct(decimal(row, "change_pct"))
+                                    .sources(List.of("tdx"))
+                                    .build());
+                        }
+                        return items;
+                    } catch (Exception ignored) {
+                        return List.<IndustryApplicationBO.TdxFundFlowConstituent>of();
+                    }
+                })
+                .orElseGet(List::of);
+    }
+
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> listThsConstituents(String industryCode) {
+        return thsIndustryConstituentSnapshotRepository.listLatestByIndustryCode(industryCode).stream()
+                .map(row -> IndustryApplicationBO.TdxFundFlowConstituent.builder()
+                        .code(row.getStockCode())
+                        .name(row.getStockName())
+                        .price(row.getPrice())
+                        .changePct(row.getChangePct())
+                        .turnoverPct(row.getTurnoverPct())
+                        .amountText(row.getAmountText())
+                        .sources(List.of("ths"))
+                        .build())
+                .toList();
+    }
+
     private IndustryApplicationBO.Target toTarget(IndustryApplicationTargetPO po) {
+        String resolvedName = po.getName();
+        if (resolvedName == null || resolvedName.isBlank() || resolvedName.equalsIgnoreCase(po.getSymbol())) {
+            resolvedName = lookupName(po.getTargetType(), po.getSymbol());
+        }
         return IndustryApplicationBO.Target.builder()
                 .id(po.getId())
                 .targetKey(po.getTargetKey())
                 .targetType(po.getTargetType())
                 .symbol(po.getSymbol())
-                .name(po.getName())
+                .name(resolvedName)
                 .enabled(po.getEnabled())
                 .intervalMinutes(po.getIntervalMinutes())
                 .tags(readTags(po.getTags()))
@@ -250,7 +450,7 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
 
     private IndustryApplicationTargetPO toTargetPO(IndustryApplicationBO.Target value, int order) {
         String targetType = normalizeTargetType(value.getTargetType(), value.getSymbol());
-        String symbol = normalizeSymbol(value.getSymbol());
+        String symbol = normalizeSymbol(targetType, value.getSymbol());
         IndustryApplicationTargetPO po = new IndustryApplicationTargetPO();
         po.setTargetKey(targetKey(targetType, symbol, value.getTargetKey()));
         po.setTargetType(targetType);
@@ -293,30 +493,67 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
     }
 
     private IndustryApplicationBO.SectorOverviewItem toOverviewItem(IndustryApplicationBO.TargetCode code,
-                                                                    List<IndustryApplicationBO.Bar> bars) {
-        if (bars == null || bars.isEmpty()) {
+                                                                    ClickHouseStockChartClient.DailyQuote quote) {
+        if (quote == null) {
             return null;
         }
-        IndustryApplicationBO.Bar latest = last(bars);
-        BigDecimal change = latest.getPrevClose() == null ? null : latest.getClose().subtract(latest.getPrevClose());
         return IndustryApplicationBO.SectorOverviewItem.builder()
                 .fullCode(code.getCode())
                 .name(code.getName())
                 .kind(code.getKind())
-                .lastPrice(latest.getClose())
-                .preClosePrice(latest.getPrevClose())
-                .openPrice(latest.getOpen())
-                .highPrice(latest.getHigh())
-                .lowPrice(latest.getLow())
-                .change(change)
-                .changePct(latest.getPct())
-                .amplitudePct(percent(latest.getHigh().subtract(latest.getLow()), latest.getPrevClose()))
-                .highPct(percent(latest.getHigh().subtract(nullToZero(latest.getPrevClose())), latest.getPrevClose()))
-                .lowPct(percent(latest.getLow().subtract(nullToZero(latest.getPrevClose())), latest.getPrevClose()))
-                .openPct(percent(latest.getOpen().subtract(nullToZero(latest.getPrevClose())), latest.getPrevClose()))
-                .volume(latest.getVolumeLots())
-                .amount(latest.getAmount())
-                .tradingDate(latest.getTradeDate())
+                .lastPrice(quote.getClose())
+                .preClosePrice(quote.getPreClose())
+                .openPrice(quote.getOpen())
+                .highPrice(quote.getHigh())
+                .lowPrice(quote.getLow())
+                .change(quote.getChange())
+                .changePct(quote.getChangePct())
+                .amplitudePct(quote.getAmplitude())
+                .highPct(percent(quote.getHigh().subtract(nullToZero(quote.getPreClose())), quote.getPreClose()))
+                .lowPct(percent(quote.getLow().subtract(nullToZero(quote.getPreClose())), quote.getPreClose()))
+                .openPct(percent(quote.getOpen().subtract(nullToZero(quote.getPreClose())), quote.getPreClose()))
+                .volume(quote.getVolume() == null ? null : quote.getVolume().longValue())
+                .amount(quote.getAmount())
+                .tradingDate(quote.getTradeDate())
+                .build();
+    }
+
+    private List<IndustryApplicationBO.Bar> loadBarsFromClickHouse(String normalizedSymbol, int normalizedCount) {
+        ClickHouseStockChartClient.MarketSymbol marketSymbol = toMarketSymbol(normalizedSymbol);
+        List<ClickHouseStockChartClient.DailyBar> rows = clickHouseStockChartClient.listDailyBars(
+                marketSymbol.market(),
+                marketSymbol.symbol(),
+                null,
+                null
+        );
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<IndustryApplicationBO.Bar> bars = rows.stream()
+                .map(this::toIndustryBar)
+                .filter(bar -> bar.getTradeDate() != null)
+                .sorted(Comparator.comparing(IndustryApplicationBO.Bar::getTradeDate))
+                .collect(Collectors.toCollection(ArrayList::new));
+        fillPreviousCloseAndPct(bars);
+        if (bars.size() > normalizedCount) {
+            return new ArrayList<>(bars.subList(bars.size() - normalizedCount, bars.size()));
+        }
+        return bars;
+    }
+
+    private IndustryApplicationBO.Bar toIndustryBar(ClickHouseStockChartClient.DailyBar row) {
+        if (row == null || row.getTradeDate() == null) {
+            return IndustryApplicationBO.Bar.builder().build();
+        }
+        return IndustryApplicationBO.Bar.builder()
+                .tradeDate(row.getTradeDate())
+                .time(row.getTradeDate() + " 15:00:00+08:00")
+                .open(row.getOpen())
+                .high(row.getHigh())
+                .low(row.getLow())
+                .close(row.getClose())
+                .volumeLots(row.getVolume() == null ? null : row.getVolume().longValue())
+                .amount(row.getAmount())
                 .build();
     }
 
@@ -336,6 +573,52 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                 .tradeDate(po.getTradeDate())
                 .source(po.getSource())
                 .build();
+    }
+
+    private List<IndustryApplicationBO.FundFlowRow> toPulseFundFlowRows(List<MarketPulseSectorDailySnapshotBO> rows,
+                                                                        Map<String, String> codeByIndustry) {
+        List<IndustryApplicationBO.FundFlowRow> out = new ArrayList<>();
+        for (int index = 0; index < rows.size(); index++) {
+            MarketPulseSectorDailySnapshotBO row = rows.get(index);
+            out.add(IndustryApplicationBO.FundFlowRow.builder()
+                    .rank(index + 1)
+                    .industry(row.getSectorName())
+                    .code(codeByIndustry.get(row.getSectorName()))
+                    .changePct(row.getChangePct())
+                    .inflow(row.getInflow())
+                    .outflow(row.getOutflow())
+                    .net(row.getMainNet())
+                    .companyCount(row.getStockCount())
+                    .leaderStock(row.getLeadingStock())
+                    .leaderChange(row.getLeadingChangePct())
+                    .leaderPrice(row.getLeadingPrice())
+                    .tradeDate(row.getTradeDate())
+                    .source(row.getSourceName())
+                    .build());
+        }
+        return out;
+    }
+
+    private Map<String, String> latestFundFlowCodeByIndustry() {
+        LocalDate latestTradeDate = sectorFundFlowDailySnapshotBasicService.findLatestTradeDate(FUND_FLOW_SCOPE, null);
+        if (latestTradeDate == null) {
+            return Map.of();
+        }
+        return sectorFundFlowDailySnapshotBasicService.listByTradeDate(FUND_FLOW_SCOPE, latestTradeDate, FUND_FLOW_FULL_LIMIT).stream()
+                .filter(row -> row.getSectorName() != null && !row.getSectorName().isBlank())
+                .filter(row -> row.getSectorCode() != null && !row.getSectorCode().isBlank())
+                .collect(Collectors.toMap(
+                        SectorFundFlowDailySnapshotPO::getSectorName,
+                        SectorFundFlowDailySnapshotPO::getSectorCode,
+                        (left, right) -> left
+                ));
+    }
+
+    private String resolvePulseServingMode(LocalDate tradeDate, MarketPulseCaptureBatchBO batch) {
+        if (tradeDate != null && tradeDate.equals(LocalDate.now()) && batch != null && "live_capture".equals(batch.getSourceKind())) {
+            return "intraday";
+        }
+        return "close";
     }
 
     private List<Integer> pageRowCounts(int rowCount) {
@@ -466,21 +749,62 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         };
     }
 
-    private String normalizeTargetType(String targetType, String symbol) {
-        String value = targetType == null ? "" : targetType.trim().toLowerCase();
-        if ("industry".equals(value) || "concept".equals(value)) {
-            return value;
-        }
-        return normalizeSymbol(symbol).startsWith("sh8804") ? "concept" : "industry";
+    private ClickHouseStockChartClient.MarketSymbol toMarketSymbol(String fullCode) {
+        String normalized = normalizeSymbol("", fullCode);
+        return new ClickHouseStockChartClient.MarketSymbol(
+                normalized.substring(0, 2).toUpperCase(),
+                normalized.substring(2)
+        );
     }
 
-    private String normalizeSymbol(String symbol) {
+    private String toFullCode(String market, String symbol) {
+        return (market == null ? "" : market.trim().toLowerCase()) + (symbol == null ? "" : symbol.trim());
+    }
+
+    private String normalizeTargetType(String targetType, String symbol) {
+        String normalizedSymbol = normalizeSymbol(targetType, symbol);
+        Optional<String> catalogKind = lookupKindByCode(normalizedSymbol);
+        if (catalogKind.isPresent()) {
+            return catalogKind.get();
+        }
+        String value = targetType == null ? "" : targetType.trim().toLowerCase();
+        if ("industry".equals(value) || "concept".equals(value) || "index".equals(value)) {
+            return value;
+        }
+        if (normalizedSymbol.startsWith("sh8804")) {
+            return "industry";
+        }
+        if (normalizedSymbol.startsWith("sh8805")) {
+            return "concept";
+        }
+        if (normalizedSymbol.startsWith("sh8803")) {
+            return "industry";
+        }
+        return "index";
+    }
+
+    private String normalizeSymbol(String targetType, String symbol) {
         String value = symbol == null ? "" : symbol.trim().toLowerCase();
         if (value.matches("^[a-z]{2}\\d{6}$")) {
             return value;
         }
         String digits = value.replaceAll("\\D", "");
         if (digits.length() == 6) {
+            if ("index".equalsIgnoreCase(targetType) || lookupKindByCode("sh" + digits).filter("index"::equals).isPresent()) {
+                return digits.startsWith("399") ? "sz" + digits : "sh" + digits;
+            }
+            if (digits.startsWith("880")) {
+                return "sh" + digits;
+            }
+            if (digits.startsWith("399")) {
+                return "sz" + digits;
+            }
+            if (digits.startsWith("6") || digits.startsWith("5") || digits.startsWith("9")) {
+                return "sh" + digits;
+            }
+            if (digits.startsWith("8") || digits.startsWith("4")) {
+                return "bj" + digits;
+            }
             return "sh" + digits;
         }
         throw new IllegalArgumentException("symbol is required");
@@ -494,11 +818,33 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
     }
 
     private String lookupName(String targetType, String symbol) {
-        return TARGET_CODES.stream()
-                .filter(item -> item.getKind().equals(targetType) && item.getCode().equals(symbol))
-                .map(IndustryApplicationBO.TargetCode::getName)
-                .findFirst()
+        return industryApplicationTargetCatalogProvider.lookupName(symbol)
                 .orElse(symbol);
+    }
+
+    private Optional<String> lookupKindByCode(String symbol) {
+        return industryApplicationTargetCatalogProvider.lookupKind(symbol);
+    }
+
+    private List<IndustryApplicationBO.TargetCode> currentTargetCodes() {
+        return industryApplicationTargetCatalogProvider.mergeAvailable(clickHouseStockChartClient.listAvailableIndustryApplicationSymbols());
+    }
+
+    private void fillPreviousCloseAndPct(List<IndustryApplicationBO.Bar> bars) {
+        IndustryApplicationBO.Bar previous = null;
+        for (IndustryApplicationBO.Bar bar : bars) {
+            if (previous != null) {
+                bar.setPrevClose(previous.getClose());
+                if (previous.getClose() != null && previous.getClose().compareTo(BigDecimal.ZERO) != 0 && bar.getClose() != null) {
+                    BigDecimal pct = bar.getClose()
+                            .divide(previous.getClose(), 10, RoundingMode.HALF_UP)
+                            .subtract(BigDecimal.ONE)
+                            .multiply(BigDecimal.valueOf(100));
+                    bar.setPct(pct);
+                }
+            }
+            previous = bar;
+        }
     }
 
     private List<String> readTags(String json) {
@@ -542,94 +888,103 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         }
     }
 
-    private static List<IndustryApplicationBO.TargetCode> buildTargetCodes() {
-        List<IndustryApplicationBO.TargetCode> out = new ArrayList<>();
-        add(out, "industry", "sh880301", "农副食品");
-        add(out, "industry", "sh880302", "纺织服饰");
-        add(out, "industry", "sh880303", "轻工制造");
-        add(out, "industry", "sh880304", "医药生物");
-        add(out, "industry", "sh880305", "公用事业");
-        add(out, "industry", "sh880306", "交通运输");
-        add(out, "industry", "sh880307", "房地产");
-        add(out, "industry", "sh880308", "商贸零售");
-        add(out, "industry", "sh880309", "社会服务");
-        add(out, "industry", "sh880310", "综合");
-        add(out, "industry", "sh880311", "建筑材料");
-        add(out, "industry", "sh880312", "建筑装饰");
-        add(out, "industry", "sh880313", "电力设备");
-        add(out, "industry", "sh880314", "机械设备");
-        add(out, "industry", "sh880315", "国防军工");
-        add(out, "industry", "sh880316", "汽车");
-        add(out, "industry", "sh880317", "美容护理");
-        add(out, "industry", "sh880318", "家用电器");
-        add(out, "industry", "sh880319", "食品饮料");
-        add(out, "industry", "sh880320", "煤炭");
-        add(out, "industry", "sh880321", "石油石化");
-        add(out, "industry", "sh880322", "环保");
-        add(out, "industry", "sh880323", "银行");
-        add(out, "industry", "sh880324", "非银金融");
-        add(out, "industry", "sh880325", "钢铁");
-        add(out, "industry", "sh880326", "有色金属");
-        add(out, "industry", "sh880327", "电子");
-        add(out, "industry", "sh880328", "计算机");
-        add(out, "industry", "sh880329", "传媒");
-        add(out, "industry", "sh880330", "通信");
-        add(out, "industry", "sh880331", "农林牧渔");
-        add(out, "industry", "sh880332", "基础化工");
-        add(out, "concept", "sh880401", "沪深300概念");
-        add(out, "concept", "sh880402", "中证500概念");
-        add(out, "concept", "sh880403", "中证1000概念");
-        add(out, "concept", "sh880404", "中证2000概念");
-        add(out, "concept", "sh880405", "红利概念");
-        add(out, "concept", "sh880406", "高股息概念");
-        add(out, "concept", "sh880407", "国企改革");
-        add(out, "concept", "sh880408", "央企改革");
-        add(out, "concept", "sh880409", "一带一路");
-        add(out, "concept", "sh880410", "粤港澳大湾区");
-        add(out, "concept", "sh880411", "长三角一体化");
-        add(out, "concept", "sh880412", "雄安新区");
-        add(out, "concept", "sh880413", "海南自贸港");
-        add(out, "concept", "sh880414", "上海自贸");
-        add(out, "concept", "sh880415", "数字货币");
-        add(out, "concept", "sh880416", "区块链");
-        add(out, "concept", "sh880417", "人工智能");
-        add(out, "concept", "sh880418", "大数据");
-        add(out, "concept", "sh880419", "云计算");
-        add(out, "concept", "sh880420", "5G");
-        add(out, "concept", "sh880421", "芯片");
-        add(out, "concept", "sh880422", "国产芯片");
-        add(out, "concept", "sh880423", "存储芯片");
-        add(out, "concept", "sh880424", "半导体");
-        add(out, "concept", "sh880425", "集成电路");
-        add(out, "concept", "sh880426", "工业互联网");
-        add(out, "concept", "sh880427", "智能制造");
-        add(out, "concept", "sh880428", "卫星互联网");
-        add(out, "concept", "sh880429", "低空经济");
-        add(out, "concept", "sh880430", "人形机器人");
-        add(out, "concept", "sh880431", "CPO");
-        add(out, "concept", "sh880432", "数字经济");
-        add(out, "concept", "sh880433", "新能源");
-        add(out, "concept", "sh880434", "锂电池");
-        add(out, "concept", "sh880435", "固态电池");
-        add(out, "concept", "sh880436", "储能");
-        add(out, "concept", "sh880437", "充电桩");
-        add(out, "concept", "sh880438", "光伏");
-        add(out, "concept", "sh880439", "风电");
-        add(out, "concept", "sh880440", "核电");
-        add(out, "concept", "sh880441", "氢能源");
-        add(out, "concept", "sh880442", "特高压");
-        add(out, "concept", "sh880443", "碳中和");
-        add(out, "concept", "sh880444", "军工");
-        add(out, "concept", "sh880445", "国产替代");
-        add(out, "concept", "sh880446", "高端装备");
-        add(out, "concept", "sh880447", "智慧城市");
-        add(out, "concept", "sh880448", "乡村振兴");
-        add(out, "concept", "sh880449", "医美");
-        add(out, "concept", "sh880450", "创新药");
-        return List.copyOf(out);
+    private List<IndustryApplicationBO.TdxThsIndustryMapping> listThsMappings(String tdxCode6) {
+        return tdxThsIndustryMappingBasicService.listByTdxCode6(tdxCode6).stream()
+                .map(this::toTdxThsIndustryMapping)
+                .toList();
     }
 
-    private static void add(List<IndustryApplicationBO.TargetCode> out, String kind, String code, String name) {
-        out.add(IndustryApplicationBO.TargetCode.builder().kind(kind).code(code).name(name).build());
+    private IndustryApplicationBO.TdxThsIndustryMapping toTdxThsIndustryMapping(TdxThsIndustryMappingPO po) {
+        return IndustryApplicationBO.TdxThsIndustryMapping.builder()
+                .tdxCode6(po.getTdxCode6())
+                .tdxName(po.getTdxName())
+                .thsCode(po.getThsCode())
+                .thsName(po.getThsName())
+                .matchType(po.getMatchType())
+                .confidence(po.getConfidence())
+                .priority(po.getPriority())
+                .primary(po.getIsPrimary())
+                .remark(po.getRemark())
+                .source(po.getSource())
+                .build();
     }
+
+    private static String text(JsonNode node, String field) {
+        if (node == null || field == null) {
+            return null;
+        }
+        JsonNode value = node.path(field);
+        if (value.isMissingNode() || value.isNull()) {
+            return null;
+        }
+        String text = value.asText(null);
+        return text == null || text.isBlank() ? null : text.trim();
+    }
+
+    private static BigDecimal decimal(JsonNode node, String field) {
+        String value = text(node, field);
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static final class ConstituentAccumulator {
+        private final String code;
+        private String name;
+        private BigDecimal price;
+        private BigDecimal changePct;
+        private BigDecimal turnoverPct;
+        private String amountText;
+        private final LinkedHashSet<String> sources = new LinkedHashSet<>();
+
+        private ConstituentAccumulator(String code) {
+            this.code = code;
+        }
+
+        private void merge(IndustryApplicationBO.TdxFundFlowConstituent item) {
+            if (item == null) {
+                return;
+            }
+            if (this.name == null || this.name.isBlank()) {
+                this.name = item.getName();
+            }
+            if (this.price == null) {
+                this.price = item.getPrice();
+            }
+            if (this.changePct == null) {
+                this.changePct = item.getChangePct();
+            }
+            if (this.turnoverPct == null) {
+                this.turnoverPct = item.getTurnoverPct();
+            }
+            if (this.amountText == null || this.amountText.isBlank()) {
+                this.amountText = item.getAmountText();
+            }
+            if (item.getSources() != null) {
+                this.sources.addAll(item.getSources().stream()
+                        .filter(Objects::nonNull)
+                        .map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .toList());
+            }
+        }
+
+        private IndustryApplicationBO.TdxFundFlowConstituent toValue() {
+            return IndustryApplicationBO.TdxFundFlowConstituent.builder()
+                    .code(code)
+                    .name(name)
+                    .price(price)
+                    .changePct(changePct)
+                    .turnoverPct(turnoverPct)
+                    .amountText(amountText)
+                    .sources(new ArrayList<>(sources))
+                    .build();
+        }
+    }
+
 }

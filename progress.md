@@ -549,3 +549,31 @@
 - Rebuilt/recreated `cynexus-data-job-executor`; `/internal/health` returned ok.
 - Container-loaded code verification returned `{'constituent_codes': 90, 'fund_flow_name_code': 90}`.
 - Verification: `python -m compileall -q src` passed under `cynexus-data`.
+
+## 2026-07-02 F10 Query Chain Migration
+
+- User clarified the desired runtime shape: `cynexus-ui` calls `cynexus-market`, then `cynexus-market` calls `cynexus-data`, and the result is normalized back up the chain.
+- Re-read `task_plan.md`, `findings.md`, `progress.md`, and `docs/migration-guides/python-to-java-api-migration-guide.md` before implementation.
+- Re-read `AGENTS.md`; it contains `DO NOT send optional commentary!!!`.
+- Attempted to run the planning skill catch-up script using the `.claude` path from the skill docs; that failed because the file does not exist in this environment.
+- Located the actual planning skill script path under `.agents`, confirming the earlier failure was environmental rather than repository-related.
+- Inspected current frontend F10 consumer `cynexus-ui/src/components/stock-detail-dialog.tsx`; confirmed stock chart/meta/sectors already use Java services while F10 still imports from `@/services/legacy/f10`.
+- Inspected legacy frontend adapter `cynexus-ui/src/services/legacy/f10.ts`; confirmed the page-facing normalized response shapes that need Java equivalents.
+- Inspected old Python F10 route and service stack in `F:\dev-repo\mp4-to-word-new\backend\api\stock\f10.py` and `backend/services/stock/f10/*`; confirmed the exact legacy endpoints and adapter-backed data scopes.
+- Inspected `cynexus-data` FastAPI internal app and confirmed there is an existing `/internal/*` service surface suitable for adding F10 query endpoints.
+- Inspected `cynexus-core` `HttpDataJobExecutorClient`; it is the cleanest current pattern for Java -> Python internal HTTP calls in this repo.
+- Inspected `cynexus-market` stock-chart controller/app-service/domain-repository/infra-repository chain; this is the right place to add typed F10 query contracts for the stock detail dialog.
+- Added Phase 33 to `task_plan.md` for the F10 query-chain migration.
+- Added `cynexus-data/src/cynexus_data/sources/tdx/f10.py` with scoped F10 source parsers for valuation, finance report, business composition, profit forecast, announcements, news, roadshows, and company news.
+- Added `cynexus-data/src/cynexus_data/interfaces/trigger_api/f10_routes.py` and registered it in the existing FastAPI app so `market` has internal `/internal/f10/*` query endpoints.
+- Extended `StockChartBO`, `StockChartDTO`, `StockChartQueryRepository`, `StockChartQueryRepositoryImpl`, `StockChartQueryAppService`, and `StockChartQueryController` with typed F10 query contracts under `/api/market/stock-chart/f10/*`.
+- Added `cynexus-market/.../HttpStockChartF10DataClient.java` as the Java -> Python internal HTTP client for F10 queries.
+- Added `cynexus-ui/src/services/market/f10.ts` and switched `src/components/stock-detail-dialog.tsx` plus `src/lib/api.ts` compatibility exports to the new market service.
+- Updated `src/services/legacy/README.md` to remove F10 from the still-legacy page list.
+- Verification:
+  - `python -m compileall -q src` passed under `cynexus-data`.
+  - `npx tsc -b --pretty false` passed under `cynexus-ui`.
+  - `mvn -pl cynexus-market/cynexus-market-starter -am compile -DskipTests` passed.
+  - `npm run build` passed under `cynexus-ui`.
+  - `rg -n "@/services/legacy/f10|services/legacy/f10" cynexus-ui/src -S` returned no matches.
+- Runtime validation note: the new endpoints were not smoke-tested over live HTTP in this turn because local `cynexus-data` / `cynexus-market` processes were not restarted here.

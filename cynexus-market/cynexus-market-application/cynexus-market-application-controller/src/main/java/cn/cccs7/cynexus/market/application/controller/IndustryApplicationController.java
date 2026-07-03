@@ -85,4 +85,12 @@ public class IndustryApplicationController {
                                                                           @RequestParam(required = false) Integer top) {
         return Result.success(industryApplicationAppService.getFundFlow(tradeDate, top));
     }
+
+    @GetMapping("/tdx-fund-flow")
+    public Result<IndustryApplicationDTO.TdxFundFlowResponse> getTdxFundFlow(@RequestParam("target_type") String targetType,
+                                                                              @RequestParam String symbol,
+                                                                              @RequestParam(name = "trade_date", required = false) String tradeDate,
+                                                                              @RequestParam(defaultValue = "30") int days) {
+        return Result.success(industryApplicationAppService.getTdxFundFlow(targetType, symbol, tradeDate, days));
+    }
 }

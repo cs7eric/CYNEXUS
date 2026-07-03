@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.IndustryApplicationTargetCatalogMapper">
+
+    <resultMap id="TargetCatalogResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationTargetCatalogPO">
+        <id property="id" column="id"/>
+        <result property="targetType" column="target_type"/>
+        <result property="symbol" column="symbol"/>
+        <result property="code6" column="code6"/>
+        <result property="exchange" column="exchange"/>
+        <result property="name" column="name"/>
+        <result property="source" column="source"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <select id="listAll" resultMap="TargetCatalogResultMap">
+        SELECT id, target_type, symbol, code6, exchange, name, source, remark,
+               created_at, updated_at, deleted_at
+          FROM mkt_industry_application_target_catalog
+         WHERE deleted_at IS NULL
+         ORDER BY target_type ASC, symbol ASC
+    </select>
+
+    <select id="listBySymbols" resultMap="TargetCatalogResultMap">
+        SELECT id, target_type, symbol, code6, exchange, name, source, remark,
+               created_at, updated_at, deleted_at
+          FROM mkt_industry_application_target_catalog
+         WHERE deleted_at IS NULL
+           <if test="symbols != null and symbols.size() > 0">
+             AND symbol IN
+             <foreach collection="symbols" item="symbol" open="(" separator="," close=")">
+                 #{symbol}
+             </foreach>
+           </if>
+         ORDER BY symbol ASC
+    </select>
+
+    <select id="findBySymbol" resultMap="TargetCatalogResultMap">
+        SELECT id, target_type, symbol, code6, exchange, name, source, remark,
+               created_at, updated_at, deleted_at
+          FROM mkt_industry_application_target_catalog
+         WHERE symbol = #{symbol}
+           AND deleted_at IS NULL
+         LIMIT 1
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO mkt_industry_application_target_catalog (
+            id, target_type, symbol, code6, exchange, name, source, remark,
+            created_at, updated_at, deleted_at
+        )
+        VALUES (
+            #{value.id}, #{value.targetType}, #{value.symbol}, #{value.code6}, #{value.exchange},
+            #{value.name}, #{value.source}, #{value.remark},
+            COALESCE(#{value.createdAt}, now()), COALESCE(#{value.updatedAt}, now()), NULL
+        )
+        ON CONFLICT (symbol) DO UPDATE SET
+            target_type = EXCLUDED.target_type,
+            code6 = EXCLUDED.code6,
+            exchange = EXCLUDED.exchange,
+            name = EXCLUDED.name,
+            source = EXCLUDED.source,
+            remark = EXCLUDED.remark,
+            updated_at = now(),
+            deleted_at = NULL
+    </insert>
+</mapper>

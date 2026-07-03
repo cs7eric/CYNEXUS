@@ -245,6 +245,140 @@ public class ClickHouseStockChartClient {
                 .toList();
     }
 
+    public List<MarketSymbol> listAvailableIndustryApplicationSymbols() {
+        String sql = """
+                SELECT
+                    market,
+                    symbol
+                FROM
+                (
+                    SELECT
+                        market,
+                        symbol,
+                        max(trade_date) AS latestTradeDate
+                    FROM daily_raw
+                    WHERE
+                        (
+                            market = 'SH'
+                            AND
+                            (
+                                symbol LIKE '8803%%'
+                                OR symbol LIKE '8804%%'
+                                OR symbol LIKE '8805%%'
+                                OR symbol IN ('000001', '000016', '000300', '000688', '000852', '000905', '000932')
+                            )
+                        )
+                        OR (market = 'SZ' AND symbol IN ('399001', '399006'))
+                    GROUP BY market, symbol
+                )
+                ORDER BY market, symbol
+                FORMAT JSONEachRow
+                """;
+        return query(sql, MarketSymbolRow.class).stream()
+                .map(row -> new MarketSymbol(row.market(), row.symbol()))
+                .toList();
+    }
+
+    public List<DailyBar> listDailyBars(String market, String symbol, LocalDate startDate, LocalDate endDate) {
+        if (market == null || symbol == null) {
+            return List.of();
+        }
+        List<String> where = new ArrayList<>();
+        where.add("market = '" + escapeSql(market.toUpperCase(Locale.ROOT)) + "'");
+        where.add("symbol = '" + escapeSql(symbol) + "'");
+        if (startDate != null) {
+            where.add("trade_date >= toDate('" + startDate + "')");
+        }
+        if (endDate != null) {
+            where.add("trade_date <= toDate('" + endDate + "')");
+        }
+        String sql = """
+                WITH daily AS
+                (
+                    SELECT
+                        trade_date,
+                        max(open) AS open,
+                        max(high) AS high,
+                        min(low) AS low,
+                        max(close) AS close,
+                        max(volume) AS volume,
+                        max(amount) AS amount
+                    FROM daily_raw
+                    WHERE %s
+                    GROUP BY trade_date
+                )
+                SELECT
+                    toString(trade_date) AS tradeDate,
+                    open,
+                    high,
+                    low,
+                    close,
+                    volume,
+                    amount
+                FROM daily
+                ORDER BY trade_date ASC
+                FORMAT JSONEachRow
+                """.formatted(String.join(" AND ", where));
+        return query(sql, DailyBarRow.class).stream()
+                .map(row -> DailyBar.builder()
+                        .tradeDate(row.tradeDate() == null ? null : LocalDate.parse(row.tradeDate()))
+                        .open(row.open())
+                        .high(row.high())
+                        .low(row.low())
+                        .close(row.close())
+                        .volume(row.volume())
+                        .amount(row.amount())
+                .build())
+                .toList();
+    }
+
+    public List<DailyBar> listQfqDailyBars(String symbol, int limit) {
+        if (symbol == null || symbol.isBlank()) {
+            return List.of();
+        }
+        int resolvedLimit = Math.max(limit, 1);
+        String sql = """
+                SELECT
+                    toString(trade_date) AS tradeDate,
+                    open,
+                    high,
+                    low,
+                    close,
+                    toDecimal64(volume, 0) AS volume,
+                    amount
+                FROM daily_qfq
+                WHERE code = '%s'
+                ORDER BY trade_date DESC
+                LIMIT %d
+                FORMAT JSONEachRow
+                """.formatted(escapeSql(symbol), resolvedLimit);
+        List<DailyBar> rows = query(sql, DailyBarRow.class).stream()
+                .map(row -> DailyBar.builder()
+                        .tradeDate(row.tradeDate() == null ? null : LocalDate.parse(row.tradeDate()))
+                        .open(row.open())
+                        .high(row.high())
+                        .low(row.low())
+                        .close(row.close())
+                        .volume(row.volume())
+                        .amount(row.amount())
+                        .build())
+                .toList();
+        List<DailyBar> ordered = new ArrayList<>(rows);
+        ordered.sort((left, right) -> {
+            if (left.getTradeDate() == null && right.getTradeDate() == null) {
+                return 0;
+            }
+            if (left.getTradeDate() == null) {
+                return -1;
+            }
+            if (right.getTradeDate() == null) {
+                return 1;
+            }
+            return left.getTradeDate().compareTo(right.getTradeDate());
+        });
+        return ordered;
+    }
+
     private <T> List<T> query(String sql, Class<T> rowType) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -367,6 +501,18 @@ public class ClickHouseStockChartClient {
         private BigDecimal returnPct252d;
     }
 
+    @Data
+    @Builder
+    public static class DailyBar {
+        private LocalDate tradeDate;
+        private BigDecimal open;
+        private BigDecimal high;
+        private BigDecimal low;
+        private BigDecimal close;
+        private BigDecimal volume;
+        private BigDecimal amount;
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record LatestTradeDateRow(String latestTradeDate) {
     }
@@ -431,6 +577,25 @@ public class ClickHouseStockChartClient {
             BigDecimal returnPct30d,
             BigDecimal returnPct60d,
             BigDecimal returnPct252d
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record DailyBarRow(
+            String tradeDate,
+            BigDecimal open,
+            BigDecimal high,
+            BigDecimal low,
+            BigDecimal close,
+            BigDecimal volume,
+            BigDecimal amount
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record MarketSymbolRow(
+            String market,
+            String symbol
     ) {
     }
 }

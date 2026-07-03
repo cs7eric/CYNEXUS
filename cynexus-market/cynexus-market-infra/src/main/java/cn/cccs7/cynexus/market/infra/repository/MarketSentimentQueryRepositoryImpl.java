@@ -13,7 +13,7 @@ import cn.cccs7.cynexus.market.domain.entity.TurnoverActivityDailyBO;
 import cn.cccs7.cynexus.market.domain.entity.VolatilityDailyBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketSentimentQueryRepository;
 import cn.cccs7.cynexus.market.infra.basic.service.MarketSentimentQueryBasicService;
-import cn.cccs7.cynexus.market.infra.convert.IndexDailyBarPOConverter;
+import cn.cccs7.cynexus.market.infra.client.ClickHouseStockChartClient;
 import cn.cccs7.cynexus.market.infra.convert.MaCountDailyPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.MarketOverviewPOConverter;
 import cn.cccs7.cynexus.market.infra.convert.MarketSentimentLimitEmotionDailyPOConverter;
@@ -33,9 +33,12 @@ import org.springframework.stereotype.Repository;
 public class MarketSentimentQueryRepositoryImpl implements MarketSentimentQueryRepository {
 
     private final MarketSentimentQueryBasicService basicService;
+    private final ClickHouseStockChartClient clickHouseStockChartClient;
 
-    public MarketSentimentQueryRepositoryImpl(MarketSentimentQueryBasicService basicService) {
+    public MarketSentimentQueryRepositoryImpl(MarketSentimentQueryBasicService basicService,
+                                              ClickHouseStockChartClient clickHouseStockChartClient) {
         this.basicService = basicService;
+        this.clickHouseStockChartClient = clickHouseStockChartClient;
     }
 
     @Override
@@ -135,19 +138,48 @@ public class MarketSentimentQueryRepositoryImpl implements MarketSentimentQueryR
 
     @Override
     public List<IndexDailyBarBO> listIndexDaily(String code, LocalDate startDate, LocalDate endDate) {
-        return IndexDailyBarPOConverter.INSTANCE.toTargetList(basicService.listIndexDaily(normalizeIndexCode(code), startDate, endDate));
+        ClickHouseStockChartClient.MarketSymbol normalizedSymbol = normalizeIndexSymbol(code);
+        return clickHouseStockChartClient.listDailyBars(normalizedSymbol.market(), normalizedSymbol.symbol(), startDate, endDate).stream()
+                .filter(bar -> bar.getTradeDate() != null)
+                .map(bar -> IndexDailyBarBO.builder()
+                        .tradeDate(bar.getTradeDate())
+                        .code(toIndexCode(normalizedSymbol))
+                        .name(indexName(code))
+                        .close(bar.getClose())
+                        .amount(bar.getAmount())
+                        .build())
+                .toList();
     }
 
-    private String normalizeIndexCode(String code) {
+    private ClickHouseStockChartClient.MarketSymbol normalizeIndexSymbol(String code) {
         if (code == null) {
+            return new ClickHouseStockChartClient.MarketSymbol("SH", "");
+        }
+        String value = code.trim().toLowerCase();
+        if (value.startsWith("sh") || value.startsWith("sz")) {
+            return new ClickHouseStockChartClient.MarketSymbol(value.substring(0, 2).toUpperCase(), value.substring(2));
+        }
+        String digits = value.replaceAll("\\D", "");
+        return switch (digits) {
+            case "399001", "399006" -> new ClickHouseStockChartClient.MarketSymbol("SZ", digits);
+            default -> new ClickHouseStockChartClient.MarketSymbol("SH", digits);
+        };
+    }
+
+    private String toIndexCode(ClickHouseStockChartClient.MarketSymbol symbol) {
+        if (symbol == null || symbol.symbol() == null) {
             return "";
         }
-        if (code.startsWith("sh") || code.startsWith("sz")) {
-            return code;
-        }
-        return switch (code) {
-            case "399001", "399006" -> "sz" + code;
-            default -> "sh" + code;
+        return symbol.market().toLowerCase() + symbol.symbol();
+    }
+
+    private String indexName(String code) {
+        String digits = code == null ? "" : code.replaceAll("\\D", "");
+        return switch (digits) {
+            case "000001" -> "上证指数";
+            case "399001" -> "深证成指";
+            case "399006" -> "创业板指";
+            default -> digits.isBlank() ? code : digits;
         };
     }
 }

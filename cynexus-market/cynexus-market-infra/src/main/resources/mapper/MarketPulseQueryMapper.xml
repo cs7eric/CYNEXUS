@@ -54,6 +54,46 @@
         deleted_at
     </sql>
 
+    <sql id="PulseCaptureBatchColumns">
+        id,
+        trade_date,
+        source_kind,
+        status,
+        source_name,
+        row_count,
+        fetched_at,
+        extra,
+        remark,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
+    <sql id="PulseSectorColumns">
+        id,
+        batch_id,
+        trade_date,
+        sector_name,
+        sector_index,
+        rank_by_change,
+        change_pct,
+        inflow,
+        outflow,
+        main_net,
+        stock_count,
+        leading_stock,
+        leading_change_pct,
+        leading_price,
+        source_kind,
+        source_name,
+        captured_at,
+        extra,
+        remark,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
     <select id="findLatestOverview" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO">
         select <include refid="OverviewColumns"/>
           from market_overview_snapshots
@@ -162,6 +202,55 @@
             #{value.updatedAt}
         )
     </insert>
+
+    <select id="findLatestPulseTradeDate" resultType="java.time.LocalDate">
+        select max(trade_date)
+          from market_pulse_sector_daily_snapshots
+         where deleted_at is null
+        <if test="endDate != null">
+           and trade_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="findLatestPulseBatch" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseCaptureBatchPO">
+        select <include refid="PulseCaptureBatchColumns"/>
+          from market_pulse_capture_batches
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by fetched_at desc nulls last, updated_at desc nulls last
+         limit 1
+    </select>
+
+    <select id="listLatestPulseTradeDates" resultType="java.time.LocalDate">
+        select trade_date
+          from (
+            select distinct trade_date
+              from market_pulse_sector_daily_snapshots
+             where deleted_at is null
+             order by trade_date desc
+             limit #{limit}
+          ) t
+         order by trade_date asc
+    </select>
+
+    <select id="listPulseRowsByTradeDate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseSectorDailySnapshotPO">
+        select <include refid="PulseSectorColumns"/>
+          from market_pulse_sector_daily_snapshots
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by rank_by_change asc nulls last, change_pct desc nulls last, sector_name asc
+    </select>
+
+    <select id="listPulseRowsByTradeDates" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseSectorDailySnapshotPO">
+        select <include refid="PulseSectorColumns"/>
+          from market_pulse_sector_daily_snapshots
+         where deleted_at is null
+           and trade_date in
+           <foreach collection="tradeDates" item="tradeDate" open="(" separator="," close=")">
+               #{tradeDate}
+           </foreach>
+         order by trade_date asc, rank_by_change asc nulls last, change_pct desc nulls last, sector_name asc
+    </select>
 
     <select id="listLatestStyleSectors" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO">
         select id,

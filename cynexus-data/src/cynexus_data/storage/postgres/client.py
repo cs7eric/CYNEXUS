@@ -171,8 +171,8 @@ def _jsonable_record(record: dict[str, Any]) -> dict[str, Any]:
         "finished_at": record.get("finished_at"),
         "rows_read": int(record.get("rows_read") or 0),
         "rows_written": int(record.get("rows_written") or 0),
-        "warnings": json.dumps(record.get("warnings") or [], ensure_ascii=False),
-        "errors": json.dumps(record.get("errors") or [], ensure_ascii=False),
-        "params": json.dumps(record.get("params") or {}, ensure_ascii=False),
-        "metadata": json.dumps(record.get("metadata") or {}, ensure_ascii=False),
+        "warnings": json.dumps(record.get("warnings") or [], ensure_ascii=False, default=str),
+        "errors": json.dumps(record.get("errors") or [], ensure_ascii=False, default=str),
+        "params": json.dumps(record.get("params") or {}, ensure_ascii=False, default=str),
+        "metadata": json.dumps(record.get("metadata") or {}, ensure_ascii=False, default=str),
     }

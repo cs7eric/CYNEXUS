@@ -5,7 +5,9 @@ import cn.cccs7.cynexus.market.infra.basic.entity.HeatmapSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndexReturnDailyPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailySnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailyStockPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseCaptureBatchPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketOverviewPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarketPulseSectorDailySnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StyleSectorSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.mapper.MarketPulseQueryMapper;
 import cn.cccs7.cynexus.market.infra.basic.service.MarketPulseQueryBasicService;
@@ -80,6 +82,34 @@ public class MarketPulseQueryBasicServiceImpl implements MarketPulseQueryBasicSe
         value.setCreatedAt(now);
         value.setUpdatedAt(now);
         marketPulseQueryMapper.insertManualFundFlow(value);
+    }
+
+    @Override
+    public Optional<LocalDate> findLatestPulseTradeDate(LocalDate endDate) {
+        return Optional.ofNullable(marketPulseQueryMapper.findLatestPulseTradeDate(endDate));
+    }
+
+    @Override
+    public Optional<MarketPulseCaptureBatchPO> findLatestPulseBatch(LocalDate tradeDate) {
+        return Optional.ofNullable(marketPulseQueryMapper.findLatestPulseBatch(tradeDate));
+    }
+
+    @Override
+    public List<LocalDate> listLatestPulseTradeDates(int limit) {
+        return marketPulseQueryMapper.listLatestPulseTradeDates(limit);
+    }
+
+    @Override
+    public List<MarketPulseSectorDailySnapshotPO> listPulseRowsByTradeDate(LocalDate tradeDate) {
+        return marketPulseQueryMapper.listPulseRowsByTradeDate(tradeDate);
+    }
+
+    @Override
+    public List<MarketPulseSectorDailySnapshotPO> listPulseRowsByTradeDates(List<LocalDate> tradeDates) {
+        if (tradeDates == null || tradeDates.isEmpty()) {
+            return List.of();
+        }
+        return marketPulseQueryMapper.listPulseRowsByTradeDates(tradeDates);
     }
 
     @Override

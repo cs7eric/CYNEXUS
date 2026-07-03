@@ -9,8 +9,35 @@ import yaml
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CONFIG_DIR = PACKAGE_ROOT / "config"
+
+
+def _resolve_project_root() -> Path:
+    configured = os.getenv("CYNEXUS_DATA_PROJECT_ROOT")
+    candidates = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.extend(
+        [
+            Path(__file__).resolve().parents[3],
+            PACKAGE_ROOT.parent.parent,
+            PACKAGE_ROOT.parent,
+            Path.cwd(),
+            Path("/app"),
+        ]
+    )
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve(strict=False)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if (resolved / "sql" / "postgres").exists() or (resolved / "sql" / "clickhouse").exists():
+            return resolved
+    return Path(__file__).resolve().parents[3]
+
+
+PROJECT_ROOT = _resolve_project_root()
 
 
 def load_yaml_config(name: str) -> dict[str, Any]:

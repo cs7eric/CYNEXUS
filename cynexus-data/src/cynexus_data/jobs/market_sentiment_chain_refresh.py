@@ -8,6 +8,7 @@ from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.jobs.contracts import JobRequest, JobResult
 from cynexus_data.pipelines.fund_flow import sync_sector_flow
 from cynexus_data.pipelines.kline import sync_adjusted_daily, sync_daily, sync_tdx_hsjday
+from cynexus_data.pipelines.market import build_index_returns, build_market_heatmap, build_style_sector
 from cynexus_data.pipelines.market_overview import build_market_overview
 from cynexus_data.pipelines.msi import (
     build_limit_emotion,
@@ -32,6 +33,8 @@ CHAIN_STEPS: list[tuple[str, StepCallable]] = [
     ("tdx_hsjday_download", sync_tdx_hsjday.run),
     ("initial_backfill_refresh", sync_daily.run),
     ("qfq_reconciliation_refresh", sync_adjusted_daily.run),
+    ("build_style_sector", build_style_sector.run),
+    ("build_index_returns", build_index_returns.run),
     ("limit_emotion_refresh", build_limit_emotion.run),
     ("risk_appetite_refresh", build_risk_appetite.run),
     ("ma_count_refresh", build_ma_count.run),
@@ -41,6 +44,7 @@ CHAIN_STEPS: list[tuple[str, StepCallable]] = [
     ("market_overview_daily", build_market_overview.run),
     ("turnover_activity_refresh", build_turnover_activity.run),
     ("ths_industry_fund_flow_daily", sync_sector_flow.run),
+    ("build_market_heatmap", build_market_heatmap.run),
     ("sector_breadth_refresh", build_sector_breadth.run),
     ("market_sentiment_index_refresh", build_msi.run),
 ]
@@ -193,7 +197,7 @@ def run(context: PipelineContext, request: JobRequest, run_id: str) -> JobResult
         _mark_progress(context, run_id, metadata, rows_read=rows_read, rows_written=rows_written)
 
     metadata["lastStep"] = None
-    metadata["lastMessage"] = f"completed {len(completed_steps)} MSI steps"
+    metadata["lastMessage"] = f"completed {len(completed_steps)} market sentiment steps"
     return JobResult(
         run_id=run_id,
         job_key=request.job_key,
@@ -270,6 +274,20 @@ def _apply_step_path_defaults(step_code: str, params: dict[str, Any], hsjday_roo
         params.setdefault("flush_rows", 100_000)
         params.setdefault("replace_scope", "date")
         params.setdefault("workers", 4)
+        return
+    if step_code == "build_style_sector":
+        params.setdefault("quote_source", "tencent")
+        params.setdefault("create_table", True)
+        return
+    if step_code == "build_index_returns":
+        params.setdefault("source_table", "daily_raw")
+        params.setdefault("create_table", True)
+        return
+    if step_code == "build_market_heatmap":
+        params.setdefault("create_table", True)
+        return
+    if step_code == "market_overview_daily":
+        params.setdefault("create_table", True)
 
 
 def _apply_step_progress_defaults(

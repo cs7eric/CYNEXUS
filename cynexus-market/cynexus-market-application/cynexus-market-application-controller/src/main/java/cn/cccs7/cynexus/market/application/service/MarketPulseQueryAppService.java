@@ -9,6 +9,8 @@ import cn.cccs7.cynexus.market.api.dto.MarketPulseManualFundFlowDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewEltdxDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewHistoryDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseSectorSnapshotDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseSectorSnapshotHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseStyleSectorConstituentsDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseStyleSectorListDTO;
 import cn.cccs7.cynexus.market.api.request.MarketPulseManualFundFlowRequest;
@@ -16,10 +18,13 @@ import cn.cccs7.cynexus.market.application.convert.MarketPulseIndexKlinePointDTO
 import cn.cccs7.cynexus.market.application.convert.MarketPulseIndexReturnItemDTOConverter;
 import cn.cccs7.cynexus.market.application.convert.MarketPulseLimitEmotionStockDTOConverter;
 import cn.cccs7.cynexus.market.application.convert.MarketPulseOverviewResponseDTOConverter;
+import cn.cccs7.cynexus.market.application.convert.MarketPulseSectorDailySnapshotDTOConverter;
 import cn.cccs7.cynexus.market.application.convert.MarketPulseStyleSectorItemDTOConverter;
 import cn.cccs7.cynexus.market.domain.entity.IndexMinuteBarBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketLimitDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketOverviewBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketPulseCaptureBatchBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketPulseSectorDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
@@ -124,6 +129,66 @@ public class MarketPulseQueryAppService {
                 .source("java-pg")
                 .count(items.size())
                 .items(items)
+                .build();
+    }
+
+    public MarketPulseSectorSnapshotDTO getLatestSectorSnapshot() {
+        LocalDate requestedTradeDate = LocalDate.now();
+        LocalDate tradeDate = marketPulseQueryRepository.findLatestPulseTradeDate(requestedTradeDate)
+                .or(() -> marketPulseQueryRepository.findLatestPulseTradeDate(null))
+                .orElse(null);
+        if (tradeDate == null) {
+            return MarketPulseSectorSnapshotDTO.builder()
+                    .ok(false)
+                    .requestedTradeDate(requestedTradeDate)
+                    .fallbackTradeDate(false)
+                    .servingMode("close")
+                    .rowCount(0)
+                    .rows(List.of())
+                    .error("market pulse snapshot is empty")
+                    .build();
+        }
+        MarketPulseCaptureBatchBO batch = marketPulseQueryRepository.findLatestPulseBatch(tradeDate).orElse(null);
+        List<MarketPulseSectorDailySnapshotBO> rows = marketPulseQueryRepository.listPulseRowsByTradeDate(tradeDate);
+        return MarketPulseSectorSnapshotDTO.builder()
+                .ok(true)
+                .tradeDate(tradeDate)
+                .requestedTradeDate(requestedTradeDate)
+                .fallbackTradeDate(!tradeDate.equals(requestedTradeDate))
+                .servingMode(resolveServingMode(tradeDate, batch))
+                .sourceKind(batch == null ? null : batch.getSourceKind())
+                .sourceName(batch == null ? null : batch.getSourceName())
+                .status(batch == null ? null : batch.getStatus())
+                .fetchedAt(batch == null ? null : batch.getFetchedAt())
+                .rowCount(rows.size())
+                .rows(MarketPulseSectorDailySnapshotDTOConverter.INSTANCE.toSourceList(rows))
+                .build();
+    }
+
+    public MarketPulseSectorSnapshotHistoryDTO getSectorSnapshotHistory(int days) {
+        int safeDays = Math.max(1, Math.min(days, 365));
+        List<LocalDate> dates = marketPulseQueryRepository.listLatestPulseTradeDates(safeDays);
+        if (dates.isEmpty()) {
+            return MarketPulseSectorSnapshotHistoryDTO.builder()
+                    .ok(false)
+                    .days(safeDays)
+                    .dates(List.of())
+                    .rowCount(0)
+                    .rows(List.of())
+                    .error("market pulse history is empty")
+                    .build();
+        }
+        List<MarketPulseSectorDailySnapshotBO> rows = marketPulseQueryRepository.listPulseRowsByTradeDates(dates);
+        MarketPulseCaptureBatchBO latestBatch = marketPulseQueryRepository.findLatestPulseBatch(dates.get(dates.size() - 1)).orElse(null);
+        return MarketPulseSectorSnapshotHistoryDTO.builder()
+                .ok(true)
+                .days(safeDays)
+                .dates(dates)
+                .rowCount(rows.size())
+                .sourceKind(latestBatch == null ? null : latestBatch.getSourceKind())
+                .sourceName(latestBatch == null ? null : latestBatch.getSourceName())
+                .fetchedAt(latestBatch == null ? null : latestBatch.getFetchedAt())
+                .rows(MarketPulseSectorDailySnapshotDTOConverter.INSTANCE.toSourceList(rows))
                 .build();
     }
 
@@ -738,6 +803,13 @@ public class MarketPulseQueryAppService {
                 .ok(false)
                 .error(message)
                 .build();
+    }
+
+    private String resolveServingMode(LocalDate tradeDate, MarketPulseCaptureBatchBO batch) {
+        if (tradeDate != null && tradeDate.equals(LocalDate.now()) && batch != null && "live_capture".equals(batch.getSourceKind())) {
+            return "intraday";
+        }
+        return "close";
     }
 
     private <T> T readJson(String value, Class<T> type) {

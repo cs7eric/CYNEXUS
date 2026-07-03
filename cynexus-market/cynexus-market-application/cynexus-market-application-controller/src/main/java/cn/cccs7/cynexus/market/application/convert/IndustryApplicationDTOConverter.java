@@ -90,6 +90,7 @@ public interface IndustryApplicationDTOConverter {
                 .code(value.getCode())
                 .name(value.getName())
                 .kind(value.getKind())
+                .tdxFundFlowSupported(value.getTdxFundFlowSupported())
                 .build();
     }
 
@@ -224,12 +225,16 @@ public interface IndustryApplicationDTOConverter {
         return IndustryApplicationDTO.FundFlowResponse.builder()
                 .ok(value.getOk())
                 .tradeDate(value.getTradeDate() == null ? null : value.getTradeDate().toString())
+                .requestedTradeDate(value.getRequestedTradeDate() == null ? null : value.getRequestedTradeDate().toString())
+                .fallbackTradeDate(value.getFallbackTradeDate())
+                .servingMode(value.getServingMode())
                 .rowCount(value.getRowCount())
                 .totalPages(value.getTotalPages())
                 .pageRowCounts(value.getPageRowCounts() == null ? List.of() : value.getPageRowCounts())
                 .fetchedAt(value.getFetchedAt())
                 .rows(toFundFlowRows(value.getRows()))
                 .source(value.getSource())
+                .sourceKind(value.getSourceKind())
                 .stale(value.getStale())
                 .staleReason(value.getStaleReason())
                 .error(value.getError())
@@ -282,5 +287,105 @@ public interface IndustryApplicationDTOConverter {
 
     default List<IndustryApplicationDTO.FundFlowRow> toFundFlowRows(List<IndustryApplicationBO.FundFlowRow> values) {
         return values == null ? List.of() : values.stream().map(this::toFundFlowRow).toList();
+    }
+
+    default IndustryApplicationDTO.TdxFundFlowResponse toTdxFundFlowResponse(IndustryApplicationBO.TdxFundFlowSnapshot value) {
+        if (value == null) {
+            return IndustryApplicationDTO.TdxFundFlowResponse.builder()
+                    .applicable(false)
+                    .ok(false)
+                    .history(List.of())
+                    .error("no tdx fund-flow snapshot found")
+                    .build();
+        }
+        return IndustryApplicationDTO.TdxFundFlowResponse.builder()
+                .applicable(value.getApplicable())
+                .ok(value.getOk())
+                .targetType(value.getTargetType())
+                .symbol(value.getSymbol())
+                .requestedTradeDate(value.getRequestedTradeDate() == null ? null : value.getRequestedTradeDate().toString())
+                .tradeDate(value.getTradeDate() == null ? null : value.getTradeDate().toString())
+                .code6(value.getCode6())
+                .fullCode(value.getFullCode())
+                .tdxName(value.getTdxName())
+                .flowSectorName(value.getFlowSectorName())
+                .seedCode(value.getSeedCode())
+                .flowTradeDate(value.getFlowTradeDate() == null ? null : value.getFlowTradeDate().toString())
+                .snapshotStatus(value.getSnapshotStatus())
+                .selectionMode(value.getSelectionMode())
+                .nameMatchType(value.getNameMatchType())
+                .mainNet(value.getMainNet())
+                .largeOrderNet(value.getLargeOrderNet())
+                .mediumOrderNet(value.getMediumOrderNet())
+                .smallOrderNet(value.getSmallOrderNet())
+                .rowCount(value.getRowCount())
+                .historyDays(value.getHistoryDays())
+                .history(toTdxFundFlowPoints(value.getHistory()))
+                .thsMappings(toTdxThsIndustryMappings(value.getThsMappings()))
+                .constituents(toTdxFundFlowConstituents(value.getConstituents()))
+                .source(value.getSource())
+                .error(value.getError())
+                .build();
+    }
+
+    default IndustryApplicationDTO.TdxFundFlowPoint toTdxFundFlowPoint(IndustryApplicationBO.TdxFundFlowPoint value) {
+        if (value == null) {
+            return null;
+        }
+        return IndustryApplicationDTO.TdxFundFlowPoint.builder()
+                .tradeDate(value.getTradeDate() == null ? null : value.getTradeDate().toString())
+                .flowTradeDate(value.getFlowTradeDate() == null ? null : value.getFlowTradeDate().toString())
+                .snapshotStatus(value.getSnapshotStatus())
+                .selectionMode(value.getSelectionMode())
+                .mainNet(value.getMainNet())
+                .largeOrderNet(value.getLargeOrderNet())
+                .mediumOrderNet(value.getMediumOrderNet())
+                .smallOrderNet(value.getSmallOrderNet())
+                .build();
+    }
+
+    default List<IndustryApplicationDTO.TdxFundFlowPoint> toTdxFundFlowPoints(List<IndustryApplicationBO.TdxFundFlowPoint> values) {
+        return values == null ? List.of() : values.stream().map(this::toTdxFundFlowPoint).toList();
+    }
+
+    default IndustryApplicationDTO.TdxThsIndustryMapping toTdxThsIndustryMapping(IndustryApplicationBO.TdxThsIndustryMapping value) {
+        if (value == null) {
+            return null;
+        }
+        return IndustryApplicationDTO.TdxThsIndustryMapping.builder()
+                .tdxCode6(value.getTdxCode6())
+                .tdxName(value.getTdxName())
+                .thsCode(value.getThsCode())
+                .thsName(value.getThsName())
+                .matchType(value.getMatchType())
+                .confidence(value.getConfidence())
+                .priority(value.getPriority())
+                .isPrimary(value.getPrimary())
+                .remark(value.getRemark())
+                .source(value.getSource())
+                .build();
+    }
+
+    default List<IndustryApplicationDTO.TdxThsIndustryMapping> toTdxThsIndustryMappings(List<IndustryApplicationBO.TdxThsIndustryMapping> values) {
+        return values == null ? List.of() : values.stream().map(this::toTdxThsIndustryMapping).toList();
+    }
+
+    default IndustryApplicationDTO.TdxFundFlowConstituent toTdxFundFlowConstituent(IndustryApplicationBO.TdxFundFlowConstituent value) {
+        if (value == null) {
+            return null;
+        }
+        return IndustryApplicationDTO.TdxFundFlowConstituent.builder()
+                .code(value.getCode())
+                .name(value.getName())
+                .price(value.getPrice())
+                .changePct(value.getChangePct())
+                .turnoverPct(value.getTurnoverPct())
+                .amountText(value.getAmountText())
+                .sources(value.getSources() == null ? List.of() : value.getSources())
+                .build();
+    }
+
+    default List<IndustryApplicationDTO.TdxFundFlowConstituent> toTdxFundFlowConstituents(List<IndustryApplicationBO.TdxFundFlowConstituent> values) {
+        return values == null ? List.of() : values.stream().map(this::toTdxFundFlowConstituent).toList();
     }
 }

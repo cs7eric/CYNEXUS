@@ -23,6 +23,12 @@ public class TdxSectorQuoteDetailSnapshotRepositoryImpl implements TdxSectorQuot
     }
 
     @Override
+    public Optional<TdxSectorQuoteDetailSnapshotBO> findLatestByCode6(String code6) {
+        return tdxSectorQuoteDetailSnapshotBasicService.findLatestByCode6(code6)
+                .map(TdxSectorQuoteDetailSnapshotPOConverter.INSTANCE::toTarget);
+    }
+
+    @Override
     public TdxSectorQuoteDetailSnapshotBO findById(Long id) {
         return Optional.ofNullable(tdxSectorQuoteDetailSnapshotBasicService.getById(id))
                 .map(TdxSectorQuoteDetailSnapshotPOConverter.INSTANCE::toTarget)

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.TdxThsIndustryMappingMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.market.infra.basic.entity.TdxThsIndustryMappingPO">
+        <id property="id" column="id"/>
+        <result property="tdxCode6" column="tdx_code6"/>
+        <result property="tdxName" column="tdx_name"/>
+        <result property="thsCode" column="ths_code"/>
+        <result property="thsName" column="ths_name"/>
+        <result property="matchType" column="match_type"/>
+        <result property="confidence" column="confidence"/>
+        <result property="priority" column="priority"/>
+        <result property="isPrimary" column="is_primary"/>
+        <result property="remark" column="remark"/>
+        <result property="source" column="source"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">
+        id, tdx_code6, tdx_name, ths_code, ths_name, match_type, confidence, priority, is_primary, remark, source,
+        created_at, updated_at, deleted_at
+    </sql>
+
+    <select id="selectByTdxCode6" resultMap="BaseResultMap">
+        select
+        <include refid="BaseColumnList"/>
+        from tdx_ths_industry_mapping
+        where deleted_at is null
+          and tdx_code6 = #{tdxCode6}
+        order by priority asc, confidence desc, ths_code asc
+    </select>
+</mapper>
