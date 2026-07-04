@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
+
+from cynexus_data.sources.akshare.margin import (
+    fetch_margin_account_stats,
+    fetch_margin_market_summary,
+    fetch_margin_stock_detail,
+)
 
 
 class AkshareClient:
@@ -48,6 +55,15 @@ class AkshareClient:
                 },
             })
         return out
+
+    def fetch_margin_market_summary(self, trade_date: date) -> list[dict[str, Any]]:
+        return fetch_margin_market_summary(self.require_module(), trade_date)
+
+    def fetch_margin_stock_detail(self, trade_date: date) -> list[dict[str, Any]]:
+        return fetch_margin_stock_detail(self.require_module(), trade_date)
+
+    def fetch_margin_account_stats(self, trade_date: date | None = None) -> list[dict[str, Any]]:
+        return fetch_margin_account_stats(self.require_module(), trade_date)
 
 
 def _summarize_spot(frame) -> dict[str, Any]:

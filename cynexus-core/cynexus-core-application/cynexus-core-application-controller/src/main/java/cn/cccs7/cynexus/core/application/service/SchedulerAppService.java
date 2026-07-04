@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -668,7 +669,7 @@ public class SchedulerAppService {
                                                                String triggeredBy) {
         SchedulerJobBO job = requireJobByCode(jobCode);
         OffsetDateTime startedAt = OffsetDateTime.now(CHINA_ZONE);
-        SchedulerDataJobKeyResolver.ResolvedDataJob dataJob = SchedulerDataJobKeyResolver.resolve(job.getCode()).orElse(null);
+        SchedulerDataJobKeyResolver.ResolvedDataJob dataJob = resolveDataJob(job).orElse(null);
         if (dataJob == null) {
             String error = "No Python data job mapping for scheduler job: " + job.getCode();
             recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), false, "failed", error, triggerType);
@@ -731,6 +732,18 @@ public class SchedulerAppService {
                 .items(items)
                 .error(error)
                 .build();
+    }
+
+    private Optional<SchedulerDataJobKeyResolver.ResolvedDataJob> resolveDataJob(SchedulerJobBO job) {
+        Map<String, Object> extra = readExtra(job == null ? null : job.getExtra());
+        String dataJobKey = firstNonBlank(
+                asString(firstPresent(extra, Set.of("data_job_key", "dataJobKey", "job_key", "jobKey"))),
+                null);
+        if (dataJobKey != null) {
+            Map<String, Object> defaultParams = asMap(firstPresent(extra, Set.of("default_params", "defaultParams")));
+            return Optional.of(new SchedulerDataJobKeyResolver.ResolvedDataJob(dataJobKey, defaultParams));
+        }
+        return SchedulerDataJobKeyResolver.resolve(job == null ? null : job.getCode());
     }
 
     private SchedulerManagementJobActionResponseDTO triggerChainJobAsync(SchedulerJobBO job,

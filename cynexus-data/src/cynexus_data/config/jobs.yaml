@@ -320,10 +320,12 @@ jobs:
       industry_rows: optional
 
   sync_margin:
-    description: Sync margin trading data.
+    description: Sync margin trading data from AkShare.
     params:
       trade_date: optional
       providers: optional
+      datasets: optional
+      create_table: optional
 
   build_sector_breadth:
     description: Build MSI sector breadth from sector fund-flow snapshots.
