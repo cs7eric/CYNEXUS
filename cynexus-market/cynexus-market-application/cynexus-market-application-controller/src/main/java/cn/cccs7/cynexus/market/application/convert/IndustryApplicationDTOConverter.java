@@ -381,6 +381,9 @@ public interface IndustryApplicationDTOConverter {
                 .changePct(value.getChangePct())
                 .turnoverPct(value.getTurnoverPct())
                 .amountText(value.getAmountText())
+                .thsSnapshotDate(value.getThsSnapshotDate() == null ? null : value.getThsSnapshotDate().toString())
+                .tdxSnapshotDate(value.getTdxSnapshotDate() == null ? null : value.getTdxSnapshotDate().toString())
+                .quoteTradeDate(value.getQuoteTradeDate() == null ? null : value.getQuoteTradeDate().toString())
                 .sources(value.getSources() == null ? List.of() : value.getSources())
                 .build();
     }

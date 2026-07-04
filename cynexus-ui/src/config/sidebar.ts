@@ -10,6 +10,7 @@ import {
   LineChart,
   Settings,
   BrainCircuit,
+  Database,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -121,6 +122,10 @@ export const sidebarConfig = {
           title: "AI Provider",
           url: "/settings/ai-provider",
         },
+        {
+          title: "Data Source",
+          url: "/settings/data-source",
+        },
       ],
     },
   ],
@@ -179,6 +184,11 @@ export const sidebarConfig = {
       name: "Settings · AI Provider",
       url: "/settings/ai-provider",
       icon: BrainCircuit,
+    },
+    {
+      name: "Settings · Data Source",
+      url: "/settings/data-source",
+      icon: Database,
     },
     {
       name: "Knowledge Base",

@@ -74,6 +74,18 @@ export interface SchedulerJobItem {
     last_error: string | null
     total_runs: number | null
   }
+  today_stats?: {
+    expected_count: number | null
+    actual_count: number | null
+    success_count?: number | null
+    failed_count: number | null
+    skipped_count?: number | null
+    manual_count?: number | null
+    auto_count?: number | null
+    failed_at?: string | null
+    failed_error?: string | null
+    failed_message?: string | null
+  } | null
 }
 
 export interface SchedulerJobsResponse {
@@ -105,6 +117,8 @@ export interface SchedulerDailyStatItem {
   success: number
   failed: number
   skipped: number
+  manual_count?: number
+  auto_count?: number
 }
 
 export interface SchedulerDailyStatsSummary {
@@ -137,6 +151,7 @@ export interface SchedulerJobActionResponse {
     lastMessage?: string
   }>
   config?: Record<string, unknown>
+  job?: SchedulerJobItem
   error?: string
 }
 
@@ -173,6 +188,46 @@ export async function fetchSchedulerDailyStats(days = 14): Promise<SchedulerDail
 export async function fetchSchedulerCategories(): Promise<SchedulerCategoriesResponse> {
   const res = await fetchWithRetry(`${SCHEDULER_API_BASE}/categories`, { cache: "no-store" })
   return cynexusResult<SchedulerCategoriesResponse>(res)
+}
+
+export async function createSchedulerCategory(input: {
+  label: string
+  code?: string
+  icon_hint?: string
+  description?: string
+  sort_order?: number
+}): Promise<SchedulerCategory> {
+  const res = await fetchWithRetry(`${SCHEDULER_API_BASE}/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  return cynexusResult<SchedulerCategory>(res)
+}
+
+export async function updateSchedulerCategory(
+  categoryId: string,
+  input: {
+    label: string
+    code?: string
+    icon_hint?: string
+    description?: string
+    sort_order?: number
+  },
+): Promise<SchedulerCategory> {
+  const res = await fetchWithRetry(`${SCHEDULER_API_BASE}/categories/${encodeURIComponent(categoryId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  return cynexusResult<SchedulerCategory>(res)
+}
+
+export async function deleteSchedulerCategory(categoryId: string): Promise<SchedulerJobActionResponse> {
+  const res = await fetchWithRetry(`${SCHEDULER_API_BASE}/categories/${encodeURIComponent(categoryId)}`, {
+    method: "DELETE",
+  })
+  return cynexusResult<SchedulerJobActionResponse>(res)
 }
 
 export async function fetchSchedulerJobs(): Promise<SchedulerJobsResponse> {
@@ -220,6 +275,18 @@ export const triggerSchedulerJob = (jobId: string, options?: { targetDate?: stri
 
 export const startSchedulerJob = (jobId: string) => postSchedulerAction(jobId, "start")
 export const stopSchedulerJob = (jobId: string) => postSchedulerAction(jobId, "stop")
+
+export async function updateSchedulerJobCategories(
+  jobId: string,
+  categoryIds: string[],
+): Promise<SchedulerJobActionResponse> {
+  const res = await fetchWithRetry(`${SCHEDULER_API_BASE}/jobs/${encodeURIComponent(jobId)}/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category_ids: categoryIds }),
+  })
+  return cynexusResult<SchedulerJobActionResponse>(res)
+}
 
 export async function deleteSchedulerJob(jobId: string): Promise<SchedulerJobActionResponse> {
   const res = await fetchWithRetry(`${SCHEDULER_API_BASE}/jobs/${encodeURIComponent(jobId)}`, {

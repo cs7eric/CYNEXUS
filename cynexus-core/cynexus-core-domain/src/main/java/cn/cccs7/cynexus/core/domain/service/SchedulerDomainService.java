@@ -40,6 +40,8 @@ public interface SchedulerDomainService {
 
     List<SchedulerJobCategoryMappingBO> listCategoryMappings();
 
+    List<SchedulerJobCategoryMappingBO> listCategoryMappingsByJobId(Long jobId);
+
     SchedulerJobCategoryMappingBO findCategoryMappingById(Long id);
 
     Long createCategoryMapping(SchedulerJobCategoryMappingBO mapping);

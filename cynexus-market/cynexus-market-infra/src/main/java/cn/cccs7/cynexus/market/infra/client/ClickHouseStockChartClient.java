@@ -140,6 +140,10 @@ public class ClickHouseStockChartClient {
     }
 
     public List<DailyQuote> listLatestDailyQuotes(List<MarketSymbol> symbols) {
+        return listLatestDailyQuotesOnOrBefore(symbols, null);
+    }
+
+    public List<DailyQuote> listLatestDailyQuotesOnOrBefore(List<MarketSymbol> symbols, LocalDate maxTradeDate) {
         if (symbols == null || symbols.isEmpty()) {
             return List.of();
         }
@@ -155,6 +159,7 @@ public class ClickHouseStockChartClient {
         if (condition.isBlank()) {
             return List.of();
         }
+        String dateCondition = maxTradeDate == null ? "" : "\n                      AND trade_date <= toDate('" + maxTradeDate + "')";
         String sql = """
                 WITH daily AS
                 (
@@ -169,7 +174,7 @@ public class ClickHouseStockChartClient {
                         max(volume) AS volume,
                         max(amount) AS amount
                     FROM daily_raw
-                    WHERE %s
+                    WHERE (%s)%s
                     GROUP BY market, symbol, trade_date
                 ),
                 ranked AS
@@ -220,7 +225,7 @@ public class ClickHouseStockChartClient {
                  AND cur.symbol = ret.symbol
                 WHERE cur.rn = 1
                 FORMAT JSONEachRow
-                """.formatted(condition);
+                """.formatted(condition, dateCondition);
         return query(sql, DailyQuoteRow.class).stream()
                 .map(row -> DailyQuote.builder()
                         .market(row.market())

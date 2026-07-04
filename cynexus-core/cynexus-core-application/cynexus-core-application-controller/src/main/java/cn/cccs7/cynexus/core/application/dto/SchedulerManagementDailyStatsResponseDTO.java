@@ -29,6 +29,10 @@ public class SchedulerManagementDailyStatsResponseDTO {
         private Integer success;
         private Integer failed;
         private Integer skipped;
+        @JsonProperty("manual_count")
+        private Integer manualCount;
+        @JsonProperty("auto_count")
+        private Integer autoCount;
     }
 
     @Data

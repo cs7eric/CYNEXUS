@@ -30,6 +30,11 @@ public class SchedulerJobCategoryMappingBasicServiceImpl implements SchedulerJob
     }
 
     @Override
+    public List<SchedulerJobCategoryMappingPO> listByJobId(Long jobId) {
+        return schedulerJobCategoryMappingMapper.selectByJobId(jobId);
+    }
+
+    @Override
     public Long create(SchedulerJobCategoryMappingPO po) {
         if (po.getId() == null) {
             po.setId(snowflakeIdGenerator.nextId());

@@ -121,6 +121,9 @@ export interface IndustryApplicationMergedConstituent {
   change_pct?: number | string | null
   turnover_pct?: number | string | null
   amount_text?: string | null
+  ths_snapshot_date?: string | null
+  tdx_snapshot_date?: string | null
+  quote_trade_date?: string | null
   sources?: string[] | null
 }
 

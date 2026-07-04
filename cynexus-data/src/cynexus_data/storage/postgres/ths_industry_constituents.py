@@ -72,9 +72,8 @@ class ThsIndustryConstituentRepository:
                         "one_code": json.dumps([industry_code], ensure_ascii=False),
                     },
                 )
-            batch_id = db.execute(
-                text(
-                    f"""
+            batch_stmt = text(
+                f"""
                     INSERT INTO {self.client.schema}.ths_industry_constituent_capture_batch (
                         id, snapshot_date, source_type, status, source, requested_industry_codes,
                         industry_count, row_count, page_row_counts, fetched_at, extra, updated_at
@@ -82,11 +81,14 @@ class ThsIndustryConstituentRepository:
                         :id, :snapshot_date, :source_type, :status, :source, CAST(:requested_industry_codes AS jsonb),
                         :industry_count, :row_count, CAST(:page_row_counts AS jsonb), :fetched_at, CAST(:extra AS jsonb), now()
                     )
+                    ON CONFLICT (id) DO NOTHING
                     RETURNING id
                     """
-                ),
+            )
+            batch_id = _execute_generated_id_insert(
+                db,
+                batch_stmt,
                 {
-                    "id": next_bigint_id(),
                     "snapshot_date": snapshot_date,
                     "source_type": source_type,
                     "status": status,
@@ -98,25 +100,31 @@ class ThsIndustryConstituentRepository:
                     "fetched_at": captured_at,
                     "extra": json.dumps(extra or {}, ensure_ascii=False, default=str),
                 },
-            ).scalar_one()
+                label="ths_industry_constituent_capture_batch",
+            )
+            snapshot_stmt = text(
+                f"""
+                INSERT INTO {self.client.schema}.ths_industry_constituent_snapshot (
+                    id, batch_id, snapshot_date, industry_code, stock_code, stock_name, rank,
+                    price, change_pct, change, speed_pct, turnover_pct, volume_ratio,
+                    amplitude_pct, amount_text, float_shares_text, float_market_cap_text,
+                    pe, source, source_type, captured_at, extra, updated_at
+                ) VALUES (
+                    :id, :batch_id, :snapshot_date, :industry_code, :stock_code, :stock_name, :rank,
+                    :price, :change_pct, :change, :speed_pct, :turnover_pct, :volume_ratio,
+                    :amplitude_pct, :amount_text, :float_shares_text, :float_market_cap_text,
+                    :pe, :source, :source_type, :captured_at, CAST(:extra AS jsonb), now()
+                )
+                ON CONFLICT (id) DO NOTHING
+                RETURNING id
+                """
+            )
             for record in records:
-                db.execute(
-                    text(
-                        f"""
-                        INSERT INTO {self.client.schema}.ths_industry_constituent_snapshot (
-                            id, batch_id, snapshot_date, industry_code, stock_code, stock_name, rank,
-                            price, change_pct, change, speed_pct, turnover_pct, volume_ratio,
-                            amplitude_pct, amount_text, float_shares_text, float_market_cap_text,
-                            pe, source, source_type, captured_at, extra, updated_at
-                        ) VALUES (
-                            :id, :batch_id, :snapshot_date, :industry_code, :stock_code, :stock_name, :rank,
-                            :price, :change_pct, :change, :speed_pct, :turnover_pct, :volume_ratio,
-                            :amplitude_pct, :amount_text, :float_shares_text, :float_market_cap_text,
-                            :pe, :source, :source_type, :captured_at, CAST(:extra AS jsonb), now()
-                        )
-                        """
-                    ),
+                _execute_generated_id_insert(
+                    db,
+                    snapshot_stmt,
                     _record_params(record, batch_id=batch_id, captured_at=captured_at),
+                    label="ths_industry_constituent_snapshot",
                 )
         return len(records)
 
@@ -130,6 +138,40 @@ class ThsIndustryConstituentRepository:
                            source, source_type, captured_at
                       FROM {self.client.schema}.ths_industry_constituent_snapshot
                      WHERE snapshot_date = :snapshot_date
+                       AND industry_code = :industry_code
+                       AND source = :source
+                       AND deleted_at IS NULL
+                     ORDER BY rank ASC NULLS LAST, stock_code
+                    """
+                ),
+                {"snapshot_date": snapshot_date, "industry_code": industry_code, "source": source},
+            ).mappings().all()
+        return [dict(row) for row in rows]
+
+    def list_latest_records_before(
+        self,
+        *,
+        snapshot_date: date,
+        industry_code: str,
+        source: str = "q.10jqka.com.cn",
+    ) -> list[dict[str, Any]]:
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    SELECT snapshot_date, industry_code, stock_code, stock_name, rank, price,
+                           change_pct, change, speed_pct, turnover_pct, volume_ratio,
+                           amplitude_pct, amount_text, float_shares_text, float_market_cap_text,
+                           pe, source, source_type, captured_at, extra
+                      FROM {self.client.schema}.ths_industry_constituent_snapshot
+                     WHERE snapshot_date = (
+                           SELECT max(snapshot_date)
+                             FROM {self.client.schema}.ths_industry_constituent_snapshot
+                            WHERE snapshot_date < :snapshot_date
+                              AND industry_code = :industry_code
+                              AND source = :source
+                              AND deleted_at IS NULL
+                       )
                        AND industry_code = :industry_code
                        AND source = :source
                        AND deleted_at IS NULL
@@ -168,8 +210,24 @@ class ThsIndustryConstituentRepository:
 
 def _record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)
-    payload["id"] = next_bigint_id()
     payload["batch_id"] = batch_id
     payload["captured_at"] = payload.get("captured_at") or captured_at
     payload["extra"] = json.dumps(payload.get("extra") or {}, ensure_ascii=False, default=str)
     return payload
+
+
+def _execute_generated_id_insert(
+    db: Any,
+    statement: Any,
+    params: dict[str, Any],
+    *,
+    label: str,
+    max_attempts: int = 16,
+) -> int:
+    for _ in range(max_attempts):
+        candidate = dict(params)
+        candidate["id"] = next_bigint_id()
+        inserted_id = db.execute(statement, candidate).scalar_one_or_none()
+        if inserted_id is not None:
+            return int(inserted_id)
+    raise RuntimeError(f"failed to allocate unique id for {label} after {max_attempts} attempts")

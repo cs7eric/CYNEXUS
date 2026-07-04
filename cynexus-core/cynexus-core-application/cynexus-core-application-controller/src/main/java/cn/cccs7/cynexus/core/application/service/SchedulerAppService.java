@@ -17,6 +17,9 @@ import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobActionRespons
 import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobHistoryResponseDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobsResponseDTO;
 import cn.cccs7.cynexus.core.application.request.DataJobTriggerRequest;
+import cn.cccs7.cynexus.core.application.request.SchedulerManagementCategoryCreateRequest;
+import cn.cccs7.cynexus.core.application.request.SchedulerManagementCategoryUpdateRequest;
+import cn.cccs7.cynexus.core.application.request.SchedulerManagementJobCategoriesRequest;
 import cn.cccs7.cynexus.core.application.request.SchedulerManagementTriggerRequest;
 import cn.cccs7.cynexus.core.application.request.SchedulerJobCreateRequest;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerRequestBO;
@@ -29,15 +32,20 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
 import cn.cccs7.cynexus.core.domain.service.SchedulerDomainService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import org.springframework.scheduling.support.CronExpression;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -234,8 +242,18 @@ public class SchedulerAppService {
                 .filter(mapping -> mapping.getDeletedAt() == null)
                 .collect(Collectors.groupingBy(SchedulerJobCategoryMappingBO::getJobId));
 
+        LocalDate today = LocalDate.now(CHINA_ZONE);
+        OffsetDateTime startOfToday = today.atStartOfDay(CHINA_ZONE).toOffsetDateTime();
+        Map<Long, TodayCounters> todayCountersByJobId = buildTodayCounters(
+                schedulerDomainService.listRunHistorySince(startOfToday));
+
         List<SchedulerManagementJobsResponseDTO.Item> items = jobs.stream()
-                .map(job -> toManagementJobItem(job, statusByJobId.get(job.getId()), mappingsByJobId.get(job.getId())))
+                .map(job -> toManagementJobItem(
+                        job,
+                        statusByJobId.get(job.getId()),
+                        mappingsByJobId.get(job.getId()),
+                        todayCountersByJobId.getOrDefault(job.getId(), new TodayCounters()),
+                        today))
                 .toList();
         return SchedulerManagementJobsResponseDTO.builder()
                 .ok(true)
@@ -251,20 +269,148 @@ public class SchedulerAppService {
         List<SchedulerManagementCategoriesResponseDTO.Item> items = schedulerDomainService.listCategories().stream()
                 .filter(category -> category.getDeletedAt() == null)
                 .sorted(Comparator.comparing(SchedulerJobCategoryBO::getSortOrder, Comparator.nullsLast(Integer::compareTo)))
-                .map(category -> SchedulerManagementCategoriesResponseDTO.Item.builder()
-                        .id(String.valueOf(category.getId()))
-                        .label(category.getLabel())
-                        .iconHint(category.getIconHint())
-                        .sortOrder(category.getSortOrder())
-                        .description(category.getDescription())
-                        .count(countByCategoryId.getOrDefault(category.getId(), 0L).intValue())
-                        .build())
+                .map(category -> toManagementCategoryItem(
+                        category,
+                        countByCategoryId.getOrDefault(category.getId(), 0L).intValue()))
                 .toList();
         return SchedulerManagementCategoriesResponseDTO.builder()
                 .ok(true)
                 .items(items)
                 .count(items.size())
                 .build();
+    }
+
+    public SchedulerManagementCategoriesResponseDTO.Item createManagementCategory(
+            SchedulerManagementCategoryCreateRequest request) {
+        if (request == null || request.getLabel() == null || request.getLabel().isBlank()) {
+            throw new IllegalArgumentException("Scheduler category label is required");
+        }
+        List<SchedulerJobCategoryBO> existingCategories = schedulerDomainService.listCategories().stream()
+                .filter(category -> category.getDeletedAt() == null)
+                .toList();
+        String label = request.getLabel().trim();
+        String code = uniqueCategoryCode(firstNonBlank(request.getCode(), categoryCode(label)), existingCategories);
+        String iconHint = firstNonBlank(request.getIconHint(), "grid");
+        int sortOrder = request.getSortOrder() == null
+                ? nextCategorySortOrder(existingCategories)
+                : request.getSortOrder();
+        Long id = schedulerDomainService.createCategory(SchedulerJobCategoryBO.builder()
+                .code(code)
+                .label(label)
+                .iconHint(iconHint)
+                .sortOrder(sortOrder)
+                .description(blankToNull(request.getDescription()))
+                .status("active")
+                .remark("scheduler-management")
+                .build());
+        SchedulerJobCategoryBO category = schedulerDomainService.findCategoryById(id);
+        return toManagementCategoryItem(category, 0);
+    }
+
+    public SchedulerManagementCategoriesResponseDTO.Item updateManagementCategory(
+            Long categoryId,
+            SchedulerManagementCategoryUpdateRequest request) {
+        SchedulerJobCategoryBO category = schedulerDomainService.findCategoryById(categoryId);
+        if (category == null || category.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Scheduler category not found: " + categoryId);
+        }
+        if (request == null || request.getLabel() == null || request.getLabel().isBlank()) {
+            throw new IllegalArgumentException("Scheduler category label is required");
+        }
+        List<SchedulerJobCategoryBO> otherCategories = schedulerDomainService.listCategories().stream()
+                .filter(item -> item.getDeletedAt() == null)
+                .filter(item -> !Objects.equals(item.getId(), categoryId))
+                .toList();
+        String label = request.getLabel().trim();
+        String code = uniqueCategoryCode(
+                firstNonBlank(request.getCode(), firstNonBlank(category.getCode(), categoryCode(label))),
+                otherCategories);
+        String iconHint = firstNonBlank(request.getIconHint(), firstNonBlank(category.getIconHint(), "grid"));
+        Integer sortOrder = request.getSortOrder() == null ? category.getSortOrder() : request.getSortOrder();
+        boolean updated = schedulerDomainService.updateCategory(SchedulerJobCategoryBO.builder()
+                .id(category.getId())
+                .code(code)
+                .label(label)
+                .iconHint(iconHint)
+                .sortOrder(sortOrder)
+                .description(request.getDescription() == null ? category.getDescription() : request.getDescription().trim())
+                .status(firstNonBlank(category.getStatus(), "active"))
+                .remark(firstNonBlank(category.getRemark(), "scheduler-management"))
+                .build());
+        if (!updated) {
+            throw new IllegalStateException("Scheduler category update failed: " + categoryId);
+        }
+        int count = (int) schedulerDomainService.listCategoryMappings().stream()
+                .filter(mapping -> mapping.getDeletedAt() == null)
+                .filter(mapping -> Objects.equals(mapping.getCategoryId(), categoryId))
+                .count();
+        return toManagementCategoryItem(schedulerDomainService.findCategoryById(categoryId), count);
+    }
+
+    public SchedulerManagementJobActionResponseDTO deleteManagementCategory(Long categoryId) {
+        SchedulerJobCategoryBO category = schedulerDomainService.findCategoryById(categoryId);
+        if (category == null || category.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Scheduler category not found: " + categoryId);
+        }
+        List<SchedulerJobCategoryMappingBO> mappings = schedulerDomainService.listCategoryMappings().stream()
+                .filter(mapping -> mapping.getDeletedAt() == null)
+                .filter(mapping -> Objects.equals(mapping.getCategoryId(), categoryId))
+                .toList();
+        mappings.forEach(mapping -> schedulerDomainService.deleteCategoryMapping(mapping.getId()));
+        boolean deleted = schedulerDomainService.deleteCategory(categoryId);
+        return SchedulerManagementJobActionResponseDTO.builder()
+                .ok(deleted)
+                .status(deleted ? "category_deleted" : "category_delete_failed")
+                .count(deleted ? mappings.size() + 1 : 0)
+                .failedCount(deleted ? 0 : 1)
+                .build();
+    }
+
+    private SchedulerManagementCategoriesResponseDTO.Item toManagementCategoryItem(SchedulerJobCategoryBO category,
+                                                                                   int count) {
+        return SchedulerManagementCategoriesResponseDTO.Item.builder()
+                .id(String.valueOf(category.getId()))
+                .label(category.getLabel())
+                .iconHint(category.getIconHint())
+                .sortOrder(category.getSortOrder())
+                .description(category.getDescription())
+                .count(count)
+                .build();
+    }
+
+    private int nextCategorySortOrder(List<SchedulerJobCategoryBO> categories) {
+        return categories.stream()
+                .map(SchedulerJobCategoryBO::getSortOrder)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0) + 10;
+    }
+
+    private String uniqueCategoryCode(String requestedCode, List<SchedulerJobCategoryBO> categories) {
+        String base = categoryCode(requestedCode);
+        Set<String> usedCodes = categories.stream()
+                .map(SchedulerJobCategoryBO::getCode)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!usedCodes.contains(base)) {
+            return base;
+        }
+        int suffix = 2;
+        while (usedCodes.contains(base + "_" + suffix)) {
+            suffix++;
+        }
+        return base + "_" + suffix;
+    }
+
+    private String categoryCode(String value) {
+        String code = value == null ? "" : value.trim().toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        return code.isBlank() ? "category" : code;
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public SchedulerManagementDailyStatsResponseDTO listManagementDailyStats(int days) {
@@ -284,7 +430,7 @@ public class SchedulerAppService {
             LocalDate date = item.getStartedAt().atZoneSameInstant(CHINA_ZONE).toLocalDate();
             DayCounter counter = counters.get(date);
             if (counter != null) {
-                counter.accept(item.getStatus());
+                counter.accept(item.getStatus(), item.getTriggerType());
             }
         }
         List<SchedulerManagementDailyStatsResponseDTO.Item> items = counters.entrySet().stream()
@@ -294,6 +440,8 @@ public class SchedulerAppService {
                         .success(entry.getValue().success)
                         .failed(entry.getValue().failed)
                         .skipped(entry.getValue().skipped)
+                        .manualCount(entry.getValue().manual)
+                        .autoCount(entry.getValue().auto)
                         .build())
                 .toList();
         int total = counters.values().stream().mapToInt(counter -> counter.total).sum();
@@ -334,6 +482,68 @@ public class SchedulerAppService {
 
     public SchedulerManagementJobActionResponseDTO disableManagementJob(String jobCode) {
         return updateManagementJobEnabled(jobCode, false);
+    }
+
+    public SchedulerManagementJobActionResponseDTO updateManagementJobCategories(
+            String jobCode,
+            SchedulerManagementJobCategoriesRequest request) {
+        SchedulerJobBO job = requireJobByCode(jobCode);
+        LinkedHashSet<Long> requestedCategoryIds = parseCategoryIds(request);
+        Map<Long, SchedulerJobCategoryBO> categoryById = schedulerDomainService.listCategories().stream()
+                .filter(category -> category.getDeletedAt() == null)
+                .collect(Collectors.toMap(SchedulerJobCategoryBO::getId, Function.identity(), this::pickCategory));
+        for (Long categoryId : requestedCategoryIds) {
+            if (!categoryById.containsKey(categoryId)) {
+                throw new IllegalArgumentException("Scheduler category not found: " + categoryId);
+            }
+        }
+
+        List<SchedulerJobCategoryMappingBO> allMappings = schedulerDomainService.listCategoryMappings().stream()
+                .filter(mapping -> mapping.getDeletedAt() == null)
+                .toList();
+        Map<Long, Integer> maxSortOrderByCategoryId = allMappings.stream()
+                .filter(mapping -> mapping.getCategoryId() != null)
+                .collect(Collectors.toMap(
+                        SchedulerJobCategoryMappingBO::getCategoryId,
+                        mapping -> mapping.getSortOrder() == null ? 0 : mapping.getSortOrder(),
+                        Math::max));
+        Map<Long, SchedulerJobCategoryMappingBO> keptByCategoryId = new HashMap<>();
+        for (SchedulerJobCategoryMappingBO mapping : schedulerDomainService.listCategoryMappingsByJobId(job.getId())) {
+            Long categoryId = mapping.getCategoryId();
+            boolean keep = categoryId != null
+                    && requestedCategoryIds.contains(categoryId)
+                    && !keptByCategoryId.containsKey(categoryId);
+            if (keep) {
+                keptByCategoryId.put(categoryId, mapping);
+            } else {
+                schedulerDomainService.deleteCategoryMapping(mapping.getId());
+            }
+        }
+        for (Long categoryId : requestedCategoryIds) {
+            if (keptByCategoryId.containsKey(categoryId)) {
+                continue;
+            }
+            int sortOrder = maxSortOrderByCategoryId.getOrDefault(categoryId, 0) + 10;
+            maxSortOrderByCategoryId.put(categoryId, sortOrder);
+            schedulerDomainService.createCategoryMapping(SchedulerJobCategoryMappingBO.builder()
+                    .jobId(job.getId())
+                    .categoryId(categoryId)
+                    .sortOrder(sortOrder)
+                    .remark("scheduler-management")
+                    .build());
+        }
+
+        SchedulerJobStatusBO status = ensureStatus(job);
+        List<SchedulerJobCategoryMappingBO> mappings = schedulerDomainService.listCategoryMappingsByJobId(job.getId());
+        return SchedulerManagementJobActionResponseDTO.builder()
+                .ok(true)
+                .jobId(job.getCode())
+                .enabled(status.getEnabled())
+                .status("categories_updated")
+                .count(mappings.size())
+                .failedCount(0)
+                .job(toManagementJobItem(job, status, mappings, new TodayCounters(), LocalDate.now(CHINA_ZONE)))
+                .build();
     }
 
     public SchedulerManagementJobActionResponseDTO startManagementJob(String jobCode) {
@@ -382,9 +592,31 @@ public class SchedulerAppService {
         Map<Long, SchedulerJobBO> jobsById = schedulerDomainService.listJobs().stream()
                 .filter(job -> job.getDeletedAt() == null)
                 .collect(Collectors.toMap(SchedulerJobBO::getId, Function.identity(), this::pickLatestJob));
-        schedulerDomainService.listStatuses().stream()
+        List<SchedulerJobStatusBO> statuses = schedulerDomainService.listStatuses().stream()
+                .filter(status -> status.getDeletedAt() == null)
+                .toList();
+        statuses.stream()
                 .filter(this::shouldReconcileDataJobStatus)
                 .forEach(status -> reconcileRunningDataJobRun(jobsById.get(status.getJobId()), status));
+        // Force-clear stale running states that have no Python data job run to reconcile against.
+        // Guards against JVM crashes that leave is_running=true indefinitely.
+        OffsetDateTime staleCutoff = OffsetDateTime.now(CHINA_ZONE).minusHours(8);
+        statuses.stream()
+                .filter(status -> Boolean.TRUE.equals(status.getRunning()))
+                .filter(status -> {
+                    String runId = extractDataJobRunId(status);
+                    return runId == null || runId.isBlank();
+                })
+                .filter(status -> status.getSchedulerStartedAt() != null
+                        && status.getSchedulerStartedAt().isBefore(staleCutoff))
+                .forEach(status -> {
+                    SchedulerJobBO job = jobsById.get(status.getJobId());
+                    log.warn("Clearing stale running state: jobCode={}, startedAt={}",
+                            job != null ? job.getCode() : status.getJobId(),
+                            status.getSchedulerStartedAt());
+                    schedulerDomainService.updateStatusRunning(
+                            status.getId(), false, status.getSchedulerStartedAt(), OffsetDateTime.now(CHINA_ZONE));
+                });
     }
 
     private void reconcileRunningDataJobRun(SchedulerJobBO job) {
@@ -1153,6 +1385,28 @@ public class SchedulerAppService {
         return actionResponse(job, status, enabled ? "enabled" : "disabled");
     }
 
+    private LinkedHashSet<Long> parseCategoryIds(SchedulerManagementJobCategoriesRequest request) {
+        LinkedHashSet<Long> categoryIds = new LinkedHashSet<>();
+        if (request == null || request.getCategoryIds() == null) {
+            return categoryIds;
+        }
+        for (String raw : request.getCategoryIds()) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            try {
+                categoryIds.add(Long.parseLong(raw.trim()));
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException("Invalid scheduler category id: " + raw);
+            }
+        }
+        return categoryIds;
+    }
+
+    private SchedulerJobCategoryBO pickCategory(SchedulerJobCategoryBO first, SchedulerJobCategoryBO second) {
+        return first.getUpdatedAt() == null ? second : first;
+    }
+
     private SchedulerManagementJobActionResponseDTO actionResponse(SchedulerJobBO job,
                                                                    SchedulerJobStatusBO status,
                                                                    String statusText) {
@@ -1165,7 +1419,9 @@ public class SchedulerAppService {
                 .failedCount(0)
                 .job(toManagementJobItem(job, status, schedulerDomainService.listCategoryMappings().stream()
                         .filter(mapping -> Objects.equals(mapping.getJobId(), job.getId()))
-                        .toList()))
+                        .toList(),
+                        new TodayCounters(),
+                        LocalDate.now(CHINA_ZONE)))
                 .build();
     }
 
@@ -1206,7 +1462,9 @@ public class SchedulerAppService {
 
     private SchedulerManagementJobsResponseDTO.Item toManagementJobItem(SchedulerJobBO job,
                                                                         SchedulerJobStatusBO status,
-                                                                        List<SchedulerJobCategoryMappingBO> mappings) {
+                                                                        List<SchedulerJobCategoryMappingBO> mappings,
+                                                                        TodayCounters todayCounters,
+                                                                        LocalDate today) {
         SchedulerJobStatusBO resolvedStatus = status == null ? SchedulerJobStatusBO.builder()
                 .jobId(job.getId())
                 .enabled(Boolean.TRUE.equals(job.getEnabled()))
@@ -1250,6 +1508,19 @@ public class SchedulerAppService {
                 .lastMessage(firstNonBlank(readString(resolvedStatus.getProgress(), "message"), readString(resolvedStatus.getExtra(), "lastMessage")))
                 .lastRun(lastRun)
                 .build();
+        Integer expectedCount = computeTodayExpectedCount(resolvedStatus.getSchedule(), today);
+        SchedulerManagementJobsResponseDTO.TodayStats todayStats = SchedulerManagementJobsResponseDTO.TodayStats.builder()
+                .expectedCount(expectedCount)
+                .actualCount(todayCounters.actual)
+                .successCount(todayCounters.success)
+                .failedCount(todayCounters.failed)
+                .skippedCount(todayCounters.skipped)
+                .manualCount(todayCounters.manual)
+                .autoCount(todayCounters.auto)
+                .failedAt(todayCounters.failedAt)
+                .failedError(todayCounters.failedError)
+                .failedMessage(todayCounters.failedMessage)
+                .build();
         return SchedulerManagementJobsResponseDTO.Item.builder()
                 .id(job.getCode())
                 .name(job.getName())
@@ -1262,11 +1533,14 @@ public class SchedulerAppService {
                 .categorySortOrders(categorySortOrders)
                 .supportsEnable(true)
                 .enabled(Boolean.TRUE.equals(job.getEnabled()))
-                .configEnabled(Boolean.TRUE.equals(resolvedStatus.getEnabled()))
+                .configEnabled(resolvedStatus.getEnabled() != null
+                        ? Boolean.TRUE.equals(resolvedStatus.getEnabled())
+                        : Boolean.TRUE.equals(job.getEnabled()))
                 .config(config)
                 .live(live)
                 .progress(readProgress(resolvedStatus.getProgress(), resolvedStatus.getExtra(), resolvedStatus.getUpdatedAt()))
                 .lastRun(lastRun)
+                .todayStats(todayStats)
                 .build();
     }
 
@@ -1598,9 +1872,17 @@ public class SchedulerAppService {
         private int success;
         private int failed;
         private int skipped;
+        private int manual;
+        private int auto;
 
-        private void accept(String status) {
+        private void accept(String status, String triggerType) {
             total++;
+            String normalizedTriggerType = triggerType == null ? "" : triggerType.toLowerCase();
+            if ("auto".equals(normalizedTriggerType)) {
+                auto++;
+            } else {
+                manual++;
+            }
             String normalized = status == null ? "" : status.toLowerCase();
             if ("success".equals(normalized)) {
                 success++;
@@ -1609,6 +1891,131 @@ public class SchedulerAppService {
             } else if ("failed".equals(normalized) || "error".equals(normalized) || "partial_failed".equals(normalized)) {
                 failed++;
             }
+        }
+    }
+
+    private static class TodayCounters {
+        private int actual;
+        private int success;
+        private int failed;
+        private int skipped;
+        private int manual;
+        private int auto;
+        private OffsetDateTime failedAt;
+        private String failedError;
+        private String failedMessage;
+
+        private void accept(SchedulerJobRunHistoryBO item) {
+            actual++;
+            String status = item.getStatus();
+            String triggerType = item.getTriggerType();
+            String normalizedTriggerType = triggerType == null ? "" : triggerType.toLowerCase();
+            if ("auto".equals(normalizedTriggerType)) {
+                auto++;
+            } else {
+                manual++;
+            }
+            String normalized = status == null ? "" : status.toLowerCase();
+            if ("success".equals(normalized)) {
+                success++;
+            } else if ("skipped".equals(normalized)) {
+                skipped++;
+            } else if ("failed".equals(normalized) || "error".equals(normalized) || "partial_failed".equals(normalized)) {
+                failed++;
+                OffsetDateTime startedAt = item.getStartedAt();
+                if (failedAt == null || (startedAt != null && startedAt.isAfter(failedAt))) {
+                    failedAt = startedAt;
+                    failedError = item.getErrorMessage();
+                    failedMessage = item.getRemark();
+                }
+            }
+        }
+    }
+
+    private static Map<Long, TodayCounters> buildTodayCounters(List<SchedulerJobRunHistoryBO> history) {
+        Map<Long, TodayCounters> result = new HashMap<>();
+        for (SchedulerJobRunHistoryBO item : history) {
+            if (item.getJobId() == null || item.getDeletedAt() != null) {
+                continue;
+            }
+            result.computeIfAbsent(item.getJobId(), k -> new TodayCounters()).accept(item);
+        }
+        return result;
+    }
+
+    private Integer computeTodayExpectedCount(String scheduleJson, LocalDate today) {
+        Map<String, Object> schedule = readExtra(scheduleJson);
+        if (schedule.isEmpty()) {
+            return null;
+        }
+        boolean workdayOnly = Boolean.TRUE.equals(asBoolean(schedule.get("workday_only")));
+        if (workdayOnly && isWeekend(today)) {
+            return 0;
+        }
+        // every_minutes + intraday_windows
+        Integer everyMinutes = asInteger(schedule.get("every_minutes"));
+        if (everyMinutes != null && everyMinutes > 0) {
+            Object windows = schedule.get("intraday_windows");
+            if (windows instanceof List<?> list && !list.isEmpty()) {
+                int total = 0;
+                for (Object item : list) {
+                    if (!(item instanceof Map<?, ?> window)) continue;
+                    LocalTime start = parseLocalTime(asString(window.get("start")));
+                    LocalTime end = parseLocalTime(asString(window.get("end")));
+                    if (start == null || end == null || !end.isAfter(start)) continue;
+                    long windowMinutes = Duration.between(start, end).toMinutes();
+                    total += (int) (windowMinutes / everyMinutes);
+                }
+                return total;
+            }
+            return null;
+        }
+        // run_time (daily or weekly)
+        String runTime = asString(schedule.get("run_time"));
+        if (runTime != null && !runTime.isBlank()) {
+            return 1;
+        }
+        // cron: count fires within the day
+        String cron = asString(schedule.get("cron"));
+        if (cron != null && !cron.isBlank()) {
+            return countCronFiresToday(cron, today);
+        }
+        return null;
+    }
+
+    private static Integer countCronFiresToday(String cronExpr, LocalDate today) {
+        try {
+            String normalized = cronExpr.trim();
+            if (normalized.split("\\s+").length == 5) {
+                normalized = "0 " + normalized;
+            }
+            CronExpression cron = CronExpression.parse(normalized);
+            OffsetDateTime cursor = today.atStartOfDay(CHINA_ZONE).toOffsetDateTime().minusSeconds(1);
+            OffsetDateTime end = today.plusDays(1).atStartOfDay(CHINA_ZONE).toOffsetDateTime();
+            int count = 0;
+            while (count < 1500) {
+                OffsetDateTime next = cron.next(cursor);
+                if (next == null || !next.isBefore(end)) break;
+                count++;
+                cursor = next;
+            }
+            return count;
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isWeekend(LocalDate date) {
+        DayOfWeek dow = date.getDayOfWeek();
+        return dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
+    }
+
+    private static LocalTime parseLocalTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return LocalTime.parse(value.trim());
+        } catch (RuntimeException ignored) {
+            return null;
         }
     }
 }

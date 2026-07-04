@@ -9,6 +9,8 @@ public interface SchedulerJobCategoryMappingBasicService {
 
     SchedulerJobCategoryMappingPO getById(Long id);
 
+    List<SchedulerJobCategoryMappingPO> listByJobId(Long jobId);
+
     Long create(SchedulerJobCategoryMappingPO po);
 
     boolean update(SchedulerJobCategoryMappingPO po);

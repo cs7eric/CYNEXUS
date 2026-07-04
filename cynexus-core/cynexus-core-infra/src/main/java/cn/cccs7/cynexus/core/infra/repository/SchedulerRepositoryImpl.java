@@ -114,6 +114,12 @@ public class SchedulerRepositoryImpl implements SchedulerRepository {
     }
 
     @Override
+    public List<SchedulerJobCategoryMappingBO> listCategoryMappingsByJobId(Long jobId) {
+        return SchedulerJobCategoryMappingPOConverter.INSTANCE.toTargetList(
+                schedulerJobCategoryMappingBasicService.listByJobId(jobId));
+    }
+
+    @Override
     public SchedulerJobCategoryMappingBO findCategoryMappingById(Long id) {
         return Optional.ofNullable(schedulerJobCategoryMappingBasicService.getById(id))
                 .map(SchedulerJobCategoryMappingPOConverter.INSTANCE::toTarget)

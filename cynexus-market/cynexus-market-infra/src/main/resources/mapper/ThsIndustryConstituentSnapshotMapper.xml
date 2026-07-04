@@ -50,4 +50,22 @@
           )
         order by rank asc nulls last, stock_code asc
     </select>
+
+    <select id="selectLatestByIndustryCodeOnOrBefore" resultMap="BaseResultMap">
+        select
+        <include refid="BaseColumnList"/>
+        from ths_industry_constituent_snapshot
+        where deleted_at is null
+          and industry_code = #{industryCode}
+          and snapshot_date = (
+              select max(snapshot_date)
+              from ths_industry_constituent_snapshot
+              where deleted_at is null
+                and industry_code = #{industryCode}
+                <if test="snapshotDate != null">
+                and snapshot_date &lt;= #{snapshotDate}
+                </if>
+          )
+        order by rank asc nulls last, stock_code asc
+    </select>
 </mapper>

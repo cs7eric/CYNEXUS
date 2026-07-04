@@ -6,12 +6,16 @@ import cn.cccs7.cynexus.core.application.dto.SchedulerManagementDailyStatsRespon
 import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobActionResponseDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobHistoryResponseDTO;
 import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobsResponseDTO;
+import cn.cccs7.cynexus.core.application.request.SchedulerManagementCategoryCreateRequest;
+import cn.cccs7.cynexus.core.application.request.SchedulerManagementCategoryUpdateRequest;
+import cn.cccs7.cynexus.core.application.request.SchedulerManagementJobCategoriesRequest;
 import cn.cccs7.cynexus.core.application.request.SchedulerManagementTriggerRequest;
 import cn.cccs7.cynexus.core.application.service.SchedulerAppService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +41,25 @@ public class SchedulerManagementController {
         return Result.success(schedulerAppService.listManagementCategories());
     }
 
+    @PostMapping("/categories")
+    public Result<SchedulerManagementCategoriesResponseDTO.Item> createCategory(
+            @RequestBody SchedulerManagementCategoryCreateRequest request) {
+        return Result.success(schedulerAppService.createManagementCategory(request));
+    }
+
+    @PutMapping("/categories/{categoryId}")
+    public Result<SchedulerManagementCategoriesResponseDTO.Item> updateCategory(
+            @PathVariable("categoryId") Long categoryId,
+            @RequestBody SchedulerManagementCategoryUpdateRequest request) {
+        return Result.success(schedulerAppService.updateManagementCategory(categoryId, request));
+    }
+
+    @DeleteMapping("/categories/{categoryId}")
+    public Result<SchedulerManagementJobActionResponseDTO> deleteCategory(
+            @PathVariable("categoryId") Long categoryId) {
+        return Result.success(schedulerAppService.deleteManagementCategory(categoryId));
+    }
+
     @GetMapping("/stats/daily")
     public Result<SchedulerManagementDailyStatsResponseDTO> listDailyStats(
             @RequestParam(value = "days", defaultValue = "14") Integer days) {
@@ -48,6 +71,13 @@ public class SchedulerManagementController {
             @PathVariable("jobCode") String jobCode,
             @RequestParam(value = "limit", defaultValue = "50") Integer limit) {
         return Result.success(schedulerAppService.listManagementJobHistory(jobCode, limit == null ? 50 : limit));
+    }
+
+    @PostMapping("/jobs/{jobCode}/categories")
+    public Result<SchedulerManagementJobActionResponseDTO> updateJobCategories(
+            @PathVariable("jobCode") String jobCode,
+            @RequestBody SchedulerManagementJobCategoriesRequest request) {
+        return Result.success(schedulerAppService.updateManagementJobCategories(jobCode, request));
     }
 
     @PostMapping("/jobs/{jobCode}/enable")

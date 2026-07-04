@@ -10,6 +10,7 @@ import Mp4ToWordPage from "../views/mp4-to-word"
 import Mp4HistoryPage from "../views/mp4-to-word/history"
 import SchedulerSettingsPage from "../views/settings/scheduler"
 import AiProviderSettingsPage from "../views/settings/ai-provider"
+import DataSourceSettingsPage from "../views/settings/data-source"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
@@ -98,6 +99,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/ai-provider",
         element: <AiProviderSettingsPage />,
+      },
+      {
+        path: "settings/data-source",
+        element: <DataSourceSettingsPage />,
       },
     ],
   },

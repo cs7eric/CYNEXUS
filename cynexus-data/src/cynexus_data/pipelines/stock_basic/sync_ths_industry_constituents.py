@@ -19,6 +19,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     create_table = _truthy(request.params.get("create_table"))
     max_pages = _optional_int(request.params.get("max_pages"))
     page_sleep = float(request.params.get("page_sleep") or 0.4)
+    include_previous_missing = _truthy(request.params.get("include_previous_missing"), default=True)
     source = "q.10jqka.com.cn"
     result = {
         "pipeline": "stock_basic.sync_ths_industry_constituents",
@@ -29,6 +30,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "planned_industry_codes": len(industry_codes or []),
         "rows_read": 0,
         "rows_written": 0,
+        "carry_forward_rows": 0,
         "snapshots_written": 0,
     }
     if request.dry_run:
@@ -83,6 +85,16 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         result["rows_read"] += len(rows)
         result["snapshots_written"] += 1
 
+    carry_forward_stats = {"rows": 0, "industry_count": 0}
+    if include_previous_missing:
+        records, carry_forward_stats = _append_previous_missing_records(
+            repo,
+            snapshot_date=snapshot_date,
+            records=records,
+            industry_codes=requested_codes,
+            source=source,
+        )
+
     written = repo.replace_snapshot(
         snapshot_date=snapshot_date,
         records=records,
@@ -91,11 +103,80 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         source_type="json_import" if history_path else "crawler",
         page_row_counts=page_row_counts,
         fetched_at=fetched_at,
-        extra={"historyPath": str(history_path) if history_path else None, "maxPages": max_pages},
+        extra={
+            "historyPath": str(history_path) if history_path else None,
+            "maxPages": max_pages,
+            "includePreviousMissing": include_previous_missing,
+            "carryForwardRows": carry_forward_stats["rows"],
+            "carryForwardIndustryCount": carry_forward_stats["industry_count"],
+        },
     )
     result["planned_industry_codes"] = len(requested_codes)
     result["rows_written"] = written
+    result["carry_forward_rows"] = carry_forward_stats["rows"]
     return result
+
+
+def _append_previous_missing_records(
+    repo: ThsIndustryConstituentRepository,
+    *,
+    snapshot_date: date,
+    records: list[dict[str, Any]],
+    industry_codes: list[str],
+    source: str,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    current_keys = {
+        (str(record.get("industry_code") or "").strip(), str(record.get("stock_code") or "").strip())
+        for record in records
+        if record.get("industry_code") and record.get("stock_code")
+    }
+    merged = list(records)
+    carried = 0
+    affected_industries = 0
+    for industry_code in dict.fromkeys(str(code).strip() for code in industry_codes if str(code).strip()):
+        industry_carried = 0
+        for previous in repo.list_latest_records_before(
+            snapshot_date=snapshot_date,
+            industry_code=industry_code,
+            source=source,
+        ):
+            stock_code = str(previous.get("stock_code") or "").strip()
+            if not stock_code:
+                continue
+            key = (industry_code, stock_code)
+            if key in current_keys:
+                continue
+            merged.append(_carry_forward_record(previous, snapshot_date=snapshot_date))
+            current_keys.add(key)
+            carried += 1
+            industry_carried += 1
+        if industry_carried:
+            affected_industries += 1
+    return merged, {"rows": carried, "industry_count": affected_industries}
+
+
+def _carry_forward_record(record: dict[str, Any], *, snapshot_date: date) -> dict[str, Any]:
+    carried = dict(record)
+    source_extra = carried.get("extra")
+    extra = dict(source_extra) if isinstance(source_extra, dict) else {}
+    previous_snapshot_date = carried.get("snapshot_date")
+    if isinstance(previous_snapshot_date, date):
+        previous_snapshot_date_value = previous_snapshot_date.isoformat()
+    else:
+        previous_snapshot_date_value = str(previous_snapshot_date) if previous_snapshot_date else None
+    extra.update(
+        {
+            "carryForward": True,
+            "carryForwardFromSnapshotDate": previous_snapshot_date_value,
+            "carryForwardSourceType": carried.get("source_type"),
+        }
+    )
+    carried["snapshot_date"] = snapshot_date
+    carried["rank"] = None
+    carried["source_type"] = "carry_forward"
+    carried["captured_at"] = None
+    carried["extra"] = extra
+    return carried
 
 
 def _resolve_industry_codes(
@@ -188,9 +269,9 @@ def _optional_int(value: Any) -> int | None:
     return int(value)
 
 
-def _truthy(value: Any) -> bool:
+def _truthy(value: Any, *, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
     if value is None:
-        return False
+        return default
     return str(value).lower() in {"1", "true", "yes", "y", "on"}

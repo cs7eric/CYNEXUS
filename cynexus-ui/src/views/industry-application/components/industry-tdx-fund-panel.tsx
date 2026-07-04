@@ -145,6 +145,10 @@ export function IndustryTdxFundPanel({ target }: Props) {
     () => calcConstituentLimitStats(visibleData?.constituents ?? []),
     [visibleData?.constituents],
   )
+  const constituentSnapshotLabel = useMemo(
+    () => formatConstituentSnapshotLabel(visibleData?.constituents ?? []),
+    [visibleData?.constituents],
+  )
   const defaultThsTab = useMemo(
     () => thsMappings.find((item) => item.is_primary)?.ths_code ?? thsMappings[0]?.ths_code ?? "",
     [thsMappings],
@@ -446,7 +450,9 @@ export function IndustryTdxFundPanel({ target }: Props) {
                                 <div className="flex min-h-0 flex-col overflow-hidden rounded-lg bg-slate-100 px-3 py-3">
                                   <div className="mb-2 flex items-center justify-between gap-3">
                                     <div className="text-xs font-medium text-slate-500">合并成分股</div>
-                                    <div className="text-[11px] text-slate-400">{visibleData.constituents.length} 只</div>
+                                    <div className="text-[11px] text-slate-400">
+                                      {visibleData.constituents.length} 只{constituentSnapshotLabel ? ` · ${constituentSnapshotLabel}` : ""}
+                                    </div>
                                   </div>
                                   <div className="grid grid-cols-[88px_minmax(0,1fr)_96px_72px_72px] gap-2 border-b border-slate-200 pb-2 text-[11px] font-medium text-slate-500">
                                     <div>代码</div>
@@ -594,12 +600,17 @@ function MergedConstituentRow({
   onOpenStock: (item: IndustryApplicationMergedConstituent) => void
 }) {
   const sources = (item.sources ?? []).map((value) => value.toUpperCase())
+  const dateParts = [
+    item.ths_snapshot_date ? `THS ${item.ths_snapshot_date}` : null,
+    item.tdx_snapshot_date ? `TDX ${item.tdx_snapshot_date}` : null,
+    item.quote_trade_date ? `CH ${item.quote_trade_date}` : null,
+  ].filter(Boolean)
   return (
     <button
       type="button"
       className="grid w-full cursor-pointer grid-cols-[88px_minmax(0,1fr)_96px_72px_72px] items-center gap-2 rounded-md bg-white/80 px-2 py-2 text-left text-[11px] transition hover:bg-white hover:ring-1 hover:ring-slate-200"
       onClick={() => onOpenStock(item)}
-      title={`查看 ${item.name || item.code || "个股"} 详情`}
+      title={`查看 ${item.name || item.code || "个股"} 详情${dateParts.length ? ` · ${dateParts.join(" / ")}` : ""}`}
     >
       <div className="font-mono text-slate-700">{item.code || "—"}</div>
       <div className="truncate font-medium text-slate-900">{item.name || "—"}</div>
@@ -878,6 +889,27 @@ function calcConstituentLimitStats(items: IndustryApplicationMergedConstituent[]
     }
   }
   return { limitUpCount, limitDownCount }
+}
+
+function formatConstituentSnapshotLabel(items: IndustryApplicationMergedConstituent[]) {
+  const thsDates = uniqueSortedDates(items.map((item) => item.ths_snapshot_date))
+  const tdxDates = uniqueSortedDates(items.map((item) => item.tdx_snapshot_date))
+  const quoteDates = uniqueSortedDates(items.map((item) => item.quote_trade_date))
+  const parts = [
+    thsDates.length ? `THS ${formatDateSet(thsDates)}` : null,
+    tdxDates.length ? `TDX ${formatDateSet(tdxDates)}` : null,
+    quoteDates.length ? `CH ${formatDateSet(quoteDates)}` : null,
+  ].filter(Boolean)
+  return parts.join(" / ")
+}
+
+function uniqueSortedDates(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort()
+}
+
+function formatDateSet(values: string[]) {
+  if (values.length <= 1) return values[0] ?? ""
+  return `${values[0]}~${values[values.length - 1]}`
 }
 
 function resolveStockLimitPct(code: string | null | undefined) {

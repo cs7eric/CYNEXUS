@@ -91,6 +91,11 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     }
 
     @Override
+    public List<SchedulerJobCategoryMappingBO> listCategoryMappingsByJobId(Long jobId) {
+        return schedulerRepository.listCategoryMappingsByJobId(jobId);
+    }
+
+    @Override
     public SchedulerJobCategoryMappingBO findCategoryMappingById(Long id) {
         return schedulerRepository.findCategoryMappingById(id);
     }

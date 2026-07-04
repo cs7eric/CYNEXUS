@@ -11,7 +11,9 @@ import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationConfigPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationResultPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationTargetPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.SectorFundFlowDailySnapshotPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorConstituentPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.TdxThsIndustryMappingPO;
+import cn.cccs7.cynexus.market.infra.basic.mapper.StockSectorMapper;
 import cn.cccs7.cynexus.market.infra.basic.service.IndustryApplicationBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.SectorFundFlowDailySnapshotBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.TdxThsIndustryMappingBasicService;
@@ -57,6 +59,7 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
     private final TdxThsIndustryMappingBasicService tdxThsIndustryMappingBasicService;
     private final ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository;
     private final TdxSectorQuoteDetailSnapshotRepository tdxSectorQuoteDetailSnapshotRepository;
+    private final StockSectorMapper stockSectorMapper;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -69,7 +72,8 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                                              HttpIndustryApplicationDataClient industryApplicationDataClient,
                                              TdxThsIndustryMappingBasicService tdxThsIndustryMappingBasicService,
                                              ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
-                                             TdxSectorQuoteDetailSnapshotRepository tdxSectorQuoteDetailSnapshotRepository) {
+                                             TdxSectorQuoteDetailSnapshotRepository tdxSectorQuoteDetailSnapshotRepository,
+                                             StockSectorMapper stockSectorMapper) {
         this.industryApplicationBasicService = industryApplicationBasicService;
         this.industryApplicationTargetCatalogProvider = industryApplicationTargetCatalogProvider;
         this.sectorFundFlowDailySnapshotBasicService = sectorFundFlowDailySnapshotBasicService;
@@ -79,6 +83,7 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         this.tdxThsIndustryMappingBasicService = tdxThsIndustryMappingBasicService;
         this.thsIndustryConstituentSnapshotRepository = thsIndustryConstituentSnapshotRepository;
         this.tdxSectorQuoteDetailSnapshotRepository = tdxSectorQuoteDetailSnapshotRepository;
+        this.stockSectorMapper = stockSectorMapper;
     }
 
     @Override
@@ -346,15 +351,18 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                 industryApplicationDataClient.tdxFundFlow(normalizedType, normalizedSymbol, tradeDate, normalizedDays);
         if (snapshot != null && snapshot.getCode6() != null && !snapshot.getCode6().isBlank()) {
             List<IndustryApplicationBO.TdxThsIndustryMapping> mappings = listThsMappings(snapshot.getCode6());
+            LocalDate constituentDate = snapshot.getFlowTradeDate() == null ? snapshot.getTradeDate() : snapshot.getFlowTradeDate();
             snapshot.setThsMappings(mappings);
-            snapshot.setConstituents(mergeConstituents(snapshot.getCode6(), mappings));
+            snapshot.setConstituents(mergeConstituents(snapshot.getCode6(), snapshot.getFlowSectorName(), mappings, constituentDate));
         }
         return snapshot;
     }
 
     private List<IndustryApplicationBO.TdxFundFlowConstituent> mergeConstituents(
             String tdxCode6,
-            List<IndustryApplicationBO.TdxThsIndustryMapping> mappings
+            String flowSectorName,
+            List<IndustryApplicationBO.TdxThsIndustryMapping> mappings,
+            LocalDate snapshotDate
     ) {
         Map<String, ConstituentAccumulator> merged = new LinkedHashMap<>();
         for (IndustryApplicationBO.TdxThsIndustryMapping mapping : mappings == null ? List.<IndustryApplicationBO.TdxThsIndustryMapping>of() : mappings) {
@@ -362,20 +370,70 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
             if (thsCode == null || thsCode.isBlank()) {
                 continue;
             }
-            for (IndustryApplicationBO.TdxFundFlowConstituent item : listThsConstituents(thsCode)) {
+            for (IndustryApplicationBO.TdxFundFlowConstituent item : listThsConstituents(thsCode, snapshotDate)) {
                 mergeConstituent(merged, item);
             }
         }
-        for (IndustryApplicationBO.TdxFundFlowConstituent item : listTdxConstituents(tdxCode6)) {
+        for (IndustryApplicationBO.TdxFundFlowConstituent item : listTdxConstituents(tdxCode6, flowSectorName, snapshotDate)) {
             mergeConstituent(merged, item);
         }
-        return merged.values().stream()
-                .map(ConstituentAccumulator::toValue)
+        List<IndustryApplicationBO.TdxFundFlowConstituent> enriched = enrichConstituentsWithClickHouseQuotes(
+                merged.values().stream().map(ConstituentAccumulator::toValue).toList(),
+                snapshotDate
+        );
+        return enriched.stream()
                 .sorted(Comparator
                         .comparing(IndustryApplicationBO.TdxFundFlowConstituent::getChangePct,
                                 Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(IndustryApplicationBO.TdxFundFlowConstituent::getCode, Comparator.nullsLast(String::compareTo)))
                 .toList();
+    }
+
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> enrichConstituentsWithClickHouseQuotes(
+            List<IndustryApplicationBO.TdxFundFlowConstituent> items,
+            LocalDate maxTradeDate
+    ) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        List<ClickHouseStockChartClient.MarketSymbol> symbols = items.stream()
+                .map(IndustryApplicationBO.TdxFundFlowConstituent::getCode)
+                .filter(Objects::nonNull)
+                .map(this::toStockMarketSymbol)
+                .distinct()
+                .toList();
+        Map<String, ClickHouseStockChartClient.DailyQuote> quoteByCode = clickHouseStockChartClient
+                .listLatestDailyQuotesOnOrBefore(symbols, maxTradeDate)
+                .stream()
+                .collect(Collectors.toMap(
+                        quote -> quoteKey(quote.getMarket(), quote.getSymbol()),
+                        quote -> quote,
+                        (left, right) -> left
+                ));
+        return items.stream()
+                .map(item -> enrichConstituentWithQuote(item, quoteByCode.get(quoteKey(toStockMarketSymbol(item.getCode())))))
+                .toList();
+    }
+
+    private IndustryApplicationBO.TdxFundFlowConstituent enrichConstituentWithQuote(
+            IndustryApplicationBO.TdxFundFlowConstituent item,
+            ClickHouseStockChartClient.DailyQuote quote
+    ) {
+        if (item == null || quote == null) {
+            return item;
+        }
+        return IndustryApplicationBO.TdxFundFlowConstituent.builder()
+                .code(item.getCode())
+                .name(item.getName())
+                .price(quote.getClose() == null ? item.getPrice() : quote.getClose())
+                .changePct(quote.getChangePct() == null ? item.getChangePct() : quote.getChangePct())
+                .turnoverPct(item.getTurnoverPct())
+                .amountText(quote.getAmount() == null ? item.getAmountText() : formatAmountYi(quote.getAmount()))
+                .thsSnapshotDate(item.getThsSnapshotDate())
+                .tdxSnapshotDate(item.getTdxSnapshotDate())
+                .quoteTradeDate(quote.getTradeDate())
+                .sources(appendSource(item.getSources(), "ch"))
+                .build();
     }
 
     private void mergeConstituent(Map<String, ConstituentAccumulator> merged, IndustryApplicationBO.TdxFundFlowConstituent item) {
@@ -385,8 +443,12 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         merged.computeIfAbsent(item.getCode(), ignored -> new ConstituentAccumulator(item.getCode())).merge(item);
     }
 
-    private List<IndustryApplicationBO.TdxFundFlowConstituent> listTdxConstituents(String code6) {
-        return tdxSectorQuoteDetailSnapshotRepository.findLatestByCode6(code6)
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> listTdxConstituents(
+            String code6,
+            String flowSectorName,
+            LocalDate snapshotDate
+    ) {
+        List<IndustryApplicationBO.TdxFundFlowConstituent> captured = tdxSectorQuoteDetailSnapshotRepository.findLatestByCode6OnOrBefore(code6, snapshotDate)
                 .map(snapshot -> {
                     try {
                         JsonNode root = objectMapper.readTree(snapshot.getPayload());
@@ -404,8 +466,9 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                                     .code(code)
                                     .name(text(row, "name"))
                                     .price(decimal(row, "last_price"))
-                                    .changePct(decimal(row, "change_pct"))
-                                    .sources(List.of("tdx"))
+                        .changePct(decimal(row, "change_pct"))
+                        .tdxSnapshotDate(snapshot.getSnapshotDate())
+                        .sources(List.of("tdx"))
                                     .build());
                         }
                         return items;
@@ -414,10 +477,47 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                     }
                 })
                 .orElseGet(List::of);
+        if (!captured.isEmpty()) {
+            return captured;
+        }
+        return listTdxSectorMappingConstituents(flowSectorName, snapshotDate);
     }
 
-    private List<IndustryApplicationBO.TdxFundFlowConstituent> listThsConstituents(String industryCode) {
-        return thsIndustryConstituentSnapshotRepository.listLatestByIndustryCode(industryCode).stream()
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> listTdxSectorMappingConstituents(
+            String flowSectorName,
+            LocalDate snapshotDate
+    ) {
+        if (flowSectorName == null || flowSectorName.isBlank()) {
+            return List.of();
+        }
+        return stockSectorMapper.listConstituentsBySector(null, 0, null, flowSectorName.trim(), 1000).stream()
+                .map(this::toTdxSectorConstituent)
+                .filter(Objects::nonNull)
+                .map(item -> {
+                    item.setTdxSnapshotDate(snapshotDate);
+                    return item;
+                })
+                .toList();
+    }
+
+    private IndustryApplicationBO.TdxFundFlowConstituent toTdxSectorConstituent(StockSectorConstituentPO row) {
+        if (row == null || row.getCode() == null || row.getCode().isBlank()) {
+            return null;
+        }
+        return IndustryApplicationBO.TdxFundFlowConstituent.builder()
+                .code(row.getCode())
+                .name(row.getStockName() == null || row.getStockName().isBlank() ? row.getCode() : row.getStockName())
+                .price(row.getLastPrice())
+                .changePct(row.getChangePct())
+                .turnoverPct(row.getTurnoverRate())
+                .amountText(row.getAmountWan() == null ? null : row.getAmountWan().divide(BigDecimal.valueOf(10_000L), 2, RoundingMode.HALF_UP).toPlainString() + "亿")
+                .quoteTradeDate(row.getTradeDate())
+                .sources(List.of("tdx"))
+                .build();
+    }
+
+    private List<IndustryApplicationBO.TdxFundFlowConstituent> listThsConstituents(String industryCode, LocalDate snapshotDate) {
+        return thsIndustryConstituentSnapshotRepository.listLatestByIndustryCodeOnOrBefore(industryCode, snapshotDate).stream()
                 .map(row -> IndustryApplicationBO.TdxFundFlowConstituent.builder()
                         .code(row.getStockCode())
                         .name(row.getStockName())
@@ -425,9 +525,58 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                         .changePct(row.getChangePct())
                         .turnoverPct(row.getTurnoverPct())
                         .amountText(row.getAmountText())
+                        .thsSnapshotDate(row.getSnapshotDate())
                         .sources(List.of("ths"))
                         .build())
                 .toList();
+    }
+
+    private ClickHouseStockChartClient.MarketSymbol toStockMarketSymbol(String code) {
+        String normalizedCode = normalizeStockCode(code);
+        String market;
+        if (normalizedCode.startsWith("43")
+                || normalizedCode.startsWith("83")
+                || normalizedCode.startsWith("87")
+                || normalizedCode.startsWith("88")
+                || normalizedCode.startsWith("92")) {
+            market = "BJ";
+        } else if (normalizedCode.startsWith("6") || normalizedCode.startsWith("5") || normalizedCode.startsWith("9")) {
+            market = "SH";
+        } else {
+            market = "SZ";
+        }
+        return new ClickHouseStockChartClient.MarketSymbol(market, normalizedCode);
+    }
+
+    private String quoteKey(ClickHouseStockChartClient.MarketSymbol symbol) {
+        return quoteKey(symbol.market(), symbol.symbol());
+    }
+
+    private String quoteKey(String market, String symbol) {
+        return (market == null ? "" : market.trim().toUpperCase()) + ":" + normalizeStockCode(symbol);
+    }
+
+    private String normalizeStockCode(String code) {
+        String value = code == null ? "" : code.trim().toLowerCase();
+        String digits = value.replaceAll("\\D", "");
+        return digits.length() >= 6 ? digits.substring(digits.length() - 6) : value;
+    }
+
+    private String formatAmountYi(BigDecimal amount) {
+        return amount.divide(BigDecimal.valueOf(100_000_000L), 2, RoundingMode.HALF_UP).toPlainString() + "亿";
+    }
+
+    private List<String> appendSource(List<String> sources, String source) {
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        if (sources != null) {
+            values.addAll(sources.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .toList());
+        }
+        values.add(source);
+        return new ArrayList<>(values);
     }
 
     private IndustryApplicationBO.Target toTarget(IndustryApplicationTargetPO po) {
@@ -940,6 +1089,9 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         private BigDecimal changePct;
         private BigDecimal turnoverPct;
         private String amountText;
+        private LocalDate thsSnapshotDate;
+        private LocalDate tdxSnapshotDate;
+        private LocalDate quoteTradeDate;
         private final LinkedHashSet<String> sources = new LinkedHashSet<>();
 
         private ConstituentAccumulator(String code) {
@@ -965,6 +1117,15 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
             if (this.amountText == null || this.amountText.isBlank()) {
                 this.amountText = item.getAmountText();
             }
+            if (this.thsSnapshotDate == null) {
+                this.thsSnapshotDate = item.getThsSnapshotDate();
+            }
+            if (this.tdxSnapshotDate == null) {
+                this.tdxSnapshotDate = item.getTdxSnapshotDate();
+            }
+            if (this.quoteTradeDate == null) {
+                this.quoteTradeDate = item.getQuoteTradeDate();
+            }
             if (item.getSources() != null) {
                 this.sources.addAll(item.getSources().stream()
                         .filter(Objects::nonNull)
@@ -982,6 +1143,9 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
                     .changePct(changePct)
                     .turnoverPct(turnoverPct)
                     .amountText(amountText)
+                    .thsSnapshotDate(thsSnapshotDate)
+                    .tdxSnapshotDate(tdxSnapshotDate)
+                    .quoteTradeDate(quoteTradeDate)
                     .sources(new ArrayList<>(sources))
                     .build();
         }

@@ -48,6 +48,8 @@ public class SchedulerManagementJobsResponseDTO {
         private Progress progress;
         @com.fasterxml.jackson.annotation.JsonProperty("last_run")
         private LastRun lastRun;
+        @com.fasterxml.jackson.annotation.JsonProperty("today_stats")
+        private TodayStats todayStats;
     }
 
     @Data
@@ -100,6 +102,33 @@ public class SchedulerManagementJobsResponseDTO {
         private String lastError;
         @com.fasterxml.jackson.annotation.JsonProperty("total_runs")
         private Integer totalRuns;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TodayStats {
+        @com.fasterxml.jackson.annotation.JsonProperty("expected_count")
+        private Integer expectedCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("actual_count")
+        private Integer actualCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("success_count")
+        private Integer successCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("failed_count")
+        private Integer failedCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("skipped_count")
+        private Integer skippedCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("manual_count")
+        private Integer manualCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("auto_count")
+        private Integer autoCount;
+        @com.fasterxml.jackson.annotation.JsonProperty("failed_at")
+        private OffsetDateTime failedAt;
+        @com.fasterxml.jackson.annotation.JsonProperty("failed_error")
+        private String failedError;
+        @com.fasterxml.jackson.annotation.JsonProperty("failed_message")
+        private String failedMessage;
     }
 
     @Data

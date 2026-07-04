@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
 import cn.cccs7.cynexus.market.infra.basic.service.ThsIndustryConstituentSnapshotBasicService;
 import cn.cccs7.cynexus.market.infra.convert.ThsIndustryConstituentSnapshotPOConverter;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -26,6 +27,13 @@ public class ThsIndustryConstituentSnapshotRepositoryImpl implements ThsIndustry
     public List<ThsIndustryConstituentSnapshotBO> listLatestByIndustryCode(String industryCode) {
         return ThsIndustryConstituentSnapshotPOConverter.INSTANCE.toTargetList(
                 thsIndustryConstituentSnapshotBasicService.listLatestByIndustryCode(industryCode)
+        );
+    }
+
+    @Override
+    public List<ThsIndustryConstituentSnapshotBO> listLatestByIndustryCodeOnOrBefore(String industryCode, LocalDate snapshotDate) {
+        return ThsIndustryConstituentSnapshotPOConverter.INSTANCE.toTargetList(
+                thsIndustryConstituentSnapshotBasicService.listLatestByIndustryCodeOnOrBefore(industryCode, snapshotDate)
         );
     }
 

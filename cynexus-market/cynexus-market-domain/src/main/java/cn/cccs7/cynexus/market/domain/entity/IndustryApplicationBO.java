@@ -249,6 +249,9 @@ public final class IndustryApplicationBO {
         private BigDecimal changePct;
         private BigDecimal turnoverPct;
         private String amountText;
+        private LocalDate thsSnapshotDate;
+        private LocalDate tdxSnapshotDate;
+        private LocalDate quoteTradeDate;
         private List<String> sources;
     }
 

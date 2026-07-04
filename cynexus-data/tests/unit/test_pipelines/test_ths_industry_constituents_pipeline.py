@@ -11,6 +11,7 @@ class FakeRepo:
     created = 0
     calls = []
     latest_codes = []
+    previous_records = {}
 
     def __init__(self, client):
         self.client = client
@@ -24,6 +25,9 @@ class FakeRepo:
 
     def list_latest_industry_codes(self):
         return list(FakeRepo.latest_codes)
+
+    def list_latest_records_before(self, *, snapshot_date, industry_code, source="q.10jqka.com.cn"):
+        return list(FakeRepo.previous_records.get(industry_code, []))
 
 
 class FakeSectorRepo:
@@ -84,6 +88,7 @@ def test_sync_ths_industry_constituents_imports_history_json(monkeypatch, tmp_pa
     FakeRepo.created = 0
     FakeRepo.calls = []
     FakeRepo.latest_codes = []
+    FakeRepo.previous_records = {}
     FakeSectorRepo.latest_codes = []
     history_file = tmp_path / "881103.json"
     history_file.write_text(
@@ -125,6 +130,7 @@ def test_sync_ths_industry_constituents_live_uses_ths_client(monkeypatch) -> Non
     FakeRepo.created = 0
     FakeRepo.calls = []
     FakeRepo.latest_codes = []
+    FakeRepo.previous_records = {}
     FakeSectorRepo.latest_codes = []
     monkeypatch.setattr(sync_ths_industry_constituents, "ThsIndustryConstituentRepository", FakeRepo)
     monkeypatch.setattr(sync_ths_industry_constituents, "SectorFundFlowRepository", FakeSectorRepo)
@@ -149,6 +155,7 @@ def test_sync_ths_industry_constituents_live_uses_latest_snapshot_codes(monkeypa
     FakeRepo.created = 0
     FakeRepo.calls = []
     FakeRepo.latest_codes = ["881103"]
+    FakeRepo.previous_records = {}
     FakeSectorRepo.latest_codes = []
     monkeypatch.setattr(sync_ths_industry_constituents, "ThsIndustryConstituentRepository", FakeRepo)
     monkeypatch.setattr(sync_ths_industry_constituents, "SectorFundFlowRepository", FakeSectorRepo)
@@ -167,3 +174,44 @@ def test_sync_ths_industry_constituents_live_uses_latest_snapshot_codes(monkeypa
     assert result["rows_written"] == 1
     call = FakeRepo.calls[0]
     assert call["requested_industry_codes"] == ["881103"]
+
+
+def test_sync_ths_industry_constituents_carries_previous_missing_rows(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    FakeRepo.latest_codes = []
+    FakeRepo.previous_records = {
+        "881103": [
+            {
+                "snapshot_date": "2026-06-25",
+                "industry_code": "881103",
+                "stock_code": "600597",
+                "stock_name": "光明乳业",
+                "rank": 120,
+                "source": "q.10jqka.com.cn",
+                "source_type": "crawler",
+                "extra": {},
+            }
+        ]
+    }
+    FakeSectorRepo.latest_codes = []
+    monkeypatch.setattr(sync_ths_industry_constituents, "ThsIndustryConstituentRepository", FakeRepo)
+    monkeypatch.setattr(sync_ths_industry_constituents, "SectorFundFlowRepository", FakeSectorRepo)
+
+    result = sync_ths_industry_constituents.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_ths_industry_constituents",
+            dry_run=False,
+            params={"industry_codes": "881103", "snapshot_date": "2026-06-26", "max_pages": 1},
+        ),
+    )
+
+    assert result["rows_read"] == 1
+    assert result["rows_written"] == 2
+    assert result["carry_forward_rows"] == 1
+    records = FakeRepo.calls[0]["records"]
+    carried = next(record for record in records if record["stock_code"] == "600597")
+    assert carried["source_type"] == "carry_forward"
+    assert carried["rank"] is None
+    assert carried["extra"]["carryForward"] is True

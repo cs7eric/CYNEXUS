@@ -381,6 +381,12 @@ public final class IndustryApplicationDTO {
         private BigDecimal turnoverPct;
         @JsonProperty("amount_text")
         private String amountText;
+        @JsonProperty("ths_snapshot_date")
+        private String thsSnapshotDate;
+        @JsonProperty("tdx_snapshot_date")
+        private String tdxSnapshotDate;
+        @JsonProperty("quote_trade_date")
+        private String quoteTradeDate;
         private List<String> sources;
     }
 

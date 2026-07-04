@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.market.domain.entity.TdxSectorQuoteDetailSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.TdxSectorQuoteDetailSnapshotRepository;
 import cn.cccs7.cynexus.market.infra.basic.service.TdxSectorQuoteDetailSnapshotBasicService;
 import cn.cccs7.cynexus.market.infra.convert.TdxSectorQuoteDetailSnapshotPOConverter;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -25,6 +26,12 @@ public class TdxSectorQuoteDetailSnapshotRepositoryImpl implements TdxSectorQuot
     @Override
     public Optional<TdxSectorQuoteDetailSnapshotBO> findLatestByCode6(String code6) {
         return tdxSectorQuoteDetailSnapshotBasicService.findLatestByCode6(code6)
+                .map(TdxSectorQuoteDetailSnapshotPOConverter.INSTANCE::toTarget);
+    }
+
+    @Override
+    public Optional<TdxSectorQuoteDetailSnapshotBO> findLatestByCode6OnOrBefore(String code6, LocalDate snapshotDate) {
+        return tdxSectorQuoteDetailSnapshotBasicService.findLatestByCode6OnOrBefore(code6, snapshotDate)
                 .map(TdxSectorQuoteDetailSnapshotPOConverter.INSTANCE::toTarget);
     }
 
