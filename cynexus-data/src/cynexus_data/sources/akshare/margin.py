@@ -7,9 +7,9 @@ from typing import Any
 def fetch_margin_market_summary(ak: Any, trade_date: date) -> list[dict[str, Any]]:
     day = _date_param(trade_date)
     rows: list[dict[str, Any]] = []
-    sse = ak.stock_margin_sse(start_date=day, end_date=day)
+    sse = _safe_fetch(lambda: ak.stock_margin_sse(start_date=day, end_date=day))
     rows.extend(normalize_margin_sse_summary(sse, fallback_trade_date=trade_date))
-    szse = ak.stock_margin_szse(date=day)
+    szse = _safe_fetch(lambda: ak.stock_margin_szse(date=day))
     rows.extend(normalize_margin_szse_summary(szse, trade_date=trade_date))
     return rows
 
@@ -17,16 +17,39 @@ def fetch_margin_market_summary(ak: Any, trade_date: date) -> list[dict[str, Any
 def fetch_margin_stock_detail(ak: Any, trade_date: date) -> list[dict[str, Any]]:
     day = _date_param(trade_date)
     rows: list[dict[str, Any]] = []
-    sse = ak.stock_margin_detail_sse(date=day)
+    sse = _safe_fetch(lambda: ak.stock_margin_detail_sse(date=day))
     rows.extend(normalize_margin_sse_detail(sse, fallback_trade_date=trade_date))
-    szse = ak.stock_margin_detail_szse(date=day)
+    szse = _safe_fetch(lambda: ak.stock_margin_detail_szse(date=day))
     rows.extend(normalize_margin_szse_detail(szse, trade_date=trade_date))
     return rows
 
 
 def fetch_margin_account_stats(ak: Any, trade_date: date | None = None) -> list[dict[str, Any]]:
-    frame = ak.stock_margin_account_info()
+    frame = _safe_fetch(lambda: ak.stock_margin_account_info())
     return normalize_margin_account_stats(frame, trade_date=trade_date)
+
+
+def fetch_latest_margin_trade_date(ak: Any, end_date: date | None = None) -> date | None:
+    frame = _safe_fetch(lambda: ak.stock_margin_account_info())
+    dates = []
+    for row in _records(frame):
+        row_date = _parse_date(row.get("日期"))
+        if row_date is None:
+            continue
+        if end_date is not None and row_date > end_date:
+            continue
+        dates.append(row_date)
+    return max(dates) if dates else None
+
+
+def _safe_fetch(fetcher: Any) -> Any:
+    try:
+        return fetcher()
+    except ValueError as exc:
+        message = str(exc)
+        if "Length mismatch" in message and "Expected axis has 0 elements" in message:
+            return None
+        raise
 
 
 def normalize_margin_sse_summary(frame: Any, *, fallback_trade_date: date) -> list[dict[str, Any]]:
@@ -35,14 +58,14 @@ def normalize_margin_sse_summary(frame: Any, *, fallback_trade_date: date) -> li
             "trade_date": _parse_date(row.get("信用交易日期")) or fallback_trade_date,
             "exchange": "SSE",
             "source": "akshare.stock_margin_sse",
-            "financing_balance": _number(row.get("融资余额")),
-            "financing_buy_amount": _number(row.get("融资买入额")),
+            "financing_balance": _yuan_to_yi(row.get("融资余额")),
+            "financing_buy_amount": _yuan_to_yi(row.get("融资买入额")),
             "financing_repay_amount": None,
             "securities_lending_balance": _number(row.get("融券余量")),
-            "securities_lending_balance_amount": _number(row.get("融券余量金额")),
+            "securities_lending_balance_amount": _yuan_to_yi(row.get("融券余量金额")),
             "securities_lending_sell_volume": _number(row.get("融券卖出量")),
             "securities_lending_repay_volume": None,
-            "margin_balance": _number(row.get("融资融券余额")),
+            "margin_balance": _yuan_to_yi(row.get("融资融券余额")),
             "extra": {},
         }
         for row in _records(frame)
@@ -185,6 +208,11 @@ def _number(value: Any) -> float | None:
         return float(parsed)
     except Exception:
         return None
+
+
+def _yuan_to_yi(value: Any) -> float | None:
+    parsed = _number(value)
+    return round(parsed / 1e8, 6) if parsed is not None else None
 
 
 def _integer(value: Any) -> int | None:

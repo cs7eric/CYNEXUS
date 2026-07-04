@@ -69,6 +69,10 @@ export const sidebarConfig = {
           title: "market sentiment",
           url: "/market/sentiment",
         },
+        {
+          title: "market-margin-trading",
+          url: "/market/margin-trading",
+        },
       ],
     },
     {
@@ -159,6 +163,11 @@ export const sidebarConfig = {
       name: "Market Pulse",
       url: "/stock-overview/market",
       icon: Flame,
+    },
+    {
+      name: "Market Margin Trading",
+      url: "/market/margin-trading",
+      icon: Activity,
     },
     {
       name: "Application Analysis",

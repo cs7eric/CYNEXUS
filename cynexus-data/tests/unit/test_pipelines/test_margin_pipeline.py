@@ -8,6 +8,9 @@ from cynexus_data.runtime.context import PipelineContext
 
 
 class FakeAkshareClient:
+    def fetch_latest_margin_trade_date(self, end_date):
+        return date(2026, 7, 2)
+
     def fetch_margin_market_summary(self, trade_date):
         return [{"trade_date": trade_date, "exchange": "SSE", "source": "akshare.stock_margin_sse"}]
 
@@ -88,3 +91,22 @@ def test_sync_margin_fetches_selected_datasets(monkeypatch) -> None:
     assert result["account_rows"] == 1
     assert FakeRepo.created == 1
     assert FakeRepo.calls[0][1] == date(2026, 7, 4)
+
+
+def test_sync_margin_without_trade_date_uses_latest_available_margin_date(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    monkeypatch.setattr(sync_margin, "MarginRepository", FakeRepo)
+
+    result = sync_margin.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_margin",
+            dry_run=False,
+            params={"datasets": "summary", "create_table": False},
+        ),
+    )
+
+    assert result["trade_date"] == "2026-07-02"
+    assert result["rows_written"] == 1
+    assert FakeRepo.calls[0][1] == date(2026, 7, 2)

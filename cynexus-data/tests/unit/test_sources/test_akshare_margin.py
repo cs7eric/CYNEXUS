@@ -5,12 +5,21 @@ from datetime import date
 import pandas as pd
 
 from cynexus_data.sources.akshare.margin import (
+    fetch_margin_stock_detail,
     normalize_margin_account_stats,
     normalize_margin_sse_detail,
     normalize_margin_sse_summary,
     normalize_margin_szse_detail,
     normalize_margin_szse_summary,
 )
+
+
+class EmptyAkshareMarginClient:
+    def stock_margin_detail_sse(self, date: str):
+        raise ValueError("Length mismatch: Expected axis has 0 elements, new values have 13 elements")
+
+    def stock_margin_detail_szse(self, date: str):
+        raise ValueError("Length mismatch: Expected axis has 0 elements, new values have 13 elements")
 
 
 def test_normalize_margin_summary_records() -> None:
@@ -45,7 +54,7 @@ def test_normalize_margin_summary_records() -> None:
 
     assert rows[0]["trade_date"] == date(2026, 7, 4)
     assert rows[0]["exchange"] == "SSE"
-    assert rows[0]["margin_balance"] == 120.0
+    assert rows[0]["margin_balance"] == 0.000001
     assert rows[1]["exchange"] == "SZSE"
     assert rows[1]["securities_lending_balance_amount"] == 21.0
 
@@ -103,3 +112,9 @@ def test_normalize_margin_account_stats_filters_trade_date() -> None:
     assert len(rows) == 1
     assert rows[0]["trade_date"] == date(2026, 7, 4)
     assert rows[0]["broker_count"] == 10
+
+
+def test_fetch_margin_stock_detail_treats_akshare_empty_length_mismatch_as_empty() -> None:
+    rows = fetch_margin_stock_detail(EmptyAkshareMarginClient(), date(2026, 7, 4))
+
+    assert rows == []

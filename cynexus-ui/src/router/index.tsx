@@ -16,6 +16,7 @@ import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
 import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
+import MarketMarginTradingPage from "../views/market/market-margin-trading"
 import PocPage from "../views/poc"
 import StockReviewPage from "../views/stock-review"
 
@@ -63,6 +64,10 @@ export const router = createBrowserRouter([
       {
         path: "market/sentiment",
         element: <MarketSentimentPage />,
+      },
+      {
+        path: "market/margin-trading",
+        element: <MarketMarginTradingPage />,
       },
       {
         path: "poc",

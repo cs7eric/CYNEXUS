@@ -13,7 +13,8 @@ SUPPORTED_DATASETS = {"summary", "detail", "account"}
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
-    trade_date = _parse_date(request.params.get("trade_date")) or date.today()
+    requested_trade_date = _parse_date(request.params.get("trade_date"))
+    trade_date = requested_trade_date or date.today()
     providers = _normalize_list(request.params.get("providers") or ["akshare"])
     datasets = _normalize_list(request.params.get("datasets") or ["summary", "detail", "account"])
     unsupported_providers = [provider for provider in providers if provider not in SUPPORTED_PROVIDERS]
@@ -41,6 +42,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         raise RuntimeError("PipelineContext.hooks is required")
 
     akshare = context.hooks.akshare.get_client()
+    if requested_trade_date is None:
+        trade_date = akshare.fetch_latest_margin_trade_date(date.today()) or trade_date
+        result["trade_date"] = trade_date.isoformat()
     repo = MarginRepository(context.hooks.postgres.get_client())
     if _truthy(request.params.get("create_table")):
         repo.create_table()

@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.MarginTradingMapper">
+
+    <sql id="MarketSummaryColumns">
+        id,
+        trade_date,
+        exchange,
+        source,
+        financing_balance,
+        financing_buy_amount,
+        financing_repay_amount,
+        securities_lending_balance,
+        securities_lending_balance_amount,
+        securities_lending_sell_volume,
+        securities_lending_repay_volume,
+        margin_balance,
+        extra,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
+    <sql id="StockDetailColumns">
+        id,
+        trade_date,
+        exchange,
+        stock_code,
+        stock_name,
+        source,
+        financing_balance,
+        financing_buy_amount,
+        financing_repay_amount,
+        securities_lending_balance,
+        securities_lending_balance_amount,
+        securities_lending_sell_volume,
+        securities_lending_repay_volume,
+        coalesce(margin_balance, coalesce(financing_balance, 0) + coalesce(securities_lending_balance_amount, 0)) as margin_balance,
+        extra,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
+    <sql id="AccountStatsColumns">
+        id,
+        trade_date,
+        source,
+        financing_balance,
+        securities_lending_balance,
+        financing_buy_amount,
+        securities_lending_sell_amount,
+        broker_count,
+        business_department_count,
+        personal_investor_count,
+        institution_investor_count,
+        active_investor_count,
+        liability_investor_count,
+        total_guarantee,
+        average_guarantee_ratio,
+        extra,
+        created_at,
+        updated_at,
+        deleted_at
+    </sql>
+
+    <select id="findLatestTradeDate" resultType="java.time.LocalDate">
+        select max(trade_date)
+          from margin_market_summary
+         where deleted_at is null
+        <if test="endDate != null">
+           and trade_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="listMarketSummaryByTradeDate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginMarketSummaryPO">
+        select <include refid="MarketSummaryColumns"/>
+          from margin_market_summary
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by exchange asc, source asc
+    </select>
+
+    <select id="findAccountStatsByTradeDate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginAccountStatsPO">
+        select <include refid="AccountStatsColumns"/>
+          from margin_account_stats
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by updated_at desc nulls last
+         limit 1
+    </select>
+
+    <select id="listMarketSummaryHistory" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginMarketSummaryPO">
+        select <include refid="MarketSummaryColumns"/>
+          from margin_market_summary
+         where deleted_at is null
+           and trade_date between #{startDate} and #{endDate}
+         order by trade_date asc, exchange asc, source asc
+    </select>
+
+    <select id="listStocks" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginStockDetailPO">
+        select <include refid="StockDetailColumns"/>
+          from margin_stock_detail
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+        <if test="exchange != null and exchange != ''">
+           and exchange = #{exchange}
+        </if>
+        <if test="industryCode != null and industryCode != ''">
+           and exists (
+                select 1
+                  from ths_industry_constituent_snapshot c
+                 where c.deleted_at is null
+                   and c.industry_code = #{industryCode}
+                   and c.stock_code = margin_stock_detail.stock_code
+                   and c.snapshot_date = coalesce(
+                       (
+                           select max(c1.snapshot_date)
+                             from ths_industry_constituent_snapshot c1
+                            where c1.deleted_at is null
+                              and c1.snapshot_date &lt;= #{tradeDate}
+                       ),
+                       (
+                           select max(c2.snapshot_date)
+                             from ths_industry_constituent_snapshot c2
+                            where c2.deleted_at is null
+                       )
+                   )
+           )
+        </if>
+         order by
+        <choose>
+            <when test="sort == 'stock_code'">
+                stock_code
+            </when>
+            <when test="sort == 'stock_name'">
+                stock_name
+            </when>
+            <when test="sort == 'exchange'">
+                exchange
+            </when>
+            <when test="sort == 'financing_balance'">
+                financing_balance
+            </when>
+            <when test="sort == 'financing_buy_amount'">
+                financing_buy_amount
+            </when>
+            <when test="sort == 'financing_repay_amount'">
+                financing_repay_amount
+            </when>
+            <when test="sort == 'securities_lending_balance'">
+                securities_lending_balance
+            </when>
+            <when test="sort == 'securities_lending_balance_amount'">
+                securities_lending_balance_amount
+            </when>
+            <otherwise>
+                coalesce(margin_balance, coalesce(financing_balance, 0) + coalesce(securities_lending_balance_amount, 0))
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="sortDir == 'asc'">asc nulls last</when>
+            <otherwise>desc nulls last</otherwise>
+        </choose>
+        , stock_code asc
+         offset #{offset}
+         limit #{limit}
+    </select>
+
+    <select id="countStocks" resultType="int">
+        select count(1)
+          from margin_stock_detail
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+        <if test="exchange != null and exchange != ''">
+           and exchange = #{exchange}
+        </if>
+        <if test="industryCode != null and industryCode != ''">
+           and exists (
+                select 1
+                  from ths_industry_constituent_snapshot c
+                 where c.deleted_at is null
+                   and c.industry_code = #{industryCode}
+                   and c.stock_code = margin_stock_detail.stock_code
+                   and c.snapshot_date = coalesce(
+                       (
+                           select max(c1.snapshot_date)
+                             from ths_industry_constituent_snapshot c1
+                            where c1.deleted_at is null
+                              and c1.snapshot_date &lt;= #{tradeDate}
+                       ),
+                       (
+                           select max(c2.snapshot_date)
+                             from ths_industry_constituent_snapshot c2
+                            where c2.deleted_at is null
+                       )
+                   )
+           )
+        </if>
+    </select>
+
+    <sql id="LatestIndustryConstituentsCte">
+        with snapshot_pick as (
+            select coalesce(
+                (
+                    select max(snapshot_date)
+                      from ths_industry_constituent_snapshot
+                     where deleted_at is null
+                       and snapshot_date &lt;= #{tradeDate}
+                ),
+                (
+                    select max(snapshot_date)
+                      from ths_industry_constituent_snapshot
+                     where deleted_at is null
+                )
+            ) as snapshot_date
+        ),
+        constituents as (
+            select distinct
+                   c.snapshot_date,
+                   c.industry_code,
+                   c.stock_code
+              from ths_industry_constituent_snapshot c
+              join snapshot_pick sp on sp.snapshot_date = c.snapshot_date
+             where c.deleted_at is null
+        ),
+        industry_mapping as (
+            select tdx_code6, tdx_name, ths_code, ths_name
+              from (
+                    select m.*,
+                           row_number() over (
+                               partition by m.ths_code
+                               order by m.is_primary desc, m.priority asc, m.confidence desc
+                           ) as rn
+                      from tdx_ths_industry_mapping m
+                     where m.deleted_at is null
+                   ) ranked
+             where rn = 1
+        ),
+        ths_industry_names as (
+            select item ->> 'sectorCode' as ths_code,
+                   item ->> 'name' as ths_name
+              from mkt_heatmap_snapshot h
+              join snapshot_pick sp on h.snapshot_date = coalesce(
+                   (
+                       select max(h1.snapshot_date)
+                         from mkt_heatmap_snapshot h1
+                        where h1.deleted_at is null
+                          and h1.kind = 'industries'
+                          and h1.snapshot_date &lt;= sp.snapshot_date
+                   ),
+                   (
+                       select max(h2.snapshot_date)
+                         from mkt_heatmap_snapshot h2
+                        where h2.deleted_at is null
+                          and h2.kind = 'industries'
+                   )
+              )
+             cross join lateral jsonb_array_elements(coalesce(h.payload -> 'items', '[]'::jsonb)) item
+             where h.deleted_at is null
+               and h.kind = 'industries'
+               and item ->> 'sectorCode' is not null
+        ),
+        industry_agg as (
+            select #{tradeDate}::date as trade_date,
+                   c.snapshot_date as constituent_snapshot_date,
+                   c.industry_code,
+                   coalesce(max(im.ths_name), max(tn.ths_name), c.industry_code) as industry_name,
+                   max(im.tdx_code6) as tdx_code,
+                   max(im.tdx_name) as tdx_name,
+                   count(distinct c.stock_code)::int as constituent_count,
+                   count(distinct s.stock_code)::int as matched_stock_count,
+                   coalesce(sum(s.financing_balance), 0) as financing_balance,
+                   coalesce(sum(s.financing_buy_amount), 0) as financing_buy_amount,
+                   coalesce(sum(s.financing_repay_amount), 0) as financing_repay_amount,
+                   coalesce(sum(s.securities_lending_balance), 0) as securities_lending_balance,
+                   coalesce(sum(s.securities_lending_balance_amount), 0) as securities_lending_balance_amount,
+                   coalesce(sum(s.securities_lending_sell_volume), 0) as securities_lending_sell_volume,
+                   coalesce(sum(s.securities_lending_repay_volume), 0) as securities_lending_repay_volume,
+                   coalesce(sum(coalesce(s.margin_balance, coalesce(s.financing_balance, 0) + coalesce(s.securities_lending_balance_amount, 0))), 0) as margin_balance
+              from constituents c
+              left join industry_mapping im on im.ths_code = c.industry_code
+              left join ths_industry_names tn on tn.ths_code = c.industry_code
+              left join margin_stock_detail s
+                on s.deleted_at is null
+               and s.trade_date = #{tradeDate}
+               and s.stock_code = c.stock_code
+             group by c.snapshot_date, c.industry_code
+        )
+    </sql>
+
+    <select id="listIndustrySummaries" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustrySummaryPO">
+        <include refid="LatestIndustryConstituentsCte"/>
+        select trade_date,
+               constituent_snapshot_date,
+               industry_code,
+               industry_name,
+               tdx_code,
+               tdx_name,
+               constituent_count,
+               matched_stock_count,
+               financing_balance,
+               financing_buy_amount,
+               financing_repay_amount,
+               securities_lending_balance,
+               securities_lending_balance_amount,
+               securities_lending_sell_volume,
+               securities_lending_repay_volume,
+               margin_balance
+         from industry_agg
+         order by
+        <choose>
+            <when test="sort == 'industry_code'">
+                industry_code
+            </when>
+            <when test="sort == 'industry_name'">
+                industry_name
+            </when>
+            <when test="sort == 'tdx_code'">
+                tdx_code
+            </when>
+            <when test="sort == 'tdx_name'">
+                tdx_name
+            </when>
+            <when test="sort == 'constituent_count'">
+                constituent_count
+            </when>
+            <when test="sort == 'matched_stock_count'">
+                matched_stock_count
+            </when>
+            <when test="sort == 'financing_balance'">
+                financing_balance
+            </when>
+            <when test="sort == 'financing_buy_amount'">
+                financing_buy_amount
+            </when>
+            <when test="sort == 'financing_repay_amount'">
+                financing_repay_amount
+            </when>
+            <when test="sort == 'securities_lending_balance'">
+                securities_lending_balance
+            </when>
+            <when test="sort == 'securities_lending_balance_amount'">
+                securities_lending_balance_amount
+            </when>
+            <otherwise>
+                margin_balance
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="sortDir == 'asc'">asc nulls last</when>
+            <otherwise>desc nulls last</otherwise>
+        </choose>
+        , industry_code asc
+         offset #{offset}
+         limit #{limit}
+    </select>
+
+    <select id="countIndustrySummaries" resultType="int">
+        <include refid="LatestIndustryConstituentsCte"/>
+        select count(1)
+          from industry_agg
+    </select>
+</mapper>
