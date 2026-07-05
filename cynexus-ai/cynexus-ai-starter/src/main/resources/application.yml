@@ -47,6 +47,29 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:C020611.}
 
+cynexus:
+  ai:
+    platform:
+      enabled: ${CYNEXUS_AI_PLATFORM_ENABLED:false}
+      default-provider: ${CYNEXUS_AI_DEFAULT_PROVIDER:mock}
+      providers:
+        openai:
+          base-url: ${CYNEXUS_AI_OPENAI_BASE_URL:https://api.openai.com}
+          api-key-env: CYNEXUS_AI_OPENAI_API_KEY
+        deepseek:
+          base-url: ${CYNEXUS_AI_DEEPSEEK_BASE_URL:https://api.deepseek.com}
+          api-key-env: CYNEXUS_AI_DEEPSEEK_API_KEY
+        dashscope:
+          api-key-env: CYNEXUS_AI_DASHSCOPE_API_KEY
+          chat-model: ${CYNEXUS_AI_DASHSCOPE_CHAT_MODEL:qwen-plus}
+          embedding-model: ${CYNEXUS_AI_DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
+      rag:
+        vector-store: ${CYNEXUS_AI_RAG_VECTOR_STORE:pgvector}
+        embedding-dimensions: ${CYNEXUS_AI_RAG_EMBEDDING_DIMENSIONS:1024}
+      speech:
+        asr-model: ${CYNEXUS_AI_ASR_MODEL:paraformer-realtime-v2}
+        tts-model: ${CYNEXUS_AI_TTS_MODEL:cosyvoice-v1}
+
 management:
   endpoints:
     web:

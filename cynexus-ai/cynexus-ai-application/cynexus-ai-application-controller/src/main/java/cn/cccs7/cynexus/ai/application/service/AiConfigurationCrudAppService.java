@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.application.service;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisConfigBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisDailySnapshotBO;
@@ -8,6 +9,7 @@ import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisResultCurrentBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisResultHistoryBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisTargetBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisConfigRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisDailySnapshotRepository;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Service;
 public class AiConfigurationCrudAppService {
 
     private final AiProviderRepository aiProviderRepository;
+    private final AiPromptRepository aiPromptRepository;
     private final AiUsageBindingRepository aiUsageBindingRepository;
     private final ApplicationAnalysisConfigRepository applicationAnalysisConfigRepository;
     private final ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository;
@@ -30,6 +33,7 @@ public class AiConfigurationCrudAppService {
 
     public AiConfigurationCrudAppService(
             AiProviderRepository aiProviderRepository,
+            AiPromptRepository aiPromptRepository,
             AiUsageBindingRepository aiUsageBindingRepository,
             ApplicationAnalysisConfigRepository applicationAnalysisConfigRepository,
             ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository,
@@ -37,6 +41,7 @@ public class AiConfigurationCrudAppService {
             ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository,
             ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository) {
         this.aiProviderRepository = aiProviderRepository;
+        this.aiPromptRepository = aiPromptRepository;
         this.aiUsageBindingRepository = aiUsageBindingRepository;
         this.applicationAnalysisConfigRepository = applicationAnalysisConfigRepository;
         this.applicationAnalysisDailySnapshotRepository = applicationAnalysisDailySnapshotRepository;
@@ -63,6 +68,26 @@ public class AiConfigurationCrudAppService {
 
     public boolean deleteProvider(Long id) {
         return aiProviderRepository.delete(id);
+    }
+
+    public List<AiPromptBO> listPrompts(String keyword, String scenarioCode, String status) {
+        return aiPromptRepository.list(keyword, scenarioCode, status);
+    }
+
+    public AiPromptBO findPromptById(Long id) {
+        return aiPromptRepository.findById(id);
+    }
+
+    public Long createPrompt(AiPromptBO prompt) {
+        return aiPromptRepository.create(prompt);
+    }
+
+    public boolean updatePrompt(AiPromptBO prompt) {
+        return aiPromptRepository.update(prompt);
+    }
+
+    public boolean deletePrompt(Long id) {
+        return aiPromptRepository.delete(id);
     }
 
     public List<AiUsageBindingBO> listUsageBindings() {

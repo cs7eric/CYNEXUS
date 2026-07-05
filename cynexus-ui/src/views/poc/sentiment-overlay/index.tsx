@@ -44,8 +44,8 @@ import {
   type MarketSentimentIndexHistoryItem,
   type IndexDailyItem,
   type MarketOverviewHistoryItem,
-} from "@/services/market/sentiment"
-import { scoreToColor, scoreToRgb } from "../../market/market-sentiment/lib/color"
+} from "../services/market-sentiment"
+import { scoreToColor, scoreToRgb } from "../lib/color"
 
 echarts.use([
   CustomChart,

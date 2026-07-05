@@ -11,6 +11,7 @@ import {
   Settings,
   BrainCircuit,
   Database,
+  Beaker,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -114,6 +115,25 @@ export const sidebarConfig = {
       ],
     },
     {
+      title: "POC",
+      url: "/poc",
+      icon: Beaker,
+      items: [
+        {
+          title: "workspace",
+          url: "/poc",
+        },
+        {
+          title: "ai poc",
+          url: "/poc/ai",
+        },
+        {
+          title: "markdown render",
+          url: "/poc/markdown-render",
+        },
+      ],
+    },
+    {
       title: "Settings",
       url: "/settings/scheduler",
       icon: Settings,
@@ -129,6 +149,10 @@ export const sidebarConfig = {
         {
           title: "Data Source",
           url: "/settings/data-source",
+        },
+        {
+          title: "Prompt",
+          url: "/settings/prompt",
         },
       ],
     },
@@ -185,6 +209,21 @@ export const sidebarConfig = {
       icon: LineChart,
     },
     {
+      name: "POC",
+      url: "/poc",
+      icon: Beaker,
+    },
+    {
+      name: "POC · AI",
+      url: "/poc/ai",
+      icon: BrainCircuit,
+    },
+    {
+      name: "POC · Markdown Render",
+      url: "/poc/markdown-render",
+      icon: FileText,
+    },
+    {
       name: "Settings · Scheduler",
       url: "/settings/scheduler",
       icon: Settings,
@@ -198,6 +237,11 @@ export const sidebarConfig = {
       name: "Settings · Data Source",
       url: "/settings/data-source",
       icon: Database,
+    },
+    {
+      name: "Settings · Prompt",
+      url: "/settings/prompt",
+      icon: BrainCircuit,
     },
     {
       name: "Knowledge Base",

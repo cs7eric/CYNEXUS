@@ -11,6 +11,7 @@ import Mp4HistoryPage from "../views/mp4-to-word/history"
 import SchedulerSettingsPage from "../views/settings/scheduler"
 import AiProviderSettingsPage from "../views/settings/ai-provider"
 import DataSourceSettingsPage from "../views/settings/data-source"
+import PromptSettingsPage from "../views/settings/prompt"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
@@ -18,6 +19,8 @@ import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
 import MarketMarginTradingPage from "../views/market/market-margin-trading"
 import PocPage from "../views/poc"
+import AiPocPage from "../views/poc/ai"
+import MarkdownRenderPocPage from "../views/poc/markdown-render"
 import StockReviewPage from "../views/stock-review"
 
 export const router = createBrowserRouter([
@@ -74,6 +77,14 @@ export const router = createBrowserRouter([
         element: <PocPage />,
       },
       {
+        path: "poc/ai",
+        element: <AiPocPage />,
+      },
+      {
+        path: "poc/markdown-render",
+        element: <MarkdownRenderPocPage />,
+      },
+      {
         path: "stock-overview/application-analysis",
         element: <ApplicationAnalysisPage />,
       },
@@ -108,6 +119,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/data-source",
         element: <DataSourceSettingsPage />,
+      },
+      {
+        path: "settings/prompt",
+        element: <PromptSettingsPage />,
       },
     ],
   },

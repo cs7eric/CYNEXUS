@@ -1,0 +1,307 @@
+.cynexus-mdx-editor {
+  --font-body: "Montserrat", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  font-family: var(--font-body);
+}
+
+.cynexus-mdx-editor .cynexus-mdx-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+  padding: 0.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.cynexus-mdx-content {
+  min-height: 560px;
+  overflow-x: auto;
+  padding: 1.25rem;
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.cynexus-mdx-content:focus {
+  outline: none;
+}
+
+.cynexus-mdx-content h1 {
+  margin: 0 0 1rem;
+  font-size: 1.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.cynexus-mdx-content h2 {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 1.375rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.cynexus-mdx-content h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.cynexus-mdx-content p {
+  margin: 0.75rem 0;
+  color: var(--muted-foreground);
+}
+
+.cynexus-mdx-content blockquote {
+  margin: 1rem 0;
+  border-left: 4px solid var(--primary);
+  border-radius: 0.375rem;
+  background: var(--muted);
+  padding: 0.75rem 1rem;
+}
+
+.cynexus-mdx-content code {
+  border-radius: 0.3rem;
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  color: var(--foreground);
+  font-size: 0.85em;
+}
+
+.cynexus-mdx-content pre code {
+  display: block;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: rgb(24 24 27);
+  padding: 1rem;
+  color: rgb(244 244 245);
+}
+
+.cynexus-mdx-content :has(table[class*="_tableEditor_"]) {
+  display: block !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+.cynexus-mdx-content [data-lexical-decorator="true"],
+.cynexus-mdx-content [data-lexical-decorator="true"] > :not(table) {
+  display: block !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  white-space: normal !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] {
+  width: 100%;
+  min-width: 520px;
+  margin: 1rem 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] col:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] col:last-child {
+  width: 0 !important;
+  transition: width 140ms ease;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover col:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover col:last-child {
+  width: 3.5% !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] col:not(:first-child):not(:last-child) {
+  width: auto !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead th,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot th {
+  height: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  line-height: 0 !important;
+  padding: 0 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableToolsColumn_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [data-tool-cell="true"]:last-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tfoot > tr > th:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tfoot > tr > th:last-child {
+  width: 0 !important;
+  min-width: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  transition:
+    min-width 140ms ease,
+    width 140ms ease;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_toolCell_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_tableToolsColumn_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover > tbody > tr > [data-tool-cell="true"]:last-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover > tfoot > tr > th:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover > tfoot > tr > th:last-child {
+  width: 3.5% !important;
+  min-width: 1.5rem !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableColumnEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableRowEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addRowButton_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addColumnButton_"] {
+  border-radius: 999px !important;
+  color: var(--muted-foreground) !important;
+  opacity: 0 !important;
+  pointer-events: auto;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+  visibility: hidden !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_toolCell_"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_tableColumnEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_tableRowEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_addRowButton_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_addColumnButton_"] {
+  opacity: 0.44 !important;
+  visibility: visible !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"] button:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [data-tool-cell="true"] button:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableColumnEditorTrigger_"]:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableRowEditorTrigger_"]:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addRowButton_"]:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addColumnButton_"]:hover {
+  background: var(--muted) !important;
+  opacity: 0.85 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--background) !important;
+  padding: 0.375rem 0.75rem !important;
+  color: var(--muted-foreground);
+  min-width: 140px;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-top: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-left: 1px solid transparent !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [class*="_toolCell_"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [class*="_toolCell_"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [data-tool-cell="true"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [data-tool-cell="true"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-left: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [class*="_toolCell_"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [class*="_toolCell_"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [data-tool-cell="true"]) {
+  border-right: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child {
+  border-right: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div {
+  min-height: 1.35rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  background: var(--muted) !important;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  vertical-align: middle;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div {
+  display: flex;
+  min-height: 1.2rem;
+  align-items: center;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p {
+  color: var(--foreground);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > [class*="_toolCell_"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > [data-tool-cell="true"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-top-left-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child {
+  border-top-right-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > [class*="_toolCell_"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > [data-tool-cell="true"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-bottom-left-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child {
+  border-bottom-right-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td[data-active="true"]:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th[data-active="true"]:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-bottom: 2px solid color-mix(in oklch, var(--ring) 58%, transparent) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
