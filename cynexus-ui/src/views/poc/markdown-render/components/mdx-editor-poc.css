@@ -49,6 +49,66 @@
   min-width: 10rem;
 }
 
+.cynexus-mdx-table-menu-inline {
+  z-index: 50 !important;
+  transform: none !important;
+}
+
+.cynexus-mdx-table-menu-inline [class*="_popoverArrow_"],
+.cynexus-mdx-table-menu-inline svg[class*="_popoverArrow_"] {
+  display: none !important;
+}
+
+.cynexus-mdx-hide-native-table-menu [class*="_tableColumnEditorPopoverContent_"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.cynexus-mdx-table-floating-menu {
+  position: fixed;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--background);
+  box-shadow: 0 4px 14px color-mix(in oklch, var(--foreground) 14%, transparent);
+  padding: 0.25rem;
+}
+
+.cynexus-mdx-table-floating-menu button {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.cynexus-mdx-table-floating-menu button svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2;
+}
+
+.cynexus-mdx-table-floating-menu button:hover {
+  background: var(--muted);
+}
+
+.cynexus-mdx-table-floating-separator {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.125rem;
+  background: var(--border);
+}
+
 .cynexus-mdx-append-target {
   display: flex;
   width: 100%;
@@ -264,6 +324,145 @@
   color: rgb(244 244 245);
 }
 
+.cynexus-mdx-editor [class*="_codeMirrorWrapper_"] {
+  margin: 1rem 0 1.25rem !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  background: var(--background) !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] {
+  position: static !important;
+  display: flex !important;
+  width: 100%;
+  align-items: center;
+  gap: 0.375rem !important;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+  border-bottom-left-radius: 0 !important;
+  background: color-mix(in oklch, var(--muted) 44%, var(--background) 56%) !important;
+  padding: 0.3125rem 0.5rem 0.3125rem 0.625rem !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] > [class*="_tooltipTrigger_"] {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  margin-right: auto;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]),
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] {
+  height: 1.875rem !important;
+  border-radius: 0.375rem !important;
+  color: var(--muted-foreground) !important;
+  font-size: 0.75rem !important;
+  line-height: 1 !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 7rem;
+  max-width: 11rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  margin: 0 !important;
+  border: 1px solid transparent !important;
+  background: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
+  padding: 0 0.5rem 0 0.6875rem !important;
+  box-shadow: none !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]):hover,
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"]:hover {
+  background: color-mix(in oklch, var(--secondary) 78%, var(--foreground) 8%) !important;
+  color: var(--foreground) !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]),
+.cynexus-mdx-code-copy-button {
+  display: inline-flex;
+  width: 1.875rem;
+  height: 1.875rem;
+  flex: 0 0 1.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground) !important;
+  cursor: pointer;
+  padding: 0 !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]) svg,
+.cynexus-mdx-code-copy-button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2;
+}
+
+.cynexus-mdx-editor .cm-editor {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  padding: 0.875rem 0 !important;
+}
+
+.cynexus-mdx-editor .cm-scroller {
+  font-family: var(--font-body) !important;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.cynexus-mdx-editor .cm-content {
+  padding: 0 1rem 0 0.875rem !important;
+}
+
+.cynexus-mdx-editor .cm-line {
+  padding: 0 0.25rem !important;
+}
+
+.cynexus-mdx-editor .cm-gutters {
+  border-right: 1px solid var(--border) !important;
+  background: color-mix(in oklch, var(--muted) 38%, var(--background) 62%) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.cynexus-mdx-editor .cm-activeLine,
+.cynexus-mdx-editor .cm-activeLineGutter {
+  background: color-mix(in oklch, var(--muted) 42%, transparent) !important;
+}
+
+.cynexus-mdx-editor .cm-selectionBackground,
+.cynexus-mdx-editor .cm-focused .cm-selectionBackground {
+  background: color-mix(in oklch, var(--ring) 22%, transparent) !important;
+}
+
+.cynexus-mdx-editor .cm-cursor {
+  border-left-color: var(--foreground) !important;
+}
+
+.cynexus-mdx-editor .cm-focused {
+  outline: none !important;
+}
+
 .cynexus-mdx-content :has(table[class*="_tableEditor_"]) {
   display: block !important;
   max-width: none !important;
@@ -277,6 +476,7 @@
   display: block !important;
   max-width: none !important;
   width: 100% !important;
+  overflow: visible !important;
   margin-right: 0 !important;
   margin-left: 0 !important;
   white-space: normal !important;
@@ -286,7 +486,7 @@
   width: 100%;
   min-width: 520px;
   margin: 1rem 0 !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   border: 0 !important;
   border-radius: 0 !important;
   table-layout: fixed !important;
@@ -311,13 +511,41 @@
   width: auto !important;
 }
 
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot,
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot tr,
 .cynexus-mdx-editor table[class*="_tableEditor_"] thead th,
 .cynexus-mdx-editor table[class*="_tableEditor_"] tfoot th {
   height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
   border: 0 !important;
   background: transparent !important;
+  font-size: 0 !important;
   line-height: 0 !important;
   padding: 0 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead th,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot th {
+  position: relative !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead th[data-tool-cell="true"] {
+  text-align: left !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead th,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot th {
+  height: 1.75rem !important;
+  min-height: 1.75rem !important;
+  max-height: none !important;
+  line-height: 1 !important;
 }
 
 .cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"],
@@ -351,7 +579,9 @@
 .cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableRowEditorTrigger_"],
 .cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addRowButton_"],
 .cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addColumnButton_"] {
+  background: var(--background) !important;
   border-radius: 999px !important;
+  box-shadow: 0 1px 4px color-mix(in oklch, var(--foreground) 14%, transparent) !important;
   color: var(--muted-foreground) !important;
   opacity: 0 !important;
   pointer-events: auto;
@@ -359,6 +589,34 @@
     background-color 120ms ease,
     opacity 120ms ease;
   visibility: hidden !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot [data-tool-cell="true"] button {
+  position: absolute !important;
+  z-index: 2;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead [data-tool-cell="true"] button {
+  top: -1.15rem;
+  left: 0.25rem;
+  transform: none;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot [data-tool-cell="true"] button {
+  bottom: -1.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot [data-tool-cell="true"] button {
+  position: static !important;
+  transform: none;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead [data-tool-cell="true"] button {
+  margin-left: 0.25rem !important;
 }
 
 .cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_toolCell_"] button,
