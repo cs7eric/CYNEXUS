@@ -18,6 +18,167 @@
   backdrop-filter: blur(8px);
 }
 
+.cynexus-mdx-context-menu {
+  min-width: 12.5rem;
+  max-width: min(18rem, calc(100vw - 2rem));
+  overflow: hidden;
+  padding: 0.375rem;
+}
+
+.cynexus-mdx-context-label {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.cynexus-mdx-context-menu [data-slot="context-menu-item"],
+.cynexus-mdx-context-menu [data-slot="context-menu-sub-trigger"] {
+  min-height: 2rem;
+  cursor: pointer;
+  gap: 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.cynexus-mdx-context-menu [data-slot="context-menu-item"] svg,
+.cynexus-mdx-context-menu [data-slot="context-menu-sub-trigger"] svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cynexus-mdx-context-submenu {
+  min-width: 10rem;
+}
+
+.cynexus-mdx-append-target {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  cursor: text;
+  border: 1px dashed color-mix(in oklch, var(--border) 78%, var(--foreground) 22%);
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 58%, var(--background) 42%);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 0.75rem;
+  width: calc(100% - 1.5rem);
+  padding: 0.625rem 0.75rem;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.cynexus-mdx-append-target:hover {
+  border-color: color-mix(in oklch, var(--border) 42%, var(--foreground) 58%);
+  background: color-mix(in oklch, var(--muted) 76%, var(--background) 24%);
+  color: var(--foreground);
+}
+
+.cynexus-mdx-append-target:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--ring) 62%, transparent);
+  outline-offset: -0.375rem;
+}
+
+.cynexus-mdx-color-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.cynexus-mdx-editor .cynexus-mdx-color-button {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
+}
+
+.cynexus-mdx-editor .cynexus-mdx-color-trigger {
+  width: auto;
+  min-width: 2.35rem;
+  gap: 0.05rem;
+  padding: 0 0.25rem;
+}
+
+.cynexus-mdx-color-trigger .cynexus-mdx-color-icon {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.cynexus-mdx-color-trigger .cynexus-mdx-color-icon::after {
+  background: var(--muted-foreground);
+}
+
+.cynexus-mdx-color-trigger .cynexus-mdx-color-icon[data-kind="background"]::after {
+  display: none;
+}
+
+.cynexus-mdx-color-chevron {
+  display: block;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--muted-foreground);
+  stroke-width: 2.4;
+}
+
+.cynexus-mdx-color-icon {
+  position: relative;
+  display: inline-flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: var(--swatch-color);
+  line-height: 0;
+}
+
+.cynexus-mdx-color-icon svg {
+  display: block;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 2.2;
+}
+
+.cynexus-mdx-color-icon::after {
+  position: absolute;
+  right: 0.15rem;
+  bottom: 0.05rem;
+  left: 0.15rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: var(--swatch-color);
+  content: "";
+}
+
+.cynexus-mdx-color-icon[data-kind="background"] {
+  background: var(--swatch-color);
+  color: color-mix(in oklch, var(--foreground) 78%, transparent);
+}
+
+.cynexus-mdx-color-icon[data-kind="background"]::after {
+  display: none;
+}
+
+.cynexus-mdx-color-dropdown {
+  min-width: 8.5rem;
+}
+
+.cynexus-mdx-color-dropdown-item {
+  cursor: pointer;
+}
+
+.cynexus-mdx-content span[style*="background-color"] {
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.25rem;
+}
+
 .cynexus-mdx-content {
   min-height: 560px;
   overflow-x: auto;
@@ -60,11 +221,30 @@
 }
 
 .cynexus-mdx-content blockquote {
+  position: relative;
   margin: 1rem 0;
-  border-left: 4px solid var(--primary);
-  border-radius: 0.375rem;
-  background: var(--muted);
-  padding: 0.75rem 1rem;
+  border-left: 0;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 70%, var(--background) 30%);
+  padding: 0.55rem 1rem 0.55rem 1.15rem;
+  color: var(--muted-foreground);
+}
+
+.cynexus-mdx-content blockquote::before {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 72%, transparent);
+  content: "";
+}
+
+.cynexus-mdx-content blockquote p {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.7;
 }
 
 .cynexus-mdx-content code {
@@ -245,6 +425,22 @@
 .cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div,
 .cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div {
   min-height: 1.35rem;
+  padding: 0 !important;
+  line-height: 1.35;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) [contenteditable="true"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) [contenteditable="true"] {
+  min-height: 1.35rem !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div:not([contenteditable="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div:not([contenteditable="true"]) {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
 }
 
 .cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p,
@@ -301,7 +497,7 @@
 
 .cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td[data-active="true"]:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
 .cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th[data-active="true"]:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
-  border-bottom: 2px solid color-mix(in oklch, var(--ring) 58%, transparent) !important;
+  border-bottom: 2px solid color-mix(in oklch, var(--ring) 76%, var(--foreground) 12%) !important;
   outline: none !important;
   box-shadow: none !important;
 }
