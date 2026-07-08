@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from cynexus_data.connections.registry import ConnectionRegistry
 from cynexus_data.hooks.sources.akshare import AkshareHook
 from cynexus_data.hooks.sources.eastmoney import EastMoneyHook
+from cynexus_data.hooks.sources.exchange_margin import ExchangeMarginHook
 from cynexus_data.hooks.sources.sina import SinaHook
 from cynexus_data.hooks.sources.tdx import TdxHook
 from cynexus_data.hooks.sources.tencent import TencentHook
@@ -48,6 +49,10 @@ class HookBundle:
     @property
     def akshare(self) -> AkshareHook:
         return AkshareHook("akshare_default", self.registry)
+
+    @property
+    def exchange_margin(self) -> ExchangeMarginHook:
+        return ExchangeMarginHook("exchange_margin_default", self.registry)
 
     @property
     def tencent(self) -> TencentHook:

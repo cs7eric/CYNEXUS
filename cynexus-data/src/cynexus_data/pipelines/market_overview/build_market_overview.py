@@ -15,13 +15,16 @@ from cynexus_data.storage.postgres.stock_basic import StockBasicRepository
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
     source = str(request.params.get("source") or "clickhouse_daily_qfq")
+    actual_source = source
     create_table = _truthy(request.params.get("create_table"))
     raw_fields = _collect_fields(request.params)
     should_fetch_live = _truthy(request.params.get("fetch_live")) or (source in {"akshare", "eltdx", "eastmoney", "tencent"} and not _has_overview_field_values(raw_fields))
+    fetch_errors: list[str] = []
     if not request.dry_run and should_fetch_live:
-        raw_fields.update(_fetch_live_fields(context, source=source, params=request.params))
+        actual_source, live_fields, fetch_errors = _fetch_live_fields_with_fallback(context, source=source, params=request.params)
+        raw_fields.update(live_fields)
     trade_date = _parse_date(request.params.get("trade_date") or raw_fields.get("trade_date") or raw_fields.get("tradingDate"))
-    if not request.dry_run and source in {"clickhouse_daily_qfq", "clickhouse.daily_qfq"} and not _has_overview_field_values(raw_fields):
+    if not request.dry_run and actual_source in {"clickhouse_daily_qfq", "clickhouse.daily_qfq"} and not _has_overview_field_values(raw_fields):
         if trade_date is None:
             trade_date = date.today()
         raw_fields.update(_fetch_clickhouse_fields(context, trade_date=trade_date, params=request.params))
@@ -32,10 +35,12 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "pipeline": "market_overview.build_market_overview",
         "dry_run": request.dry_run,
         "trade_date": fields["trade_date"].isoformat(),
-        "source": source,
+        "source": actual_source,
+        "requested_source": source,
         "rows_read": 1,
         "rows_written": 0,
         "fetch_live": should_fetch_live,
+        "fetch_errors": fetch_errors,
         "fields": {key: value for key, value in fields.items() if key != "trade_date"},
     }
     if request.dry_run:
@@ -46,10 +51,38 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     repo = MarketOverviewRepository(context.hooks.postgres.get_client())
     if create_table:
         repo.create_table()
-    row = repo.upsert_fields(fields, source=source, extra={"job": request.job_key})
+    row = repo.upsert_fields(fields, source=actual_source, extra={"job": request.job_key, "requested_source": source, "fetch_errors": fetch_errors})
     result["rows_written"] = 1
     result["snapshot"] = _jsonable(row)
     return result
+
+
+def _fetch_live_fields_with_fallback(context: PipelineContext, *, source: str, params: dict[str, Any]) -> tuple[str, dict[str, Any], list[str]]:
+    errors: list[str] = []
+    sources = [source]
+    for fallback_source in _fallback_sources(source, params):
+        if fallback_source not in sources:
+            sources.append(fallback_source)
+    for candidate in sources:
+        try:
+            if candidate in {"clickhouse_daily_qfq", "clickhouse.daily_qfq"}:
+                trade_date = _parse_date(params.get("trade_date") or params.get("target_date") or params.get("date")) or date.today()
+                return candidate, _fetch_clickhouse_fields(context, trade_date=trade_date, params=params), errors
+            return candidate, _fetch_live_fields(context, source=candidate, params=params), errors
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{candidate}: {type(exc).__name__}: {exc}")
+    raise RuntimeError("all market overview sources failed: " + " | ".join(errors))
+
+
+def _fallback_sources(source: str, params: dict[str, Any]) -> list[str]:
+    raw = params.get("fallback_sources")
+    if raw in (None, ""):
+        if source == "akshare":
+            return ["tencent", "eastmoney", "eltdx", "clickhouse_daily_qfq"]
+        return []
+    if isinstance(raw, str):
+        return [item.strip() for item in raw.split(",") if item.strip()]
+    return [str(item).strip() for item in raw if str(item).strip()]
 
 
 def _fetch_live_fields(context: PipelineContext, *, source: str, params: dict[str, Any]) -> dict[str, Any]:

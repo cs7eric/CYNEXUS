@@ -36,6 +36,8 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     playwright_headless = _truthy_default(request.params.get("playwright_headless"), True)
     playwright_wait_ms = int(request.params.get("playwright_wait_ms") or 2000)
     chunk_size_bytes = int(request.params.get("chunk_size_bytes") or 4 * 1024 * 1024)
+    urlopen_attempts = int(request.params.get("urlopen_attempts") or 3)
+    urlopen_backoff_seconds = float(request.params.get("urlopen_backoff_seconds") or 1.0)
 
     result = {
         "pipeline": "kline.sync_tdx_hsjday",
@@ -50,6 +52,8 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "skip_download": skip_download,
         "keep_zip": keep_zip,
         "download_method": download_method,
+        "urlopen_attempts": urlopen_attempts,
+        "urlopen_backoff_seconds": urlopen_backoff_seconds,
         "rows_read": 0,
         "rows_written": 0,
         "steps": [],
@@ -75,6 +79,8 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
             playwright_headless=playwright_headless,
             playwright_wait_ms=playwright_wait_ms,
             chunk_size_bytes=chunk_size_bytes,
+            urlopen_attempts=urlopen_attempts,
+            urlopen_backoff_seconds=urlopen_backoff_seconds,
         )
         result["steps"].append(
             {

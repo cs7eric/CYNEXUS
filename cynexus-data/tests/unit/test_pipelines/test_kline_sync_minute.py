@@ -29,6 +29,6 @@ def test_sync_minute_dry_run_discovers_no_files_without_clickhouse(tmp_path) -> 
 
     result = run(context, JobRequest(job_key="sync_kline_minute", dry_run=True, params={}))
 
-    assert result["providers"] == ["tdx", "sina", "eastmoney", "tencent"]
+    assert result["providers"] == ["tdx", "tencent", "mootdx", "sina", "eastmoney"]
     assert result["discovered_files"] == 0
     assert result["rows_written"] == 0

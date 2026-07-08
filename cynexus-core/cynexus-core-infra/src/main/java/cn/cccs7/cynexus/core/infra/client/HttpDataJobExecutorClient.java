@@ -49,6 +49,11 @@ public class HttpDataJobExecutorClient implements DataJobExecutorClient {
     }
 
     @Override
+    public Map<String, Object> dataSourceHealth(boolean includeSlow) {
+        return getMap("/internal/data-sources/health?include_slow=" + includeSlow);
+    }
+
+    @Override
     public Map<String, Object> listJobs() {
         return getMap("/internal/jobs");
     }

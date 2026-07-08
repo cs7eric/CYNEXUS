@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import random
 import shutil
+import ssl
 import struct
+import time
 import zipfile
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -44,6 +48,8 @@ def download_hsjday_zip(
     playwright_headless: bool = True,
     playwright_wait_ms: int = 2000,
     chunk_size_bytes: int = DEFAULT_CHUNK_SIZE_BYTES,
+    urlopen_attempts: int = 3,
+    urlopen_backoff_seconds: float = 1.0,
 ) -> HsjdayDownloadResult:
     normalized_method = method.lower()
     if normalized_method not in {"auto", "urlopen", "playwright"}:
@@ -61,7 +67,13 @@ def download_hsjday_zip(
         return HsjdayDownloadResult(bytes_downloaded=total, method="playwright")
 
     try:
-        total = _download_hsjday_zip_urlopen(url, destination, timeout_seconds=timeout_seconds)
+        total = _download_hsjday_zip_urlopen(
+            url,
+            destination,
+            timeout_seconds=timeout_seconds,
+            attempts=urlopen_attempts,
+            backoff_seconds=urlopen_backoff_seconds,
+        )
         return HsjdayDownloadResult(bytes_downloaded=total, method="urlopen")
     except HsjdayDownloadChallenge:
         if normalized_method == "urlopen":
@@ -75,9 +87,48 @@ def download_hsjday_zip(
             chunk_size_bytes=chunk_size_bytes,
         )
         return HsjdayDownloadResult(bytes_downloaded=total, method="playwright")
+    except Exception as exc:
+        if normalized_method == "urlopen" or not _is_retryable_download_error(exc):
+            raise
+        try:
+            total = _download_hsjday_zip_playwright(
+                url,
+                destination,
+                timeout_seconds=timeout_seconds,
+                headless=playwright_headless,
+                wait_ms=playwright_wait_ms,
+                chunk_size_bytes=chunk_size_bytes,
+            )
+        except Exception as fallback_exc:
+            raise RuntimeError(
+                "TDX hsjday urlopen failed after retries and Playwright fallback failed: "
+                f"{type(fallback_exc).__name__}: {fallback_exc}"
+            ) from exc
+        return HsjdayDownloadResult(bytes_downloaded=total, method="playwright")
 
 
-def _download_hsjday_zip_urlopen(url: str, destination: Path, timeout_seconds: int = 120) -> int:
+def _download_hsjday_zip_urlopen(
+    url: str,
+    destination: Path,
+    timeout_seconds: int = 120,
+    attempts: int = 3,
+    backoff_seconds: float = 1.0,
+) -> int:
+    max_attempts = max(int(attempts), 1)
+    for attempt in range(max_attempts):
+        try:
+            return _download_hsjday_zip_urlopen_once(url, destination, timeout_seconds=timeout_seconds)
+        except HsjdayDownloadChallenge:
+            raise
+        except Exception as exc:
+            if attempt >= max_attempts - 1 or not _is_retryable_download_error(exc):
+                raise
+            if backoff_seconds > 0:
+                time.sleep(backoff_seconds * (2**attempt) + random.uniform(0, 0.25))
+    raise RuntimeError("unreachable hsjday urlopen retry state")
+
+
+def _download_hsjday_zip_urlopen_once(url: str, destination: Path, timeout_seconds: int = 120) -> int:
     destination.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = destination.with_suffix(f"{destination.suffix}.tmp")
     if tmp_path.exists():
@@ -422,6 +473,14 @@ def _parse_content_range_total(value: str) -> int:
     if not tail.isdigit():
         return 0
     return int(tail)
+
+
+def _is_retryable_download_error(exc: BaseException) -> bool:
+    if isinstance(exc, HTTPError):
+        return exc.code in {408, 425, 429, 500, 502, 503, 504}
+    if isinstance(exc, URLError):
+        return True
+    return isinstance(exc, (TimeoutError, ConnectionError, ssl.SSLError, OSError))
 
 
 def _looks_like_js_challenge(chunk: bytes) -> bool:

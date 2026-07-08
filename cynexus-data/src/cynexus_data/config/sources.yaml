@@ -4,7 +4,7 @@ sources:
       providers: [tencent, eastmoney, tdx]
       fallback: true
     minute:
-      providers: [tdx, sina, eastmoney, tencent]
+      providers: [tdx, tencent, mootdx, sina, eastmoney]
       fallback: true
 
   fund_flow:

@@ -26,6 +26,7 @@ from cynexus_data.jobs import (
     quality_check,
     rebuild_msi,
     repair_missing_data,
+    sync_a_stock_dataset,
     sync_adjusted_kline_daily,
     sync_fund_flow,
     sync_kline_daily,
@@ -52,6 +53,7 @@ from cynexus_data.runtime.job_runner import JobCallable
 JOB_REGISTRY = {
     "health_check": health_check.run,
     "sync_metadata": sync_metadata.run,
+    "sync_a_stock_dataset": sync_a_stock_dataset.run,
     "sync_trade_calendar": sync_trade_calendar.run,
     "sync_stock_basic": sync_stock_basic.run,
     "sync_stock_sectors": sync_stock_sectors.run,

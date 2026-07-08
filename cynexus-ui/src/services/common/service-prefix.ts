@@ -9,5 +9,5 @@ export const SERVICE_PREFIX = {
   market: `${CYNEXUS_API_BASE}/api/market`,
   marketData: `${CYNEXUS_API_BASE}/api/market/data`,
   core: `${CYNEXUS_API_BASE}/api/core`,
+  knowledgeBase: `${CYNEXUS_API_BASE}/api/knowledge-base`,
 } as const
-

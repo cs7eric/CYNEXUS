@@ -94,6 +94,16 @@ class FakeAkshareHook:
         return FakeAkshareClient()
 
 
+class BrokenAkshareClient:
+    def fetch_market_overview(self):
+        raise ConnectionError("remote disconnected")
+
+
+class BrokenAkshareHook:
+    def get_client(self):
+        return BrokenAkshareClient()
+
+
 class FakeTdxClient:
     def __enter__(self):
         return self
@@ -159,6 +169,14 @@ class FakeHooks:
     tencent = FakeTencentHook()
 
 
+class FakeHooksWithBrokenAkshare:
+    postgres = FakePostgresHook()
+    akshare = BrokenAkshareHook()
+    tdx = FakeTdxHook()
+    eastmoney = FakeEastMoneyHook()
+    tencent = FakeTencentHook()
+
+
 def test_build_market_overview_dry_run_fields() -> None:
     fields = {"tradingDate": "2026-06-26", "totalAmount": 1234.5, "risingCount": 3000}
 
@@ -196,6 +214,27 @@ def test_build_market_overview_fetches_akshare_live(monkeypatch) -> None:
     assert call["fields"]["trade_date"].isoformat() == "2026-06-26"
     assert call["fields"]["total_amount"] == 123.45
     assert call["fields"]["main_net_inflow"] == 6.7
+
+
+def test_build_market_overview_falls_back_when_akshare_disconnects(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    monkeypatch.setattr(build_market_overview, "MarketOverviewRepository", FakeRepo)
+
+    result = build_market_overview.run(
+        PipelineContext(hooks=FakeHooksWithBrokenAkshare()),
+        JobRequest(
+            job_key="build_market_overview",
+            dry_run=False,
+            params={"source": "akshare", "trade_date": "2026-06-26", "fallback_sources": "tencent,eastmoney", "codes": "600000,000001"},
+        ),
+    )
+
+    assert result["requested_source"] == "akshare"
+    assert result["source"] == "tencent"
+    assert result["fetch_errors"]
+    assert result["rows_written"] == 1
+    assert FakeRepo.calls[0]["source"] == "tencent"
 
 
 def test_build_market_overview_fetches_eltdx_live(monkeypatch) -> None:

@@ -7,6 +7,7 @@ from typing import Any
 def build_market_pulse_rows(rows: list[dict[str, Any]], *, trade_date: date) -> list[dict[str, Any]]:
     normalized = [_normalize_row(row, trade_date=trade_date) for row in rows]
     normalized = [row for row in normalized if row is not None]
+    normalized = _dedupe_by_sector_name(normalized)
     normalized.sort(key=lambda row: (row.get("change_pct") is None, -(row.get("change_pct") or 0), row.get("sector_name") or ""))
     for rank, row in enumerate(normalized, start=1):
         row["rank_by_change"] = rank
@@ -51,6 +52,33 @@ def _normalize_row(row: dict[str, Any], *, trade_date: date) -> dict[str, Any] |
         "leading_price": _to_float(row.get("leading_price") or row.get("leader_price") or row.get("leadingPrice") or row.get("当前价(元)")),
         "extra": dict(row),
     }
+
+
+def _dedupe_by_sector_name(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    latest_by_name: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        sector_name = str(row.get("sector_name") or "").strip()
+        if not sector_name:
+            continue
+        existing = latest_by_name.get(sector_name)
+        if existing is None or _row_completeness(row) >= _row_completeness(existing):
+            latest_by_name[sector_name] = row
+    return list(latest_by_name.values())
+
+
+def _row_completeness(row: dict[str, Any]) -> int:
+    keys = (
+        "sector_index",
+        "change_pct",
+        "inflow",
+        "outflow",
+        "main_net",
+        "stock_count",
+        "leading_stock",
+        "leading_change_pct",
+        "leading_price",
+    )
+    return sum(1 for key in keys if row.get(key) not in (None, ""))
 
 
 def _to_float(value: Any) -> float | None:

@@ -154,6 +154,10 @@ services:
       - "127.0.0.1:18083:18083"
     volumes:
       - ../../cynexus-data/var:/app/var
+      - type: bind
+        source: ${CYNEXUS_TDX_LOCAL_ROOT:-D:/Program File/tdx}
+        target: /app/tdx
+        read_only: true
       - ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_HOST_PATH:-../../cynexus-data/var/models}:/models/transcription:ro
     healthcheck:
       test:

@@ -75,24 +75,41 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
     profile_client = None
     rows_read = 0
     rows_written = 0
+    failed_codes: list[dict[str, str]] = []
+    continue_on_code_error = truthy(request.params.get("continue_on_code_error") if "continue_on_code_error" in request.params else True)
     try:
         for code in codes:
-            bars = bars_by_code.get(code) or read_daily_kline_bars(ch, code, adjust=adjust, limit=limit)
-            shares = shares_by_code.get(code)
-            if shares is None:
-                if profile_client is None:
-                    pool_size = parse_int(request.params.get("pool_size"), 4)
-                    timeout = float(request.params.get("timeout") or request.params.get("timeout_seconds") or 8.0)
-                    profile_client = create_eltdx_stock_profile_client(pool_size=pool_size, timeout=timeout)
-                shares = fetch_stock_share_profile(profile_client, code)
-            series = _build_one_series(code=code, target_type=target_type, period=period, adjust=adjust, bars=bars, shares=shares, source=source)
-            rows_read += len(bars)
-            rows_written += int(repo.upsert_series(series, source=source).get("entry_count") or len(series["entries"]))
+            try:
+                bars = bars_by_code.get(code) or read_daily_kline_bars(ch, code, adjust=adjust, limit=limit)
+                shares = shares_by_code.get(code)
+                if shares is None:
+                    if profile_client is None:
+                        pool_size = parse_int(request.params.get("pool_size"), 4)
+                        timeout = float(request.params.get("timeout") or request.params.get("timeout_seconds") or 8.0)
+                        profile_client = create_eltdx_stock_profile_client(pool_size=pool_size, timeout=timeout)
+                    shares = fetch_stock_share_profile(profile_client, code)
+                series = _build_one_series(code=code, target_type=target_type, period=period, adjust=adjust, bars=bars, shares=shares, source=source)
+                rows_read += len(bars)
+                rows_written += int(repo.upsert_series(series, source=source).get("entry_count") or len(series["entries"]))
+            except Exception as exc:  # noqa: BLE001
+                if not continue_on_code_error:
+                    raise
+                failed_codes.append({"code": code, "error": f"{type(exc).__name__}: {exc}"})
     finally:
         close = getattr(profile_client, "close", None)
         if callable(close):
             close()
-    return {**result, "codes_processed": len(codes), "rows_read": rows_read, "rows_written": rows_written}
+    if rows_written == 0 and failed_codes:
+        sample = "; ".join(f"{item['code']}: {item['error']}" for item in failed_codes[:5])
+        raise RuntimeError(f"all turnover code refresh attempts failed: {sample}")
+    return {
+        **result,
+        "codes_processed": len(codes) - len(failed_codes),
+        "codes_failed": len(failed_codes),
+        "failed_codes": failed_codes[:50],
+        "rows_read": rows_read,
+        "rows_written": rows_written,
+    }
 
 
 def _build_one_series(

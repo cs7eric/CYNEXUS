@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import date
 from typing import Any
 
@@ -20,10 +21,10 @@ class AkshareClient:
     def fetch_market_overview(self) -> dict[str, Any]:
         ak = self.require_module()
         out: dict[str, Any] = {}
-        spot = ak.stock_zh_a_spot_em()
+        spot = _call_with_retry(ak.stock_zh_a_spot_em)
         if spot is not None and not spot.empty:
             out.update(_summarize_spot(spot))
-        flow = ak.stock_market_fund_flow()
+        flow = _call_with_retry(ak.stock_market_fund_flow)
         if flow is not None and not flow.empty:
             out.update(_summarize_market_fund_flow(flow))
         if not out:
@@ -32,7 +33,7 @@ class AkshareClient:
 
     def fetch_market_pulse_industry(self) -> list[dict[str, Any]]:
         ak = self.require_module()
-        frame = ak.stock_fund_flow_industry()
+        frame = _call_with_retry(ak.stock_fund_flow_industry)
         if frame is None or frame.empty:
             return []
         out: list[dict[str, Any]] = []
@@ -88,6 +89,20 @@ def _summarize_spot(frame) -> dict[str, Any]:
         out["limitDownCount"] = int((changes <= -9.5).sum())
     out["stockCount"] = int(len(frame))
     return out
+
+
+def _call_with_retry(func, *, attempts: int = 3, base_sleep: float = 0.8):
+    last_exc: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return func()
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt >= attempts - 1:
+                break
+            time.sleep(base_sleep * (2**attempt))
+    assert last_exc is not None
+    raise last_exc
 
 
 def _summarize_market_fund_flow(frame) -> dict[str, Any]:

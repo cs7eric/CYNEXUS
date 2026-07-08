@@ -22,6 +22,9 @@ import PocPage from "../views/poc"
 import AiPocPage from "../views/poc/ai"
 import MarkdownRenderPocPage from "../views/poc/markdown-render"
 import StockReviewPage from "../views/stock-review"
+import KnowledgeBasePage from "../views/knowledge-base"
+import KnowledgeBaseWritingPage from "../views/knowledge-base/writing"
+import KnowledgeBaseViewPage from "../views/knowledge-base/view"
 
 export const router = createBrowserRouter([
   {
@@ -83,6 +86,18 @@ export const router = createBrowserRouter([
       {
         path: "poc/markdown-render",
         element: <MarkdownRenderPocPage />,
+      },
+      {
+        path: "knowledge-base",
+        element: <KnowledgeBasePage />,
+      },
+      {
+        path: "knowledge-base/writing",
+        element: <KnowledgeBaseWritingPage />,
+      },
+      {
+        path: "knowledge-base/view",
+        element: <KnowledgeBaseViewPage />,
       },
       {
         path: "stock-overview/application-analysis",

@@ -577,3 +577,100 @@
   - `npm run build` passed under `cynexus-ui`.
   - `rg -n "@/services/legacy/f10|services/legacy/f10" cynexus-ui/src -S` returned no matches.
 - Runtime validation note: the new endpoints were not smoke-tested over live HTTP in this turn because local `cynexus-data` / `cynexus-market` processes were not restarted here.
+
+## 2026-07-06 A Stock Data Source Integration
+
+- User requested all missing/partial `a-stock-data.md` capabilities be integrated into `cynexus-data` with plan/process/result records, live connectivity testing, and no layering shortcuts.
+- Added Phase 34 to `task_plan.md`.
+- Created `cynexus-data/docs/a_stock_data_integration/plan.md`, `process.md`, and `result.md`.
+- Added EastMoney shared HTTP helper and source functions for reports, industry reports, stock info, concept blocks, minute/daily fund-flow, industry rank, dragon tiger, lockup, margin, block trades, holders, dividends, news, global news, limit pools/sentiment, hot rank, and hot concept.
+- Added provider modules for Baidu K-line MA, iwencai search/query, CNInfo announcements/IRM, THS EPS/hot/northbound/limit/hot-list, Sina financial/options, and mootdx quote/order-book/transactions.
+- Added thin FastAPI internal query routes under `/internal/a-stock/*` and registered them in the existing trigger API app.
+- Added unit tests in `cynexus-data/tests/unit/test_sources/test_a_stock_data_sources.py`.
+- Added live smoke script `cynexus-data/scripts/a_stock_data_live_smoke.py`.
+- Verification:
+  - `python -m compileall -q src scripts` passed under `cynexus-data`.
+  - `PYTHONPATH=src python -m pytest -q tests/unit/test_sources/test_a_stock_data_sources.py` passed: 5 tests.
+  - FastAPI app import/route check found 37 `/internal/a-stock/*` paths registered inside included routers.
+  - Live smoke run `var/reports/a-stock-data-smoke/20260706-233403`: 26 ok, 4 failed, 1 skipped.
+  - Fixed Baidu endpoint/headers after initial 403.
+  - Live smoke run `var/reports/a-stock-data-smoke/20260706-233539`: 25 ok, 5 failed, 1 skipped.
+- Latest live smoke failures are recorded in `cynexus-data/docs/a_stock_data_integration/result.md`: selected EastMoney `push2`/`push2his`/`emappdata` endpoints reset the connection through the current network/proxy; iwencai skipped because no `IWENCAI_API_KEY` is configured.
+- Tooling notes:
+  - A PowerShell heredoc-style `python - <<'PY'` check failed because PowerShell does not support that redirection syntax; reran with a PowerShell here-string piped to Python.
+  - A first FastAPI route count looked at top-level route `.path` only; this FastAPI version keeps included routers as `_IncludedRouter`, so the check was corrected to inspect each `original_router.routes`.
+
+## 2026-07-07 A Stock Data Persistence And Knowledge Base Docs
+
+- User asked to connect all Phase 34 A-stock capabilities to persistence, design anti-scraping scheduler intervals, and land detailed table/capability documentation into the knowledge base.
+- Re-read planning files and the planning skill instructions.
+- Added Phase 35 to `task_plan.md`.
+- Confirmed the persistence work must preserve the existing `cynexus-data` layering: provider source modules stay read-only, domain modules shape rows, pipelines orchestrate, storage modules write, and jobs register executor entrypoints.
+- Added A-stock PostgreSQL DDL at `cynexus-data/sql/postgres/20260707_create_a_stock_data_tables.sql`.
+- Added A-stock ClickHouse DDL at `cynexus-data/sql/clickhouse/20260707_create_a_stock_data_tables.sql`.
+- Added pure A-stock persistence normalization in `cynexus-data/src/cynexus_data/domain/stock/a_stock_persistence.py`.
+- Added A-stock storage repositories:
+  - `cynexus-data/src/cynexus_data/storage/postgres/a_stock.py`
+  - `cynexus-data/src/cynexus_data/storage/clickhouse/a_stock.py`
+- Added `sync_a_stock_dataset` pipeline/job/registry/jobs.yaml/pyproject console wiring.
+- Added unit tests in `cynexus-data/tests/unit/test_pipelines/test_a_stock_persistence_pipeline.py`.
+- Created knowledge-base source Markdown docs:
+  - `docs/knowledge-base/market-data/a-stock-data-persistence-tables.md`
+  - `docs/knowledge-base/market-data/cynexus-data-a-stock-capability-map.md`
+- Backed up local PostgreSQL before applying A-stock DDL: `deploy/local/postgres-backups/cynexus-before-a-stock-persistence-20260707-011519.sql`.
+- Applied PostgreSQL DDL successfully; verified 19 `a_stock_%` tables and `sec_stock_basic` EastMoney extension fields.
+- First ClickHouse DDL application failed because `ch_ods_stock_transaction` sorting key contained nullable columns; fixed the sorting key and re-applied successfully.
+- Verified ClickHouse has the 6 new A-stock tables.
+- Ran live persistence smoke:
+  - `cninfo_announcements` for `000001` wrote 1 row to `a_stock_announcement`.
+  - `tdx_order_book` for `600519` wrote 1 row to `ch_ods_stock_order_book_snapshot`.
+- Published two KB documents to local PostgreSQL `kb_document`:
+  - `332571765114957824`: `A Stock 数据落库表设计`, status `published`.
+  - `332571765354033152`: `Cynexus Data A 股能力全量地图`, status `published`.
+- Found CLI `--payload '[...]'` initially stayed as a string, so dry-run normalized 0 rows; added JSON parsing for string payload/payloads and a regression test.
+- A Python ClickHouse repository create-table smoke initially failed because `CLICKHOUSE_PASSWORD` was absent from the shell environment; re-ran with `CLICKHOUSE_PASSWORD=C020611.` and it succeeded with 7 statements.
+- Final verification:
+  - `python -m compileall -q src scripts` passed.
+  - `PYTHONPATH=src python -m pytest -q tests/unit/test_sources/test_a_stock_data_sources.py tests/unit/test_pipelines/test_a_stock_persistence_pipeline.py` passed: 9 tests.
+
+## 2026-07-07 Settings Data Source Health Check
+
+- User requested a settings health-check page for all `cynexus-data` data sources, flowing Python -> Java -> UI, with health metrics persisted in `cynexus_appl_core`.
+- Added Phase 36 to `task_plan.md`.
+- Inspected the existing Core Java -> Python data-job executor client and decided to extend it instead of creating an ad hoc HTTP client.
+- Inspected existing UI `/settings/data-source`; it currently shows Market table freshness through `src/services/market/data-source.ts`.
+- Started Python implementation with `quality/data_source_health.py` and `/internal/data-sources/health`, covering storage, TDX filesystem, EastMoney, Tencent, Sina, THS, exchange margin, Baidu, CNInfo, iwencai, AkShare, and mootdx checks.
+- Extended the health source inventory to 24 checks by adding pytdx/eltdx/mootdx package probes plus EastMoney Datacenter/Report/Search/HotRank and THS basic forecast probes.
+- Added Python unit tests for health summaries, missing iwencai API key behavior, and missing package import reporting.
+- Added Core domain/application/infra/controller files for persisted health checks and Java -> Python bridging:
+  - `DataJobExecutorClient.dataSourceHealth`
+  - `DataSourceHealthAppService`
+  - `DataSourceHealthController`
+  - `DataSourceHealthRepository` and MyBatis basic services/mappers/XML
+  - health run/item BO/PO/DTO/converters
+- Added PostgreSQL migration `deploy/local/postgres/migrations/20260707_create_data_source_health_tables.sql` for `cynexus_appl_core.data_source_health_check_run` and `data_source_health_check_item`.
+- Applied the local PostgreSQL migration after backup `deploy/local/postgres-backups/cynexus-before-data-source-health-20260707-164010.sql`.
+- Fixed runtime insert failure where MyBatis-Plus mapped `successRate24h` to nonexistent column `success_rate24h`; added `@TableField("success_rate_24h")`.
+- Added frontend Core service `cynexus-ui/src/services/core/data-source-health.ts`.
+- Updated Settings -> Data Source page to support health/freshness tabs, manual quick/full checks, provider/type/status/search filters, summary cards, and a health table with connectivity/authenticity/latency/24h success rate.
+- Added health UI components `health-summary.tsx`, `health-table.tsx`, and `health-status-badge.tsx`.
+- Rebuilt/recreated the `cynexus-data-job-executor` container so the new Python route/source inventory is live.
+- Direct `cynexus-data` smoke for `/internal/data-sources/health?include_slow=false` returned total=24, healthy=18, degraded=1, failed=1, skipped=4.
+- Gateway/Core smoke for `POST /api/core/data-source-health/checks/run?includeSlow=false` succeeded after the MyBatis column fix; latest persisted Gateway response returns run `ds_health_a0528a52212845cb941455b14a5c3539` with total=24.
+- Local PostgreSQL now contains 5 health runs and 64 health item rows.
+- Verification:
+  - `python -m compileall -q src scripts` passed under `cynexus-data`.
+  - `PYTHONPATH=src python -m pytest -q tests/unit/test_quality/test_data_source_health.py tests/unit/test_sources/test_a_stock_data_sources.py tests/unit/test_pipelines/test_a_stock_persistence_pipeline.py` passed: 12 tests.
+  - `mvn -pl cynexus-core/cynexus-core-starter -am package -DskipTests` passed.
+  - `npx tsc -b --pretty false` was attempted under `cynexus-ui`; it still fails on unrelated existing errors in `src/services/market/pulse.ts`, `industry-tdx-fund-overlay-chart.tsx`, `sparkline.tsx`, and `PageHeader.tsx`.
+
+## 2026-07-07 Settings Health Page 503 Follow-up
+
+- User reported the page still showed 503 with no data.
+- Rechecked Gateway and confirmed `GET /api/core/data-source-health/latest` was returning HTTP 503 because no live Core service was listening on port 18080; the older IntelliJ Java process remained alive but had released the port.
+- Started the packaged Core jar on port 18080 with logs under `deploy/local/logs/cynexus-core-health.log`; Core registered to Nacos as `cynexus-core`.
+- Verified direct Core health data endpoint returned HTTP 200.
+- Verified Gateway health data endpoint returned HTTP 200.
+- Verified Market freshness endpoint also returned HTTP 200.
+- Patched the Settings Data Source page so health and freshness requests use `Promise.allSettled`; a failure in one tab no longer blanks the other tab.
+- Re-ran `npx tsc -b --pretty false`; the same unrelated TypeScript errors remain, with no new diagnostics from the data-source health files.

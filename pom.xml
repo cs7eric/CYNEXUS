@@ -17,6 +17,7 @@
         <module>cynexus-gateway</module>
         <module>cynexus-ai</module>
         <module>cynexus-market</module>
+        <module>cynexus-knowledgebase</module>
     </modules>
 
     <properties>

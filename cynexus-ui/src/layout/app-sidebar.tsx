@@ -21,7 +21,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <TeamSwitcher teams={sidebarConfig.teams} />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="scrollbar-none">
         <NavMain items={sidebarConfig.navMain} />
         <NavProjects projects={sidebarConfig.projects} />
       </SidebarContent>

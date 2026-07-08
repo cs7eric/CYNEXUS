@@ -34,13 +34,31 @@ def test_fetch_mootdx_kline_rows_rejects_adjusted_minute() -> None:
         raise AssertionError("expected ValueError")
 
 
+def test_mootdx_server_candidates_use_env_first(monkeypatch) -> None:
+    monkeypatch.setenv("CYNEXUS_MOOTDX_SERVER", "1.2.3.4:7711")
+    monkeypatch.setattr(mootdx, "_mootdx_config_servers", lambda: [("5.6.7.8", 7709)])
+
+    candidates = mootdx.mootdx_server_candidates()
+
+    assert candidates[0] == ("1.2.3.4", 7711)
+    assert ("5.6.7.8", 7709) in candidates
+
+
+def test_mootdx_server_candidates_dedupe_explicit_server(monkeypatch) -> None:
+    monkeypatch.setenv("CYNEXUS_MOOTDX_SERVER", "1.2.3.4:7711")
+
+    candidates = mootdx.mootdx_server_candidates(("9.9.9.9", 7709))
+
+    assert candidates == [("9.9.9.9", 7709)]
+
+
 def test_provider_fallback_can_use_mootdx_daily(monkeypatch) -> None:
     class Hooks:
         pass
 
     monkeypatch.setattr(
         "cynexus_data.sources.provider_fallback.create_mootdx_client",
-        lambda: object(),
+        lambda **kwargs: object(),
     )
     monkeypatch.setattr(
         "cynexus_data.sources.provider_fallback.fetch_mootdx_kline_rows",
@@ -60,7 +78,7 @@ def test_provider_fallback_can_use_mootdx_minute(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "cynexus_data.sources.provider_fallback.create_mootdx_client",
-        lambda: object(),
+        lambda **kwargs: object(),
     )
     monkeypatch.setattr(
         "cynexus_data.sources.provider_fallback.fetch_mootdx_kline_rows",
@@ -72,3 +90,29 @@ def test_provider_fallback_can_use_mootdx_minute(monkeypatch) -> None:
     assert result.source == "mootdx"
     assert result.items[0]["kwargs"]["period"] == "5m"
     assert result.items[0]["kwargs"]["adjust"] == "none"
+
+
+def test_provider_fallback_passes_index_target_type_to_mootdx_minute(monkeypatch) -> None:
+    class Hooks:
+        pass
+
+    monkeypatch.setattr(
+        "cynexus_data.sources.provider_fallback.create_mootdx_client",
+        lambda **kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "cynexus_data.sources.provider_fallback.fetch_mootdx_kline_rows",
+        lambda client, **kwargs: [{"close": 1, "source": "mootdx", "kwargs": kwargs}],
+    )
+
+    result = fetch_minute_kline_with_fallback(
+        Hooks(),
+        symbol="880301",
+        providers=["mootdx"],
+        period=1,
+        limit=10,
+        target_type="sector",
+    )
+
+    assert result.source == "mootdx"
+    assert result.items[0]["kwargs"]["target_type"] == "index"

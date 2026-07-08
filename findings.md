@@ -451,3 +451,50 @@ Required market modules:
   - infra repo/client: `StockChartQueryRepositoryImpl`
 - `StockChartDTO` / `StockChartBO` currently have no F10 DTO/BO types, so the migration needs explicit typed contracts instead of reusing `Map`/`JsonNode`.
 - Attempting the planning skill catch-up script at `C:\Users\Cs7er\.claude\skills\planning-with-files\scripts\session-catchup.py` failed because that path does not exist in this environment. The actual installed script is under `C:\Users\Cs7er\.agents\skills\planning-with-files\scripts\session-catchup.py`.
+
+## A Stock Data Source Integration Findings
+
+- The requested `a-stock-data.md` capability set fits best as source/query integrations first; new persisted datasets should not be scheduled until each has a table contract and owner.
+- EastMoney source calls now share a rate-limited helper with session reuse, jitter, retries, and proxy-disconnect fallback. This keeps the anti-ban behavior out of individual endpoint functions.
+- Live smoke showed EastMoney reportapi, datacenter, search/news, global news, limit pools, hot concept, and concept blocks reachable from this environment.
+- EastMoney `push2`, `push2his`, and `emappdata` endpoints were intermittently reset by upstream/proxy during smoke. This matches the skill's warning that EastMoney has IP/network-level risk; these failures should be treated as live-source reachability failures, not parser failures.
+- Baidu K-line MA requires `https://finance.pae.baidu.com/selfselect/getstockquotation` with `Accept: application/vnd.finance-web.v1+json`, `Origin`, and `Referer`; the earlier `vapi/v1/getquotation` probe returned 403.
+- THS EPS forecast, hot reason, northbound, limit-up pool, and hot list were all reachable in live smoke.
+- CNInfo announcements and IRM were reachable; announcement orgId lookup must use the official `szse_stock.json` mapping before falling back to synthetic orgIds.
+- Sina financial reports and ETF option contract-month discovery were reachable.
+- iwencai integration is implemented but live smoke is skipped without `IWENCAI_API_KEY`.
+- Optional mootdx quote/order-book helper returned a 46-field quote payload for `600519` in live smoke.
+
+## A Stock Data Persistence Findings
+
+- The A-stock persistence pass keeps the existing `cynexus-data` layering intact:
+  - provider-specific fetching stays under `sources/*`;
+  - row shaping is pure in `domain/stock/a_stock_persistence.py`;
+  - orchestration and anti-scraping sleep live in `pipelines/a_stock/sync_a_stock_dataset.py`;
+  - PostgreSQL and ClickHouse writes are isolated in `storage/postgres/a_stock.py` and `storage/clickhouse/a_stock.py`;
+  - executor access is through `jobs/sync_a_stock_dataset.py`.
+- PostgreSQL is the right target for compact UI/query snapshots: reports, announcements, news, IRM, daily fund-flow, industry ranking, dragon-tiger, lockup, block trades, holder counts, dividends, hot ranks/concepts/reasons, limit pools, option contracts, and concept membership.
+- ClickHouse is the right target for minute/detail/high-frequency facts: EastMoney minute fund-flow, mootdx transaction/order-book snapshots, Baidu K-line MA, THS northbound minutes, and Sina option quote/Greeks snapshots.
+- `sec_stock_basic` should be extended for EastMoney stock info rather than creating a duplicate stock-basic table.
+- EastMoney 120-day fund-flow gets its own `a_stock_fund_flow_daily` table to preserve EastMoney source semantics instead of mixing it into the existing Tencent `stock_fund_flow_snapshot`.
+- EastMoney industry ranking gets `a_stock_industry_rank_snapshot`, while existing THS/TDX sector/industry fund-flow tables remain separate source-specific contracts.
+- Margin remains on the existing margin pipeline/tables; EastMoney margin route is a query/source capability and should not create a parallel primary table unless a future explicit source comparison view is needed.
+- The local PostgreSQL DDL application succeeded after backup `deploy/local/postgres-backups/cynexus-before-a-stock-persistence-20260707-011519.sql`; 19 `a_stock_%` tables exist.
+- ClickHouse rejects nullable columns in MergeTree sorting keys unless `allow_nullable_key` is enabled. `ch_ods_stock_transaction` was fixed to order by non-null `source, code, trade_date, trade_time`.
+- `sync_a_stock_dataset` dry-run intentionally skips live provider calls unless `fetch_live=true`; this avoids accidental large crawls from scheduler testing.
+- CLI `payload` and `payloads` parameters must be JSON-decoded when passed as strings; this is now covered by a regression test.
+- Local Python ClickHouse smoke needs `CLICKHOUSE_PASSWORD=C020611.` in the environment unless the runtime uses the project connection registry.
+- Knowledge-base docs were inserted into `cynexus_appl_knowledge_base.kb_document` as published documents:
+  - `332571765114957824`: `A Stock 数据落库表设计`
+  - `332571765354033152`: `Cynexus Data A 股能力全量地图`
+
+## Settings Data Source Health Check Findings
+
+- The health-check path follows the requested data flow: `cynexus-ui -> cynexus-core -> cynexus-data`; the UI service lives under `cynexus-ui/src/services/core/data-source-health.ts`, not global `src/lib/api.ts`.
+- `cynexus-data` now exposes `GET /internal/data-sources/health`, which returns a source-level envelope with `summary` and `items`; each item has connectivity, authenticity status, latency, sample count, checked time, error message, structured checks, and raw payload metadata.
+- The quick check intentionally skips slow/live TCP probes for AkShare and mootdx while still checking Python package availability for pytdx, eltdx, and mootdx. Full check enables the mootdx TCP quote probe.
+- The local quick-check source inventory is currently 24 targets: PostgreSQL Market/Core, ClickHouse, DuckDB, TDX local filesystem, pytdx/eltdx/mootdx runtime packages, EastMoney Push2/Push2His/Datacenter/Report/Search/HotRank, Tencent, Sina, THS data/basic, exchange margin, Baidu, CNInfo, iwencai, AkShare, and mootdx TCP.
+- Core persists health runs in `cynexus_appl_core.data_source_health_check_run` and per-source rows in `cynexus_appl_core.data_source_health_check_item`. Both use project-standard `BIGINT` application-generated IDs, audit columns, soft delete column, JSONB payload columns, and alive unique indexes.
+- MyBatis-Plus maps the field `successRate24h` to `success_rate24h` by default, so `DataSourceHealthCheckItemPO` needs an explicit `@TableField("success_rate_24h")` annotation to match the table convention.
+- Live source checks are inherently unstable; in the latest local smoke, EastMoney Push2His failed once with a remote disconnect while Sina root returned HTTP 404 and was marked degraded rather than healthy. These are stored as health results, not hidden as build failures.
+- Frontend TypeScript verification remains blocked by unrelated existing errors in market pulse, industry application chart, market sentiment sparkline, and stock-overview market-pulse; the health page/service files did not appear in the TypeScript diagnostics.

@@ -5,6 +5,8 @@ import logging
 
 from fastapi import FastAPI
 
+from cynexus_data.interfaces.trigger_api.a_stock_routes import router as a_stock_router
+from cynexus_data.interfaces.trigger_api.data_source_health_routes import router as data_source_health_router
 from cynexus_data.interfaces.trigger_api.f10_routes import router as f10_router
 from cynexus_data.interfaces.trigger_api.industry_application_routes import router as industry_application_router
 from cynexus_data.interfaces.trigger_api.media_transcription_routes import router as media_transcription_router
@@ -18,6 +20,8 @@ log = logging.getLogger(__name__)
 def create_app() -> FastAPI:
     app = FastAPI(title="cynexus-data internal trigger API", version="0.1.0")
     app.include_router(router)
+    app.include_router(a_stock_router)
+    app.include_router(data_source_health_router)
     app.include_router(f10_router)
     app.include_router(industry_application_router)
     app.include_router(media_transcription_router)

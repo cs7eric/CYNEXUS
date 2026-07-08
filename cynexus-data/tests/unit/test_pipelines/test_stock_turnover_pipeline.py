@@ -103,3 +103,40 @@ def test_sync_stock_turnover_reads_clickhouse_and_persists(monkeypatch) -> None:
     assert result["rows_written"] == 1
     assert FakeRepo.created == 1
     assert FakeRepo.calls[0]["series"]["entries"][0]["turnover_rate"] == 0.12
+
+
+def test_sync_stock_turnover_skips_single_profile_error(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    monkeypatch.setattr(sync_stock_turnover, "StockTurnoverRepository", FakeRepo)
+    monkeypatch.setattr(
+        sync_stock_turnover,
+        "read_daily_kline_bars",
+        lambda client, code, adjust="qfq", limit=260: [{"trade_date": "2026-06-26", "volume": 12000, "amount": 1}],
+    )
+
+    class BrokenProfileClient:
+        def close(self):
+            pass
+
+    def fake_fetch_profile(client, code):
+        if code == "600193":
+            raise RuntimeError("snapshot record marker not found: sh600193")
+        return {"circulating_shares": 1_000_000_000, "total_shares": 1_200_000_000}
+
+    monkeypatch.setattr(sync_stock_turnover, "create_eltdx_stock_profile_client", lambda pool_size=4, timeout=8.0: BrokenProfileClient())
+    monkeypatch.setattr(sync_stock_turnover, "fetch_stock_share_profile", fake_fetch_profile)
+
+    result = sync_stock_turnover.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_stock_turnover",
+            dry_run=False,
+            params={"codes": "600193,600000"},
+        ),
+    )
+
+    assert result["codes_processed"] == 1
+    assert result["codes_failed"] == 1
+    assert result["failed_codes"][0]["code"] == "600193"
+    assert result["rows_written"] == 1

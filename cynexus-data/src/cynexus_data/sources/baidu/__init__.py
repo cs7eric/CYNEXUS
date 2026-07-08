@@ -1,0 +1,1 @@
+"""Baidu stock source integrations."""

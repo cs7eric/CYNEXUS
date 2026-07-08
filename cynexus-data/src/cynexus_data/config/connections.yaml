@@ -47,6 +47,12 @@ connections:
     type: python
     timeout: 30
 
+  exchange_margin_default:
+    type: http
+    base_url: https://www.sse.com.cn
+    timeout: 15
+    retry: 3
+
   tencent_default:
     type: http
     base_url: https://web.ifzq.gtimg.cn

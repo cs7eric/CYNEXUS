@@ -21,9 +21,44 @@ class FakeAkshareClient:
         return [{"trade_date": trade_date, "source": "akshare.stock_margin_account_info"}]
 
 
+class FakeExchangeClient:
+    def fetch_latest_margin_trade_date(self, end_date):
+        return date(2026, 7, 3)
+
+    def fetch_margin_market_summary(self, trade_date):
+        return [{"trade_date": trade_date, "exchange": "SSE", "source": "exchange.sse.margin_summary"}]
+
+    def fetch_margin_stock_detail(self, trade_date):
+        return [{"trade_date": trade_date, "exchange": "SSE", "stock_code": "600000", "source": "exchange.sse.margin_detail"}]
+
+    def fetch_margin_account_stats(self, trade_date):
+        return []
+
+
+class EmptyExchangeClient(FakeExchangeClient):
+    def fetch_latest_margin_trade_date(self, end_date):
+        return None
+
+    def fetch_margin_market_summary(self, trade_date):
+        return []
+
+    def fetch_margin_stock_detail(self, trade_date):
+        return []
+
+
 class FakeAkshareHook:
     def get_client(self):
         return FakeAkshareClient()
+
+
+class FakeExchangeHook:
+    def get_client(self):
+        return FakeExchangeClient()
+
+
+class EmptyExchangeHook:
+    def get_client(self):
+        return EmptyExchangeClient()
 
 
 class FakePostgresHook:
@@ -32,6 +67,13 @@ class FakePostgresHook:
 
 
 class FakeHooks:
+    exchange_margin = FakeExchangeHook()
+    akshare = FakeAkshareHook()
+    postgres = FakePostgresHook()
+
+
+class FakeHooksWithEmptyExchange:
+    exchange_margin = EmptyExchangeHook()
     akshare = FakeAkshareHook()
     postgres = FakePostgresHook()
 
@@ -67,6 +109,7 @@ def test_sync_margin_dry_run_does_not_access_hooks() -> None:
 
     assert result["trade_date"] == "2026-07-04"
     assert result["rows_written"] == 0
+    assert result["providers"] == ["exchange", "akshare"]
     assert result["datasets"] == ["summary", "detail", "account"]
 
 
@@ -89,6 +132,7 @@ def test_sync_margin_fetches_selected_datasets(monkeypatch) -> None:
     assert result["summary_rows"] == 1
     assert result["detail_rows"] == 0
     assert result["account_rows"] == 1
+    assert result["provider_results"] == {"summary": "exchange", "account": "akshare"}
     assert FakeRepo.created == 1
     assert FakeRepo.calls[0][1] == date(2026, 7, 4)
 
@@ -107,6 +151,25 @@ def test_sync_margin_without_trade_date_uses_latest_available_margin_date(monkey
         ),
     )
 
-    assert result["trade_date"] == "2026-07-02"
+    assert result["trade_date"] == "2026-07-03"
     assert result["rows_written"] == 1
-    assert FakeRepo.calls[0][1] == date(2026, 7, 2)
+    assert result["provider_results"]["summary"] == "exchange"
+    assert FakeRepo.calls[0][1] == date(2026, 7, 3)
+
+
+def test_sync_margin_falls_back_to_akshare_when_exchange_has_no_rows(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    monkeypatch.setattr(sync_margin, "MarginRepository", FakeRepo)
+
+    result = sync_margin.run(
+        PipelineContext(hooks=FakeHooksWithEmptyExchange()),
+        JobRequest(
+            job_key="sync_margin",
+            dry_run=False,
+            params={"trade_date": "2026-07-04", "datasets": "summary,detail"},
+        ),
+    )
+
+    assert result["rows_written"] == 2
+    assert result["provider_results"] == {"summary": "akshare", "detail": "akshare"}

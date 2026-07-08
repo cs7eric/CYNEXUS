@@ -134,6 +134,21 @@ export const sidebarConfig = {
       ],
     },
     {
+      title: "Knowledge Base",
+      url: "/knowledge-base/view",
+      icon: ComputerIcon,
+      items: [
+        {
+          title: "writing",
+          url: "/knowledge-base/writing",
+        },
+        {
+          title: "view",
+          url: "/knowledge-base/view",
+        },
+      ],
+    },
+    {
       title: "Settings",
       url: "/settings/scheduler",
       icon: Settings,

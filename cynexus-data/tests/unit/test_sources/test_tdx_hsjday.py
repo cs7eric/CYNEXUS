@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ssl
 import struct
 import zipfile
 from datetime import date
+from urllib.error import URLError
 
 import pytest
 
@@ -104,10 +106,36 @@ def test_download_hsjday_zip_urlopen_detects_js_challenge(monkeypatch, tmp_path)
         hsjday.download_hsjday_zip("https://example.test/hsjday.zip", tmp_path / "hsjday.zip", method="urlopen")
 
 
+def test_download_hsjday_zip_urlopen_retries_ssl_eof(monkeypatch, tmp_path) -> None:
+    calls = 0
+
+    def fake_urlopen(request, timeout):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise URLError(ssl.SSLEOFError("EOF occurred in violation of protocol"))
+        return _FakeUrlopenResponse([b"PK retry ok"])
+
+    monkeypatch.setattr(hsjday, "urlopen", fake_urlopen)
+
+    result = hsjday.download_hsjday_zip(
+        "https://example.test/hsjday.zip",
+        tmp_path / "hsjday.zip",
+        method="urlopen",
+        urlopen_attempts=2,
+        urlopen_backoff_seconds=0,
+    )
+
+    assert result.bytes_downloaded == 11
+    assert result.method == "urlopen"
+    assert calls == 2
+    assert (tmp_path / "hsjday.zip").read_bytes() == b"PK retry ok"
+
+
 def test_download_hsjday_zip_auto_falls_back_to_playwright(monkeypatch, tmp_path) -> None:
     calls: list[str] = []
 
-    def fake_urlopen_download(url, destination, timeout_seconds=120):
+    def fake_urlopen_download(url, destination, timeout_seconds=120, attempts=3, backoff_seconds=1.0):
         calls.append("urlopen")
         raise HsjdayDownloadChallenge("challenge")
 

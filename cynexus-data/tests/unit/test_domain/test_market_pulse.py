@@ -18,6 +18,20 @@ def test_build_market_pulse_rows_sorts_by_change_pct() -> None:
     assert out[0]["main_net"] == 6.0
 
 
+def test_build_market_pulse_rows_dedupes_sector_name() -> None:
+    rows = [
+        {"sector_name": "建筑装饰", "change_pct": -1.2, "main_net": -20},
+        {"sector_name": "建筑装饰", "change_pct": -1.1, "main_net": -22, "leading_stock": "交建股份"},
+        {"sector_name": "银行", "change_pct": 0.2, "main_net": 3},
+    ]
+
+    out = build_market_pulse_rows(rows, trade_date=date(2026, 7, 6))
+
+    assert [row["sector_name"] for row in out].count("建筑装饰") == 1
+    assert len(out) == 2
+    assert next(row for row in out if row["sector_name"] == "建筑装饰")["leading_stock"] == "交建股份"
+
+
 def test_build_strong_and_flow_payload() -> None:
     rows = [
         {"sector_name": "A", "change_pct": 2, "net": 10},

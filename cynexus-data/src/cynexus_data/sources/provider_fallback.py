@@ -7,7 +7,7 @@ from cynexus_data.config.settings import load_yaml_config
 from cynexus_data.core.market_symbol import eastmoney_secid, normalize_market_symbol
 from cynexus_data.sources.eastmoney.adapter import adapt_kline_payload as adapt_eastmoney_kline_payload
 from cynexus_data.sources.sina.adapter import adapt_minute_payload as adapt_sina_minute_payload
-from cynexus_data.sources.tdx.mootdx import create_mootdx_client, fetch_mootdx_kline_rows
+from cynexus_data.sources.tdx.mootdx import create_mootdx_client, fetch_mootdx_kline_rows, mootdx_server_candidates
 from cynexus_data.sources.tencent.adapter import adapt_kline_payload as adapt_tencent_kline_payload
 from cynexus_data.sources.tencent.adapter import adapt_minute_query_payload as adapt_tencent_minute_query_payload
 
@@ -84,13 +84,21 @@ def fetch_daily_kline_with_fallback(hooks: HookBundle, *, symbol: str, providers
     return fetch_with_fallback([p for p in providers if p != "tdx"], fetchers)
 
 
-def fetch_minute_kline_with_fallback(hooks: HookBundle, *, symbol: str, providers: list[str], period: int = 1, limit: int = 500) -> ProviderFetchResult:
+def fetch_minute_kline_with_fallback(
+    hooks: HookBundle,
+    *,
+    symbol: str,
+    providers: list[str],
+    period: int = 1,
+    limit: int = 500,
+    target_type: str = "stock",
+) -> ProviderFetchResult:
     market_symbol = normalize_market_symbol(symbol)
     fetchers: dict[str, FetchCallable] = {
         "sina": lambda: adapt_sina_minute_payload(hooks.sina.get_client().fetch_minute_kline_raw(market_symbol, scale=period, datalen=limit)),
         "eastmoney": lambda: _fetch_eastmoney_minute(hooks, market_symbol, period=period, limit=limit),
         "tencent": lambda: _fetch_tencent_minute(hooks, market_symbol, period=period, limit=limit),
-        "mootdx": lambda: _fetch_mootdx_minute(market_symbol, period=period, limit=limit),
+        "mootdx": lambda: _fetch_mootdx_minute(market_symbol, period=period, limit=limit, target_type=target_type),
     }
     return fetch_with_fallback([p for p in providers if p != "tdx"], fetchers)
 
@@ -128,9 +136,21 @@ def _fetch_mootdx_daily(symbol: str, *, adjust: str, limit: int) -> list[dict[st
     return fetch_mootdx_kline_rows(client, symbol=symbol, period="day", adjust=adjust, limit=limit)
 
 
-def _fetch_mootdx_minute(symbol: str, *, period: int, limit: int) -> list[dict[str, Any]]:
-    client = create_mootdx_client()
-    return fetch_mootdx_kline_rows(client, symbol=symbol, period=f"{int(period)}m", adjust="none", limit=limit)
+def _fetch_mootdx_minute(symbol: str, *, period: int, limit: int, target_type: str) -> list[dict[str, Any]]:
+    mootdx_target_type = "index" if str(target_type).lower() in {"index", "sector", "industry", "concept", "block"} else "stock"
+    last_error: Exception | None = None
+    for server in mootdx_server_candidates():
+        try:
+            client = create_mootdx_client(server=server, timeout=3)
+            rows = fetch_mootdx_kline_rows(client, symbol=symbol, period=f"{int(period)}m", adjust="none", target_type=mootdx_target_type, limit=limit)
+            if rows:
+                return rows
+        except Exception as exc:  # noqa: BLE001 - fallback to next TDX quote server.
+            last_error = exc
+            continue
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 def _normalize_list(value: Any) -> list[str]:

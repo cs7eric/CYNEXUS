@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Any
 
+
+DEFAULT_MOOTDX_SERVERS: tuple[tuple[str, int], ...] = (
+    ("110.41.147.114", 7709),
+    ("8.129.13.54", 7709),
+    ("120.24.149.49", 7709),
+    ("47.113.94.204", 7709),
+    ("124.70.176.52", 7709),
+    ("47.100.236.28", 7709),
+)
 
 FREQUENCY_MAP = {
     "1": "1m",
@@ -31,10 +41,84 @@ def create_mootdx_client(*, server: tuple[str, int] | None = None, timeout: int 
         from mootdx.quotes import StdQuotes
     except ImportError as exc:  # pragma: no cover - optional dependency guard
         raise RuntimeError("mootdx is required for mootdx fallback provider") from exc
-    kwargs: dict[str, Any] = {"timeout": timeout, "raise_exception": True}
+    last_error: Exception | None = None
+    candidates = mootdx_server_candidates(server)
+    for candidate in candidates:
+        kwargs: dict[str, Any] = {"timeout": timeout, "raise_exception": True, "server": candidate}
+        try:
+            return StdQuotes(**kwargs)
+        except Exception as exc:  # pragma: no cover - network/server dependent
+            last_error = exc
+    if last_error is not None:
+        raise RuntimeError(f"failed to create mootdx client after trying {len(candidates)} server(s)") from last_error
+    return StdQuotes(timeout=timeout, raise_exception=True)
+
+
+def mootdx_server_candidates(server: tuple[str, int] | None = None) -> list[tuple[str, int]]:
     if server is not None:
-        kwargs["server"] = server
-    return StdQuotes(**kwargs)
+        return [_normalize_server(server)]
+    configured = _parse_server_text(os.getenv("CYNEXUS_MOOTDX_SERVER") or os.getenv("MOOTDX_SERVER"))
+    candidates = [configured] if configured else []
+    candidates.extend(_mootdx_config_servers())
+    candidates.extend(DEFAULT_MOOTDX_SERVERS)
+    return _dedupe_servers(candidates)
+
+
+def _mootdx_config_servers() -> list[tuple[str, int]]:
+    try:
+        from mootdx import config
+    except Exception:  # pragma: no cover - optional dependency guard
+        return []
+    try:
+        servers = config.get("SERVER").get("HQ") or []
+    except Exception:  # pragma: no cover - config shape is package dependent
+        return []
+    candidates: list[tuple[str, int]] = []
+    for item in servers:
+        if isinstance(item, (list, tuple)) and len(item) >= 3:
+            parsed = _parse_server_text(f"{item[1]}:{item[2]}")
+            if parsed:
+                candidates.append(parsed)
+    return candidates
+
+
+def _parse_server_text(value: str | None) -> tuple[str, int] | None:
+    if not value:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if "," in text and ":" not in text:
+        host, port = text.split(",", 1)
+    else:
+        host, _, port = text.partition(":")
+    host = host.strip()
+    port = port.strip() or "7709"
+    if not host:
+        return None
+    try:
+        return host, int(port)
+    except ValueError:
+        return None
+
+
+def _normalize_server(server: tuple[str, int]) -> tuple[str, int]:
+    host, port = server
+    return str(host).strip(), int(port)
+
+
+def _dedupe_servers(servers: list[tuple[str, int] | None]) -> list[tuple[str, int]]:
+    seen: set[tuple[str, int]] = set()
+    out: list[tuple[str, int]] = []
+    for server in servers:
+        if server is None:
+            continue
+        normalized = _normalize_server(server)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
 
 
 def fetch_mootdx_kline_rows(

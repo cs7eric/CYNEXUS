@@ -103,6 +103,22 @@ final class SchedulerDataJobKeyResolver {
             entry("market_pulse_constituents", "sync_ths_industry_constituents", Map.ofEntries(
                     Map.entry("create_table", true)
             )),
+            entry("kline_1m_intraday_realtime", "sync_kline_minute", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("replace_existing", true),
+                    Map.entry("providers", List.of("tencent", "mootdx")),
+                    Map.entry("target_type", "auto"),
+                    Map.entry("period", 1),
+                    Map.entry("limit", 320),
+                    Map.entry("codes", List.of("sh000001", "sz399001", "sz399006"))
+            )),
+            entry("kline_1m_tdx_close", "sync_kline_minute", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("replace_existing", true),
+                    Map.entry("providers", List.of("tdx")),
+                    Map.entry("target_type", "auto"),
+                    Map.entry("tdx_root", "/app/tdx")
+            )),
             entry("auction_ai_analysis", "sync_tdx_intraday_detail", Map.of(
                     "datasets", List.of("auction"),
                     "create_table", true

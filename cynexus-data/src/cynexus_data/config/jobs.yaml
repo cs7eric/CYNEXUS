@@ -15,6 +15,34 @@ jobs:
       trade_date: optional
       force: optional
 
+  sync_a_stock_dataset:
+    description: Sync Phase 34 A-stock source datasets into PostgreSQL or ClickHouse with provider-aware throttling.
+    params:
+      dataset: required; one dataset key, e.g. eastmoney_fund_flow_minute
+      datasets: optional; comma-separated dataset keys
+      codes: optional; comma-separated stock codes for stock-scoped datasets
+      code: optional; single stock code
+      trade_date: optional
+      snapshot_date: optional
+      create_table: optional
+      fetch_live: optional; dry-run defaults to false, live runs default to true
+      request_sleep_seconds: optional; overrides provider default anti-scraping interval
+      batch_limit: optional
+      limit_codes: optional
+      max_pages: optional
+      page_size: optional
+      top: optional
+      top_n: optional
+      pool: optional
+      period: optional
+      query: optional
+      channel: optional
+      option_code: optional
+      underlying: optional
+      call: optional
+      payload: optional; test/dry-run payload
+      payloads: optional; per-dataset test payload map
+
   sync_trade_calendar:
     description: Sync trade calendar data.
     params:
@@ -118,11 +146,20 @@ jobs:
     description: Sync minute kline records.
     params:
       trade_date: optional
+      date: optional
+      start_date: optional
+      end_date: optional
       codes: optional
+      symbols: optional
       providers: optional
-      force: optional
-      resume: optional
-      checkpoint_prefix: optional
+      target_type: optional
+      period: optional
+      limit: optional
+      tdx_root: optional
+      limit_files: optional
+      create_table: optional
+      replace_existing: optional
+      batch_size: optional
 
   sync_tdx_hsjday:
     description: Download, verify, extract, and atomically replace local TDX hsjday daily files.
@@ -141,6 +178,8 @@ jobs:
       playwright_headless: optional
       playwright_wait_ms: optional
       chunk_size_bytes: optional
+      urlopen_attempts: optional
+      urlopen_backoff_seconds: optional
 
   sync_tdx_intraday_detail:
     description: Sync eltdx auction points and historical 1m timeshare details into ClickHouse.
@@ -323,7 +362,8 @@ jobs:
     description: Sync margin trading data from AkShare.
     params:
       trade_date: optional
-      providers: optional
+      providers: optional; defaults to exchange,akshare
+      provider_priority: optional
       datasets: optional
       create_table: optional
 
@@ -433,6 +473,8 @@ jobs:
       limit_codes: optional
       limit_files: optional
       skip_download: optional
+      urlopen_attempts: optional
+      urlopen_backoff_seconds: optional
 
   rebuild_msi:
     description: Rebuild market sentiment index over a date range.

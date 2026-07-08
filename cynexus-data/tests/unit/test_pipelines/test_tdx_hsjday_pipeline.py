@@ -57,7 +57,17 @@ def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) 
     zip_path = tmp_path / "download" / "hsjday.zip"
     captured: dict[str, object] = {}
 
-    def fake_download(url, destination, timeout_seconds, method, playwright_headless, playwright_wait_ms, chunk_size_bytes):
+    def fake_download(
+        url,
+        destination,
+        timeout_seconds,
+        method,
+        playwright_headless,
+        playwright_wait_ms,
+        chunk_size_bytes,
+        urlopen_attempts,
+        urlopen_backoff_seconds,
+    ):
         captured.update(
             {
                 "url": url,
@@ -67,6 +77,8 @@ def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) 
                 "playwright_headless": playwright_headless,
                 "playwright_wait_ms": playwright_wait_ms,
                 "chunk_size_bytes": chunk_size_bytes,
+                "urlopen_attempts": urlopen_attempts,
+                "urlopen_backoff_seconds": urlopen_backoff_seconds,
             }
         )
         destination.parent.mkdir(parents=True)
@@ -99,5 +111,7 @@ def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) 
     assert captured["playwright_headless"] is False
     assert captured["playwright_wait_ms"] == 123
     assert captured["chunk_size_bytes"] == 1024
+    assert captured["urlopen_attempts"] == 3
+    assert captured["urlopen_backoff_seconds"] == 1.0
     download_step = next(step for step in result["steps"] if step["step"] == "download")
     assert download_step["method"] == "playwright"

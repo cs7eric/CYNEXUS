@@ -60,6 +60,7 @@ cynexus:
           base-url: ${CYNEXUS_AI_DEEPSEEK_BASE_URL:https://api.deepseek.com}
           api-key-env: CYNEXUS_AI_DEEPSEEK_API_KEY
         dashscope:
+          base-url: ${CYNEXUS_AI_DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
           api-key-env: CYNEXUS_AI_DASHSCOPE_API_KEY
           chat-model: ${CYNEXUS_AI_DASHSCOPE_CHAT_MODEL:qwen-plus}
           embedding-model: ${CYNEXUS_AI_DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}

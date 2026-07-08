@@ -26,6 +26,16 @@ class MarginRepository:
         if not rows:
             return 0
         with self.client.session() as db:
+            db.execute(
+                text(
+                    f"""
+                    UPDATE {self.client.schema}.margin_market_summary
+                       SET deleted_at = now(), updated_at = now()
+                     WHERE trade_date = :trade_date AND deleted_at IS NULL
+                    """
+                ),
+                {"trade_date": trade_date},
+            )
             for row in rows:
                 db.execute(
                     text(
@@ -63,6 +73,16 @@ class MarginRepository:
         if not rows:
             return 0
         with self.client.session() as db:
+            db.execute(
+                text(
+                    f"""
+                    UPDATE {self.client.schema}.margin_stock_detail
+                       SET deleted_at = now(), updated_at = now()
+                     WHERE trade_date = :trade_date AND deleted_at IS NULL
+                    """
+                ),
+                {"trade_date": trade_date},
+            )
             for row in rows:
                 db.execute(
                     text(

@@ -34,26 +34,26 @@ export function FreshnessTable({ items }: { items: DataSourceFreshnessItem[] }) 
     <Card className="overflow-hidden border-0 bg-muted/60 py-0 shadow-none">
       <CardContent className="p-0">
         <div className="max-h-[62vh] overflow-auto">
-          <Table>
+          <Table className="min-w-[1740px] table-fixed">
             <TableHeader className="sticky top-0 z-10 bg-muted">
               <TableRow>
-                <TableHead className="min-w-[220px]">Table</TableHead>
-                <TableHead className="min-w-[280px]">业务逻辑 / 用途</TableHead>
-                <TableHead className="min-w-[240px]">更新 Job / 数据源</TableHead>
-                <TableHead className="min-w-[108px]">Source</TableHead>
-                <TableHead className="min-w-[120px]">Status</TableHead>
-                <TableHead className="min-w-[140px]">Latest Date</TableHead>
-                <TableHead className="min-w-[110px] text-right">Lag</TableHead>
-                <TableHead className="min-w-[120px] text-right">Rows</TableHead>
-                <TableHead className="min-w-[160px]">Date Column</TableHead>
-                <TableHead className="min-w-[180px]">Updated At</TableHead>
+                <TableHead className="w-[240px]">Table</TableHead>
+                <TableHead className="w-[360px]">业务逻辑 / 用途</TableHead>
+                <TableHead className="w-[300px]">更新 Job / 数据源</TableHead>
+                <TableHead className="w-[120px]">Source</TableHead>
+                <TableHead className="w-[120px]">Status</TableHead>
+                <TableHead className="w-[150px]">Latest Date</TableHead>
+                <TableHead className="w-[110px] text-right">Lag</TableHead>
+                <TableHead className="w-[120px] text-right">Rows</TableHead>
+                <TableHead className="w-[160px]">Date Column</TableHead>
+                <TableHead className="w-[180px]">Updated At</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.map((item) => (
                 <TableRow key={`${item.sourceType}:${item.schemaName}:${item.tableName}`}>
                   <TableCell>
-                    <div className="max-w-[280px]">
+                    <div className="max-w-[220px]">
                       <div className="truncate font-medium text-foreground">{item.tableName}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {item.schemaName || item.databaseName || "-"}
@@ -67,19 +67,22 @@ export function FreshnessTable({ items }: { items: DataSourceFreshnessItem[] }) 
                       </Alert>
                     ) : null}
                   </TableCell>
-                  <TableCell>
-                    <div className="max-w-[320px] text-sm leading-5 text-foreground">
+                  <TableCell className="whitespace-normal">
+                    <div className="max-w-[330px] truncate text-sm leading-5 text-foreground" title={item.businessLogic || undefined}>
                       {item.businessLogic || "待补充业务说明"}
                     </div>
-                    <div className="mt-1 max-w-[320px] text-xs leading-5 text-muted-foreground">
+                    <div
+                      className="mt-1 max-w-[330px] truncate text-xs leading-5 text-muted-foreground"
+                      title={item.usedBy?.length ? item.usedBy.join(" / ") : undefined}
+                    >
                       用到：{item.usedBy?.length ? item.usedBy.join(" / ") : "-"}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="max-w-[260px] truncate font-mono text-xs text-foreground">
+                  <TableCell className="whitespace-normal">
+                    <div className="max-w-[270px] truncate font-mono text-xs text-foreground" title={item.updateJob || undefined}>
                       {item.updateJob || "未配置自动 Job"}
                     </div>
-                    <div className="mt-1 max-w-[260px] truncate text-xs text-muted-foreground">
+                    <div className="mt-1 max-w-[270px] truncate text-xs text-muted-foreground" title={item.dataSource || undefined}>
                       源：{item.dataSource || "-"}
                     </div>
                   </TableCell>

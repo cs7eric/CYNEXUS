@@ -704,3 +704,86 @@ Status: complete
   - `npx tsc -b --pretty false` under `cynexus-ui`
   - `npm run build` under `cynexus-ui`
 - Runtime note: this pass did not restart local `cynexus-data` / `cynexus-market` processes, so live HTTP smoke of the new endpoints was not executed in this turn.
+
+## Phase 34 - A Stock Data Source Integration
+
+Status: complete
+
+- Integrate missing `a-stock-data.md` capabilities into `cynexus-data` without breaking the existing source -> domain/pipeline -> storage/runtime layering.
+- Keep provider HTTP/TCP quirks in `sources/*`; keep live connectivity validation in scripts/docs; do not mix persistence, API routes, and provider parsing in one file.
+- Add a reusable EastMoney rate-limited HTTP helper before adding EastMoney report/datacenter/news/hot/limit/fund-flow clients.
+- Add provider-scoped source modules for Baidu, iwencai, CNInfo, THS extras, Sina options/financials, and mootdx quote/detail helpers.
+- Add internal query routes only as a thin service-to-service surface over source modules; persistence pipelines remain a later targeted step unless an existing table already owns the data.
+- Record implementation plan, process log, and result/test matrix under `cynexus-data/docs/a_stock_data_integration/`.
+- Run unit/import checks plus live smoke checks where public endpoints are reachable; record failures with exact reasons.
+
+## Phase 34 Verification Results
+
+- Added provider-scoped source modules for EastMoney, Baidu, iwencai, CNInfo, THS, Sina, and mootdx quote/detail helpers.
+- Added internal `cynexus-data` routes under `/internal/a-stock/*` without putting provider parsing in route code.
+- Added live smoke script and documentation under `cynexus-data/docs/a_stock_data_integration/`.
+- `python -m compileall -q src scripts` passed under `cynexus-data`.
+- `PYTHONPATH=src python -m pytest -q tests/unit/test_sources/test_a_stock_data_sources.py` passed: 5 tests.
+- FastAPI app import/route registration check found 37 `/internal/a-stock/*` paths.
+- Live smoke report `cynexus-data/var/reports/a-stock-data-smoke/20260706-233539` recorded 25 ok, 5 failed, 1 skipped.
+- Failures were recorded as upstream/proxy connection resets for selected EastMoney push2/emappdata endpoints; iwencai was skipped because `IWENCAI_API_KEY` is not configured.
+
+## Phase 35 - A Stock Data Persistence And Knowledge Base Docs
+
+Status: complete
+
+- Add PostgreSQL and ClickHouse table contracts for the Phase 34 A-stock source/query capabilities.
+- Keep storage in `storage/*`, source fetchers in `sources/*`, pure row shaping in `domain/*`, orchestration in `pipelines/*`, and job registration in `jobs/*`.
+- Persist compact UI/query datasets to PostgreSQL and high-frequency/minute/detail datasets to ClickHouse.
+- Reuse existing tables where the project already owns the matching contract, especially existing stock basic, margin, market limit, sector fund-flow, and stock fund-flow tables.
+- Add a data-job entry that can sync one dataset or a small list of datasets with explicit anti-scraping sleeps and batch limits.
+- Document scheduler interval guidance for EastMoney, THS, CNInfo, Sina, iwencai, and mootdx endpoints.
+- Land detailed table and capability documentation into the knowledge-base documentation area for later feature work.
+- Verify with Python compile, targeted unit tests, DDL parse checks, route/job registry checks, and local DB DDL application where available.
+
+## Phase 35 Verification Results
+
+- Added PostgreSQL DDL `cynexus-data/sql/postgres/20260707_create_a_stock_data_tables.sql`.
+- Added ClickHouse DDL `cynexus-data/sql/clickhouse/20260707_create_a_stock_data_tables.sql`.
+- Added persistence normalization, PG/CH repositories, `sync_a_stock_dataset` pipeline/job, registry entry, `jobs.yaml` entry, and console script.
+- Added knowledge-base Markdown docs under `docs/knowledge-base/market-data/`.
+- Published the same knowledge content into local `cynexus_appl_knowledge_base.kb_document`:
+  - `332571765114957824` / `A Stock 数据落库表设计`
+  - `332571765354033152` / `Cynexus Data A 股能力全量地图`
+- Local PostgreSQL DDL applied successfully after backup `deploy/local/postgres-backups/cynexus-before-a-stock-persistence-20260707-011519.sql`.
+- PostgreSQL verification: 19 `a_stock_%` tables exist and `sec_stock_basic` has the EastMoney extension fields.
+- Local ClickHouse DDL applied successfully after fixing a nullable sorting-key issue.
+- ClickHouse verification: 6 new A-stock tables exist.
+- Live write smoke passed:
+  - `cninfo_announcements` wrote 1 row to PostgreSQL `a_stock_announcement`.
+  - `tdx_order_book` wrote 1 row to ClickHouse `ch_ods_stock_order_book_snapshot`.
+- Job registry check found `sync_a_stock_dataset` registered.
+- CLI dry-run payload parsing check succeeded.
+- `python -m compileall -q src scripts` passed under `cynexus-data`.
+- `PYTHONPATH=src python -m pytest -q tests/unit/test_sources/test_a_stock_data_sources.py tests/unit/test_pipelines/test_a_stock_persistence_pipeline.py` passed: 9 tests.
+
+## Phase 36 - Settings Data Source Health Check
+
+Status: complete
+
+- Build a settings data-source health page from all current `cynexus-data` data sources.
+- Add Python internal health checks for storage, filesystem, HTTP, Python-package, API-key, and TCP providers.
+- Expose the Python health payload through Core using the existing Java -> Python internal client.
+- Persist health check runs and per-source items in `cynexus_appl_core` with project table conventions.
+- Keep Java layering explicit: API DTO -> controller/app service -> domain repository/client -> infra repository/client/basic mapper.
+- Keep frontend API clients under `src/services`, not global `src/lib/api.ts`.
+- Upgrade the existing Settings/Data Source UI with health summary, provider table, manual full check, and keep freshness as a separate view.
+- Verify Python compile/import, Java compile, frontend type/build where feasible, local DDL, and live Core/Gateway smoke.
+
+### Phase 36 Verification Results
+
+- Added `cynexus-data` health checks for 24 source/runtime/storage targets, including PostgreSQL, ClickHouse, DuckDB, TDX local files, pytdx/eltdx/mootdx packages, EastMoney Push2/Push2His/Datacenter/Report/Search/HotRank, Tencent, Sina, THS data/basic, exchange margin, Baidu, CNInfo, iwencai, AkShare, and optional mootdx TCP.
+- Added `cynexus-data` internal route `GET /internal/data-sources/health`.
+- Added Core layered API `GET /api/core/data-source-health/latest`, `GET /snapshot`, and `POST /checks/run`, with persisted run/item rows in `cynexus_appl_core`.
+- Added PostgreSQL migration `deploy/local/postgres/migrations/20260707_create_data_source_health_tables.sql`.
+- Added Settings -> Data Source UI health view plus frontend service under `cynexus-ui/src/services/core/data-source-health.ts`; freshness remains as a separate tab.
+- Local PostgreSQL DDL was applied after backup `deploy/local/postgres-backups/cynexus-before-data-source-health-20260707-164010.sql`; current local counts are 5 health runs and 64 item rows.
+- Rebuilt/recreated `cynexus-data-job-executor`; direct Python health returned total=24, healthy=18, degraded=1, failed=1, skipped=4 in the latest smoke.
+- Gateway/Core health smoke passed: `GET /api/core/data-source-health/latest` returned the persisted latest run `ds_health_a0528a52212845cb941455b14a5c3539` with total=24.
+- Verification passed: `python -m compileall -q src scripts`, targeted Python pytest for health/A-stock tests (12 passed), and `mvn -pl cynexus-core/cynexus-core-starter -am package -DskipTests`.
+- Frontend `npx tsc -b --pretty false` was attempted; it still fails on pre-existing unrelated TypeScript errors in market pulse, industry application chart, market sentiment sparkline, and stock-overview market-pulse. No new health-page TypeScript errors appeared in the reported diagnostics.

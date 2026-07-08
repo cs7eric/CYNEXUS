@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from cynexus_data.config.settings import ClickHouseConfig
+from cynexus_data.config.settings import ClickHouseConfig, PROJECT_ROOT
 from cynexus_data.storage.clickhouse.client import ClickHouseClient
 
 
 DEFAULT_TABLE = "ch_dwd_kline_1m"
-DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260627_create_ch_dwd_kline_1m.sql"
+DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260627_create_ch_dwd_kline_1m.sql"
 DAILY_RAW_TABLE = "daily_raw"
-DAILY_RAW_DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260628_create_daily_raw.sql"
-DAILY_ADJUSTED_DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260628_create_daily_adjusted.sql"
-INTRADAY_DETAIL_DDL_PATH = Path(__file__).resolve().parents[4] / "sql" / "clickhouse" / "20260628_create_intraday_detail.sql"
+DAILY_RAW_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_daily_raw.sql"
+DAILY_ADJUSTED_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_daily_adjusted.sql"
+INTRADAY_DETAIL_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_intraday_detail.sql"
 DAILY_RAW_REQUIRED_COLUMNS = [
     "code",
     "trade_date",

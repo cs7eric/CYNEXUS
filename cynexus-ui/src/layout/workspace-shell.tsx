@@ -159,7 +159,7 @@ export function WorkspaceShell({
           </div>
         </header>
 
-        <div className={cn("min-h-0 flex-1 bg-background md:bg-transparent", contentScrollable ? "overflow-y-auto" : "overflow-hidden")}>
+        <div className={cn("scrollbar-none min-h-0 flex-1 bg-background md:bg-transparent", contentScrollable ? "overflow-y-auto" : "overflow-hidden")}>
           <div
             className={cn(
               "flex flex-col gap-6",

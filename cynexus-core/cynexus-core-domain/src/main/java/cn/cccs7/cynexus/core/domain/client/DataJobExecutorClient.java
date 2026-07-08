@@ -8,6 +8,8 @@ public interface DataJobExecutorClient {
 
     Map<String, Object> health();
 
+    Map<String, Object> dataSourceHealth(boolean includeSlow);
+
     Map<String, Object> listJobs();
 
     Map<String, Object> getJob(String jobKey);

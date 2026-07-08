@@ -1,0 +1,765 @@
+.cynexus-mdx-editor {
+  --font-body: "Montserrat", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  font-family: var(--font-body);
+}
+
+.cynexus-mdx-editor .cynexus-mdx-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+  padding: 0.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.cynexus-mdx-context-menu {
+  min-width: 12.5rem;
+  max-width: min(18rem, calc(100vw - 2rem));
+  overflow: hidden;
+  padding: 0.375rem;
+}
+
+.cynexus-mdx-context-label {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.cynexus-mdx-context-menu [data-slot="context-menu-item"],
+.cynexus-mdx-context-menu [data-slot="context-menu-sub-trigger"] {
+  min-height: 2rem;
+  cursor: pointer;
+  gap: 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.cynexus-mdx-context-menu [data-slot="context-menu-item"] svg,
+.cynexus-mdx-context-menu [data-slot="context-menu-sub-trigger"] svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cynexus-mdx-context-submenu {
+  min-width: 10rem;
+}
+
+.cynexus-mdx-table-menu-inline {
+  z-index: 50 !important;
+  transform: none !important;
+}
+
+.cynexus-mdx-table-menu-inline [class*="_popoverArrow_"],
+.cynexus-mdx-table-menu-inline svg[class*="_popoverArrow_"] {
+  display: none !important;
+}
+
+.cynexus-mdx-hide-native-table-menu [class*="_tableColumnEditorPopoverContent_"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.cynexus-mdx-table-floating-menu {
+  position: fixed;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--background);
+  box-shadow: 0 4px 14px color-mix(in oklch, var(--foreground) 14%, transparent);
+  padding: 0.25rem;
+}
+
+.cynexus-mdx-table-floating-menu button {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.cynexus-mdx-table-floating-menu button svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2;
+}
+
+.cynexus-mdx-table-floating-menu button:hover {
+  background: var(--muted);
+}
+
+.cynexus-mdx-table-floating-separator {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.125rem;
+  background: var(--border);
+}
+
+.cynexus-mdx-append-target {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  cursor: text;
+  border: 1px dashed color-mix(in oklch, var(--border) 78%, var(--foreground) 22%);
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 58%, var(--background) 42%);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 0.75rem;
+  width: calc(100% - 1.5rem);
+  padding: 0.625rem 0.75rem;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.cynexus-mdx-append-target:hover {
+  border-color: color-mix(in oklch, var(--border) 42%, var(--foreground) 58%);
+  background: color-mix(in oklch, var(--muted) 76%, var(--background) 24%);
+  color: var(--foreground);
+}
+
+.cynexus-mdx-append-target:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--ring) 62%, transparent);
+  outline-offset: -0.375rem;
+}
+
+.cynexus-mdx-color-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.cynexus-mdx-editor .cynexus-mdx-color-button {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
+}
+
+.cynexus-mdx-editor .cynexus-mdx-color-trigger {
+  width: auto;
+  min-width: 2.35rem;
+  gap: 0.05rem;
+  padding: 0 0.25rem;
+}
+
+.cynexus-mdx-color-trigger .cynexus-mdx-color-icon {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.cynexus-mdx-color-trigger .cynexus-mdx-color-icon::after {
+  background: var(--muted-foreground);
+}
+
+.cynexus-mdx-color-trigger .cynexus-mdx-color-icon[data-kind="background"]::after {
+  display: none;
+}
+
+.cynexus-mdx-color-chevron {
+  display: block;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--muted-foreground);
+  stroke-width: 2.4;
+}
+
+.cynexus-mdx-color-icon {
+  position: relative;
+  display: inline-flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: var(--swatch-color);
+  line-height: 0;
+}
+
+.cynexus-mdx-color-icon svg {
+  display: block;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 2.2;
+}
+
+.cynexus-mdx-color-icon::after {
+  position: absolute;
+  right: 0.15rem;
+  bottom: 0.05rem;
+  left: 0.15rem;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: var(--swatch-color);
+  content: "";
+}
+
+.cynexus-mdx-color-icon[data-kind="background"] {
+  background: var(--swatch-color);
+  color: color-mix(in oklch, var(--foreground) 78%, transparent);
+}
+
+.cynexus-mdx-color-icon[data-kind="background"]::after {
+  display: none;
+}
+
+.cynexus-mdx-color-dropdown {
+  min-width: 8.5rem;
+}
+
+.cynexus-mdx-color-dropdown-item {
+  cursor: pointer;
+}
+
+.cynexus-mdx-content span[style*="background-color"] {
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.25rem;
+}
+
+.cynexus-mdx-content {
+  min-height: 560px;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 1.25rem;
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.cynexus-mdx-content:focus {
+  outline: none;
+}
+
+.cynexus-mdx-content h1 {
+  margin: 0 0 1rem;
+  font-size: 1.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.cynexus-mdx-content h2 {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 1.375rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.cynexus-mdx-content h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.cynexus-mdx-content p {
+  margin: 0.75rem 0;
+  color: var(--muted-foreground);
+}
+
+.cynexus-mdx-content blockquote {
+  position: relative;
+  margin: 1rem 0;
+  border-left: 0;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 70%, var(--background) 30%);
+  padding: 0.55rem 1rem 0.55rem 1.15rem;
+  color: var(--muted-foreground);
+}
+
+.cynexus-mdx-content blockquote::before {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 72%, transparent);
+  content: "";
+}
+
+.cynexus-mdx-content blockquote p {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.7;
+}
+
+.cynexus-mdx-content code {
+  border-radius: 0.3rem;
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  color: var(--foreground);
+  font-size: 0.85em;
+}
+
+.cynexus-mdx-content pre code {
+  display: block;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: rgb(24 24 27);
+  padding: 1rem;
+  color: rgb(244 244 245);
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorWrapper_"] {
+  margin: 1rem 0 1.25rem !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  background: var(--background) !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] {
+  position: static !important;
+  display: flex !important;
+  width: 100%;
+  align-items: center;
+  gap: 0.375rem !important;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+  border-bottom-left-radius: 0 !important;
+  background: color-mix(in oklch, var(--muted) 44%, var(--background) 56%) !important;
+  padding: 0.3125rem 0.5rem 0.3125rem 0.625rem !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] > [class*="_tooltipTrigger_"] {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  margin-right: auto;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]),
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] {
+  height: 1.875rem !important;
+  border-radius: 0.375rem !important;
+  color: var(--muted-foreground) !important;
+  font-size: 0.75rem !important;
+  line-height: 1 !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 7rem;
+  max-width: 11rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  margin: 0 !important;
+  border: 1px solid transparent !important;
+  background: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
+  padding: 0 0.5rem 0 0.6875rem !important;
+  box-shadow: none !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"] svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]):hover,
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] [role="combobox"]:hover {
+  background: color-mix(in oklch, var(--secondary) 78%, var(--foreground) 8%) !important;
+  color: var(--foreground) !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]),
+.cynexus-mdx-code-copy-button {
+  display: inline-flex;
+  width: 1.875rem;
+  height: 1.875rem;
+  flex: 0 0 1.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground) !important;
+  cursor: pointer;
+  padding: 0 !important;
+}
+
+.cynexus-mdx-editor [class*="_codeMirrorToolbar_"] button:not([role="combobox"]) svg,
+.cynexus-mdx-code-copy-button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  stroke-width: 2;
+}
+
+.cynexus-mdx-editor .cm-editor {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  padding: 0.875rem 0 !important;
+}
+
+.cynexus-mdx-editor .cm-scroller {
+  font-family: var(--font-body) !important;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.cynexus-mdx-editor .cm-content {
+  padding: 0 1rem 0 0.875rem !important;
+}
+
+.cynexus-mdx-editor .cm-line {
+  padding: 0 0.25rem !important;
+}
+
+.cynexus-mdx-editor .cm-gutters {
+  border-right: 1px solid var(--border) !important;
+  background: color-mix(in oklch, var(--muted) 38%, var(--background) 62%) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.cynexus-mdx-editor .cm-activeLine,
+.cynexus-mdx-editor .cm-activeLineGutter {
+  background: color-mix(in oklch, var(--muted) 42%, transparent) !important;
+}
+
+.cynexus-mdx-editor .cm-selectionBackground,
+.cynexus-mdx-editor .cm-focused .cm-selectionBackground {
+  background: color-mix(in oklch, var(--ring) 22%, transparent) !important;
+}
+
+.cynexus-mdx-editor .cm-cursor {
+  border-left-color: var(--foreground) !important;
+}
+
+.cynexus-mdx-editor .cm-focused {
+  outline: none !important;
+}
+
+.cynexus-mdx-content :has(table[class*="_tableEditor_"]) {
+  display: block !important;
+  max-width: none !important;
+  width: 100% !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+.cynexus-mdx-content [data-lexical-decorator="true"],
+.cynexus-mdx-content [data-lexical-decorator="true"] > :not(table) {
+  display: block !important;
+  max-width: none !important;
+  width: 100% !important;
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  white-space: normal !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] {
+  width: 100%;
+  min-width: 0;
+  margin: 1rem 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] col:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] col:last-child {
+  width: 0 !important;
+  transition: width 140ms ease;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover col:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover col:last-child {
+  width: 3.5% !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] col:not(:first-child):not(:last-child) {
+  width: auto !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot,
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead th,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot th {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  padding: 0 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead th,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot th {
+  position: relative !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead th[data-tool-cell="true"] {
+  text-align: left !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot tr,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead th,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot th {
+  height: 1.75rem !important;
+  min-height: 1.75rem !important;
+  max-height: none !important;
+  line-height: 1 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableToolsColumn_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [data-tool-cell="true"]:last-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tfoot > tr > th:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tfoot > tr > th:last-child {
+  width: 0 !important;
+  min-width: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  transition:
+    min-width 140ms ease,
+    width 140ms ease;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_toolCell_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_tableToolsColumn_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover > tbody > tr > [data-tool-cell="true"]:last-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover > tfoot > tr > th:first-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover > tfoot > tr > th:last-child {
+  width: 3.5% !important;
+  min-width: 1.5rem !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableColumnEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableRowEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addRowButton_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addColumnButton_"] {
+  background: var(--background) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 1px 4px color-mix(in oklch, var(--foreground) 14%, transparent) !important;
+  color: var(--muted-foreground) !important;
+  opacity: 0 !important;
+  pointer-events: auto;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+  visibility: hidden !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot [data-tool-cell="true"] button {
+  position: absolute !important;
+  z-index: 2;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] thead [data-tool-cell="true"] button {
+  top: -1.15rem;
+  left: 0.25rem;
+  transform: none;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] tfoot [data-tool-cell="true"] button {
+  bottom: -1.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover tfoot [data-tool-cell="true"] button {
+  position: static !important;
+  transform: none;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover thead [data-tool-cell="true"] button {
+  margin-left: 0.25rem !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_toolCell_"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [data-tool-cell="true"] button,
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_tableColumnEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_tableRowEditorTrigger_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_addRowButton_"],
+.cynexus-mdx-editor table[class*="_tableEditor_"]:hover [class*="_addColumnButton_"] {
+  opacity: 0.44 !important;
+  visibility: visible !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_toolCell_"] button:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [data-tool-cell="true"] button:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableColumnEditorTrigger_"]:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_tableRowEditorTrigger_"]:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addRowButton_"]:hover,
+.cynexus-mdx-editor table[class*="_tableEditor_"] [class*="_addColumnButton_"]:hover {
+  background: var(--muted) !important;
+  opacity: 0.85 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--background) !important;
+  padding: 0.375rem 0.75rem !important;
+  color: var(--muted-foreground);
+  min-width: 140px;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-top: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-left: 1px solid transparent !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [class*="_toolCell_"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [class*="_toolCell_"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [data-tool-cell="true"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > [data-tool-cell="true"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-left: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [class*="_toolCell_"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [class*="_toolCell_"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [data-tool-cell="true"]) {
+  border-right: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child {
+  border-right: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div {
+  min-height: 1.35rem;
+  padding: 0 !important;
+  line-height: 1.35;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) [contenteditable="true"],
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) [contenteditable="true"] {
+  min-height: 1.35rem !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div:not([contenteditable="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div:not([contenteditable="true"]) {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p,
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  background: var(--muted) !important;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  vertical-align: middle;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) > div {
+  display: flex;
+  min-height: 1.2rem;
+  align-items: center;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) p {
+  color: var(--foreground);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > [class*="_toolCell_"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > [data-tool-cell="true"] + th:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-top-left-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):has(+ [data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:first-child > th:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child {
+  border-top-right-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > [class*="_toolCell_"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > [data-tool-cell="true"] + td:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-bottom-left-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr:last-child > td:not([class*="_toolCell_"]):not([data-tool-cell="true"]):last-child {
+  border-bottom-right-radius: 0.5rem;
+}
+
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > td[data-active="true"]:not([class*="_toolCell_"]):not([data-tool-cell="true"]),
+.cynexus-mdx-editor table[class*="_tableEditor_"] > tbody > tr > th[data-active="true"]:not([class*="_toolCell_"]):not([data-tool-cell="true"]) {
+  border-bottom: 2px solid color-mix(in oklch, var(--ring) 76%, var(--foreground) 12%) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}

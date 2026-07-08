@@ -1,0 +1,189 @@
+.cynexus-kb-markdown-viewer {
+  --font-body: "Montserrat", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  background: var(--background);
+  font-family: var(--font-body);
+}
+
+.cynexus-kb-markdown-content {
+  width: 100%;
+  min-height: 560px;
+  max-width: none;
+  overflow-x: hidden;
+  padding: 1.25rem 1.5rem 2rem;
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.cynexus-kb-markdown-content:focus {
+  outline: none;
+}
+
+.cynexus-kb-markdown-content h1 {
+  margin: 0 0 1rem;
+  color: var(--foreground);
+  font-size: 1.875rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.cynexus-kb-markdown-content h2 {
+  margin: 1.75rem 0 0.75rem;
+  color: var(--foreground);
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.cynexus-kb-markdown-content h3 {
+  margin: 1.25rem 0 0.5rem;
+  color: var(--foreground);
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.cynexus-kb-markdown-content p,
+.cynexus-kb-markdown-content li {
+  color: var(--muted-foreground);
+}
+
+.cynexus-kb-markdown-content p {
+  margin: 0.75rem 0;
+}
+
+.cynexus-kb-markdown-content ul,
+.cynexus-kb-markdown-content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.35rem;
+}
+
+.cynexus-kb-markdown-content blockquote {
+  position: relative;
+  margin: 1rem 0;
+  border-left: 0;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 70%, var(--background) 30%);
+  padding: 0.55rem 1rem 0.55rem 1.15rem;
+  color: var(--muted-foreground);
+}
+
+.cynexus-kb-markdown-content blockquote::before {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 72%, transparent);
+  content: "";
+}
+
+.cynexus-kb-markdown-content blockquote p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.cynexus-kb-markdown-content code {
+  border-radius: 0.3rem;
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  color: var(--foreground);
+  font-size: 0.85em;
+}
+
+.cynexus-kb-markdown-viewer [class*="_codeMirrorWrapper_"] {
+  margin: 1rem 0 1.25rem !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  background: var(--background) !important;
+  box-shadow: none !important;
+}
+
+.cynexus-kb-markdown-viewer [class*="_codeMirrorToolbar_"] {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 44%, var(--background) 56%) !important;
+  padding: 0.3125rem 0.625rem !important;
+}
+
+.cynexus-kb-markdown-viewer [class*="_codeMirrorToolbar_"] button {
+  display: none !important;
+}
+
+.cynexus-kb-markdown-viewer .cm-editor {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  padding: 0.875rem 0 !important;
+}
+
+.cynexus-kb-markdown-viewer .cm-scroller {
+  font-family: var(--font-body) !important;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.cynexus-kb-markdown-viewer .cm-content {
+  padding: 0 1rem 0 0.875rem !important;
+}
+
+.cynexus-kb-markdown-viewer .cm-gutters {
+  border-right: 1px solid var(--border) !important;
+  background: color-mix(in oklch, var(--muted) 38%, var(--background) 62%) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.cynexus-kb-markdown-content table {
+  width: 100%;
+  margin: 1rem 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: hidden;
+  background: var(--background) !important;
+  table-layout: fixed;
+}
+
+.cynexus-kb-markdown-content table [data-tool-cell="true"],
+.cynexus-kb-markdown-content table [class*="_toolCell_"],
+.cynexus-kb-markdown-content table [class*="_tableToolsColumn_"],
+.cynexus-kb-markdown-content table[class*="_tableEditor_"] thead,
+.cynexus-kb-markdown-content table[class*="_tableEditor_"] tfoot {
+  display: none !important;
+}
+
+.cynexus-kb-markdown-content table th,
+.cynexus-kb-markdown-content table td {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 0.4rem 0.75rem !important;
+  text-align: left;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.cynexus-kb-markdown-content table th {
+  background: color-mix(in oklch, var(--muted) 76%, var(--background) 24%) !important;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.cynexus-kb-markdown-content table td {
+  color: var(--muted-foreground);
+}
+
+.cynexus-kb-markdown-content table tr:last-child > td,
+.cynexus-kb-markdown-content table tr:last-child > th {
+  border-bottom: 0 !important;
+}
+
+.cynexus-kb-markdown-content table p {
+  margin: 0;
+  line-height: 1.35;
+}

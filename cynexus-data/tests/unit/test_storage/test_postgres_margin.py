@@ -55,11 +55,13 @@ def test_replace_market_summary_upserts_natural_key() -> None:
         ],
     )
 
-    sql = client.session_obj.calls[0][0]
+    delete_sql = client.session_obj.calls[0][0]
+    sql = client.session_obj.calls[1][0]
     assert written == 1
+    assert "UPDATE cynexus_appl_market.margin_market_summary" in delete_sql
     assert "INSERT INTO cynexus_appl_market.margin_market_summary" in sql
     assert "ON CONFLICT (trade_date, exchange, source)" in sql
-    assert client.session_obj.calls[0][1]["exchange"] == "SSE"
+    assert client.session_obj.calls[1][1]["exchange"] == "SSE"
 
 
 def test_replace_stock_detail_upserts_stock_key() -> None:
@@ -81,11 +83,13 @@ def test_replace_stock_detail_upserts_stock_key() -> None:
         ],
     )
 
-    sql = client.session_obj.calls[0][0]
+    delete_sql = client.session_obj.calls[0][0]
+    sql = client.session_obj.calls[1][0]
     assert written == 1
+    assert "UPDATE cynexus_appl_market.margin_stock_detail" in delete_sql
     assert "INSERT INTO cynexus_appl_market.margin_stock_detail" in sql
     assert "ON CONFLICT (trade_date, exchange, stock_code, source)" in sql
-    assert client.session_obj.calls[0][1]["stock_code"] == "000001"
+    assert client.session_obj.calls[1][1]["stock_code"] == "000001"
 
 
 def test_replace_account_stats_upserts_date_source() -> None:

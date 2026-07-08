@@ -21,6 +21,10 @@ export default defineConfig({
         target: 'http://localhost:18000',
         changeOrigin: true,
       },
+      '/api/knowledge-base': {
+        target: 'http://localhost:18000',
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

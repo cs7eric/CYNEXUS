@@ -124,6 +124,24 @@ class MarketPulseRepository:
                             :inflow, :outflow, :main_net, :stock_count, :leading_stock, :leading_change_pct,
                             :leading_price, :source_kind, :source_name, :captured_at, CAST(:extra AS jsonb), now()
                         )
+                        ON CONFLICT (trade_date, sector_name) WHERE deleted_at IS NULL DO UPDATE SET
+                            batch_id = EXCLUDED.batch_id,
+                            sector_index = EXCLUDED.sector_index,
+                            rank_by_change = EXCLUDED.rank_by_change,
+                            change_pct = EXCLUDED.change_pct,
+                            inflow = EXCLUDED.inflow,
+                            outflow = EXCLUDED.outflow,
+                            main_net = EXCLUDED.main_net,
+                            stock_count = EXCLUDED.stock_count,
+                            leading_stock = EXCLUDED.leading_stock,
+                            leading_change_pct = EXCLUDED.leading_change_pct,
+                            leading_price = EXCLUDED.leading_price,
+                            source_kind = EXCLUDED.source_kind,
+                            source_name = EXCLUDED.source_name,
+                            captured_at = EXCLUDED.captured_at,
+                            extra = EXCLUDED.extra,
+                            updated_at = now(),
+                            deleted_at = NULL
                         """
                     ),
                     _row_params(row, batch_id=batch_id, source_kind=source_kind, source_name=source_name, captured_at=captured_at),

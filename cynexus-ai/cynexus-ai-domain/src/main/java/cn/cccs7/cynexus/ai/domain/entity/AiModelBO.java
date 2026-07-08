@@ -17,6 +17,10 @@ public class AiModelBO {
     private String modelCode;
     private String providerCode;
     private String modelName;
+    private String baseUrl;
+    private String apiKey;
+    private String apiKeyEnv;
+    private String extra;
     private ModelCapability capability;
     private ModelRuntimeOptions runtimeOptions;
     private boolean enabled;
