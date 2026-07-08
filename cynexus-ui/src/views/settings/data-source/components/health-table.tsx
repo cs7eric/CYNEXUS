@@ -40,11 +40,11 @@ export function HealthTable({ items }: { items: DataSourceHealthItem[] }) {
   return (
     <Card className="overflow-hidden border-0 bg-muted/60 py-0 shadow-none">
       <CardContent className="p-0">
-        <div className="max-h-[62vh] overflow-auto">
+        <div className="[&_[data-slot=table-container]]:max-h-[62vh] [&_[data-slot=table-container]]:overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 z-10 bg-muted">
+            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-muted">
               <TableRow>
-                <TableHead className="min-w-[220px]">Data Source</TableHead>
+                <TableHead className="min-w-[300px]">Data Source</TableHead>
                 <TableHead className="min-w-[140px]">Status</TableHead>
                 <TableHead className="min-w-[120px]">Provider</TableHead>
                 <TableHead className="min-w-[130px] text-right">Latency</TableHead>
@@ -59,9 +59,14 @@ export function HealthTable({ items }: { items: DataSourceHealthItem[] }) {
               {items.map((item) => (
                 <TableRow key={`${item.sourceCode}:${item.checkedAt || ""}`}>
                   <TableCell>
-                    <div className="max-w-[260px]">
+                    <div className="max-w-[360px]">
                       <div className="truncate font-medium text-foreground">{item.sourceName}</div>
                       <div className="truncate font-mono text-xs text-muted-foreground">{item.sourceCode}</div>
+                      {item.description ? (
+                        <div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground" title={item.description}>
+                          {item.description}
+                        </div>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell>

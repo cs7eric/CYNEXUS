@@ -33,14 +33,14 @@ export function FreshnessTable({ items }: { items: DataSourceFreshnessItem[] }) 
   return (
     <Card className="overflow-hidden border-0 bg-muted/60 py-0 shadow-none">
       <CardContent className="p-0">
-        <div className="max-h-[62vh] overflow-auto">
+        <div className="[&_[data-slot=table-container]]:max-h-[62vh] [&_[data-slot=table-container]]:overflow-auto">
           <Table className="min-w-[1740px] table-fixed">
-            <TableHeader className="sticky top-0 z-10 bg-muted">
+            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-muted">
               <TableRow>
+                <TableHead className="w-[120px]">Source</TableHead>
                 <TableHead className="w-[240px]">Table</TableHead>
                 <TableHead className="w-[360px]">业务逻辑 / 用途</TableHead>
                 <TableHead className="w-[300px]">更新 Job / 数据源</TableHead>
-                <TableHead className="w-[120px]">Source</TableHead>
                 <TableHead className="w-[120px]">Status</TableHead>
                 <TableHead className="w-[150px]">Latest Date</TableHead>
                 <TableHead className="w-[110px] text-right">Lag</TableHead>
@@ -52,6 +52,11 @@ export function FreshnessTable({ items }: { items: DataSourceFreshnessItem[] }) 
             <TableBody>
               {items.map((item) => (
                 <TableRow key={`${item.sourceType}:${item.schemaName}:${item.tableName}`}>
+                  <TableCell>
+                    <Badge variant="secondary" className="uppercase">
+                      {item.sourceType}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <div className="max-w-[220px]">
                       <div className="truncate font-medium text-foreground">{item.tableName}</div>
@@ -85,11 +90,6 @@ export function FreshnessTable({ items }: { items: DataSourceFreshnessItem[] }) 
                     <div className="mt-1 max-w-[270px] truncate text-xs text-muted-foreground" title={item.dataSource || undefined}>
                       源：{item.dataSource || "-"}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="uppercase">
-                      {item.sourceType}
-                    </Badge>
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={item.status} />

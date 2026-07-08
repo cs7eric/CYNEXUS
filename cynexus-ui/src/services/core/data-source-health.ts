@@ -31,6 +31,7 @@ export interface DataSourceHealthItem {
   sourceType: string
   category: string
   provider: string
+  description?: string | null
   endpoint?: string | null
   status: DataSourceHealthStatus
   connectivity: boolean

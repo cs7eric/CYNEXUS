@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.core.infra.basic.mapper.ProviderCapabilityMapper">
+
+    <resultMap id="BaseResultMap" type="cn.cccs7.cynexus.core.infra.basic.entity.ProviderCapabilityPO">
+        <id property="id" column="id"/>
+        <result property="capabilityCode" column="capability_code"/>
+        <result property="name" column="name"/>
+        <result property="category" column="category"/>
+        <result property="providerCode" column="provider_code"/>
+        <result property="providerName" column="provider_name"/>
+        <result property="capabilityType" column="capability_type"/>
+        <result property="sourceLayer" column="source_layer"/>
+        <result property="targetStore" column="target_store"/>
+        <result property="status" column="status"/>
+        <result property="dataGranularity" column="data_granularity"/>
+        <result property="storageTables" column="storage_tables" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="updateJobs" column="update_jobs" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="upstreamEndpoints" column="upstream_endpoints" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="usedBy" column="used_by" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="rateLimitPolicy" column="rate_limit_policy"/>
+        <result property="freshnessPolicy" column="freshness_policy"/>
+        <result property="antiScrapingNotes" column="anti_scraping_notes"/>
+        <result property="description" column="description"/>
+        <result property="params" column="params" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="extra" column="extra" jdbcType="OTHER" typeHandler="cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deletedAt" column="deleted_at"/>
+    </resultMap>
+
+    <select id="selectEnabled" resultMap="BaseResultMap">
+        SELECT *
+        FROM provider_capability_catalog
+        WHERE deleted_at IS NULL
+          AND status &lt;&gt; 'disabled'
+        ORDER BY sort_order, category, provider_code, capability_code
+    </select>
+</mapper>

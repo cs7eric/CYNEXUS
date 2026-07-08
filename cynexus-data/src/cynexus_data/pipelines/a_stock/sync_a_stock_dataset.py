@@ -18,6 +18,7 @@ from cynexus_data.sources.tdx.mootdx_market import fetch_order_book, fetch_trans
 from cynexus_data.sources.ths.a_stock import ThsAStockClient
 from cynexus_data.storage.clickhouse.a_stock import AStockClickHouseRepository
 from cynexus_data.storage.postgres.a_stock import AStockPostgresRepository
+from cynexus_data.storage.postgres.stock_basic import StockBasicRepository
 
 
 FetchCallable = Callable[[dict[str, Any]], Any]
@@ -40,10 +41,11 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
 
     create_table = _bool(params.get("create_table"), False)
     fetch_live = _bool(params.get("fetch_live"), not request.dry_run)
-    codes = _resolve_codes(params)
+    codes = _resolve_codes(context, params)
     limit_codes = _int(params.get("limit_codes"))
     if limit_codes is not None:
         codes = codes[:limit_codes]
+    ignore_errors = _bool(params.get("ignore_errors"), False)
 
     pg_batches: dict[str, list[dict[str, Any]]] = {}
     ch_batches: dict[str, list[dict[str, Any]]] = {}
@@ -61,27 +63,34 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         dataset_pg_rows = 0
         dataset_ch_rows = 0
         samples: list[Any] = []
+        errors: list[str] = []
 
         for index, code in enumerate(planned_codes, start=1):
             scoped_params = {**params, "dataset": dataset}
             if code:
                 scoped_params["code"] = code
-            payload = _provided_payload(params, dataset)
-            if payload is None and fetch_live:
-                payload = spec.fetch(scoped_params)
-                _sleep_after_fetch(spec, params)
-            elif payload is None:
-                payload = []
+            try:
+                payload = _provided_payload(params, dataset)
+                if payload is None and fetch_live:
+                    payload = spec.fetch(scoped_params)
+                    _sleep_after_fetch(spec, params)
+                elif payload is None:
+                    payload = []
 
-            batch = normalize_dataset(dataset, payload, scoped_params)
-            _merge(pg_batches, batch.postgres)
-            _merge(ch_batches, batch.clickhouse)
+                batch = normalize_dataset(dataset, payload, scoped_params)
+                _merge(pg_batches, batch.postgres)
+                _merge(ch_batches, batch.clickhouse)
 
-            dataset_rows_read += batch.rows_read
-            dataset_pg_rows += sum(len(rows) for rows in batch.postgres.values())
-            dataset_ch_rows += sum(len(rows) for rows in batch.clickhouse.values())
-            if len(samples) < 3:
-                samples.append(_sample_payload(payload))
+                dataset_rows_read += batch.rows_read
+                dataset_pg_rows += sum(len(rows) for rows in batch.postgres.values())
+                dataset_ch_rows += sum(len(rows) for rows in batch.clickhouse.values())
+                if len(samples) < 3:
+                    samples.append(_sample_payload(payload))
+            except Exception as exc:  # noqa: BLE001 - batch jobs should report per-code provider failures.
+                message = f"{dataset}:{code or '*'}:{type(exc).__name__}: {exc}"
+                errors.append(message)
+                if not ignore_errors:
+                    raise
 
             if index >= _int(params.get("batch_limit") or 10_000):
                 break
@@ -94,6 +103,8 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
             "postgres_rows": dataset_pg_rows,
             "clickhouse_rows": dataset_ch_rows,
             "samples": samples,
+            "errors": errors[:20],
+            "error_count": len(errors),
         }
 
     rows_written = 0
@@ -329,9 +340,44 @@ def _provided_payload(params: dict[str, Any], dataset: str) -> Any:
     return payload
 
 
-def _resolve_codes(params: dict[str, Any]) -> list[str]:
+def _resolve_codes(context: PipelineContext, params: dict[str, Any]) -> list[str]:
     value = params.get("codes") or params.get("symbols") or params.get("code") or params.get("symbol")
-    return _list_param(value)
+    explicit = _list_param(value)
+    if explicit:
+        return explicit
+    source = str(params.get("code_source") or "").strip().lower()
+    if not source:
+        return []
+    if context.hooks is None:
+        raise RuntimeError("PipelineContext.hooks is required to resolve code_source")
+    if source in {"sec_stock_basic", "stock_basic", "all", "active"}:
+        return StockBasicRepository(context.hooks.postgres.get_client()).list_codes(active_only=True)
+    if source in {"self_selected", "watchlist"}:
+        return _self_selected_codes(context)
+    raise ValueError(f"unsupported code_source: {source}")
+
+
+def _self_selected_codes(context: PipelineContext) -> list[str]:
+    if context.hooks is None:
+        return []
+    from sqlalchemy import text
+
+    with context.hooks.postgres.get_client().session() as db:
+        rows = db.execute(
+            text(
+                """
+                SELECT DISTINCT symbol AS code
+                  FROM cynexus_appl_market.self_selected_list_items
+                 WHERE deleted_at IS NULL
+                   AND status = 'active'
+                   AND target_type = 'stock'
+                   AND symbol IS NOT NULL
+                   AND symbol <> ''
+                 ORDER BY symbol
+                """
+            )
+        ).all()
+    return [str(row[0]).strip() for row in rows if str(row[0]).strip()]
 
 
 def _list_param(value: Any) -> list[str]:

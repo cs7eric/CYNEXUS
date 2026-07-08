@@ -11,6 +11,7 @@ import Mp4HistoryPage from "../views/mp4-to-word/history"
 import SchedulerSettingsPage from "../views/settings/scheduler"
 import AiProviderSettingsPage from "../views/settings/ai-provider"
 import DataSourceSettingsPage from "../views/settings/data-source"
+import ProviderSettingsPage from "../views/settings/provider"
 import PromptSettingsPage from "../views/settings/prompt"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
@@ -134,6 +135,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/data-source",
         element: <DataSourceSettingsPage />,
+      },
+      {
+        path: "settings/provider",
+        element: <ProviderSettingsPage />,
       },
       {
         path: "settings/prompt",

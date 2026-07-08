@@ -119,6 +119,50 @@ final class SchedulerDataJobKeyResolver {
                     Map.entry("target_type", "auto"),
                     Map.entry("tdx_root", "/app/tdx")
             )),
+            entry("a_stock_marketwide_daily", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("datasets", List.of("eastmoney_industry_rank", "eastmoney_daily_dragon_tiger", "eastmoney_limit_pool", "eastmoney_hot_rank", "eastmoney_global_news", "ths_hot_reason", "ths_limit_up_pool", "ths_hot_list", "sina_option_codes")),
+                    Map.entry("pool", "zt"),
+                    Map.entry("top", 100),
+                    Map.entry("top_n", 30),
+                    Map.entry("page_size", 50)
+            )),
+            entry("a_stock_code_daily", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("code_source", "self_selected"),
+                    Map.entry("limit_codes", 30),
+                    Map.entry("datasets", List.of("eastmoney_stock_info", "eastmoney_concept_blocks", "eastmoney_fund_flow_120d", "eastmoney_block_trade", "eastmoney_holders", "eastmoney_dividends", "eastmoney_stock_news", "eastmoney_hot_concept", "cninfo_announcements", "cninfo_irm", "sina_financial_report")),
+                    Map.entry("page_size", 20),
+                    Map.entry("num", 8)
+            )),
+            entry("a_stock_research_weekly", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("code_source", "self_selected"),
+                    Map.entry("limit_codes", 20),
+                    Map.entry("datasets", List.of("eastmoney_reports", "eastmoney_industry_reports", "iwencai_search", "ths_eps_forecast")),
+                    Map.entry("max_pages", 1),
+                    Map.entry("query", "A股 研报 盈利预测"),
+                    Map.entry("size", 30)
+            )),
+            entry("a_stock_fund_flow_intraday", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("code_source", "self_selected"),
+                    Map.entry("limit_codes", 30),
+                    Map.entry("datasets", List.of("eastmoney_fund_flow_minute", "ths_northbound")),
+                    Map.entry("request_sleep_seconds", 2)
+            )),
+            entry("a_stock_tdx_realtime_probe", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("code_source", "self_selected"),
+                    Map.entry("limit_codes", 20),
+                    Map.entry("datasets", List.of("tdx_order_book", "tdx_transactions")),
+                    Map.entry("request_sleep_seconds", 0.2)
+            )),
             entry("auction_ai_analysis", "sync_tdx_intraday_detail", Map.of(
                     "datasets", List.of("auction"),
                     "create_table", true

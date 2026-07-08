@@ -24,6 +24,7 @@ class DataSourceProbeResult:
     source_type: str
     category: str
     provider: str
+    description: str | None = None
     endpoint: str | None = None
     status: Status = "unknown"
     connectivity: bool = False
@@ -35,8 +36,58 @@ class DataSourceProbeResult:
     checks: dict[str, Any] = field(default_factory=dict)
     raw_payload: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not self.description:
+            self.description = SOURCE_DESCRIPTIONS.get(self.source_code)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+SOURCE_DESCRIPTIONS: dict[str, str] = {
+    "postgres_market": "PostgreSQL market schema, stores UI-facing market snapshots, rankings, and persisted A-share skill tables.",
+    "postgres_core": "PostgreSQL core schema, stores scheduler metadata, health-check runs, and application control-plane records.",
+    "clickhouse_default": "ClickHouse analytical store for high-frequency time series such as 1m K-lines, order books, option quotes, and minute fund-flow data.",
+    "duckdb_default": "Local DuckDB file used for offline market-analysis intermediates and backfills.",
+    "tdx_local": "Local TongDaXin filesystem, used after close for downloaded 1m K-line and daily data ingestion.",
+    "pytdx_package": "Python pytdx runtime dependency used by legacy TDX-compatible quote readers.",
+    "eltdx_package": "Python eltdx runtime dependency used for TDX/F10 detail, auction, sector, and quote adapters.",
+    "mootdx_package": "Python mootdx runtime dependency used for live quote, K-line, order-book, and transaction probes.",
+    "mootdx": "mootdx TCP quote source; slow probe can validate live quote connectivity with a sample stock.",
+    "eastmoney_default": "EastMoney Push2 stock quote/basic endpoint; covers individual stock profile, market cap, and base quote fields.",
+    "eastmoney_history": "EastMoney Push2His historical fund-flow endpoint; used for 120-day and daily fund-flow pulls.",
+    "eastmoney_push2_stock_info": "EastMoney Push2 individual stock profile, including name, industry, market cap, total shares, float shares, and listing date.",
+    "eastmoney_push2_slist_concepts": "EastMoney Push2 concept-board membership source for per-stock concept attribution.",
+    "eastmoney_push2_fund_flow_minute": "EastMoney Push2 minute-level individual stock fund-flow source, intended for ClickHouse intraday storage.",
+    "eastmoney_push2_industry_rank": "EastMoney Push2 industry-board ranking source, kept separate from existing THS/TDX industry data by source.",
+    "eastmoney_datacenter_dragon_tiger": "EastMoney Datacenter dragon-tiger daily list and seat detail source.",
+    "eastmoney_datacenter_lockup": "EastMoney Datacenter lockup-expiry calendar source for restricted-share releases.",
+    "eastmoney_datacenter_block_trade": "EastMoney Datacenter block-trade history source.",
+    "eastmoney_datacenter_holder_num": "EastMoney Datacenter shareholder-count change source.",
+    "eastmoney_datacenter_dividend": "EastMoney Datacenter dividend and bonus-share history source.",
+    "eastmoney_datacenter": "EastMoney Datacenter report API group; covers holders, dividends, block trades, lockups, and dragon-tiger data.",
+    "eastmoney_reportapi": "EastMoney research-report API, including stock and industry reports plus report PDF metadata.",
+    "eastmoney_search_news": "EastMoney stock-news search API used for per-stock news summaries.",
+    "eastmoney_global_news": "EastMoney global 7x24 fast-news endpoint.",
+    "eastmoney_limit_pool": "EastMoney limit-up, failed-limit, limit-down, and yesterday-limit raw pool endpoint group.",
+    "eastmoney_hot_rank": "EastMoney popularity ranking API used for stock hot-rank and hot-concept snapshots.",
+    "tencent_default": "Tencent quote endpoint used as intraday realtime fallback for 1m K-line synchronization.",
+    "sina_default": "Sina Finance endpoint group used for ETF option contracts, T-quotes, Greeks, IV, and financial statement fallback.",
+    "sina_option_codes": "Sina ETF option contract-code source for 50ETF/300ETF/500ETF/STAR50ETF option chains.",
+    "ths_default": "TongHuaShun web endpoint group used for hot lists, limit-up pools, northbound minute flow, and thematic data.",
+    "ths_basic": "TongHuaShun basic.10jqka.com.cn EPS consensus/forecast page for stock-level research fields.",
+    "ths_hot_reason": "TongHuaShun hot-strong-stock reason endpoint for theme attribution.",
+    "ths_limit_up_pool": "TongHuaShun limit-up pool endpoint and limit-up reason details.",
+    "ths_hot_list": "TongHuaShun stock hot-list endpoint.",
+    "ths_northbound": "TongHuaShun northbound minute-flow endpoint.",
+    "exchange_margin_default": "Exchange margin-financing endpoint group used for official exchange margin data.",
+    "baidu_stock": "Baidu stock quotation/K-line endpoint used for K-line with moving-average fields.",
+    "cninfo": "CNInfo/Juchao announcement and interaction endpoints for announcement search/download and investor Q&A.",
+    "cninfo_announcements": "CNInfo/Juchao announcement full-text search and download metadata endpoint.",
+    "cninfo_irm": "CNInfo Hudongyi investor-relation Q&A endpoint.",
+    "iwencai": "iwencai semantic research-report search integration; requires IWENCAI_API_KEY.",
+    "akshare_default": "AkShare optional runtime dependency used by selected market-data fallbacks and exchange margin jobs.",
+}
 
 
 def run_data_source_health_checks(*, include_slow: bool = False) -> dict[str, Any]:
@@ -53,17 +104,35 @@ def run_data_source_health_checks(*, include_slow: bool = False) -> dict[str, An
         _probe_python_import("mootdx_package", "mootdx TCP package", "mootdx", "mootdx"),
         _probe_http_connection(registry, "eastmoney_default", "EastMoney Push2", "/api/qt/stock/get", params={"secid": "1.600519", "fields": "f57,f58"}),
         _probe_http_connection(registry, "eastmoney_history", "EastMoney Push2His", "/api/qt/stock/fflow/daykline/get", params={"secid": "1.600519", "lmt": "1", "fields1": "f1,f2", "fields2": "f51,f52"}),
+        _probe_eastmoney_stock_info(),
+        _probe_eastmoney_concepts(),
+        _probe_eastmoney_fund_flow_minute(),
+        _probe_eastmoney_industry_rank(),
+        _probe_eastmoney_datacenter_report("eastmoney_datacenter_dragon_tiger", "EastMoney Dragon Tiger", "market-data", "RPT_DAILYBILLBOARD_DETAILSNEW"),
+        _probe_eastmoney_datacenter_report("eastmoney_datacenter_lockup", "EastMoney Lockup Expiry", "corporate-action", "RPT_LIFT_STAGE"),
+        _probe_eastmoney_datacenter_report("eastmoney_datacenter_block_trade", "EastMoney Block Trade", "market-data", "RPT_DATA_BLOCKTRADE"),
+        _probe_eastmoney_datacenter_report("eastmoney_datacenter_holder_num", "EastMoney Holder Count", "fundamental", "RPT_HOLDERNUMLATEST"),
+        _probe_eastmoney_datacenter_report("eastmoney_datacenter_dividend", "EastMoney Dividend", "corporate-action", "RPT_SHAREBONUS_DET"),
         _probe_eastmoney_datacenter(),
         _probe_eastmoney_reportapi(),
         _probe_eastmoney_search(),
+        _probe_eastmoney_global_news(),
+        _probe_eastmoney_limit_pool(),
         _probe_eastmoney_hot_rank(),
         _probe_http_connection(registry, "tencent_default", "Tencent Quote", "/", acceptable_status={200, 301, 302, 403, 404}),
         _probe_http_connection(registry, "sina_default", "Sina Finance", "/", acceptable_status={200, 301, 302, 403, 404}),
+        _probe_sina_option_codes(),
         _probe_http_connection(registry, "ths_default", "THS Data", "/", acceptable_status={200, 301, 302, 403, 404}),
         _probe_ths_basic(),
+        _probe_ths_hot_reason(),
+        _probe_ths_limit_up_pool(),
+        _probe_ths_hot_list(),
+        _probe_ths_northbound(),
         _probe_http_connection(registry, "exchange_margin_default", "Exchange Margin", "/", acceptable_status={200, 301, 302, 403, 404}),
         _probe_baidu(),
         _probe_cninfo(),
+        _probe_cninfo_announcements(),
+        _probe_cninfo_irm(),
         _probe_iwencai(),
         _probe_akshare(include_slow=include_slow),
         _probe_mootdx(include_slow=include_slow),
@@ -211,6 +280,50 @@ def _probe_http_connection(
     )
 
 
+def _probe_http_endpoint(
+    *,
+    source_code: str,
+    source_name: str,
+    provider: str,
+    category: str,
+    url: str,
+    params: dict[str, Any] | None = None,
+    acceptable_status: set[int] | None = None,
+    timeout: float = 10,
+) -> DataSourceProbeResult:
+    return _timed_probe(
+        source_code=source_code,
+        source_name=source_name,
+        source_type="http",
+        category=category,
+        provider=provider,
+        endpoint=url,
+        probe=lambda: _http_check(url, timeout=timeout, params=params, acceptable_status=acceptable_status or {200}),
+    )
+
+
+def _probe_http_post_form_endpoint(
+    *,
+    source_code: str,
+    source_name: str,
+    provider: str,
+    category: str,
+    url: str,
+    data: dict[str, Any],
+    acceptable_status: set[int] | None = None,
+    timeout: float = 10,
+) -> DataSourceProbeResult:
+    return _timed_probe(
+        source_code=source_code,
+        source_name=source_name,
+        source_type="http",
+        category=category,
+        provider=provider,
+        endpoint=url,
+        probe=lambda: _http_post_form_check(url, timeout=timeout, data=data, acceptable_status=acceptable_status or {200}),
+    )
+
+
 def _http_check(
     url: str,
     *,
@@ -223,6 +336,29 @@ def _http_check(
     sample_count = 1 if response.text else 0
     checks = {"http_status": response.status_code, "content_length": len(response.content or b"")}
     if params and response.headers.get("content-type", "").lower().find("json") >= 0:
+        try:
+            payload = response.json()
+            checks["json"] = isinstance(payload, dict)
+            sample_count = _sample_count(payload)
+        except Exception:
+            checks["json"] = False
+    status = "healthy" if response.status_code == 200 and sample_count else "degraded" if ok_status else "failed"
+    authenticity = "valid" if response.status_code == 200 and sample_count else "warning" if ok_status else "failed"
+    return status, authenticity, sample_count, checks, {"url": response.url}
+
+
+def _http_post_form_check(
+    url: str,
+    *,
+    timeout: float,
+    data: dict[str, Any],
+    acceptable_status: set[int],
+) -> tuple[str, str, int | None, dict[str, Any], dict[str, Any]]:
+    response = requests.post(url, data=data, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
+    ok_status = response.status_code in acceptable_status
+    sample_count = 1 if response.text else 0
+    checks = {"http_status": response.status_code, "content_length": len(response.content or b"")}
+    if response.headers.get("content-type", "").lower().find("json") >= 0:
         try:
             payload = response.json()
             checks["json"] = isinstance(payload, dict)
@@ -255,6 +391,87 @@ def _http_post_json_check(
     status = "healthy" if response.status_code == 200 and sample_count else "degraded" if ok_status else "failed"
     authenticity = "valid" if response.status_code == 200 and sample_count else "warning" if ok_status else "failed"
     return status, authenticity, sample_count, checks, {"url": response.url}
+
+
+def _sample_trade_date_yyyymmdd() -> str:
+    return datetime.now().strftime("%Y%m%d")
+
+
+def _probe_eastmoney_stock_info() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="eastmoney_push2_stock_info",
+        source_name="EastMoney Stock Info",
+        provider="eastmoney",
+        category="fundamental",
+        url="https://push2.eastmoney.com/api/qt/stock/get",
+        params={"fltt": "2", "invt": "2", "fields": "f57,f58,f84,f85,f116,f117,f189", "secid": "1.600519"},
+    )
+
+
+def _probe_eastmoney_concepts() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="eastmoney_push2_slist_concepts",
+        source_name="EastMoney Stock Concepts",
+        provider="eastmoney",
+        category="fundamental",
+        url="https://push2.eastmoney.com/api/qt/slist/get",
+        params={"fltt": "2", "invt": "2", "secid": "1.600519", "spt": "3", "pi": "0", "pz": "10", "po": "1", "fields": "f12,f14,f3,f128"},
+    )
+
+
+def _probe_eastmoney_fund_flow_minute() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="eastmoney_push2_fund_flow_minute",
+        source_name="EastMoney Minute Fund Flow",
+        provider="eastmoney",
+        category="fund-flow",
+        url="https://push2.eastmoney.com/api/qt/stock/fflow/kline/get",
+        params={"secid": "1.600519", "klt": "1", "fields1": "f1,f2,f3,f7", "fields2": "f51,f52,f53,f54,f55,f56,f57"},
+    )
+
+
+def _probe_eastmoney_industry_rank() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="eastmoney_push2_industry_rank",
+        source_name="EastMoney Industry Rank",
+        provider="eastmoney",
+        category="industry",
+        url="https://push2.eastmoney.com/api/qt/clist/get",
+        params={"pn": "1", "pz": "10", "po": "1", "np": "1", "fltt": "2", "invt": "2", "fs": "m:90+t:2", "fields": "f2,f3,f12,f14,f104,f105"},
+    )
+
+
+def _probe_eastmoney_datacenter_report(source_code: str, source_name: str, category: str, report_name: str) -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code=source_code,
+        source_name=source_name,
+        provider="eastmoney",
+        category=category,
+        url="https://datacenter-web.eastmoney.com/api/data/v1/get",
+        params={"reportName": report_name, "columns": "ALL", "pageNumber": "1", "pageSize": "1", "sortTypes": "-1", "source": "WEB", "client": "WEB"},
+    )
+
+
+def _probe_eastmoney_global_news() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="eastmoney_global_news",
+        source_name="EastMoney Global News",
+        provider="eastmoney",
+        category="news",
+        url="https://np-weblist.eastmoney.com/comm/web/getFastNewsList",
+        params={"client": "web", "biz": "web_724", "fastColumn": "102", "pageSize": "1"},
+    )
+
+
+def _probe_eastmoney_limit_pool() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="eastmoney_limit_pool",
+        source_name="EastMoney Limit Pool",
+        provider="eastmoney",
+        category="market-data",
+        url="https://push2ex.eastmoney.com/getTopicZTPool",
+        params={"ut": "7eea3edcaed734bea9cbfc24409ed989", "dpt": "wz.ztzt", "Pageindex": "0", "pagesize": "1", "sort": "fbt:asc", "date": _sample_trade_date_yyyymmdd()},
+    )
 
 
 def _probe_eastmoney_datacenter() -> DataSourceProbeResult:
@@ -356,6 +573,64 @@ def _probe_ths_basic() -> DataSourceProbeResult:
     )
 
 
+def _probe_ths_hot_reason() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="ths_hot_reason",
+        source_name="THS Hot Reason",
+        provider="ths",
+        category="market-data",
+        url=f"http://zx.10jqka.com.cn/event/api/getharden/date/{datetime.now().strftime('%Y-%m-%d')}/orderby/date/orderway/desc/charset/GBK/",
+        acceptable_status={200, 403, 404},
+    )
+
+
+def _probe_ths_limit_up_pool() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="ths_limit_up_pool",
+        source_name="THS Limit Up Pool",
+        provider="ths",
+        category="market-data",
+        url="https://data.10jqka.com.cn/dataapi/limit_up/limit_up_pool",
+        params={"page": "1", "limit": "1", "date": datetime.now().strftime("%Y%m%d")},
+        acceptable_status={200, 403},
+    )
+
+
+def _probe_ths_hot_list() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="ths_hot_list",
+        source_name="THS Hot List",
+        provider="ths",
+        category="market-data",
+        url="https://dq.10jqka.com.cn/fuyao/hot_list_data/out/hot_list/v1/stock",
+        params={"stock_type": "a", "type": "hour", "list_type": "normal"},
+        acceptable_status={200, 403},
+    )
+
+
+def _probe_ths_northbound() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="ths_northbound",
+        source_name="THS Northbound Minute Flow",
+        provider="ths",
+        category="fund-flow",
+        url="https://data.hexin.cn/market/hsgtApi/method/dayChart/",
+        acceptable_status={200, 403},
+    )
+
+
+def _probe_sina_option_codes() -> DataSourceProbeResult:
+    return _probe_http_endpoint(
+        source_code="sina_option_codes",
+        source_name="Sina ETF Option Codes",
+        provider="sina",
+        category="option",
+        url="https://stock.finance.sina.com.cn/futures/api/openapi.php/StockOptionService.getStockName",
+        params={"exchange": "null", "cate": "50ETF"},
+        acceptable_status={200, 403},
+    )
+
+
 def _probe_baidu() -> DataSourceProbeResult:
     return _timed_probe(
         source_code="baidu_stock",
@@ -390,6 +665,30 @@ def _probe_cninfo() -> DataSourceProbeResult:
         provider="cninfo",
         endpoint="https://www.cninfo.com.cn/new/data/szse_stock.json",
         probe=lambda: _http_check("https://www.cninfo.com.cn/new/data/szse_stock.json", timeout=10, acceptable_status={200}),
+    )
+
+
+def _probe_cninfo_announcements() -> DataSourceProbeResult:
+    return _probe_http_post_form_endpoint(
+        source_code="cninfo_announcements",
+        source_name="CNInfo Announcements",
+        provider="cninfo",
+        category="announcement",
+        url="https://www.cninfo.com.cn/new/hisAnnouncement/query",
+        data={"pageNum": "1", "pageSize": "1", "column": "szse", "tabName": "fulltext", "searchkey": "茅台"},
+        acceptable_status={200, 403},
+    )
+
+
+def _probe_cninfo_irm() -> DataSourceProbeResult:
+    return _probe_http_post_form_endpoint(
+        source_code="cninfo_irm",
+        source_name="CNInfo IRM",
+        provider="cninfo",
+        category="interaction",
+        url="https://irm.cninfo.com.cn/newircs/index/queryKeyboardInfo",
+        data={"keyWord": "600519"},
+        acceptable_status={200, 403},
     )
 
 

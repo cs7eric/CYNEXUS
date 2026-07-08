@@ -20,6 +20,7 @@ public class DataSourceHealthCheckItemBO {
     private String sourceType;
     private String category;
     private String provider;
+    private String description;
     private String endpoint;
     private String status;
     private Boolean connectivity;

@@ -10,7 +10,7 @@ from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
-from requests.exceptions import ProxyError
+from requests.exceptions import ProxyError, RequestException
 from urllib3.util.retry import Retry
 
 
@@ -45,7 +45,7 @@ class EastMoneyHttpClient:
         self._throttle()
         try:
             response = self.session.get(url, params=params, headers=headers, timeout=timeout or self.timeout, **kwargs)
-        except ProxyError:
+        except (ProxyError, RequestException):
             response = self._no_proxy_session().get(url, params=params, headers=headers, timeout=timeout or self.timeout, **kwargs)
         response.raise_for_status()
         return response
@@ -63,7 +63,7 @@ class EastMoneyHttpClient:
         self._throttle()
         try:
             response = self.session.post(url, json=json_body, data=data, headers=headers, timeout=timeout or self.timeout, **kwargs)
-        except ProxyError:
+        except (ProxyError, RequestException):
             response = self._no_proxy_session().post(url, json=json_body, data=data, headers=headers, timeout=timeout or self.timeout, **kwargs)
         response.raise_for_status()
         return response

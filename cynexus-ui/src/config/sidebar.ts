@@ -12,6 +12,7 @@ import {
   BrainCircuit,
   Database,
   Beaker,
+  Server,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -166,6 +167,10 @@ export const sidebarConfig = {
           url: "/settings/data-source",
         },
         {
+          title: "Provider",
+          url: "/settings/provider",
+        },
+        {
           title: "Prompt",
           url: "/settings/prompt",
         },
@@ -252,6 +257,11 @@ export const sidebarConfig = {
       name: "Settings · Data Source",
       url: "/settings/data-source",
       icon: Database,
+    },
+    {
+      name: "Settings · Provider",
+      url: "/settings/provider",
+      icon: Server,
     },
     {
       name: "Settings · Prompt",
