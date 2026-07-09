@@ -9,13 +9,13 @@ function AskAnswerSkeleton() {
   return (
     <div className="space-y-3 p-1">
       <div className="flex items-center gap-2">
-        <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-        <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-16 animate-pulse rounded bg-muted/60" />
       </div>
-      <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
-      <div className="h-4 w-11/12 animate-pulse rounded bg-slate-200" />
-      <div className="h-4 w-4/5 animate-pulse rounded bg-slate-200" />
-      <div className="h-4 w-3/5 animate-pulse rounded bg-slate-100" />
+      <div className="h-4 w-full animate-pulse rounded bg-muted" />
+      <div className="h-4 w-11/12 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-3/5 animate-pulse rounded bg-muted/60" />
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function AskSection({
       <div className="result-box qa-box">
         <div className="result-header" onClick={onToggleSection}>
           <span className="result-title">
-            <span className="icon">💬</span>Ask AI
+            Ask AI
           </span>
           <div className="result-meta">
             <span className="char-count">{qaItems.length} answers</span>
@@ -87,7 +87,7 @@ export function AskSection({
                       <div className={`qa-item-q-text ${isCollapsed ? "" : "expanded"}`}>
                         <div className="flex items-center gap-2">
                           <span>{item.question}</span>
-                          {item.loading ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Loading</span> : null}
+                          {item.loading ? <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">Loading</span> : null}
                         </div>
                       </div>
                       <svg

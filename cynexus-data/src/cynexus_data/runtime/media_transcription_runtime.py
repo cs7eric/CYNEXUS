@@ -80,16 +80,11 @@ class MediaTranscriptionRuntime:
         metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
         if not source_url:
             raise ValueError("download_url is required")
-        session = requests.Session()
-        try:
-            head_response = session.head(source_url, allow_redirects=True, timeout=(5, 15), headers=DOWNLOAD_HEADERS)
-            file_name = _build_download_filename(
-                source_url=source_url,
-                title=title or str(metadata.get("title") or "").strip(),
-                content_type=head_response.headers.get("Content-Type") if head_response.ok else None,
-            )
-        finally:
-            session.close()
+        file_name = _build_download_filename(
+            source_url=source_url,
+            title=title or str(metadata.get("title") or "").strip(),
+            content_type=None,
+        )
         task_id = str(uuid.uuid4())
         self._task_store.create_task_record(task_id, file_name, source_page_url or source_url)
         task_metadata = {
@@ -108,7 +103,7 @@ class MediaTranscriptionRuntime:
                 "phase": "queued",
                 "progress": 0,
                 "downloaded_bytes": 0,
-                "total_bytes": int(head_response.headers.get("Content-Length") or 0),
+                "total_bytes": 0,
                 "eta_seconds": None,
                 "speed_bytes_per_sec": 0,
             },
@@ -131,6 +126,7 @@ class MediaTranscriptionRuntime:
             "task_id": task_id,
             "status": task.get("status"),
             "transcript": task.get("transcript", ""),
+            "transcript_events": task.get("transcript_events", []),
             "polished": task.get("polished", ""),
             "summary": task.get("summary", ""),
             "metadata": task.get("metadata", {}),
@@ -323,16 +319,36 @@ class MediaTranscriptionRuntime:
 
         def on_chunk(*args: Any) -> None:
             nonlocal latest_text
+            previous_text = latest_text
             if len(args) >= 2:
                 latest_text = str(args[1] or "").strip()
             elif len(args) == 1:
                 latest_text = str(args[0] or "").strip()
             else:
                 return
-            self._task_store.update_task(task_id, transcript=latest_text)
+
+            def append_transcript_event(task: dict[str, Any]) -> None:
+                current = str(task.get("transcript") or "")
+                text = latest_text
+                if not text:
+                    return
+                if len(text) < len(current) and current.startswith(text):
+                    return
+                if text.startswith(current):
+                    delta = text[len(current):]
+                elif text.startswith(previous_text):
+                    delta = text[len(previous_text):]
+                else:
+                    delta = text
+                task["transcript"] = text
+                if delta:
+                    events = task.setdefault("transcript_events", [])
+                    events.append({"seq": len(events) + 1, "delta": delta, "text": text})
+
+            self._task_store.mutate_task(task_id, append_transcript_event)
 
         if hasattr(transcriber, "transcribe_streaming"):
-            result = transcriber.transcribe_streaming(str(audio_path), chunk_duration=30, callback=on_chunk)
+            result = transcriber.transcribe_streaming(str(audio_path), chunk_duration=8, callback=on_chunk)
             transcript = str(result or latest_text or "").strip()
         elif hasattr(transcriber, "transcribe"):
             transcript = str(transcriber.transcribe(str(audio_path), language=config.language) or "").strip()
@@ -341,7 +357,17 @@ class MediaTranscriptionRuntime:
         else:
             raise TypeError(f"unsupported transcriber object from {config.transcriber_path}")
         if transcript and transcript != latest_text:
-            self._task_store.update_task(task_id, transcript=transcript)
+            def append_final_transcript_event(task: dict[str, Any]) -> None:
+                current = str(task.get("transcript") or "")
+                if len(transcript) < len(current) and current.startswith(transcript):
+                    return
+                delta = transcript[len(current):] if transcript.startswith(current) else transcript
+                task["transcript"] = transcript
+                if delta:
+                    events = task.setdefault("transcript_events", [])
+                    events.append({"seq": len(events) + 1, "delta": delta, "text": transcript})
+
+            self._task_store.mutate_task(task_id, append_final_transcript_event)
         return transcript
 
     def _persist_transcript(

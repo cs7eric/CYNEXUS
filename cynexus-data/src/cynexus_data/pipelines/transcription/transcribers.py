@@ -23,7 +23,7 @@ def transcribe_audio(
     if hasattr(transcriber, "transcribe"):
         return str(transcriber.transcribe(str(audio_path), language=language))
     if hasattr(transcriber, "transcribe_streaming"):
-        return str(transcriber.transcribe_streaming(str(audio_path), chunk_duration=30))
+        return str(transcriber.transcribe_streaming(str(audio_path), chunk_duration=8))
     raise TypeError(f"unsupported transcriber object from {transcriber_path}")
 
 

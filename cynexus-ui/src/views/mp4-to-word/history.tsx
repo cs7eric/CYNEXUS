@@ -7,15 +7,15 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Search } from "lucide-react";
-import { askHistoryQuestion, deleteMP4History, getMP4History, listMP4History } from "@/services/legacy/mp4-history";
+import { ArrowLeft, FileText, RefreshCw, Search } from "lucide-react";
+import { askHistoryQuestion, deleteMP4History, getMP4History, listMP4History } from "@/services/core/mp4-history";
 import type { MP4HistoryListItem, MP4HistoryRecord } from "@/lib/history-types";
 import { MP4HistoryDataTable } from "@/components/mp4-history-data-table";
 import { WorkspaceShell } from "@/layout/workspace-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { notification } from "@/components/ui/notification";
 import DogLoader from "@/components/loader/dog-loader";
 import { buildSummaryCards } from "./lib/summary-renderer";
@@ -31,7 +31,7 @@ function formatDate(value?: string) {
 
 function DetailPanel({ html, text }: { html: string; text: string }) {
   return (
-    <div className="max-w-full overflow-hidden rounded-none border-y border-white/70 bg-white/85 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:rounded-3xl sm:border">
+    <div className="max-w-full overflow-hidden rounded-md border bg-background">
       <div className="result-body">{text ? <div dangerouslySetInnerHTML={{ __html: html }} /> : <div className="text-muted-foreground">暂无内容</div>}</div>
     </div>
   );
@@ -93,13 +93,13 @@ function MobileHistoryList({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search history"
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-[16px] text-slate-900 shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-sky-400"
+          className="h-10 w-full rounded-md border bg-background pl-10 pr-4 text-[16px] text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/30"
         />
       </div>
 
       <div className="space-y-2">
         {filteredItems.length ? filteredItems.map((item) => (
-          <Card key={item.id} className="overflow-hidden rounded-none border-x-0 border-white/70 bg-white/80 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+          <Card key={item.id} className="overflow-hidden rounded-none border-x-0 bg-background shadow-none">
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-2">
@@ -109,31 +109,31 @@ function MobileHistoryList({
                   </div>
                   <Link
                     to={`/mp4-to-word/history/${item.id}`}
-                    className="block break-words text-base font-semibold leading-6 tracking-tight text-slate-950"
+                    className="block break-words text-base font-semibold leading-6 text-foreground"
                   >
                     {item.title}
                   </Link>
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-xl bg-slate-50/80 p-3 text-sm text-slate-700">
+              <div className="space-y-2 rounded-md bg-muted/60 p-3 text-sm text-muted-foreground">
                 <div className="space-y-0.5">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">File</div>
-                  <div className="break-words text-sm text-slate-900">{item.file_name || "--"}</div>
+                  <div className="text-[11px] font-medium uppercase text-muted-foreground">File</div>
+                  <div className="break-words text-sm text-foreground">{item.file_name || "--"}</div>
                 </div>
                 <div className="space-y-0.5">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Task</div>
-                  <div className="truncate font-mono text-xs text-slate-900">{item.task_id}</div>
+                  <div className="text-[11px] font-medium uppercase text-muted-foreground">Task</div>
+                  <div className="truncate font-mono text-xs text-foreground">{item.task_id}</div>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Button asChild className="h-11 w-full rounded-xl">
+                <Button asChild className="h-10 w-full rounded-md">
                   <Link to={`/mp4-to-word/history/${item.id}`}>View detail</Link>
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-11 w-full rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="h-10 w-full rounded-md border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                   onClick={() => onDelete(item)}
                 >
                   Delete
@@ -142,7 +142,7 @@ function MobileHistoryList({
             </CardContent>
           </Card>
         )) : (
-          <Card className="rounded-none border-x-0 border-dashed border-slate-200 bg-white/75">
+          <Card className="rounded-none border-x-0 border-dashed bg-background shadow-none">
             <CardContent className="flex flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
               <Search className="size-8" />
               <div>{query ? "No matching history records." : "暂无历史记录，请在 MP4 解析完成后点击导出历史记录。"}</div>
@@ -231,7 +231,7 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
       );
     }
     return (
-      <div className="max-w-full overflow-hidden rounded-none border-y border-white/70 bg-white/85 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:rounded-3xl sm:border">
+      <div className="max-w-full overflow-hidden rounded-md border bg-background">
         <div className="summary-stage">
           <div className="summary-workspace" dangerouslySetInnerHTML={{ __html: summaryHtml }} />
         </div>
@@ -240,7 +240,7 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
   }, [activeView, collapsedAsk, collapsedQaItems, handleFollowupAsk, handleToggleQaItem, polishedHtml, qaItems, summaryHtml, task.polished, task.transcript, transcriptHtml]);
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 px-3 sm:px-0">
         <Button asChild variant="ghost" size="sm">
           <Link to="/mp4-to-word/history" className="inline-flex items-center gap-2">
@@ -250,42 +250,42 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
         </Button>
       </div>
 
-      <Card className="overflow-hidden rounded-none border-x-0 border-white/70 bg-gradient-to-br from-white via-slate-50 to-slate-100/80 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:rounded-xl sm:border">
-        <CardContent className="space-y-5 p-4 sm:p-6">
+      <div className="overflow-hidden rounded-none border-y bg-background sm:rounded-md sm:border">
+        <div className="space-y-4 p-4 sm:p-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{record.type}</Badge>
               <Badge variant="outline">{task.status || "done"}</Badge>
             </div>
             <div>
-              <h1 className="break-words text-xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{record.title}</h1>
+              <h1 className="break-words text-xl font-semibold text-foreground sm:text-2xl">{record.title}</h1>
               <p className="mt-2 text-sm text-muted-foreground">{formatDate(record.created_at)}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl bg-white/80 p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="rounded-md bg-muted/60 p-3">
               <div className="text-xs text-muted-foreground">Task ID</div>
-              <div className="mt-1 truncate font-mono text-sm text-slate-900">{task.task_id}</div>
+              <div className="mt-1 truncate font-mono text-sm text-foreground">{task.task_id}</div>
             </div>
-            <div className="rounded-xl bg-white/80 p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="rounded-md bg-muted/60 p-3">
               <div className="text-xs text-muted-foreground">File</div>
-              <div className="mt-1 truncate text-sm text-slate-900">{task.file_name || "--"}</div>
+              <div className="mt-1 truncate text-sm text-foreground">{task.file_name || "--"}</div>
             </div>
-            <div className="rounded-xl bg-white/80 p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="rounded-md bg-muted/60 p-3">
               <div className="text-xs text-muted-foreground">Platform</div>
-              <div className="mt-1 truncate text-sm text-slate-900">{String(metadata.platform || "--")}</div>
+              <div className="mt-1 truncate text-sm text-foreground">{String(metadata.platform || "--")}</div>
             </div>
-            <div className="rounded-xl bg-white/80 p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="rounded-md bg-muted/60 p-3">
               <div className="text-xs text-muted-foreground">Duration</div>
-              <div className="mt-1 truncate text-sm text-slate-900">{metadata.duration ? `${metadata.duration}s` : "--"}</div>
+              <div className="mt-1 truncate text-sm text-foreground">{metadata.duration ? `${metadata.duration}s` : "--"}</div>
             </div>
           </div>
           <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-xl bg-white/80 p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="rounded-md bg-muted/60 p-3">
               <div className="text-xs text-muted-foreground">Source</div>
-              <div className="mt-1 break-all text-sm text-slate-900">{String(metadata.source_url || metadata.download_url || "--")}</div>
+              <div className="mt-1 break-all text-sm text-foreground">{String(metadata.source_url || metadata.download_url || "--")}</div>
             </div>
-            <div className="rounded-xl bg-white/80 p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="rounded-md bg-muted/60 p-3">
               <div className="text-xs text-muted-foreground">Tags</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {(metadata.tags as string[] | undefined)?.length ? (metadata.tags as string[]).map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>) : <span className="text-sm text-muted-foreground">--</span>}
@@ -296,11 +296,11 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-4 gap-1 rounded-none border-y border-white/70 bg-white/75 p-1.5 shadow-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:rounded-2xl sm:border sm:p-2">
+      <div className="space-y-3">
+        <div className="grid grid-cols-4 gap-1 rounded-none border-y bg-muted/60 p-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:rounded-md sm:border sm:p-2">
           {[
             { key: "summary", label: "Summary" },
             { key: "polished", label: "Polished" },
@@ -310,7 +310,7 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
             <Button
               key={item.key}
               variant={activeView === item.key ? "default" : "ghost"}
-              className="h-9 w-full rounded-lg px-2 text-xs sm:h-10 sm:w-auto sm:rounded-xl sm:px-4 sm:text-sm"
+              className="h-8 w-full rounded-md px-2 text-xs sm:w-auto sm:px-3 sm:text-sm"
               onClick={() => setActiveView(item.key as "summary" | "polished" | "transcript" | "ask")}
             >
               {item.label}
@@ -385,21 +385,25 @@ export default function Mp4HistoryPage() {
 
   return (
     <WorkspaceShell sectionLabel="MP4 to Word" pageTitle="History" mobilePageTitle="history">
-      <div className="container max-w-full space-y-4 px-0 sm:space-y-5 sm:px-6">
+      <div className="flex w-full flex-col gap-5">
         <style>{QA_STYLE_FIX}</style>
         {id ? null : (
-          <Card className="hidden border-white/70 bg-white/80 shadow-[0_20px_70px_rgba(15,23,42,0.08)] sm:block">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
-                    <FileText className="size-5" /> MP4 History
-                  </CardTitle>
-                  <CardDescription>从 reference JSON 索引中读取已导出的结构化历史记录。</CardDescription>
-                </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <FileText className="size-4" />
+                MP4 to Word
               </div>
-            </CardHeader>
-          </Card>
+              <h1 className="text-2xl font-semibold text-foreground">History</h1>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                从 cynexus-core 读取已导出的转写、polish、summary 和 Ask AI 结构化历史记录。
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => void load()} disabled={loading}>
+              <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
+              Refresh
+            </Button>
+          </div>
         )}
 
         {error && (

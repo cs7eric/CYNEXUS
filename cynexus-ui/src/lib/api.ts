@@ -253,10 +253,9 @@ export {
 export type { DownloaderParseData, RemoteParsePayload } from "@/services/legacy/downloader"
 export { parseDownloaderUrl } from "@/services/legacy/downloader"
 
-export type { TaskSnapshot } from "@/services/legacy/mp4-workspace"
+export type { TaskSnapshot } from "@/services/core/transcription"
 export {
   askQuestion,
-  checkStatus,
   createSSEConnection,
   exportMarkdown,
   fetchTaskSnapshot,
@@ -264,7 +263,7 @@ export {
   sendDownloaderResultToParse,
   uploadFile,
   uploadFileWithProgress,
-} from "@/services/legacy/mp4-workspace"
+} from "@/services/core/transcription"
 
 export {
   askHistoryQuestion,
@@ -272,7 +271,7 @@ export {
   getMP4History,
   listMP4History,
   reorderMP4History,
-} from "@/services/legacy/mp4-history"
+} from "@/services/core/mp4-history"
 
 export { fetchMarketOverview } from "@/services/legacy/market-overview"
 

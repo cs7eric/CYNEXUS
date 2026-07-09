@@ -142,6 +142,19 @@ jobs:
       resume: optional
       checkpoint_prefix: optional
 
+  sync_index_daily_raw_from_daily_raw:
+    description: Maintain index_daily_raw from daily_raw index rows after raw daily sync.
+    params:
+      trade_date: optional
+      date: optional
+      start_date: optional
+      end_date: optional
+      index_codes: optional
+      codes: optional
+      source_table: optional
+      target_table: optional
+      create_table: optional
+
   sync_kline_minute:
     description: Sync minute kline records.
     params:

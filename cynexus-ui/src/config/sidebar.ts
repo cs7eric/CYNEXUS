@@ -129,6 +129,10 @@ export const sidebarConfig = {
           url: "/poc/ai",
         },
         {
+          title: "a stock skill",
+          url: "/poc/a-stock-skill",
+        },
+        {
           title: "markdown render",
           url: "/poc/markdown-render",
         },
@@ -237,6 +241,11 @@ export const sidebarConfig = {
       name: "POC · AI",
       url: "/poc/ai",
       icon: BrainCircuit,
+    },
+    {
+      name: "POC · A股 Skill",
+      url: "/poc/a-stock-skill",
+      icon: Database,
     },
     {
       name: "POC · Markdown Render",

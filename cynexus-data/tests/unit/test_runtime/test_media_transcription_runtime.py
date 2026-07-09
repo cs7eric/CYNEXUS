@@ -30,6 +30,7 @@ def test_media_transcription_runtime_completes_task(monkeypatch, tmp_path: Path)
     assert task is not None
     assert task["status"] == "done"
     assert task["transcript"] == "第一段转写 第二段转写"
+    assert [item["delta"] for item in task["transcript_events"]] == ["第一段转写", " 第二段转写"]
     assert task["polished"] == task["transcript"]
     assert "## 核心主题" in task["summary"]
 

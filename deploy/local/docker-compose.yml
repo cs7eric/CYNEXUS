@@ -146,10 +146,14 @@ services:
       DUCKDB_PATH: /app/var/market_data.duckdb
       TDX_ROOT: /app/var/tdx/day/hsjday
       CYNEXUS_MEDIA_TRANSCRIPTION_WORK_ROOT: /app/var/media-transcription
-      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER:-cynexus_data.pipelines.transcription.providers.transformers_whisper:TransformersWhisperTranscriber}
-      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS:-}
+      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER:-cynexus_data.pipelines.transcription.providers.faster_whisper:FasterWhisperTranscriber}
+      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS:-{"device":"cuda","compute_type":"float16","beam_size":1,"vad_filter":true,"fallback_device":"cpu"}}
       CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE: ${CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE:-zh}
-      CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH: ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH:-/models/transcription/whisper-large-v3}
+      CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH: ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH:-/app/var/models/whisper-large-v3-ct2}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      LD_LIBRARY_PATH: /usr/local/lib/python3.13/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.13/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.13/site-packages/nvidia/cu13/lib:/usr/local/lib/python3.13/site-packages/nvidia/cusparse/lib:/usr/local/lib/python3.13/site-packages/nvidia/cusolver/lib
+    gpus: all
     ports:
       - "127.0.0.1:18083:18083"
     volumes:
@@ -158,7 +162,7 @@ services:
         source: ${CYNEXUS_TDX_LOCAL_ROOT:-D:/Program File/tdx}
         target: /app/tdx
         read_only: true
-      - ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_HOST_PATH:-../../cynexus-data/var/models}:/models/transcription:ro
+      - ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_HOST_PATH:-F:/dev-repo/mp4-to-word-new/models/AI-ModelScope}:/models/transcription:ro
     healthcheck:
       test:
         [

@@ -5,6 +5,26 @@ export function textList(value: unknown): string[] {
   return value.map((item) => String(item ?? "").trim()).filter(Boolean)
 }
 
+export function compactIssueList(items: string[], limit = 3): string[] {
+  const normalized = items.map((item) => simplifyIssueText(item)).filter(Boolean)
+  const unique = Array.from(new Set(normalized))
+  if (unique.length <= limit) return unique
+  return [...unique.slice(0, limit), `另有 ${unique.length - limit} 条同类提示`]
+}
+
+export function simplifyIssueText(value: string): string {
+  const text = value.trim()
+  if (!text) return ""
+  if (/rate_limit_error|Token Plan|http_code[\"']?\s*:\s*[\"']?429|429/.test(text)) {
+    const segment = text.match(/segment_\d+/)?.[0]
+    return `${segment ? `${segment} ` : ""}AI 配额已耗尽，暂时无法生成新分析`
+  }
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\{[^\n]{80,}\}/g, "接口返回了较长错误信息")
+    .slice(0, 180)
+}
+
 export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }

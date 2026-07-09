@@ -122,6 +122,16 @@ def test_read_close_series_groups_duplicate_trade_dates() -> None:
     assert [row["trade_date"] for row in rows] == ["2026-06-25", "2026-06-26"]
 
 
+def test_read_close_series_accepts_prefixed_tdx_code_for_wide_daily_raw() -> None:
+    client = FakeClickHouseClient(rows=[(date(2026, 7, 8), 4755.53)])
+
+    readers.read_close_series(client, "sh000300", "2026-07-08", table="daily_raw", limit=1)
+
+    sql, params = client.row_calls[0]
+    assert "tdx_code = %(tdx_code)s" in sql
+    assert params["tdx_code"] == "sh000300"
+
+
 def test_turnover_activity_reader_deduplicates_index_amounts_before_sum() -> None:
     client = FakeClickHouseClient(rows=[(date(2026, 6, 29), 16662.2, 18515.3, 35177.5)])
 

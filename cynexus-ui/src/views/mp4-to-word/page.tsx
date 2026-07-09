@@ -5,10 +5,10 @@
  * - Backend design: design/backend/mp4-history-reference-flow.md
  * - Change rule: review design before edits; sync design if remote intake, SSE, or history flow changes.
  */
-import { useRef, useState, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useRef, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Phase, PostMetadata, SSEEvent, TransferProgress } from "../../lib/types";
-import { askQuestion, createSSEConnection, exportMarkdown, fetchTaskSnapshot, saveMP4History, sendDownloaderResultToParse, uploadFile, uploadFileWithProgress } from "@/services/legacy/mp4-workspace";
+import { askQuestion, createSSEConnection, exportMarkdown, fetchTaskSnapshot, saveMP4History, sendDownloaderResultToParse, uploadFile, uploadFileWithProgress } from "@/services/core/transcription";
 import { notification } from "@/components/ui/notification";
 import { QA_STYLE_FIX } from "./styles";
 import { buildSummaryCards } from "./lib/summary-renderer";
@@ -24,7 +24,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, BookOpen, Captions, CheckCircle2, Code2, Copy, Download, ExternalLink, FileAudio, FileText, Info, ListChecks, Sparkles, UploadCloud } from "lucide-react";
+import type { DownloaderParseData, RemoteParsePayload } from "@/services/legacy/downloader";
+import { parseDownloaderUrl } from "@/services/legacy/downloader";
+import { LinkActionRow } from "@/views/downloader/components/link-action-row";
+import { LoadingState } from "@/views/downloader/components/loading-state";
+import { formatDuration } from "@/views/downloader/lib/format";
+import { AlertCircle, BookOpen, Captions, CheckCircle2, Code2, Copy, Download, ExternalLink, FileAudio, FileText, History, Info, LinkIcon, ListChecks, Loader2, RefreshCw, Send, Sparkles, UploadCloud, Video, X } from "lucide-react";
 
 interface QaItem {
   id: string;
@@ -87,15 +92,69 @@ function compactUrl(value: string) {
   }
 }
 
+function hasTransferProgressSignal(progress?: TransferProgress | null) {
+  return Boolean(
+    progress &&
+      (progress.phase ||
+        progress.progress != null ||
+        progress.downloaded_bytes != null ||
+        progress.total_bytes != null ||
+        progress.processed_bytes != null)
+  );
+}
+
+function shouldKeepCompletedProgress(current: TransferProgress, next?: TransferProgress | null) {
+  if ((current.progress || 0) < 100 || !next) return false;
+  const nextProgress = next.progress ?? 0;
+  const nextTotal = next.total_bytes ?? 0;
+  const nextDownloaded = next.downloaded_bytes ?? 0;
+  const nextProcessed = next.processed_bytes ?? 0;
+  return nextProgress <= 0 && nextTotal <= 0 && nextDownloaded <= 0 && nextProcessed <= 0;
+}
+
+function selectDownloaderMediaUrl(result: DownloaderParseData | null) {
+  if (!result) return "";
+  return (
+    result.originDownloadAudioUrl ||
+    result.originDownloadVideoUrl ||
+    result.downloadVideoUrl ||
+    result.downloadAudioUrl ||
+    ""
+  );
+}
+
 function TextSkeletonBlock({ rows = 8 }: { rows?: number }) {
   return (
     <div className="space-y-3 p-1">
       {Array.from({ length: rows }).map((_, index) => (
         <Skeleton
           key={index}
-          className={`h-4 ${index % 4 === 3 ? "w-2/3" : index % 3 === 2 ? "w-4/5" : "w-full"}`}
+          className={`h-4 bg-[#e4e4e7] ${index % 4 === 3 ? "w-2/3" : index % 3 === 2 ? "w-4/5" : "w-full"}`}
         />
       ))}
+    </div>
+  );
+}
+
+function MetricTile({
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-md bg-muted/60 px-4 py-3">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-2 truncate text-xl font-semibold tabular-nums text-foreground">{value}</div>
+      {hint ? <div className="mt-1 truncate text-xs text-muted-foreground">{hint}</div> : null}
     </div>
   );
 }
@@ -119,15 +178,47 @@ function ProgressCard({
 }) {
   const percent = Math.max(0, Math.min(100, Math.round(progress.progress || 0)));
   const status = percent >= 100 ? "Done" : progress.phase || "Running";
+  const done = percent >= 100;
+  const ProgressIcon = title === "Download" ? Download : title.includes("Upload") ? UploadCloud : RefreshCw;
+
+  if (done) {
+    return (
+      <Card className="rounded-md border-0 bg-[#f9f9f9] py-2 shadow-none">
+        <CardContent className="flex flex-col gap-1 px-2.5 py-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground">
+              <ProgressIcon className="size-3.5" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+              <span className="truncate text-sm font-semibold text-foreground">{title}</span>
+              <Badge variant="secondary" className="h-5 w-fit border-0 bg-background/80 px-1.5 text-[10px] font-medium">
+                Done
+              </Badge>
+              <span className="truncate text-xs text-muted-foreground">
+                {formatBytes(transferred)} / {formatBytes(total)}
+              </span>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="rounded bg-background/75 px-2 py-0.5 font-medium tabular-nums text-foreground">100%</span>
+            <span className="hidden h-3 w-px bg-border/70 sm:block" />
+            <span>Total {formatBytes(total)}</span>
+            <span className="h-3 w-px bg-border/70" />
+            <span>ETA 0s</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="overflow-hidden border-white/70 bg-white/75 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+    <Card className="overflow-hidden rounded-md border-0 bg-[#f9f9f9] py-2 shadow-none">
       <CardHeader className="gap-3 pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <span className="inline-flex size-8 items-center justify-center rounded-full bg-slate-950 text-xs text-white">
-                {title.slice(0, 1)}
+              <span className="inline-flex size-7 items-center justify-center text-muted-foreground">
+                <ProgressIcon className="size-4" />
               </span>
               {title}
             </CardTitle>
@@ -139,23 +230,23 @@ function ProgressCard({
       <CardContent className="space-y-5">
         <div className="space-y-2">
           <div className="flex items-end justify-between">
-            <span className="text-3xl font-semibold tracking-tight text-slate-950">{percent}%</span>
+            <span className="text-2xl font-semibold text-foreground">{percent}%</span>
             <span className="text-xs text-muted-foreground">{formatBytes(transferred)} / {formatBytes(total)}</span>
           </div>
-          <Progress value={percent} className="h-2.5" />
+          <Progress value={percent} className="h-2" />
         </div>
-        <div className="grid grid-cols-3 gap-3 rounded-2xl bg-slate-50/80 p-3">
+        <div className="grid grid-cols-3 gap-2 rounded-md bg-background/70 p-3">
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Speed</div>
-            <div className="mt-1 text-sm font-medium text-slate-900">{speed ? `${formatBytes(speed)}/s` : "--"}</div>
+            <div className="text-[11px] font-medium uppercase text-muted-foreground">Speed</div>
+            <div className="mt-1 text-sm font-medium text-foreground">{speed ? `${formatBytes(speed)}/s` : "--"}</div>
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">ETA</div>
-            <div className="mt-1 text-sm font-medium text-slate-900">{formatDurationSeconds(eta)}</div>
+            <div className="text-[11px] font-medium uppercase text-muted-foreground">ETA</div>
+            <div className="mt-1 text-sm font-medium text-foreground">{formatDurationSeconds(eta)}</div>
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</div>
-            <div className="mt-1 text-sm font-medium text-slate-900">{formatBytes(total)}</div>
+            <div className="text-[11px] font-medium uppercase text-muted-foreground">Total</div>
+            <div className="mt-1 text-sm font-medium text-foreground">{formatBytes(total)}</div>
           </div>
         </div>
       </CardContent>
@@ -169,10 +260,13 @@ export default function Mp4ToWordPage() {
   const remoteStartKeyRef = useRef("");
   const transcriptTargetRef = useRef("");
   const transcriptFrameRef = useRef<number | null>(null);
+  const transcriptLastFrameAtRef = useRef(0);
+  const transcriptTypingCarryRef = useRef(0);
+  const transcriptSeqRef = useRef(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTaskId = searchParams.get("task") || "";
 
-  const remoteDraft = useMemo<RemoteTaskDraft | null>(() => {
+  const initialRemoteDraft = useMemo<RemoteTaskDraft | null>(() => {
     const mode = searchParams.get("mode");
     const downloadUrl = searchParams.get("downloadUrl") || "";
     if (mode !== "remote" || !downloadUrl) return null;
@@ -187,6 +281,7 @@ export default function Mp4ToWordPage() {
       audioUrl: searchParams.get("audioUrl") || "",
     };
   }, [searchParams]);
+  const [remoteDraft, setRemoteDraft] = useState<RemoteTaskDraft | null>(initialRemoteDraft);
 
   const [phase, setPhase] = useState<Phase>(initialTaskId || remoteDraft ? "converting" : "idle");
   const [transcript, setTranscript] = useState("");
@@ -210,6 +305,13 @@ export default function Mp4ToWordPage() {
   const [remoteFileName, setRemoteFileName] = useState("");
   const [downloadProgress, setDownloadProgress] = useState<TransferProgress>({ progress: 0, phase: "pending" });
   const [intakeProgress, setIntakeProgress] = useState<TransferProgress>({ progress: 0, phase: "pending" });
+  const [downloaderUrl, setDownloaderUrl] = useState("");
+  const [downloaderLoading, setDownloaderLoading] = useState(false);
+  const [downloaderError, setDownloaderError] = useState("");
+  const [downloaderResult, setDownloaderResult] = useState<DownloaderParseData | null>(null);
+  const [downloaderCopiedValue, setDownloaderCopiedValue] = useState("");
+  const [downloaderSendingToParse, setDownloaderSendingToParse] = useState(false);
+  const [downloaderSendToParseMessage, setDownloaderSendToParseMessage] = useState("");
 
   const currentStep =
     phase === "idle"
@@ -227,10 +329,13 @@ export default function Mp4ToWordPage() {
     setTranscript("");
     setDisplayedTranscript("");
     transcriptTargetRef.current = "";
+    transcriptSeqRef.current = 0;
     if (transcriptFrameRef.current) {
       cancelAnimationFrame(transcriptFrameRef.current);
       transcriptFrameRef.current = null;
     }
+    transcriptLastFrameAtRef.current = 0;
+    transcriptTypingCarryRef.current = 0;
     setPolished("");
     setSummary("");
     setError("");
@@ -242,26 +347,32 @@ export default function Mp4ToWordPage() {
     setIntakeProgress({ progress: 0, phase: "pending" });
   }, []);
 
-  const animateTranscriptTo = useCallback((nextText: string) => {
-    setTranscript(nextText);
-    transcriptTargetRef.current = nextText;
-
+  const startTranscriptTypewriter = useCallback(() => {
     if (transcriptFrameRef.current) return;
 
-    const tick = () => {
+    const tick = (timestamp: number) => {
       setDisplayedTranscript((current) => {
         const target = transcriptTargetRef.current;
         if (current === target) {
           transcriptFrameRef.current = null;
+          transcriptLastFrameAtRef.current = 0;
+          transcriptTypingCarryRef.current = 0;
           return current;
         }
-
         if (!target.startsWith(current)) {
+          transcriptLastFrameAtRef.current = 0;
+          transcriptTypingCarryRef.current = 0;
           return target;
         }
-
         const remaining = target.length - current.length;
-        const step = Math.max(1, Math.min(18, Math.ceil(remaining / 8)));
+        const elapsedMs = transcriptLastFrameAtRef.current
+          ? Math.min(120, Math.max(8, timestamp - transcriptLastFrameAtRef.current))
+          : 16;
+        transcriptLastFrameAtRef.current = timestamp;
+        const charsPerSecond = Math.max(48, Math.min(140, remaining / 3.8));
+        transcriptTypingCarryRef.current += (charsPerSecond * elapsedMs) / 1000;
+        const step = Math.max(1, Math.min(remaining, Math.floor(transcriptTypingCarryRef.current)));
+        transcriptTypingCarryRef.current = Math.max(0, transcriptTypingCarryRef.current - step);
         return target.slice(0, current.length + step);
       });
 
@@ -273,14 +384,64 @@ export default function Mp4ToWordPage() {
     transcriptFrameRef.current = requestAnimationFrame(tick);
   }, []);
 
+  const animateTranscriptTo = useCallback((nextText: string) => {
+    const currentTarget = transcriptTargetRef.current;
+    if (!nextText && currentTarget) return;
+    if (nextText.length < currentTarget.length && currentTarget.startsWith(nextText)) return;
+
+    setTranscript((current) => {
+      if (nextText.length < current.length && current.startsWith(nextText)) return current;
+      return nextText;
+    });
+    transcriptTargetRef.current = nextText;
+    startTranscriptTypewriter();
+  }, [startTranscriptTypewriter]);
+
+  const appendTranscriptDelta = useCallback((delta: string, fullText?: string, seq?: number) => {
+    if (!delta && !fullText) return;
+    if (seq != null && seq <= transcriptSeqRef.current) return;
+    if (seq != null) transcriptSeqRef.current = seq;
+
+    const nextFromFull = fullText || "";
+    setTranscript((current) => {
+      if (nextFromFull) {
+        if (nextFromFull.length < current.length && current.startsWith(nextFromFull)) return current;
+        transcriptTargetRef.current = nextFromFull;
+        return nextFromFull;
+      }
+      const next = `${current}${delta}`;
+      transcriptTargetRef.current = next;
+      return next;
+    });
+    startTranscriptTypewriter();
+  }, [startTranscriptTypewriter]);
+
   const applyTaskSnapshot = useCallback((snapshot: Awaited<ReturnType<typeof fetchTaskSnapshot>>) => {
     const status = snapshot.status as Phase;
-    animateTranscriptTo(snapshot.transcript || "");
+    if (snapshot.transcript || !transcriptTargetRef.current) {
+      animateTranscriptTo(snapshot.transcript || "");
+    }
     setPolished(snapshot.polished || "");
     setSummary(snapshot.summary || "");
     setRemoteFileName(snapshot.file_name || "");
-    setDownloadProgress(snapshot.download_progress || { progress: 0, phase: "pending" });
-    setIntakeProgress(snapshot.intake_progress || { progress: 0, phase: "pending" });
+    setDownloadProgress((current) => {
+      if (shouldKeepCompletedProgress(current, snapshot.download_progress)) {
+        return current;
+      }
+      if (hasTransferProgressSignal(snapshot.download_progress)) {
+        return snapshot.download_progress;
+      }
+      return current.progress === 100 ? current : { progress: 0, phase: "pending" };
+    });
+    setIntakeProgress((current) => {
+      if (shouldKeepCompletedProgress(current, snapshot.intake_progress)) {
+        return current;
+      }
+      if (hasTransferProgressSignal(snapshot.intake_progress)) {
+        return snapshot.intake_progress;
+      }
+      return current.progress === 100 ? current : { progress: 0, phase: "pending" };
+    });
 
     if (snapshot.metadata) {
       setRemoteMeta(snapshot.metadata as unknown as PostMetadata);
@@ -426,7 +587,11 @@ export default function Mp4ToWordPage() {
             setPhase("transcribing");
             break;
           case "chunk":
-            animateTranscriptTo(event.text || "");
+            if (event.delta) {
+              appendTranscriptDelta(event.delta, event.text, event.seq);
+            } else {
+              animateTranscriptTo(event.text || "");
+            }
             setPhase("transcribing");
             break;
           case "transcribe_done":
@@ -455,11 +620,15 @@ export default function Mp4ToWordPage() {
             setPolished((prev) => event.polished_text || prev);
             break;
           case "done":
+            if (event.raw_text) {
+              animateTranscriptTo(event.raw_text);
+            }
             setPolished((prev) => event.polished_text || prev);
             setSummary((prev) => event.summary_text || prev);
             setRemoteMeta(event.metadata || remoteMeta);
             setPhase("done");
             setSearchParams({ task: id });
+            void refreshTaskSnapshot(id);
             break;
           case "error":
             setError(event.error || "Unknown error");
@@ -478,44 +647,54 @@ export default function Mp4ToWordPage() {
     esRef.current = es;
   }, [animateTranscriptTo, remoteMeta, refreshTaskSnapshot, setSearchParams]);
 
-  const startRemoteWorkflow = useCallback(async () => {
-    if (!remoteDraft) return;
-    const remoteStartKey = `${remoteDraft.downloadUrl}|${remoteDraft.title}|${remoteDraft.sourceUrl}`;
+  const startRemoteWorkflow = useCallback(async (draftOverride?: RemoteTaskDraft) => {
+    const draft = draftOverride || remoteDraft;
+    if (!draft) return;
+    const remoteStartKey = `${draft.downloadUrl}|${draft.title}|${draft.sourceUrl}`;
     if (remoteStarting || remoteStartKeyRef.current === remoteStartKey) return;
     remoteStartKeyRef.current = remoteStartKey;
+    setSearchParams({}, { replace: true });
     setRemoteStarting(true);
     resetProcessingState("converting");
     setRemoteMeta({
-      title: remoteDraft.title,
-      categories: [remoteDraft.platform],
-      tags: [remoteDraft.noteType || "video"],
+      title: draft.title,
+      categories: [draft.platform],
+      tags: [draft.noteType || "video"],
     });
 
     try {
-      const file = await downloadRemoteFileInBrowser(remoteDraft);
-      setRemoteFileName(file.name);
-      const id = await uploadFileWithProgress(file, (progress) => {
-        setIntakeProgress(progress);
+      setDownloadProgress({
+        phase: "queued",
+        progress: 0,
+        downloaded_bytes: 0,
+        total_bytes: 0,
+        eta_seconds: null,
+        speed_bytes_per_sec: 0,
       });
-      startTaskMonitoring(id);
+      const workflow = await sendDownloaderResultToParse({
+        downloadUrl: draft.downloadUrl,
+        title: draft.title,
+        sourceUrl: draft.sourceUrl,
+        metadata: {
+          title: draft.title,
+          platform: draft.platform,
+          duration: draft.duration,
+          noteType: draft.noteType,
+          download_audio_url: draft.audioUrl,
+          original_url: draft.sourceUrl,
+        },
+      });
+
+      setRemoteFileName(workflow.file_name);
+      startTaskMonitoring(workflow.task_id);
     } catch {
       try {
-        const workflow = await sendDownloaderResultToParse({
-          downloadUrl: remoteDraft.downloadUrl,
-          title: remoteDraft.title,
-          sourceUrl: remoteDraft.sourceUrl,
-          metadata: {
-            title: remoteDraft.title,
-            platform: remoteDraft.platform,
-            duration: remoteDraft.duration,
-            noteType: remoteDraft.noteType,
-            download_audio_url: remoteDraft.audioUrl,
-            original_url: remoteDraft.sourceUrl,
-          },
+        const file = await downloadRemoteFileInBrowser(draft);
+        setRemoteFileName(file.name);
+        const id = await uploadFileWithProgress(file, (progress) => {
+          setIntakeProgress(progress);
         });
-
-        setRemoteFileName(workflow.file_name);
-        startTaskMonitoring(workflow.task_id);
+        startTaskMonitoring(id);
       } catch (fallbackError) {
         setError(fallbackError instanceof Error ? fallbackError.message : String(fallbackError));
         setPhase("error");
@@ -523,7 +702,7 @@ export default function Mp4ToWordPage() {
     } finally {
       setRemoteStarting(false);
     }
-  }, [downloadRemoteFileInBrowser, remoteDraft, remoteStarting, resetProcessingState, startTaskMonitoring]);
+  }, [downloadRemoteFileInBrowser, remoteDraft, remoteStarting, resetProcessingState, setSearchParams, startTaskMonitoring]);
 
   const toggleCollapse = useCallback((name: string) => {
     setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -535,6 +714,7 @@ export default function Mp4ToWordPage() {
 
   const handleFileSelected = useCallback(async (file: File) => {
     setSearchParams({});
+    setRemoteDraft(null);
     remoteStartKeyRef.current = "";
     resetProcessingState("converting");
     setTaskId("");
@@ -644,6 +824,106 @@ export default function Mp4ToWordPage() {
     navigator.clipboard.writeText(text);
   }, []);
 
+  const handleDownloaderCopy = useCallback(async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setDownloaderCopiedValue(value);
+      window.setTimeout(() => {
+        setDownloaderCopiedValue((current) => (current === value ? "" : current));
+      }, 1500);
+    } catch {
+      setDownloaderError("复制失败，请手动复制链接");
+    }
+  }, []);
+
+  const handleDownloaderPaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setDownloaderUrl(text);
+      setDownloaderError("");
+    } catch {
+      setDownloaderError("无法读取剪贴板，请手动粘贴链接");
+    }
+  }, []);
+
+  const handleDownloaderSubmit = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = downloaderUrl.trim();
+    if (!trimmed) {
+      setDownloaderError("请输入要解析的链接");
+      return;
+    }
+
+    setDownloaderLoading(true);
+    setDownloaderError("");
+    setDownloaderResult(null);
+    setDownloaderSendToParseMessage("");
+
+    try {
+      setDownloaderResult(await parseDownloaderUrl(trimmed));
+    } catch (err) {
+      setDownloaderError(err instanceof Error ? err.message : "解析失败");
+    } finally {
+      setDownloaderLoading(false);
+    }
+  }, [downloaderUrl]);
+
+  const handleDownloaderSendToParse = useCallback(() => {
+    const result = downloaderResult;
+    if (!result || downloaderSendingToParse) return;
+    const mediaUrl = selectDownloaderMediaUrl(result);
+    if (!mediaUrl || downloaderSendingToParse) return;
+
+    setDownloaderSendingToParse(true);
+    setDownloaderSendToParseMessage("");
+    setDownloaderError("");
+
+    try {
+      const payload: RemoteParsePayload = {
+        downloadUrl: mediaUrl,
+        title: result.title,
+        sourceUrl: result.url,
+        metadata: {
+          title: result.title,
+          platform: result.platform,
+          duration: result.duration,
+          noteType: result.noteType,
+          download_audio_url: result.originDownloadAudioUrl || result.downloadAudioUrl,
+          original_url: result.url,
+        },
+      };
+
+      setDownloaderSendToParseMessage("正在接入 MP4 to Text 工作流...");
+      setTaskId("");
+      remoteStartKeyRef.current = "";
+      const nextDraft: RemoteTaskDraft = {
+        downloadUrl: payload.downloadUrl,
+        title: payload.title || "未命名视频",
+        sourceUrl: payload.sourceUrl || payload.downloadUrl,
+        platform: result.platform || "Downloader",
+        duration: result.duration,
+        noteType: result.noteType || "video",
+        audioUrl: result.originDownloadAudioUrl || result.downloadAudioUrl || "",
+      };
+      setRemoteDraft(nextDraft);
+      setSearchParams({}, { replace: true });
+      void startRemoteWorkflow(nextDraft);
+    } catch (err) {
+      setDownloaderError(err instanceof Error ? err.message : "Send to parse 失败");
+      setDownloaderSendingToParse(false);
+    }
+  }, [downloaderResult, downloaderSendingToParse, setSearchParams, startRemoteWorkflow]);
+
+  const handleDownloaderClear = useCallback(() => {
+    setDownloaderUrl("");
+    setDownloaderError("");
+    setDownloaderResult(null);
+    setRemoteDraft(null);
+    setDownloaderCopiedValue("");
+    setDownloaderSendingToParse(false);
+    setDownloaderSendToParseMessage("");
+  }, []);
+
   const handleOpenReader = useCallback((text: string, title: string) => {
     setReaderText(text);
     setReaderTitle(title);
@@ -700,6 +980,11 @@ export default function Mp4ToWordPage() {
   }, [initialTaskId, remoteDraft, remoteStarting, startRemoteWorkflow, startTaskMonitoring, taskId]);
 
   useEffect(() => {
+    if (!remoteDraft) return;
+    setDownloaderSendingToParse(false);
+  }, [remoteDraft]);
+
+  useEffect(() => {
     if (!taskId || phase === "done" || phase === "error") return;
 
     const timer = window.setInterval(() => {
@@ -717,6 +1002,8 @@ export default function Mp4ToWordPage() {
       if (transcriptFrameRef.current) {
         cancelAnimationFrame(transcriptFrameRef.current);
       }
+      transcriptLastFrameAtRef.current = 0;
+      transcriptTypingCarryRef.current = 0;
     };
   }, []);
 
@@ -800,172 +1087,325 @@ export default function Mp4ToWordPage() {
     { label: "Polish", description: "AI rewrite", icon: Sparkles },
     { label: "Summary", description: "Final notes", icon: ListChecks },
   ];
+  const phaseLabel = phase === "idle" ? "Idle" : phase === "done" ? "Done" : phase === "error" ? "Error" : phase;
 
   return (
     <WorkspaceShell sectionLabel="MP4 to Word" pageTitle="Workspace">
-      <div className="container max-w-full px-3 sm:px-6">
+      <div className="flex w-full flex-col gap-5">
         <style>{QA_STYLE_FIX}</style>
-        <Card className="mb-5 overflow-hidden border-white/70 bg-gradient-to-br from-white via-slate-50 to-indigo-50/70 shadow-[0_24px_90px_rgba(15,23,42,0.10)]">
-          <CardContent className="space-y-6 p-4 sm:p-8">
-            <div className="flex flex-col items-stretch justify-between gap-5 sm:flex-row sm:items-start">
-              <div className="min-w-0 max-w-3xl space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">MP4 to Text</Badge>
-                  <Badge variant="outline">AI Workspace</Badge>
+
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <FileAudio className="size-4" />
+              MP4 to Word
+            </div>
+            <h1 className="text-2xl font-semibold text-foreground">MP4 to Text</h1>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              上传本地音视频或接收 Downloader 解析结果，完成转写、AI polish、summary、问答和历史归档。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <UploadCloud className="size-4" />
+              Upload
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/mp4-to-word/history">
+                <History className="size-4" />
+                History
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <section className="rounded-md bg-[#f9f9f9] px-3 pb-4 pt-3">
+          {!downloaderResult && !downloaderLoading ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <LinkIcon className="size-4" />
+                  Downloader
                 </div>
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-4xl">MP4 to Text</h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                    Upload video, transcribe automatically, polish with AI, and generate a clean summary for trading and investing content.
+                <Badge variant="outline">remote intake</Badge>
+              </div>
+              <form onSubmit={handleDownloaderSubmit} className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_120px_140px]">
+                <input
+                  value={downloaderUrl}
+                  onChange={(event) => setDownloaderUrl(event.target.value)}
+                  placeholder="粘贴视频 / 帖子链接，例如 Bilibili、抖音、小红书等"
+                  required
+                  className="h-9 w-full rounded-md border-0 bg-muted px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:bg-muted/80"
+                />
+                <Button type="button" variant="secondary" onClick={handleDownloaderPaste}>
+                  粘贴链接
+                </Button>
+                <Button type="submit" variant="secondary" disabled={!downloaderUrl.trim()}>
+                  <LinkIcon className="size-4" />
+                  解析链接
+                </Button>
+              </form>
+              {downloaderError ? <div className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{downloaderError}</div> : null}
+            </div>
+          ) : downloaderLoading ? (
+            <div className="p-1">
+              <LoadingState />
+            </div>
+          ) : downloaderResult ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 rounded-md bg-muted/45 p-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary">{downloaderResult.platform}</Badge>
+                    <Badge variant="outline">{downloaderResult.noteType || "video"}</Badge>
+                    {downloaderResult.duration ? <Badge variant="outline">{formatDuration(downloaderResult.duration)}</Badge> : null}
+                  </div>
+                  <div className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-foreground" title={downloaderResult.title}>
+                    {downloaderResult.title}
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                    {downloaderResult.desc || "暂无描述"}
                   </p>
                 </div>
-              </div>
-              <div className="w-full rounded-2xl border border-white/70 bg-white/75 px-4 py-3 text-left shadow-sm sm:w-auto sm:min-w-[180px] sm:text-right">
-                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Overall Process</div>
-                <div className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{processProgress}%</div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Progress value={processProgress} className="h-2" />
-              <div className="rounded-3xl border border-slate-200 bg-white/70 p-3 shadow-sm sm:p-4">
-                <div className="flex items-center gap-0 overflow-x-auto pb-1 pr-1">
-                  {workflowSteps.map((step, index) => {
-                    const Icon = step.icon;
-                    const active = index === currentStep;
-                    const completed = index < currentStep || phase === "done";
-                    const pending = !active && !completed;
-                    return (
-                      <div key={step.label} className="flex min-w-[132px] flex-1 items-center sm:min-w-[150px]">
-                        <div
-                          className={`relative flex min-w-[112px] items-center gap-2 rounded-2xl border px-2.5 py-3 transition sm:min-w-[126px] sm:gap-3 sm:px-3 max-sm:min-w-[104px] max-sm:px-2 ${
-                            active
-                              ? "border-slate-900 bg-slate-950 text-white shadow-lg shadow-slate-950/10"
-                              : completed
-                                ? "border-slate-200 bg-white text-slate-900"
-                                : "border-slate-100 bg-slate-50/80 text-slate-400"
-                          }`}
-                        >
-                          <div
-                            className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${
-                              active
-                                ? "border-white/20 bg-white/10"
-                                : completed
-                                  ? "border-slate-200 bg-slate-50"
-                                  : "border-slate-200 bg-white"
-                            }`}
-                          >
-                            {completed ? <CheckCircle2 className="size-4" /> : <Icon className="size-4" />}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold">{step.label}</div>
-                            <div className={`mt-0.5 truncate text-[11px] ${active ? "text-white/65" : pending ? "text-slate-400" : "text-slate-500"}`}>
-                              {step.description}
-                            </div>
-                          </div>
-                        </div>
-                        {index < workflowSteps.length - 1 && (
-                          <div className="relative h-px min-w-8 flex-1 bg-slate-200">
-                            <div className={`absolute inset-y-0 left-0 ${completed ? "w-full bg-slate-950" : "w-0 bg-slate-950"}`} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button variant="secondary" onClick={handleDownloaderClear}>
+                    <X className="size-4" />
+                    Clear
+                  </Button>
+                  <Button variant="secondary" onClick={handleDownloaderSendToParse} disabled={!selectDownloaderMediaUrl(downloaderResult) || downloaderSendingToParse}>
+                    {downloaderSendingToParse ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                    {downloaderSendingToParse ? "Sending..." : "Send to Parse"}
+                  </Button>
                 </div>
               </div>
+
+              <div className="grid gap-2">
+                <LinkActionRow
+                  label="Video Download"
+                  value={downloaderResult.downloadVideoUrl}
+                  copied={downloaderCopiedValue === downloaderResult.downloadVideoUrl}
+                  onCopy={handleDownloaderCopy}
+                />
+                <LinkActionRow
+                  label="Audio Download"
+                  value={downloaderResult.downloadAudioUrl}
+                  copied={downloaderCopiedValue === downloaderResult.downloadAudioUrl}
+                  onCopy={handleDownloaderCopy}
+                />
+              </div>
+
+              {downloaderSendToParseMessage ? (
+                <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  {downloaderSendToParseMessage}
+                </div>
+              ) : null}
+
+              {(downloaderResult.pages?.length || downloaderResult.videos?.length) ? (
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {downloaderResult.pages?.length ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-foreground">Multi-part Items</div>
+                      <div className="max-h-72 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+                        {downloaderResult.pages.map((page) => (
+                          <div key={`${page.cid}-${page.page}`} className="rounded-md bg-muted/60 p-3">
+                            <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+                              <span className="min-w-0 truncate font-medium text-foreground">P{page.page} · {page.part}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">{formatDuration(page.duration)}</span>
+                            </div>
+                            <div className="grid gap-2">
+                              <LinkActionRow label="Video" value={page.downloadVideoUrl} copied={downloaderCopiedValue === page.downloadVideoUrl} onCopy={handleDownloaderCopy} />
+                              <LinkActionRow label="Audio" value={page.downloadAudioUrl} copied={downloaderCopiedValue === page.downloadAudioUrl} onCopy={handleDownloaderCopy} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {downloaderResult.videos?.length ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-foreground">Embedded Videos</div>
+                      <div className="max-h-72 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+                        {downloaderResult.videos.map((video) => (
+                          <div key={video.id} className="rounded-md bg-muted/60 p-3">
+                            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                              <Video className="size-4" />
+                              <span className="min-w-0 truncate">{video.title}</span>
+                            </div>
+                            <div className="grid gap-2">
+                              <LinkActionRow label="Video" value={video.downloadVideoUrl} copied={downloaderCopiedValue === video.downloadVideoUrl} onCopy={handleDownloaderCopy} />
+                              <LinkActionRow label="Audio" value={video.downloadAudioUrl} copied={downloaderCopiedValue === video.downloadAudioUrl} onCopy={handleDownloaderCopy} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-          </CardContent>
-        </Card>
+          ) : null}
+        </section>
 
         {activeAlert && (
-          <Alert variant={activeAlert.variant} className="mb-5 border-white/70 bg-white/80 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur">
+          <Alert variant={activeAlert.variant} className="rounded-md border bg-background">
             {activeAlert.icon}
             <AlertTitle>{activeAlert.title}</AlertTitle>
             <AlertDescription>{activeAlert.description}</AlertDescription>
           </Alert>
         )}
 
-        {remoteDraft && (
-          <Card className="mb-5 overflow-hidden border-white/70 bg-gradient-to-br from-white via-slate-50 to-sky-50/80 shadow-[0_24px_80px_rgba(15,23,42,0.10)]">
-            <CardHeader className="pb-4">
-              <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
-                <div className="min-w-0 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">Remote Parse Intake</Badge>
-                    <Badge variant="outline">{remoteDraft.platform}</Badge>
-                    <Badge variant="outline">{remoteDraft.noteType || "video"}</Badge>
-                  </div>
-                  <CardTitle className="max-w-3xl break-words text-xl tracking-tight sm:text-2xl">{remoteDraft.title}</CardTitle>
-                  <CardDescription>资源已接管，页面会自动完成下载、上传与 MP4 to Word 处理。</CardDescription>
-                </div>
-                <div className="w-full rounded-2xl border border-white/70 bg-white/70 px-4 py-3 text-left shadow-sm sm:w-auto sm:text-right">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Task</div>
-                  <div className="mt-1 max-w-[180px] truncate font-mono text-xs text-slate-700">{taskId || "creating..."}</div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
-                  <div className="text-xs text-muted-foreground">Duration</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-950">{formatMediaDuration(remoteDraft.duration)}</div>
-                </div>
-                <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
-                  <div className="text-xs text-muted-foreground">File</div>
-                  <div className="mt-1 truncate text-sm font-medium text-slate-950">{remoteFileName || "Resolving..."}</div>
-                </div>
-                <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
-                  <div className="text-xs text-muted-foreground">Mode</div>
-                  <div className="mt-1 text-sm font-medium text-slate-950">Browser first, server fallback</div>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex flex-col items-stretch justify-between gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-white sm:flex-row sm:items-center">
-                <div className="min-w-0">
-                  <div className="text-xs text-white/55">Source</div>
-                  <div className="max-w-full break-all text-sm font-medium sm:max-w-[min(760px,70vw)] sm:truncate" title={remoteDraft.sourceUrl}>
-                    {compactUrl(remoteDraft.sourceUrl)}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                  <Button size="icon-sm" variant="secondary" title="Copy source" aria-label="Copy source" onClick={() => handleCopyText(remoteDraft.sourceUrl)}>
-                    <Copy className="size-4" />
-                  </Button>
-                  <Button size="icon-sm" variant="secondary" title="Open source" aria-label="Open source" onClick={() => window.open(remoteDraft.sourceUrl, "_blank", "noopener,noreferrer")}>
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <MetricTile
+            icon={phase === "done" ? <CheckCircle2 className="size-4" /> : phase === "error" ? <AlertCircle className="size-4" /> : <RefreshCw className="size-4" />}
+            label="Phase"
+            value={phaseLabel}
+            hint={taskId ? `task ${taskId}` : "no active task"}
+          />
+          <MetricTile
+            icon={<RefreshCw className={`size-4 ${phase !== "idle" && phase !== "done" && phase !== "error" ? "animate-spin" : ""}`} />}
+            label="Progress"
+            value={`${processProgress}%`}
+            hint={remoteDraft ? "remote intake" : "local workflow"}
+          />
+          <MetricTile
+            icon={<Captions className="size-4" />}
+            label="Transcript"
+            value={transcript.length.toLocaleString()}
+            hint="characters"
+          />
+          <MetricTile
+            icon={<ListChecks className="size-4" />}
+            label="Outputs"
+            value={summary ? "ready" : polished ? "polish" : "pending"}
+            hint={`${qaItems.length} Ask AI answers`}
+          />
+        </div>
 
-        <Card
-          className="mb-5 cursor-pointer overflow-hidden border-dashed border-slate-300/80 bg-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50/40 hover:shadow-[0_24px_80px_rgba(14,165,233,0.12)]"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-        >
-          <CardContent className="flex flex-col items-center justify-center px-4 py-8 text-center sm:px-6 sm:py-10">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/*,audio/*"
-              style={{ display: "none" }}
-              onChange={handleFileChange}
-            />
-            <div className="mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-slate-950 text-2xl text-white shadow-lg shadow-slate-950/15">🎧</div>
-            <div className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl">Drop your file here, or click to browse</div>
-            <div className="mt-2 max-w-xl text-sm text-muted-foreground">Supports MP4, MP3, WAV, M4A. Local upload and remote intake are independent flows.</div>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              <Badge variant="secondary">Local Upload</Badge>
-              <Badge variant="outline">Audio Extract</Badge>
-              <Badge variant="outline">AI Polish</Badge>
-              <Badge variant="outline">Summary</Badge>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+          <section className="overflow-hidden rounded-md bg-muted/50">
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <UploadCloud className="size-4" />
+                  Intake
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  本地文件上传或 Downloader 远程资源接管。
+                </div>
+              </div>
+              <Badge variant={remoteDraft ? "default" : "secondary"}>{remoteDraft ? "remote" : "local"}</Badge>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="grid gap-3 p-3 lg:grid-cols-[minmax(320px,0.55fr)_minmax(0,1fr)]">
+              <div
+                className="cursor-pointer rounded-md border border-dashed border-muted-foreground/45 bg-background p-4 transition hover:border-foreground/45 hover:bg-muted/35"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*,audio/*"
+                  style={{ display: "none" }}
+                  onChange={handleFileChange}
+                />
+                <div className="flex min-h-[166px] flex-col items-center justify-center text-center">
+                  <UploadCloud className="size-8 text-muted-foreground" />
+                  <div className="mt-3 text-xl font-semibold text-foreground">Click to upload</div>
+                  <div className="mt-2 max-w-lg text-sm leading-5 text-muted-foreground">
+                    支持 MP4、MP3、WAV、M4A；页面会保留实时转写流和 AI 后处理结果。
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-md bg-background p-3">
+                <div className="text-xs font-medium uppercase text-muted-foreground">Current source</div>
+                {remoteDraft ? (
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <div className="line-clamp-2 text-sm font-semibold text-foreground" title={remoteDraft.title}>
+                        {remoteDraft.title}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <Badge variant="secondary">{remoteDraft.platform}</Badge>
+                        <Badge variant="outline">{remoteDraft.noteType || "video"}</Badge>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 text-xs">
+                      <div className="rounded-md bg-muted/60 px-3 py-2">
+                        <span className="text-muted-foreground">Duration</span>
+                        <div className="mt-1 font-medium text-foreground">{formatMediaDuration(remoteDraft.duration)}</div>
+                      </div>
+                      <div className="rounded-md bg-muted/60 px-3 py-2">
+                        <span className="text-muted-foreground">File</span>
+                        <div className="mt-1 truncate font-medium text-foreground">{remoteFileName || "Resolving..."}</div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 truncate text-xs text-muted-foreground" title={remoteDraft.sourceUrl}>
+                        {compactUrl(remoteDraft.sourceUrl)}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon-sm" variant="ghost" title="Copy source" aria-label="Copy source" onClick={() => handleCopyText(remoteDraft.sourceUrl)}>
+                          <Copy className="size-4" />
+                        </Button>
+                        <Button size="icon-sm" variant="ghost" title="Open source" aria-label="Open source" onClick={() => window.open(remoteDraft.sourceUrl, "_blank", "noopener,noreferrer")}>
+                          <ExternalLink className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-md bg-background/70 px-3 py-6 text-center text-sm text-muted-foreground">
+                    暂无远程任务。可以直接上传本地文件开始。
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-md bg-muted/50">
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <ListChecks className="size-4" />
+                  Workflow
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">链路状态和进度。</div>
+              </div>
+              <div className="font-mono text-sm font-semibold text-foreground">{processProgress}%</div>
+            </div>
+            <div className="space-y-3 p-3">
+              <Progress value={processProgress} className="h-2" />
+              <div className="space-y-1.5">
+                {workflowSteps.map((step, index) => {
+                  const Icon = step.icon;
+                  const active = index === currentStep;
+                  const completed = index < currentStep || phase === "done";
+                  return (
+                    <div
+                      key={step.label}
+                      className={`flex items-center gap-3 rounded-md px-3 py-2 ${
+                        active ? "bg-background text-foreground" : completed ? "bg-background/70 text-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      <span className={`inline-flex size-7 items-center justify-center rounded-md ${active ? "bg-foreground text-background" : "bg-muted"}`}>
+                        {completed ? <CheckCircle2 className="size-4" /> : <Icon className="size-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{step.label}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{step.description}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </div>
 
         {showProcessingPanel && (
           <div className="mb-5 grid gap-5 lg:grid-cols-2">
@@ -1012,7 +1452,7 @@ export default function Mp4ToWordPage() {
               <div className="result-box">
                 <div className="result-header" onClick={() => toggleCollapse("transcript")}>
                   <span className="result-title">
-                    <span className="icon">📝</span>Transcript
+                    <Captions className="size-4" /> Transcript
                   </span>
                   <div className="result-meta">
                     <Badge variant="secondary">{transcript.length} chars</Badge>
@@ -1021,7 +1461,7 @@ export default function Mp4ToWordPage() {
                       variant="ghost"
                       title="Copy transcript"
                       aria-label="Copy transcript"
-                      className="rounded-full"
+                      className="rounded-md"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleCopyText(transcript);
@@ -1041,7 +1481,7 @@ export default function Mp4ToWordPage() {
               <div className="result-box">
                 <div className="result-header" onClick={() => toggleCollapse("polished")}>
                   <span className="result-title">
-                    <span className="icon">✨</span>AI Polish
+                    <Sparkles className="size-4" /> AI Polish
                   </span>
                   <div className="result-meta">
                     <Badge variant="secondary">{polished.length} chars</Badge>
@@ -1050,7 +1490,7 @@ export default function Mp4ToWordPage() {
                       variant="ghost"
                       title="Read polish"
                       aria-label="Read polish"
-                      className="rounded-full"
+                      className="rounded-md"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenReader(polished, "AI Polish");
@@ -1063,7 +1503,7 @@ export default function Mp4ToWordPage() {
                       variant="ghost"
                       title="Copy polish"
                       aria-label="Copy polish"
-                      className="rounded-full"
+                      className="rounded-md"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleCopyText(polished);
@@ -1084,7 +1524,7 @@ export default function Mp4ToWordPage() {
             <div className="summary-box" style={{ marginBottom: 20 }}>
               <div className="result-header" onClick={() => toggleCollapse("summary")}>
                 <span className="result-title">
-                  <span className="icon">🧠</span>AI Summary
+                  <ListChecks className="size-4" /> AI Summary
                 </span>
                 <div className="result-meta">
                   <Button
@@ -1092,7 +1532,7 @@ export default function Mp4ToWordPage() {
                     variant={summaryRawMode ? "default" : "ghost"}
                     title="Toggle raw summary"
                     aria-label="Toggle raw summary"
-                    className="rounded-full"
+                    className="rounded-md"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSummaryRawMode((prev) => !prev);
@@ -1105,7 +1545,7 @@ export default function Mp4ToWordPage() {
                     variant="ghost"
                     title="Copy summary"
                     aria-label="Copy summary"
-                    className="rounded-full"
+                    className="rounded-md"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCopyText(summary);
@@ -1118,7 +1558,7 @@ export default function Mp4ToWordPage() {
                     variant="ghost"
                     title="Export markdown"
                     aria-label="Export markdown"
-                    className="rounded-full"
+                    className="rounded-md"
                     disabled={phase !== "done"}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1132,7 +1572,7 @@ export default function Mp4ToWordPage() {
                     variant="ghost"
                     title="Export history"
                     aria-label="Export history"
-                    className="rounded-full"
+                    className="rounded-md"
                     disabled={phase !== "done" || historySaving}
                     onClick={(e) => {
                       e.stopPropagation();

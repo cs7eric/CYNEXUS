@@ -43,6 +43,7 @@ def calculate_volatility_sentiment(
     underlying_name: str = "沪深300",
     window: int = 20,
     lookback: int = 252,
+    source: str = "clickhouse.index_daily_raw",
 ) -> dict[str, Any] | None:
     ordered = _rows_by_date(rows)
     window = max(2, min(int(window), 60))
@@ -76,7 +77,7 @@ def calculate_volatility_sentiment(
         "percentile1y": round(percentile, 4),
         "sentimentScore": round((1.0 - percentile) * 100.0, 2),
         "sampleCount": len(sample),
-        "source": "clickhouse.index_daily_raw",
+        "source": source,
     }
 
 

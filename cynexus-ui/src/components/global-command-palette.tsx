@@ -33,7 +33,7 @@ import {
 } from "@/services/ai/application-analysis"
 import {
   listMP4History,
-} from "@/services/legacy/mp4-history"
+} from "@/services/core/mp4-history"
 import type { MP4HistoryListItem } from "@/lib/history-types"
 
 interface PaletteItem {

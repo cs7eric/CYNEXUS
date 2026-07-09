@@ -960,8 +960,11 @@ def _safe_table_name(table: str) -> str:
 
 def _daily_identity_filter(code: str, table: str) -> tuple[str, dict[str, Any]]:
     normalized = str(code).strip()
-    if _is_wide_daily_raw_table(table) and normalized in _RAW_INDEX_TDX_CODE_BY_CODE:
-        return "tdx_code = %(tdx_code)s", {"tdx_code": _RAW_INDEX_TDX_CODE_BY_CODE[normalized]}
+    if _is_wide_daily_raw_table(table):
+        if normalized.lower().startswith(("sh", "sz", "bj")):
+            return "tdx_code = %(tdx_code)s", {"tdx_code": normalized.lower()}
+        if normalized in _RAW_INDEX_TDX_CODE_BY_CODE:
+            return "tdx_code = %(tdx_code)s", {"tdx_code": _RAW_INDEX_TDX_CODE_BY_CODE[normalized]}
     return "code = %(code)s", {"code": normalized}
 
 

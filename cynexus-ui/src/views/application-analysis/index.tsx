@@ -67,6 +67,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { DEFAULT_HORIZON, SELECTION_COLORS } from "./lib/constants"
 import {
   asOverlayAnnotations,
+  compactIssueList,
   textList,
 } from "./lib/format"
 
@@ -320,8 +321,10 @@ export default function ApplicationAnalysisPage() {
   const analysis = result?.analysis_result
   const dataQuality = (analysis?.data_quality as Record<string, unknown> | undefined) || {}
   const overlays = useMemo(() => asOverlayAnnotations(analysis?.overlay_annotations), [analysis])
-  const warnings = textList(dataQuality.warnings)
-  const errors = textList(dataQuality.errors)
+  const rawWarnings = textList(dataQuality.warnings)
+  const rawErrors = textList(dataQuality.errors)
+  const warnings = compactIssueList(rawWarnings, 4)
+  const errors = compactIssueList(rawErrors, 4)
   const selectionColorMap = useMemo(
     () =>
       Object.fromEntries(

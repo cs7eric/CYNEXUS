@@ -47,6 +47,8 @@ export interface SSEEvent {
   polished_text?: string;
   summary_text?: string;
   raw_text?: string;
+  delta?: string;
+  seq?: number;
   char_count?: number;
   metadata?: PostMetadata;
   task_id?: string;

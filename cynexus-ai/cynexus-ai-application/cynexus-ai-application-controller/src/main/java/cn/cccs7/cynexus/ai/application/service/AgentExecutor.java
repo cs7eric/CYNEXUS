@@ -33,9 +33,6 @@ public class AgentExecutor {
                 : model.getProviderCode();
         AiModelAdapter adapter = dynamicChatClientFactory.resolve(providerCode);
         if (adapter == null) {
-            adapter = dynamicChatClientFactory.resolve("mock");
-        }
-        if (adapter == null) {
             throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
         }
         return adapter.complete(model, prompt);

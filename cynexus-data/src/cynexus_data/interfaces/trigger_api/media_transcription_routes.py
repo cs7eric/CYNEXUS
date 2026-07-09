@@ -80,6 +80,7 @@ def stream(task_id: str) -> StreamingResponse:
             return
         last_status = ""
         last_transcript = ""
+        last_transcript_seq = 0
         last_polished = ""
         last_summary = ""
         download_started = False
@@ -91,6 +92,7 @@ def stream(task_id: str) -> StreamingResponse:
                 return
             status = str(task.get("status") or "")
             transcript = str(task.get("transcript") or "")
+            transcript_events = task.get("transcript_events") if isinstance(task.get("transcript_events"), list) else []
             polished = str(task.get("polished") or "")
             summary = str(task.get("summary") or "")
             metadata = task.get("metadata") or {}
@@ -165,8 +167,24 @@ def stream(task_id: str) -> StreamingResponse:
                     )
                 yield _sse({"type": "transcribe_start"})
 
-            if transcript and transcript != last_transcript:
-                yield _sse({"type": "chunk", "text": transcript})
+            new_events = [
+                event
+                for event in transcript_events
+                if isinstance(event, dict) and int(event.get("seq") or 0) > last_transcript_seq
+            ]
+            if new_events:
+                for event in new_events:
+                    seq = int(event.get("seq") or 0)
+                    delta = str(event.get("delta") or "")
+                    text = str(event.get("text") or "")
+                    if delta:
+                        yield _sse({"type": "chunk", "seq": seq, "delta": delta, "text": text})
+                    last_transcript_seq = max(last_transcript_seq, seq)
+                    last_transcript = text or last_transcript
+            elif transcript and transcript != last_transcript:
+                delta = transcript[len(last_transcript):] if transcript.startswith(last_transcript) else transcript
+                yield _sse({"type": "chunk", "seq": last_transcript_seq + 1, "delta": delta, "text": transcript})
+                last_transcript_seq += 1
                 last_transcript = transcript
 
             if polished and polished != last_polished:

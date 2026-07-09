@@ -48,7 +48,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
         try {
             boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
-            String payload = responsesApi ? buildResponsesPayload(model, prompt) : buildChatPayload(model, prompt);
+            boolean jsonOutput = shouldRequestJsonOutput(model, prompt);
+            String payload = responsesApi ? buildResponsesPayload(model, prompt, jsonOutput) : buildChatPayload(model, prompt, jsonOutput);
             HttpRequest request = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
                     .timeout(REQUEST_TIMEOUT)
                     .header("Authorization", "Bearer " + apiKey)
@@ -88,18 +89,20 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     protected abstract String defaultModelName();
 
-    private String buildChatPayload(AiModelBO model, String prompt) throws IOException {
-        return objectMapper.writeValueAsString(Map.of(
-                "model", resolveModelName(model),
-                "temperature", 0,
-                "response_format", Map.of("type", "json_object"),
-                "messages", List.of(
-                        Map.of("role", "user", "content", prompt == null ? "" : prompt)
-                )
+    private String buildChatPayload(AiModelBO model, String prompt, boolean jsonOutput) throws IOException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", resolveModelName(model));
+        payload.put("temperature", 0);
+        if (jsonOutput) {
+            payload.put("response_format", Map.of("type", "json_object"));
+        }
+        payload.put("messages", List.of(
+                Map.of("role", "user", "content", prompt == null ? "" : prompt)
         ));
+        return objectMapper.writeValueAsString(payload);
     }
 
-    private String buildResponsesPayload(AiModelBO model, String prompt) throws IOException {
+    private String buildResponsesPayload(AiModelBO model, String prompt, boolean jsonOutput) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("input", prompt == null ? "" : prompt);
@@ -108,7 +111,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (!reasoningEffort.isBlank()) {
             payload.put("reasoning", Map.of("effort", reasoningEffort));
         }
-        payload.put("text", Map.of("format", Map.of("type", "json_object")));
+        if (jsonOutput) {
+            payload.put("text", Map.of("format", Map.of("type", "json_object")));
+        }
         return objectMapper.writeValueAsString(payload);
     }
 
@@ -234,6 +239,21 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         JsonNode extra = extra(model);
         JsonNode value = extra.get(field);
         return value == null || value.isNull() ? defaultValue : value.asBoolean(defaultValue);
+    }
+
+    private boolean shouldRequestJsonOutput(AiModelBO model, String prompt) {
+        String responseFormat = extraString(model, "response_format");
+        if ("json_object".equalsIgnoreCase(responseFormat) || "json".equalsIgnoreCase(responseFormat)) {
+            return true;
+        }
+        if ("text".equalsIgnoreCase(responseFormat) || "none".equalsIgnoreCase(responseFormat)) {
+            return false;
+        }
+        String text = prompt == null ? "" : prompt;
+        if (text.contains("不要返回 JSON") || text.contains("不要返回JSON")) {
+            return false;
+        }
+        return text.contains("JSON") || text.contains("json") || text.contains("合法 JSON");
     }
 
     private JsonNode extra(AiModelBO model) {

@@ -2,15 +2,22 @@ package cn.cccs7.cynexus.core.application.controller;
 
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionAskResponseDTO;
+import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionHistoryItemDTO;
+import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionHistoryListDTO;
+import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionHistoryQaItemDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionTaskDetailDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionTaskRefDTO;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionAskRequest;
+import cn.cccs7.cynexus.core.application.request.MediaTranscriptionHistoryReorderRequest;
+import cn.cccs7.cynexus.core.application.request.MediaTranscriptionHistorySaveRequest;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionRemoteParseRequest;
 import cn.cccs7.cynexus.core.application.service.MediaTranscriptionAppService;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionBinaryBO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionStreamBO;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -92,5 +99,39 @@ public class MediaTranscriptionController {
                         .build()
                         .toString())
                 .body(payload.getContent() == null ? new byte[0] : payload.getContent());
+    }
+
+    @GetMapping("/history")
+    public Result<MediaTranscriptionHistoryListDTO> listHistory() {
+        return Result.success(mediaTranscriptionAppService.listHistory());
+    }
+
+    @PostMapping("/history")
+    public Result<MediaTranscriptionHistoryItemDTO> saveHistory(@RequestBody MediaTranscriptionHistorySaveRequest request) {
+        return Result.success(mediaTranscriptionAppService.saveHistory(request == null ? null : request.getTaskId()));
+    }
+
+    @PostMapping("/history/reorder")
+    public Result<MediaTranscriptionHistoryListDTO> reorderHistory(@RequestBody MediaTranscriptionHistoryReorderRequest request) {
+        return Result.success(mediaTranscriptionAppService.reorderHistory(request == null ? null : request.getOrderedIds()));
+    }
+
+    @GetMapping("/history/{historyId}")
+    public Result<Map<String, Object>> getHistory(@PathVariable("historyId") String historyId) {
+        return Result.success(mediaTranscriptionAppService.getHistory(historyId));
+    }
+
+    @DeleteMapping("/history/{historyId}")
+    public Result<Map<String, Object>> deleteHistory(@PathVariable("historyId") String historyId) {
+        return Result.success(mediaTranscriptionAppService.deleteHistory(historyId));
+    }
+
+    @PostMapping("/history/{historyId}/ask")
+    public Result<Map<String, MediaTranscriptionHistoryQaItemDTO>> askHistory(
+            @PathVariable("historyId") String historyId,
+            @RequestBody MediaTranscriptionAskRequest request) {
+        return Result.success(Map.of("item", mediaTranscriptionAppService.askHistory(
+                historyId,
+                request == null ? null : request.getQuestion())));
     }
 }

@@ -7,7 +7,7 @@ from typing import Any, Callable
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.jobs.contracts import JobRequest, JobResult
 from cynexus_data.pipelines.fund_flow import sync_sector_flow
-from cynexus_data.pipelines.kline import sync_adjusted_daily, sync_daily, sync_tdx_hsjday
+from cynexus_data.pipelines.kline import sync_adjusted_daily, sync_daily, sync_index_daily_raw_from_daily_raw, sync_tdx_hsjday
 from cynexus_data.pipelines.market import build_index_returns, build_market_heatmap, build_style_sector
 from cynexus_data.pipelines.market_overview import build_market_overview
 from cynexus_data.pipelines.msi import (
@@ -32,6 +32,7 @@ DEFAULT_HSJDAY_ROOT = PROJECT_ROOT / "var" / "tdx" / "day" / "hsjday"
 CHAIN_STEPS: list[tuple[str, StepCallable]] = [
     ("tdx_hsjday_download", sync_tdx_hsjday.run),
     ("initial_backfill_refresh", sync_daily.run),
+    ("sync_index_daily_raw_from_daily_raw", sync_index_daily_raw_from_daily_raw.run),
     ("qfq_reconciliation_refresh", sync_adjusted_daily.run),
     ("build_style_sector", build_style_sector.run),
     ("build_index_returns", build_index_returns.run),
@@ -268,6 +269,9 @@ def _apply_step_path_defaults(step_code: str, params: dict[str, Any], hsjday_roo
         params.setdefault("tdx_root", str(hsjday_root))
         params.setdefault("flush_rows", 100_000)
         params.setdefault("replace_scope", "date")
+        return
+    if step_code == "sync_index_daily_raw_from_daily_raw":
+        params.setdefault("create_table", True)
         return
     if step_code == "qfq_reconciliation_refresh":
         params.setdefault("adjust", "qfq")

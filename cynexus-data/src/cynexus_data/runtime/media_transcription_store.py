@@ -21,6 +21,7 @@ class MediaTranscriptionTaskStore:
         task = {
             "status": "queued",
             "transcript": "",
+            "transcript_events": [],
             "polished": "",
             "summary": "",
             "metadata": {},

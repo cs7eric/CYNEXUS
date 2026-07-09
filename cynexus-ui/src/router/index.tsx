@@ -20,6 +20,7 @@ import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
 import MarketMarginTradingPage from "../views/market/market-margin-trading"
 import PocPage from "../views/poc"
+import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
 import AiPocPage from "../views/poc/ai"
 import MarkdownRenderPocPage from "../views/poc/markdown-render"
 import StockReviewPage from "../views/stock-review"
@@ -83,6 +84,10 @@ export const router = createBrowserRouter([
       {
         path: "poc/ai",
         element: <AiPocPage />,
+      },
+      {
+        path: "poc/a-stock-skill",
+        element: <AStockSkillPocPage />,
       },
       {
         path: "poc/markdown-render",

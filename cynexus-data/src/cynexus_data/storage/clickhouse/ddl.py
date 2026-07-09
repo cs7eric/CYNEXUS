@@ -26,6 +26,10 @@ def create_daily_adjusted(client: ClickHouseClient) -> int:
     return apply_sql_file(client, PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_daily_adjusted.sql")
 
 
+def create_index_daily_raw(client: ClickHouseClient) -> int:
+    return apply_sql_file(client, PROJECT_ROOT / "sql" / "clickhouse" / "20260708_create_index_daily_raw.sql")
+
+
 def split_sql(sql: str) -> list[str]:
     statements: list[str] = []
     current: list[str] = []
