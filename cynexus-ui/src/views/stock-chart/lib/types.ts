@@ -133,6 +133,8 @@ export interface StockAuctionDetails {
 export interface StockAuctionSnapshot {
   symbol: string
   trade_date: string
+  source?: string
+  error?: string | null
   opening?: StockAuctionPhaseSnapshot
   closing?: StockAuctionPhaseSnapshot
   details?: StockAuctionDetails

@@ -361,19 +361,27 @@ def _delete_existing_intraday_rows(client: ClickHouseClient, table: str, frame: 
     required = {"trade_date", "market", "symbol", "source"}
     if frame.empty or not required.issubset(frame.columns):
         return
+    key_columns = ["trade_date", "market", "symbol", "source"]
+    if "phase" in frame.columns:
+        key_columns.append("phase")
     clauses: list[str] = []
     params: dict[str, object] = {}
-    for index, row in frame[list(required)].drop_duplicates().reset_index(drop=True).iterrows():
+    for index, row in frame[key_columns].drop_duplicates().reset_index(drop=True).iterrows():
         params[f"trade_date_{index}"] = pd.to_datetime(row["trade_date"]).date()
         params[f"market_{index}"] = str(row["market"])
         params[f"symbol_{index}"] = str(row["symbol"])
         params[f"source_{index}"] = str(row["source"])
+        phase_clause = ""
+        if "phase" in key_columns:
+            params[f"phase_{index}"] = str(row["phase"])
+            phase_clause = f" AND phase = %(phase_{index})s"
         clauses.append(
             "("
             f"trade_date = %(trade_date_{index})s "
             f"AND market = %(market_{index})s "
             f"AND symbol = %(symbol_{index})s "
             f"AND source = %(source_{index})s"
+            f"{phase_clause}"
             ")"
         )
     if not clauses:

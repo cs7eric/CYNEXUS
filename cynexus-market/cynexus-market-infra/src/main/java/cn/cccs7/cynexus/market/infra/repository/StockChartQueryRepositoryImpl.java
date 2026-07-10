@@ -157,6 +157,12 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     }
 
     @Override
+    public List<LocalDate> listAuctionDates(String targetType, String symbol, int limit) {
+        MarketSymbol marketSymbol = normalizeMarketSymbol(targetType, symbol);
+        return clickHouseStockChartClient.listAuctionDates(marketSymbol.market(), marketSymbol.symbol(), limit);
+    }
+
+    @Override
     public List<StockChartBO.AuctionPoint> listAuctionPoints(String targetType, String symbol, LocalDate tradeDate) {
         MarketSymbol marketSymbol = normalizeMarketSymbol(targetType, symbol);
         return clickHouseStockChartClient.listAuctionPoints(marketSymbol.market(), marketSymbol.symbol(), tradeDate).stream()

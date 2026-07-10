@@ -56,6 +56,23 @@ def test_normalize_auction_points_splits_opening_closing_and_0925() -> None:
     assert rows[0]["trade_time"] == datetime(2026, 6, 26, 9, 25)
 
 
+def test_normalize_auction_points_derives_unmatched_buy_sell_from_signed_raw() -> None:
+    rows = normalize_auction_points(
+        symbol="600000",
+        tdx_code="sh600000",
+        trade_date=date(2026, 6, 26),
+        points=[
+            {"time_label": "09:15:00", "price": 10.1, "unmatched_signed_raw": 120},
+            {"time_label": "09:15:03", "price": 10.1, "unmatched_signed_raw": -80},
+        ],
+    )
+
+    assert rows[0]["unmatched_buy_volume"] == 120
+    assert rows[0]["unmatched_sell_volume"] == 0
+    assert rows[1]["unmatched_buy_volume"] == 0
+    assert rows[1]["unmatched_sell_volume"] == 80
+
+
 def test_normalize_timeshare_rows_emits_volume_ratio() -> None:
     rows = normalize_timeshare_rows(
         symbol="000001",

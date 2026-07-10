@@ -946,12 +946,20 @@ export function TechnicalIndicatorPanel({
   breadth,
   breadthSeries,
   stockMeta,
+  cardClassName,
+  contentClassName,
+  hideStatusOverview = false,
+  hideHeader = false,
 }: {
   bars: StockKlineBar[]
   indexBarsMap?: Record<string, StockKlineBar[]> | null
   breadth?: MarketBreadth | null
   breadthSeries?: MarketBreadthSeries | null
   stockMeta?: StockMeta | null
+  cardClassName?: string
+  contentClassName?: string
+  hideStatusOverview?: boolean
+  hideHeader?: boolean
 }) {
   const analysis = useMemo(() => {
     if (bars.length === 0) return null
@@ -963,12 +971,12 @@ export function TechnicalIndicatorPanel({
 
   if (!analysis) {
     return (
-      <Card className="border-white/70 bg-white/80 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-        <CardHeader>
+      <Card className={cardClassName ?? "border-white/70 bg-white/80 shadow-[0_20px_70px_rgba(15,23,42,0.08)]"}>
+        <CardHeader className={contentClassName}>
           <CardTitle className="text-base">技术指标</CardTitle>
           <CardDescription>请先选择股票加载K线数据</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={contentClassName}>
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-sm text-slate-400">
             暂无K线数据，请在上方选择股票后加载。
           </div>
@@ -978,8 +986,9 @@ export function TechnicalIndicatorPanel({
   }
 
   return (
-    <Card className="border-white/70 bg-white/80 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-      <CardHeader className="pb-2">
+    <Card className={cardClassName ?? "border-white/70 bg-white/80 shadow-[0_20px_70px_rgba(15,23,42,0.08)]"}>
+      {!hideHeader ? (
+      <CardHeader className={contentClassName ?? "pb-2"}>
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base">技术指标 · 趋势状态面板</CardTitle>
@@ -987,8 +996,9 @@ export function TechnicalIndicatorPanel({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <TrendStatusOverview analysis={analysis} />
+      ) : null}
+      <CardContent className={contentClassName ? `${contentClassName} space-y-5` : "space-y-5"}>
+        {hideStatusOverview ? null : <TrendStatusOverview analysis={analysis} />}
 
         <div className="grid gap-4 md:grid-cols-3">
           <TechnicalScoreCard analysis={analysis} />

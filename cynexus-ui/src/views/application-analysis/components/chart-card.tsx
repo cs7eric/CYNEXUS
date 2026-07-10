@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react"
-import { LineChart } from "lucide-react"
 
-import { CollapsibleCard } from "@/components/collapsible-card"
+import { Card, CardContent } from "@/components/ui/card"
 import { ChartPanel, type ChartPanelSelectionItem } from "../../stock-chart/components/chart-panel"
 import type { StockKlineBar, StockOverlayAnnotation } from "../../stock-chart/lib/types"
 
 export function ChartCard({
-  collapsed,
-  onToggle,
   selectedSymbol,
   bars,
   overlays,
@@ -15,12 +12,9 @@ export function ChartCard({
   selectedBarTimestamps,
   onSelectionChange,
   onAnalyzeSelection,
-  loadingBars,
   mobileCompact = false,
   cardClassName,
 }: {
-  collapsed: boolean
-  onToggle: () => void
   selectedSymbol: string
   bars: StockKlineBar[]
   overlays: StockOverlayAnnotation[]
@@ -28,7 +22,6 @@ export function ChartCard({
   selectedBarTimestamps: number[]
   onSelectionChange: (items: ChartPanelSelectionItem[]) => void
   onAnalyzeSelection: (item: ChartPanelSelectionItem) => void
-  loadingBars: boolean
   mobileCompact?: boolean
   cardClassName?: string
 }) {
@@ -41,16 +34,9 @@ export function ChartCard({
   }, [showMobileHint])
 
   return (
-    <CollapsibleCard
-      title="K 线分析"
-      description={loadingBars ? "正在加载真实 K 线..." : "AI overlay_annotations 会直接叠加到 K 线图"}
-      icon={LineChart}
-      badge={String(overlays.length)}
-      collapsed={collapsed}
-      onToggle={onToggle}
-      className={cardClassName}
-    >
-      <div className={`relative -mx-1 max-w-full overflow-hidden ${mobileCompact ? "h-[50svh] min-h-[300px]" : "h-[54svh] min-h-[340px]"} max-h-[520px] sm:h-[440px] lg:h-full lg:max-h-none lg:min-h-0 lg:flex-1`}>
+    <Card className={`flex h-full min-h-0 flex-col gap-0 rounded-2xl border-0 bg-muted/50 py-0 shadow-none ${cardClassName ?? ""}`}>
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-auto p-0">
+        <div className={`relative max-w-full overflow-hidden ${mobileCompact ? "h-[50svh] min-h-[300px]" : "h-[54svh] min-h-[340px]"} max-h-[520px] sm:h-[440px] lg:h-full lg:max-h-none lg:min-h-0 lg:flex-1`}>
         {showMobileHint ? (
           <button
             type="button"
@@ -78,7 +64,8 @@ export function ChartCard({
           onAnalyzeSelection={onAnalyzeSelection}
           mobileCompact={mobileCompact}
         />
-      </div>
-    </CollapsibleCard>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   fetchAuctionAiAnalysisSnapshot,
-  fetchStockAuction,
+  fetchStockAuctionHistory,
   runAuctionAiAnalysis,
   triggerAuctionAiAnalysisScheduler,
   type AuctionAiAnalysisResponse,
@@ -26,6 +26,13 @@ export interface AuctionTabProps {
   symbol: string
   name: string
   adjust?: StockAdjust
+}
+
+type AuctionAiDateState = {
+  response: AuctionAiAnalysisResponse | null
+  loading: boolean
+  error: string
+  actionMessage: string
 }
 
 const SCORE_TONE = {
@@ -131,19 +138,17 @@ function AuctionAiPanel({
   response,
   loading,
   error,
+  tradeDate,
+  embedded = false,
   onRefresh,
-  onRunNow,
-  onTriggerJob,
-  actionLoading,
   actionMessage,
 }: {
   response: AuctionAiAnalysisResponse | null
   loading: boolean
   error: string
+  tradeDate?: string
+  embedded?: boolean
   onRefresh: () => void
-  onRunNow: () => void
-  onTriggerJob: () => void
-  actionLoading: boolean
   actionMessage: string
 }) {
   const analysis = safeRecord(response?.analysis_result)
@@ -163,10 +168,11 @@ function AuctionAiPanel({
   const evidence = textList(analysis.key_evidence)
   const limitations = textList(analysis.limitations)
 
-  const hasResult = Boolean(response?.analysis_result)
+  const hasResult = Object.keys(analysis).length > 0
 
   return (
-    <Card className="min-w-0 border-white/70 bg-white/85 shadow-sm">
+    <Card className={cn("min-w-0 border-white/70 bg-white/85 shadow-sm", embedded && "border-0 bg-transparent shadow-none")}>
+      {!embedded ? (
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -182,7 +188,8 @@ function AuctionAiPanel({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      ) : null}
+      <CardContent className={cn("space-y-4", embedded && "p-0")}>
         <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-[11px] text-slate-600 sm:grid-cols-5">
           <div><span className="font-medium text-slate-900">0-20</span> 极弱/高风险</div>
           <div><span className="font-medium text-slate-900">21-40</span> 偏弱</div>
@@ -205,17 +212,7 @@ function AuctionAiPanel({
 
         {!hasResult ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-            <div>今日暂无持久化竞价 AI 解读。调度器会在工作日 09:26 后生成，盘中读取默认不会再次调用 AI。</div>
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-              <Button size="sm" onClick={onRunNow} disabled={actionLoading} className="w-full gap-2 sm:w-auto">
-                <Play className="size-4" />
-                {actionLoading ? "处理中" : "立即生成当前标的"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={onTriggerJob} disabled={actionLoading} className="w-full gap-2 sm:w-auto">
-                <RefreshCw className={cn("size-4", actionLoading && "animate-spin")} />
-                触发今日批量任务
-              </Button>
-            </div>
+            <div>{tradeDate ? `${tradeDate} 暂无持久化竞价 AI 解读。` : "暂无持久化竞价 AI 解读。"}调度器会在工作日 09:26 后生成，盘中读取默认不会再次调用 AI。</div>
           </div>
         ) : (
           <>
@@ -305,19 +302,279 @@ function AuctionAiPanel({
   )
 }
 
+function AuctionAiDateItem({
+  date,
+  latest,
+  state,
+  actionLoading,
+  onLoad,
+  onRefresh,
+  onRunNow,
+  onTriggerJob,
+}: {
+  date: string
+  latest: boolean
+  state: AuctionAiDateState
+  actionLoading: boolean
+  onLoad: () => void
+  onRefresh: () => void
+  onRunNow: () => void
+  onTriggerJob: () => void
+}) {
+  const [expanded, setExpanded] = useState(latest)
+  const analysis = safeRecord(state.response?.analysis_result)
+  const conclusion = safeRecord(analysis.conclusion)
+  const hasResult = Object.keys(analysis).length > 0
+  const summary = safeString(conclusion.summary)
+  const bias = fmt(conclusion.bias)
+
+  const handleToggle = () => {
+    const next = !expanded
+    setExpanded(next)
+    if (next) onLoad()
+  }
+
+  return (
+    <div className="min-w-0 rounded-xl bg-white/70">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="sticky top-0 z-10 flex w-full items-center rounded-xl bg-white/95 px-3 py-2.5 text-left transition hover:bg-slate-50/90"
+      >
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-900">
+            <span className="font-mono">{date}</span>
+            {latest ? <Badge className="rounded-full border-slate-200 bg-slate-50 px-1.5 py-0 text-[10px] text-slate-600" variant="outline">Latest</Badge> : null}
+            {state.loading ? <Badge variant="outline" className="rounded-full bg-white px-1.5 py-0 text-[10px] text-slate-500">Loading</Badge> : null}
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+            {hasResult ? (
+              <>
+                <span className="truncate">{summary || "AI analysis persisted"}</span>
+                {bias ? (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <Badge variant="outline" className={cn("rounded-full px-1.5 py-0 text-[10px]", biasTone(conclusion.bias))}>{bias}</Badge>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <span className="text-slate-400">{state.error || "No persisted AI interpretation"}</span>
+            )}
+          </div>
+        </div>
+      </button>
+      {expanded ? (
+        <div className="space-y-3 px-3 pb-3 pt-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Sparkles className="size-4 text-slate-500" />
+                AI Interpretation
+              </div>
+              <div className="mt-0.5 text-[11px] text-slate-500">Auction, technical position, sector context and risk summary</div>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+              <Button size="sm" variant="secondary" onClick={onRunNow} disabled={actionLoading} className="h-7 w-full gap-1.5 px-2.5 text-[11px] shadow-none sm:w-auto">
+                <Play className="size-3.5" />
+                {actionLoading ? "Generating" : "Generate"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={onTriggerJob} disabled={actionLoading} className="h-7 w-full gap-1.5 bg-white px-2.5 text-[11px] shadow-none sm:w-auto">
+                <RefreshCw className={cn("size-3.5", actionLoading && "animate-spin")} />
+                Trigger Job
+              </Button>
+            </div>
+          </div>
+          <AuctionAiPanel
+            response={state.response}
+            loading={state.loading}
+            error={state.error}
+            tradeDate={date}
+            embedded
+            onRefresh={onRefresh}
+            actionMessage={state.actionMessage}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AuctionAiHistoryList({
+  dates,
+  states,
+  actionLoading,
+  onLoad,
+  onRefresh,
+  onRunNow,
+  onTriggerJob,
+}: {
+  dates: string[]
+  states: Record<string, AuctionAiDateState>
+  actionLoading: boolean
+  onLoad: (date: string) => void
+  onRefresh: (date: string) => void
+  onRunNow: (date: string) => void
+  onTriggerJob: (date: string) => void
+}) {
+  const sortedDates = useMemo(
+    () => [...new Set(dates.filter(Boolean))].sort((left, right) => right.localeCompare(left)),
+    [dates],
+  )
+  const latestDate = sortedDates[0]
+
+  return (
+    <section className="min-w-0 space-y-2 rounded-2xl bg-muted/50 p-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Auction AI Interpretation</div>
+          <div className="text-[11px] text-slate-500">Persisted by trading day · newest first · {sortedDates.length} sessions</div>
+        </div>
+        {latestDate ? <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">Latest {latestDate}</Badge> : null}
+      </div>
+
+      {sortedDates.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-500">
+          No trading-day auction data yet
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {sortedDates.map((date) => (
+            <AuctionAiDateItem
+              key={date}
+              date={date}
+              latest={date === latestDate}
+              state={states[date] ?? { response: null, loading: false, error: "", actionMessage: "" }}
+              actionLoading={actionLoading}
+              onLoad={() => onLoad(date)}
+              onRefresh={() => onRefresh(date)}
+              onRunNow={() => onRunNow(date)}
+              onTriggerJob={() => onTriggerJob(date)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function AuctionDateItem({
+  auction,
+  defaultExpanded,
+}: {
+  auction: StockAuctionSnapshot
+  defaultExpanded: boolean
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  const openingCount = auction.details?.openingPoints?.length ?? 0
+  const closingCount = auction.details?.closingPoints?.length ?? 0
+  const totalCount = auction.details?.allPoints?.length ?? 0
+  const hasData = totalCount > 0
+
+  return (
+    <div className="min-w-0 rounded-xl bg-white/70">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="sticky top-0 z-10 flex w-full items-center rounded-xl bg-white/95 px-3 py-2.5 text-left transition hover:bg-slate-50/90"
+      >
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-900">
+            <span className="font-mono">{auction.trade_date || "--"}</span>
+            {defaultExpanded ? (
+              <Badge className="rounded-full border-slate-200 bg-slate-50 px-1.5 py-0 text-[10px] text-slate-600" variant="outline">Latest</Badge>
+            ) : null}
+            <span className="text-[11px] font-normal text-slate-300">·</span>
+            <Badge variant={auction.details?.auction0925?.has_auction_0925 ? "secondary" : "outline"} className="rounded-full px-1.5 py-0 text-[10px]">
+              09:25 {auction.details?.auction0925?.has_auction_0925 ? "Hit" : "Missing"}
+            </Badge>
+            <Badge variant={auction.closing?.anchorExact ? "secondary" : "outline"} className="rounded-full px-1.5 py-0 text-[10px]">
+              15:00 {auction.closing?.anchorExact ? "Hit" : "Approx"}
+            </Badge>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+            {hasData ? (
+              <>
+                <span>Opening {openingCount}</span>
+                <span className="text-slate-300">·</span>
+                <span>Closing {closingCount}</span>
+                <span className="text-slate-300">·</span>
+                <span>Total {totalCount}</span>
+              </>
+            ) : (
+              <span className="text-slate-400">{auction.error || "No auction detail for this trading day"}</span>
+            )}
+          </div>
+        </div>
+      </button>
+      {expanded ? (
+        <div className="pb-3 pt-1">
+          <AuctionPanel auction={auction} hideHeader />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AuctionHistoryList({
+  items,
+  loading,
+  error,
+}: {
+  items: StockAuctionSnapshot[]
+  loading: boolean
+  error: string
+}) {
+  const sortedItems = useMemo(
+    () => [...items].sort((left, right) => (right.trade_date || "").localeCompare(left.trade_date || "")),
+    [items],
+  )
+  const latestDate = sortedItems[0]?.trade_date
+
+  return (
+    <section className="min-w-0 space-y-2 rounded-2xl bg-muted/50 p-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Auction Detail</div>
+          <div className="text-[11px] text-slate-500">Persisted by trading day · newest first · {sortedItems.length} sessions</div>
+        </div>
+        {latestDate ? <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">Latest {latestDate}</Badge> : null}
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-dashed border-red-300 bg-red-50/70 p-6 text-sm text-red-600">
+          加载集合竞价失败：{error}
+        </div>
+      ) : sortedItems.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-500">
+          {loading ? "Loading..." : "No auction detail yet"}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {sortedItems.map((item) => (
+            <AuctionDateItem
+              key={`${item.symbol}-${item.trade_date || item.source}`}
+              auction={item}
+              defaultExpanded={item.trade_date === latestDate}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function AuctionTab({
   targetType,
   symbol,
   name,
   adjust = "qfq",
 }: AuctionTabProps) {
-  const [auction, setAuction] = useState<StockAuctionSnapshot | null>(null)
+  const [auctionItems, setAuctionItems] = useState<StockAuctionSnapshot[]>([])
+  const [auctionLoading, setAuctionLoading] = useState(false)
   const [error, setError] = useState<string>("")
-  const [aiResponse, setAiResponse] = useState<AuctionAiAnalysisResponse | null>(null)
-  const [aiError, setAiError] = useState("")
-  const [aiLoading, setAiLoading] = useState(false)
+  const [aiByDate, setAiByDate] = useState<Record<string, AuctionAiDateState>>({})
   const [actionLoading, setActionLoading] = useState(false)
-  const [actionMessage, setActionMessage] = useState("")
 
   useEffect(() => {
     let active = true
@@ -325,16 +582,19 @@ export function AuctionTab({
     void (async () => {
       try {
         if (!active) return
+        setAuctionLoading(true)
         setError("")
-        const auctionResult = await fetchStockAuction(symbol)
+        const auctionResult = await fetchStockAuctionHistory(symbol, 30)
         if (!active) return
-        setAuction(auctionResult)
+        setAuctionItems(auctionResult.items ?? [])
       } catch (err) {
         if (!active) return
         const msg = err instanceof Error ? err.message : "加载集合竞价失败"
-        setAuction(null)
+        setAuctionItems([])
         setError(msg)
         notification.danger({ title: "加载集合竞价失败", description: msg })
+      } finally {
+        if (active) setAuctionLoading(false)
       }
     })()
 
@@ -344,79 +604,90 @@ export function AuctionTab({
   }, [symbol, name])
 
   useEffect(() => {
-    setAiResponse(null)
-    setAiError("")
-    setActionMessage("")
+    setAiByDate({})
   }, [targetType, symbol, name, adjust])
 
   const canRunAi = useMemo(() => Boolean(symbol && name), [symbol, name])
+  const auctionDates = useMemo(
+    () => auctionItems.map((item) => item.trade_date).filter(Boolean),
+    [auctionItems],
+  )
+  const latestAuctionDate = auctionDates[0]
 
-  const handleRefreshAiSnapshot = async () => {
+  const updateAiDateState = (date: string, patch: Partial<AuctionAiDateState>) => {
+    setAiByDate((previous) => ({
+      ...previous,
+      [date]: {
+        response: previous[date]?.response ?? null,
+        loading: previous[date]?.loading ?? false,
+        error: previous[date]?.error ?? "",
+        actionMessage: previous[date]?.actionMessage ?? "",
+        ...patch,
+      },
+    }))
+  }
+
+  const handleRefreshAiSnapshot = async (date: string) => {
     if (!canRunAi) return
     try {
-      setAiLoading(true)
-      setAiError("")
+      updateAiDateState(date, { loading: true, error: "" })
       const response = await fetchAuctionAiAnalysisSnapshot({
         targetType,
         symbol,
+        date,
       })
-      setAiResponse(response)
+      updateAiDateState(date, { response, loading: false, error: "" })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "读取竞价 AI 分析结果失败"
-      setAiResponse(null)
-      setAiError(msg)
+      updateAiDateState(date, { response: null, loading: false, error: msg })
       notification.danger({ title: "读取竞价 AI 分析结果失败", description: msg })
-    } finally {
-      setAiLoading(false)
     }
   }
 
-  const handleRunNow = async () => {
+  const handleRunNow = async (date: string) => {
     if (!canRunAi) return
     try {
       setActionLoading(true)
-      setActionMessage("")
-      setAiError("")
+      updateAiDateState(date, { actionMessage: "", error: "" })
       const response = await runAuctionAiAnalysis({
         targetType,
         symbol,
         name,
         adjust,
+        date,
         maxChars: 1000000,
       })
-      setAiResponse(response)
-      setActionMessage("已立即生成当前标的的竞价 AI 分析，并写入当日持久化结果。")
+      updateAiDateState(date, { response, actionMessage: "已立即生成当前标的的竞价 AI 分析，并写入持久化结果。", error: "" })
       notification.success({
         title: "竞价 AI 分析已生成",
-        description: `${name} · ${symbol}`,
+        description: `${name} · ${symbol} · ${date}`,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "立即生成竞价 AI 分析失败"
-      setAiError(msg)
+      updateAiDateState(date, { error: msg })
       notification.danger({ title: "立即生成竞价 AI 分析失败", description: msg })
     } finally {
       setActionLoading(false)
     }
   }
 
-  const handleTriggerJob = async () => {
+  const handleTriggerJob = async (date: string) => {
     try {
       setActionLoading(true)
-      setActionMessage("")
-      setAiError("")
+      updateAiDateState(date, { actionMessage: "", error: "" })
       const result = await triggerAuctionAiAnalysisScheduler()
       if (result.error) {
         throw new Error(result.error)
       }
-      setActionMessage(`已触发今日批量任务：成功 ${result.succeeded ?? 0}，失败 ${result.failed ?? 0}。正在读取当前标的结果。`)
+      updateAiDateState(date, { actionMessage: `已触发批量任务：成功 ${result.succeeded ?? 0}，失败 ${result.failed ?? 0}。正在读取当前标的结果。` })
       notification.info({
-        title: "已触发今日批量任务",
+        title: "已触发批量任务",
         description: `成功 ${result.succeeded ?? 0}，失败 ${result.failed ?? 0}`,
       })
-      await handleRefreshAiSnapshot()
+      await handleRefreshAiSnapshot(date)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "触发今日批量任务失败"
-      setAiError(msg)
+      updateAiDateState(date, { error: msg })
       notification.danger({ title: "触发今日批量任务失败", description: msg })
     } finally {
       setActionLoading(false)
@@ -424,32 +695,23 @@ export function AuctionTab({
   }
 
   useEffect(() => {
-    void handleRefreshAiSnapshot()
+    if (latestAuctionDate) void handleRefreshAiSnapshot(latestAuctionDate)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetType, symbol])
+  }, [targetType, symbol, latestAuctionDate])
 
   return (
     <div className="min-w-0 space-y-4">
-      <AuctionAiPanel
-        response={aiResponse}
-        loading={aiLoading}
-        error={aiError}
-        onRefresh={() => void handleRefreshAiSnapshot()}
-        onRunNow={() => void handleRunNow()}
-        onTriggerJob={() => void handleTriggerJob()}
+      <AuctionAiHistoryList
+        dates={auctionDates}
+        states={aiByDate}
         actionLoading={actionLoading}
-        actionMessage={actionMessage}
+        onLoad={(date) => void handleRefreshAiSnapshot(date)}
+        onRefresh={(date) => void handleRefreshAiSnapshot(date)}
+        onRunNow={(date) => void handleRunNow(date)}
+        onTriggerJob={(date) => void handleTriggerJob(date)}
       />
 
-      {error ? (
-        <div className="rounded-xl border border-dashed border-red-300 bg-red-50/70 p-6 text-sm text-red-600">
-          加载集合竞价失败：{error}
-        </div>
-      ) : (
-        <div className="max-w-full overflow-x-auto">
-          <AuctionPanel auction={auction} />
-        </div>
-      )}
+      <AuctionHistoryList items={auctionItems} loading={auctionLoading} error={error} />
     </div>
   )
 }

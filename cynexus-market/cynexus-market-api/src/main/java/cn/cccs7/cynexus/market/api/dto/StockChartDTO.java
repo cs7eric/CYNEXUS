@@ -250,6 +250,16 @@ public final class StockChartDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class AuctionHistoryResponseDTO {
+        private String symbol;
+        private String source;
+        private List<AuctionDTO> items;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class AuctionPhaseDTO {
         private BigDecimal price;
         private BigDecimal volume;

@@ -200,11 +200,14 @@ jobs:
       trade_date: optional
       datasets: optional
       dataset: optional
+      auction_phase: optional
+      auction_phases: optional
       codes: optional
       symbols: optional
       target_type: optional
       create_table: optional
       resume: optional
+      ignore_errors: optional
       checkpoint_prefix: optional
       timeout_seconds: optional
       eltdx_timeout: optional

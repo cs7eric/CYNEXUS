@@ -53,7 +53,6 @@ import type {
 
 import { AIDirectionCard } from "./components/ai-direction-card"
 import { Alerts } from "./components/alerts"
-import { AnalysisDetail } from "./components/analysis-detail"
 import { AuctionTab } from "./components/auction-tab"
 import { ChartCard } from "./components/chart-card"
 import { ChartHeader } from "./components/chart-header"
@@ -83,9 +82,12 @@ function formatTradeDateFromTimestamp(timestamp?: number | null) {
 }
 
 export default function ApplicationAnalysisPage() {
-  type MainTab = "chart" | "ai-direction" | "analysis" | "auction" | "ma-support" | "fund-flow"
+  type MainTab = "chart" | "ai-direction" | "auction" | "ma-support" | "fund-flow"
   const isMobile = useIsMobile()
   const [searchParams, setSearchParams] = useSearchParams()
+  const querySymbol = searchParams.get("symbol")
+  const queryTargetType = searchParams.get("target_type") || "stock"
+  const queryName = searchParams.get("name") || querySymbol || ""
   const [activeMainTab, setActiveMainTab] = useState<MainTab>("chart")
   const [targets, setTargets] = useState<ApplicationAnalysisTarget[]>([])
   const [horizon, setHorizon] = useState<Record<string, number>>(DEFAULT_HORIZON)
@@ -95,7 +97,6 @@ export default function ApplicationAnalysisPage() {
   const [previewTarget, setPreviewTarget] = useState<ApplicationAnalysisTarget | null>(null)
   const [adjust, setAdjust] = useState<StockAdjust>("qfq")
   const [bars, setBars] = useState<StockKlineBar[]>([])
-  const [loadingBars, setLoadingBars] = useState(false)
   const [running, setRunning] = useState(false)
   const [saving, setSaving] = useState(false)
   const persistTimerRef = useRef<number | null>(null)
@@ -105,6 +106,8 @@ export default function ApplicationAnalysisPage() {
   // (latestTargetsRef 还没被 fetch 赋值) 误把后端真实数据清空。
   const dirtyRef = useRef(false)
   const targetsLoadedRef = useRef(false)
+  const selectedIdRef = useRef<string | null>(null)
+  const adjustRef = useRef<StockAdjust>("qfq")
   const [result, setResult] = useState<ApplicationAnalysisResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
@@ -126,7 +129,6 @@ export default function ApplicationAnalysisPage() {
   const selectedBarTimestamps: number[] = selectedChartItems
     .filter((item): item is Extract<ChartPanelSelectionItem, { kind: "bar" }> => item.kind === "bar")
     .map((item) => item.bar.timestamp)
-  const [analysisFocusKey, setAnalysisFocusKey] = useState<string | null>(null)
   const [intradayDialogOpen, setIntradayDialogOpen] = useState(false)
   const [intradayBar, setIntradayBar] = useState<Extract<ChartPanelSelectionItem, { kind: "bar" }> | null>(null)
   const selectionPanelRef = useRef<HTMLDivElement | null>(null)
@@ -134,6 +136,18 @@ export default function ApplicationAnalysisPage() {
   const selected = useMemo(() => targets.find((item) => item.id === selectedId) || null, [targets, selectedId])
   // 渲染的目标：优先 preview（临时态），否则走 selected
   const displayedTarget = previewTarget ?? selected
+  const displayedTargetType = displayedTarget?.target_type
+  const displayedTargetSymbol = displayedTarget?.symbol
+  const displayedTargetName = displayedTarget?.name
+  const displayedTargetAdjust = (displayedTarget?.adjust as StockAdjust | undefined) || adjust
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId
+  }, [selectedId])
+
+  useEffect(() => {
+    adjustRef.current = adjust
+  }, [adjust])
 
   const refreshTargets = useCallback(async () => {
     try {
@@ -147,9 +161,8 @@ export default function ApplicationAnalysisPage() {
       // 注意：只做预览，不主动写入 Postgres target 主表（用户需要的话点「加入应用分析」按钮）
       // 1) symbol 已在 items → 直接选中，并清掉 query
       // 2) 不在 → 设 previewTarget（临时态），让面板能渲染它的 K 线 / 分时
-      const symbol = searchParams.get("symbol")
-      const targetType = searchParams.get("target_type") || "stock"
-      const queryName = searchParams.get("name") || symbol || ""
+      const symbol = querySymbol
+      const targetType = queryTargetType
       let queryTargetId: string | null = null
       let previewObj: ApplicationAnalysisTarget | null = null
       if (symbol) {
@@ -165,7 +178,7 @@ export default function ApplicationAnalysisPage() {
             target_type: targetType,
             symbol,
             name: queryName || symbol,
-            adjust,
+            adjust: adjustRef.current,
             enabled: true,
             interval_minutes: 60,
             tags: ["from-self-selected"],
@@ -185,7 +198,8 @@ export default function ApplicationAnalysisPage() {
       } else {
         // 决定最终选中的 target
         let resolvedId: string | null = null
-        if (!selectedId && items.length) {
+        const currentSelectedId = selectedIdRef.current
+        if (!currentSelectedId && items.length) {
           const preferred =
             items.find((item) => {
               const s = (item.symbol || "").toLowerCase()
@@ -194,7 +208,7 @@ export default function ApplicationAnalysisPage() {
             }) || items[0]
           resolvedId = preferred.id
         } else {
-          resolvedId = selectedId
+          resolvedId = currentSelectedId
         }
         if (resolvedId) setSelectedId(resolvedId)
       }
@@ -218,7 +232,7 @@ export default function ApplicationAnalysisPage() {
       setError("加载目标列表失败")
       notification.danger({ title: "加载目标列表失败", description: msg })
     }
-  }, [selectedId, adjust, searchParams, setSearchParams])
+  }, [queryName, querySymbol, queryTargetType, setSearchParams])
 
   const refreshScheduler = useCallback(async () => {
     try {
@@ -266,19 +280,18 @@ export default function ApplicationAnalysisPage() {
 
   useEffect(() => {
     // K 线 / 分时 / 技术指标都按 displayedTarget 走：预览态也能渲染
-    if (!displayedTarget) {
+    if (!displayedTargetType || !displayedTargetSymbol) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBars([])
       return
     }
     let active = true
-    setLoadingBars(true)
     void fetchStockKlines({
-      targetType: displayedTarget.target_type as StockTargetType,
-      symbol: displayedTarget.symbol,
-      name: displayedTarget.name,
+      targetType: displayedTargetType as StockTargetType,
+      symbol: displayedTargetSymbol,
+      name: displayedTargetName,
       period: "1d",
-      adjust: (displayedTarget.adjust as StockAdjust) || adjust,
+      adjust: displayedTargetAdjust,
     })
       .then((data) => {
         if (active) setBars(data.items)
@@ -286,24 +299,20 @@ export default function ApplicationAnalysisPage() {
       .catch(() => {
         if (active) setBars([])
       })
-      .finally(() => {
-        if (active) setLoadingBars(false)
-      })
     return () => {
       active = false
     }
-  }, [displayedTarget, adjust])
+  }, [displayedTargetAdjust, displayedTargetName, displayedTargetSymbol, displayedTargetType])
 
   useEffect(() => {
-    if (!selected) {
+    if (!selectedId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setResult(null)
       setSelectedChartItems([])
-      setAnalysisFocusKey(null)
       return
     }
     let active = true
-    void fetchApplicationAnalysisResult(selected.id)
+    void fetchApplicationAnalysisResult(selectedId)
       .then((data) => {
         if (!active) return
         setResult(data as unknown as ApplicationAnalysisResponse)
@@ -316,7 +325,7 @@ export default function ApplicationAnalysisPage() {
     return () => {
       active = false
     }
-  }, [selected, selectedId])
+  }, [selectedId])
 
   const analysis = result?.analysis_result
   const dataQuality = (analysis?.data_quality as Record<string, unknown> | undefined) || {}
@@ -386,12 +395,10 @@ export default function ApplicationAnalysisPage() {
 
   const handleRemoveSelectionItem = useCallback((item: ChartPanelSelectionItem) => {
     setSelectedChartItems((current) => current.filter((candidate) => candidate.key !== item.key))
-    setAnalysisFocusKey((current) => (current === item.key ? null : current))
   }, [])
 
   const handleClearSelectionItems = useCallback(() => {
     setSelectedChartItems([])
-    setAnalysisFocusKey(null)
   }, [])
 
   const handleRun = async () => {
@@ -490,13 +497,13 @@ export default function ApplicationAnalysisPage() {
   }, [refreshDailySnapshots, selected])
 
   useEffect(() => {
-    if (!selected) {
+    if (!selectedId) {
       setDailySnapshotsFull([])
       setDailyLastRefreshAt(null)
       return
     }
-    void refreshDailySnapshots(selected.id)
-  }, [selected, refreshDailySnapshots])
+    void refreshDailySnapshots(selectedId)
+  }, [selectedId, refreshDailySnapshots])
 
   const handleTriggerTarget = async (targetId: string) => {
     setError(null)
@@ -694,26 +701,15 @@ export default function ApplicationAnalysisPage() {
     })
   }
 
-  const handleAnalyzeSelection = useCallback((item: ChartPanelSelectionItem) => {
-    setAnalysisFocusKey(item.key)
-    setActiveMainTab("analysis")
-  }, [])
-
   const handleOpenIntradayDialog = useCallback((item: Extract<ChartPanelSelectionItem, { kind: "bar" }>) => {
     setIntradayBar(item)
     setIntradayDialogOpen(true)
   }, [])
 
-  useEffect(() => {
-    if (!analysisFocusKey) return
-    if (selectedChartItems.some((item) => item.key === analysisFocusKey)) return
-    setAnalysisFocusKey(null)
-  }, [analysisFocusKey, selectedChartItems])
-
   return (
     <WorkspaceShell sectionLabel="Stock Overview" pageTitle="Application Analysis" fullBleed>
-      <div className="min-h-[calc(100svh-4rem)] w-full max-w-[100vw] overflow-x-hidden rounded-none border-0 bg-[#f6f7f9] p-0 sm:p-4 2xl:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-        <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)] 2xl:gap-4">
+      <div className="min-h-[calc(100svh-4rem)] w-full max-w-[100vw] overflow-x-hidden rounded-none border-0 bg-white p-0 sm:p-4 2xl:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
+        <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,390px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,480px)_minmax(0,1fr)] 2xl:gap-4">
           <div className="hidden min-h-0 min-w-0 flex-col gap-3 overflow-visible lg:flex lg:h-full lg:overflow-y-auto 2xl:gap-4">
             <TargetCard
               targets={targets}
@@ -743,7 +739,6 @@ export default function ApplicationAnalysisPage() {
               onToggle={() => setSelectionCardCollapsed((value) => !value)}
               items={selectedChartItems}
               selectionColorMap={selectionColorMap}
-              analysisFocusKey={analysisFocusKey}
               prevCloseMap={selectedBarPrevClose}
               prevVolumeMap={selectedBarPrevVolume}
               prevTurnoverMap={selectedBarPrevTurnover}
@@ -822,29 +817,28 @@ export default function ApplicationAnalysisPage() {
               />
 
               {/* Tab 栏 */}
-              <div className="sticky top-0 z-20 flex min-w-0 flex-col gap-2 border-y border-slate-200/80 bg-white px-2 py-2 shadow-[0_1px_0_rgba(15,23,42,0.04)] sm:static sm:rounded-2xl sm:border sm:px-3 sm:shadow-[0_1px_0_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.04)] lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+              <div className="sticky top-0 z-20 flex min-w-0 flex-col gap-2 bg-background py-0 sm:static lg:flex-row lg:items-center lg:justify-between lg:gap-3">
                 <div className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <TabsList className="inline-flex h-auto w-max min-w-max gap-1 rounded-2xl bg-slate-100 p-1">
+                  <TabsList className="inline-flex h-auto w-max min-w-max gap-1 rounded-2xl bg-muted p-1">
                     <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="chart">图表</TabsTrigger>
                     <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="ai-direction">AI 方向</TabsTrigger>
-                    <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="analysis">分析详情</TabsTrigger>
                     <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="auction">集合竞价</TabsTrigger>
                     <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="ma-support">技术指标</TabsTrigger>
                     <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="fund-flow">资金</TabsTrigger>
                   </TabsList>
                 </div>
-                <div className="hidden flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-slate-500 sm:flex sm:px-0">
+                <div className="hidden flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-muted-foreground sm:flex sm:px-0">
                   <span>K 线 {bars.length}</span>
-                  <span className="hidden h-3 w-px bg-slate-200 sm:inline-block" />
+                  <span className="hidden h-3 w-px bg-border sm:inline-block" />
                   <span>{running ? "分析中" : result ? "已完成" : previewTarget ? "预览中" : "待执行"}</span>
-                  <span className="hidden h-3 w-px bg-slate-200 sm:inline-block" />
+                  <span className="hidden h-3 w-px bg-border sm:inline-block" />
                   <span>标注 {overlays.length}</span>
                   {selectedChartItems.length ? (
                     <>
-                      <span className="hidden h-3 w-px bg-slate-200 sm:inline-block" />
+                      <span className="hidden h-3 w-px bg-border sm:inline-block" />
                       <button
                         type="button"
-                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700"
+                        className="rounded-full border border-border bg-muted px-2 py-0.5 font-medium text-foreground"
                         onClick={() => {
                           setSelectionCardCollapsed(false)
                           window.setTimeout(() => selectionPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0)
@@ -866,16 +860,15 @@ export default function ApplicationAnalysisPage() {
               >
                 {displayedTarget ? (
               <ChartCard
-                  collapsed={false}
-                  onToggle={() => {}}
                   selectedSymbol={displayedTarget.symbol}
                   bars={bars}
                     overlays={overlays}
                     selectionColors={selectionColorMap}
-                    selectedBarTimestamps={selectedBarTimestamps}
+                  selectedBarTimestamps={selectedBarTimestamps}
                   onSelectionChange={setSelectedChartItems}
-                  onAnalyzeSelection={handleAnalyzeSelection}
-                  loadingBars={loadingBars}
+                  onAnalyzeSelection={(item) => {
+                    if (item.kind === "bar") handleOpenIntradayDialog(item)
+                  }}
                   mobileCompact={isMobile}
                 />
               ) : null}
@@ -900,19 +893,6 @@ export default function ApplicationAnalysisPage() {
                     onRefreshDaily={() => void handleRefreshDaily()}
                   />
                 )}
-              </TabsContent>
-
-              <TabsContent
-                value="analysis"
-                className="m-0 min-w-0 lg:h-full lg:min-h-0 lg:overflow-auto"
-              >
-                {previewTarget ? (
-                  <div className="flex h-full items-center justify-center p-8 text-center text-sm text-slate-500">
-                    预览模式暂不展示分析详情，请先加入应用分析。
-                  </div>
-                ) : analysis ? (
-                  <AnalysisDetail analysis={analysis} overlays={overlays} />
-                ) : null}
               </TabsContent>
 
               <TabsContent

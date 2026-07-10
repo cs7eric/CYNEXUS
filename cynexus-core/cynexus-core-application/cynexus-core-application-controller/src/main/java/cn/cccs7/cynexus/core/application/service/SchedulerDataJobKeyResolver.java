@@ -166,6 +166,18 @@ final class SchedulerDataJobKeyResolver {
             entry("auction_ai_analysis", "sync_tdx_intraday_detail", Map.of(
                     "datasets", List.of("auction"),
                     "create_table", true
+            )),
+            entry("auction_opening_refresh", "sync_tdx_intraday_detail", Map.of(
+                    "datasets", List.of("auction"),
+                    "auction_phase", "opening",
+                    "create_table", true,
+                    "ignore_errors", true
+            )),
+            entry("auction_closing_refresh", "sync_tdx_intraday_detail", Map.of(
+                    "datasets", List.of("auction"),
+                    "auction_phase", "closing",
+                    "create_table", true,
+                    "ignore_errors", true
             ))
     );
     private static final Set<String> UNSUPPORTED_LEGACY_JOBS = Set.of(

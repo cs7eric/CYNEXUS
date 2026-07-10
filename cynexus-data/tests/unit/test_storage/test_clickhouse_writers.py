@@ -4,7 +4,12 @@ from datetime import date, datetime
 
 import pandas as pd
 
-from cynexus_data.storage.clickhouse.writers import ClickHouseAdjustedDailyKlineSink, ClickHouseDailyKlineSink, ClickHouseKlineSink
+from cynexus_data.storage.clickhouse.writers import (
+    ClickHouseAdjustedDailyKlineSink,
+    ClickHouseDailyKlineSink,
+    ClickHouseIntradayDetailSink,
+    ClickHouseKlineSink,
+)
 
 
 class FakeClickHouseClient:
@@ -234,6 +239,42 @@ def test_adjusted_daily_date_replace_omits_source_filter_when_table_has_no_sourc
     assert sink.replace_daily(frame, replace_scope="date") == 1
 
     assert client.command_calls[0]["sql"] == "ALTER TABLE daily_qfq DELETE WHERE trade_date BETWEEN toDate('2026-06-30') AND toDate('2026-06-30')"
+
+
+def test_intraday_auction_delete_scope_includes_phase() -> None:
+    client = FakeClickHouseClient([])
+    sink = ClickHouseIntradayDetailSink.__new__(ClickHouseIntradayDetailSink)
+    sink.auction_table = "ch_ods_stock_auction_point"
+    sink.client = client
+    frame = pd.DataFrame(
+        [
+            {
+                "market": "SH",
+                "symbol": "600000",
+                "code": "600000",
+                "tdx_code": "sh600000",
+                "trade_date": date(2026, 6, 26),
+                "trade_time": datetime(2026, 6, 26, 9, 25),
+                "time_label": "09:25:00",
+                "phase": "opening",
+                "price": 10.0,
+                "matched_volume": 100.0,
+                "matched_amount": 1000.0,
+                "unmatched_buy_volume": None,
+                "unmatched_sell_volume": None,
+                "source": "eltdx",
+                "raw_payload": {},
+                "fetched_at": datetime(2026, 6, 26, 9, 26),
+                "ingested_at": datetime(2026, 6, 26, 9, 26),
+            }
+        ]
+    )
+
+    assert sink.insert_auction_points(frame) == 1
+
+    command = client.command_calls[0]
+    assert "AND phase = %(phase_0)s" in command["sql"]
+    assert command["parameters"]["phase_0"] == "opening"
 
 
 def test_daily_raw_writer_keeps_metadata_when_table_has_wide_columns() -> None:

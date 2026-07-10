@@ -1,4 +1,4 @@
-import { Clock, RefreshCw, Sparkles, TrendingUp } from "lucide-react"
+import { ChartNoAxesCombined, Clock, RefreshCw } from "lucide-react"
 
 import type { ApplicationAnalysisTarget } from "@/services/ai/application-analysis"
 import { Badge } from "@/components/ui/badge"
@@ -30,22 +30,21 @@ export function ChartHeader({
   const isMobile = useIsMobile()
   const title = target ? `${target.name} · ${target.symbol}` : selectedLabel || "请选择左侧目标"
   return (
-    <Card className="rounded-none border-x-0 border-t-0 border-slate-200/80 bg-white py-2 shadow-[0_1px_0_rgba(15,23,42,0.04)] sm:rounded-2xl sm:border-x sm:border-t sm:py-6 sm:shadow-[0_1px_0_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.04)]">
-      <CardHeader className="px-3 pt-1.5 pb-2 sm:px-4 sm:pt-0 sm:pb-3 2xl:px-6">
-        <div className="flex flex-row items-center gap-2 lg:justify-between">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+    <Card className="rounded-none border-0 bg-muted py-0 shadow-none sm:rounded-xl">
+      <CardHeader className="px-3 py-3 sm:px-4 sm:py-3 2xl:px-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {!isMobile ? (
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm sm:size-9">
-                <Sparkles className="size-3 sm:size-4" />
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground ring-1 ring-border">
+                <ChartNoAxesCombined className="size-4" />
               </div>
             ) : null}
-            <div className="min-w-0 space-y-0.5">
-              <CardTitle className="flex min-w-0 items-center gap-1.5 truncate text-[15px] font-semibold text-slate-950 sm:text-lg">
-                <TrendingUp className="size-3.5 shrink-0 text-slate-500 sm:size-4" />
-                <span className="truncate">{title}</span>
+            <div className="min-w-0">
+              <CardTitle className="truncate text-[15px] font-semibold text-slate-950 sm:text-base">
+                {title}
               </CardTitle>
               {target ? (
-                <div className="hidden items-center gap-x-1.5 gap-y-1 text-[10px] text-slate-500 sm:flex sm:text-[11px]">
+                <div className="mt-1 hidden items-center gap-x-1.5 text-[11px] text-slate-500 sm:flex">
                   <span className="inline-flex items-center gap-1">
                     <Clock className="size-3" />
                     <span>每 {target.interval_minutes} 分钟</span>
@@ -53,14 +52,14 @@ export function ChartHeader({
                   <span className="hidden text-slate-300 sm:inline">·</span>
                   {target.enabled ? (
                     <Badge
-                      className="rounded-full border-emerald-200 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700"
+                      className="rounded-md border-emerald-200 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700"
                       variant="outline"
                     >
                       启用
                     </Badge>
                   ) : (
                     <Badge
-                      className="rounded-full border-slate-200 bg-slate-100 px-1.5 py-0 text-[10px] text-slate-500"
+                      className="rounded-md border-slate-200 bg-slate-100 px-1.5 py-0 text-[10px] text-slate-500"
                       variant="outline"
                     >
                       停用
@@ -74,7 +73,7 @@ export function ChartHeader({
                   ) : null}
                   <span className="hidden text-slate-300 sm:inline">·</span>
                   <Badge
-                    className="rounded-full border-slate-200 bg-slate-50 px-1.5 py-0 text-[10px] text-slate-600"
+                    className="rounded-md border-slate-200 bg-background px-1.5 py-0 text-[10px] text-slate-600"
                     variant="outline"
                   >
                     {target.target_type}
@@ -83,9 +82,9 @@ export function ChartHeader({
               ) : null}
             </div>
           </div>
-          <div className="grid shrink-0 grid-cols-2 items-stretch gap-1.5 sm:grid-cols-3 lg:justify-end">
+          <div className="grid shrink-0 grid-cols-2 items-stretch gap-1.5 sm:flex sm:items-center sm:justify-end">
             <Select value={adjust} onValueChange={(value) => onAdjustChange(value as StockAdjust)}>
-              <SelectTrigger className="hidden h-7 w-full justify-center rounded-xl px-1.5 text-center text-[10px] leading-none text-slate-900 [&>svg:last-child]:hidden sm:flex sm:w-28 sm:rounded-lg sm:px-3 sm:text-xs sm:[&>svg:last-child]:inline-flex">
+              <SelectTrigger size="sm" className="hidden h-7 w-24 justify-center rounded-md border-0 bg-secondary px-2.5 text-center text-xs text-secondary-foreground shadow-none ring-0 hover:bg-secondary/80 [&_svg]:size-3 sm:flex">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -95,18 +94,18 @@ export function ChartHeader({
               </SelectContent>
             </Select>
             <Button
-              className="h-6 w-full justify-center rounded-xl bg-secondary px-1 text-[9px] leading-none text-center text-secondary-foreground hover:bg-secondary/90 [&>svg]:hidden sm:h-7 sm:w-auto sm:rounded-lg sm:px-3 sm:text-xs sm:[&>svg]:inline-flex"
+              className="h-7 w-full justify-center rounded-md px-2 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground sm:w-auto sm:px-3 sm:text-xs"
               onClick={onTrigger}
               disabled={!canRun || running}
-              variant="secondary"
+              variant="ghost"
             >
-              <RefreshCw className={`mr-1 size-3 ${running ? "animate-spin" : ""}`} />
+              <RefreshCw className={`size-3 ${running ? "animate-spin" : ""}`} />
               <span className="max-lg:hidden">120D / 4S Refresh</span>
               <span className="lg:hidden">Refresh</span>
             </Button>
             <Button
-              className="h-6 w-full justify-center rounded-xl px-1 text-[9px] leading-none text-center sm:h-7 sm:w-auto sm:rounded-lg sm:px-3 sm:text-xs"
-              variant="outline"
+              className="h-7 w-full justify-center rounded-md px-2 text-[10px] shadow-none sm:w-auto sm:px-3 sm:text-xs"
+              variant="secondary"
               onClick={onManualRun}
               disabled={!canRun || running}
             >

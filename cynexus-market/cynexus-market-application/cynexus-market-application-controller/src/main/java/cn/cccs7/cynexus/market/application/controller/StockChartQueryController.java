@@ -73,8 +73,15 @@ public class StockChartQueryController {
     }
 
     @GetMapping("/auction")
-    public Result<StockChartDTO.AuctionDTO> auction(@RequestParam String symbol) {
-        return Result.success(stockChartQueryAppService.auction(symbol));
+    public Result<StockChartDTO.AuctionDTO> auction(@RequestParam String symbol,
+                                                    @RequestParam(name = "trade_date", required = false) String tradeDate) {
+        return Result.success(stockChartQueryAppService.auction(symbol, tradeDate));
+    }
+
+    @GetMapping("/auction/history")
+    public Result<StockChartDTO.AuctionHistoryResponseDTO> auctionHistory(@RequestParam String symbol,
+                                                                          @RequestParam(defaultValue = "30") int limit) {
+        return Result.success(stockChartQueryAppService.auctionHistory(symbol, limit));
     }
 
     @GetMapping("/f10/valuation")

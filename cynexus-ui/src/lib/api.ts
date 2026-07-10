@@ -102,6 +102,7 @@ export {
   fetchMarketBreadthSeries,
   fetchSectorStocks,
   fetchStockAuction,
+  fetchStockAuctionHistory,
   fetchStockFundFlow,
   fetchStockIntraday,
   fetchStockKlines,

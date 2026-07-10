@@ -120,6 +120,32 @@ public class ClickHouseStockChartClient {
         return Optional.of(LocalDate.parse(value));
     }
 
+    public List<LocalDate> listAuctionDates(String market, String symbol, int limit) {
+        if (market == null || symbol == null) {
+            return List.of();
+        }
+        int resolvedLimit = Math.max(1, Math.min(limit, 60));
+        String sql = """
+                SELECT toString(trade_date) AS tradeDate
+                  FROM ch_ods_stock_auction_point FINAL
+                 WHERE market = '%s'
+                   AND symbol = '%s'
+                 GROUP BY trade_date
+                 ORDER BY trade_date DESC
+                 LIMIT %d
+                FORMAT JSONEachRow
+                """.formatted(
+                escapeSql(market.toUpperCase(Locale.ROOT)),
+                escapeSql(symbol),
+                resolvedLimit
+        );
+        return query(sql, TradeDateRow.class).stream()
+                .map(TradeDateRow::tradeDate)
+                .filter(value -> value != null && !value.isBlank() && !"1970-01-01".equals(value))
+                .map(LocalDate::parse)
+                .toList();
+    }
+
     public List<AuctionPoint> listAuctionPoints(String market, String symbol, LocalDate tradeDate) {
         if (market == null || symbol == null || tradeDate == null) {
             return List.of();
@@ -520,6 +546,10 @@ public class ClickHouseStockChartClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record LatestTradeDateRow(String latestTradeDate) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record TradeDateRow(String tradeDate) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

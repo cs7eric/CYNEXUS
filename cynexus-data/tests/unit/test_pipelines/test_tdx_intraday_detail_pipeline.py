@@ -69,6 +69,25 @@ def _auction_payload(client, code, trade_date, target_type=None):
                 "raw_payload": {},
                 "fetched_at": datetime(2026, 6, 26, 9, 26),
                 "ingested_at": datetime(2026, 6, 26, 9, 26),
+            },
+            {
+                "market": "SH",
+                "symbol": code,
+                "code": code,
+                "tdx_code": f"sh{code}",
+                "trade_date": pd.to_datetime(trade_date).date(),
+                "trade_time": datetime(2026, 6, 26, 14, 57),
+                "time_label": "14:57:00",
+                "phase": "closing",
+                "price": 10.2,
+                "matched_volume": 120.0,
+                "matched_amount": 1224.0,
+                "unmatched_buy_volume": None,
+                "unmatched_sell_volume": None,
+                "source": "eltdx",
+                "raw_payload": {},
+                "fetched_at": datetime(2026, 6, 26, 15, 1),
+                "ingested_at": datetime(2026, 6, 26, 15, 1),
             }
         ]
     }
@@ -125,11 +144,56 @@ def test_sync_intraday_detail_writes_auction_and_timeshare(monkeypatch) -> None:
         ),
     )
 
-    assert result["rows_read"] == 2
-    assert result["rows_written"] == 2
+    assert result["rows_read"] == 3
+    assert result["rows_written"] == 3
     assert FakeSink.created == 1
-    assert FakeSink.auction_inserted == 1
+    assert FakeSink.auction_inserted == 2
     assert FakeSink.timeshare_inserted == 1
+
+
+def test_sync_intraday_detail_filters_opening_auction_phase(monkeypatch) -> None:
+    FakeSink.auction_inserted = 0
+    monkeypatch.setattr(sync_intraday_detail, "ClickHouseIntradayDetailSink", FakeSink)
+    monkeypatch.setattr(sync_intraday_detail, "fetch_stock_auction", _auction_payload)
+
+    result = sync_intraday_detail.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_tdx_intraday_detail",
+            dry_run=False,
+            params={"codes": ["600000"], "trade_date": "2026-06-26", "datasets": "auction", "auction_phase": "opening"},
+        ),
+    )
+
+    assert result["auction_phases"] == ["opening", "auction_0925"]
+    assert result["rows_read"] == 1
+    assert result["rows_written"] == 1
+    assert FakeSink.auction_inserted == 1
+
+
+def test_sync_intraday_detail_ignore_errors_continues(monkeypatch) -> None:
+    FakeSink.auction_inserted = 0
+    monkeypatch.setattr(sync_intraday_detail, "ClickHouseIntradayDetailSink", FakeSink)
+
+    def fail_once(client, code, trade_date, target_type=None):
+        if code == "600000":
+            raise TimeoutError("boom")
+        return _auction_payload(client, code, trade_date, target_type)
+
+    monkeypatch.setattr(sync_intraday_detail, "fetch_stock_auction", fail_once)
+
+    result = sync_intraday_detail.run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_tdx_intraday_detail",
+            dry_run=False,
+            params={"codes": ["600000", "600001"], "trade_date": "2026-06-26", "datasets": "auction", "ignore_errors": True},
+        ),
+    )
+
+    assert result["failed"] == 1
+    assert result["rows_written"] == 2
+    assert result["code_results"][0]["status"] == "failed"
 
 
 def test_sync_intraday_detail_resume_skips_completed_checkpoint(monkeypatch) -> None:

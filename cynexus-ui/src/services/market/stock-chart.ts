@@ -206,8 +206,16 @@ export async function fetchStockKlines(params: {
   return cynexusResult(res)
 }
 
-export async function fetchStockAuction(symbol: string): Promise<StockAuctionSnapshot> {
-  const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/auction?symbol=${encodeURIComponent(symbol)}`, { cache: "no-store" })
+export async function fetchStockAuction(symbol: string, tradeDate?: string | null): Promise<StockAuctionSnapshot> {
+  const query = new URLSearchParams({ symbol })
+  if (tradeDate) query.set("trade_date", tradeDate)
+  const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/auction?${query.toString()}`, { cache: "no-store" })
+  return cynexusResult(res)
+}
+
+export async function fetchStockAuctionHistory(symbol: string, limit = 30): Promise<{ symbol: string; source?: string; items: StockAuctionSnapshot[] }> {
+  const query = new URLSearchParams({ symbol, limit: String(limit) })
+  const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/auction/history?${query.toString()}`, { cache: "no-store" })
   return cynexusResult(res)
 }
 
@@ -391,6 +399,7 @@ export async function runAuctionAiAnalysis(_params?: {
   symbol?: string
   name?: string
   adjust?: StockAdjust
+  date?: string
   maxChars?: number
 }): Promise<AuctionAiAnalysisResponse> {
   void _params

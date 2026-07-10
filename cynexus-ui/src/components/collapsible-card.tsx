@@ -14,6 +14,7 @@ export interface CollapsibleCardProps {
   onToggle: () => void
   children: React.ReactNode
   className?: string
+  headerAction?: React.ReactNode
 }
 
 /**
@@ -35,6 +36,7 @@ export function CollapsibleCard({
   onToggle,
   children,
   className,
+  headerAction,
 }: CollapsibleCardProps) {
   return (
     <Card
@@ -60,16 +62,19 @@ export function CollapsibleCard({
               {description ? <CardDescription className="mt-0.5 text-[11px] text-slate-500">{description}</CardDescription> : null}
              </div>
             </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {headerAction}
             <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            className="size-7 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            onClick={onToggle}
-            aria-label={collapsed ? `展开 ${title}` : `折叠 ${title}`}
-          >
-            {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-          </Button>
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="size-7 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              onClick={onToggle}
+              aria-label={collapsed ? `展开 ${title}` : `折叠 ${title}`}
+            >
+              {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       {!collapsed ? (

@@ -19,6 +19,8 @@ public interface StockChartQueryRepository {
 
     Optional<LocalDate> findLatestAuctionDate(String targetType, String symbol, LocalDate requestedDate);
 
+    List<LocalDate> listAuctionDates(String targetType, String symbol, int limit);
+
     List<StockChartBO.AuctionPoint> listAuctionPoints(String targetType, String symbol, LocalDate tradeDate);
 
     StockChartBO.StockMeta stockMeta(String symbol);

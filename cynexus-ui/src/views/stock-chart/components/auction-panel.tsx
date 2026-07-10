@@ -1,7 +1,6 @@
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceDot, ReferenceLine, XAxis, YAxis } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
@@ -58,7 +57,7 @@ const unmatchedChartConfig = {
 } satisfies ChartConfig
 
 function formatPercent(value?: number) {
-  return typeof value === "number" ? `${value}%` : "--"
+  return typeof value === "number" ? `${value.toFixed(2)}%` : "--"
 }
 
 function formatRatio(value?: number) {
@@ -67,6 +66,10 @@ function formatRatio(value?: number) {
 
 function formatNumber(value?: number | null) {
   return typeof value === "number" ? value.toLocaleString("zh-CN") : "--"
+}
+
+function formatPrice(value?: number | null) {
+  return typeof value === "number" ? value.toFixed(2) : "--"
 }
 
 function formatSignedNumber(value?: number | null, digits = 3) {
@@ -151,6 +154,13 @@ function getDirectionText(point: StockAuctionPoint) {
   return "方向未知"
 }
 
+function getDirectionClass(point: StockAuctionPoint) {
+  const direction = point.unmatched_direction_raw ?? 0
+  if (direction > 0) return "bg-red-50 text-red-600"
+  if (direction < 0) return "bg-emerald-50 text-emerald-600"
+  return "bg-slate-50 text-slate-500"
+}
+
 function calcRangePriceTrend(points: StockAuctionPoint[], startTime: string, endTime: string) {
   const rangePoints = points.filter((point) => point.time_label >= startTime && point.time_label <= endTime && typeof point.price === "number")
   if (rangePoints.length < 2) {
@@ -210,49 +220,62 @@ function getInitialAuctionSnapshot(points: StockAuctionPoint[]) {
 
 function MetricCard({ label, value, subValue }: { label: string; value: string; subValue?: string }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+    <div className="min-w-0 rounded-lg bg-muted/35 px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-foreground">{value}</div>
-      {subValue ? <div className="mt-1 text-xs text-muted-foreground">{subValue}</div> : null}
+      <div className="mt-0.5 truncate text-sm font-semibold text-foreground">{value}</div>
+      {subValue ? <div className="mt-0.5 truncate text-xs text-muted-foreground">{subValue}</div> : null}
     </div>
   )
 }
 
 function DetailTimeline({ title, points }: { title: string; points: StockAuctionPoint[] }) {
-  const latest = points.slice(-8).reverse()
+  const latestPoint = points.at(-1)
 
   return (
-    <div className="space-y-3 rounded-xl border border-border/60 bg-background/70 p-3">
+    <div className="space-y-2 rounded-lg bg-muted/30 p-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium text-foreground">{title}</div>
-        <Badge variant="outline">{points.length} 条</Badge>
+        <div>
+          <div className="text-sm font-medium text-foreground">{title}</div>
+          {latestPoint ? (
+            <div className="text-xs text-muted-foreground">
+              {formatShortTime(points[0]?.time_label)} - {formatShortTime(latestPoint.time_label)}
+            </div>
+          ) : null}
+        </div>
+        <Badge variant="outline" className="bg-background">{points.length} rows</Badge>
       </div>
-      <div className="space-y-2">
-        {latest.length ? latest.map((point) => (
-          <div key={`${title}-${point.time_label}`} className="grid grid-cols-5 gap-2 rounded-lg border border-border/50 px-3 py-2 text-xs">
-            <div>
-              <div className="text-muted-foreground">时间</div>
-              <div className="font-medium text-foreground">{point.time_label}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">价格</div>
-              <div className="font-medium text-foreground">{point.price ?? "--"}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">虚拟成交量</div>
-              <div className="font-medium text-foreground">{formatNumber(point.matched_volume)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">未匹配量</div>
-              <div className="font-medium text-foreground">{formatNumber(point.unmatched_volume)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">委托方向</div>
-              <div className="font-medium text-foreground">{getDirectionText(point)}</div>
-            </div>
-          </div>
-        )) : <div className="text-xs text-muted-foreground">暂无竞价明细</div>}
-      </div>
+      {points.length ? (
+        <div className="max-h-[320px] overflow-auto rounded-md bg-background">
+          <table className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-xs">
+            <thead className="sticky top-0 z-10 bg-background text-muted-foreground shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+              <tr>
+                <th className="w-[18%] px-3 py-2 text-left font-medium">Time</th>
+                <th className="w-[18%] px-3 py-2 text-right font-medium">Price</th>
+                <th className="w-[22%] px-3 py-2 text-right font-medium">Matched</th>
+                <th className="w-[22%] px-3 py-2 text-right font-medium">Unmatched</th>
+                <th className="w-[20%] px-3 py-2 text-right font-medium">Side</th>
+              </tr>
+            </thead>
+            <tbody>
+              {points.map((point) => (
+                <tr key={`${title}-${point.time_label}`} className="odd:bg-muted/20 hover:bg-muted/40">
+                  <td className="px-3 py-1.5 font-mono text-foreground">{point.time_label}</td>
+                  <td className="px-3 py-1.5 text-right font-mono text-foreground">{formatPrice(point.price)}</td>
+                  <td className="px-3 py-1.5 text-right font-mono text-foreground">{formatNumber(point.matched_volume)}</td>
+                  <td className="px-3 py-1.5 text-right font-mono text-foreground">{formatNumber(point.unmatched_volume)}</td>
+                  <td className="px-3 py-1.5 text-right">
+                    <span className={cn("inline-flex min-w-[64px] justify-center rounded-full px-2 py-0.5 text-[11px]", getDirectionClass(point))}>
+                      {getDirectionText(point)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-md bg-background/80 px-3 py-4 text-xs text-muted-foreground">暂无竞价明细</div>
+      )}
     </div>
   )
 }
@@ -301,7 +324,7 @@ function buildAuctionChartData(points: StockAuctionPoint[], phase?: StockAuction
 
 function TdxLegend() {
   return (
-    <div className="grid gap-2 rounded-lg border border-slate-300 p-3 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600">
       <div className="flex items-center gap-2">
         <span className="h-0.5 w-5 rounded" style={{ backgroundColor: BUY_UNMATCHED_COLOR }} />
         <span>红线：买方主导价线</span>
@@ -418,7 +441,7 @@ function PriceVolumeChart({
                     <div className="grid w-full gap-1">
                       <div className="flex items-center justify-between gap-3">
                         <span>{name === "buyPrice" ? "买方主导价线" : "卖方主导价线"}</span>
-                        <span className="font-mono">{typeof value === "number" ? value.toFixed(3) : value}</span>
+                        <span className="font-mono">{typeof value === "number" ? formatPrice(value) : value}</span>
                       </div>
                       {point.isAnchor ? <div className="text-[11px] text-slate-500">当前摘要锚点</div> : null}
                     </div>
@@ -631,7 +654,7 @@ function TdxAuctionChart({
   const syncId = `auction-${title}`
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-300 p-3 text-slate-900">
+    <div className="space-y-3 rounded-lg bg-muted/30 p-2 text-slate-900">
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-slate-900">{title}</div>
@@ -647,7 +670,7 @@ function TdxAuctionChart({
       <TdxLegend />
 
       {chartData.length ? (
-        <div className="overflow-hidden rounded-lg border border-slate-300">
+        <div className="overflow-hidden rounded-md border border-slate-200 bg-background">
           <PriceVolumeChart data={chartData} phase={phase} dividerTime={dividerTime} syncId={syncId} />
           <UnmatchedChart data={chartData} dividerTime={dividerTime} targetTime={targetTime} syncId={syncId} />
         </div>
@@ -666,7 +689,7 @@ function EnhancedMetrics({ phase, title, points }: { phase?: StockAuctionPhaseSn
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
         label="竞价价格区间"
-        value={phase?.priceRange ? `${phase.priceRange.low} ~ ${phase.priceRange.high}` : "--"}
+        value={phase?.priceRange ? `${formatPrice(phase.priceRange.low)} ~ ${formatPrice(phase.priceRange.high)}` : "--"}
         subValue={`区间振幅：${phase?.priceRange ? phase.priceRange.spread.toFixed(3) : "--"}`}
       />
       <MetricCard
@@ -716,7 +739,7 @@ function PhaseBlock({ title, phase, points }: { title: string; phase?: StockAuct
   const dividerTime = title.includes("早盘") ? "09:20:00" : undefined
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border/60 bg-background/60 p-4">
+    <div className="space-y-3 rounded-xl bg-background p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-foreground">{title}</div>
@@ -732,7 +755,7 @@ function PhaseBlock({ title, phase, points }: { title: string; phase?: StockAuct
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="竞价价格" value={phase?.price?.toString() ?? "--"} subValue={`撮合价：${phase?.matchPrice ?? "--"}`} />
+        <MetricCard label="竞价价格" value={formatPrice(phase?.price)} subValue={`撮合价：${formatPrice(phase?.matchPrice)}`} />
         <MetricCard label="高开/低开幅度" value={formatPercent(phase?.gapRate)} subValue={`竞价量比：${formatRatio(phase?.auctionVolumeRatio)}`} />
         <MetricCard label="未匹配买卖差" value={phase?.unmatchedDelta?.toString() ?? "--"} subValue={`买量 ${phase?.unmatchedBuyVolume ?? "--"} / 卖量 ${phase?.unmatchedSellVolume ?? "--"}`} />
         <MetricCard label="成交概览" value={formatNumber(phase?.volume)} subValue={`成交额：${formatAmount(phase?.amount)}`} />
@@ -743,12 +766,12 @@ function PhaseBlock({ title, phase, points }: { title: string; phase?: StockAuct
       <EnhancedMetrics phase={phase} title={title} points={points} />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
+        <div className="space-y-2 rounded-lg bg-muted/30 p-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>未匹配买卖力量对比</span>
             <span>{hasDirection && buySellProgress !== null ? `买 ${buySellProgress}% / 卖 ${100 - buySellProgress}%` : "暂无方向数据"}</span>
           </div>
-          {buySellProgress !== null ? <Progress value={buySellProgress} className="h-3" /> : <div className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">当前锚点没有可判定的未匹配方向数据</div>}
+          {buySellProgress !== null ? <Progress value={buySellProgress} className="h-3" /> : <div className="rounded-md bg-background/80 px-3 py-2 text-xs text-muted-foreground">当前锚点没有可判定的未匹配方向数据</div>}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>买方未匹配量：{phase?.unmatchedBuyVolume ?? "--"}</span>
             <span>卖方未匹配量：{phase?.unmatchedSellVolume ?? "--"}</span>
@@ -756,7 +779,7 @@ function PhaseBlock({ title, phase, points }: { title: string; phase?: StockAuct
           <div className="text-xs text-muted-foreground">{phase?.dominantDirection ?? "方向未知"} · {phase?.directionStability ?? "暂无方向数据"}</div>
         </div>
 
-        <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
+        <div className="space-y-2 rounded-lg bg-muted/30 p-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>竞价量占比图示</span>
             <span>{formatPercent(typeof phase?.auctionVolumeRatio === "number" ? phase.auctionVolumeRatio * 100 : undefined)}</span>
@@ -771,31 +794,29 @@ function PhaseBlock({ title, phase, points }: { title: string; phase?: StockAuct
   )
 }
 
-export function AuctionPanel({ auction }: { auction: StockAuctionSnapshot | null }) {
+export function AuctionPanel({ auction, hideHeader = false }: { auction: StockAuctionSnapshot | null; hideHeader?: boolean }) {
   const openingPoints = auction?.details?.openingPoints ?? []
   const closingPoints = auction?.details?.closingPoints ?? []
   const allPoints = auction?.details?.allPoints ?? []
   const snapshot0925 = auction?.details?.auction0925 as Record<string, unknown> | undefined
 
   return (
-    <Card className="border-white/70 bg-white/80 shadow-sm">
-      <CardHeader>
+    <section className={cn("min-w-0 space-y-3 rounded-xl", hideHeader ? "bg-transparent p-0" : "bg-muted/35 p-3")}>
+      {!hideHeader ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-base">集合竞价面板</CardTitle>
+          <div className="text-base font-semibold text-foreground">集合竞价面板</div>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <Badge variant="outline">交易日 {auction?.trade_date ?? "--"}</Badge>
-            <Badge variant="outline">总明细 {allPoints.length}</Badge>
+            <Badge variant="outline" className="bg-background">交易日 {auction?.trade_date ?? "--"}</Badge>
+            <Badge variant="outline" className="bg-background">总明细 {allPoints.length}</Badge>
             <Badge variant={snapshot0925?.has_auction_0925 ? "default" : "secondary"}>09:25 {snapshot0925?.has_auction_0925 ? "命中" : "未命中"}</Badge>
             <Badge variant={auction?.closing?.anchorExact ? "default" : "secondary"}>15:00 {auction?.closing?.anchorExact ? "命中" : "近似"}</Badge>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 xl:grid-cols-2">
-          <PhaseBlock title="早盘集合竞价" phase={auction?.opening} points={openingPoints} />
-          <PhaseBlock title="尾盘集合竞价" phase={auction?.closing} points={closingPoints} />
-        </div>
-      </CardContent>
-    </Card>
+      ) : null}
+      <div className="grid gap-3 xl:grid-cols-2">
+        <PhaseBlock title="早盘集合竞价" phase={auction?.opening} points={openingPoints} />
+        <PhaseBlock title="尾盘集合竞价" phase={auction?.closing} points={closingPoints} />
+      </div>
+    </section>
   )
 }

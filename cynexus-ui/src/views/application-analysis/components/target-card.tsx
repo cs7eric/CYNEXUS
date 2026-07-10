@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDown, ChevronRight, Clock, Plus, RefreshCw, Save, Search, Target, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronRight, Clock, Plus, Power, RefreshCw, Save, Search, Target, Trash2 } from "lucide-react"
 
 import AnimatedList from "@/components/AnimatedList"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +15,19 @@ export type HorizonPatch = Partial<Record<"days" | "segments" | "monthly_keep" |
 type ListItem =
   | { kind: "target"; data: ApplicationAnalysisTarget }
   | { kind: "search"; data: StockSearchItem }
+
+function formatIntervalLabel(minutes: number) {
+  if (minutes < 60) return `${minutes} min`
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440
+    return days === 1 ? "1 day" : `${days} days`
+  }
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60
+    return hours === 1 ? "1 hour" : `${hours} hours`
+  }
+  return `${minutes} min`
+}
 
 export function TargetCard({
   targets,
@@ -110,8 +123,8 @@ export function TargetCard({
   }, [targets, stockSearchResults, searchKeyword, targetIdSet])
 
   return (
-    <Card className="w-full min-w-0 max-w-full overflow-hidden rounded-3xl border-slate-200 bg-white shadow-[0_16px_46px_rgba(15,23,42,0.06)]">
-      <CardHeader className={`px-3 pt-4 sm:px-4 2xl:px-6 ${compactMobile ? "pb-3" : ""}`}>
+    <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden rounded-3xl border-0 bg-muted/40 py-0 shadow-sm">
+      <CardHeader className="px-3 pb-3 pt-4 sm:px-4 2xl:px-6">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -126,7 +139,7 @@ export function TargetCard({
               size="icon-sm"
               variant="ghost"
               onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? "展开 Watchlist" : "折叠 Watchlist"}
+              aria-label={collapsed ? "Expand Watchlist" : "Collapse Watchlist"}
             >
               {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
             </Button>
@@ -141,7 +154,7 @@ export function TargetCard({
               type="search"
               value={searchKeyword}
               onChange={(event) => setSearchKeyword(event.target.value)}
-              placeholder="搜索目标 / 股票 · 名称 / 代码"
+              placeholder="Search targets / stocks · name / symbol"
               className="w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 py-1.5 text-xs text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
             />
           </div>
@@ -166,11 +179,13 @@ export function TargetCard({
                 const isSelected = target.id === selectedId
                 return (
                   <div
-                    className={`rounded-2xl border transition ${
-                      isSelected ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:border-slate-400"
+                    className={`overflow-hidden rounded-xl transition ${
+                      isSelected
+                        ? "bg-background shadow-sm ring-1 ring-border"
+                        : "bg-background/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-background hover:shadow-sm"
                     }`}
                   >
-                    <div className="flex w-full flex-col gap-2 px-3 py-3 text-left sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex w-full flex-col gap-2 px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-start gap-2 sm:items-center">
                         {!collapsed ? (
                           isExpanded ? <ChevronDown className="mt-0.5 size-3.5 shrink-0 text-slate-500 sm:mt-0" /> : <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-slate-500 sm:mt-0" />
@@ -181,74 +196,77 @@ export function TargetCard({
                             <span className="shrink-0 text-slate-400">· {target.symbol}</span>
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                            <Clock className="size-3 shrink-0" />每 {target.interval_minutes} 分钟
-                            {target.enabled ? <Badge className="rounded-full border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">启用</Badge> : <Badge className="rounded-full border-slate-200 bg-slate-100 text-slate-500" variant="outline">停用</Badge>}
-                            {target.last_updated_at ? <span>· 最近 {new Date(target.last_updated_at).toLocaleString()}</span> : null}
+                            <Clock className="size-3 shrink-0" />Every {formatIntervalLabel(target.interval_minutes)}
+                            {target.last_updated_at ? <span>· Last {new Date(target.last_updated_at).toLocaleString()}</span> : null}
                           </div>
                         </div>
                       </div>
-                      <Badge className={`w-fit rounded-full border-slate-200 bg-white text-slate-700 ${compactMobile ? "max-lg:hidden" : ""}`} variant="outline">{target.target_type}</Badge>
+                      {target.enabled ? (
+                        <Badge className={`w-fit rounded-md border-emerald-200 bg-emerald-50 px-1.5 text-[11px] text-emerald-700 ${compactMobile ? "max-lg:hidden" : ""}`} variant="outline">Enabled</Badge>
+                      ) : (
+                        <Badge className={`w-fit rounded-md border-border bg-muted px-1.5 text-[11px] text-muted-foreground ${compactMobile ? "max-lg:hidden" : ""}`} variant="outline">Disabled</Badge>
+                      )}
                     </div>
                     {isExpanded ? (
-                      <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                        <div className={`${compactMobile ? "grid grid-cols-4 gap-2 text-[10px]" : "grid grid-cols-1 gap-2 text-xs md:grid-cols-2"}`}>
-                          <label className={`flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 ${compactMobile ? "items-stretch gap-1 px-1 py-1" : "sm:flex-row sm:items-center sm:justify-between sm:gap-2"}`}>
-                            调整
+                      <div className="space-y-2 bg-muted/45 px-3 pb-2.5 pt-2 ring-1 ring-inset ring-border/60" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex w-full min-w-0 items-center gap-2 text-xs">
+                          <label className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Adjust</span>
                             <Select value={target.adjust} onValueChange={(value) => onUpdateTarget(target.id, { adjust: value })}>
-                              <SelectTrigger className={`h-7 shrink-0 ${compactMobile ? "w-full px-1 text-[10px]" : "w-[7.25rem] sm:w-24"}`}><SelectValue /></SelectTrigger>
+                              <SelectTrigger className={`h-5 min-w-0 flex-1 rounded-md border-0 bg-muted px-1.5 py-0 shadow-none ring-0 [&_svg]:size-3 ${compactMobile ? "px-1 text-[10px]" : "text-[11px]"}`}><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="qfq">前复权</SelectItem>
-                                <SelectItem value="none">不复权</SelectItem>
-                                <SelectItem value="hfq">后复权</SelectItem>
+                                <SelectItem value="qfq">QFQ</SelectItem>
+                                <SelectItem value="none">Unadjusted</SelectItem>
+                                <SelectItem value="hfq">HFQ</SelectItem>
                               </SelectContent>
                             </Select>
                           </label>
-                          <label className={`flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 ${compactMobile ? "items-stretch gap-1 px-1 py-1" : "sm:flex-row sm:items-center sm:justify-between sm:gap-2"}`}>
-                            周期
+                          <div className="h-3 w-px shrink-0 bg-border" />
+                          <label className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Interval</span>
                             <Select
                               value={target.interval_minutes.toString()}
                               onValueChange={(value) => onUpdateTarget(target.id, { interval_minutes: Number(value) })}
                             >
-                              <SelectTrigger className={`h-7 shrink-0 ${compactMobile ? "w-full px-1 text-[10px]" : "w-[7.25rem] sm:w-24"}`}><SelectValue /></SelectTrigger>
+                              <SelectTrigger className={`h-5 min-w-0 flex-1 rounded-md border-0 bg-muted px-1.5 py-0 shadow-none ring-0 [&_svg]:size-3 ${compactMobile ? "px-1 text-[10px]" : "text-[11px]"}`}><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="15">15 分钟</SelectItem>
-                                <SelectItem value="30">30 分钟</SelectItem>
-                                <SelectItem value="60">1 小时</SelectItem>
-                                <SelectItem value="120">2 小时</SelectItem>
-                                <SelectItem value="240">4 小时</SelectItem>
-                                <SelectItem value="1440">1 天</SelectItem>
+                                <SelectItem value="15">15 min</SelectItem>
+                                <SelectItem value="30">30 min</SelectItem>
+                                <SelectItem value="60">1 hour</SelectItem>
+                                <SelectItem value="120">2 hours</SelectItem>
+                                <SelectItem value="240">4 hours</SelectItem>
+                                <SelectItem value="1440">1 day</SelectItem>
                               </SelectContent>
                             </Select>
                           </label>
                         </div>
-                        <div className={compactMobile ? "grid grid-cols-3 gap-2 text-xs" : "flex w-full flex-nowrap items-stretch gap-2 overflow-x-auto pb-0.5 text-xs [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"}>
+                        <div className="grid grid-cols-[1fr_1.35fr_1fr] gap-2 text-xs">
                           <Button
                             size="sm"
-                            variant="outline"
-                            className={compactMobile ? "h-8 w-full rounded-xl px-2 text-[11px]" : "h-8 min-w-[4.8rem] flex-[0.8] rounded-xl px-2 text-[11px] sm:w-auto sm:flex-none sm:px-3"}
+                            variant="secondary"
+                            className="h-7 w-full rounded-lg px-2 text-[11px]"
                             onClick={() => onUpdateTarget(target.id, { enabled: !target.enabled })}
                           >
-                            {target.enabled ? "停用" : "启用"}
+                            <Power className={`mr-1 size-3 shrink-0 ${target.enabled ? "text-slate-400" : "text-emerald-600"}`} />
+                            {target.enabled ? "Disable" : "Enable"}
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
-                            className={compactMobile ? "h-8 w-full rounded-xl px-2 text-[11px]" : "h-8 min-w-[5.8rem] flex-[1.25] rounded-xl px-2 text-[11px] sm:w-auto sm:flex-none sm:px-3"}
+                            variant="secondary"
+                            className="h-7 w-full rounded-lg px-2 text-[11px]"
                             onClick={() => onTriggerTarget(target.id)}
                           >
-                            <RefreshCw className="mr-1 size-3.5 shrink-0" />
-                            <span className={compactMobile ? "text-[11px]" : "sm:hidden"}>刷新</span>
-                            <span className={`${compactMobile ? "hidden" : "hidden sm:inline"}`}>立即刷新</span>
+                            <RefreshCw className="mr-1 size-3 shrink-0 text-sky-600" />
+                            <span>Run Now</span>
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className={compactMobile ? "h-8 w-full rounded-xl px-2 text-[11px] text-slate-500" : "h-8 min-w-[4.8rem] flex-[0.8] rounded-xl px-2 text-[11px] text-slate-500 sm:w-auto sm:flex-none sm:px-3"}
+                            className="h-7 w-full rounded-lg px-2 text-[11px] text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
                             onClick={() => onRemove(target.id)}
                           >
-                            <Trash2 className="mr-1 size-3.5 shrink-0" />
-                            <span className={compactMobile ? "text-[11px]" : "sm:hidden"}>删</span>
-                            <span className={`${compactMobile ? "hidden" : "hidden sm:inline"}`}>删除</span>
+                            <Trash2 className="mr-1 size-3 shrink-0" />
+                            <span>Delete</span>
                           </Button>
                         </div>
                       </div>
@@ -260,10 +278,10 @@ export function TargetCard({
               const searchItem = item.data
               return (
                 <div
-                  className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 transition hover:border-slate-400 hover:bg-slate-50"
+                  className="rounded-xl bg-muted/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:bg-muted"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <div className="flex w-full flex-col gap-2 px-3 py-3 text-left sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex w-full flex-col gap-2 px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-start gap-2 sm:items-center">
                       <Plus className="mt-0.5 size-3.5 shrink-0 text-slate-400 sm:mt-0" />
                       <div className="min-w-0">
@@ -272,18 +290,18 @@ export function TargetCard({
                           <span className="shrink-0 text-slate-400">· {searchItem.symbol}</span>
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                          <Clock className="size-3 shrink-0" />每 60 分钟
-                          <Badge className="rounded-full border-slate-200 bg-slate-100 text-slate-500" variant="outline">停用</Badge>
-                          <span>· 未添加到目标</span>
+                          <Clock className="size-3 shrink-0" />Every 1 hour
+                          <Badge className="rounded-md border-border bg-background px-1.5 text-muted-foreground" variant="outline">Disabled</Badge>
+                          <span>· Not added</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2 sm:justify-end">
-                      <Badge className={`rounded-full border-slate-200 bg-white text-slate-700 ${compactMobile ? "max-lg:hidden" : ""}`} variant="outline">{searchItem.target_type}</Badge>
+                      <Badge className={`rounded-md border-border bg-background px-1.5 text-[11px] text-muted-foreground ${compactMobile ? "max-lg:hidden" : ""}`} variant="outline">{searchItem.target_type}</Badge>
                       <button
                         type="button"
-                        aria-label="添加到目标"
-                        className="inline-flex size-7 items-center justify-center rounded-full border border-slate-900 bg-slate-950 text-white transition hover:bg-slate-800"
+                        aria-label="Add to targets"
+                        className="inline-flex size-7 items-center justify-center rounded-lg bg-background text-muted-foreground shadow-sm ring-1 ring-border transition hover:bg-background hover:text-foreground"
                         onClick={() => onAddFromSearch(searchItem)}
                       >
                         <Plus className="size-3.5" />
@@ -295,10 +313,10 @@ export function TargetCard({
             }}
             emptyMessage={
               searchKeyword.trim()
-                ? "没有匹配的目标或股票。"
+                ? "No matching targets or stocks."
                 : targets.length === 0
-                  ? "还没有目标，输入关键词搜索添加股票。"
-                  : "没有匹配的目标。"
+                  ? "No targets yet. Search by keyword to add a stock."
+                  : "No matching targets."
             }
             maxHeight={collapsed ? "max-h-[24vh]" : "max-h-[36vh] lg:max-h-[40vh]"}
             className=""
@@ -307,11 +325,11 @@ export function TargetCard({
           )}
         </div>
         {!collapsed ? (
-          <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-xs font-semibold text-slate-600">数据范围（horizon）</div>
+          <div className="space-y-2 rounded-2xl border border-slate-200 bg-background p-3">
+            <div className="text-xs font-semibold text-slate-600">Data Horizon</div>
             <div className={compactMobile ? "grid grid-cols-4 gap-1 text-[10px]" : "grid grid-cols-1 gap-2 text-xs sm:grid-cols-2"}>
               <label className={`flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 ${compactMobile ? "items-stretch gap-1 px-1 py-1" : "sm:flex-row sm:items-center sm:justify-between sm:gap-2"}`}>
-                天数<input
+                Days<input
                   type="number"
                   min={30}
                   value={horizon.days}
@@ -320,7 +338,7 @@ export function TargetCard({
                 />
               </label>
               <label className={`flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 ${compactMobile ? "items-stretch gap-1 px-1 py-1" : "sm:flex-row sm:items-center sm:justify-between sm:gap-2"}`}>
-                段数<input
+                Segments<input
                   type="number"
                   min={1}
                   value={horizon.segments}
@@ -329,7 +347,7 @@ export function TargetCard({
                 />
               </label>
               <label className={`flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 ${compactMobile ? "items-stretch gap-1 px-1 py-1" : "sm:flex-row sm:items-center sm:justify-between sm:gap-2"}`}>
-                月 K<input
+                Monthly K<input
                   type="number"
                   min={1}
                   value={horizon.monthly_keep}
@@ -338,7 +356,7 @@ export function TargetCard({
                 />
               </label>
               <label className={`flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 ${compactMobile ? "items-stretch gap-1 px-1 py-1" : "sm:flex-row sm:items-center sm:justify-between sm:gap-2"}`}>
-                周 K<input
+                Weekly K<input
                   type="number"
                   min={1}
                   value={horizon.weekly_keep}
@@ -349,7 +367,7 @@ export function TargetCard({
             </div>
             <div className={compactMobile ? "grid grid-cols-3 gap-2" : "grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center"}>
               <Button className="w-full rounded-xl sm:w-auto" size="sm" disabled={saving} onClick={onSave}>
-                <Save className="mr-1 size-3.5" />{saving ? "保存中" : "保存配置"}
+                <Save className="mr-1 size-3.5" />{saving ? "Saving" : "Save Config"}
               </Button>
               <Button
                 className="w-full rounded-xl sm:w-auto"
@@ -357,16 +375,16 @@ export function TargetCard({
                 variant={scheduler?.running ? "destructive" : "default"}
                 onClick={onToggleScheduler}
               >
-                {scheduler?.running ? "停止调度" : "启动调度"}
+                {scheduler?.running ? "Stop Scheduler" : "Start Scheduler"}
               </Button>
               <Button className="w-full rounded-xl sm:w-auto" size="sm" variant="outline" onClick={onRefreshAll}>
-                全部刷新
+                Refresh All
               </Button>
             </div>
             <div className="text-xs text-slate-500">
               {scheduler
-                ? `调度器 ${scheduler.running ? "运行中" : "已停止"} · 累计 ${scheduler.runs_count ?? 0} 次 · 启用 ${scheduler.enabled_target_count ?? 0}/${scheduler.total_target_count ?? 0}`
-                : "调度器状态未知"}
+                ? `Scheduler ${scheduler.running ? "running" : "stopped"} · ${scheduler.runs_count ?? 0} runs · enabled ${scheduler.enabled_target_count ?? 0}/${scheduler.total_target_count ?? 0}`
+                : "Scheduler status unavailable"}
             </div>
           </div>
         ) : null}

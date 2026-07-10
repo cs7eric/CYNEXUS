@@ -13,7 +13,6 @@ export function SelectionPanel(props: {
   onToggle: () => void
   items: ChartPanelSelectionItem[]
   selectionColorMap: Record<string, string>
-  analysisFocusKey: string | null
   prevCloseMap: Record<string, number | null>
   prevVolumeMap: Record<string, number | null>
   prevTurnoverMap: Record<string, number | null>
@@ -27,7 +26,6 @@ export function SelectionPanel(props: {
     onToggle,
     items,
     selectionColorMap,
-    analysisFocusKey,
     prevCloseMap,
     prevVolumeMap,
     prevTurnoverMap,
@@ -36,7 +34,7 @@ export function SelectionPanel(props: {
     onAnalyzeBar,
   } = props
   return (
-    <div ref={panelRef}>
+    <div ref={panelRef} className="flex min-h-0 flex-1">
       <CollapsibleCard
         title="选中分析项"
         description="已选 K 柱 / 标注集中展示"
@@ -44,29 +42,29 @@ export function SelectionPanel(props: {
         badge={String(items.length)}
         collapsed={collapsed}
         onToggle={onToggle}
+        headerAction={
+          items.length ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onClearAll}
+            >
+              <X className="size-3" />
+              Clear All
+            </Button>
+          ) : null
+        }
       >
         {items.length ? (
           <div className="space-y-2.5">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={onClearAll}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span>取消全部</span>
-              </button>
-            </div>
             {items.map((item) => {
               const color = selectionColorMap[item.key] || "#94a3b8"
               return (
                 <div
                   key={item.key}
-                  className={`relative rounded-xl border p-3 transition ${
-                    analysisFocusKey === item.key
-                      ? "border-slate-300 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.06)]"
-                      : "border-slate-200/80 bg-slate-50/60 hover:bg-white"
-                  }`}
+                  className="relative rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 transition hover:bg-white"
                 >
                   <span
                     className="absolute inset-y-2 left-0 w-1 rounded-r-full"
@@ -92,7 +90,7 @@ export function SelectionPanel(props: {
                               prevVolume={prevVolumeMap[item.key] ?? null}
                               prevTurnover={prevTurnoverMap[item.key] ?? null}
                               color={color}
-                              focused={analysisFocusKey === item.key}
+                              focused={false}
                             />
                           </div>
                           <Button
@@ -143,7 +141,7 @@ export function SelectionPanel(props: {
             })}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-[11px] leading-5 break-words text-slate-500">
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-[11px] leading-5 break-words text-slate-500">
             先在右侧 K 线图中点击 K 柱，或点选标注标签，这里会展示当前选中的分析对象。
           </div>
         )}

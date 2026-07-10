@@ -200,9 +200,25 @@ public class StockChartQueryAppService {
                 .build();
     }
 
-    public StockChartDTO.AuctionDTO auction(String symbol) {
-        LocalDate requested = LocalDate.now(SHANGHAI);
+    public StockChartDTO.AuctionDTO auction(String symbol, String tradeDate) {
+        LocalDate requested = parseDateOrToday(tradeDate);
         LocalDate effectiveDate = stockChartQueryRepository.findLatestAuctionDate("stock", symbol, requested).orElse(null);
+        return auctionForDate(symbol, requested, effectiveDate);
+    }
+
+    public StockChartDTO.AuctionHistoryResponseDTO auctionHistory(String symbol, int limit) {
+        int resolvedLimit = Math.max(1, Math.min(limit, 30));
+        List<StockChartDTO.AuctionDTO> items = stockChartQueryRepository.listAuctionDates("stock", symbol, resolvedLimit).stream()
+                .map(date -> auctionForDate(symbol, date, date))
+                .toList();
+        return StockChartDTO.AuctionHistoryResponseDTO.builder()
+                .symbol(symbol)
+                .source(items.isEmpty() ? "clickhouse.ch_ods_stock_auction_point-empty" : "clickhouse.ch_ods_stock_auction_point")
+                .items(items)
+                .build();
+    }
+
+    private StockChartDTO.AuctionDTO auctionForDate(String symbol, LocalDate requested, LocalDate effectiveDate) {
         if (effectiveDate == null) {
             return StockChartDTO.AuctionDTO.builder()
                     .symbol(symbol)

@@ -148,6 +148,7 @@ def timeshare_to_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
 
 def _auction_point_row(symbol: str, tdx_code: str, trade_date: date, time_label: str, phase: str, point: dict[str, Any]) -> dict[str, Any]:
     trade_time = datetime.combine(trade_date, datetime.strptime(time_label, "%H:%M:%S").time())
+    unmatched_buy_volume, unmatched_sell_volume = _derive_unmatched_volumes(point)
     return {
         "market": tdx_code[:2].upper(),
         "symbol": symbol,
@@ -160,13 +161,34 @@ def _auction_point_row(symbol: str, tdx_code: str, trade_date: date, time_label:
         "price": _optional_float(_get_value(point, "price", "match_price")),
         "matched_volume": _optional_float(_get_value(point, "matched_volume", "volume", "vol")),
         "matched_amount": _optional_float(_get_value(point, "matched_amount", "amount", "turnover", "matched_amount_estimated")),
-        "unmatched_buy_volume": _optional_float(_get_value(point, "unmatched_buy_volume", "buy_volume", "buy")),
-        "unmatched_sell_volume": _optional_float(_get_value(point, "unmatched_sell_volume", "sell_volume", "sell")),
+        "unmatched_buy_volume": unmatched_buy_volume,
+        "unmatched_sell_volume": unmatched_sell_volume,
         "source": "eltdx",
         "raw_payload": _sanitize_jsonable(point),
         "fetched_at": datetime.now(),
         "ingested_at": datetime.now(),
     }
+
+
+def _derive_unmatched_volumes(point: dict[str, Any]) -> tuple[float | None, float | None]:
+    explicit_buy = _optional_float(_get_value(point, "unmatched_buy_volume", "buy_volume", "buy"))
+    explicit_sell = _optional_float(_get_value(point, "unmatched_sell_volume", "sell_volume", "sell"))
+    if explicit_buy is not None or explicit_sell is not None:
+        return explicit_buy, explicit_sell
+
+    signed = _optional_float(_get_value(point, "unmatched_signed_raw", "unmatched_signed"))
+    if signed is not None:
+        return (signed, 0.0) if signed >= 0 else (0.0, abs(signed))
+
+    unmatched_volume = _optional_float(_get_value(point, "unmatched_volume"))
+    direction = _optional_float(_get_value(point, "unmatched_direction_raw", "unmatched_direction"))
+    if unmatched_volume is None or direction is None:
+        return None, None
+    if direction > 0:
+        return unmatched_volume, 0.0
+    if direction < 0:
+        return 0.0, unmatched_volume
+    return 0.0, 0.0
 
 
 def _call_client_variants(client: IntradayDetailClient, method_names: list[str], variants: list[tuple[tuple, dict]]) -> list[dict[str, Any]]:
