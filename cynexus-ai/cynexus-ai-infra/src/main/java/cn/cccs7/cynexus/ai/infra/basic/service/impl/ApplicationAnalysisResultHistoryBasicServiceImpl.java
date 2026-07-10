@@ -14,15 +14,25 @@ public class ApplicationAnalysisResultHistoryBasicServiceImpl
         implements ApplicationAnalysisResultHistoryBasicService {
 
     private final ApplicationAnalysisResultHistoryMapper mapper;
+    private final SnowflakeIdGenerator snowflakeIdGenerator;
 
     public ApplicationAnalysisResultHistoryBasicServiceImpl(ApplicationAnalysisResultHistoryMapper mapper,
                                                             SnowflakeIdGenerator snowflakeIdGenerator) {
         super(mapper, snowflakeIdGenerator);
         this.mapper = mapper;
+        this.snowflakeIdGenerator = snowflakeIdGenerator;
     }
 
     @Override
     public List<ApplicationAnalysisResultHistoryPO> listActiveByTargetKey(String targetKey, int limit) {
         return mapper.selectActiveByTargetKey(targetKey, limit);
+    }
+
+    @Override
+    public boolean upsertActiveByTargetKeyAndHistoryKey(ApplicationAnalysisResultHistoryPO po) {
+        if (po.getId() == null) {
+            po.setId(snowflakeIdGenerator.nextId());
+        }
+        return mapper.upsertActiveByTargetKeyAndHistoryKey(po) > 0;
     }
 }

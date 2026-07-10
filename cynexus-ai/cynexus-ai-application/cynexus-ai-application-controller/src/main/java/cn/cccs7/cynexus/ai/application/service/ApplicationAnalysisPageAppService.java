@@ -22,14 +22,14 @@ public class ApplicationAnalysisPageAppService {
     private static final String EMPTY_OBJECT = "{}";
     private static final String EMPTY_ARRAY = "[]";
     private static final String JSON_NULL = "null";
-    private static final String UNSUPPORTED_EXECUTOR_MESSAGE =
-            "Java application-analysis executor is not connected yet; existing persisted results are query-only.";
-
     private final ApplicationAnalysisPageRepository repository;
+    private final ApplicationAnalysisRecent30Executor recent30Executor;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
-    public ApplicationAnalysisPageAppService(ApplicationAnalysisPageRepository repository) {
+    public ApplicationAnalysisPageAppService(ApplicationAnalysisPageRepository repository,
+                                             ApplicationAnalysisRecent30Executor recent30Executor) {
         this.repository = repository;
+        this.recent30Executor = recent30Executor;
     }
 
     public ApplicationAnalysisPageDTO.TargetsResponse getTargets() {
@@ -88,11 +88,25 @@ public class ApplicationAnalysisPageAppService {
     }
 
     public ApplicationAnalysisPageDTO.ActionResponse trigger(String targetId) {
+        String targetKey = normalizeTargetKey(targetId);
+        if (!targetKey.isBlank()) {
+            ApplicationAnalysisPageDTO.ActionItem item = runActionItem(targetKey);
+            return ApplicationAnalysisPageDTO.ActionResponse.builder()
+                    .ok(Boolean.TRUE.equals(item.getOk()))
+                    .targetId(targetKey)
+                    .error(item.getError())
+                    .items(List.of(item))
+                    .build();
+        }
+        List<ApplicationAnalysisPageDTO.ActionItem> items = repository.listTargets().stream()
+                .filter(target -> Boolean.TRUE.equals(target.getEnabled()))
+                .map(target -> runActionItem(target.getTargetKey()))
+                .toList();
+        boolean ok = items.stream().allMatch(item -> Boolean.TRUE.equals(item.getOk()));
         return ApplicationAnalysisPageDTO.ActionResponse.builder()
-                .ok(false)
-                .targetId(normalizeTargetKey(targetId))
-                .error(UNSUPPORTED_EXECUTOR_MESSAGE)
-                .items(List.of())
+                .ok(ok)
+                .items(items)
+                .error(ok ? null : "Some application-analysis targets failed")
                 .build();
     }
 
@@ -124,12 +138,35 @@ public class ApplicationAnalysisPageAppService {
 
     public ApplicationAnalysisPageDTO.DailySnapshotResponse refreshRecent30(ApplicationAnalysisPageRequest.Recent30RefreshRequest request) {
         String targetId = request == null ? "" : normalizeTargetKey(request.getTargetId());
-        return ApplicationAnalysisPageDTO.DailySnapshotResponse.builder()
-                .ok(false)
-                .targetId(targetId)
-                .error(UNSUPPORTED_EXECUTOR_MESSAGE)
-                .snapshots(List.of())
-                .build();
+        LocalDate date = parseDate(request == null ? null : request.getDate());
+        ApplicationAnalysisRecent30Executor.ExecutionResult result = recent30Executor.execute(targetId, date);
+        return buildDailySnapshotResponse(result);
+    }
+
+    public ApplicationAnalysisPageDTO.AnalysisResultResponse run(ApplicationAnalysisPageRequest.RunRequest request) {
+        String targetType = defaultString(request == null ? null : request.getTargetType(), "stock");
+        String symbol = defaultString(request == null ? null : request.getSymbol(), "").toUpperCase(Locale.ROOT);
+        if (symbol.isBlank()) {
+            throw new cn.cccs7.cynexus.common.core.exception.BizException(
+                    cn.cccs7.cynexus.common.core.exception.ErrorCode.BAD_REQUEST, "symbol is required");
+        }
+        String targetKey = buildTargetKey(targetType, symbol);
+        ApplicationAnalysisPageBO.Target target = repository.findTarget(targetKey);
+        if (target == null) {
+            repository.saveTargets(ApplicationAnalysisPageBO.SaveTargetsCommand.builder()
+                    .targets(List.of(ApplicationAnalysisPageBO.Target.builder()
+                            .targetType(targetType)
+                            .symbol(symbol)
+                            .name(defaultString(request.getName(), symbol))
+                            .adjust(defaultString(request.getAdjust(), "qfq"))
+                            .enabled(true)
+                            .intervalMinutes(60)
+                            .tagsJson(EMPTY_ARRAY)
+                            .build()))
+                    .build());
+        }
+        recent30Executor.execute(targetKey, null);
+        return getResult(targetKey);
     }
 
     public ApplicationAnalysisPageDTO.DailySnapshotResponse listRecent30(String targetId, int limit) {
@@ -207,7 +244,42 @@ public class ApplicationAnalysisPageAppService {
     }
 
     public String unsupportedExecutorMessage() {
-        return UNSUPPORTED_EXECUTOR_MESSAGE;
+        return "Java application-analysis recent30 executor is connected; full annotation scheduler remains read-only.";
+    }
+
+    private ApplicationAnalysisPageDTO.ActionItem runActionItem(String targetKey) {
+        try {
+            ApplicationAnalysisRecent30Executor.ExecutionResult result = recent30Executor.execute(targetKey, null);
+            return ApplicationAnalysisPageDTO.ActionItem.builder()
+                    .id(result.targetKey())
+                    .ok(true)
+                    .build();
+        } catch (Exception exception) {
+            return ApplicationAnalysisPageDTO.ActionItem.builder()
+                    .id(targetKey)
+                    .ok(false)
+                    .error(exception.getMessage())
+                    .build();
+        }
+    }
+
+    private ApplicationAnalysisPageDTO.DailySnapshotResponse buildDailySnapshotResponse(
+            ApplicationAnalysisRecent30Executor.ExecutionResult result) {
+        ApplicationAnalysisPageBO.Target target = repository.findTarget(result.targetKey());
+        ApplicationAnalysisPageBO.DailySnapshot saved = repository.findDailySnapshot(result.targetKey(), result.date());
+        JsonNode snapshotRoot = saved == null ? result.payload() : parseJson(saved.getPayloadJson());
+        return ApplicationAnalysisPageDTO.DailySnapshotResponse.builder()
+                .ok(result.ok())
+                .targetId(result.targetKey())
+                .date(result.date() == null ? null : result.date().toString())
+                .snapshotPath(result.snapshotPath())
+                .shortTermTrendJson(childRaw(snapshotRoot, "short_term_trend", JSON_NULL))
+                .currentSituationJson(childRaw(snapshotRoot, "current_situation", JSON_NULL))
+                .updated(result.updated())
+                .skipReason(result.skipReason())
+                .snapshot(saved == null || target == null ? null : toDailySnapshotDetail(target, saved))
+                .snapshots(List.of())
+                .build();
     }
 
     private List<ApplicationAnalysisPageDTO.ResultFile> toHistoryFiles(String targetKey) {
@@ -356,6 +428,13 @@ public class ApplicationAnalysisPageAppService {
 
     private String buildTargetKey(String targetType, String symbol) {
         return normalizeTargetKey(defaultString(targetType, "stock") + "-" + defaultString(symbol, ""));
+    }
+
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return LocalDate.parse(value.trim());
     }
 
     private String normalizeTargetKey(String value) {

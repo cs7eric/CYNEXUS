@@ -10,4 +10,40 @@
         ORDER BY analysis_run_at DESC, created_at DESC, id DESC
         LIMIT #{limit}
     </select>
+
+    <insert id="upsertActiveByTargetKeyAndHistoryKey"
+            parameterType="cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisResultHistoryPO">
+        INSERT INTO application_analysis_result_history (
+            id,
+            target_id,
+            target_key,
+            history_key,
+            source_kind,
+            analysis_run_at,
+            payload,
+            remark,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id},
+            #{targetId},
+            #{targetKey},
+            #{historyKey},
+            #{sourceKind},
+            #{analysisRunAt},
+            #{payload,typeHandler=cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler},
+            #{remark},
+            now(),
+            now()
+        )
+        ON CONFLICT (target_key, history_key) WHERE deleted_at IS NULL
+        DO UPDATE SET
+            target_id = EXCLUDED.target_id,
+            source_kind = EXCLUDED.source_kind,
+            analysis_run_at = EXCLUDED.analysis_run_at,
+            payload = EXCLUDED.payload,
+            remark = EXCLUDED.remark,
+            updated_at = now()
+    </insert>
 </mapper>

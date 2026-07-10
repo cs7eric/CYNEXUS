@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { BrainCircuit, CheckCircle2, Database, Plus, RefreshCw, Save, Trash2, X } from "lucide-react"
+import {
+  AlertTriangle,
+  BrainCircuit,
+  CheckCircle2,
+  Database,
+  GitBranch,
+  Plus,
+  RefreshCw,
+  Route,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -54,6 +66,11 @@ type ProviderDraft = {
   remark: string
 }
 
+type BindingDraft = {
+  providerId: string
+  modelOverride: string
+}
+
 const emptyDraft: ProviderDraft = {
   code: "",
   name: "",
@@ -100,8 +117,10 @@ export default function AiProviderSettingsPage() {
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingBinding, setSavingBinding] = useState("")
   const [error, setError] = useState("")
   const [newModelInput, setNewModelInput] = useState("")
+  const [bindingDrafts, setBindingDrafts] = useState<Record<string, BindingDraft>>({})
 
   const selectedProvider = useMemo(
     () => providers.find((item) => item.id === selectedProviderId) || null,
@@ -122,6 +141,17 @@ export default function AiProviderSettingsPage() {
       setProviderTypes(nextProviderTypes)
       setProviders(nextProviders)
       setBindings(nextBindings)
+      setBindingDrafts(
+        Object.fromEntries(
+          nextBindings.map((binding) => [
+            binding.capability,
+            {
+              providerId: binding.provider_id || "",
+              modelOverride: binding.model_override || "",
+            },
+          ]),
+        ),
+      )
       if (!selectedProviderId && nextProviders[0]) {
         setSelectedProviderId(nextProviders[0].id)
         setDraft(draftFromProvider(nextProviders[0]))
@@ -145,6 +175,30 @@ export default function AiProviderSettingsPage() {
     bindings.forEach((item) => map.set(item.capability, item))
     return map
   }, [bindings])
+
+  const providerById = useMemo(() => {
+    const map = new Map<string, AiProviderItem>()
+    providers.forEach((item) => map.set(item.id, item))
+    return map
+  }, [providers])
+
+  const routeRows = useMemo(
+    () => capabilities.map((capability) => {
+      const binding = bindingByCapability.get(capability.code)
+      const draftRoute = bindingDrafts[capability.code]
+      const providerId = draftRoute?.providerId ?? binding?.provider_id ?? ""
+      const provider = providerById.get(providerId) || null
+      const modelOverride = draftRoute?.modelOverride ?? binding?.model_override ?? ""
+      const effectiveModel = modelOverride || provider?.default_model || ""
+      const issues = routeIssues(provider, effectiveModel)
+      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "")
+      return { capability, binding, providerId, provider, modelOverride, effectiveModel, issues, dirty }
+    }),
+    [bindingByCapability, bindingDrafts, capabilities, providerById],
+  )
+
+  const issueCount = routeRows.filter((row) => row.issues.length > 0).length
+  const activeBindingCount = routeRows.filter((row) => row.binding?.is_enabled).length
 
   async function handleSaveProvider() {
     if (!draft.code.trim() || !draft.name.trim()) {
@@ -213,22 +267,59 @@ export default function AiProviderSettingsPage() {
     }))
   }
 
+  function updateBindingDraft(capabilityCode: string, patch: Partial<BindingDraft>) {
+    setBindingDrafts((current) => {
+      const binding = bindingByCapability.get(capabilityCode)
+      const existing = current[capabilityCode] || {
+        providerId: binding?.provider_id || "",
+        modelOverride: binding?.model_override || "",
+      }
+      return {
+        ...current,
+        [capabilityCode]: {
+          ...existing,
+          ...patch,
+        },
+      }
+    })
+  }
+
   async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string) {
+    const provider = providerById.get(providerId) || null
+    const normalizedModel = modelOverride.trim() || provider?.default_model || ""
+    const issues = routeIssues(provider, normalizedModel)
+    if (issues.some((issue) => issue.level === "error")) {
+      notification.danger({
+        title: "绑定未保存",
+        description: issues.find((issue) => issue.level === "error")?.message || "Provider 和模型不匹配",
+      })
+      return
+    }
+    setSavingBinding(capability.code)
     try {
       const saved = await upsertAiBinding({
         capability: capability.code,
         label: capability.label,
         provider_id: providerId,
-        model_override: modelOverride,
+        model_override: normalizedModel,
         is_enabled: true,
       })
       setBindings((current) => {
         const rest = current.filter((item) => item.capability !== saved.capability)
         return [...rest, saved].sort((a, b) => a.capability.localeCompare(b.capability))
       })
+      setBindingDrafts((current) => ({
+        ...current,
+        [saved.capability]: {
+          providerId: saved.provider_id || "",
+          modelOverride: saved.model_override || "",
+        },
+      }))
       notification.success({ title: "绑定已保存", description: capability.label })
     } catch (err) {
       notification.danger({ title: "绑定保存失败", description: err instanceof Error ? err.message : "保存失败" })
+    } finally {
+      setSavingBinding("")
     }
   }
 
@@ -269,6 +360,15 @@ export default function AiProviderSettingsPage() {
         ) : null}
 
         <div className="space-y-4">
+          <section className="rounded-lg bg-[#f9f9f9] p-3">
+            <div className="grid gap-2 md:grid-cols-4">
+              <RouteStat icon={Route} label="Runtime bindings" value={`${activeBindingCount}/${capabilities.length}`} />
+              <RouteStat icon={Database} label="Providers" value={String(providers.length)} />
+              <RouteStat icon={AlertTriangle} label="Needs attention" value={String(issueCount)} />
+              <RouteStat icon={GitBranch} label="Dynamic route" value="DB read" />
+            </div>
+          </section>
+
           <section className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
@@ -277,7 +377,7 @@ export default function AiProviderSettingsPage() {
               </div>
               <Badge variant="secondary">{providers.length}</Badge>
             </div>
-            <div className="overflow-hidden rounded-lg bg-muted/50">
+            <div className="overflow-hidden rounded-lg bg-[#f9f9f9]">
               {providers.length ? (
                 <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(150px,0.85fr)_minmax(160px,1fr)_100px_96px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
                   <div>Provider</div>
@@ -303,7 +403,7 @@ export default function AiProviderSettingsPage() {
                   role="button"
                   tabIndex={0}
                   className={cn(
-                    "grid w-full cursor-pointer grid-cols-[minmax(180px,1.2fr)_minmax(150px,0.85fr)_minmax(160px,1fr)_100px_96px] items-center gap-3 px-3 py-3 text-left transition hover:bg-background/70",
+                    "grid w-full cursor-pointer grid-cols-[minmax(180px,1.2fr)_minmax(150px,0.85fr)_minmax(160px,1fr)_100px_96px] items-center gap-3 px-3 py-3 text-left transition hover:bg-white",
                     selectedProviderId === provider.id && "bg-background",
                   )}
                 >
@@ -343,36 +443,58 @@ export default function AiProviderSettingsPage() {
             </div>
           </section>
 
-          <section className="rounded-xl bg-muted/50 p-4">
+          <section className="rounded-lg bg-[#f9f9f9] p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <CheckCircle2 className="size-4" />
-                Routing matrix
+                Capability routing
               </div>
               <Badge variant="secondary">{capabilities.length}</Badge>
             </div>
-            <div className="overflow-x-auto rounded-lg bg-background/70">
-              <div className="grid min-w-[760px] grid-cols-[minmax(180px,1.4fr)_minmax(180px,1fr)_minmax(160px,1fr)_96px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
+            <div className="overflow-x-auto rounded-lg bg-white/70">
+              <div className="sticky top-0 z-10 grid min-w-[1120px] grid-cols-[minmax(240px,1.35fr)_minmax(170px,0.9fr)_minmax(210px,1fr)_minmax(210px,1fr)_minmax(190px,1fr)_108px] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
                 <div>Capability</div>
+                <div>Group</div>
                 <div>Provider</div>
-                <div>Model override</div>
-                <div>Status</div>
+                <div>Model</div>
+                <div>Runtime / entry</div>
+                <div className="text-right">Action</div>
               </div>
               <div className="divide-y divide-border/50">
-                {capabilities.map((capability) => {
-                  const binding = bindingByCapability.get(capability.code)
-                  const providerId = binding?.provider_id || ""
-                  const currentProvider = providers.find((p) => p.id === providerId)
-                  const providerModels = currentProvider?.models || []
+                {routeRows.map((row) => {
+                  const { capability, binding, providerId, provider, modelOverride, effectiveModel, issues, dirty } = row
+                  const providerModels = provider?.models || []
+                  const availableModels = uniq([provider?.default_model || "", ...providerModels, modelOverride].filter(Boolean))
                   return (
-                    <div key={capability.code} className="grid min-w-[760px] grid-cols-[minmax(180px,1.4fr)_minmax(180px,1fr)_minmax(160px,1fr)_96px] items-center gap-3 px-3 py-3">
+                    <div key={capability.code} className="grid min-w-[1120px] grid-cols-[minmax(240px,1.35fr)_minmax(170px,0.9fr)_minmax(210px,1fr)_minmax(210px,1fr)_minmax(190px,1fr)_108px] items-start gap-3 px-3 py-3">
                       <div className="min-w-0">
-                        <div className="truncate font-medium">{capability.label}</div>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium">{capability.label}</span>
+                          {issues.length ? <AlertTriangle className="size-3.5 shrink-0 text-amber-600" /> : null}
+                        </div>
                         <div className="truncate text-xs text-muted-foreground">{capability.code}</div>
+                        {capability.aliases?.length ? (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {capability.aliases.map((alias) => (
+                              <span key={alias} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{alias}</span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm">{capability.group}</div>
+                        <div className="mt-1 truncate text-xs text-muted-foreground">{capability.description}</div>
                       </div>
                       <Select
                         value={providerId || "none"}
-                        onValueChange={(value) => void handleBindingChange(capability, value === "none" ? "" : value, binding?.model_override || "")}
+                        onValueChange={(value) => {
+                          const nextProviderId = value === "none" ? "" : value
+                          const nextProvider = providerById.get(nextProviderId)
+                          updateBindingDraft(capability.code, {
+                            providerId: nextProviderId,
+                            modelOverride: nextProvider?.default_model || "",
+                          })
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -384,30 +506,51 @@ export default function AiProviderSettingsPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {providerModels.length > 0 ? (
+                      {availableModels.length > 0 ? (
                         <Select
-                          value={binding?.model_override || ""}
-                          onValueChange={(value) => void handleBindingChange(capability, providerId, value)}
+                          value={modelOverride || provider?.default_model || ""}
+                          onValueChange={(value) => updateBindingDraft(capability.code, { modelOverride: value })}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={currentProvider?.default_model || "provider default"} />
+                            <SelectValue placeholder={provider?.default_model || "provider default"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {providerModels.map((model) => (
+                            {availableModels.map((model) => (
                               <SelectItem key={model} value={model}>{model}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       ) : (
                         <Input
-                          defaultValue={binding?.model_override || ""}
-                          onBlur={(event) => void handleBindingChange(capability, providerId, event.target.value)}
-                          placeholder={currentProvider?.default_model || "provider default"}
+                          value={modelOverride}
+                          onChange={(event) => updateBindingDraft(capability.code, { modelOverride: event.target.value })}
+                          placeholder={provider?.default_model || "provider default"}
                         />
                       )}
-                      <Badge variant={binding?.is_enabled ? "outline" : "secondary"}>
-                        {binding?.is_enabled ? "active" : "fallback"}
-                      </Badge>
+                      <div className="min-w-0">
+                        <div className="truncate text-xs text-muted-foreground">{capability.runtime}</div>
+                        <div className="mt-1 truncate text-xs text-muted-foreground">{capability.entry}</div>
+                        {issues.length ? (
+                          <div className="mt-1 text-xs text-amber-700">{issues[0].message}</div>
+                        ) : (
+                          <div className="mt-1 text-xs text-emerald-700">Reads binding before execution</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant={binding?.is_enabled ? "outline" : "secondary"}>
+                          {binding?.is_enabled ? "active" : "fallback"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-8"
+                          disabled={!dirty || savingBinding === capability.code || issues.some((issue) => issue.level === "error")}
+                          onClick={() => void handleBindingChange(capability, providerId, effectiveModel)}
+                        >
+                          {savingBinding === capability.code ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                          Save
+                        </Button>
+                      </div>
                     </div>
                   )
                 })}
@@ -544,4 +687,50 @@ export default function AiProviderSettingsPage() {
       </div>
     </WorkspaceShell>
   )
+}
+
+function RouteStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Route
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-md bg-white px-3 py-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Icon className="size-3.5" />
+        {label}
+      </div>
+      <div className="mt-1 text-base font-semibold">{value}</div>
+    </div>
+  )
+}
+
+function routeIssues(provider: AiProviderItem | null, model: string) {
+  const issues: { level: "warning" | "error"; message: string }[] = []
+  if (!provider) {
+    issues.push({ level: "warning", message: "No provider selected; runtime will fall back." })
+    return issues
+  }
+  if (!provider.is_enabled) {
+    issues.push({ level: "error", message: "Provider is disabled." })
+  }
+  if (!provider.api_key_masked && !provider.api_key_env) {
+    issues.push({ level: "warning", message: "No API key or env configured." })
+  }
+  if (!model.trim()) {
+    issues.push({ level: "error", message: "Model is empty." })
+  }
+  const knownModels = uniq([provider.default_model || "", ...(provider.models || [])].filter(Boolean))
+  if (model.trim() && knownModels.length > 0 && !knownModels.includes(model.trim())) {
+    issues.push({ level: "error", message: "Model is not listed on this provider." })
+  }
+  return issues
+}
+
+function uniq(items: string[]) {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
 }

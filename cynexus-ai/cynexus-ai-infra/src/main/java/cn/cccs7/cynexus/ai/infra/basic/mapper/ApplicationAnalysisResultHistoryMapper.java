@@ -11,4 +11,6 @@ public interface ApplicationAnalysisResultHistoryMapper extends BaseMapperX<Appl
 
     List<ApplicationAnalysisResultHistoryPO> selectActiveByTargetKey(@Param("targetKey") String targetKey,
                                                                       @Param("limit") int limit);
+
+    int upsertActiveByTargetKeyAndHistoryKey(ApplicationAnalysisResultHistoryPO po);
 }

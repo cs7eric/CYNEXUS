@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.feign.MarketFeignClient;
 import cn.cccs7.cynexus.market.api.dto.MarketOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.SectorRankDTO;
+import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.StockDailyFeatureDTO;
 import cn.cccs7.cynexus.market.api.dto.StockIntradayFeatureDTO;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,14 @@ public class MarketDataTools {
 
     public StockIntradayFeatureDTO getStockIntradayFeature(String symbol, String tradeDate) {
         return unwrap(marketFeignClient.getStockIntradayFeature(symbol, tradeDate));
+    }
+
+    public StockChartDTO.KlineResponseDTO getStockChartKlines(
+            String targetType,
+            String symbol,
+            String period,
+            String adjust) {
+        return unwrap(marketFeignClient.getStockChartKlines(targetType, symbol, period, adjust));
     }
 
     private static <T> T unwrap(Result<T> result) {

@@ -21,4 +21,13 @@ public interface ApplicationAnalysisPageRepository {
     List<ApplicationAnalysisPageBO.DailySnapshot> listDailySnapshots(String targetKey, int limit);
 
     ApplicationAnalysisPageBO.DailySnapshot findDailySnapshot(String targetKey, LocalDate tradeDate);
+
+    ApplicationAnalysisPageBO.CurrentResult upsertCurrentResult(
+            ApplicationAnalysisPageBO.CurrentResultUpsertCommand command);
+
+    ApplicationAnalysisPageBO.HistoryResult createHistoryResult(
+            ApplicationAnalysisPageBO.HistoryResultCreateCommand command);
+
+    ApplicationAnalysisPageBO.DailySnapshot upsertDailySnapshot(
+            ApplicationAnalysisPageBO.DailySnapshotUpsertCommand command);
 }

@@ -74,10 +74,51 @@ public final class ApplicationAnalysisPageBO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class DailySnapshot {
+        private Long targetId;
         private String targetKey;
         private LocalDate tradeDate;
         private String payloadJson;
         private OffsetDateTime updatedAt;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CurrentResultUpsertCommand {
+        private Long targetId;
+        private String targetKey;
+        private String status;
+        private OffsetDateTime analysisRunAt;
+        private String payloadJson;
+        private String remark;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class HistoryResultCreateCommand {
+        private Long targetId;
+        private String targetKey;
+        private String historyKey;
+        private String sourceKind;
+        private OffsetDateTime analysisRunAt;
+        private String payloadJson;
+        private String remark;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DailySnapshotUpsertCommand {
+        private Long targetId;
+        private String targetKey;
+        private LocalDate tradeDate;
+        private String snapshotKind;
+        private String payloadJson;
+        private String remark;
     }
 
     @Data

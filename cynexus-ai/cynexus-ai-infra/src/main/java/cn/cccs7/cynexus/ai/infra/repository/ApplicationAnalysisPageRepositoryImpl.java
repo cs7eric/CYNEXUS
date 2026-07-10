@@ -149,6 +149,87 @@ public class ApplicationAnalysisPageRepositoryImpl implements ApplicationAnalysi
                 normalizeTargetKey(targetKey), tradeDate));
     }
 
+    @Override
+    public ApplicationAnalysisPageBO.CurrentResult upsertCurrentResult(
+            ApplicationAnalysisPageBO.CurrentResultUpsertCommand command) {
+        if (command == null || command.getTargetKey() == null || command.getTargetKey().isBlank()) {
+            return null;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        String targetKey = normalizeTargetKey(command.getTargetKey());
+        ApplicationAnalysisResultCurrentPO existing = currentBasicService.getActiveByTargetKey(targetKey);
+        if (existing == null) {
+            existing = new ApplicationAnalysisResultCurrentPO();
+            existing.setTargetId(command.getTargetId());
+            existing.setTargetKey(targetKey);
+            existing.setStatus(defaultString(command.getStatus(), "success"));
+            existing.setAnalysisRunAt(command.getAnalysisRunAt() == null ? now : command.getAnalysisRunAt());
+            existing.setPayload(defaultString(command.getPayloadJson(), "{}"));
+            existing.setRemark(blankToNull(command.getRemark()));
+            currentBasicService.create(existing);
+        } else {
+            existing.setTargetId(command.getTargetId() == null ? existing.getTargetId() : command.getTargetId());
+            existing.setStatus(defaultString(command.getStatus(), existing.getStatus()));
+            existing.setAnalysisRunAt(command.getAnalysisRunAt() == null ? now : command.getAnalysisRunAt());
+            existing.setPayload(defaultString(command.getPayloadJson(), "{}"));
+            existing.setRemark(blankToNull(command.getRemark()));
+            existing.setUpdatedAt(now);
+            currentBasicService.update(existing);
+        }
+        return toCurrentResult(existing);
+    }
+
+    @Override
+    public ApplicationAnalysisPageBO.HistoryResult createHistoryResult(
+            ApplicationAnalysisPageBO.HistoryResultCreateCommand command) {
+        if (command == null || command.getTargetKey() == null || command.getTargetKey().isBlank()) {
+            return null;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        ApplicationAnalysisResultHistoryPO po = new ApplicationAnalysisResultHistoryPO();
+        po.setTargetId(command.getTargetId());
+        po.setTargetKey(normalizeTargetKey(command.getTargetKey()));
+        po.setHistoryKey(defaultString(command.getHistoryKey(), "run-" + now.toInstant().toEpochMilli()));
+        po.setSourceKind(defaultString(command.getSourceKind(), "recent30"));
+        po.setAnalysisRunAt(command.getAnalysisRunAt() == null ? now : command.getAnalysisRunAt());
+        po.setPayload(defaultString(command.getPayloadJson(), "{}"));
+        po.setRemark(blankToNull(command.getRemark()));
+        historyBasicService.upsertActiveByTargetKeyAndHistoryKey(po);
+        return toHistoryResult(po);
+    }
+
+    @Override
+    public ApplicationAnalysisPageBO.DailySnapshot upsertDailySnapshot(
+            ApplicationAnalysisPageBO.DailySnapshotUpsertCommand command) {
+        if (command == null || command.getTargetKey() == null || command.getTargetKey().isBlank()
+                || command.getTradeDate() == null) {
+            return null;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        String targetKey = normalizeTargetKey(command.getTargetKey());
+        String snapshotKind = defaultString(command.getSnapshotKind(), "recent30");
+        ApplicationAnalysisDailySnapshotPO existing =
+                dailySnapshotBasicService.getRecent30ByTargetKeyAndDate(targetKey, command.getTradeDate());
+        if (existing == null) {
+            existing = new ApplicationAnalysisDailySnapshotPO();
+            existing.setTargetId(command.getTargetId());
+            existing.setTargetKey(targetKey);
+            existing.setTradeDate(command.getTradeDate());
+            existing.setSnapshotKind(snapshotKind);
+            existing.setPayload(defaultString(command.getPayloadJson(), "{}"));
+            existing.setRemark(blankToNull(command.getRemark()));
+            dailySnapshotBasicService.create(existing);
+        } else {
+            existing.setTargetId(command.getTargetId() == null ? existing.getTargetId() : command.getTargetId());
+            existing.setSnapshotKind(snapshotKind);
+            existing.setPayload(defaultString(command.getPayloadJson(), "{}"));
+            existing.setRemark(blankToNull(command.getRemark()));
+            existing.setUpdatedAt(now);
+            dailySnapshotBasicService.update(existing);
+        }
+        return toDailySnapshot(existing);
+    }
+
     private ApplicationAnalysisConfigPO ensureDefaultConfig() {
         ApplicationAnalysisConfigPO config = configBasicService.getDefaultActive();
         if (config != null) {
@@ -228,6 +309,7 @@ public class ApplicationAnalysisPageRepositoryImpl implements ApplicationAnalysi
             return null;
         }
         return ApplicationAnalysisPageBO.DailySnapshot.builder()
+                .targetId(po.getTargetId())
                 .targetKey(po.getTargetKey())
                 .tradeDate(po.getTradeDate())
                 .payloadJson(po.getPayload())

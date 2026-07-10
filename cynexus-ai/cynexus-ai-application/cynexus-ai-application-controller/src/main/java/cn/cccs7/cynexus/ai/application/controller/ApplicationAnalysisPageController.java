@@ -55,8 +55,7 @@ public class ApplicationAnalysisPageController {
     @PostMapping
     public Result<ApplicationAnalysisPageDTO.AnalysisResultResponse> run(
             @RequestBody ApplicationAnalysisPageRequest.RunRequest request) {
-        return Result.fail("AI_APPLICATION_ANALYSIS_EXECUTOR_NOT_CONNECTED",
-                appService.unsupportedExecutorMessage());
+        return Result.success(appService.run(request));
     }
 
     @GetMapping("/scheduler")

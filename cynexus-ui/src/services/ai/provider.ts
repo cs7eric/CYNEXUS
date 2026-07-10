@@ -5,6 +5,12 @@ import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 export interface AiCapability {
   code: string
   label: string
+  group: string
+  description: string
+  entry: string
+  reads_binding: boolean
+  runtime: string
+  aliases?: string[]
 }
 
 export interface AiProviderType {
@@ -86,13 +92,80 @@ interface JavaAiUsageBindingDTO {
 }
 
 const AI_CAPABILITIES: AiCapability[] = [
-  { code: "text_polish", label: "MP4 text polish" },
-  { code: "text_summary", label: "MP4 summary" },
-  { code: "post_metadata", label: "Markdown metadata" },
-  { code: "mp4_qa", label: "MP4 Ask AI" },
-  { code: "application_analysis", label: "Stock application analysis" },
-  { code: "application_recent30", label: "Recent 30-day analysis" },
-  { code: "auction_analysis", label: "Auction AI analysis" },
+  {
+    code: "text_polish",
+    label: "MP4 text polish",
+    group: "MP4 to Text",
+    description: "Transcript polish stage after media transcription.",
+    entry: "MP4 to Text / AI Polish",
+    reads_binding: true,
+    runtime: "MediaTranscriptionAiAppService",
+  },
+  {
+    code: "text_summary",
+    label: "MP4 summary",
+    group: "MP4 to Text",
+    description: "Summary generation for polished transcript content.",
+    entry: "MP4 to Text / AI Summary",
+    reads_binding: true,
+    runtime: "MediaTranscriptionAiAppService",
+  },
+  {
+    code: "post_metadata",
+    label: "Markdown metadata",
+    group: "MP4 to Text",
+    description: "Title, tags, and categories for archived markdown export.",
+    entry: "MP4 to Text / History export",
+    reads_binding: true,
+    runtime: "MediaTranscriptionAiAppService",
+  },
+  {
+    code: "mp4_qa",
+    label: "MP4 Ask AI",
+    group: "MP4 to Text",
+    description: "Question answering over transcript, polish, and summary.",
+    entry: "MP4 to Text / Ask",
+    reads_binding: true,
+    runtime: "MediaTranscriptionAiAppService",
+  },
+  {
+    code: "application_analysis",
+    label: "Stock application analysis",
+    group: "Stock AI",
+    description: "Legacy application-analysis overlay route.",
+    entry: "Stock Overview / Application Analysis",
+    reads_binding: true,
+    runtime: "ApplicationAnalysisModelRouter",
+    aliases: ["Application Analysis"],
+  },
+  {
+    code: "application_recent30",
+    label: "AI Direction recent 30-day",
+    group: "Stock AI",
+    description: "AI Direction / 当日 AI 整体判断，基于最近 K 线写入 daily snapshots.",
+    entry: "Stock Overview / Application Analysis / AI Direction",
+    reads_binding: true,
+    runtime: "ApplicationAnalysisRecent30Executor",
+    aliases: ["AI Direction", "当日 AI 整体判断", "Recent 30-day analysis"],
+  },
+  {
+    code: "auction_analysis",
+    label: "Auction AI analysis",
+    group: "Stock AI",
+    description: "Opening auction analysis prompt chain.",
+    entry: "Auction analysis jobs",
+    reads_binding: true,
+    runtime: "Auction AI service",
+  },
+  {
+    code: "knowledge_base_document_generate",
+    label: "Knowledge Base document generation",
+    group: "Knowledge Base",
+    description: "Generate structured knowledge-base drafts with prompt version and fallback chain.",
+    entry: "Knowledge Base / Writing / AI Generate",
+    reads_binding: true,
+    runtime: "KnowledgeBaseDocumentGenerationAppService",
+  },
 ]
 
 const AI_PROVIDER_TYPES: AiProviderType[] = [
@@ -317,4 +390,3 @@ export async function upsertAiBinding(payload: Partial<AiBindingItem>): Promise<
   const providerById = new Map((await fetchAiProviders()).map((provider) => [provider.id, provider]))
   return toAiBindingItem(dto, providerById)
 }
-

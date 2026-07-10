@@ -176,6 +176,9 @@ public final class ApplicationAnalysisPageDTO {
         @JsonRawValue
         @JsonProperty("current_situation")
         private String currentSituationJson;
+        private Boolean updated;
+        @JsonProperty("skip_reason")
+        private String skipReason;
         @JsonProperty("snapshots")
         private List<DailySnapshotFile> snapshots;
         private DailySnapshotDetail snapshot;

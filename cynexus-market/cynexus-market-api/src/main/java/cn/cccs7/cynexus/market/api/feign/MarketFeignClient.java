@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.market.api.feign;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.MarketOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.SectorRankDTO;
+import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.StockDailyFeatureDTO;
 import cn.cccs7.cynexus.market.api.dto.StockIntradayFeatureDTO;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -27,4 +28,11 @@ public interface MarketFeignClient {
     @GetMapping("/stocks/{symbol}/intraday-feature")
     Result<StockIntradayFeatureDTO> getStockIntradayFeature(@PathVariable("symbol") String symbol,
                                                             @RequestParam("tradeDate") String tradeDate);
+
+    @GetMapping("/stock-chart/klines")
+    Result<StockChartDTO.KlineResponseDTO> getStockChartKlines(
+            @RequestParam("target_type") String targetType,
+            @RequestParam("symbol") String symbol,
+            @RequestParam("period") String period,
+            @RequestParam("adjust") String adjust);
 }

@@ -57,6 +57,8 @@ export interface ApplicationAnalysisDailySnapshotResponse {
   snapshot_path?: string
   short_term_trend?: Record<string, unknown> | null
   current_situation?: Record<string, unknown> | null
+  updated?: boolean
+  skip_reason?: string
   snapshots?: ApplicationAnalysisDailySnapshotFile[]
   snapshot?: {
     target: Record<string, unknown>

@@ -7,4 +7,6 @@ import java.util.List;
 public interface ApplicationAnalysisResultHistoryBasicService extends CrudBasicService<ApplicationAnalysisResultHistoryPO> {
 
     List<ApplicationAnalysisResultHistoryPO> listActiveByTargetKey(String targetKey, int limit);
+
+    boolean upsertActiveByTargetKeyAndHistoryKey(ApplicationAnalysisResultHistoryPO po);
 }

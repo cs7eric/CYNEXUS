@@ -408,9 +408,10 @@ export default function ApplicationAnalysisPage() {
           adjust: (selected.adjust as StockAdjust) || adjust,
         })
         setResult(response)
-        setInfo("分析完成（单次 30 日 K 入口，仅用于手动快速验证；定时任务会用 120 日 / 4 段入口）。")
+        await refreshDailySnapshots(selected.id)
+        setInfo("AI 方向已生成并写入当日快照。")
         notification.success({
-          title: "Application Analysis 已完成",
+          title: "AI 方向已完成",
           description: `${selected.name} · ${selected.symbol}`,
         })
       } catch (err) {
@@ -449,12 +450,7 @@ export default function ApplicationAnalysisPage() {
       setError(null)
       setInfo(null)
       const rawRes = await refreshApplicationAnalysisRecent30(selected.id)
-      // 后端刷新接口额外返回 updated / skip_reason 字段，目前 ApplicationAnalysisDailySnapshotResponse
-      // 还未包含，这里只在 application-analysis 内做局部增强，不改动共享 api.ts。
-      const res = rawRes as ApplicationAnalysisDailySnapshotResponse & {
-        updated?: boolean
-        skip_reason?: string
-      }
+      const res = rawRes as ApplicationAnalysisDailySnapshotResponse
       if (!res.ok) {
         const msg = res.error || "刷新当日 AI 整体判断失败"
         setError(msg)
@@ -513,10 +509,14 @@ export default function ApplicationAnalysisPage() {
         notification.danger({ title: "触发分析失败", description: msg })
         return
       }
-      setInfo(`已触发 ${targetId} 的 120 日 / 4 段分析；调度器在后台执行。`)
-      notification.info({
-        title: "已触发后台分析",
-        description: `${targetId} · 120 日 / 4 段`,
+      if (selected?.id === targetId) {
+        await refreshDailySnapshots(targetId)
+        void fetchApplicationAnalysisResult(targetId).then((data) => setResult(data as unknown as ApplicationAnalysisResponse)).catch(() => {})
+      }
+      setInfo(`已触发 ${targetId} 的 AI 方向分析。`)
+      notification.success({
+        title: "AI 方向已刷新",
+        description: `${targetId} · recent30`,
       })
       setTimeout(() => void refreshScheduler(), 500)
     } catch (e) {

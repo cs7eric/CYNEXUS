@@ -310,7 +310,7 @@ export function AIDirectionCard({
       <div className="space-y-3">
         <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0 break-words text-[11px] text-slate-500">
-            AI 整体判断按日写入 <span className="font-mono">reference/application-analysis/snapshots/</span>，服务默认从此处读取
+            AI 方向按日写入 <span className="font-mono">cynexus_appl_ai.application_analysis_daily_snapshots</span>，由 Java 侧从行情 K 线构造输入并调用 cynexus-ai
           </div>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
             <span className="text-[10px] text-slate-400">上次刷新 {lastRefreshText}</span>
@@ -322,14 +322,14 @@ export function AIDirectionCard({
               disabled={dailyRefreshing}
             >
               <RefreshCw className={`mr-1 size-3 ${dailyRefreshing ? "animate-spin" : ""}`} />
-              {dailyRefreshing ? "生成中" : "重新生成当日判断"}
+              {dailyRefreshing ? "生成中" : "重新生成 AI 方向"}
             </Button>
           </div>
         </div>
 
         {dailySnapshotsFull.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-[11px] text-slate-500">
-            {dailySnapshotsLoading ? "加载中..." : "还没有 AI 整体判断数据。点击上方「重新生成当日判断」触发一次，或等待每天 16:00 的定时任务。"}
+            {dailySnapshotsLoading ? "加载中..." : "还没有 AI 方向数据。点击上方「重新生成 AI 方向」触发一次。"}
           </div>
         ) : (
           <div className="space-y-2">
