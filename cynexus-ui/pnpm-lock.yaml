@@ -132,6 +132,9 @@ importers:
       globals:
         specifier: ^17.6.0
         version: 17.6.0
+      prismjs:
+        specifier: 1.30.0
+        version: 1.30.0
       shadcn:
         specifier: ^4.8.3
         version: 4.8.3(@types/node@24.12.4)(typescript@6.0.3)

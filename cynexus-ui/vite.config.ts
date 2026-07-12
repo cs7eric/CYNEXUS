@@ -1,28 +1,32 @@
 import path from 'node:path'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const backendUrl = env.VITE_CYNEXUS_BACKEND_URL || 'http://localhost:18000'
+
+  return {
   plugins: [react(), tailwindcss()],
   server: {
     host: '0.0.0.0',
     allowedHosts: ['.trycloudflare.com', 'nooops.makeup', '.nooops.makeup'],
     proxy: {
       '/api/ai': {
-        target: 'http://localhost:18000',
+        target: backendUrl,
         changeOrigin: true,
       },
       '/api/market': {
-        target: 'http://localhost:18000',
+        target: backendUrl,
         changeOrigin: true,
       },
       '/api/core': {
-        target: 'http://localhost:18000',
+        target: backendUrl,
         changeOrigin: true,
       },
       '/api/knowledge-base': {
-        target: 'http://localhost:18000',
+        target: backendUrl,
         changeOrigin: true,
       },
     },
@@ -32,4 +36,5 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  }
 })

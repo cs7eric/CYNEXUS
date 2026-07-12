@@ -1,0 +1,31 @@
+server:
+  port: 28080
+
+spring:
+  application:
+    name: cynexus-core-dev
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:25433/cynexus?currentSchema=cynexus_appl_core
+    username: postgres
+    password: C020611.
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: C020611.
+
+cynexus:
+  data:
+    job-executor:
+      base-url: http://127.0.0.1:18083
+    media-transcription:
+      worker:
+        base-url: http://127.0.0.1:18083/internal/media-transcription
+      ai:
+        base-url: http://127.0.0.1:28081/api/ai/media-transcription

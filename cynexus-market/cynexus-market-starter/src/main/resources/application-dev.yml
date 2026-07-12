@@ -1,0 +1,35 @@
+server:
+  port: 28082
+
+spring:
+  application:
+    name: cynexus-market-dev
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:25433/cynexus?currentSchema=cynexus_appl_market
+    username: postgres
+    password: C020611.
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: C020611.
+
+cynexus:
+  data:
+    query-api:
+      base-url: http://127.0.0.1:18083
+  market:
+    clickhouse:
+      url: http://127.0.0.1:28123
+      database: cynexus
+      username: cynexus
+      password: C020611.
+  ai:
+    api:
+      base-url: http://127.0.0.1:28081

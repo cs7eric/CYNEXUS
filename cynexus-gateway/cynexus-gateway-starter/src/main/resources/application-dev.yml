@@ -1,0 +1,32 @@
+server:
+  port: 28000
+
+spring:
+  application:
+    name: cynexus-gateway-dev
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: cynexus-core-dev
+              uri: http://127.0.0.1:28080
+              predicates:
+                - Path=/api/core/**
+            - id: cynexus-ai-dev
+              uri: http://127.0.0.1:28081
+              predicates:
+                - Path=/api/ai/**
+            - id: cynexus-market-dev
+              uri: http://127.0.0.1:28082
+              predicates:
+                - Path=/api/market/**
+            - id: cynexus-knowledgebase-dev
+              uri: http://127.0.0.1:28084
+              predicates:
+                - Path=/api/knowledge-base/**

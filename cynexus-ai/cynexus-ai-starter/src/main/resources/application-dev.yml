@@ -1,0 +1,26 @@
+server:
+  port: 28081
+
+spring:
+  application:
+    name: cynexus-ai-dev
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+    openfeign:
+      client:
+        config:
+          cynexus-market:
+            url: http://127.0.0.1:28082
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:25433/cynexus?currentSchema=cynexus_appl_ai
+    username: postgres
+    password: C020611.
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: C020611.

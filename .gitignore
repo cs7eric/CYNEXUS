@@ -44,6 +44,12 @@ logs/
 .env
 hs_err_pid*.log
 deploy/local/logs/
+deploy/dev/*.log
+deploy/dev/*.error.log
+deploy/dev/*.pids.json
+deploy/release/*.log
+deploy/release/*.error.log
+deploy/release/*.pids.json
 
 # local docker infra data
 deploy/local/nacos/data/

@@ -1,5 +1,6 @@
 .git
 .idea
+**/node_modules
 **/target/*
 !cynexus-core/cynexus-core-starter/target/
 !cynexus-core/cynexus-core-starter/target/*.jar
