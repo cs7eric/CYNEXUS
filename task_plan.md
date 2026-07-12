@@ -877,3 +877,68 @@ Status: complete
 - Added the Information tab and dedicated `src/services/market/stock-information.ts`; no `lib/api.ts` usage or direct Python frontend request was added.
 - Scoped frontend ESLint passed with only three existing unused-disable warnings in the page.
 - Direct Vite-proxy smoke for symbol `600415` returned HTTP 200 from announcements, news, company-news, and roadshows endpoints.
+
+## Phase 41 - Viewable Stock Information Feed
+
+Status: complete
+
+- Populate viewable information records for self-selected stocks through the existing Python A-stock dataset pipeline.
+- Expose a typed Market information feed backed by PostgreSQL announcement/news/report/IRM records, with roadshows retained from the typed F10 route.
+- Prefer canonical URLs and report-detail URLs; do not render title-only TDX records in the Application Analysis information feed.
+- Move the UI to the typed feed endpoint and verify collection, Market compilation, and live endpoint results.
+
+### Phase 41 Verification Results
+
+- Added a typed Market endpoint at `GET /api/market/stock-information`, backed by persisted PostgreSQL announcements, news, research reports, and investor interactions; title-only TDX news/research records are not returned.
+- Announcements use CNInfo PDFs, research reports use EastMoney report detail URLs, CNInfo IRM answers render inline, and roadshows retain their F10 URLs.
+- Added the `sina_stock_news` fallback to the A-stock pipeline, persistence, watchlist warmup, and the Core daily self-selected dataset job. A live collection for `600415` wrote 40 viewable Sina news rows, 99 research reports, and 30 announcements.
+- Verification passed: 17 focused Python tests, Core and Market Maven compilation/package, scoped frontend ESLint (only three pre-existing page warnings), Data Executor health, Vite-proxy endpoint smoke, and `git diff --check`.
+
+## Phase 42 - Information Content And AI Analysis Design
+
+Status: complete
+
+- Inspect the existing persisted information schema, Python internal API conventions, Market-to-AI contracts, and AI persistence patterns.
+- Produce an implementation-ready, layered plan for on-demand content retrieval, extraction, cache validation, AI analysis, and Application Analysis UI states.
+- Define source safety boundaries, retention, idempotency keys, async execution behavior, and a phased rollout without introducing a direct UI-to-Python path.
+
+### Phase 42 Design Results
+
+- Source records remain in Market, extracted content is cached in Market, and AI analysis plus execution traces belong to AI. Market is the only UI-facing aggregation boundary.
+- The proposed path is `UI -> Market -> Data` for approved-source content extraction and `UI -> Market -> AI` for a typed, persisted analysis request; neither browser nor model receives an arbitrary URL.
+- Full documents are stored as extracted text with immutable content hashes and chunks. AI analyses are keyed by content hash, analysis schema version, prompt version, and model code so repeat reads are cache hits and new source revisions can be re-analysed.
+- The implementation is phased: HTML and text-PDF fetch/display first, structured AI analysis next, then OCR/long-document map-reduce and background prefetch only after the explicit user action path is stable.
+
+## Phase 43 - Information Content Reading And AI Analysis
+
+Status: complete
+
+- Add first-party source extraction for CNInfo PDFs, Sina/EastMoney HTML, and inline IRM answers through the existing Data internal API boundary.
+- Persist normalized extracted content and cached analysis state in Market-owned tables without storing source binaries or accepting browser-provided URLs.
+- Add typed Market endpoints for content retrieval and analysis request/status; keep AI output and execution traces in the AI service.
+- Add the Information-tab read/analyze interaction and focused tests, then rebuild/restart the affected services and smoke the complete path.
+
+### Phase 43 Verification Results
+
+- Added approved-source extraction in Data for inline IRM text, text PDFs, and HTML pages, with host allowlists, redirect validation, body/page limits, charset recovery, boilerplate trimming, and explicit `needs_ocr` state.
+- Added Market-owned extracted-content and AI-analysis cache tables. Cache keys tie each source record to a content hash; analysis cache keys add schema and prompt versions.
+- Added typed Market endpoints for read/fetch/analyse status. Market first resolves the persisted source record, then calls Data, and calls AI only after readable content has been cached.
+- Added Information-tab Read and Analyze actions. The reader shows extracted source text; analysis renders summary, sentiment, materiality, and selected facts.
+- Applied migration after backup `deploy/local/postgres-backups/cynexus-before-stock-information-content-20260712-132438.sql`.
+- Live Vite-proxy validation for `600415` fetched Sina content in Chinese and returned a real DeepSeek `deepseek-v4-flash` structured analysis. Market, AI, and Data health endpoints are healthy.
+- Verification passed: 21 focused Python tests, Market and AI Maven package, scoped frontend ESLint, live content/AI smoke, and `git diff --check`.
+
+## Phase 44 - Evidence-Aware Information Analysis Prompt
+
+Status: complete
+
+- Upgrade the information-analysis schema and instructions with company relevance, time horizon, evidence quotations, confidence, uncertainty, and explicit non-advice constraints.
+- Bump the analysis schema/prompt version so existing v1 cache rows are not reused.
+- Render the new concise analysis fields in the Information reader and verify the refreshed AI response.
+
+### Phase 44 Verification Results
+
+- Prompt v2 now requires company relevance, impact horizon, confidence, verbatim evidence quotations, risk/uncertainty disclosure, and an explicit non-advice disclaimer. It treats source text as untrusted and rejects instructions embedded in the source.
+- Bumped both analysis schema and prompt cache versions to `stock_information_v2`, so existing v1 output is not reused.
+- The Information reader now renders relevance, horizon, sentiment, materiality, confidence, and evidence quotations alongside the summary.
+- Direct and Vite-proxy smoke for `600415` returned a v2 DeepSeek analysis with source quotes. Market and AI packages plus scoped frontend ESLint passed.

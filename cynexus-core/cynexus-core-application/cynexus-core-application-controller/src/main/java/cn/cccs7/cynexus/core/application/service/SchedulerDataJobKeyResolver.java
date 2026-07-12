@@ -139,7 +139,7 @@ final class SchedulerDataJobKeyResolver {
                     Map.entry("code_source", "self_selected"),
                     Map.entry("limit_codes", 30),
                     Map.entry("fund_flow_mode", "daily"),
-                    Map.entry("datasets", List.of("eastmoney_stock_info", "eastmoney_concept_blocks", "eastmoney_fund_flow_120d", "eastmoney_block_trade", "eastmoney_holders", "eastmoney_dividends", "eastmoney_stock_news", "eastmoney_hot_concept", "cninfo_announcements", "cninfo_irm", "sina_financial_report")),
+                    Map.entry("datasets", List.of("eastmoney_stock_info", "eastmoney_concept_blocks", "eastmoney_fund_flow_120d", "eastmoney_block_trade", "eastmoney_holders", "eastmoney_dividends", "eastmoney_stock_news", "sina_stock_news", "eastmoney_hot_concept", "cninfo_announcements", "cninfo_irm", "sina_financial_report")),
                     Map.entry("page_size", 20),
                     Map.entry("num", 8)
             )),

@@ -19,8 +19,10 @@ async function triggerWatchlistDataWarmup(symbol: string) {
   await Promise.allSettled([
     trigger("sync_a_stock_dataset", {
       codes: [symbol],
-      datasets: ["eastmoney_fund_flow_120d"],
+      datasets: ["eastmoney_fund_flow_120d", "eastmoney_stock_news", "sina_stock_news", "eastmoney_reports", "cninfo_announcements", "cninfo_irm"],
       fund_flow_mode: "history",
+      max_pages: 1,
+      page_size: 30,
       create_table: true,
       ignore_errors: false,
     }),

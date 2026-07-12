@@ -32,6 +32,20 @@ def test_normalize_cninfo_announcement_to_postgres() -> None:
     assert rows[0]["announcement_id"] == "abc"
 
 
+def test_normalize_sina_stock_news_to_postgres_with_viewable_url() -> None:
+    batch = normalize_dataset(
+        "sina_stock_news",
+        [{"title": "Sina news", "time": "2026-07-10 09:30", "source": "Sina Finance", "url": "https://example.test/news"}],
+        {"code": "600415"},
+    )
+
+    row = batch.postgres["a_stock_news"][0]
+    assert row["source"] == "sina.stock"
+    assert row["code"] == "600415"
+    assert row["published_at"].isoformat() == "2026-07-10T09:30:00"
+    assert row["url"] == "https://example.test/news"
+
+
 def test_pipeline_dry_run_uses_payload_without_network_or_storage() -> None:
     request = JobRequest(
         job_key="sync_a_stock_dataset",

@@ -18,6 +18,9 @@ public class AgentExecutor {
     }
 
     public String execute(AiScenarioBO scenario, AiModelBO model, String prompt, List<String> toolCodes) {
+        if (toolCodes == null || toolCodes.isEmpty()) {
+            return complete(model, prompt);
+        }
         return """
                 {"scenario":"%s","model":"%s","toolCodes":"%s","content":"mock structured AI response"}
                 """.formatted(scenario.getScenarioCode(), model.getModelCode(), toolCodes);

@@ -225,6 +225,10 @@ def _fetch_eastmoney_stock_news(params: dict[str, Any]) -> Any:
     return em.stock_news(_em_client(), str(params["code"]), page_size=_int(params.get("page_size")) or 20)
 
 
+def _fetch_sina_stock_news(params: dict[str, Any]) -> Any:
+    return SinaAStockClient().stock_news(str(params["code"]), page=_int(params.get("page_num")) or 1)
+
+
 def _fetch_eastmoney_global_news(params: dict[str, Any]) -> Any:
     return em.global_news(_em_client(), page_size=_int(params.get("page_size")) or 50)
 
@@ -321,6 +325,7 @@ DATASETS: dict[str, DatasetSpec] = {
     "eastmoney_holders": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_holders),
     "eastmoney_dividends": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_dividends),
     "eastmoney_stock_news": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_stock_news),
+    "sina_stock_news": DatasetSpec("sina", "postgres", True, 1.0, _fetch_sina_stock_news),
     "eastmoney_global_news": DatasetSpec("eastmoney", "postgres", False, 2.0, _fetch_eastmoney_global_news),
     "eastmoney_limit_pool": DatasetSpec("eastmoney", "postgres", False, 2.0, _fetch_eastmoney_limit_pool),
     "eastmoney_hot_rank": DatasetSpec("eastmoney", "postgres", False, 5.0, _fetch_eastmoney_hot_rank),

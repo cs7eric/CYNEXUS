@@ -714,3 +714,37 @@
 - Added the `Information` tab, page-level information feed component, and dedicated `src/services/market/stock-information.ts` aggregation layer.
 - The feed loads announcements, news, research, and roadshows concurrently through the typed Market F10 endpoints and supports per-kind filtering, chronological grouping, partial-source failures, refresh, and original links.
 - Live Vite-proxy smoke for `600415` returned HTTP 200 from all four Market endpoints.
+
+## 2026-07-12 - Viewable Stock Information Feed
+
+- Verified that TDX F10 details cannot supply reliable news/research content or URLs; implementation is moving the Information tab to the project-owned persisted information datasets.
+- Added `sina_stock_news` to the pipeline, PostgreSQL normalization, watchlist warmup, and the daily Core scheduler. Focused Python source/persistence tests passed: 17 tests. A live Sina smoke for `600415` returned 40 dated rows with article URLs.
+- Market packaging initially failed only at Spring Boot repackage because the running Market process locked the starter JAR; all Market modules had compiled successfully. The process will be restarted before rebuilding the executable JAR.
+- The first Data Executor image build exceeded the two-minute command limit without reporting a Docker failure. Retry with a longer timeout to allow the Chromium/Python image layers to finish instead of altering the image or bypassing the runtime rebuild.
+- The later Docker build did complete and produced the current image; Data Executor was recreated and `/internal/health` returned `ok`. Market was rebuilt/restarted and its health endpoint returned `UP`.
+- Manual `sync_a_stock_dataset` backfill for `600415` wrote 169 rows: 40 Sina news items with article URLs, 99 EastMoney reports, and 30 CNInfo announcements. Vite-proxy smoke for `/api/market/stock-information?symbol=600415&limit=20` returned 20 viewable announcements, news, and research records plus seven roadshows.
+- Final verification: 17 focused Python tests passed; Core compile and Market package passed; scoped frontend ESLint has only three existing unused-disable warnings; `git diff --check` passed.
+
+## 2026-07-12 - Information Content And AI Analysis Design
+
+- Designed the layered on-demand extraction and AI-analysis path. It keeps source extraction in Data, source/content aggregation in Market, and model execution/traces in AI.
+- Confirmed a prior file read used a nonexistent `AiExecutionAppService` path; the actual reusable service is `ScenarioExecutionAppService`, with `MediaTranscriptionAiAppService` providing the stronger prompt/version/fallback/logging pattern.
+- A source-capability probe initially ran Market file reads from the `cynexus-data` working directory and failed due to relative paths. Re-ran from the workspace root; this was a tooling-path error, not a code issue.
+- Implemented the Data extraction endpoint, Market content/analysis cache schema and typed endpoints, Market-to-AI invocation, and the Information-tab read/analyze controls. Focused Python tests now pass: 20 tests.
+- Data Executor image rebuild exceeded the ten-minute command cap without producing a new image. The Dockerfile and requirements are updated; use a controlled in-container dependency/source refresh plus image commit for this local runtime, rather than repeatedly retrying the same blocked build.
+- The first runtime refresh copied source under `/app/src`, but the entry point imports the installed package in site-packages, so the new route returned 404. Refresh the installed package from `/app` before restarting; do not treat source-copy alone as a live deployment.
+- First Market content smoke reached the new Data endpoint but failed at PostgreSQL insert because the content upsert listed one extra JDBC placeholder. The binding count was corrected before retrying.
+- The corrected content smoke successfully persisted a Sina article, but its HTTP response declared ISO-8859-1 while containing GB18030 text, producing garbled Chinese. The extractor now treats that legacy declaration as GB18030 and preserves paragraph boundaries before the final retry.
+- A second live fetch established the Sina body was valid UTF-8 despite its ISO-8859-1 header. The fallback now tries strict UTF-8 first and uses GB18030 only when UTF-8 decoding fails.
+- AI analysis initially exposed an existing generic AI routing defect: `ScenarioExecutionAppService` reads a nonexistent `ai_model_config_p_o` table. Stock-information execution now resolves an enabled provider from the existing usage bindings, falling back to the configured `text_summary` capability until a dedicated binding is added.
+- The first post-routing analysis still returned the generic executor's synthetic JSON. `AgentExecutor` now delegates no-tool scenarios to the configured provider, while the existing tool-enabled placeholder behavior remains unchanged for unrelated scenarios.
+- Live AI verification found the `text_summary` binding points at a Minimax provider without an API key, while the existing `application_analysis` DeepSeek binding has one. Stock-information analysis now prefers a dedicated binding, then `application_analysis`, then `text_summary`, preserving explicit model overrides.
+- Completed the source reading and AI analysis feature. Applied the Market migration after backup; the live `600415` Sina article fetch returned cleaned Chinese text and DeepSeek `deepseek-v4-flash` produced a structured analysis through the Vite-proxy Market endpoint.
+- Final verification: 21 focused Python tests passed; Market and AI package builds passed; scoped Information-tab ESLint passed; Data/Market/AI health are `ok`/`UP`; `git diff --check` passed.
+
+## 2026-07-12 - Evidence-Aware Information Prompt
+
+- Upgraded stock information analysis to v2: strict source-only, no investment-advice generation, company relevance, impact horizon, confidence, risks, uncertainties, and verbatim source evidence. Existing v1 cache rows are bypassed.
+- Docker Desktop stopped during the service restart, taking Nacos and the Vite process down. Restarted Docker Desktop, then restarted Market, AI, Gateway, and Vite. Vite-proxy requests now work again.
+- The restored Redis container cannot bind host port `6379` because Windows currently reserves it, so Market/AI actuator health remains `DOWN` on Redis while their application endpoints and the Information content/analysis flow remain operational.
+- Verification: Market/AI package builds and scoped frontend ESLint passed. Vite-proxy returned the refreshed DeepSeek v2 analysis for `600415`, including relevance, horizon, confidence, and verbatim evidence.

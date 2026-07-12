@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from html import unescape
+import re
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
 
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 SINA_OPT_HEADERS = {"Referer": "https://stock.finance.sina.com.cn/", "User-Agent": UA}
+SINA_NEWS_BASE_URL = "https://vip.stock.finance.sina.com.cn/"
+SINA_NEWS_ITEM_PATTERN = re.compile(
+    r"(?P<date>\d{4}-\d{2}-\d{2})\s*(?:&nbsp;|\xa0)*"
+    r"(?P<time>\d{2}:\d{2})\s*(?:&nbsp;|\xa0)*"
+    r"<a[^>]+href=['\"](?P<url>[^'\"]+)['\"][^>]*>(?P<title>[^<]+)</a>",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -37,6 +48,24 @@ class SinaAStockClient:
                     record[f"{title}_yoy"] = item.get("item_tongbi")
             out.append(record)
         return out
+
+    def stock_news(self, code: str, *, page: int = 1) -> list[dict[str, Any]]:
+        """Return Sina stock-news rows with their original article URLs.
+
+        Sina renders this legacy stock-specific list server-side, making it a
+        stable fallback when EastMoney's search endpoint omits article URLs.
+        """
+        response = self.session.get(
+            urljoin(SINA_NEWS_BASE_URL, "corp/view/vCB_AllNewsStock.php"),
+            params={"symbol": _sina_symbol(code), "Page": str(max(page, 1))},
+            headers=SINA_OPT_HEADERS,
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        encoding = getattr(response, "encoding", None)
+        if not encoding or str(encoding).lower() in {"ascii", "iso-8859-1"}:
+            response.encoding = "gb18030"
+        return _parse_stock_news(response.text)
 
     def option_codes(self, *, underlying: str = "510050", call: bool = True) -> dict[str, list[str]]:
         cate = {"510050": "50ETF", "510300": "300ETF", "588000": "科创50ETF", "510500": "500ETF"}.get(str(underlying), "50ETF")
@@ -130,3 +159,27 @@ def _value(value: Any) -> Any:
         return float(value)
     except (TypeError, ValueError):
         return value
+
+
+def _parse_stock_news(html: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for match in SINA_NEWS_ITEM_PATTERN.finditer(html or ""):
+        title = unescape(match.group("title")).strip()
+        href = unescape(match.group("url")).strip()
+        if not title or not href:
+            continue
+        published_at = f"{match.group('date')} {match.group('time')}"
+        try:
+            datetime.strptime(published_at, "%Y-%m-%d %H:%M")
+        except ValueError:
+            continue
+        rows.append(
+            {
+                "title": title,
+                "content": "",
+                "time": published_at,
+                "source": "Sina Finance",
+                "url": urljoin(SINA_NEWS_BASE_URL, href),
+            }
+        )
+    return rows

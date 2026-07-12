@@ -64,6 +64,21 @@ class FakeSinaSession:
         return FakeResponse(text='var hq_str_CON_SO_10000000="购1000,,, ,12,0.5,0.1,-0.02,0.03,0.1735,1.2,0.8,10000000,2.5,0.10,0.11";')
 
 
+class FakeSinaNewsSession:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def get(self, url: str, **kwargs):
+        self.calls.append({"url": url, **kwargs})
+        return FakeResponse(
+            text=(
+                "<td>2026-07-10&nbsp;09:30&nbsp;"
+                "<a href='https://finance.sina.com.cn/stock/s/2026-07-10/doc-example.shtml'>"
+                "Example news title</a></td>"
+            )
+        )
+
+
 def test_parse_jsonp_and_diff_rows_handles_provider_shapes():
     assert parse_jsonp('callback({"ok":true});') == {"ok": True}
     assert diff_rows({"data": {"diff": {"0": {"f12": "600519"}, "1": {"f12": "000001"}}}}) == [{"f12": "600519"}, {"f12": "000001"}]
@@ -164,3 +179,19 @@ def test_sina_option_greeks_skips_empty_fields():
     assert payload["delta"] == 0.5
     assert payload["iv"] == 0.1735
     assert payload["strike"] == 2.5
+
+
+def test_sina_stock_news_parses_viewable_article_url() -> None:
+    session = FakeSinaNewsSession()
+    rows = SinaAStockClient(session=session).stock_news("600415")
+
+    assert rows == [
+        {
+            "title": "Example news title",
+            "content": "",
+            "time": "2026-07-10 09:30",
+            "source": "Sina Finance",
+            "url": "https://finance.sina.com.cn/stock/s/2026-07-10/doc-example.shtml",
+        }
+    ]
+    assert session.calls[0]["params"] == {"symbol": "sh600415", "Page": "1"}

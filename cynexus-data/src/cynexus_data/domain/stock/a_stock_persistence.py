@@ -55,6 +55,8 @@ def normalize_dataset(dataset: str, payload: Any, params: dict[str, Any]) -> ASt
         put_pg("a_stock_announcement", [_announcement_row("cninfo", item, code=code) for item in _items(payload)])
     elif dataset == "eastmoney_stock_news":
         put_pg("a_stock_news", [_news_row("eastmoney.search", item, code=code) for item in _items(payload)])
+    elif dataset == "sina_stock_news":
+        put_pg("a_stock_news", [_news_row("sina.stock", item, code=code) for item in _items(payload)])
     elif dataset == "eastmoney_global_news":
         put_pg("a_stock_news", [_news_row("eastmoney.7x24", item, code="") for item in _items(payload)])
     elif dataset == "cninfo_irm":

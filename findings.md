@@ -458,6 +458,13 @@ Required market modules:
 - Existing public endpoints cover announcements, stock news, company research/news, and roadshows through `StockChartQueryController -> StockChartQueryAppService -> StockChartQueryRepository -> HttpStockChartF10DataClient`.
 - The page should consume this existing public contract through a dedicated Market service and must not reach Python directly or place request code in `src/lib/api.ts`.
 
+## Viewable Information Feed Findings
+
+- TDX F10 announcements include a PDF URL, but its news and company-research lists expose only metadata (`recId` / `docHash`). Its documented `CWServ.tdxf10_gg_idreq` detail call returned a success wrapper with only `[0]` for live news and research identifiers, so it cannot provide a reliable body or canonical link.
+- The Python A-stock persistence pipeline already owns better sources: CNInfo announcements persist PDF URLs, EastMoney search news persists article URLs and summaries, EastMoney ReportAPI persists report identifiers, and CNInfo IRM persists question/answer text.
+- The verified EastMoney stock-report detail convention is `https://data.eastmoney.com/report/zw_stock.jshtml?infocode=<report_id>`; a live `AP202605041821953310` request returned HTTP 200.
+- `600415` currently has persisted CNInfo announcements and EastMoney reports but no persisted EastMoney news, confirming that watchlist warmup needs to include the message datasets.
+
 ## A Stock Data Source Integration Findings
 
 - The requested `a-stock-data.md` capability set fits best as source/query integrations first; new persisted datasets should not be scheduled until each has a table contract and owner.
@@ -526,3 +533,20 @@ Required market modules:
 - A persistent Playwright profile can obtain the two required cookies without manual browser export. Keeping the profile and cookie cache under the mounted `cynexus-data/var` allows reuse across Data Executor recreation.
 - Running a six-symbol history batch immediately after one successful 120-row request triggered throttling. History recovery must remain one missing symbol per low-frequency scheduled run; cookie refresh is not a substitute for request pacing.
 - The verified runtime uses Debian `/usr/bin/chromium` rather than downloading Playwright Chromium during Docker build, which avoids Docker Desktop BuildKit stalls while preserving Playwright's persistent-context behavior.
+
+## 2026-07-12 Viewable Information Feed
+
+- Sina's server-rendered stock news page returns 40 dated article rows with canonical URLs for `600415`; it is suitable as a persisted, viewable fallback beside EastMoney search news.
+
+## 2026-07-12 Information Content And AI Analysis Design
+
+- The persisted Market information tables only contain list metadata and links today; no table owns canonical extracted content, content hashes, fetch status, or AI-output provenance.
+- The AI service already has a model-routing and structured-completion foundation, so information analysis should be a distinct AI scenario/persistence contract rather than being folded into Application Analysis daily snapshots.
+- `MediaTranscriptionAiAppService` already demonstrates prompt/version resolution, provider fallback, output parsing, and execution logging. The information-analysis service should reuse those mechanics but persist its own domain result and demand evidence chunk IDs.
+- There is no Market-to-AI Feign contract today. A typed contract can be added in `cynexus-ai-api` without creating a Maven cycle because AI application already depends only on `cynexus-market-api`, not the Market application module.
+- The current Data image has `requests` but no robust PDF/HTML extraction dependency. The planned extractor needs a focused dependency such as PyMuPDF for text PDFs and `trafilatura` for HTML; OCR should be an explicit later fallback rather than silently claiming scanned PDFs are readable.
+- Market's existing information repository is JDBC-backed and already resolves the canonical source URL server-side. The new content operation can safely reuse this lookup before asking Data to fetch, so the browser never supplies a fetch URL.
+- The shared `SnowflakeIdGenerator` is available in Market infrastructure for the new persisted cache rows. Data's existing F10 internal API and Market's `HttpStockChartF10DataClient` provide the exact transport/auth pattern for the new typed content-extraction client.
+- The first implementation keeps extraction synchronous per explicit user action, but persists both success and failure states. This gives immediate reader feedback, a retry path, and a natural cache boundary before introducing a background worker.
+- Sina's declared `ISO-8859-1` response charset is unreliable: its recent article pages contain valid UTF-8. Extraction now tries strict UTF-8 before GB18030 fallback and removes the standard Sina promotion/footer marker before hashing or AI analysis.
+- `ScenarioExecutionAppService` had two existing generic-path limitations: it attempted to query a missing model-config table and `AgentExecutor.execute` returned synthetic content. The stock-information no-tool path now resolves a configured provider binding and invokes the actual adapter; its successful live result used the existing DeepSeek application-analysis binding.
