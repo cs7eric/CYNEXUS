@@ -12,6 +12,7 @@ import cn.cccs7.cynexus.market.infra.basic.service.StockBasicBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.StockFundFlowSnapshotBasicService;
 import cn.cccs7.cynexus.market.infra.client.ClickHouseStockChartClient;
 import cn.cccs7.cynexus.market.infra.client.HttpStockChartF10DataClient;
+import cn.cccs7.cynexus.market.infra.client.PostgresAStockSkillDataClient;
 import cn.cccs7.cynexus.market.infra.client.TdxLocalDayKlineClient;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
@@ -36,19 +38,22 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     private final TdxLocalDayKlineClient tdxLocalDayKlineClient;
     private final ClickHouseStockChartClient clickHouseStockChartClient;
     private final HttpStockChartF10DataClient stockChartF10DataClient;
+    private final PostgresAStockSkillDataClient postgresAStockSkillDataClient;
 
     public StockChartQueryRepositoryImpl(StockBasicBasicService stockBasicBasicService,
                                          StockFundFlowSnapshotBasicService stockFundFlowSnapshotBasicService,
                                          StockSectorMapper stockSectorMapper,
                                          TdxLocalDayKlineClient tdxLocalDayKlineClient,
                                          ClickHouseStockChartClient clickHouseStockChartClient,
-                                         HttpStockChartF10DataClient stockChartF10DataClient) {
+                                         HttpStockChartF10DataClient stockChartF10DataClient,
+                                         PostgresAStockSkillDataClient postgresAStockSkillDataClient) {
         this.stockBasicBasicService = stockBasicBasicService;
         this.stockFundFlowSnapshotBasicService = stockFundFlowSnapshotBasicService;
         this.stockSectorMapper = stockSectorMapper;
         this.tdxLocalDayKlineClient = tdxLocalDayKlineClient;
         this.clickHouseStockChartClient = clickHouseStockChartClient;
         this.stockChartF10DataClient = stockChartF10DataClient;
+        this.postgresAStockSkillDataClient = postgresAStockSkillDataClient;
     }
 
     @Override
@@ -337,7 +342,11 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     @Override
     public StockChartBO.FundFlowSnapshot fundFlow(String symbol) {
         String code = normalizeCode(symbol);
+        List<PostgresAStockSkillDataClient.FundFlowDailyRow> dailyRows = postgresAStockSkillDataClient.listFundFlowDaily(code, 120);
         StockFundFlowSnapshotPO latest = stockFundFlowSnapshotBasicService.findLatestByCode(code);
+        if (!dailyRows.isEmpty()) {
+            return fundFlowFromDaily(code, dailyRows);
+        }
         if (latest == null) {
             return fundFlowDailyFallback(code);
         }
@@ -368,6 +377,90 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                 .source(latest.getSource())
                 .capturedAt(latest.getCapturedAt())
                 .history(history)
+                .build();
+    }
+
+    private StockChartBO.FundFlowSnapshot fundFlowFromDaily(
+            String code,
+            List<PostgresAStockSkillDataClient.FundFlowDailyRow> dailyRows) {
+        Map<LocalDate, PostgresAStockSkillDataClient.FundFlowDailyRow> dailyByDate = dailyRows.stream()
+                .collect(Collectors.toMap(
+                        PostgresAStockSkillDataClient.FundFlowDailyRow::tradeDate,
+                        Function.identity(),
+                        (left, right) -> left));
+        Map<LocalDate, StockFundFlowSnapshotPO> snapshotsByDate = stockFundFlowSnapshotBasicService.listRecentByCode(code, 30).stream()
+                .collect(Collectors.toMap(
+                        StockFundFlowSnapshotPO::getTradeDate,
+                        Function.identity(),
+                        (left, right) -> left));
+        List<StockChartBO.Bar> bars = listDailyBars("stock", code, 140, "qfq");
+        Map<LocalDate, StockChartBO.Bar> barsByDate = bars.stream()
+                .collect(Collectors.toMap(StockChartBO.Bar::getTradeDate, Function.identity(), (left, right) -> right));
+
+        Set<LocalDate> dates = new TreeSet<>(Collections.reverseOrder());
+        dates.addAll(dailyByDate.keySet());
+        dates.addAll(snapshotsByDate.keySet());
+        List<StockChartBO.FundFlowPoint> history = dates.stream().limit(120)
+                .map(date -> fundFlowPoint(date, dailyByDate.get(date), snapshotsByDate.get(date), barsByDate, bars))
+                .toList();
+
+        StockChartBO.FundFlowPoint newest = history.getFirst();
+        LocalDate newestDate = newest.getTradeDate();
+        StockFundFlowSnapshotPO newestSnapshot = snapshotsByDate.get(newestDate);
+        StockChartBO.Bar newestBar = barsByDate.get(newestDate);
+        StockChartBO.StockMeta meta = stockMeta(code);
+        String dailySource = dailyRows.getFirst().source();
+        String source = newestSnapshot == null ? dailySource : dailySource + "+" + newestSnapshot.getSource();
+        return StockChartBO.FundFlowSnapshot.builder()
+                .ok(true)
+                .symbol(code)
+                .name(newestSnapshot != null && newestSnapshot.getName() != null ? newestSnapshot.getName() : meta.getName())
+                .tradeDate(newestDate)
+                .lastPrice(newestSnapshot != null ? newestSnapshot.getLastPrice() : newestBar == null ? null : newestBar.getClose())
+                .changePct(newest.getChangePct())
+                .amountWan(newest.getAmountWan())
+                .turnoverRate(newestSnapshot == null ? null : newestSnapshot.getTurnoverRate())
+                .activeNetAmountWan(newest.getActiveNetAmountWan())
+                .mainNetAmountWan(newest.getMainNetAmountWan())
+                .superNetAmountWan(newest.getSuperNetAmountWan())
+                .largeNetAmountWan(newest.getLargeNetAmountWan())
+                .mediumNetAmountWan(newest.getMediumNetAmountWan())
+                .smallNetAmountWan(newest.getSmallNetAmountWan())
+                .activeBuyRatio(newest.getActiveBuyRatio())
+                .activeSellRatio(newest.getActiveSellRatio())
+                .buyBigRatio(newestSnapshot == null ? null : newestSnapshot.getBuyBigRatio())
+                .sellBigRatio(newestSnapshot == null ? null : newestSnapshot.getSellBigRatio())
+                .source(source)
+                .capturedAt(newestSnapshot == null ? null : newestSnapshot.getCapturedAt())
+                .history(history)
+                .build();
+    }
+
+    private StockChartBO.FundFlowPoint fundFlowPoint(
+            LocalDate date,
+            PostgresAStockSkillDataClient.FundFlowDailyRow daily,
+            StockFundFlowSnapshotPO snapshot,
+            Map<LocalDate, StockChartBO.Bar> barsByDate,
+            List<StockChartBO.Bar> bars) {
+        StockChartBO.Bar bar = barsByDate.get(date);
+        int barIndex = bar == null ? -1 : bars.indexOf(bar);
+        StockChartBO.Bar previous = barIndex > 0 ? bars.get(barIndex - 1) : null;
+        return StockChartBO.FundFlowPoint.builder()
+                .tradeDate(date)
+                .activeNetAmountWan(snapshot == null ? null : snapshot.getActiveNetAmountWan())
+                .mainNetAmountWan(daily == null ? null : toWan(daily.mainNet()))
+                .superNetAmountWan(daily == null ? null : toWan(daily.superNet()))
+                .largeNetAmountWan(daily == null ? null : toWan(daily.largeNet()))
+                .mediumNetAmountWan(daily == null ? null : toWan(daily.midNet()))
+                .smallNetAmountWan(daily == null ? null : toWan(daily.smallNet()))
+                .activeBuyRatio(snapshot == null ? null : snapshot.getActiveBuyRatio())
+                .activeSellRatio(snapshot == null ? null : snapshot.getActiveSellRatio())
+                .amountWan(snapshot != null && snapshot.getAmountWan() != null
+                        ? snapshot.getAmountWan()
+                        : bar == null ? null : toWan(bar.getTurnover()))
+                .changePct(snapshot != null && snapshot.getChangePct() != null
+                        ? snapshot.getChangePct()
+                        : changePct(bar, previous))
                 .build();
     }
 

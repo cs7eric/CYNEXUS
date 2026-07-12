@@ -14,6 +14,52 @@ import type {
 
 const STOCK_CHART_API_BASE = `${SERVICE_PREFIX.market}/stock-chart`
 
+interface DataJobTriggerResult {
+  accepted: boolean
+  status: string
+  result?: {
+    success?: boolean
+    errors?: string[]
+    metadata?: {
+      dataset_results?: Record<string, {
+        history_complete_count?: number
+        daily_fallback_count?: number
+        sources?: string[]
+      }>
+    }
+  }
+}
+
+export async function backfillStockFundFlowHistory(symbol: string): Promise<void> {
+  const response = await fetchWithRetry(`${SERVICE_PREFIX.core}/scheduler/data-jobs/sync_a_stock_dataset/trigger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      triggeredBy: "application-analysis-fund-flow-backfill",
+      dryRun: false,
+      params: {
+        codes: [symbol],
+        datasets: ["eastmoney_fund_flow_120d"],
+        fund_flow_mode: "history",
+        create_table: true,
+        ignore_errors: false,
+      },
+    }),
+  })
+  const trigger = await cynexusResult<DataJobTriggerResult>(response)
+  const dataset = trigger.result?.metadata?.dataset_results?.eastmoney_fund_flow_120d
+  if (!trigger.accepted || trigger.status !== "success" || trigger.result?.success === false) {
+    throw new Error(trigger.result?.errors?.[0] || "Fund-flow backfill failed")
+  }
+  if ((dataset?.history_complete_count ?? 0) < 1) {
+    const source = dataset?.sources?.join(", ") || "EastMoney Push2His"
+    if ((dataset?.daily_fallback_count ?? 0) > 0) {
+      throw new Error(`${source} only returned the latest day; history is temporarily rate-limited`)
+    }
+    throw new Error("EastMoney Push2His did not return complete history")
+  }
+}
+
 export interface StockMetaResponse {
   symbol: string
   name: string
@@ -42,6 +88,11 @@ export interface MarketBreadthResponse {
 export interface StockFundFlowPoint {
   trade_date: string
   activeNetAmountWan: number | null
+  mainNetAmountWan: number | null
+  superNetAmountWan: number | null
+  largeNetAmountWan: number | null
+  mediumNetAmountWan: number | null
+  smallNetAmountWan: number | null
   activeBuyRatio: number | null
   activeSellRatio: number | null
   amountWan: number | null
@@ -58,6 +109,11 @@ export interface StockFundFlowResponse {
   amountWan?: number | null
   turnoverRate?: number | null
   activeNetAmountWan?: number | null
+  mainNetAmountWan?: number | null
+  superNetAmountWan?: number | null
+  largeNetAmountWan?: number | null
+  mediumNetAmountWan?: number | null
+  smallNetAmountWan?: number | null
   activeBuyRatio?: number | null
   activeSellRatio?: number | null
   buyBigRatio?: number | null

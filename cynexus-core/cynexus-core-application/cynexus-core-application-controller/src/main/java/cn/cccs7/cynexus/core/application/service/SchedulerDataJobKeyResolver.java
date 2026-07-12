@@ -30,6 +30,11 @@ final class SchedulerDataJobKeyResolver {
             entry("tdx_industry_fund_flow_daily", "sync_tdx_industry_fund_flow", Map.ofEntries(
                     Map.entry("create_table", true)
             )),
+            entry("stock_fund_flow_daily", "sync_stock_fund_flow", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("code_source", "self_selected"),
+                    Map.entry("batch_size", 120)
+            )),
             entry("turnover", "sync_stock_turnover", Map.ofEntries(
                     Map.entry("create_table", true),
                     Map.entry("target_type", "stock"),
@@ -133,9 +138,27 @@ final class SchedulerDataJobKeyResolver {
                     Map.entry("ignore_errors", true),
                     Map.entry("code_source", "self_selected"),
                     Map.entry("limit_codes", 30),
+                    Map.entry("fund_flow_mode", "daily"),
                     Map.entry("datasets", List.of("eastmoney_stock_info", "eastmoney_concept_blocks", "eastmoney_fund_flow_120d", "eastmoney_block_trade", "eastmoney_holders", "eastmoney_dividends", "eastmoney_stock_news", "eastmoney_hot_concept", "cninfo_announcements", "cninfo_irm", "sina_financial_report")),
                     Map.entry("page_size", 20),
                     Map.entry("num", 8)
+            )),
+            entry("a_stock_fund_flow_history_backfill", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", false),
+                    Map.entry("code_source", "fund_flow_history_missing"),
+                    Map.entry("limit_codes", 1),
+                    Map.entry("datasets", List.of("eastmoney_fund_flow_120d")),
+                    Map.entry("fund_flow_mode", "history"),
+                    Map.entry("request_sleep_seconds", 5)
+            )),
+            entry("margin_stock_history_backfill", "sync_margin", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("mode", "stock_history"),
+                    Map.entry("code_source", "self_selected"),
+                    Map.entry("limit_codes", 1),
+                    Map.entry("page_size", 120),
+                    Map.entry("providers", List.of("eastmoney", "exchange", "akshare"))
             )),
             entry("a_stock_research_weekly", "sync_a_stock_dataset", Map.ofEntries(
                     Map.entry("create_table", true),

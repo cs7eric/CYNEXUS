@@ -39,6 +39,11 @@ public interface MarginTradingMapper {
             @Param("industryCode") String industryCode
     );
 
+    List<MarginStockDetailPO> listStockHistory(
+            @Param("stockCode") String stockCode,
+            @Param("limit") int limit
+    );
+
     List<MarginIndustrySummaryPO> listIndustrySummaries(
             @Param("tradeDate") LocalDate tradeDate,
             @Param("sort") String sort,

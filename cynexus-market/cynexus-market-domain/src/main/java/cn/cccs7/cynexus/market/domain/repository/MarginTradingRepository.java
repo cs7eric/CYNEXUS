@@ -22,6 +22,8 @@ public interface MarginTradingRepository {
 
     int countStocks(LocalDate tradeDate, String exchange, String industryCode);
 
+    List<MarginStockDetailBO> listStockHistory(String stockCode, int limit);
+
     List<MarginIndustrySummaryBO> listIndustrySummaries(LocalDate tradeDate, String sort, String sortDir, int offset, int limit);
 
     int countIndustrySummaries(LocalDate tradeDate);

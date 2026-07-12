@@ -5,10 +5,12 @@ import cn.cccs7.cynexus.market.api.dto.MarginTradingHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustriesDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingLatestDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStocksDTO;
+import cn.cccs7.cynexus.market.api.dto.MarginTradingStockHistoryDTO;
 import cn.cccs7.cynexus.market.application.service.MarginTradingAppService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -43,6 +45,12 @@ public class MarginTradingController {
                                                  @RequestParam(required = false) Integer pageSize,
                                                  @RequestParam(defaultValue = "100") int limit) {
         return Result.success(marginTradingAppService.stocks(tradeDate, exchange, industryCode, sort, sortDir, page, pageSize, limit));
+    }
+
+    @GetMapping("/stocks/{stockCode}/history")
+    public Result<MarginTradingStockHistoryDTO> stockHistory(@PathVariable String stockCode,
+                                                             @RequestParam(defaultValue = "120") int limit) {
+        return Result.success(marginTradingAppService.stockHistory(stockCode, limit));
     }
 
     @GetMapping("/industries")

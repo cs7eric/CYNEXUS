@@ -51,6 +51,11 @@ public class MarginTradingBasicServiceImpl implements MarginTradingBasicService 
     }
 
     @Override
+    public List<MarginStockDetailPO> listStockHistory(String stockCode, int limit) {
+        return marginTradingMapper.listStockHistory(stockCode, limit);
+    }
+
+    @Override
     public List<MarginIndustrySummaryPO> listIndustrySummaries(LocalDate tradeDate, String sort, String sortDir, int offset, int limit) {
         return marginTradingMapper.listIndustrySummaries(tradeDate, sort, sortDir, offset, limit);
     }

@@ -64,6 +64,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         dataset_ch_rows = 0
         samples: list[Any] = []
         errors: list[str] = []
+        payload_sources: set[str] = set()
+        fallback_count = 0
+        history_complete_count = 0
 
         for index, code in enumerate(planned_codes, start=1):
             scoped_params = {**params, "dataset": dataset}
@@ -76,6 +79,14 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
                     _sleep_after_fetch(spec, params)
                 elif payload is None:
                     payload = []
+
+                if isinstance(payload, dict):
+                    if payload.get("source"):
+                        payload_sources.add(str(payload["source"]))
+                    if payload.get("mode") == "daily_fallback":
+                        fallback_count += 1
+                    if payload.get("history_complete") is True:
+                        history_complete_count += 1
 
                 batch = normalize_dataset(dataset, payload, scoped_params)
                 _merge(pg_batches, batch.postgres)
@@ -105,6 +116,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
             "samples": samples,
             "errors": errors[:20],
             "error_count": len(errors),
+            "sources": sorted(payload_sources),
+            "daily_fallback_count": fallback_count,
+            "history_complete_count": history_complete_count,
         }
 
     rows_written = 0
@@ -145,7 +159,10 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
 
 
 def _em_client() -> EastMoneyHttpClient:
-    return EastMoneyHttpClient()
+    return _EASTMONEY_CLIENT
+
+
+_EASTMONEY_CLIENT = EastMoneyHttpClient()
 
 
 def _fetch_eastmoney_reports(params: dict[str, Any]) -> Any:
@@ -169,7 +186,11 @@ def _fetch_eastmoney_fund_flow_minute(params: dict[str, Any]) -> Any:
 
 
 def _fetch_eastmoney_fund_flow_120d(params: dict[str, Any]) -> Any:
-    return em.fund_flow_120d(_em_client(), str(params["code"]))
+    return em.fund_flow_120d(
+        _em_client(),
+        str(params["code"]),
+        mode=str(params.get("fund_flow_mode") or "auto").strip().lower(),
+    )
 
 
 def _fetch_eastmoney_industry_rank(params: dict[str, Any]) -> Any:
@@ -354,6 +375,8 @@ def _resolve_codes(context: PipelineContext, params: dict[str, Any]) -> list[str
         return StockBasicRepository(context.hooks.postgres.get_client()).list_codes(active_only=True)
     if source in {"self_selected", "watchlist"}:
         return _self_selected_codes(context)
+    if source in {"fund_flow_history_missing", "missing_fund_flow_history"}:
+        return _missing_fund_flow_history_codes(context)
     raise ValueError(f"unsupported code_source: {source}")
 
 
@@ -374,6 +397,40 @@ def _self_selected_codes(context: PipelineContext) -> list[str]:
                    AND symbol IS NOT NULL
                    AND symbol <> ''
                  ORDER BY symbol
+                """
+            )
+        ).all()
+    return [str(row[0]).strip() for row in rows if str(row[0]).strip()]
+
+
+def _missing_fund_flow_history_codes(context: PipelineContext) -> list[str]:
+    if context.hooks is None:
+        return []
+    from sqlalchemy import text
+
+    with context.hooks.postgres.get_client().session() as db:
+        rows = db.execute(
+            text(
+                """
+                WITH selected AS (
+                    SELECT DISTINCT symbol AS code
+                      FROM cynexus_appl_market.self_selected_list_items
+                     WHERE deleted_at IS NULL
+                       AND status = 'active'
+                       AND target_type = 'stock'
+                       AND symbol IS NOT NULL
+                       AND symbol <> ''
+                ), coverage AS (
+                    SELECT code, count(*) AS history_rows
+                      FROM cynexus_appl_market.a_stock_fund_flow_daily
+                     WHERE source = 'eastmoney.push2his'
+                     GROUP BY code
+                )
+                SELECT selected.code
+                  FROM selected
+                  LEFT JOIN coverage ON coverage.code = selected.code
+                 WHERE COALESCE(coverage.history_rows, 0) < 100
+                 ORDER BY COALESCE(coverage.history_rows, 0), selected.code
                 """
             )
         ).all()

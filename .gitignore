@@ -41,6 +41,7 @@ build/
 # logs and crash dumps
 logs/
 *.log
+.env
 hs_err_pid*.log
 deploy/local/logs/
 

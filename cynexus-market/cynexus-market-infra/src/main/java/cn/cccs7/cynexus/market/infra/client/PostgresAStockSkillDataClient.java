@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.infra.client;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -57,6 +58,32 @@ public class PostgresAStockSkillDataClient {
                 .toList();
     }
 
+    public List<FundFlowDailyRow> listFundFlowDaily(String code, int limit) {
+        return jdbcTemplate.query(
+                """
+                select distinct on (trade_date)
+                       trade_date, main_net, super_net, large_net, mid_net, small_net, source
+                  from cynexus_appl_market.a_stock_fund_flow_daily
+                 where code = ?
+                 order by trade_date desc,
+                          case when source = 'eastmoney.push2his' then 0 else 1 end,
+                          ingested_at desc
+                 limit ?
+                """,
+                (rs, rowNum) -> new FundFlowDailyRow(
+                        rs.getObject("trade_date", LocalDate.class),
+                        rs.getBigDecimal("main_net"),
+                        rs.getBigDecimal("super_net"),
+                        rs.getBigDecimal("large_net"),
+                        rs.getBigDecimal("mid_net"),
+                        rs.getBigDecimal("small_net"),
+                        rs.getString("source")
+                ),
+                code,
+                Math.max(1, Math.min(limit, 120))
+        );
+    }
+
     private String selectColumns(List<String> columns) {
         return columns.stream().map(this::quote).reduce((left, right) -> left + ", " + right).orElse("*");
     }
@@ -109,5 +136,14 @@ public class PostgresAStockSkillDataClient {
     }
 
     public record TableStats(Long rowCount, String latestAt) {
+    }
+
+    public record FundFlowDailyRow(LocalDate tradeDate,
+                                   BigDecimal mainNet,
+                                   BigDecimal superNet,
+                                   BigDecimal largeNet,
+                                   BigDecimal midNet,
+                                   BigDecimal smallNet,
+                                   String source) {
     }
 }

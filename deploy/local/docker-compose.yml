@@ -120,8 +120,6 @@ services:
     build:
       context: ../..
       dockerfile: deploy/local/Dockerfile.data
-      args:
-        INSTALL_PLAYWRIGHT_BROWSER: ${INSTALL_PLAYWRIGHT_BROWSER:-false}
     image: cynexus-data-job-executor:local
     container_name: cynexus-data-job-executor
     restart: unless-stopped
@@ -132,6 +130,9 @@ services:
         condition: service_healthy
     environment:
       CYNEXUS_DATA_INTERNAL_TOKEN: ${CYNEXUS_DATA_INTERNAL_TOKEN:-}
+      EASTMONEY_QGQP_B_ID: ${EASTMONEY_QGQP_B_ID:-}
+      EASTMONEY_NID18: ${EASTMONEY_NID18:-}
+      EASTMONEY_CHROMIUM_EXECUTABLE: ${EASTMONEY_CHROMIUM_EXECUTABLE:-/usr/bin/chromium}
       DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-C020611.}@postgres:5432/cynexus
       MARKET_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-C020611.}@postgres:5432/cynexus
       CORE_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-C020611.}@postgres:5432/cynexus

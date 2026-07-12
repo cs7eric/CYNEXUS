@@ -201,6 +201,15 @@
         </if>
     </select>
 
+    <select id="listStockHistory" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginStockDetailPO">
+        select <include refid="StockDetailColumns"/>
+          from margin_stock_detail
+         where deleted_at is null
+           and stock_code = #{stockCode}
+         order by trade_date desc, updated_at desc
+         limit #{limit}
+    </select>
+
     <sql id="LatestIndustryConstituentsCte">
         with snapshot_pick as (
             select coalesce(

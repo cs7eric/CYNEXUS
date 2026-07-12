@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Eye, List, Plus } from "lucide-react"
+import { Activity, Bell, Bot, CandlestickChart, Eye, Gauge, Landmark, List, Plus } from "lucide-react"
 
 import {
   Tabs,
@@ -57,6 +57,7 @@ import { AuctionTab } from "./components/auction-tab"
 import { ChartCard } from "./components/chart-card"
 import { ChartHeader } from "./components/chart-header"
 import { FundFlowTab } from "./components/fund-flow-tab"
+import { InformationTab } from "./components/information-tab"
 import { IntradayAnalysisDialog } from "./components/intraday-analysis-dialog"
 import { SelectionPanel } from "./components/selection-panel"
 import { TargetCard, type HorizonPatch } from "./components/target-card"
@@ -82,7 +83,7 @@ function formatTradeDateFromTimestamp(timestamp?: number | null) {
 }
 
 export default function ApplicationAnalysisPage() {
-  type MainTab = "chart" | "ai-direction" | "auction" | "ma-support" | "fund-flow"
+  type MainTab = "chart" | "ai-direction" | "auction" | "ma-support" | "fund-flow" | "information"
   const isMobile = useIsMobile()
   const [searchParams, setSearchParams] = useSearchParams()
   const querySymbol = searchParams.get("symbol")
@@ -126,12 +127,27 @@ export default function ApplicationAnalysisPage() {
   const [dailyRefreshing, setDailyRefreshing] = useState(false)
   const [dailyLastRefreshAt, setDailyLastRefreshAt] = useState<string | null>(null)
   const [selectedChartItems, setSelectedChartItems] = useState<ChartPanelSelectionItem[]>([])
-  const selectedBarTimestamps: number[] = selectedChartItems
-    .filter((item): item is Extract<ChartPanelSelectionItem, { kind: "bar" }> => item.kind === "bar")
-    .map((item) => item.bar.timestamp)
+  const selectedBarTimestamps = useMemo(
+    () => selectedChartItems
+      .filter((item): item is Extract<ChartPanelSelectionItem, { kind: "bar" }> => item.kind === "bar")
+      .map((item) => item.bar.timestamp),
+    [selectedChartItems],
+  )
   const [intradayDialogOpen, setIntradayDialogOpen] = useState(false)
   const [intradayBar, setIntradayBar] = useState<Extract<ChartPanelSelectionItem, { kind: "bar" }> | null>(null)
   const selectionPanelRef = useRef<HTMLDivElement | null>(null)
+
+  const handleChartSelectionChange = useCallback((nextItems: ChartPanelSelectionItem[]) => {
+    setSelectedChartItems((currentItems) => {
+      if (
+        currentItems.length === nextItems.length &&
+        currentItems.every((item, index) => item.key === nextItems[index]?.key)
+      ) {
+        return currentItems
+      }
+      return nextItems
+    })
+  }, [])
 
   const selected = useMemo(() => targets.find((item) => item.id === selectedId) || null, [targets, selectedId])
   // 渲染的目标：优先 preview（临时态），否则走 selected
@@ -709,8 +725,8 @@ export default function ApplicationAnalysisPage() {
   return (
     <WorkspaceShell sectionLabel="Stock Overview" pageTitle="Application Analysis" fullBleed>
       <div className="min-h-[calc(100svh-4rem)] w-full max-w-[100vw] overflow-x-hidden rounded-none border-0 bg-white p-0 sm:p-4 2xl:p-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden">
-        <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,390px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,430px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,480px)_minmax(0,1fr)] 2xl:gap-4">
-          <div className="hidden min-h-0 min-w-0 flex-col gap-3 overflow-visible lg:flex lg:h-full lg:overflow-y-auto 2xl:gap-4">
+        <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:gap-3 lg:h-full lg:min-h-0 lg:items-stretch lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-4">
+          <div className="hidden w-full min-h-0 min-w-0 flex-col gap-3 overflow-visible lg:flex lg:h-full lg:self-stretch lg:overflow-hidden 2xl:gap-4">
             <TargetCard
               targets={targets}
               searchKeyword={searchKeyword}
@@ -734,19 +750,35 @@ export default function ApplicationAnalysisPage() {
               onRefreshAll={handleRefreshAll}
             />
 
-            <SelectionPanel
-              collapsed={selectionCardCollapsed}
-              onToggle={() => setSelectionCardCollapsed((value) => !value)}
-              items={selectedChartItems}
-              selectionColorMap={selectionColorMap}
-              prevCloseMap={selectedBarPrevClose}
-              prevVolumeMap={selectedBarPrevVolume}
-              prevTurnoverMap={selectedBarPrevTurnover}
-              panelRef={selectionPanelRef}
-              onRemoveItem={handleRemoveSelectionItem}
-              onClearAll={handleClearSelectionItems}
-              onAnalyzeBar={handleOpenIntradayDialog}
-            />
+            {activeMainTab === "chart" ? (
+              <SelectionPanel
+                collapsed={selectionCardCollapsed}
+                onToggle={() => setSelectionCardCollapsed((value) => !value)}
+                items={selectedChartItems}
+                selectionColorMap={selectionColorMap}
+                prevCloseMap={selectedBarPrevClose}
+                prevVolumeMap={selectedBarPrevVolume}
+                prevTurnoverMap={selectedBarPrevTurnover}
+                panelRef={selectionPanelRef}
+                onRemoveItem={handleRemoveSelectionItem}
+                onClearAll={handleClearSelectionItems}
+                onAnalyzeBar={handleOpenIntradayDialog}
+              />
+            ) : displayedTarget ? (
+              <ChartCard
+                selectedSymbol={displayedTarget.symbol}
+                bars={bars}
+                overlays={overlays}
+                selectionColors={selectionColorMap}
+                selectedBarTimestamps={selectedBarTimestamps}
+                onSelectionChange={handleChartSelectionChange}
+                onAnalyzeSelection={(item) => {
+                  if (item.kind === "bar") handleOpenIntradayDialog(item)
+                }}
+                mobileCompact={false}
+                sidebarPreview
+              />
+            ) : null}
 
             {!isMobile ? (
               <Alerts
@@ -761,7 +793,7 @@ export default function ApplicationAnalysisPage() {
           <Tabs
             value={activeMainTab}
             onValueChange={(value) => setActiveMainTab(value as MainTab)}
-            className="order-1 flex min-w-0 flex-col gap-3 lg:order-2 lg:h-full lg:min-h-0 2xl:gap-4"
+            className="order-1 flex min-w-0 flex-col gap-3 lg:order-2 lg:h-full lg:min-h-0 lg:self-stretch 2xl:gap-4"
           >
             <header className="flex min-h-0 shrink-0 flex-col gap-2 lg:gap-3">
               {/* 预览态 banner：从自选跳过来、还没加入 targets 时浮在最上方 */}
@@ -819,15 +851,16 @@ export default function ApplicationAnalysisPage() {
               {/* Tab 栏 */}
               <div className="sticky top-0 z-20 flex min-w-0 flex-col gap-2 bg-background py-0 sm:static lg:flex-row lg:items-center lg:justify-between lg:gap-3">
                 <div className="min-w-0 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <TabsList className="inline-flex h-auto w-max min-w-max gap-1 rounded-2xl bg-muted p-1">
-                    <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="chart">图表</TabsTrigger>
-                    <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="ai-direction">AI 方向</TabsTrigger>
-                    <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="auction">集合竞价</TabsTrigger>
-                    <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="ma-support">技术指标</TabsTrigger>
-                    <TabsTrigger className="h-7 shrink-0 whitespace-nowrap px-3 text-xs sm:text-sm" value="fund-flow">资金</TabsTrigger>
+                  <TabsList className="inline-flex h-auto w-max min-w-max gap-0.5 rounded-xl bg-muted p-0.5">
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="chart"><CandlestickChart className="size-3.5" />Chart</TabsTrigger>
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="ai-direction"><Bot className="size-3.5" />AI Direction</TabsTrigger>
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="auction"><Landmark className="size-3.5" />Auction</TabsTrigger>
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="ma-support"><Gauge className="size-3.5" />Indicators</TabsTrigger>
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="fund-flow"><Activity className="size-3.5" />Fund Flow</TabsTrigger>
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="information"><Bell className="size-3.5" />Information</TabsTrigger>
                   </TabsList>
                 </div>
-                <div className="hidden flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-muted-foreground sm:flex sm:px-0">
+                <div className="hidden flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-muted-foreground 2xl:flex 2xl:px-0">
                   <span>K 线 {bars.length}</span>
                   <span className="hidden h-3 w-px bg-border sm:inline-block" />
                   <span>{running ? "分析中" : result ? "已完成" : previewTarget ? "预览中" : "待执行"}</span>
@@ -865,7 +898,7 @@ export default function ApplicationAnalysisPage() {
                     overlays={overlays}
                     selectionColors={selectionColorMap}
                   selectedBarTimestamps={selectedBarTimestamps}
-                  onSelectionChange={setSelectedChartItems}
+                  onSelectionChange={handleChartSelectionChange}
                   onAnalyzeSelection={(item) => {
                     if (item.kind === "bar") handleOpenIntradayDialog(item)
                   }}
@@ -935,6 +968,13 @@ export default function ApplicationAnalysisPage() {
                     name={displayedTarget.name}
                   />
                 ) : null}
+              </TabsContent>
+
+              <TabsContent
+                value="information"
+                className="m-0 min-w-0 lg:h-full lg:min-h-0 lg:overflow-auto"
+              >
+                {displayedTarget ? <InformationTab symbol={displayedTarget.symbol} /> : null}
               </TabsContent>
             </main>
 

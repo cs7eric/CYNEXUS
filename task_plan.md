@@ -787,3 +787,93 @@ Status: complete
 - Gateway/Core health smoke passed: `GET /api/core/data-source-health/latest` returned the persisted latest run `ds_health_a0528a52212845cb941455b14a5c3539` with total=24.
 - Verification passed: `python -m compileall -q src scripts`, targeted Python pytest for health/A-stock tests (12 passed), and `mvn -pl cynexus-core/cynexus-core-starter -am package -DskipTests`.
 - Frontend `npx tsc -b --pretty false` was attempted; it still fails on pre-existing unrelated TypeScript errors in market pulse, industry application chart, market sentiment sparkline, and stock-overview market-pulse. No new health-page TypeScript errors appeared in the reported diagnostics.
+
+## Phase 37 - Application Analysis Stock Fund Flow
+
+Status: complete
+
+- Make the Market stock fund-flow endpoint read EastMoney `a_stock_fund_flow_daily` history for main, super-large, large, medium, and small net flow.
+- Merge Tencent `stock_fund_flow_snapshot` quote/ratio fields when a same-stock snapshot exists; keep TDX daily bars only as a final quote fallback.
+- Extend the typed Java BO/DTO and React service contracts without introducing map-based shortcuts.
+- Update the Fund Flow date list to render the five EastMoney net-flow fields and clearly distinguish missing data from zero flow.
+- Add Core scheduler dataset mapping/defaults so the EastMoney 120-day stock flow job can run for configured stock codes.
+- Backfill the currently configured/selected stock universe where feasible, then restart and smoke-test the full UI -> Market -> PostgreSQL chain.
+
+### Phase 37 Verification Results
+
+- Market `/stock-chart/fund-flow` now merges EastMoney `a_stock_fund_flow_daily` order-size history with Tencent daily snapshot ratios and TDX quote fallback fields.
+- Added typed main/super-large/large/medium/small net-flow fields through BO, DTO, app service, frontend service, and date-list UI.
+- Added enabled `stock_fund_flow_daily` at 15:20 on trading days for self-selected stocks, backed by `sync_stock_fund_flow`.
+- Tencent parsing now uses the quote payload's actual trade date, preventing weekend runs from storing the prior trading day's quote under a weekend date.
+- Backfilled six active self-selected stocks for actual trade date `2026-07-10`; `600415` now returns active net amount, active buy/sell ratios, turnover, big-order ratios, amount, price, and change.
+- Restarted Data Executor, Market, and Core; direct Market and Vite-proxy HTTP smoke checks passed.
+- Targeted Python tests passed: 10. Market/Core Maven compile passed. Targeted frontend ESLint passed.
+- Full frontend TypeScript build remains blocked by pre-existing errors in market pulse, industry chart, sparkline, and PageHeader files; no Fund Flow diagnostics were reported.
+
+### Phase 37 Errors Encountered
+
+| Error | Resolution |
+| --- | --- |
+| EastMoney Push2His closes connections for all six self-selected codes in the current network | Kept EastMoney historical table support and added Tencent daily snapshots as the reliable current-data path; the UI renders each available data scope without fake zeroes. |
+| Manual weekend snapshot initially used the task date | Parsed Tencent field 30 quote time, removed the invalid `2026-07-11` batch, and re-collected it under actual trade date `2026-07-10`. |
+| Market Spring Boot repackage could not rename the running jar | Stopped the old Market process, packaged successfully, and restarted it on port 18082. |
+
+## Phase 38 - EastMoney Fund Flow Resilient Collection
+
+Status: complete
+
+- Reuse one rate-limited EastMoney HTTP session across stock requests so anti-crawl throttling applies globally within a job.
+- Add realistic request headers, request jitter, bounded retries, and exponential cooldown for connection resets and throttling responses.
+- Use `push2his` for full history and `push2delay` only as a one-day incremental fallback.
+- Preserve the actual source (`eastmoney.push2his` or `eastmoney.push2delay`) in PostgreSQL.
+- Validate requested history coverage so a one-row delayed response cannot be reported as a successful 120-day backfill.
+- Add tests, rebuild Data Executor, run a self-selected live sync, and verify persisted source/date/row counts.
+
+### Phase 38 Verification Results
+
+- EastMoney requests now share one session with a 2-second minimum interval, 0.5-2 second jitter, realistic browser headers, retry-after handling, exponential retry backoff, and proxy-bypass retry after connection failures.
+- Push2His failures open a 15-minute circuit breaker, preventing repeated history requests for every stock in the same run.
+- `push2delay` is used only as `daily_fallback`; rows persist as `eastmoney.push2delay` and job metadata reports fallback/history-complete counts.
+- Verified the delayed endpoint ignores `beg/end` and always returns only the latest trade date; it cannot backfill historical dates.
+- Live self-selected run completed in 21 seconds: 6 codes, 6 delayed rows written, `daily_fallback_count=6`, `history_complete_count=0`.
+- `600415` now serves EastMoney main net `4365.1509` wan and Tencent active net `4635.6894` wan for 2026-07-10 with explicit combined source.
+- Targeted A-stock tests passed: 13. Combined fund-flow/A-stock tests passed earlier: 22. Python compile, Market Maven compile/package, Data Executor rebuild, Market restart, and HTTP smoke passed.
+
+## Phase 39 - Automatic EastMoney Browser Session
+
+Status: complete
+
+- Add a Playwright persistent Chromium profile under `cynexus-data/var/eastmoney-browser-profile`.
+- Reuse cached `qgqp_b_id` and `nid18` without launching a browser on normal jobs.
+- On Push2His disconnect or incomplete history, open the persistent profile, visit EastMoney home at low frequency, wait for client scripts, extract only the two required cookies, and retry history once.
+- If browser refresh or the retry fails, open the existing 15-minute circuit and use Push2Delay daily fallback.
+- Install Chromium in the Data Executor image and persist the profile through the existing `/app/var` mount.
+- Add deterministic unit tests plus a live one-code and six-code backfill verification.
+
+### Phase 39 Verification Results
+
+- Playwright now uses a persistent Chromium profile at `/app/var/eastmoney-browser-profile` and a two-cookie cache at `/app/var/eastmoney-browser-cookies.json`.
+- Normal collection reuses cached `qgqp_b_id` and `nid18`; Chromium is launched only after Push2His disconnects or returns incomplete history.
+- Refresh visits EastMoney home, waits five seconds, extracts only the two required cookies, retries Push2His once, then opens the 15-minute circuit and falls back to Push2Delay.
+- A live cookie refresh produced both required cookies, and a no-manual-cookie `600415` history run persisted 120 Push2His rows.
+- Historical backfill is intentionally paced at one missing-history stock per workday at 20:30; daily collection uses Push2Delay for all self-selected stocks.
+- Debian Chromium is installed in the Data Executor image and configured through `EASTMONEY_CHROMIUM_EXECUTABLE=/usr/bin/chromium`.
+- Recreated Data Executor from the verified local image; the host `cynexus-data/var` bind mount retained both browser profile and cookie cache.
+- `.env`, the cookie cache, and browser profile are ignored by Git. The image contains empty cookie environment values.
+- Targeted browser/source/persistence tests passed: 17. `git diff --check` passed.
+
+## Phase 40 - Application Analysis Information Tab
+
+Status: complete
+
+- Audit the existing Python -> Market F10 information query chain and reuse its typed endpoints.
+- Add a dedicated Market frontend service for information data; do not add page API calls to `lib/api.ts`.
+- Add an Application Analysis information tab with a compact, date-oriented operational UI for announcements, news, research, and roadshows.
+- Verify the Java endpoint contract, frontend lint, and the scoped Market build.
+
+### Phase 40 Verification Results
+
+- Reused the established F10 typed contract: Python internal F10 routes -> `HttpStockChartF10DataClient` -> Market stock-chart controller -> frontend Market service.
+- Added the Information tab and dedicated `src/services/market/stock-information.ts`; no `lib/api.ts` usage or direct Python frontend request was added.
+- Scoped frontend ESLint passed with only three existing unused-disable warnings in the page.
+- Direct Vite-proxy smoke for symbol `600415` returned HTTP 200 from announcements, news, company-news, and roadshows endpoints.

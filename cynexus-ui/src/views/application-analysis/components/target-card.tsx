@@ -123,7 +123,7 @@ export function TargetCard({
   }, [targets, stockSearchResults, searchKeyword, targetIdSet])
 
   return (
-    <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden rounded-3xl border-0 bg-muted/40 py-0 shadow-sm">
+    <Card className={`w-full min-w-0 max-w-full shrink-0 gap-0 overflow-hidden rounded-3xl border-0 bg-muted/40 py-0 shadow-sm ${collapsed ? "" : "min-h-[420px]"}`}>
       <CardHeader className="px-3 pb-3 pt-4 sm:px-4 2xl:px-6">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -146,7 +146,7 @@ export function TargetCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 px-3 pb-4 sm:px-4 2xl:px-6">
+      <CardContent className="min-h-0 space-y-3 overflow-hidden px-3 pb-4 sm:px-4 2xl:px-6">
         <div className="space-y-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
@@ -180,12 +180,14 @@ export function TargetCard({
                 return (
                   <div
                     className={`overflow-hidden rounded-xl transition ${
-                      isSelected
-                        ? "bg-background shadow-sm ring-1 ring-border"
-                        : "bg-background/90 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-background hover:shadow-sm"
+                      isExpanded
+                        ? "bg-muted/35"
+                        : isSelected
+                          ? "bg-background"
+                          : "bg-background/90 hover:bg-background"
                     }`}
                   >
-                    <div className="flex w-full flex-col gap-2 px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
+                    <div className={`flex w-full flex-col gap-2 px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between ${isExpanded ? "bg-background/70" : ""}`}>
                       <div className="flex min-w-0 items-start gap-2 sm:items-center">
                         {!collapsed ? (
                           isExpanded ? <ChevronDown className="mt-0.5 size-3.5 shrink-0 text-slate-500 sm:mt-0" /> : <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-slate-500 sm:mt-0" />
@@ -208,7 +210,7 @@ export function TargetCard({
                       )}
                     </div>
                     {isExpanded ? (
-                      <div className="space-y-2 bg-muted/45 px-3 pb-2.5 pt-2 ring-1 ring-inset ring-border/60" onClick={(event) => event.stopPropagation()}>
+                      <div className="space-y-2 bg-muted/60 px-3 pb-2.5 pt-2.5" onClick={(event) => event.stopPropagation()}>
                         <div className="flex w-full min-w-0 items-center gap-2 text-xs">
                           <label className="flex min-w-0 flex-1 items-center gap-1.5">
                             <span className="shrink-0 text-[10px] font-medium text-muted-foreground">Adjust</span>
@@ -318,7 +320,7 @@ export function TargetCard({
                   ? "No targets yet. Search by keyword to add a stock."
                   : "No matching targets."
             }
-            maxHeight={collapsed ? "max-h-[24vh]" : "max-h-[36vh] lg:max-h-[40vh]"}
+            maxHeight={collapsed ? "max-h-[24vh]" : "max-h-[36vh] lg:max-h-[min(42svh,440px)]"}
             className=""
             itemClassName=""
           />

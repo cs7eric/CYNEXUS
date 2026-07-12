@@ -34,8 +34,9 @@ export function SelectionPanel(props: {
     onAnalyzeBar,
   } = props
   return (
-    <div ref={panelRef} className="flex min-h-0 flex-1">
+    <div ref={panelRef} className="flex w-full min-h-0 min-w-0 flex-1 self-stretch">
       <CollapsibleCard
+        className="w-full min-w-0 self-stretch"
         title="选中分析项"
         description="已选 K 柱 / 标注集中展示"
         icon={Sparkles}
@@ -141,7 +142,7 @@ export function SelectionPanel(props: {
             })}
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-[11px] leading-5 break-words text-slate-500">
+          <div className="flex w-full min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-[11px] leading-5 break-words text-slate-500">
             先在右侧 K 线图中点击 K 柱，或点选标注标签，这里会展示当前选中的分析对象。
           </div>
         )}

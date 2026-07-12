@@ -62,6 +62,13 @@ public class MarginTradingRepositoryImpl implements MarginTradingRepository {
     }
 
     @Override
+    public List<MarginStockDetailBO> listStockHistory(String stockCode, int limit) {
+        return MarginStockDetailPOConverter.INSTANCE.toTargetList(
+                marginTradingBasicService.listStockHistory(stockCode, limit)
+        );
+    }
+
+    @Override
     public List<MarginIndustrySummaryBO> listIndustrySummaries(LocalDate tradeDate, String sort, String sortDir, int offset, int limit) {
         return MarginIndustrySummaryPOConverter.INSTANCE.toTargetList(
                 marginTradingBasicService.listIndustrySummaries(tradeDate, sort, sortDir, offset, limit)

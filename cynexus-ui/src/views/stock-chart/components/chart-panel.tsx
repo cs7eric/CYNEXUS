@@ -710,6 +710,7 @@ export function ChartPanel({
   selectedBarTimestamps,
   onSelectionChange,
   onAnalyzeSelection,
+  syncSelection = true,
   yAxisPosition = "right",
   mobileCompact = false,
 }: {
@@ -728,6 +729,7 @@ export function ChartPanel({
   selectedBarTimestamps?: number[]
   onSelectionChange?: (items: ChartPanelSelectionItem[]) => void
   onAnalyzeSelection?: (item: ChartPanelSelectionItem) => void
+  syncSelection?: boolean
   /** 价格轴位置, 默认右边 */
   yAxisPosition?: "left" | "right"
   mobileCompact?: boolean
@@ -923,6 +925,7 @@ export function ChartPanel({
   }, [symbol, period, bars, overlayAnnotations])
 
   useEffect(() => {
+    if (!syncSelection) return
     const selectedItems: ChartPanelSelectionItem[] = selectedBarIndexes
       .map((index) => {
         const bar = bars[index]
@@ -941,9 +944,10 @@ export function ChartPanel({
     }
 
     onSelectionChange?.(selectedItems)
-  }, [bars, onSelectionChange, selectedAiAnnotation, selectedBarIndexes])
+  }, [bars, onSelectionChange, selectedAiAnnotation, selectedBarIndexes, syncSelection])
 
   useEffect(() => {
+    if (!syncSelection) return
     if (!Array.isArray(selectedBarTimestamps)) return
     const nextIndexes = selectedBarTimestamps
       .map((timestamp) => bars.findIndex((bar) => bar.timestamp === timestamp))
@@ -954,7 +958,7 @@ export function ChartPanel({
       }
       return nextIndexes
     })
-  }, [bars, selectedBarTimestamps])
+  }, [bars, selectedBarTimestamps, syncSelection])
 
   const handleChartClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const chart = chartRef.current

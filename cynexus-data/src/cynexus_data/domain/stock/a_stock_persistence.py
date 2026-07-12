@@ -60,7 +60,8 @@ def normalize_dataset(dataset: str, payload: Any, params: dict[str, Any]) -> ASt
     elif dataset == "cninfo_irm":
         put_pg("a_stock_investor_interaction", [_interaction_row("cninfo.irm", item, code=code) for item in _items(payload)])
     elif dataset == "eastmoney_fund_flow_120d":
-        put_pg("a_stock_fund_flow_daily", [_fund_flow_daily_row("eastmoney.push2his", item, code=code) for item in _items(payload)])
+        source = str(payload.get("source") or "eastmoney.push2his") if isinstance(payload, dict) else "eastmoney.push2his"
+        put_pg("a_stock_fund_flow_daily", [_fund_flow_daily_row(source, item, code=code) for item in _items(payload)])
     elif dataset == "eastmoney_fund_flow_minute":
         put_ch("ch_ods_stock_fund_flow_minute", [_fund_flow_minute_row("eastmoney.push2", item, code=code, snapshot_date=today) for item in _items(payload)])
     elif dataset == "eastmoney_industry_rank":

@@ -674,3 +674,43 @@
 - Verified Market freshness endpoint also returned HTTP 200.
 - Patched the Settings Data Source page so health and freshness requests use `Promise.allSettled`; a failure in one tab no longer blanks the other tab.
 - Re-ran `npx tsc -b --pretty false`; the same unrelated TypeScript errors remain, with no new diagnostics from the data-source health files.
+## 2026-07-11 Application Analysis Stock Fund Flow
+
+- Connected typed EastMoney order-size fund-flow history to the Market stock-chart fund-flow response and merged Tencent snapshot fields by trade date.
+- Added Fund Flow UI rendering for main/super-large/large/medium/small net flow and an available-data fallback for Tencent active flow without empty metric grids.
+- Added and applied `20260711_schedule_stock_fund_flow_daily.sql`; Core resolver maps it to `sync_stock_fund_flow` with self-selected codes.
+- Added self-selected code resolution and source trade-date parsing to the Tencent stock-flow pipeline.
+- Backfilled six self-selected symbols; `600415` now serves 2026-07-10 active net `46.356894` wan, active buy ratio `0.53335021`, and turnover `1.25` through both Market and Vite proxy.
+- Verification passed: 10 targeted Python tests, Market/Core Maven compile, targeted frontend ESLint, Data/Market/Core restart, direct and proxy HTTP smoke.
+- Full frontend TypeScript build still reports unrelated pre-existing errors outside Fund Flow.
+- Follow-up: corrected Tencent active-net conversion from lots to shares; the original value was understated by 100x.
+
+## 2026-07-11 EastMoney Fund Flow Resilient Collection
+
+- Added a shared, paced EastMoney session with jitter, realistic headers, retry-after support, exponential retry backoff, connection cooldown, and proxy-bypass fallback.
+- Added a 15-minute Push2His circuit breaker and a Push2Delay one-day fallback with explicit source/mode/history-complete metadata.
+- Updated persistence to preserve `eastmoney.push2delay`; Market history reads prefer Push2His when both sources exist for the same date.
+- Added source/fallback/history coverage counters to `sync_a_stock_dataset` results.
+- Live run `job_run_fc79ce46ed9c4bc4aae75ffedbc0af29`: 6 selected codes, 6 rows written, all explicitly daily fallback, no false history completion.
+- Rebuilt Data Executor and Market; Vite-proxy smoke for `600415` passed with EastMoney main net and Tencent active net as separate fields.
+- Added browser-session support via ignored local `.env` variables `EASTMONEY_QGQP_B_ID` and `EASTMONEY_NID18`; no cookie values are committed.
+- Added browser-equivalent mobile JSONP headers and JSONP response parsing. Targeted A-stock tests now pass: 15 source/persistence tests.
+- The user cURL returned 120 rows with the two-cookie minimum, but subsequent repeated verification entered temporary upstream throttling; the running job correctly fell back to one day instead of retrying aggressively.
+
+## 2026-07-11 Automatic EastMoney Browser Session
+
+- Added a Playwright persistent browser session that visits EastMoney home, waits five seconds, and caches only `qgqp_b_id` and `nid18` under `cynexus-data/var`.
+- Wired Push2His failure handling to refresh cookies once, retry history once, then use the existing 15-minute circuit breaker and Push2Delay fallback.
+- Added Debian Chromium to `Dockerfile.data` and configured the Data Executor to use `/usr/bin/chromium` with the existing `/app/var` persistent mount.
+- Added a daily 20:30 history-backfill job that selects one self-selected stock with fewer than 100 Push2His rows; changed the normal A-stock daily job to incremental fund-flow mode.
+- Live verification refreshed both cookies and completed a 120-row Push2His backfill for `600415` without manually configured cookie values.
+- Recreated Data Executor from the verified local image and confirmed Chromium, cookie cache, and persistent browser profile remain available after recreation.
+- Verified scheduler state: `a_stock_code_daily` is enabled in `daily` mode and `a_stock_fund_flow_history_backfill` is enabled at 20:30 in `history` mode.
+- Verification passed: 17 targeted Python tests and `git diff --check`; `.env` and all browser state under `cynexus-data/var` remain ignored by Git.
+## 2026-07-11 - Application Analysis Information Tab
+
+- Started the information-tab implementation.
+- Confirmed the existing typed `cynexus-data -> cynexus-market` F10 chain is the correct source; no parallel direct frontend-to-Python path is needed.
+- Added the `Information` tab, page-level information feed component, and dedicated `src/services/market/stock-information.ts` aggregation layer.
+- The feed loads announcements, news, research, and roadshows concurrently through the typed Market F10 endpoints and supports per-kind filtering, chronological grouping, partial-source failures, refresh, and original links.
+- Live Vite-proxy smoke for `600415` returned HTTP 200 from all four Market endpoints.

@@ -117,6 +117,44 @@ class MarginRepository:
                 )
         return len(rows)
 
+    def upsert_stock_history(self, *, rows: list[dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        with self.client.session() as db:
+            for row in rows:
+                db.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self.client.schema}.margin_stock_detail (
+                            id, trade_date, exchange, stock_code, stock_name, source, financing_balance,
+                            financing_buy_amount, financing_repay_amount, securities_lending_balance,
+                            securities_lending_balance_amount, securities_lending_sell_volume,
+                            securities_lending_repay_volume, margin_balance, extra, updated_at, deleted_at
+                        ) VALUES (
+                            :id, :trade_date, :exchange, :stock_code, :stock_name, :source, :financing_balance,
+                            :financing_buy_amount, :financing_repay_amount, :securities_lending_balance,
+                            :securities_lending_balance_amount, :securities_lending_sell_volume,
+                            :securities_lending_repay_volume, :margin_balance, CAST(:extra AS jsonb), now(), NULL
+                        )
+                        ON CONFLICT (trade_date, exchange, stock_code, source) WHERE deleted_at IS NULL DO UPDATE SET
+                            stock_name = EXCLUDED.stock_name,
+                            financing_balance = EXCLUDED.financing_balance,
+                            financing_buy_amount = EXCLUDED.financing_buy_amount,
+                            financing_repay_amount = EXCLUDED.financing_repay_amount,
+                            securities_lending_balance = EXCLUDED.securities_lending_balance,
+                            securities_lending_balance_amount = EXCLUDED.securities_lending_balance_amount,
+                            securities_lending_sell_volume = EXCLUDED.securities_lending_sell_volume,
+                            securities_lending_repay_volume = EXCLUDED.securities_lending_repay_volume,
+                            margin_balance = EXCLUDED.margin_balance,
+                            extra = EXCLUDED.extra,
+                            updated_at = now(),
+                            deleted_at = NULL
+                        """
+                    ),
+                    _stock_detail_params(row, trade_date=row["trade_date"]),
+                )
+        return len(rows)
+
     def replace_account_stats(self, *, rows: list[dict[str, Any]]) -> int:
         if not rows:
             return 0

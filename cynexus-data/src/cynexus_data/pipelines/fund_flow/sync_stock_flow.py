@@ -19,7 +19,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     history_path = request.params.get("history_path")
     create_table = _truthy(request.params.get("create_table"))
     batch_size = int(request.params.get("batch_size") or 120)
-    codes = _parse_codes(request.params.get("codes") or request.params.get("symbols"))
+    codes = _resolve_codes(context, request.params)
     source = "tencent.qt" if provider == "tencent" else provider
     source_type = "json_import" if history_path else "crawler"
     result = {
@@ -55,6 +55,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         else [_fetch_live_payload(context, trade_date=trade_date, codes=codes or _load_active_codes(pg), batch_size=batch_size)]
     )
     for payload_trade_date, payload in payloads:
+        result["trade_date"] = payload_trade_date.isoformat()
         rows = _payload_rows(payload)
         requested_codes = _parse_codes(payload.get("requestedCodes") or payload.get("requested_codes")) or codes
         captured_at = _parse_datetime(payload.get("fetchedAt") or payload.get("fetched_at"))
@@ -97,11 +98,47 @@ def _fetch_live_payload(context: PipelineContext, *, trade_date: date, codes: li
             row.setdefault("symbol", symbol)
             rows.append(row)
         requested.extend(normalized_chunk)
-    return trade_date, {"rows": rows, "requestedCodes": requested, "fetchedAt": fetched_at, "rowCount": len(rows)}
+    source_dates = [_parse_date(row.get("trade_date")) for row in rows]
+    resolved_trade_date = max((value for value in source_dates if value is not None), default=trade_date)
+    return resolved_trade_date, {"rows": rows, "requestedCodes": requested, "fetchedAt": fetched_at, "rowCount": len(rows)}
 
 
 def _load_active_codes(pg_client) -> list[str]:
     return StockBasicRepository(pg_client).list_codes(active_only=True)
+
+
+def _resolve_codes(context: PipelineContext, params: dict[str, Any]) -> list[str]:
+    codes = _parse_codes(params.get("codes") or params.get("symbols"))
+    if codes:
+        return codes
+    code_source = str(params.get("code_source") or "").strip().lower()
+    if not code_source:
+        return []
+    if context.hooks is None:
+        raise RuntimeError("PipelineContext.hooks is required to resolve code_source")
+    pg = context.hooks.postgres.get_client()
+    if code_source in {"sec_stock_basic", "stock_basic", "all", "active"}:
+        return _load_active_codes(pg)
+    if code_source in {"self_selected", "watchlist"}:
+        from sqlalchemy import text
+
+        with pg.session() as db:
+            rows = db.execute(
+                text(
+                    """
+                    SELECT DISTINCT symbol
+                      FROM cynexus_appl_market.self_selected_list_items
+                     WHERE deleted_at IS NULL
+                       AND status = 'active'
+                       AND target_type = 'stock'
+                       AND symbol IS NOT NULL
+                       AND symbol <> ''
+                     ORDER BY symbol
+                    """
+                )
+            ).all()
+        return [str(row[0]).strip() for row in rows if str(row[0]).strip()]
+    raise ValueError(f"unsupported code_source: {code_source}")
 
 
 def _discover_history_files(path: Path, *, trade_date: date) -> list[Path]:

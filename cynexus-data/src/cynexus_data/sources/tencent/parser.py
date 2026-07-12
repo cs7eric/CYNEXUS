@@ -102,7 +102,7 @@ def parse_qt_stock_fund_flow_text(text: str, *, fetched_at: datetime | None = No
         active_net_lots = outer - inner
         last_price = row.get("last_price") or 0.0
         row["active_net_lots"] = active_net_lots
-        row["active_net_amount_wan"] = active_net_lots * last_price / 10000
+        row["active_net_amount_wan"] = active_net_lots * last_price * 100 / 10000
         row["active_buy_ratio"] = outer / total if total else None
         row["active_sell_ratio"] = inner / total if total else None
         row["disk"] = disk_by_symbol.get(symbol, {})
@@ -177,6 +177,10 @@ def _parse_qt_stock_quote_line(value: str, *, fetched_at: str) -> dict[str, Any]
     code = (parts[2] or "").strip()
     if not code:
         return None
+    quote_time = (parts[30] or "").strip()
+    quote_trade_date = None
+    if len(quote_time) >= 8 and quote_time[:8].isdigit():
+        quote_trade_date = datetime.strptime(quote_time[:8], "%Y%m%d").date().isoformat()
     return {
         "code": code,
         "name": (parts[1] or "").strip() or None,
@@ -186,6 +190,8 @@ def _parse_qt_stock_quote_line(value: str, *, fetched_at: str) -> dict[str, Any]
         "volume_lots": _to_float(parts[6]),
         "outer_disc_lots": _to_float(parts[7]),
         "inside_dish_lots": _to_float(parts[8]),
+        "trade_date": quote_trade_date,
+        "quote_time": quote_time or None,
         "change": _to_float(parts[31]),
         "change_pct": _to_float(parts[32]),
         "high": _to_float(parts[33]),

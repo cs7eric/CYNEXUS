@@ -452,6 +452,12 @@ Required market modules:
 - `StockChartDTO` / `StockChartBO` currently have no F10 DTO/BO types, so the migration needs explicit typed contracts instead of reusing `Map`/`JsonNode`.
 - Attempting the planning skill catch-up script at `C:\Users\Cs7er\.claude\skills\planning-with-files\scripts\session-catchup.py` failed because that path does not exist in this environment. The actual installed script is under `C:\Users\Cs7er\.agents\skills\planning-with-files\scripts\session-catchup.py`.
 
+## Application Analysis Information Tab Findings
+
+- The required Python -> Java path already exists for stock information: `cynexus-data` exposes typed internal F10 endpoints, and Market exposes typed public endpoints under `/api/market/stock-chart/f10/*`.
+- Existing public endpoints cover announcements, stock news, company research/news, and roadshows through `StockChartQueryController -> StockChartQueryAppService -> StockChartQueryRepository -> HttpStockChartF10DataClient`.
+- The page should consume this existing public contract through a dedicated Market service and must not reach Python directly or place request code in `src/lib/api.ts`.
+
 ## A Stock Data Source Integration Findings
 
 - The requested `a-stock-data.md` capability set fits best as source/query integrations first; new persisted datasets should not be scheduled until each has a table contract and owner.
@@ -498,3 +504,25 @@ Required market modules:
 - MyBatis-Plus maps the field `successRate24h` to `success_rate24h` by default, so `DataSourceHealthCheckItemPO` needs an explicit `@TableField("success_rate_24h")` annotation to match the table convention.
 - Live source checks are inherently unstable; in the latest local smoke, EastMoney Push2His failed once with a remote disconnect while Sina root returned HTTP 404 and was marked degraded rather than healthy. These are stored as health results, not hidden as build failures.
 - Frontend TypeScript verification remains blocked by unrelated existing errors in market pulse, industry application chart, market sentiment sparkline, and stock-overview market-pulse; the health page/service files did not appear in the TypeScript diagnostics.
+## 2026-07-11 Application Analysis Stock Fund Flow
+
+- `stock_fund_flow_snapshot` originally contained only three symbols for one date; `a_stock_fund_flow_daily` contained 120-day history for only two symbols.
+- The enabled `a_stock_code_daily` job did request EastMoney 120-day flow for six self-selected symbols, but `ignore_errors=true` hid six `RemoteDisconnected` failures while the overall job was recorded as success.
+- Tencent `qt.gtimg.cn` remained reachable and returned current active buy/sell, order-disk ratios, turnover, amount, price, and change for all six self-selected stocks.
+- Tencent quote field index 30 carries the source quote timestamp and must determine `trade_date`; the job run date is not reliable on weekends or holidays.
+- `600415` is the screenshot target: its 2026-06-26 TDX daily close was 9.76 and amount was 710,339,648, matching the reported empty-state screenshot.
+- Tencent outer/inside volume fields are lots (100 shares). Active net amount in wan must be `(outer_lots - inside_lots) * price * 100 / 10000`; the initial parser omitted the lot-to-share multiplier and understated active net amount by 100x.
+
+## 2026-07-11 EastMoney Fund Flow Resilience
+
+- AkShare 1.18.46 uses the same `push2his.eastmoney.com/api/qt/stock/fflow/daykline/get` endpoint with `klt=101`, a fixed `ut`, and a timestamp; AkShare does not provide a separate transport path.
+- The current local/container egress receives `RemoteDisconnected` from Push2His even with complete parameters, browser headers, proxy bypass, HTTP/HTTPS, and known numbered hosts.
+- `push2delay.eastmoney.com` is reachable and returns full main/super/large/medium/small net fields, but exactly one latest row regardless of `lmt`, `beg`, or `end`.
+- The safe collection model is Push2His for an explicit history backfill through a working fixed egress, Push2Delay for daily incremental collection, and Tencent for active-flow/quote supplements.
+- A shared session is required for effective rate limiting. Creating an EastMoney client per stock reset the prior throttle timer and defeated anti-crawl pacing.
+- The user-provided browser cURL proved Push2His can return 120 rows from this machine. The minimum successful session state was `qgqp_b_id` plus `nid18`; either cookie alone failed.
+- Push2His uses JSONP when `cb` is present, so the collector must parse both JSON and JSONP. Browser-equivalent mobile request headers and those two cookies are read from environment variables only.
+- Repeated verification requests eventually triggered temporary connection resets again, confirming that valid cookies do not remove rate limits; the circuit breaker and low-frequency scheduler remain necessary.
+- A persistent Playwright profile can obtain the two required cookies without manual browser export. Keeping the profile and cookie cache under the mounted `cynexus-data/var` allows reuse across Data Executor recreation.
+- Running a six-symbol history batch immediately after one successful 120-row request triggered throttling. History recovery must remain one missing symbol per low-frequency scheduled run; cookie refresh is not a substitute for request pacing.
+- The verified runtime uses Debian `/usr/bin/chromium` rather than downloading Playwright Chromium during Docker build, which avoids Docker Desktop BuildKit stalls while preserving Playwright's persistent-context behavior.

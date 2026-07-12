@@ -206,6 +206,11 @@ public final class StockChartDTO {
         private BigDecimal amountWan;
         private BigDecimal turnoverRate;
         private BigDecimal activeNetAmountWan;
+        private BigDecimal mainNetAmountWan;
+        private BigDecimal superNetAmountWan;
+        private BigDecimal largeNetAmountWan;
+        private BigDecimal mediumNetAmountWan;
+        private BigDecimal smallNetAmountWan;
         private BigDecimal activeBuyRatio;
         private BigDecimal activeSellRatio;
         private BigDecimal buyBigRatio;
@@ -225,6 +230,11 @@ public final class StockChartDTO {
         @JsonProperty("trade_date")
         private LocalDate tradeDate;
         private BigDecimal activeNetAmountWan;
+        private BigDecimal mainNetAmountWan;
+        private BigDecimal superNetAmountWan;
+        private BigDecimal largeNetAmountWan;
+        private BigDecimal mediumNetAmountWan;
+        private BigDecimal smallNetAmountWan;
         private BigDecimal activeBuyRatio;
         private BigDecimal activeSellRatio;
         private BigDecimal amountWan;

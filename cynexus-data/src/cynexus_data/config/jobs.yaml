@@ -241,6 +241,7 @@ jobs:
       provider: optional
       codes: optional
       symbols: optional
+      code_source: optional; self_selected/watchlist, stock_basic/all/active
       history_path: optional
       create_table: optional
       batch_size: optional
@@ -382,6 +383,11 @@ jobs:
       provider_priority: optional
       datasets: optional
       create_table: optional
+      mode: optional; stock_history uses EastMoney Datacenter for watchlist history
+      codes: optional
+      code_source: optional; self_selected/watchlist
+      limit_codes: optional
+      page_size: optional; defaults to 120
 
   build_sector_breadth:
     description: Build MSI sector breadth from sector fund-flow snapshots.

@@ -76,6 +76,37 @@ class FakeStockHooks:
     tencent = FakeTencentHook()
 
 
+class FakeWatchlistSession:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def execute(self, statement):
+        return FakeWatchlistResult()
+
+
+class FakeWatchlistResult:
+    def all(self):
+        return [("600006",), ("600415",)]
+
+
+class FakeWatchlistPostgresClient:
+    def session(self):
+        return FakeWatchlistSession()
+
+
+class FakeWatchlistPostgresHook:
+    def get_client(self):
+        return FakeWatchlistPostgresClient()
+
+
+class FakeWatchlistHooks:
+    postgres = FakeWatchlistPostgresHook()
+    tencent = FakeTencentHook()
+
+
 def test_sync_sector_flow_dry_run_skips_external_access(tmp_path) -> None:
     history_dir = tmp_path / "history"
     history_dir.mkdir()
@@ -264,3 +295,20 @@ def test_sync_stock_flow_live_uses_tencent_client(monkeypatch) -> None:
     assert call["source_type"] == "crawler"
     assert call["records"][0]["code"] == "600000"
     assert call["records"][0]["source"] == "tencent.qt"
+
+
+def test_sync_stock_flow_resolves_self_selected_codes(monkeypatch) -> None:
+    FakeStockRepo.calls = []
+    monkeypatch.setattr(sync_stock_flow, "StockFundFlowRepository", FakeStockRepo)
+
+    result = sync_stock_flow.run(
+        PipelineContext(hooks=FakeWatchlistHooks()),
+        JobRequest(
+            job_key="sync_stock_fund_flow",
+            dry_run=False,
+            params={"trade_date": "2026-06-26", "code_source": "self_selected"},
+        ),
+    )
+
+    assert result["codes"] == 2
+    assert FakeStockRepo.calls[0]["requested_codes"] == ["sh600006", "sh600415"]

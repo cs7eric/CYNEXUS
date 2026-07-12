@@ -66,3 +66,45 @@ def test_pipeline_dry_run_accepts_json_string_payload() -> None:
 
     assert result["rows_read"] == 1
     assert result["postgres_tables"] == {"a_stock_fund_flow_daily": 1}
+
+
+def test_normalize_eastmoney_delayed_fund_flow_preserves_source() -> None:
+    batch = normalize_dataset(
+        "eastmoney_fund_flow_120d",
+        {
+            "source": "eastmoney.push2delay",
+            "mode": "daily_fallback",
+            "items": [{"date": "2026-07-10", "main_net": "43651509"}],
+        },
+        {"code": "600415"},
+    )
+
+    row = batch.postgres["a_stock_fund_flow_daily"][0]
+    assert row["source"] == "eastmoney.push2delay"
+    assert row["code"] == "600415"
+    assert row["main_net"] == 43651509.0
+
+
+def test_pipeline_reports_delayed_fallback_as_incomplete_history() -> None:
+    result = run(
+        PipelineContext.default(),
+        JobRequest(
+            job_key="sync_a_stock_dataset",
+            dry_run=True,
+            params={
+                "dataset": "eastmoney_fund_flow_120d",
+                "code": "600415",
+                "payload": {
+                    "source": "eastmoney.push2delay",
+                    "mode": "daily_fallback",
+                    "history_complete": False,
+                    "items": [{"date": "2026-07-10", "main_net": "43651509"}],
+                },
+            },
+        ),
+    )
+
+    dataset = result["dataset_results"]["eastmoney_fund_flow_120d"]
+    assert dataset["sources"] == ["eastmoney.push2delay"]
+    assert dataset["daily_fallback_count"] == 1
+    assert dataset["history_complete_count"] == 0

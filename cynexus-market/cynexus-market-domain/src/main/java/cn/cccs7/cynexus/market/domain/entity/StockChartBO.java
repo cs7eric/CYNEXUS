@@ -151,6 +151,11 @@ public final class StockChartBO {
         private BigDecimal amountWan;
         private BigDecimal turnoverRate;
         private BigDecimal activeNetAmountWan;
+        private BigDecimal mainNetAmountWan;
+        private BigDecimal superNetAmountWan;
+        private BigDecimal largeNetAmountWan;
+        private BigDecimal mediumNetAmountWan;
+        private BigDecimal smallNetAmountWan;
         private BigDecimal activeBuyRatio;
         private BigDecimal activeSellRatio;
         private BigDecimal buyBigRatio;
@@ -168,6 +173,11 @@ public final class StockChartBO {
     public static class FundFlowPoint {
         private LocalDate tradeDate;
         private BigDecimal activeNetAmountWan;
+        private BigDecimal mainNetAmountWan;
+        private BigDecimal superNetAmountWan;
+        private BigDecimal largeNetAmountWan;
+        private BigDecimal mediumNetAmountWan;
+        private BigDecimal smallNetAmountWan;
         private BigDecimal activeBuyRatio;
         private BigDecimal activeSellRatio;
         private BigDecimal amountWan;

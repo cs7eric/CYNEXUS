@@ -139,6 +139,14 @@ export interface MarginStocksResponse {
   items: MarginStockDetail[]
 }
 
+export interface MarginStockHistoryResponse {
+  ok: boolean
+  error?: string | null
+  stockCode: string
+  count: number
+  items: MarginStockDetail[]
+}
+
 export interface MarginIndustriesResponse {
   ok: boolean
   error?: string | null
@@ -198,6 +206,33 @@ export async function fetchMarginStocks(
   const suffix = queryString ? `?${queryString}` : ""
   const res = await fetchWithRetry(`${MARGIN_API_BASE}/stocks${suffix}`, { cache: "no-store" })
   return cynexusResult<MarginStocksResponse>(res)
+}
+
+export async function fetchMarginStockHistory(stockCode: string, limit = 120): Promise<MarginStockHistoryResponse> {
+  const query = new URLSearchParams({ limit: String(limit) })
+  const res = await fetchWithRetry(
+    `${MARGIN_API_BASE}/stocks/${encodeURIComponent(stockCode)}/history?${query}`,
+    { cache: "no-store" },
+  )
+  return cynexusResult<MarginStockHistoryResponse>(res)
+}
+
+export async function backfillMarginStockHistory(stockCode: string): Promise<void> {
+  const response = await fetchWithRetry(`${SERVICE_PREFIX.core}/scheduler/data-jobs/sync_margin/trigger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      triggeredBy: "application-analysis-margin-backfill",
+      dryRun: false,
+      params: {
+        mode: "stock_history",
+        codes: [stockCode],
+        page_size: 120,
+        create_table: true,
+      },
+    }),
+  })
+  await cynexusResult(response)
 }
 
 export async function fetchMarginIndustries(

@@ -13,6 +13,7 @@ def test_parse_qt_stock_fund_flow_text() -> None:
     parts[6] = "1000"
     parts[7] = "600"
     parts[8] = "400"
+    parts[30] = "20260710150500"
     parts[31] = "0.20"
     parts[32] = "2.04"
     parts[33] = "10.10"
@@ -36,8 +37,9 @@ def test_parse_qt_stock_fund_flow_text() -> None:
     assert row["code"] == "600000"
     assert row["name"] == "浦发银行"
     assert row["active_net_lots"] == 200.0
-    assert row["active_net_amount_wan"] == 0.2
+    assert row["active_net_amount_wan"] == 20.0
     assert row["active_buy_ratio"] == 0.6
+    assert row["trade_date"] == "2026-07-10"
     assert row["disk"]["buy_big_ratio"] == 0.12
     assert row["disk"]["sell_small_ratio"] == 0.30
     assert row["pb"] == 0.8

@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.market.api.dto.MarginTradingHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustriesDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingLatestDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStocksDTO;
+import cn.cccs7.cynexus.market.api.dto.MarginTradingStockHistoryDTO;
 import cn.cccs7.cynexus.market.domain.entity.MarginAccountStatsBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginIndustrySummaryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginMarketSummaryBO;
@@ -137,6 +138,21 @@ public class MarginTradingAppService {
                 .pageSize(pageQuery.getPageSize())
                 .limit(pageQuery.getPageSize())
                 .count(marginTradingRepository.countStocks(servingTradeDate, normalizedExchange, normalizedIndustryCode))
+                .items(items)
+                .build();
+    }
+
+    public MarginTradingStockHistoryDTO stockHistory(String stockCode, int limit) {
+        String normalizedCode = stockCode == null ? "" : stockCode.trim().replaceAll("^(?i)(SH|SZ|BJ)", "");
+        List<MarginTradingDTO.StockDetailDTO> items = marginTradingRepository
+                .listStockHistory(normalizedCode, clampLimit(limit, DEFAULT_HISTORY_DAYS))
+                .stream()
+                .map(this::stockDTO)
+                .toList();
+        return MarginTradingStockHistoryDTO.builder()
+                .ok(true)
+                .stockCode(normalizedCode)
+                .count(items.size())
                 .items(items)
                 .build();
     }

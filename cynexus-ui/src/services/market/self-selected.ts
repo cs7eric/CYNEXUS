@@ -2,6 +2,42 @@ import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 
+async function triggerWatchlistDataWarmup(symbol: string) {
+  const trigger = async (jobKey: string, params: Record<string, unknown>) => {
+    const response = await fetchWithRetry(`${SERVICE_PREFIX.core}/scheduler/data-jobs/${jobKey}/trigger`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        triggeredBy: "watchlist-item-created",
+        dryRun: false,
+        params,
+      }),
+    })
+    await cynexusResult(response)
+  }
+
+  await Promise.allSettled([
+    trigger("sync_a_stock_dataset", {
+      codes: [symbol],
+      datasets: ["eastmoney_fund_flow_120d"],
+      fund_flow_mode: "history",
+      create_table: true,
+      ignore_errors: false,
+    }),
+    trigger("sync_stock_fund_flow", {
+      codes: [symbol],
+      create_table: true,
+      batch_size: 1,
+    }),
+    trigger("sync_margin", {
+      mode: "stock_history",
+      codes: [symbol],
+      page_size: 120,
+      create_table: true,
+    }),
+  ])
+}
+
 export interface SelfSelectedGroup {
   id: string
   name: string
@@ -264,6 +300,9 @@ export async function createSelfSelectedItem(
       body: JSON.stringify(toJavaItemPayload(payload)),
     }),
   )
+  if (payload.target_type === "stock" || !payload.target_type) {
+    void triggerWatchlistDataWarmup(payload.symbol)
+  }
   return { ok: true, item_id: String(id), item: await getSelfSelectedItem(String(id)) }
 }
 
@@ -289,4 +328,3 @@ export async function deleteSelfSelectedItem(itemId: string): Promise<SelfSelect
   )
   return { ok: true, item_id: itemId }
 }
-

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 import json
+import time
 import re
 import uuid
 from typing import Any
@@ -136,19 +137,118 @@ def fund_flow_minute(client: EastMoneyHttpClient, code: str) -> list[dict[str, A
     return rows
 
 
-def fund_flow_120d(client: EastMoneyHttpClient, code: str) -> list[dict[str, Any]]:
+def fund_flow_120d(client: EastMoneyHttpClient, code: str, *, mode: str = "auto") -> dict[str, Any]:
+    circuit_key = "push2his.stock_fund_flow"
+    params = {
+        "cb": f"jQuery1123{int(time.time() * 1000)}_{int(time.time() * 1000)}",
+        "secid": em_secid(code),
+        "fields1": "f1,f2,f3,f7",
+        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65",
+        "lmt": "120",
+        "klt": "101",
+        "ut": "b2884a393a59ad64002292a3e90d46a5",
+        "_": int(time.time() * 1000),
+    }
+    headers = {
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Referer": f"https://data.eastmoney.com/zjlx/{str(code)[-6:]}.html",
+        "Sec-Fetch-Dest": "script",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "same-site",
+        "User-Agent": (
+            "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+        "sec-ch-ua-mobile": "?1",
+        "sec-ch-ua-platform": '"Android"',
+    }
+    if mode == "daily":
+        return _fund_flow_delayed_daily(client, params=params, headers=headers, history_error=None)
+    history_error: Exception | None = None
+    if client.circuit_open(circuit_key):
+        history_error = RuntimeError("EastMoney Push2His circuit is cooling down")
+    else:
+        try:
+            rows = _fetch_fund_flow_history(client, params=params, headers=headers)
+            if len(rows) > 1:
+                client.close_circuit(circuit_key)
+                return {
+                    "items": rows,
+                    "source": "eastmoney.push2his",
+                    "mode": "history",
+                    "requested_limit": 120,
+                    "history_complete": True,
+                }
+            history_error = RuntimeError(f"EastMoney Push2His returned incomplete history: {len(rows)} row(s)")
+        except Exception as exc:  # noqa: BLE001 - a delayed endpoint is the bounded source fallback.
+            history_error = exc
+
+        try:
+            client.refresh_browser_cookies()
+            rows = _fetch_fund_flow_history(client, params=params, headers=headers)
+            if len(rows) > 1:
+                client.close_circuit(circuit_key)
+                return {
+                    "items": rows,
+                    "source": "eastmoney.push2his",
+                    "mode": "history_browser_refreshed",
+                    "requested_limit": 120,
+                    "history_complete": True,
+                }
+            history_error = RuntimeError(f"EastMoney Push2His remained incomplete after browser refresh: {len(rows)} row(s)")
+        except Exception as refresh_exc:  # noqa: BLE001 - fallback is intentional after one browser refresh.
+            history_error = RuntimeError(f"{history_error}; browser refresh retry failed: {refresh_exc}")
+        client.open_circuit(circuit_key)
+
+    return _fund_flow_delayed_daily(client, params=params, headers=headers, history_error=history_error)
+
+
+def _fund_flow_delayed_daily(
+    client: EastMoneyHttpClient,
+    *,
+    params: dict[str, Any],
+    headers: dict[str, str],
+    history_error: Exception | None,
+) -> dict[str, Any]:
+    response = client.get(
+        "https://push2delay.eastmoney.com/api/qt/stock/fflow/daykline/get",
+        params=params,
+        headers=headers,
+    )
+    rows = _fund_flow_daily_rows(_json_or_jsonp(response))
+    if not rows:
+        raise RuntimeError(f"EastMoney fund-flow history and delayed fallback failed: {history_error}")
+    return {
+        "items": rows,
+        "source": "eastmoney.push2delay",
+        "mode": "daily_fallback",
+        "requested_limit": 120,
+        "history_complete": False,
+        "history_error": str(history_error) if history_error else None,
+    }
+
+
+def _fetch_fund_flow_history(
+    client: EastMoneyHttpClient,
+    *,
+    params: dict[str, Any],
+    headers: dict[str, str],
+) -> list[dict[str, Any]]:
     response = client.get(
         "https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get",
-        params={
-            "secid": em_secid(code),
-            "fields1": "f1,f2,f3,f7",
-            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65",
-            "lmt": "120",
-        },
-        headers={"Referer": "https://quote.eastmoney.com/", "Origin": "https://quote.eastmoney.com"},
+        params={**params, "cb": f"jQuery1123{int(time.time() * 1000)}_{int(time.time() * 1000)}", "_": int(time.time() * 1000)},
+        headers=headers,
     )
+    return _fund_flow_daily_rows(_json_or_jsonp(response))
+
+
+def _fund_flow_daily_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows = []
-    for line in ((response.json().get("data") or {}).get("klines") or []):
+    for line in ((payload.get("data") or {}).get("klines") or []):
         parts = str(line).split(",")
         if len(parts) >= 6:
             rows.append(
@@ -162,6 +262,13 @@ def fund_flow_120d(client: EastMoneyHttpClient, code: str) -> list[dict[str, Any
                 }
             )
     return rows
+
+
+def _json_or_jsonp(response) -> dict[str, Any]:
+    try:
+        return response.json()
+    except (ValueError, json.JSONDecodeError):
+        return parse_jsonp(response.text)
 
 
 def industry_rank(client: EastMoneyHttpClient, *, top_n: int = 20) -> dict[str, Any]:
