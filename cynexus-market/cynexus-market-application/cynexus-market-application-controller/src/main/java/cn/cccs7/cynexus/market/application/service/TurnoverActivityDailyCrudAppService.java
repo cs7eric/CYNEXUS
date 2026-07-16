@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.TurnoverActivityDailyDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.TurnoverActivityDailyDTO;
 import cn.cccs7.cynexus.market.domain.entity.TurnoverActivityDailyBO;
-import cn.cccs7.cynexus.market.domain.service.TurnoverActivityDailyDomainService;
+import cn.cccs7.cynexus.market.domain.sentiment.TurnoverActivityDailyDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

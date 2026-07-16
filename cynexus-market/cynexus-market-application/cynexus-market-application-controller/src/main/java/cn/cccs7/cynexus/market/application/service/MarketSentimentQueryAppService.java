@@ -23,37 +23,30 @@ import cn.cccs7.cynexus.market.domain.entity.StyleRiskDailyBO;
 import cn.cccs7.cynexus.market.domain.entity.TurnoverActivityDailyBO;
 import cn.cccs7.cynexus.market.domain.entity.VolatilityDailyBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketSentimentQueryRepository;
+import cn.cccs7.cynexus.market.domain.sentiment.MarketSentimentDomainService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
 public class MarketSentimentQueryAppService {
 
-    private static final BigDecimal WEIGHT_VOL = bd("0.15");
-    private static final BigDecimal WEIGHT_TURNOVER = bd("0.15");
-    private static final BigDecimal WEIGHT_PRICE_STRENGTH = bd("0.10");
-    private static final BigDecimal WEIGHT_RISK_APPETITE = bd("0.10");
-    private static final BigDecimal WEIGHT_BREADTH = bd("0.15");
-    private static final BigDecimal WEIGHT_LIMIT_EMOTION = bd("0.15");
-    private static final BigDecimal WEIGHT_PROFIT_EFFECT = bd("0.10");
-    private static final BigDecimal WEIGHT_SECTOR_BREADTH = bd("0.05");
-    private static final BigDecimal WEIGHT_STYLE_RISK = bd("0.05");
-
     private final MarketSentimentQueryRepository repository;
+    private final MarketSentimentDomainService domainService;
 
-    public MarketSentimentQueryAppService(MarketSentimentQueryRepository repository) {
+    public MarketSentimentQueryAppService(MarketSentimentQueryRepository repository,
+                                          MarketSentimentDomainService domainService) {
         this.repository = repository;
+        this.domainService = domainService;
     }
 
     public MarketSentimentMaCountDTO getMaCount(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findMaCount(effectiveDate), effectiveDate, MaCountDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findMaCount(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::maCount)
                 .orElseGet(() -> emptyMaCount(effectiveDate));
     }
@@ -67,8 +60,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentRiskAppetiteDTO getRiskAppetite(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findRiskAppetite(effectiveDate), effectiveDate, RiskAppetiteDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findRiskAppetite(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::riskAppetite)
                 .orElseGet(() -> emptyRiskAppetite(effectiveDate));
     }
@@ -85,8 +79,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentLimitEmotionSummaryDTO getLimitEmotion(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findLimitEmotion(effectiveDate), effectiveDate, MarketSentimentLimitEmotionDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findLimitEmotion(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::limitEmotion)
                 .orElseGet(() -> emptyLimitEmotion(effectiveDate));
     }
@@ -100,8 +95,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentVolatilityDTO getVolatility(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findVolatility(effectiveDate), effectiveDate, VolatilityDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findVolatility(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::volatility)
                 .orElseGet(() -> emptyVolatility(effectiveDate));
     }
@@ -115,8 +111,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentTurnoverDTO getTurnover(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findTurnover(effectiveDate), effectiveDate, TurnoverActivityDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findTurnover(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::turnover)
                 .orElseGet(() -> emptyTurnover(effectiveDate));
     }
@@ -130,8 +127,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentStyleRiskDTO getStyleRisk(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findStyleRisk(effectiveDate), effectiveDate, StyleRiskDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findStyleRisk(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::styleRisk)
                 .orElseGet(() -> emptyStyleRisk(effectiveDate));
     }
@@ -145,8 +143,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentProfitEffectDTO getProfitEffect(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findProfitEffect(effectiveDate), effectiveDate, ProfitEffectDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findProfitEffect(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(row -> profitEffect(row, repository.findMsiIndex(row.getTradeDate()).map(MsiIndexDailyBO::getProfitEffectScore).orElse(null)))
                 .orElseGet(() -> emptyProfitEffect(effectiveDate));
     }
@@ -163,14 +162,15 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentSectorBreadthDTO getSectorBreadth(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findSectorBreadth(effectiveDate), effectiveDate, SectorBreadthDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findSectorBreadth(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::sectorBreadth)
                 .orElseGet(() -> emptySectorBreadth(effectiveDate));
     }
 
     public MarketSentimentSectorBreadthDTO.HistoryResponseDTO getSectorBreadthHistory(int days, LocalDate end) {
-        LocalDate endDate = resolveServingTradeDate(end);
+        LocalDate endDate = domainService.resolveServingTradeDate(end);
         LocalDate startDate = endDate.minusDays(days * 2L);
         List<MarketSentimentSectorBreadthDTO.HistoryItemDTO> items = repository.listSectorBreadth(startDate, endDate).stream()
                 .map(this::sectorBreadthHistoryItem)
@@ -180,8 +180,9 @@ public class MarketSentimentQueryAppService {
     }
 
     public MarketSentimentMsiIndexDTO getMsiIndex(LocalDate date) {
-        LocalDate effectiveDate = resolveServingTradeDate(date);
-        return exactOnTradeDate(repository.findMsiIndex(effectiveDate), effectiveDate, MsiIndexDailyBO::getTradeDate)
+        LocalDate effectiveDate = domainService.resolveServingTradeDate(date);
+        return repository.findMsiIndex(effectiveDate)
+                .filter(row -> domainService.matchesTradeDate(effectiveDate, row.getTradeDate()))
                 .map(this::msiIndex)
                 .orElseGet(() -> emptyMsiIndex(effectiveDate));
     }
@@ -219,7 +220,7 @@ public class MarketSentimentQueryAppService {
         return MarketSentimentIndexDailyDTO.builder()
                 .ok(true)
                 .code(code)
-                .name(indexName(code))
+                .name(domainService.indexName(code))
                 .start(start)
                 .end(end)
                 .count(items.size())
@@ -261,8 +262,8 @@ public class MarketSentimentQueryAppService {
                 .ok(true).tradeDate(row.getTradeDate()).windowDays(row.getWindowDays())
                 .hs300(asset(row.getHs300Close(), row.getTradeDate(), row.getHs300BaseClose(), row.getHs300BaseDate(), row.getHs30020dReturn(), null))
                 .treasury(MarketSentimentRiskAppetiteDTO.TreasuryDTO.builder()
-                        .asset511010(asset(row.getTreasury511010Close(), row.getTradeDate(), row.getTreasury511010BaseClose(), null, row.getTreasury51101020dReturn(), bd("0.5")))
-                        .asset511090(asset(row.getTreasury511090Close(), row.getTradeDate(), row.getTreasury511090BaseClose(), null, row.getTreasury51109020dReturn(), bd("0.5")))
+                        .asset511010(asset(row.getTreasury511010Close(), row.getTradeDate(), row.getTreasury511010BaseClose(), null, row.getTreasury51101020dReturn(), domainService.treasuryWeight()))
+                        .asset511090(asset(row.getTreasury511090Close(), row.getTradeDate(), row.getTreasury511090BaseClose(), null, row.getTreasury51109020dReturn(), domainService.treasuryWeight()))
                         .weighted(MarketSentimentRiskAppetiteDTO.WeightedDTO.builder().returnPct(row.getTreasuryWeighted20dReturn()).build())
                         .build())
                 .spread(MarketSentimentRiskAppetiteDTO.SpreadDTO.builder()
@@ -278,7 +279,7 @@ public class MarketSentimentQueryAppService {
     }
 
     private MarketSentimentRiskAppetiteDTO.HistoryItemDTO riskHistoryItem(RiskAppetiteDailyBO row, BigDecimal msiScore) {
-        BigDecimal score = row.getScore() == null ? msiScore : row.getScore();
+                BigDecimal score = domainService.resolveScore(row.getScore(), msiScore);
         return MarketSentimentRiskAppetiteDTO.HistoryItemDTO.builder()
                 .tradeDate(row.getTradeDate()).hs300ReturnPct(row.getHs30020dReturn())
                 .treasury511010ReturnPct(row.getTreasury51101020dReturn())
@@ -363,7 +364,7 @@ public class MarketSentimentQueryAppService {
     }
 
     private MarketSentimentProfitEffectDTO profitEffect(ProfitEffectDailyBO row, BigDecimal msiScore) {
-        BigDecimal score = msiScore == null ? row.getScore() : msiScore;
+        BigDecimal score = domainService.resolveScore(msiScore, row.getScore());
         return MarketSentimentProfitEffectDTO.builder()
                 .ok(true).tradeDate(row.getTradeDate()).up5dPct(row.getUp5dPct()).newLow60dPct(row.getNewLow60dPct())
                 .score(score).rawValue(row.getScore()).elapsedMs(row.getElapsedMs()).source(row.getSource()).fromCache(true).build();
@@ -376,7 +377,7 @@ public class MarketSentimentQueryAppService {
     }
 
     private MarketSentimentSectorBreadthDTO sectorBreadth(SectorBreadthDailyBO row) {
-        BigDecimal score = row.getScore() == null && row.getAdvancePct() != null ? row.getAdvancePct().multiply(bd("100")) : row.getScore();
+        BigDecimal score = domainService.deriveSectorBreadthScore(row.getScore(), row.getAdvancePct());
         return MarketSentimentSectorBreadthDTO.builder()
                 .ok(true).tradeDate(row.getTradeDate()).advancing(n(row.getAdvancing())).declining(n(row.getDeclining()))
                 .flat(n(row.getFlat())).total(n(row.getTotal())).advancePct(row.getAdvancePct()).score(score)
@@ -384,7 +385,7 @@ public class MarketSentimentQueryAppService {
     }
 
     private MarketSentimentSectorBreadthDTO.HistoryItemDTO sectorBreadthHistoryItem(SectorBreadthDailyBO row) {
-        BigDecimal score = row.getScore() == null && row.getAdvancePct() != null ? row.getAdvancePct().multiply(bd("100")) : row.getScore();
+        BigDecimal score = domainService.deriveSectorBreadthScore(row.getScore(), row.getAdvancePct());
         return MarketSentimentSectorBreadthDTO.HistoryItemDTO.builder()
                 .tradeDate(row.getTradeDate()).advancing(n(row.getAdvancing())).declining(n(row.getDeclining()))
                 .flat(n(row.getFlat())).total(n(row.getTotal())).advancePct(row.getAdvancePct()).score(score)
@@ -413,9 +414,11 @@ public class MarketSentimentQueryAppService {
 
     private MarketSentimentMsiIndexDTO.WeightsDTO msiWeights() {
         return MarketSentimentMsiIndexDTO.WeightsDTO.builder()
-                .vol(WEIGHT_VOL).turnover(WEIGHT_TURNOVER).priceStrength(WEIGHT_PRICE_STRENGTH)
-                .riskAppetite(WEIGHT_RISK_APPETITE).breadth(WEIGHT_BREADTH).limitEmotion(WEIGHT_LIMIT_EMOTION)
-                .profitEffect(WEIGHT_PROFIT_EFFECT).sectorBreadth(WEIGHT_SECTOR_BREADTH).styleRisk(WEIGHT_STYLE_RISK).build();
+                .vol(domainService.msiWeights().get("vol")).turnover(domainService.msiWeights().get("turnover"))
+                .priceStrength(domainService.msiWeights().get("priceStrength"))
+                .riskAppetite(domainService.msiWeights().get("riskAppetite")).breadth(domainService.msiWeights().get("breadth"))
+                .limitEmotion(domainService.msiWeights().get("limitEmotion")).profitEffect(domainService.msiWeights().get("profitEffect"))
+                .sectorBreadth(domainService.msiWeights().get("sectorBreadth")).styleRisk(domainService.msiWeights().get("styleRisk")).build();
     }
 
     private MarketPulseOverviewHistoryDTO.ItemDTO overviewHistoryItem(MarketOverviewBO row) {
@@ -469,35 +472,7 @@ public class MarketSentimentQueryAppService {
         return MarketSentimentMsiIndexDTO.ComponentsDTO.builder().build();
     }
 
-    private LocalDate resolveServingTradeDate(LocalDate date) {
-        LocalDate requestedDate = date == null ? LocalDate.now() : date;
-        // 市场情绪页顶部 MSI 是主时间轴；单卡统一锚到同一 MSI 交易日，避免各自向前回退后出现同页不同日。
-        return repository.findMsiIndex(requestedDate)
-                .map(MsiIndexDailyBO::getTradeDate)
-                .orElse(requestedDate);
-    }
-
-    private <T> Optional<T> exactOnTradeDate(Optional<T> row, LocalDate expectedTradeDate, Function<T, LocalDate> tradeDateExtractor) {
-        if (expectedTradeDate == null) {
-            return Optional.empty();
-        }
-        return row.filter(value -> expectedTradeDate.equals(tradeDateExtractor.apply(value)));
-    }
-
     private int n(Integer value) {
-        return value == null ? 0 : value;
-    }
-
-    private static BigDecimal bd(String value) {
-        return new BigDecimal(value);
-    }
-
-    private String indexName(String code) {
-        return switch (code == null ? "" : code.replaceAll("\\D", "")) {
-            case "000001" -> "上证指数";
-            case "399001" -> "深证成指";
-            case "399006" -> "创业板指";
-            default -> code;
-        };
+        return domainService.count(value);
     }
 }

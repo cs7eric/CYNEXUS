@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom"
+import { createBrowserRouter, Navigate } from "react-router-dom"
 import App from "../App"
 import ApplicationAnalysisPage from "../views/application-analysis"
 import DashboardPage from "../views/dashboard"
@@ -13,12 +13,14 @@ import AiProviderSettingsPage from "../views/settings/ai-provider"
 import DataSourceSettingsPage from "../views/settings/data-source"
 import ProviderSettingsPage from "../views/settings/provider"
 import PromptSettingsPage from "../views/settings/prompt"
+import AiUsageSettingsPage from "../views/settings/ai-usage"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
 import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
 import MarketMarginTradingPage from "../views/market/market-margin-trading"
+import MarketInformationPage from "../views/information"
 import PocPage from "../views/poc"
 import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
 import AiPocPage from "../views/poc/ai"
@@ -76,6 +78,14 @@ export const router = createBrowserRouter([
       {
         path: "market/margin-trading",
         element: <MarketMarginTradingPage />,
+      },
+      {
+        path: "information",
+        element: <MarketInformationPage />,
+      },
+      {
+        path: "market/information",
+        element: <Navigate to="/information" replace />,
       },
       {
         path: "poc",
@@ -148,6 +158,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/prompt",
         element: <PromptSettingsPage />,
+      },
+      {
+        path: "settings/ai-usage",
+        element: <AiUsageSettingsPage />,
       },
     ],
   },

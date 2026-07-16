@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.core.application.service;
 import cn.cccs7.cynexus.core.application.convert.MediaTranscriptDTOConverter;
 import cn.cccs7.cynexus.core.api.dto.MediaTranscriptDTO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptBO;
-import cn.cccs7.cynexus.core.domain.service.MediaTranscriptDomainService;
+import cn.cccs7.cynexus.core.domain.mediatranscription.MediaTranscriptDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

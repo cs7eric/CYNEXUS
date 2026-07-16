@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.StockFundFlowSnapshotDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.StockFundFlowSnapshotDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockFundFlowSnapshotBO;
-import cn.cccs7.cynexus.market.domain.service.StockFundFlowSnapshotDomainService;
+import cn.cccs7.cynexus.market.domain.fundflow.StockFundFlowSnapshotDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

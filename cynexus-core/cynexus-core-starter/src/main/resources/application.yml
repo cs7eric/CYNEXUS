@@ -64,3 +64,7 @@ cynexus:
       base-url: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_BASE_URL:http://127.0.0.1:18083/internal/media-transcription}
       internal-token: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_INTERNAL_TOKEN:${CYNEXUS_DATA_INTERNAL_TOKEN:}}
       timeout-ms: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_TIMEOUT_MS:600000}
+  market:
+    automation:
+      base-url: ${CYNEXUS_MARKET_AUTOMATION_BASE_URL:http://127.0.0.1:18082}
+      timeout-ms: ${CYNEXUS_MARKET_AUTOMATION_TIMEOUT_MS:30000}

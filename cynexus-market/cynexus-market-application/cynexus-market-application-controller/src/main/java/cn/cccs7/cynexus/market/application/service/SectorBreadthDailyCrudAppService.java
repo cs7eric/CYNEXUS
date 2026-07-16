@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.SectorBreadthDailyDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.SectorBreadthDailyDTO;
 import cn.cccs7.cynexus.market.domain.entity.SectorBreadthDailyBO;
-import cn.cccs7.cynexus.market.domain.service.SectorBreadthDailyDomainService;
+import cn.cccs7.cynexus.market.domain.sentiment.SectorBreadthDailyDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

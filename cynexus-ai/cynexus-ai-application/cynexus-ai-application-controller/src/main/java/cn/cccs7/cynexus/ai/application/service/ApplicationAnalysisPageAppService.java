@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.ai.api.dto.ApplicationAnalysisPageDTO;
 import cn.cccs7.cynexus.ai.api.request.ApplicationAnalysisPageRequest;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisPageRepository;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisPageDomainPolicy;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +26,7 @@ public class ApplicationAnalysisPageAppService {
     private final ApplicationAnalysisPageRepository repository;
     private final ApplicationAnalysisRecent30Executor recent30Executor;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ApplicationAnalysisPageDomainPolicy domainPolicy = new ApplicationAnalysisPageDomainPolicy();
 
     public ApplicationAnalysisPageAppService(ApplicationAnalysisPageRepository repository,
                                              ApplicationAnalysisRecent30Executor recent30Executor) {
@@ -68,7 +70,7 @@ public class ApplicationAnalysisPageAppService {
     }
 
     public ApplicationAnalysisPageDTO.AnalysisResultResponse getResult(String targetId) {
-        String targetKey = normalizeTargetKey(targetId);
+        String targetKey = domainPolicy.normalizeTargetKey(targetId);
         ApplicationAnalysisPageBO.Target target = repository.findTarget(targetKey);
         if (target == null) {
             return null;
@@ -137,20 +139,20 @@ public class ApplicationAnalysisPageAppService {
     }
 
     public ApplicationAnalysisPageDTO.DailySnapshotResponse refreshRecent30(ApplicationAnalysisPageRequest.Recent30RefreshRequest request) {
-        String targetId = request == null ? "" : normalizeTargetKey(request.getTargetId());
-        LocalDate date = parseDate(request == null ? null : request.getDate());
+        String targetId = request == null ? "" : domainPolicy.normalizeTargetKey(request.getTargetId());
+        LocalDate date = domainPolicy.parseDate(request == null ? null : request.getDate());
         ApplicationAnalysisRecent30Executor.ExecutionResult result = recent30Executor.execute(targetId, date);
         return buildDailySnapshotResponse(result);
     }
 
     public ApplicationAnalysisPageDTO.AnalysisResultResponse run(ApplicationAnalysisPageRequest.RunRequest request) {
-        String targetType = defaultString(request == null ? null : request.getTargetType(), "stock");
-        String symbol = defaultString(request == null ? null : request.getSymbol(), "").toUpperCase(Locale.ROOT);
+        String targetType = domainPolicy.defaultString(request == null ? null : request.getTargetType(), "stock");
+        String symbol = domainPolicy.defaultString(request == null ? null : request.getSymbol(), "").toUpperCase(Locale.ROOT);
         if (symbol.isBlank()) {
             throw new cn.cccs7.cynexus.common.core.exception.BizException(
                     cn.cccs7.cynexus.common.core.exception.ErrorCode.BAD_REQUEST, "symbol is required");
         }
-        String targetKey = buildTargetKey(targetType, symbol);
+        String targetKey = domainPolicy.buildTargetKey(targetType, symbol);
         ApplicationAnalysisPageBO.Target target = repository.findTarget(targetKey);
         if (target == null) {
             repository.saveTargets(ApplicationAnalysisPageBO.SaveTargetsCommand.builder()

@@ -474,16 +474,43 @@ def stock_news(client: EastMoneyHttpClient, code: str, *, page_size: int = 20) -
 
 
 def global_news(client: EastMoneyHttpClient, *, page_size: int = 50) -> list[dict[str, Any]]:
-    response = client.get(
-        "https://np-weblist.eastmoney.com/comm/web/getFastNewsList",
-        params={"client": "web", "biz": "web_724", "fastColumn": "102", "sortEnd": "", "pageSize": str(page_size), "req_trace": str(uuid.uuid4())},
-        headers={"Referer": "https://kuaixun.eastmoney.com/"},
-    )
-    return [
-        {"title": row.get("title"), "summary": str(row.get("summary") or "")[:200], "time": row.get("showTime")}
-        for row in ((response.json().get("data") or {}).get("fastNewsList") or [])
-        if isinstance(row, dict)
-    ]
+    target = min(max(page_size, 1), 1000)
+    cursor = ""
+    seen: set[str] = set()
+    result: list[dict[str, Any]] = []
+    while len(result) < target:
+        batch_size = min(50, target - len(result))
+        response = client.get(
+            "https://np-weblist.eastmoney.com/comm/web/getFastNewsList",
+            params={"client": "web", "biz": "web_724", "fastColumn": "102", "sortEnd": cursor, "pageSize": str(batch_size), "req_trace": str(uuid.uuid4())},
+            headers={"Referer": "https://kuaixun.eastmoney.com/"},
+        )
+        data = response.json().get("data") or {}
+        rows = [row for row in data.get("fastNewsList") or [] if isinstance(row, dict)]
+        if not rows:
+            break
+        for row in rows:
+            item_id = str(row.get("code") or row.get("realSort") or "")
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            result.append(
+                {
+                    "id": item_id,
+                    "title": row.get("title"),
+                    "summary": str(row.get("summary") or "")[:500],
+                    "time": row.get("showTime"),
+                    "stock_list": row.get("stockList") or [],
+                    "raw_payload": row,
+                }
+            )
+            if len(result) >= target:
+                break
+        next_cursor = str(data.get("sortEnd") or rows[-1].get("realSort") or "")
+        if len(rows) < batch_size or not next_cursor or next_cursor == cursor:
+            break
+        cursor = next_cursor
+    return result
 
 
 def limit_pool(client: EastMoneyHttpClient, pool: str, trade_date: str) -> list[dict[str, Any]]:

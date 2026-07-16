@@ -38,6 +38,9 @@ export interface AiProviderItem {
   is_enabled: boolean
   timeout_seconds: number | null
   extra: Record<string, unknown>
+  input_price_per_million: number
+  output_price_per_million: number
+  pricing_currency: string
   remark: string
   created_at?: string | null
   updated_at?: string | null
@@ -75,6 +78,9 @@ interface JavaAiProviderDTO {
   updatedAt?: string | null
   deletedAt?: string | null
   models?: string | null
+  inputPricePerMillion?: number | null
+  outputPricePerMillion?: number | null
+  pricingCurrency?: string | null
 }
 
 interface JavaAiUsageBindingDTO {
@@ -156,6 +162,26 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Auction analysis jobs",
     reads_binding: true,
     runtime: "Auction AI service",
+  },
+  {
+    code: "market_information_event_analysis",
+    label: "Market Information event analysis",
+    group: "Market Information",
+    description: "Structured event analysis for prioritized market information clusters.",
+    entry: "Information / Event analysis",
+    reads_binding: true,
+    runtime: "MarketInformationAiWorker",
+    aliases: ["Market Information", "Event analysis"],
+  },
+  {
+    code: "market_information_daily_brief",
+    label: "Market Information daily brief",
+    group: "Market Information",
+    description: "Daily market brief assembled from analyzed information events.",
+    entry: "Information / Daily brief",
+    reads_binding: true,
+    runtime: "MarketInformationAiWorker",
+    aliases: ["Market brief", "Daily brief"],
   },
   {
     code: "knowledge_base_document_generate",
@@ -246,6 +272,9 @@ function toAiProviderItem(dto: JavaAiProviderDTO): AiProviderItem {
     is_enabled: dto.enabled ?? true,
     timeout_seconds: dto.timeoutSeconds ?? null,
     extra: parseJsonObject(dto.extra),
+    input_price_per_million: dto.inputPricePerMillion ?? 0,
+    output_price_per_million: dto.outputPricePerMillion ?? 0,
+    pricing_currency: dto.pricingCurrency || "USD",
     remark: dto.remark || "",
     created_at: dto.createdAt || null,
     updated_at: dto.updatedAt || null,
@@ -268,6 +297,9 @@ function toJavaAiProviderPayload(payload: Partial<AiProviderItem>): Partial<Java
     extra: JSON.stringify(payload.extra || {}),
     remark: payload.remark,
     models: JSON.stringify(payload.models || []),
+    inputPricePerMillion: payload.input_price_per_million,
+    outputPricePerMillion: payload.output_price_per_million,
+    pricingCurrency: payload.pricing_currency,
   }
   if (payload.api_key && payload.api_key.trim()) {
     value.apiKey = payload.api_key.trim()

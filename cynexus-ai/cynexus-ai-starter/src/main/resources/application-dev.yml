@@ -24,3 +24,13 @@ spring:
       host: 127.0.0.1
       port: 6379
       password: C020611.
+
+cynexus:
+  ai:
+    market-information:
+      deepseek-live-limit: ${CYNEXUS_AI_DEEPSEEK_LIVE_LIMIT:20}
+    langfuse:
+      enabled: ${CYNEXUS_AI_LANGFUSE_ENABLED:false}
+      base-url: ${CYNEXUS_AI_LANGFUSE_BASE_URL:http://127.0.0.1:33000}
+      public-key: ${CYNEXUS_AI_LANGFUSE_PUBLIC_KEY:}
+      secret-key: ${CYNEXUS_AI_LANGFUSE_SECRET_KEY:}

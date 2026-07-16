@@ -24,14 +24,17 @@ import cn.cccs7.cynexus.core.application.request.SchedulerManagementTriggerReque
 import cn.cccs7.cynexus.core.application.request.SchedulerJobCreateRequest;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerRequestBO;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
+import cn.cccs7.cynexus.core.domain.entity.SchedulerDailyCounterBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryMappingBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobRunHistoryBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
-import cn.cccs7.cynexus.core.domain.service.SchedulerDomainService;
+import cn.cccs7.cynexus.core.domain.entity.SchedulerTodayCountersBO;
+import cn.cccs7.cynexus.core.domain.scheduler.SchedulerDomainService;
+import cn.cccs7.cynexus.core.domain.scheduler.SchedulerManagementPolicy;
+import cn.cccs7.cynexus.core.domain.scheduler.SchedulerRunResultDomainPolicy;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -69,6 +72,7 @@ public class SchedulerAppService {
 
     private final SchedulerDomainService schedulerDomainService;
     private final ObjectMapper objectMapper;
+    private final SchedulerRunResultDomainPolicy runResultPolicy = new SchedulerRunResultDomainPolicy();
 
     public SchedulerAppService(SchedulerDomainService schedulerDomainService) {
         this.schedulerDomainService = schedulerDomainService;
@@ -245,7 +249,7 @@ public class SchedulerAppService {
 
         LocalDate today = LocalDate.now(CHINA_ZONE);
         OffsetDateTime startOfToday = today.atStartOfDay(CHINA_ZONE).toOffsetDateTime();
-        Map<Long, TodayCounters> todayCountersByJobId = buildTodayCounters(
+        Map<Long, SchedulerTodayCountersBO> todayCountersByJobId = SchedulerManagementPolicy.todayCounters(
                 schedulerDomainService.listRunHistorySince(startOfToday));
 
         List<SchedulerManagementJobsResponseDTO.Item> items = jobs.stream()
@@ -253,7 +257,7 @@ public class SchedulerAppService {
                         job,
                         statusByJobId.get(job.getId()),
                         mappingsByJobId.get(job.getId()),
-                        todayCountersByJobId.getOrDefault(job.getId(), new TodayCounters()),
+                        todayCountersByJobId.getOrDefault(job.getId(), new SchedulerTodayCountersBO()),
                         today))
                 .toList();
         return SchedulerManagementJobsResponseDTO.builder()
@@ -290,17 +294,18 @@ public class SchedulerAppService {
                 .filter(category -> category.getDeletedAt() == null)
                 .toList();
         String label = request.getLabel().trim();
-        String code = uniqueCategoryCode(firstNonBlank(request.getCode(), categoryCode(label)), existingCategories);
+        String code = SchedulerManagementPolicy.uniqueCategoryCode(
+                firstNonBlank(request.getCode(), SchedulerManagementPolicy.categoryCode(label)), existingCategories);
         String iconHint = firstNonBlank(request.getIconHint(), "grid");
         int sortOrder = request.getSortOrder() == null
-                ? nextCategorySortOrder(existingCategories)
+                ? SchedulerManagementPolicy.nextCategorySortOrder(existingCategories)
                 : request.getSortOrder();
         Long id = schedulerDomainService.createCategory(SchedulerJobCategoryBO.builder()
                 .code(code)
                 .label(label)
                 .iconHint(iconHint)
                 .sortOrder(sortOrder)
-                .description(blankToNull(request.getDescription()))
+                .description(SchedulerManagementPolicy.blankToNull(request.getDescription()))
                 .status("active")
                 .remark("scheduler-management")
                 .build());
@@ -323,8 +328,8 @@ public class SchedulerAppService {
                 .filter(item -> !Objects.equals(item.getId(), categoryId))
                 .toList();
         String label = request.getLabel().trim();
-        String code = uniqueCategoryCode(
-                firstNonBlank(request.getCode(), firstNonBlank(category.getCode(), categoryCode(label))),
+        String code = SchedulerManagementPolicy.uniqueCategoryCode(
+                firstNonBlank(request.getCode(), firstNonBlank(category.getCode(), SchedulerManagementPolicy.categoryCode(label))),
                 otherCategories);
         String iconHint = firstNonBlank(request.getIconHint(), firstNonBlank(category.getIconHint(), "grid"));
         Integer sortOrder = request.getSortOrder() == null ? category.getSortOrder() : request.getSortOrder();
@@ -379,74 +384,26 @@ public class SchedulerAppService {
                 .build();
     }
 
-    private int nextCategorySortOrder(List<SchedulerJobCategoryBO> categories) {
-        return categories.stream()
-                .map(SchedulerJobCategoryBO::getSortOrder)
-                .filter(Objects::nonNull)
-                .max(Integer::compareTo)
-                .orElse(0) + 10;
-    }
-
-    private String uniqueCategoryCode(String requestedCode, List<SchedulerJobCategoryBO> categories) {
-        String base = categoryCode(requestedCode);
-        Set<String> usedCodes = categories.stream()
-                .map(SchedulerJobCategoryBO::getCode)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (!usedCodes.contains(base)) {
-            return base;
-        }
-        int suffix = 2;
-        while (usedCodes.contains(base + "_" + suffix)) {
-            suffix++;
-        }
-        return base + "_" + suffix;
-    }
-
-    private String categoryCode(String value) {
-        String code = value == null ? "" : value.trim().toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "_")
-                .replaceAll("^_+|_+$", "");
-        return code.isBlank() ? "category" : code;
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
     public SchedulerManagementDailyStatsResponseDTO listManagementDailyStats(int days) {
-        int boundedDays = Math.max(1, Math.min(days, 90));
+        int boundedDays = SchedulerManagementPolicy.boundedDays(days, 90);
         LocalDate end = LocalDate.now(CHINA_ZONE);
         LocalDate start = end.minusDays(boundedDays - 1L);
         OffsetDateTime startedAt = start.atStartOfDay(CHINA_ZONE).toOffsetDateTime();
         List<SchedulerJobRunHistoryBO> history = schedulerDomainService.listRunHistorySince(startedAt);
-        Map<LocalDate, DayCounter> counters = new LinkedHashMap<>();
-        for (int i = 0; i < boundedDays; i++) {
-            counters.put(start.plusDays(i), new DayCounter());
-        }
-        for (SchedulerJobRunHistoryBO item : history) {
-            if (item.getStartedAt() == null) {
-                continue;
-            }
-            LocalDate date = item.getStartedAt().atZoneSameInstant(CHINA_ZONE).toLocalDate();
-            DayCounter counter = counters.get(date);
-            if (counter != null) {
-                counter.accept(item.getStatus(), item.getTriggerType());
-            }
-        }
+        Map<LocalDate, SchedulerDailyCounterBO> counters = SchedulerManagementPolicy.dailyCounters(history, start, boundedDays);
         List<SchedulerManagementDailyStatsResponseDTO.Item> items = counters.entrySet().stream()
                 .map(entry -> SchedulerManagementDailyStatsResponseDTO.Item.builder()
                         .date(entry.getKey())
-                        .total(entry.getValue().total)
-                        .success(entry.getValue().success)
-                        .failed(entry.getValue().failed)
-                        .skipped(entry.getValue().skipped)
-                        .manualCount(entry.getValue().manual)
-                        .autoCount(entry.getValue().auto)
+                        .total(entry.getValue().getTotal())
+                        .success(entry.getValue().getSuccess())
+                        .failed(entry.getValue().getFailed())
+                        .skipped(entry.getValue().getSkipped())
+                        .manualCount(entry.getValue().getManual())
+                        .autoCount(entry.getValue().getAuto())
                         .build())
                 .toList();
-        int total = counters.values().stream().mapToInt(counter -> counter.total).sum();
-        int failed = counters.values().stream().mapToInt(counter -> counter.failed).sum();
+        int total = counters.values().stream().mapToInt(SchedulerDailyCounterBO::getTotal).sum();
+        int failed = counters.values().stream().mapToInt(SchedulerDailyCounterBO::getFailed).sum();
         double successRate = total == 0 ? 0D : (double) (total - failed) / total;
         return SchedulerManagementDailyStatsResponseDTO.builder()
                 .ok(true)
@@ -463,7 +420,7 @@ public class SchedulerAppService {
         SchedulerJobBO job = requireJobByCode(jobCode);
         reconcileRunningDataJobRun(job);
         reconcileOpenRunHistories(job);
-        int boundedLimit = Math.max(1, Math.min(limit, 200));
+        int boundedLimit = SchedulerManagementPolicy.boundedLimit(limit, 200);
         List<SchedulerManagementJobHistoryResponseDTO.Item> items = schedulerDomainService
                 .listRunHistoryByJobId(job.getId(), boundedLimit)
                 .stream()
@@ -543,7 +500,7 @@ public class SchedulerAppService {
                 .status("categories_updated")
                 .count(mappings.size())
                 .failedCount(0)
-                .job(toManagementJobItem(job, status, mappings, new TodayCounters(), LocalDate.now(CHINA_ZONE)))
+                .job(toManagementJobItem(job, status, mappings, new SchedulerTodayCountersBO(), LocalDate.now(CHINA_ZONE)))
                 .build();
     }
 
@@ -647,16 +604,16 @@ public class SchedulerAppService {
         try {
             Map<String, Object> run = schedulerDomainService.getDataJobRun(runId);
             DataJobTriggerResultBO snapshot = dataJobRunSnapshot(runId, run);
-            String finalStatus = normalizeTriggerStatus(snapshot);
-            if (!isTerminalDataJobStatus(finalStatus)) {
+            String finalStatus = SchedulerManagementPolicy.normalizeTriggerStatus(snapshot);
+            if (!SchedulerManagementPolicy.isTerminalStatus(finalStatus)) {
                 syncChainProgress(job, firstNonNull(status.getSchedulerStartedAt(), snapshotStartedAt(run, status)), snapshot);
                 return;
             }
-            boolean ok = isTriggerAcceptedSuccess(snapshot);
-            String error = triggerError(snapshot);
+            boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(snapshot);
+            String error = SchedulerManagementPolicy.triggerError(snapshot);
             OffsetDateTime endedAt = snapshotEndedAt(run);
             OffsetDateTime startedAt = safeStartedAt(snapshotStartedAt(run, status), status.getSchedulerStartedAt(), endedAt);
-            String triggerType = openHistory == null ? "manual" : allowedHistoryTriggerType(openHistory.getTriggerType());
+            String triggerType = openHistory == null ? "manual" : SchedulerManagementPolicy.allowedHistoryTriggerType(openHistory.getTriggerType());
             recordTriggerResult(job, startedAt, endedAt, ok, finalStatus, error, triggerType, snapshot, historyId);
         } catch (RuntimeException exception) {
             log.warn("Reconcile scheduler data job run failed: jobCode={}, runId={}", job.getCode(), runId, exception);
@@ -717,9 +674,9 @@ public class SchedulerAppService {
         List<SchedulerManagementJobActionResponseDTO.TriggerItem> items = toTriggerItems(result.getResult());
         int failedCount = (int) items.stream().filter(item -> !Boolean.TRUE.equals(item.getOk())).count();
         int count = items.isEmpty() ? (Boolean.TRUE.equals(result.getAccepted()) ? 1 : 0) : items.size();
-        boolean ok = isTriggerAcceptedSuccess(result);
-        String status = normalizeTriggerStatus(result);
-        String error = triggerError(result);
+        boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(result);
+        String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
+        String error = SchedulerManagementPolicy.triggerError(result);
         recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), ok, status, error, triggerType, result);
         return SchedulerManagementJobActionResponseDTO.builder()
                 .ok(ok)
@@ -761,7 +718,7 @@ public class SchedulerAppService {
         extra.put("plannedSteps", MARKET_SENTIMENT_CHAIN_STEP_COUNT);
         extra.put("lastMessage", "market_sentiment_chain 已在后台启动");
         extra.put("lastDataJobKey", dataJob.jobKey());
-        Map<String, Object> progress = buildProgressEnvelope(extra, "running", startedAt);
+        Map<String, Object> progress = runResultPolicy.progress(extra, "running", startedAt);
         schedulerDomainService.updateStatusProgress(
                 jobStatus.getId(),
                 true,
@@ -779,7 +736,7 @@ public class SchedulerAppService {
                 .status("processing")
                 .durationSeconds(BigDecimal.ZERO)
                 .remark("market_sentiment_chain processing")
-                .resultSummary(toJson(buildResultSummary(null, extra, "processing", null, startedAt)))
+                .resultSummary(toJson(runResultPolicy.resultSummary(null, extra, "processing", null, startedAt)))
                 .build());
 
         CompletableFuture.runAsync(() -> {
@@ -790,13 +747,13 @@ public class SchedulerAppService {
                         .dryRun(request != null && Boolean.TRUE.equals(request.getDryRun()))
                         .params(params)
                         .build());
-                if (shouldPollDataJobRun(result)) {
+                if (SchedulerManagementPolicy.shouldPoll(result)) {
                     pollChainDataJobRun(job, startedAt, triggerType, result, historyId);
                     return;
                 }
-                boolean ok = isTriggerAcceptedSuccess(result);
-                String status = normalizeTriggerStatus(result);
-                String error = triggerError(result);
+                boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(result);
+                String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
+                String error = SchedulerManagementPolicy.triggerError(result);
                 OffsetDateTime endedAt = OffsetDateTime.now(CHINA_ZONE);
                 recordTriggerResult(job, startedAt, endedAt, ok, status, error, triggerType, result, historyId);
             } catch (RuntimeException exception) {
@@ -842,10 +799,10 @@ public class SchedulerAppService {
                         .status(asString(run.get("status")))
                         .result(run)
                         .build();
-                String status = normalizeTriggerStatus(snapshot);
-                if (isTerminalDataJobStatus(status)) {
-                    boolean ok = isTriggerAcceptedSuccess(snapshot);
-                    String error = triggerError(snapshot);
+                String status = SchedulerManagementPolicy.normalizeTriggerStatus(snapshot);
+                if (SchedulerManagementPolicy.isTerminalStatus(status)) {
+                    boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(snapshot);
+                    String error = SchedulerManagementPolicy.triggerError(snapshot);
                     recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), ok, status, error, triggerType, snapshot, historyId);
                     return;
                 }
@@ -865,12 +822,12 @@ public class SchedulerAppService {
                                    OffsetDateTime startedAt,
                                    DataJobTriggerResultBO result) {
         SchedulerJobStatusBO jobStatus = ensureStatus(job);
-        String status = normalizeTriggerStatus(result);
-        Map<String, Object> extra = buildRunExtra(jobStatus, result, false, status, null);
+        String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
+        Map<String, Object> extra = runResultPolicy.build(jobStatus, result, false, status, null, OffsetDateTime.now(CHINA_ZONE)).extra();
         extra.put("lastRunOk", null);
         extra.put("lastRunError", null);
         extra.putIfAbsent("plannedSteps", MARKET_SENTIMENT_CHAIN_STEP_COUNT);
-        Map<String, Object> progress = buildProgressEnvelope(extra, status, OffsetDateTime.now(CHINA_ZONE));
+        Map<String, Object> progress = runResultPolicy.progress(extra, status, OffsetDateTime.now(CHINA_ZONE));
         schedulerDomainService.updateStatusProgress(
                 jobStatus.getId(),
                 true,
@@ -943,12 +900,12 @@ public class SchedulerAppService {
         try {
             Map<String, Object> run = schedulerDomainService.getDataJobRun(runId);
             DataJobTriggerResultBO snapshot = dataJobRunSnapshot(runId, run);
-            String status = normalizeTriggerStatus(snapshot);
-            if (!isTerminalDataJobStatus(status)) {
+            String status = SchedulerManagementPolicy.normalizeTriggerStatus(snapshot);
+            if (!SchedulerManagementPolicy.isTerminalStatus(status)) {
                 return;
             }
-            boolean ok = isTriggerAcceptedSuccess(snapshot);
-            String error = triggerError(snapshot);
+            boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(snapshot);
+            String error = SchedulerManagementPolicy.triggerError(snapshot);
             OffsetDateTime endedAt = snapshotEndedAt(run);
             recordRunHistoryResult(
                     history,
@@ -957,7 +914,7 @@ public class SchedulerAppService {
                     ok,
                     status,
                     error,
-                    allowedHistoryTriggerType(history.getTriggerType()),
+                    SchedulerManagementPolicy.allowedHistoryTriggerType(history.getTriggerType()),
                     snapshot,
                     history.getId());
         } catch (RuntimeException exception) {
@@ -981,13 +938,6 @@ public class SchedulerAppService {
             return endedAt;
         }
         return startedAt;
-    }
-
-    private String allowedHistoryTriggerType(String triggerType) {
-        if ("auto".equals(triggerType)) {
-            return "auto";
-        }
-        return "manual";
     }
 
     private void recordTriggerResult(SchedulerJobBO job,
@@ -1020,13 +970,14 @@ public class SchedulerAppService {
                                      String triggerType,
                                      DataJobTriggerResultBO result,
                                      Long existingHistoryId) {
-        BigDecimal durationSeconds = durationSeconds(startedAt, endedAt);
+        BigDecimal durationSeconds = runResultPolicy.durationSeconds(startedAt, endedAt);
         SchedulerJobStatusBO jobStatus = ensureStatus(job);
-        Map<String, Object> extra = buildRunExtra(jobStatus, result, ok, status, error);
-        Map<String, Object> progress = buildProgressEnvelope(extra, status, endedAt);
-        Map<String, Object> resultSummary = buildResultSummary(result, extra, status, error, endedAt);
-        Integer targetsProcessed = extractTargetsProcessed(result, extra);
-        String remark = buildRunRemark(result, ok, status, error);
+        SchedulerRunResultDomainPolicy.RunFacts facts = runResultPolicy.build(jobStatus, result, ok, status, error, endedAt);
+        Map<String, Object> extra = facts.extra();
+        Map<String, Object> progress = facts.progress();
+        Map<String, Object> resultSummary = facts.resultSummary();
+        Integer targetsProcessed = facts.targetsProcessed();
+        String remark = facts.remark();
         schedulerDomainService.updateStatusRunResult(
                 jobStatus.getId(),
                 endedAt,
@@ -1066,11 +1017,11 @@ public class SchedulerAppService {
                                         String triggerType,
                                         DataJobTriggerResultBO result,
                                         Long existingHistoryId) {
-        BigDecimal durationSeconds = durationSeconds(startedAt, endedAt);
+        BigDecimal durationSeconds = runResultPolicy.durationSeconds(startedAt, endedAt);
         SchedulerJobStatusBO emptyStatus = SchedulerJobStatusBO.builder().build();
-        Map<String, Object> extra = buildRunExtra(emptyStatus, result, ok, status, error);
-        Map<String, Object> resultSummary = buildResultSummary(result, extra, status, error, endedAt);
-        String remark = buildRunRemark(result, ok, status, error);
+        SchedulerRunResultDomainPolicy.RunFacts facts = runResultPolicy.build(emptyStatus, result, ok, status, error, endedAt);
+        Map<String, Object> resultSummary = facts.resultSummary();
+        String remark = facts.remark();
         schedulerDomainService.updateRunHistory(SchedulerJobRunHistoryBO.builder()
                 .id(existingHistoryId)
                 .jobId(existingHistory.getJobId())
@@ -1085,307 +1036,12 @@ public class SchedulerAppService {
                 .build());
     }
 
-    private static boolean isTriggerAcceptedSuccess(DataJobTriggerResultBO result) {
-        if (result == null || !Boolean.TRUE.equals(result.getAccepted())) {
-            return false;
-        }
-        String status = result.getStatus() == null ? "" : result.getStatus().toLowerCase();
-        return "success".equals(status) || "skipped".equals(status);
-    }
-
-    private static boolean isAcceptedRunning(DataJobTriggerResultBO result) {
-        if (result == null || !Boolean.TRUE.equals(result.getAccepted()) || result.getRunId() == null) {
-            return false;
-        }
-        String status = result.getStatus() == null ? "" : result.getStatus().toLowerCase();
-        return "running".equals(status) || "processing".equals(status);
-    }
-
-    private static boolean shouldPollDataJobRun(DataJobTriggerResultBO result) {
-        if (result == null || result.getRunId() == null || result.getRunId().isBlank()) {
-            return false;
-        }
-        String status = normalizeTriggerStatus(result);
-        return !isTerminalDataJobStatus(status) || isAcceptedRunning(result);
-    }
-
-    private static boolean isTerminalDataJobStatus(String status) {
-        if (status == null) {
-            return false;
-        }
-        String normalized = status.toLowerCase();
-        return "success".equals(normalized)
-                || "skipped".equals(normalized)
-                || "failed".equals(normalized)
-                || "locked".equals(normalized)
-                || "unknown_job".equals(normalized);
-    }
-
-    private static String normalizeTriggerStatus(DataJobTriggerResultBO result) {
-        if (result == null || result.getStatus() == null || result.getStatus().isBlank()) {
-            return "failed";
-        }
-        if ("locked".equalsIgnoreCase(result.getStatus())) {
-            return "skipped";
-        }
-        return result.getStatus();
-    }
-
-    private static String triggerError(DataJobTriggerResultBO result) {
-        if (result == null || result.getResult() == null) {
-            return "missing data job executor result";
-        }
-        Object errors = result.getResult().get("errors");
-        if (errors instanceof List<?> list && !list.isEmpty()) {
-            return list.stream().filter(Objects::nonNull).map(String::valueOf).collect(Collectors.joining("; "));
-        }
-        if (!isTriggerAcceptedSuccess(result)) {
-            Object error = firstPresent(result.getResult(), Set.of("error", "message", "skip_reason"));
-            return error == null ? result.getStatus() : String.valueOf(error);
-        }
-        return null;
-    }
-
-    private Map<String, Object> buildRunExtra(SchedulerJobStatusBO jobStatus,
-                                              DataJobTriggerResultBO result,
-                                              boolean ok,
-                                              String status,
-                                              String error) {
-        Map<String, Object> extra = new LinkedHashMap<>(readExtra(jobStatus.getExtra()));
-        Map<String, Object> resultMap = result == null || result.getResult() == null ? Map.of() : result.getResult();
-        Map<String, Object> metadata = extractMetadata(resultMap);
-        extra.put("lastDataJobRunId", result == null ? null : result.getRunId());
-        extra.put("lastDataJobKey", result == null ? null : result.getJobKey());
-        extra.put("lastStatus", status);
-        extra.put("lastRunOk", ok);
-        extra.put("lastRunError", error);
-        extra.put("rowsRead", firstNumber(resultMap, metadata, "rows_read", "rowsRead"));
-        extra.put("rowsWritten", firstNumber(resultMap, metadata, "rows_written", "rowsWritten"));
-        Object pipeline = firstPresent(metadata, Set.of("pipeline"));
-        if (pipeline != null) {
-            extra.put("pipeline", pipeline);
-        }
-        copyIfPresent(metadata, extra, "lastStep");
-        copyIfPresent(metadata, extra, "currentStepProgress");
-        copyIfPresent(metadata, extra, "lastCompletedSteps");
-        copyIfPresent(metadata, extra, "lastStepResults");
-        Object plannedSteps = firstNumber(resultMap, metadata, "planned_steps", "plannedSteps");
-        if (plannedSteps != null) {
-            extra.put("plannedSteps", plannedSteps);
-        }
-        Object message = firstPresent(metadata, Set.of("lastMessage", "message"));
-        if (message == null) {
-            Object rowsWritten = extra.get("rowsWritten");
-            message = rowsWritten == null ? status : "rows_written=" + rowsWritten;
-        }
-        extra.put("lastMessage", message);
-        return extra;
-    }
-
-    private Integer extractTargetsProcessed(DataJobTriggerResultBO result, Map<String, Object> extra) {
-        Object completed = extra.get("lastCompletedSteps");
-        if (completed instanceof List<?> list && !list.isEmpty()) {
-            return list.size();
-        }
-        Integer rowsWritten = asInteger(extra.get("rowsWritten"));
-        if (rowsWritten != null) {
-            return rowsWritten;
-        }
-        if (result != null && result.getResult() != null) {
-            Object items = result.getResult().get("items");
-            if (items instanceof List<?> list) {
-                return list.size();
-            }
-        }
-        return null;
-    }
-
-    private String buildRunRemark(DataJobTriggerResultBO result, boolean ok, String status, String error) {
-        if (!ok) {
-            return error == null || error.isBlank() ? "failed: " + status : error;
-        }
-        if (result == null) {
-            return "success";
-        }
-        Map<String, Object> resultMap = result.getResult() == null ? Map.of() : result.getResult();
-        Map<String, Object> metadata = extractMetadata(resultMap);
-        Object rowsRead = firstNumber(resultMap, metadata, "rows_read", "rowsRead");
-        Object rowsWritten = firstNumber(resultMap, metadata, "rows_written", "rowsWritten");
-        Object message = firstPresent(metadata, Set.of("lastMessage", "message"));
-        Object completed = firstPresent(metadata, Set.of("lastCompletedSteps"));
-        StringBuilder builder = new StringBuilder();
-        builder.append("run_id=").append(result.getRunId());
-        builder.append(", data_job=").append(result.getJobKey());
-        if (rowsRead != null) {
-            builder.append(", rows_read=").append(rowsRead);
-        }
-        if (rowsWritten != null) {
-            builder.append(", rows_written=").append(rowsWritten);
-        }
-        if (completed instanceof List<?> list && !list.isEmpty()) {
-            builder.append(", completed_steps=").append(list.size());
-        }
-        if (message != null) {
-            builder.append(", ").append(message);
-        }
-        return builder.toString();
-    }
-
-    private Map<String, Object> buildProgressEnvelope(Map<String, Object> extra, String status, OffsetDateTime updatedAt) {
-        Map<String, Object> safeExtra = extra == null ? Map.of() : extra;
-        Map<String, Object> metrics = new LinkedHashMap<>();
-        putIfPresent(metrics, "rowsRead", safeExtra.get("rowsRead"));
-        putIfPresent(metrics, "rowsWritten", safeExtra.get("rowsWritten"));
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        putIfPresent(payload, "lastDataJobRunId", safeExtra.get("lastDataJobRunId"));
-        putIfPresent(payload, "lastDataJobKey", safeExtra.get("lastDataJobKey"));
-        putIfPresent(payload, "pipeline", safeExtra.get("pipeline"));
-
-        Map<String, Object> progress = new LinkedHashMap<>();
-        progress.put("schemaVersion", 1);
-        progress.put("type", inferProgressType(safeExtra));
-        progress.put("status", status);
-        progress.put("percent", inferPercent(safeExtra, status));
-        progress.put("currentStep", firstPresent(safeExtra, Set.of("lastStep", "currentStep")));
-        progress.put("currentStepProgress", firstPresent(safeExtra, Set.of("currentStepProgress", "stepProgress")));
-        progress.put("completedSteps", firstPresent(safeExtra, Set.of("lastCompletedSteps", "completedSteps")));
-        progress.put("stepResults", firstPresent(safeExtra, Set.of("lastStepResults", "stepResults")));
-        progress.put("totalSteps", firstPresent(safeExtra, Set.of("plannedSteps", "planned_steps", "totalSteps")));
-        progress.put("message", firstPresent(safeExtra, Set.of("lastMessage", "message")));
-        progress.put("metrics", metrics);
-        progress.put("payload", payload);
-        progress.put("updatedAt", updatedAt == null ? OffsetDateTime.now(CHINA_ZONE).toString() : updatedAt.toString());
-        return progress;
-    }
-
-    private Map<String, Object> buildResultSummary(DataJobTriggerResultBO result,
-                                                   Map<String, Object> extra,
-                                                   String status,
-                                                   String error,
-                                                   OffsetDateTime updatedAt) {
-        Map<String, Object> safeExtra = extra == null ? Map.of() : extra;
-        Map<String, Object> metrics = new LinkedHashMap<>();
-        putIfPresent(metrics, "rowsRead", safeExtra.get("rowsRead"));
-        putIfPresent(metrics, "rowsWritten", safeExtra.get("rowsWritten"));
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        putIfPresent(payload, "lastDataJobRunId", safeExtra.get("lastDataJobRunId"));
-        putIfPresent(payload, "lastDataJobKey", safeExtra.get("lastDataJobKey"));
-        putIfPresent(payload, "pipeline", safeExtra.get("pipeline"));
-        putIfPresent(payload, "completedSteps", firstPresent(safeExtra, Set.of("lastCompletedSteps", "completedSteps")));
-        putIfPresent(payload, "stepResults", firstPresent(safeExtra, Set.of("lastStepResults", "stepResults")));
-
-        Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("schemaVersion", 1);
-        summary.put("type", inferProgressType(safeExtra));
-        summary.put("status", status);
-        Object message = firstPresent(safeExtra, Set.of("lastMessage", "message"));
-        summary.put("message", error == null || error.isBlank() ? message : error);
-        summary.put("completedCount", completedCount(safeExtra));
-        summary.put("failedCount", failedCount(safeExtra, result, status, error));
-        summary.put("metrics", metrics);
-        summary.put("payload", payload);
-        summary.put("updatedAt", updatedAt == null ? OffsetDateTime.now(CHINA_ZONE).toString() : updatedAt.toString());
-        return summary;
-    }
-
-    private static void putIfPresent(Map<String, Object> target, String key, Object value) {
-        if (value != null) {
-            target.put(key, value);
-        }
-    }
-
-    private static String inferProgressType(Map<String, Object> extra) {
-        if (extra != null && (extra.containsKey("lastStepResults") || extra.containsKey("lastCompletedSteps"))) {
-            return "chain";
-        }
-        return "job";
-    }
-
-    private static BigDecimal inferPercent(Map<String, Object> extra, String status) {
-        if ("success".equalsIgnoreCase(status) || "skipped".equalsIgnoreCase(status)) {
-            return BigDecimal.valueOf(100);
-        }
-        if ("failed".equalsIgnoreCase(status)) {
-            return null;
-        }
-        Object completed = extra == null ? null : firstPresent(extra, Set.of("lastCompletedSteps", "completedSteps"));
-        Object planned = extra == null ? null : firstPresent(extra, Set.of("plannedSteps", "planned_steps", "totalSteps"));
-        Integer plannedCount = asInteger(planned);
-        if (completed instanceof List<?> completedList && plannedCount != null && plannedCount > 0) {
-            return BigDecimal.valueOf(completedList.size() * 100L)
-                    .divide(BigDecimal.valueOf(plannedCount), 2, RoundingMode.HALF_UP);
-        }
-        Object steps = extra == null ? null : firstPresent(extra, Set.of("lastStepResults", "stepResults"));
-        if (completed instanceof List<?> completedList && steps instanceof List<?> stepList && !stepList.isEmpty()) {
-            return BigDecimal.valueOf(completedList.size() * 100L)
-                    .divide(BigDecimal.valueOf(stepList.size()), 2, RoundingMode.HALF_UP);
-        }
-        return null;
-    }
-
-    private static Integer completedCount(Map<String, Object> extra) {
-        Object completed = extra == null ? null : firstPresent(extra, Set.of("lastCompletedSteps", "completedSteps"));
-        if (completed instanceof List<?> list) {
-            return list.size();
-        }
-        return null;
-    }
-
-    private static Integer failedCount(Map<String, Object> extra, DataJobTriggerResultBO result, String status, String error) {
-        Object stepResults = extra == null ? null : firstPresent(extra, Set.of("lastStepResults", "stepResults"));
-        if (stepResults instanceof List<?> list) {
-            int failed = 0;
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> map && Boolean.FALSE.equals(asBoolean(map.get("ok")))) {
-                    failed++;
-                }
-            }
-            return failed;
-        }
-        if ("failed".equalsIgnoreCase(status) || (error != null && !error.isBlank())) {
-            return 1;
-        }
-        return result == null ? null : 0;
-    }
-
-    private Map<String, Object> extractMetadata(Map<String, Object> resultMap) {
-        if (resultMap == null) {
-            return Map.of();
-        }
-        Object metadata = resultMap.get("metadata");
-        if (metadata instanceof Map<?, ?> map) {
-            return asStringObjectMap(map);
-        }
-        return Map.of();
-    }
-
-    private static Object firstNumber(Map<String, Object> first, Map<String, Object> second, String snakeKey, String camelKey) {
-        Object value = first == null ? null : firstPresent(first, Set.of(snakeKey, camelKey));
-        if (value != null) {
-            return value;
-        }
-        return second == null ? null : firstPresent(second, Set.of(snakeKey, camelKey));
-    }
-
-    private static void copyIfPresent(Map<String, Object> source, Map<String, Object> target, String key) {
-        if (source != null && source.containsKey(key)) {
-            target.put(key, source.get(key));
-        }
-    }
-
     private String toJson(Map<String, Object> value) {
         try {
             return objectMapper.writeValueAsString(value == null ? Map.of() : value);
         } catch (Exception exception) {
             return "{}";
         }
-    }
-
-    private static BigDecimal durationSeconds(OffsetDateTime startedAt, OffsetDateTime endedAt) {
-        long millis = Duration.between(startedAt, endedAt).toMillis();
-        return BigDecimal.valueOf(millis).divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
     }
 
     private SchedulerManagementJobActionResponseDTO updateManagementJobEnabled(String jobCode, boolean enabled) {
@@ -1433,7 +1089,7 @@ public class SchedulerAppService {
                 .job(toManagementJobItem(job, status, schedulerDomainService.listCategoryMappings().stream()
                         .filter(mapping -> Objects.equals(mapping.getJobId(), job.getId()))
                         .toList(),
-                        new TodayCounters(),
+                        new SchedulerTodayCountersBO(),
                         LocalDate.now(CHINA_ZONE)))
                 .build();
     }
@@ -1476,7 +1132,7 @@ public class SchedulerAppService {
     private SchedulerManagementJobsResponseDTO.Item toManagementJobItem(SchedulerJobBO job,
                                                                         SchedulerJobStatusBO status,
                                                                         List<SchedulerJobCategoryMappingBO> mappings,
-                                                                        TodayCounters todayCounters,
+                                                                        SchedulerTodayCountersBO todayCounters,
                                                                         LocalDate today) {
         SchedulerJobStatusBO resolvedStatus = status == null ? SchedulerJobStatusBO.builder()
                 .jobId(job.getId())
@@ -1521,18 +1177,18 @@ public class SchedulerAppService {
                 .lastMessage(firstNonBlank(readString(resolvedStatus.getProgress(), "message"), readString(resolvedStatus.getExtra(), "lastMessage")))
                 .lastRun(lastRun)
                 .build();
-        Integer expectedCount = computeTodayExpectedCount(resolvedStatus.getSchedule(), today);
+        Integer expectedCount = SchedulerManagementPolicy.expectedCount(readExtra(resolvedStatus.getSchedule()), today);
         SchedulerManagementJobsResponseDTO.TodayStats todayStats = SchedulerManagementJobsResponseDTO.TodayStats.builder()
                 .expectedCount(expectedCount)
-                .actualCount(todayCounters.actual)
-                .successCount(todayCounters.success)
-                .failedCount(todayCounters.failed)
-                .skippedCount(todayCounters.skipped)
-                .manualCount(todayCounters.manual)
-                .autoCount(todayCounters.auto)
-                .failedAt(todayCounters.failedAt)
-                .failedError(todayCounters.failedError)
-                .failedMessage(todayCounters.failedMessage)
+                .actualCount(todayCounters.getActual())
+                .successCount(todayCounters.getSuccess())
+                .failedCount(todayCounters.getFailed())
+                .skippedCount(todayCounters.getSkipped())
+                .manualCount(todayCounters.getManual())
+                .autoCount(todayCounters.getAuto())
+                .failedAt(todayCounters.getFailedAt())
+                .failedError(todayCounters.getFailedError())
+                .failedMessage(todayCounters.getFailedMessage())
                 .build();
         return SchedulerManagementJobsResponseDTO.Item.builder()
                 .id(job.getCode())
@@ -1578,36 +1234,15 @@ public class SchedulerAppService {
         if (item == null || item.getRemark() == null) {
             return null;
         }
-        Integer completedSteps = parseMetric(item.getRemark(), "completed_steps=");
+        Integer completedSteps = SchedulerManagementPolicy.metric(item.getRemark(), "completed_steps=");
         if (completedSteps != null && completedSteps > 0) {
             return completedSteps;
         }
-        Integer rowsWritten = parseMetric(item.getRemark(), "rows_written=");
+        Integer rowsWritten = SchedulerManagementPolicy.metric(item.getRemark(), "rows_written=");
         if (rowsWritten != null && rowsWritten > 0) {
             return rowsWritten;
         }
         return null;
-    }
-
-    private static Integer parseMetric(String text, String prefix) {
-        int start = text == null ? -1 : text.indexOf(prefix);
-        if (start < 0) {
-            return null;
-        }
-        int index = start + prefix.length();
-        StringBuilder digits = new StringBuilder();
-        while (index < text.length() && Character.isDigit(text.charAt(index))) {
-            digits.append(text.charAt(index));
-            index++;
-        }
-        if (digits.isEmpty()) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(digits.toString());
-        } catch (NumberFormatException exception) {
-            return null;
-        }
     }
 
     private SchedulerJobStatusBO pickLatestStatus(SchedulerJobStatusBO left, SchedulerJobStatusBO right) {
@@ -1676,7 +1311,7 @@ public class SchedulerAppService {
             if (extra.isEmpty()) {
                 return null;
             }
-            progress = buildProgressEnvelope(extra, asString(extra.get("lastStatus")), fallbackUpdatedAt);
+            progress = runResultPolicy.progress(extra, asString(extra.get("lastStatus")), fallbackUpdatedAt);
         }
         return SchedulerManagementJobsResponseDTO.Progress.builder()
                 .schemaVersion(asInteger(progress.get("schemaVersion")))
@@ -1726,7 +1361,7 @@ public class SchedulerAppService {
     private List<SchedulerManagementJobActionResponseDTO.TriggerItem> toTriggerItems(Map<String, Object> result) {
         Object rawItems = result == null ? null : result.get("items");
         if (!(rawItems instanceof List<?>)) {
-            Map<String, Object> metadata = extractMetadata(result);
+            Map<String, Object> metadata = runResultPolicy.metadata(result);
             rawItems = metadata.get("lastStepResults");
         }
         if (!(rawItems instanceof List<?> list)) {
@@ -1880,155 +1515,4 @@ public class SchedulerAppService {
         }
     }
 
-    private static class DayCounter {
-        private int total;
-        private int success;
-        private int failed;
-        private int skipped;
-        private int manual;
-        private int auto;
-
-        private void accept(String status, String triggerType) {
-            total++;
-            String normalizedTriggerType = triggerType == null ? "" : triggerType.toLowerCase();
-            if ("auto".equals(normalizedTriggerType)) {
-                auto++;
-            } else {
-                manual++;
-            }
-            String normalized = status == null ? "" : status.toLowerCase();
-            if ("success".equals(normalized)) {
-                success++;
-            } else if ("skipped".equals(normalized)) {
-                skipped++;
-            } else if ("failed".equals(normalized) || "error".equals(normalized) || "partial_failed".equals(normalized)) {
-                failed++;
-            }
-        }
-    }
-
-    private static class TodayCounters {
-        private int actual;
-        private int success;
-        private int failed;
-        private int skipped;
-        private int manual;
-        private int auto;
-        private OffsetDateTime failedAt;
-        private String failedError;
-        private String failedMessage;
-
-        private void accept(SchedulerJobRunHistoryBO item) {
-            actual++;
-            String status = item.getStatus();
-            String triggerType = item.getTriggerType();
-            String normalizedTriggerType = triggerType == null ? "" : triggerType.toLowerCase();
-            if ("auto".equals(normalizedTriggerType)) {
-                auto++;
-            } else {
-                manual++;
-            }
-            String normalized = status == null ? "" : status.toLowerCase();
-            if ("success".equals(normalized)) {
-                success++;
-            } else if ("skipped".equals(normalized)) {
-                skipped++;
-            } else if ("failed".equals(normalized) || "error".equals(normalized) || "partial_failed".equals(normalized)) {
-                failed++;
-                OffsetDateTime startedAt = item.getStartedAt();
-                if (failedAt == null || (startedAt != null && startedAt.isAfter(failedAt))) {
-                    failedAt = startedAt;
-                    failedError = item.getErrorMessage();
-                    failedMessage = item.getRemark();
-                }
-            }
-        }
-    }
-
-    private static Map<Long, TodayCounters> buildTodayCounters(List<SchedulerJobRunHistoryBO> history) {
-        Map<Long, TodayCounters> result = new HashMap<>();
-        for (SchedulerJobRunHistoryBO item : history) {
-            if (item.getJobId() == null || item.getDeletedAt() != null) {
-                continue;
-            }
-            result.computeIfAbsent(item.getJobId(), k -> new TodayCounters()).accept(item);
-        }
-        return result;
-    }
-
-    private Integer computeTodayExpectedCount(String scheduleJson, LocalDate today) {
-        Map<String, Object> schedule = readExtra(scheduleJson);
-        if (schedule.isEmpty()) {
-            return null;
-        }
-        boolean workdayOnly = Boolean.TRUE.equals(asBoolean(schedule.get("workday_only")));
-        if (workdayOnly && isWeekend(today)) {
-            return 0;
-        }
-        // every_minutes + intraday_windows
-        Integer everyMinutes = asInteger(schedule.get("every_minutes"));
-        if (everyMinutes != null && everyMinutes > 0) {
-            Object windows = schedule.get("intraday_windows");
-            if (windows instanceof List<?> list && !list.isEmpty()) {
-                int total = 0;
-                for (Object item : list) {
-                    if (!(item instanceof Map<?, ?> window)) continue;
-                    LocalTime start = parseLocalTime(asString(window.get("start")));
-                    LocalTime end = parseLocalTime(asString(window.get("end")));
-                    if (start == null || end == null || !end.isAfter(start)) continue;
-                    long windowMinutes = Duration.between(start, end).toMinutes();
-                    total += (int) (windowMinutes / everyMinutes);
-                }
-                return total;
-            }
-            return null;
-        }
-        // run_time (daily or weekly)
-        String runTime = asString(schedule.get("run_time"));
-        if (runTime != null && !runTime.isBlank()) {
-            return 1;
-        }
-        // cron: count fires within the day
-        String cron = asString(schedule.get("cron"));
-        if (cron != null && !cron.isBlank()) {
-            return countCronFiresToday(cron, today);
-        }
-        return null;
-    }
-
-    private static Integer countCronFiresToday(String cronExpr, LocalDate today) {
-        try {
-            String normalized = cronExpr.trim();
-            if (normalized.split("\\s+").length == 5) {
-                normalized = "0 " + normalized;
-            }
-            CronExpression cron = CronExpression.parse(normalized);
-            OffsetDateTime cursor = today.atStartOfDay(CHINA_ZONE).toOffsetDateTime().minusSeconds(1);
-            OffsetDateTime end = today.plusDays(1).atStartOfDay(CHINA_ZONE).toOffsetDateTime();
-            int count = 0;
-            while (count < 1500) {
-                OffsetDateTime next = cron.next(cursor);
-                if (next == null || !next.isBefore(end)) break;
-                count++;
-                cursor = next;
-            }
-            return count;
-        } catch (RuntimeException ignored) {
-            return null;
-        }
-    }
-
-    private static boolean isWeekend(LocalDate date) {
-        DayOfWeek dow = date.getDayOfWeek();
-        return dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
-    }
-
-    private static LocalTime parseLocalTime(String value) {
-        if (value == null || value.isBlank()) return null;
-        try {
-            return LocalTime.parse(value.trim());
-        } catch (RuntimeException ignored) {
-            return null;
-        }
-    }
 }

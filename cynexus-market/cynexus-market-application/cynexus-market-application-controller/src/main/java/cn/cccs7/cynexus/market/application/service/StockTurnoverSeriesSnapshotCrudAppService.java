@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.StockTurnoverSeriesSnapshotDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.StockTurnoverSeriesSnapshotDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockTurnoverSeriesSnapshotBO;
-import cn.cccs7.cynexus.market.domain.service.StockTurnoverSeriesSnapshotDomainService;
+import cn.cccs7.cynexus.market.domain.stock.StockTurnoverSeriesSnapshotDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

@@ -13,6 +13,7 @@ import {
   Database,
   Beaker,
   Server,
+  Newspaper,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -76,6 +77,11 @@ export const sidebarConfig = {
           url: "/market/margin-trading",
         },
       ],
+    },
+    {
+      title: "Information",
+      url: "/information",
+      icon: Newspaper,
     },
     {
       title: "Stock Overview",
@@ -178,6 +184,10 @@ export const sidebarConfig = {
           title: "Prompt",
           url: "/settings/prompt",
         },
+        {
+          title: "AI Usage",
+          url: "/settings/ai-usage",
+        },
       ],
     },
   ],
@@ -216,6 +226,11 @@ export const sidebarConfig = {
       name: "Market Margin Trading",
       url: "/market/margin-trading",
       icon: Activity,
+    },
+    {
+      name: "Market Information",
+      url: "/information",
+      icon: Newspaper,
     },
     {
       name: "Application Analysis",
@@ -276,6 +291,11 @@ export const sidebarConfig = {
       name: "Settings · Prompt",
       url: "/settings/prompt",
       icon: BrainCircuit,
+    },
+    {
+      name: "Settings · AI Usage",
+      url: "/settings/ai-usage",
+      icon: Activity,
     },
     {
       name: "Knowledge Base",

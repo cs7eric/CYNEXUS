@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.TdxSectorQuoteDetailSnapshotDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.TdxSectorQuoteDetailSnapshotDTO;
 import cn.cccs7.cynexus.market.domain.entity.TdxSectorQuoteDetailSnapshotBO;
-import cn.cccs7.cynexus.market.domain.service.TdxSectorQuoteDetailSnapshotDomainService;
+import cn.cccs7.cynexus.market.domain.sector.TdxSectorQuoteDetailSnapshotDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

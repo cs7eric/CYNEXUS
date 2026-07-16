@@ -10,11 +10,10 @@ import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisPageRepository;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisSnapshotDomainPolicy;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,6 +54,7 @@ public class ApplicationAnalysisRecent30Executor {
     private final AiExecutionLogRepository aiExecutionLogRepository;
     private final StructuredJsonExtractor structuredJsonExtractor;
     private final ObjectMapper objectMapper;
+    private final ApplicationAnalysisSnapshotDomainPolicy snapshotPolicy = new ApplicationAnalysisSnapshotDomainPolicy();
 
     public ApplicationAnalysisRecent30Executor(ApplicationAnalysisPageRepository repository,
                                                ApplicationAnalysisKlineInputBuilder inputBuilder,
@@ -75,7 +75,7 @@ public class ApplicationAnalysisRecent30Executor {
 
     @Transactional
     public ExecutionResult execute(String targetId, LocalDate date) {
-        String targetKey = normalizeTargetKey(targetId);
+        String targetKey = snapshotPolicy.normalizeTargetKey(targetId);
         ApplicationAnalysisPageBO.Target target = repository.findTarget(targetKey);
         if (target == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "target " + targetKey + " not found");
@@ -90,8 +90,10 @@ public class ApplicationAnalysisRecent30Executor {
             String executionNo = "AI-" + UUID.randomUUID().toString().replace("-", "");
             Instant startedAt = Instant.now();
             try {
-                AiCompletionResultBO completion = agentExecutor.completeDetailed(model, promptText);
-                ObjectNode sanitized = sanitizeShortTerm(completion.getContent(), target, analysisInput);
+                AiCompletionResultBO completion = agentExecutor.completeDetailed(model, promptText, CAPABILITY);
+                ObjectNode sanitized = snapshotPolicy.sanitize(
+                        snapshotPolicy.readObject(structuredJsonExtractor.extractObject(completion.getContent())),
+                        target, analysisInput);
                 ObjectNode payload = buildRunPayload(analysisInput, sanitized, completion);
                 SnapshotWriteResult snapshot = writeDailySnapshot(target, payload, date);
                 persistRun(target, payload, snapshot, "success");
@@ -135,38 +137,6 @@ public class ApplicationAnalysisRecent30Executor {
         return prompt.systemPrompt() + System.lineSeparator() + userPrompt;
     }
 
-    private ObjectNode sanitizeShortTerm(String rawContent,
-                                         ApplicationAnalysisPageBO.Target target,
-                                         Map<String, Object> analysisInput) {
-        ObjectNode rawRoot = readObject(structuredJsonExtractor.extractObject(rawContent));
-        ObjectNode analysisResult;
-        JsonNode fromRoot = rawRoot.get("analysis_result");
-        if (fromRoot != null && fromRoot.isObject()) {
-            analysisResult = (ObjectNode) fromRoot;
-        } else {
-            analysisResult = objectMapper.createObjectNode();
-            copyIfPresent(rawRoot, analysisResult, "target");
-            copyIfPresent(rawRoot, analysisResult, "data_quality");
-            copyIfPresent(rawRoot, analysisResult, "short_term_trend");
-            copyIfPresent(rawRoot, analysisResult, "current_situation");
-        }
-
-        ObjectNode cleaned = objectMapper.createObjectNode();
-        JsonNode targetNode = analysisResult.get("target");
-        cleaned.set("target", targetNode != null && targetNode.isObject() ? targetNode : targetNode(target));
-        JsonNode qualityNode = analysisResult.get("data_quality");
-        cleaned.set("data_quality", normalizeDataQuality(qualityNode, analysisInput));
-        JsonNode shortTerm = analysisResult.get("short_term_trend");
-        JsonNode situation = analysisResult.get("current_situation");
-        cleaned.set("short_term_trend", shortTerm != null && shortTerm.isObject() ? shortTerm : nullNode());
-        cleaned.set("current_situation", situation != null && situation.isObject() ? situation : nullNode());
-        addMissingWarnings(cleaned);
-
-        ObjectNode sanitized = objectMapper.createObjectNode();
-        sanitized.set("analysis_result", cleaned);
-        return sanitized;
-    }
-
     private ObjectNode buildRunPayload(Map<String, Object> analysisInput,
                                        ObjectNode sanitized,
                                        AiCompletionResultBO completion) {
@@ -177,7 +147,7 @@ public class ApplicationAnalysisRecent30Executor {
         ObjectNode rawMeta = objectMapper.createObjectNode();
         rawMeta.put("provider_code", completion.getProviderCode());
         rawMeta.put("model_code", completion.getModelCode());
-        rawMeta.put("raw_response_preview", truncate(completion.getRawResponse(), MAX_LOG_TEXT_LENGTH));
+        rawMeta.put("raw_response_preview", snapshotPolicy.truncate(completion.getRawResponse(), MAX_LOG_TEXT_LENGTH));
         payload.set("raw_meta", rawMeta);
         return payload;
     }
@@ -185,42 +155,29 @@ public class ApplicationAnalysisRecent30Executor {
     private SnapshotWriteResult writeDailySnapshot(ApplicationAnalysisPageBO.Target target,
                                                   ObjectNode runPayload,
                                                   LocalDate requestedDate) {
-        LocalDate date = requestedDate == null ? latestTradeDate(runPayload) : requestedDate;
-        ObjectNode newAnalysis = copyObject(runPayload.path("analysis_result"));
-        JsonNode newShort = newAnalysis.get("short_term_trend");
-        JsonNode newSituation = newAnalysis.get("current_situation");
-        JsonNode newSummary = newAnalysis.get("summary");
-        boolean hasNewData = isMeaningful(newShort) || isMeaningful(newSituation) || isMeaningful(newSummary);
-        String targetKey = normalizeTargetKey(target.getTargetKey());
-        String snapshotPath = dailyPath(targetKey, date);
-        if (!hasNewData) {
-            return new SnapshotWriteResult(date, snapshotPath, false, "no_new_data", null);
-        }
+        LocalDate date = requestedDate == null ? snapshotPolicy.latestTradeDate(runPayload) : requestedDate;
+        String targetKey = snapshotPolicy.normalizeTargetKey(target.getTargetKey());
+        String snapshotPath = snapshotPolicy.dailyPath(targetKey, date);
+        ApplicationAnalysisSnapshotDomainPolicy.SnapshotFacts probe = snapshotPolicy.mergeSnapshot(
+                target, runPayload, objectMapper.createObjectNode(), requestedDate, OffsetDateTime.now(SHANGHAI));
+        if (!probe.updated()) return new SnapshotWriteResult(date, snapshotPath, false, probe.skipReason(), null);
 
         ApplicationAnalysisPageBO.DailySnapshot existing = repository.findDailySnapshot(targetKey, date);
-        ObjectNode existingPayload = existing == null ? objectMapper.createObjectNode() : readObject(existing.getPayloadJson());
-        ObjectNode serialized = existingPayload.deepCopy();
-        serialized.set("target", targetNode(target));
-        serialized.put("date", date.toString());
-        serialized.put("updated_at", OffsetDateTime.now(SHANGHAI).toString());
-        serialized.set("recent_window", runPayload.path("analysis_input").path("recent_window"));
-        setIfMeaningful(serialized, "short_term_trend", newShort, existingPayload);
-        setIfMeaningful(serialized, "current_situation", newSituation, existingPayload);
-        setIfMeaningful(serialized, "summary", newSummary, existingPayload);
-        ObjectNode mergedAnalysis = deepMerge(copyObject(existingPayload.path("analysis_result")), newAnalysis);
-        mergeWarnings(mergedAnalysis, existingPayload.path("analysis_result"), newAnalysis);
-        serialized.set("analysis_result", mergedAnalysis);
+        ObjectNode existingPayload = existing == null ? objectMapper.createObjectNode() : snapshotPolicy.readObject(existing.getPayloadJson());
+        ApplicationAnalysisSnapshotDomainPolicy.SnapshotFacts facts = snapshotPolicy.mergeSnapshot(
+                target, runPayload, existingPayload, requestedDate, OffsetDateTime.now(SHANGHAI));
+        ObjectNode serialized = facts.payload();
 
         ApplicationAnalysisPageBO.DailySnapshot saved = repository.upsertDailySnapshot(
                 ApplicationAnalysisPageBO.DailySnapshotUpsertCommand.builder()
                         .targetId(target.getId())
                         .targetKey(targetKey)
-                        .tradeDate(date)
+                        .tradeDate(facts.date())
                         .snapshotKind("recent30")
                         .payloadJson(serialized.toString())
                         .remark("application_recent30")
                         .build());
-        return new SnapshotWriteResult(date, dailyPath(targetKey, saved.getTradeDate()), true, null, serialized);
+        return new SnapshotWriteResult(facts.date(), snapshotPolicy.dailyPath(targetKey, saved.getTradeDate()), true, null, serialized);
     }
 
     private void persistRun(ApplicationAnalysisPageBO.Target target,
@@ -266,162 +223,18 @@ public class ApplicationAnalysisRecent30Executor {
                     .providerCode(model == null ? null : model.getProviderCode())
                     .modelCode(model == null ? null : model.getModelCode())
                     .status(status)
-                    .inputTokens(completion == null ? estimateTokens(inputJson) : completion.getInputTokens())
+                    .inputTokens(completion == null ? snapshotPolicy.estimateTokens(inputJson) : completion.getInputTokens())
                     .outputTokens(completion == null ? 0 : completion.getOutputTokens())
-                    .totalTokens(completion == null ? estimateTokens(inputJson) : completion.getTotalTokens())
+                    .totalTokens(completion == null ? snapshotPolicy.estimateTokens(inputJson) : completion.getTotalTokens())
                     .latencyMs(Duration.between(startedAt, Instant.now()).toMillis())
-                    .requestJson(toJson(Map.of("analysisInputPreview", truncate(inputJson, MAX_LOG_TEXT_LENGTH))))
+                    .requestJson(toJson(Map.of("analysisInputPreview", snapshotPolicy.truncate(inputJson, MAX_LOG_TEXT_LENGTH))))
                     .responseJson(toJson(Map.of("contentPreview",
-                            truncate(completion == null ? "" : completion.getContent(), MAX_LOG_TEXT_LENGTH))))
-                    .errorMessage(error == null ? null : truncate(error.getMessage(), 2000))
+                            snapshotPolicy.truncate(completion == null ? "" : completion.getContent(), MAX_LOG_TEXT_LENGTH))))
+                    .errorMessage(error == null ? null : snapshotPolicy.truncate(error.getMessage(), 2000))
                     .extra("{}")
                     .build());
         } catch (Exception ignored) {
         }
-    }
-
-    private ObjectNode normalizeDataQuality(JsonNode qualityNode, Map<String, Object> analysisInput) {
-        ObjectNode quality = qualityNode != null && qualityNode.isObject()
-                ? copyObject(qualityNode)
-                : objectMapper.createObjectNode();
-        if (!quality.has("daily_bars_count")) {
-            quality.put("daily_bars_count", dailyBarsCount(analysisInput));
-        }
-        if (!quality.has("warnings") || !quality.get("warnings").isArray()) {
-            quality.set("warnings", objectMapper.createArrayNode());
-        }
-        return quality;
-    }
-
-    private void addMissingWarnings(ObjectNode cleaned) {
-        ArrayNode warnings = (ArrayNode) cleaned.path("data_quality").path("warnings");
-        if (!cleaned.path("short_term_trend").isObject()) {
-            warnings.add("AI 未返回 short_term_trend");
-        }
-        if (!cleaned.path("current_situation").isObject()) {
-            warnings.add("AI 未返回 current_situation");
-        }
-    }
-
-    private int dailyBarsCount(Map<String, Object> analysisInput) {
-        try {
-            Map<?, ?> bars = (Map<?, ?>) analysisInput.get("bars");
-            Map<?, ?> daily = (Map<?, ?>) bars.get("daily");
-            Object items = daily.get("items");
-            return items instanceof List<?> list ? list.size() : 0;
-        } catch (Exception ignored) {
-            return 0;
-        }
-    }
-
-    private LocalDate latestTradeDate(ObjectNode runPayload) {
-        JsonNode items = runPayload.path("analysis_input").path("bars").path("daily").path("items");
-        if (items.isArray() && !items.isEmpty()) {
-            long timestamp = items.get(items.size() - 1).path("timestamp").asLong(0);
-            if (timestamp > 0) {
-                return java.time.Instant.ofEpochMilli(timestamp).atZone(SHANGHAI).toLocalDate();
-            }
-        }
-        return LocalDate.now(SHANGHAI);
-    }
-
-    private ObjectNode targetNode(ApplicationAnalysisPageBO.Target target) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("id", target.getTargetKey());
-        node.put("target_type", defaultString(target.getTargetType(), "stock"));
-        node.put("symbol", defaultString(target.getSymbol(), ""));
-        node.put("name", defaultString(target.getName(), target.getSymbol()));
-        node.put("adjust", defaultString(target.getAdjust(), "qfq"));
-        return node;
-    }
-
-    private ObjectNode deepMerge(ObjectNode base, ObjectNode overlay) {
-        overlay.fields().forEachRemaining(entry -> {
-            JsonNode existing = base.get(entry.getKey());
-            JsonNode value = entry.getValue();
-            if (existing != null && existing.isObject() && value.isObject()) {
-                base.set(entry.getKey(), deepMerge(copyObject(existing), copyObject(value)));
-            } else {
-                base.set(entry.getKey(), value);
-            }
-        });
-        return base;
-    }
-
-    private void mergeWarnings(ObjectNode mergedAnalysis, JsonNode existingAnalysis, JsonNode newAnalysis) {
-        ObjectNode dataQuality = mergedAnalysis.path("data_quality").isObject()
-                ? copyObject(mergedAnalysis.path("data_quality"))
-                : objectMapper.createObjectNode();
-        ArrayNode warnings = objectMapper.createArrayNode();
-        addWarnings(warnings, existingAnalysis.path("data_quality").path("warnings"));
-        addWarnings(warnings, newAnalysis.path("data_quality").path("warnings"));
-        dataQuality.set("warnings", warnings);
-        mergedAnalysis.set("data_quality", dataQuality);
-    }
-
-    private void addWarnings(ArrayNode target, JsonNode source) {
-        if (!source.isArray()) {
-            return;
-        }
-        for (JsonNode item : source) {
-            String warning = item.asText("");
-            boolean exists = false;
-            for (JsonNode current : target) {
-                if (warning.equals(current.asText())) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!warning.isBlank() && !exists) {
-                target.add(warning);
-            }
-        }
-    }
-
-    private void setIfMeaningful(ObjectNode target, String field, JsonNode newValue, ObjectNode existingPayload) {
-        if (isMeaningful(newValue)) {
-            target.set(field, newValue);
-        } else if (existingPayload.has(field)) {
-            target.set(field, existingPayload.get(field));
-        }
-    }
-
-    private boolean isMeaningful(JsonNode value) {
-        if (value == null || value.isNull() || value.isMissingNode()) {
-            return false;
-        }
-        if (value.isObject() || value.isArray()) {
-            return !value.isEmpty();
-        }
-        return !value.asText("").isBlank();
-    }
-
-    private void copyIfPresent(ObjectNode source, ObjectNode target, String field) {
-        if (source.has(field)) {
-            target.set(field, source.get(field));
-        }
-    }
-
-    private ObjectNode readObject(String rawJson) {
-        try {
-            JsonNode root = objectMapper.readTree(defaultString(rawJson, "{}"));
-            return root != null && root.isObject() ? (ObjectNode) root : objectMapper.createObjectNode();
-        } catch (Exception ignored) {
-            return objectMapper.createObjectNode();
-        }
-    }
-
-    private ObjectNode copyObject(JsonNode node) {
-        return node != null && node.isObject() ? ((ObjectNode) node).deepCopy() : objectMapper.createObjectNode();
-    }
-
-    private JsonNode nullNode() {
-        return objectMapper.nullNode();
-    }
-
-    private String dailyPath(String targetKey, LocalDate date) {
-        return "postgres://cynexus_appl_ai.application_analysis_daily_snapshots/"
-                + targetKey + "/" + date + ".json";
     }
 
     private String toJson(Object value) {
@@ -430,19 +243,6 @@ public class ApplicationAnalysisRecent30Executor {
         } catch (Exception ignored) {
             return "{}";
         }
-    }
-
-    private int estimateTokens(String value) {
-        return value == null || value.isBlank() ? 0 : Math.max(1, value.length() / 4);
-    }
-
-    private String truncate(String value, int maxLength) {
-        String normalized = value == null ? "" : value.trim();
-        return normalized.length() > maxLength ? normalized.substring(0, maxLength) : normalized;
-    }
-
-    private String normalizeTargetKey(String value) {
-        return defaultString(value, "").toLowerCase();
     }
 
     private String defaultString(String value, String fallback) {

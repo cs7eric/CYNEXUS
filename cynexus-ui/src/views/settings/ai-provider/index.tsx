@@ -64,6 +64,9 @@ type ProviderDraft = {
   timeout_seconds: string
   is_enabled: boolean
   remark: string
+  input_price_per_million: string
+  output_price_per_million: string
+  pricing_currency: string
 }
 
 type BindingDraft = {
@@ -85,6 +88,9 @@ const emptyDraft: ProviderDraft = {
   timeout_seconds: "120",
   is_enabled: true,
   remark: "",
+  input_price_per_million: "0",
+  output_price_per_million: "0",
+  pricing_currency: "USD",
 }
 
 function draftFromProvider(provider: AiProviderItem): ProviderDraft {
@@ -103,6 +109,9 @@ function draftFromProvider(provider: AiProviderItem): ProviderDraft {
     timeout_seconds: String(provider.timeout_seconds || 120),
     is_enabled: provider.is_enabled,
     remark: provider.remark,
+    input_price_per_million: String(provider.input_price_per_million ?? 0),
+    output_price_per_million: String(provider.output_price_per_million ?? 0),
+    pricing_currency: provider.pricing_currency || "USD",
   }
 }
 
@@ -121,6 +130,7 @@ export default function AiProviderSettingsPage() {
   const [error, setError] = useState("")
   const [newModelInput, setNewModelInput] = useState("")
   const [bindingDrafts, setBindingDrafts] = useState<Record<string, BindingDraft>>({})
+  const [bindingSaveTimers, setBindingSaveTimers] = useState<Record<string, number>>({})
 
   const selectedProvider = useMemo(
     () => providers.find((item) => item.id === selectedProviderId) || null,
@@ -210,6 +220,9 @@ export default function AiProviderSettingsPage() {
       const payload = {
         ...draft,
         timeout_seconds: Number(draft.timeout_seconds || 120),
+        input_price_per_million: Number(draft.input_price_per_million || 0),
+        output_price_per_million: Number(draft.output_price_per_million || 0),
+        pricing_currency: draft.pricing_currency.trim().toUpperCase() || "USD",
       }
       const saved = draft.id
         ? await updateAiProvider(draft.id, payload)
@@ -282,6 +295,20 @@ export default function AiProviderSettingsPage() {
         },
       }
     })
+  }
+
+  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string) {
+    const previous = bindingSaveTimers[capability.code]
+    if (previous) window.clearTimeout(previous)
+    const timer = window.setTimeout(() => {
+      void handleBindingChange(capability, providerId, modelOverride)
+      setBindingSaveTimers((current) => {
+        const next = { ...current }
+        delete next[capability.code]
+        return next
+      })
+    }, 250)
+    setBindingSaveTimers((current) => ({ ...current, [capability.code]: timer }))
   }
 
   async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string) {
@@ -462,7 +489,7 @@ export default function AiProviderSettingsPage() {
               </div>
               <div className="divide-y divide-border/50">
                 {routeRows.map((row) => {
-                  const { capability, binding, providerId, provider, modelOverride, effectiveModel, issues, dirty } = row
+                  const { capability, binding, providerId, provider, modelOverride, issues, dirty } = row
                   const providerModels = provider?.models || []
                   const availableModels = uniq([provider?.default_model || "", ...providerModels, modelOverride].filter(Boolean))
                   return (
@@ -487,14 +514,16 @@ export default function AiProviderSettingsPage() {
                       </div>
                       <Select
                         value={providerId || "none"}
-                        onValueChange={(value) => {
-                          const nextProviderId = value === "none" ? "" : value
-                          const nextProvider = providerById.get(nextProviderId)
-                          updateBindingDraft(capability.code, {
-                            providerId: nextProviderId,
-                            modelOverride: nextProvider?.default_model || "",
-                          })
-                        }}
+                          onValueChange={(value) => {
+                            const nextProviderId = value === "none" ? "" : value
+                            const nextProvider = providerById.get(nextProviderId)
+                            const nextModel = nextProvider?.default_model || ""
+                            updateBindingDraft(capability.code, {
+                              providerId: nextProviderId,
+                              modelOverride: nextModel,
+                            })
+                            scheduleBindingSave(capability, nextProviderId, nextModel)
+                          }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -509,7 +538,10 @@ export default function AiProviderSettingsPage() {
                       {availableModels.length > 0 ? (
                         <Select
                           value={modelOverride || provider?.default_model || ""}
-                          onValueChange={(value) => updateBindingDraft(capability.code, { modelOverride: value })}
+                          onValueChange={(value) => {
+                            updateBindingDraft(capability.code, { modelOverride: value })
+                            scheduleBindingSave(capability, providerId, value)
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={provider?.default_model || "provider default"} />
@@ -524,6 +556,7 @@ export default function AiProviderSettingsPage() {
                         <Input
                           value={modelOverride}
                           onChange={(event) => updateBindingDraft(capability.code, { modelOverride: event.target.value })}
+                          onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value)}
                           placeholder={provider?.default_model || "provider default"}
                         />
                       )}
@@ -540,16 +573,7 @@ export default function AiProviderSettingsPage() {
                         <Badge variant={binding?.is_enabled ? "outline" : "secondary"}>
                           {binding?.is_enabled ? "active" : "fallback"}
                         </Badge>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-8"
-                          disabled={!dirty || savingBinding === capability.code || issues.some((issue) => issue.level === "error")}
-                          onClick={() => void handleBindingChange(capability, providerId, effectiveModel)}
-                        >
-                          {savingBinding === capability.code ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                          Save
-                        </Button>
+                        {savingBinding === capability.code ? <RefreshCw className="size-3.5 animate-spin text-muted-foreground" /> : dirty ? <span className="text-[11px] text-amber-600">Saving on blur…</span> : <span className="text-[11px] text-emerald-600">Saved</span>}
                       </div>
                     </div>
                   )
@@ -666,6 +690,18 @@ export default function AiProviderSettingsPage() {
                 <div className="space-y-2">
                   <Label>Timeout seconds</Label>
                   <Input value={draft.timeout_seconds} onChange={(e) => setDraft({ ...draft, timeout_seconds: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Input price / 1M tokens</Label>
+                  <Input inputMode="decimal" value={draft.input_price_per_million} onChange={(e) => setDraft({ ...draft, input_price_per_million: e.target.value })} placeholder="0.00" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Output price / 1M tokens</Label>
+                  <Input inputMode="decimal" value={draft.output_price_per_million} onChange={(e) => setDraft({ ...draft, output_price_per_million: e.target.value })} placeholder="0.00" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Input value={draft.pricing_currency} onChange={(e) => setDraft({ ...draft, pricing_currency: e.target.value.toUpperCase() })} placeholder="USD" />
                 </div>
               </div>
 

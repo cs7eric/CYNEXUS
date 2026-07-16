@@ -54,6 +54,76 @@ class CninfoClient:
             )
         return rows
 
+    def market_announcements(self, *, page_size: int = 200) -> list[dict[str, Any]]:
+        policy_terms = ("国务院", "证监会", "交易所", "财政部", "发改委", "工信部", "监管", "监管办法", "指导意见", "实施方案", "规划", "通知", "征求意见", "规则", "办法")
+        company_terms = ("股东回报", "权益分派", "分红", "回购", "业绩", "股票", "公司", "股东", "股份有限公司", "年报", "持股")
+        query_terms = ("国务院", "证监会", "交易所", "财政部", "发改委", "工信部")
+        rows: dict[str, dict[str, Any]] = {}
+        for searchkey in query_terms:
+            response = self.session.post(
+                "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+                data={
+                    "stock": "", "tabName": "fulltext", "pageSize": str(max(20, page_size // len(query_terms))), "pageNum": "1",
+                    "column": "", "category": "", "plate": "", "seDate": "", "searchkey": searchkey, "secid": "",
+                    "sortName": "announcementTime", "sortType": "desc", "isHLtitle": "true",
+                },
+                headers={"User-Agent": UA, "Referer": "https://www.cninfo.com.cn/new/disclosure"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            for item in response.json().get("announcements") or []:
+                if item.get("secCode"):
+                    continue
+                title = _strip_html(item.get("announcementTitle"))
+                if not title or not any(term in title for term in policy_terms) or any(term in title for term in company_terms):
+                    continue
+                announcement_id = str(item.get("announcementId") or "")
+                if not announcement_id:
+                    continue
+                adjunct = item.get("adjunctUrl") or ""
+                rows[announcement_id] = {
+                    "announcement_id": announcement_id,
+                    "title": title,
+                    "type": item.get("announcementTypeName") or item.get("announcementType"),
+                    "date": _ts_to_date(item.get("announcementTime")),
+                    "url": f"https://static.cninfo.com.cn/{adjunct}" if adjunct else "",
+                    "sec_code": item.get("secCode") or "",
+                    "sec_name": item.get("secName") or "",
+                }
+        return sorted(rows.values(), key=lambda item: item.get("date") or "", reverse=True)[:page_size]
+
+    def regulatory_announcements(self, *, page_size: int = 100) -> list[dict[str, Any]]:
+        terms = ("监管函", "问询", "纪律处分", "行政处罚", "监管措施", "异常交易", "自律监管", "立案")
+        rows: dict[str, dict[str, Any]] = {}
+        for searchkey in terms:
+            response = self.session.post(
+                "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+                data={
+                    "stock": "", "tabName": "fulltext", "pageSize": str(max(10, page_size // len(terms))), "pageNum": "1",
+                    "column": "", "category": "", "plate": "", "seDate": "", "searchkey": searchkey, "secid": "",
+                    "sortName": "announcementTime", "sortType": "desc", "isHLtitle": "true",
+                },
+                headers={"User-Agent": UA, "Referer": "https://www.cninfo.com.cn/new/disclosure"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            for item in response.json().get("announcements") or []:
+                title = _strip_html(item.get("announcementTitle"))
+                announcement_id = str(item.get("announcementId") or "")
+                if not title or not announcement_id:
+                    continue
+                adjunct = item.get("adjunctUrl") or ""
+                rows[announcement_id] = {
+                    "announcement_id": announcement_id,
+                    "title": title,
+                    "type": item.get("announcementTypeName") or item.get("announcementType"),
+                    "date": _ts_to_date(item.get("announcementTime")),
+                    "url": f"https://static.cninfo.com.cn/{adjunct}" if adjunct else "",
+                    "sec_code": _plain_code(item.get("secCode") or ""),
+                    "sec_name": item.get("secName") or "",
+                }
+        return sorted(rows.values(), key=lambda item: item.get("date") or "", reverse=True)[:page_size]
+
     def irm(self, code: str, *, page_size: int = 30, page_num: int = 1) -> list[dict[str, Any]]:
         code6 = _plain_code(code)
         search = self.session.post("https://irm.cninfo.com.cn/newircs/index/queryKeyboardInfo", data={"keyWord": code6}, headers={"User-Agent": UA}, timeout=self.timeout)

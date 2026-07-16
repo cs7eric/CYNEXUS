@@ -3,12 +3,12 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
 import cn.cccs7.cynexus.market.domain.repository.StockChartQueryRepository;
+import cn.cccs7.cynexus.market.domain.stock.StockChartDomainService;
+import cn.cccs7.cynexus.market.domain.stock.StockAuctionDomainPolicy;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,12 +18,15 @@ import org.springframework.stereotype.Service;
 public class StockChartQueryAppService {
 
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
-    private static final int DEFAULT_KLINE_COUNT = 520;
 
     private final StockChartQueryRepository stockChartQueryRepository;
+    private final StockChartDomainService domainService;
+    private final StockAuctionDomainPolicy auctionPolicy = new StockAuctionDomainPolicy();
 
-    public StockChartQueryAppService(StockChartQueryRepository stockChartQueryRepository) {
+    public StockChartQueryAppService(StockChartQueryRepository stockChartQueryRepository,
+                                     StockChartDomainService domainService) {
         this.stockChartQueryRepository = stockChartQueryRepository;
+        this.domainService = domainService;
     }
 
     public StockChartDTO.SearchResponseDTO search(String keyword) {
@@ -35,20 +38,20 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.KlineResponseDTO klines(String targetType, String symbol, String period, String adjust) {
-        String normalizedPeriod = normalizePeriod(period);
+        String normalizedPeriod = domainService.normalizePeriod(period);
         List<StockChartBO.Bar> rows;
         String source;
         if ("1d".equals(normalizedPeriod)) {
-            String normalizedTargetType = blankDefault(targetType, "stock");
-            String normalizedAdjust = blankDefault(adjust, "qfq");
-            rows = stockChartQueryRepository.listDailyBars(targetType, symbol, DEFAULT_KLINE_COUNT, adjust);
+            String normalizedTargetType = domainService.defaultValue(targetType, "stock");
+            String normalizedAdjust = domainService.defaultValue(adjust, "qfq");
+            rows = stockChartQueryRepository.listDailyBars(normalizedTargetType, symbol, domainService.defaultKlineCount(), normalizedAdjust);
             if ("stock".equalsIgnoreCase(normalizedTargetType) && "qfq".equalsIgnoreCase(normalizedAdjust)) {
                 source = rows.isEmpty() ? "clickhouse.daily_qfq-empty" : "clickhouse.daily_qfq";
             } else {
                 source = rows.isEmpty() ? "java-tdx-local-empty" : "java-tdx-local";
             }
         } else {
-            int periodMinutes = periodMinutes(normalizedPeriod);
+            int periodMinutes = domainService.periodMinutes(normalizedPeriod);
             LocalDate effectiveDate = stockChartQueryRepository
                     .findLatestMinuteDate(targetType, symbol, LocalDate.now(SHANGHAI))
                     .orElse(null);
@@ -59,9 +62,9 @@ public class StockChartQueryAppService {
         }
         return StockChartDTO.KlineResponseDTO.builder()
                 .symbol(symbol)
-                .targetType(blankDefault(targetType, "stock"))
+                .targetType(domainService.defaultValue(targetType, "stock"))
                 .period(normalizedPeriod)
-                .adjust(blankDefault(adjust, "qfq"))
+                .adjust(domainService.defaultValue(adjust, "qfq"))
                 .updatedAt(OffsetDateTime.now(SHANGHAI))
                 .source(source)
                 .items(rows.stream().map(this::bar).toList())
@@ -158,17 +161,17 @@ public class StockChartQueryAppService {
 
     public StockChartDTO.IntradayDTO intraday(String targetType, String symbol, String name, String adjust,
                                               String tradeDate, List<String> periods) {
-        LocalDate requested = parseDateOrToday(tradeDate);
+        LocalDate requested = domainService.parseDateOrToday(tradeDate);
         LocalDate effectiveDate = stockChartQueryRepository.findLatestMinuteDate(targetType, symbol, requested).orElse(null);
         if (effectiveDate == null) {
             return StockChartDTO.IntradayDTO.builder()
                     .ok(true)
                     .symbol(symbol)
-                    .targetType(blankDefault(targetType, "stock"))
-                    .name(blankDefault(name, symbol))
-                    .adjust(blankDefault(adjust, "qfq"))
+                    .targetType(domainService.defaultValue(targetType, "stock"))
+                    .name(domainService.defaultValue(name, symbol))
+                    .adjust(domainService.defaultValue(adjust, "qfq"))
                     .effectiveAdjust("none")
-                    .requestedAdjust(blankDefault(adjust, "qfq"))
+                    .requestedAdjust(domainService.defaultValue(adjust, "qfq"))
                     .source("clickhouse.ch_dwd_kline_1m-empty")
                     .requestedTradeDate(requested)
                     .timeshare(List.of())
@@ -179,7 +182,7 @@ public class StockChartQueryAppService {
 
         Map<String, List<StockChartDTO.KlineBarDTO>> minuteBars = new HashMap<>();
         for (String period : periods) {
-            int minutes = periodMinutes(period);
+            int minutes = domainService.periodMinutes(period);
             minuteBars.put(period, stockChartQueryRepository.listMinuteBars(targetType, symbol, effectiveDate, minutes).stream()
                     .map(this::bar)
                     .toList());
@@ -191,11 +194,11 @@ public class StockChartQueryAppService {
         return StockChartDTO.IntradayDTO.builder()
                 .ok(true)
                 .symbol(symbol)
-                .targetType(blankDefault(targetType, "stock"))
-                .name(blankDefault(name, symbol))
-                .adjust(blankDefault(adjust, "qfq"))
+                .targetType(domainService.defaultValue(targetType, "stock"))
+                .name(domainService.defaultValue(name, symbol))
+                .adjust(domainService.defaultValue(adjust, "qfq"))
                 .effectiveAdjust("none")
-                .requestedAdjust(blankDefault(adjust, "qfq"))
+                .requestedAdjust(domainService.defaultValue(adjust, "qfq"))
                 .source(empty ? "clickhouse.ch_dwd_kline_1m-empty" : "clickhouse.ch_dwd_kline_1m")
                 .tradeDate(effectiveDate)
                 .requestedTradeDate(requested)
@@ -206,13 +209,13 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.AuctionDTO auction(String symbol, String tradeDate) {
-        LocalDate requested = parseDateOrToday(tradeDate);
+        LocalDate requested = domainService.parseDateOrToday(tradeDate);
         LocalDate effectiveDate = stockChartQueryRepository.findLatestAuctionDate("stock", symbol, requested).orElse(null);
         return auctionForDate(symbol, requested, effectiveDate);
     }
 
     public StockChartDTO.AuctionHistoryResponseDTO auctionHistory(String symbol, int limit) {
-        int resolvedLimit = Math.max(1, Math.min(limit, 30));
+        int resolvedLimit = domainService.auctionHistoryLimit(limit);
         List<StockChartDTO.AuctionDTO> items = stockChartQueryRepository.listAuctionDates("stock", symbol, resolvedLimit).stream()
                 .map(date -> auctionForDate(symbol, date, date))
                 .toList();
@@ -241,16 +244,9 @@ public class StockChartQueryAppService {
                     .build();
         }
         List<StockChartBO.AuctionPoint> rows = stockChartQueryRepository.listAuctionPoints("stock", symbol, effectiveDate);
-        List<StockChartBO.AuctionPoint> openingRows = rows.stream()
-                .filter(row -> "opening".equals(row.getPhase()) || "auction_0925".equals(row.getPhase()))
-                .toList();
-        List<StockChartBO.AuctionPoint> closingRows = rows.stream()
-                .filter(row -> "closing".equals(row.getPhase()))
-                .toList();
-        StockChartBO.AuctionPoint auction0925 = rows.stream()
-                .filter(row -> "auction_0925".equals(row.getPhase()) || "09:25:00".equals(row.getTimeLabel()))
-                .findFirst()
-                .orElse(null);
+        StockAuctionDomainPolicy.AuctionGroups groups = auctionPolicy.group(rows);
+        List<StockChartBO.AuctionPoint> openingRows = groups.opening();
+        List<StockChartBO.AuctionPoint> closingRows = groups.closing();
         return StockChartDTO.AuctionDTO.builder()
                 .symbol(symbol)
                 .tradeDate(effectiveDate)
@@ -259,7 +255,7 @@ public class StockChartQueryAppService {
                 .opening(auctionPhase(openingRows, "09:25:00", "openingPoints"))
                 .closing(auctionPhase(closingRows, "15:00:00", "closingPoints"))
                 .details(StockChartDTO.AuctionDetailsDTO.builder()
-                        .auction0925(auction0925(auction0925))
+                        .auction0925(auctionPolicy.auction0925(groups.auction0925()))
                         .openingPoints(openingRows.stream().map(this::auctionPoint).toList())
                         .closingPoints(closingRows.stream().map(this::auctionPoint).toList())
                         .allPoints(rows.stream().map(this::auctionPoint).toList())
@@ -457,16 +453,14 @@ public class StockChartQueryAppService {
     }
 
     private StockChartDTO.AuctionPointDTO auctionPoint(StockChartBO.AuctionPoint value) {
-        BigDecimal unmatchedBuy = zeroDefault(value.getUnmatchedBuyVolume());
-        BigDecimal unmatchedSell = zeroDefault(value.getUnmatchedSellVolume());
-        BigDecimal unmatchedVolume = unmatchedBuy.add(unmatchedSell);
+        StockAuctionDomainPolicy.AuctionPointFacts facts = auctionPolicy.point(value);
         return StockChartDTO.AuctionPointDTO.builder()
-                .timeLabel(value.getTimeLabel())
-                .price(value.getPrice())
-                .matchedVolume(value.getMatchedVolume())
-                .unmatchedVolume(unmatchedVolume)
-                .unmatchedDirectionRaw(directionRaw(unmatchedBuy, unmatchedSell))
-                .matchedAmountEstimated(value.getMatchedAmount())
+                .timeLabel(facts.timeLabel())
+                .price(facts.price())
+                .matchedVolume(facts.matchedVolume())
+                .unmatchedVolume(facts.unmatchedVolume())
+                .unmatchedDirectionRaw(facts.unmatchedDirectionRaw())
+                .matchedAmountEstimated(facts.matchedAmount())
                 .build();
     }
 
@@ -568,184 +562,27 @@ public class StockChartQueryAppService {
     private StockChartDTO.AuctionPhaseDTO auctionPhase(List<StockChartBO.AuctionPoint> rows,
                                                        String anchorTargetTime,
                                                        String anchorSourcePrefix) {
-        if (rows == null || rows.isEmpty()) {
-            return StockChartDTO.AuctionPhaseDTO.builder()
-                    .anchorTargetTime(anchorTargetTime)
-                    .anchorExact(false)
-                    .dataConfidence("低")
-                    .build();
-        }
-        StockChartBO.AuctionPoint anchor = chooseAnchor(rows, anchorTargetTime);
-        BigDecimal unmatchedBuy = zeroDefault(anchor.getUnmatchedBuyVolume());
-        BigDecimal unmatchedSell = zeroDefault(anchor.getUnmatchedSellVolume());
-        BigDecimal unmatchedDelta = unmatchedBuy.subtract(unmatchedSell);
-        boolean exact = anchorTargetTime.equals(anchor.getTimeLabel());
+        StockAuctionDomainPolicy.AuctionPhaseFacts facts = auctionPolicy.phase(rows, anchorTargetTime, anchorSourcePrefix);
         return StockChartDTO.AuctionPhaseDTO.builder()
-                .price(anchor.getPrice())
-                .matchPrice(anchor.getPrice())
-                .volume(anchor.getMatchedVolume())
-                .amount(anchor.getMatchedAmount())
-                .unmatchedBuyVolume(anchor.getUnmatchedBuyVolume())
-                .unmatchedSellVolume(anchor.getUnmatchedSellVolume())
-                .time(anchor.getTimeLabel())
-                .unmatchedDelta(unmatchedDelta)
-                .strengthLabel(strengthLabel(unmatchedDelta))
-                .anchorExact(exact)
-                .anchorSource(anchorSourcePrefix + (exact ? "-exact" : "-nearest"))
-                .anchorTargetTime(anchorTargetTime)
-                .priceRange(priceRange(rows))
-                .recentPriceTrend(recentPriceTrend(rows))
-                .recentPriceChange(recentPriceChange(rows))
-                .recentVolumeDelta(recentVolumeDelta(rows))
-                .directionStability(directionStability(rows))
-                .directionFlipCount(directionFlipCount(rows))
-                .dominantDirection(strengthLabel(sumUnmatchedDelta(rows)))
-                .imbalancePressure(imbalancePressure(unmatchedBuy, unmatchedSell))
-                .dataConfidence(exact ? "高" : "中")
+                .price(facts.price()).matchPrice(facts.matchPrice()).volume(facts.volume()).amount(facts.amount())
+                .unmatchedBuyVolume(facts.unmatchedBuyVolume()).unmatchedSellVolume(facts.unmatchedSellVolume())
+                .time(facts.time()).unmatchedDelta(facts.unmatchedDelta()).strengthLabel(facts.strengthLabel())
+                .anchorExact(facts.anchorExact()).anchorSource(facts.anchorSource()).anchorTargetTime(facts.anchorTargetTime())
+                .priceRange(toPriceRange(facts.priceRange())).recentPriceTrend(facts.recentPriceTrend())
+                .recentPriceChange(facts.recentPriceChange()).recentVolumeDelta(facts.recentVolumeDelta())
+                .directionStability(facts.directionStability()).directionFlipCount(facts.directionFlipCount())
+                .dominantDirection(facts.dominantDirection()).imbalancePressure(facts.imbalancePressure())
+                .dataConfidence(facts.dataConfidence())
                 .build();
     }
 
-    private StockChartBO.AuctionPoint chooseAnchor(List<StockChartBO.AuctionPoint> rows, String anchorTargetTime) {
-        return rows.stream()
-                .filter(row -> anchorTargetTime.equals(row.getTimeLabel()))
-                .findFirst()
-                .orElseGet(() -> rows.stream()
-                        .filter(row -> row.getTimeLabel() != null && row.getTimeLabel().compareTo(anchorTargetTime) <= 0)
-                        .max(Comparator.comparing(StockChartBO.AuctionPoint::getTimeLabel))
-                        .orElse(rows.getLast()));
-    }
-
-    private Map<String, Object> auction0925(StockChartBO.AuctionPoint value) {
+    private StockChartDTO.AuctionPriceRangeDTO toPriceRange(StockAuctionDomainPolicy.PriceRange value) {
         if (value == null) {
-            return Map.of("has_auction_0925", false);
-        }
-        Map<String, Object> result = new HashMap<>();
-        result.put("has_auction_0925", true);
-        result.put("price", value.getPrice());
-        result.put("volume", value.getMatchedVolume());
-        result.put("amount", value.getMatchedAmount());
-        return result;
-    }
-
-    private StockChartDTO.AuctionPriceRangeDTO priceRange(List<StockChartBO.AuctionPoint> rows) {
-        List<BigDecimal> prices = rows.stream()
-                .map(StockChartBO.AuctionPoint::getPrice)
-                .filter(item -> item != null)
-                .toList();
-        if (prices.isEmpty()) {
             return null;
         }
-        BigDecimal low = prices.stream().min(Comparator.naturalOrder()).orElse(null);
-        BigDecimal high = prices.stream().max(Comparator.naturalOrder()).orElse(null);
         return StockChartDTO.AuctionPriceRangeDTO.builder()
-                .low(low)
-                .high(high)
-                .spread(low == null || high == null ? null : high.subtract(low))
+                .low(value.low()).high(value.high()).spread(value.spread())
                 .build();
-    }
-
-    private String recentPriceTrend(List<StockChartBO.AuctionPoint> rows) {
-        BigDecimal change = recentPriceChange(rows);
-        if (change == null) {
-            return null;
-        }
-        int compared = change.compareTo(BigDecimal.ZERO);
-        if (compared > 0) {
-            return "上行";
-        }
-        if (compared < 0) {
-            return "下行";
-        }
-        return "走平";
-    }
-
-    private BigDecimal recentPriceChange(List<StockChartBO.AuctionPoint> rows) {
-        List<BigDecimal> prices = rows.stream()
-                .map(StockChartBO.AuctionPoint::getPrice)
-                .filter(item -> item != null)
-                .toList();
-        if (prices.size() < 2) {
-            return null;
-        }
-        return prices.getLast().subtract(prices.get(prices.size() - 2));
-    }
-
-    private BigDecimal recentVolumeDelta(List<StockChartBO.AuctionPoint> rows) {
-        List<BigDecimal> volumes = rows.stream()
-                .map(StockChartBO.AuctionPoint::getMatchedVolume)
-                .filter(item -> item != null)
-                .toList();
-        if (volumes.size() < 2) {
-            return null;
-        }
-        return volumes.getLast().subtract(volumes.get(volumes.size() - 2));
-    }
-
-    private int directionFlipCount(List<StockChartBO.AuctionPoint> rows) {
-        int flips = 0;
-        Integer previous = null;
-        for (StockChartBO.AuctionPoint row : rows) {
-            int current = directionRaw(zeroDefault(row.getUnmatchedBuyVolume()), zeroDefault(row.getUnmatchedSellVolume()));
-            if (current == 0) {
-                continue;
-            }
-            if (previous != null && previous != current) {
-                flips++;
-            }
-            previous = current;
-        }
-        return flips;
-    }
-
-    private String directionStability(List<StockChartBO.AuctionPoint> rows) {
-        int flips = directionFlipCount(rows);
-        if (flips == 0) {
-            return "方向稳定";
-        }
-        if (flips <= 2) {
-            return "方向轻微切换";
-        }
-        return "方向频繁切换";
-    }
-
-    private String strengthLabel(BigDecimal delta) {
-        if (delta == null) {
-            return null;
-        }
-        int compared = delta.compareTo(BigDecimal.ZERO);
-        if (compared > 0) {
-            return "买方占优";
-        }
-        if (compared < 0) {
-            return "卖方占优";
-        }
-        return "均衡";
-    }
-
-    private BigDecimal sumUnmatchedDelta(List<StockChartBO.AuctionPoint> rows) {
-        BigDecimal result = BigDecimal.ZERO;
-        for (StockChartBO.AuctionPoint row : rows) {
-            result = result
-                    .add(zeroDefault(row.getUnmatchedBuyVolume()))
-                    .subtract(zeroDefault(row.getUnmatchedSellVolume()));
-        }
-        return result;
-    }
-
-    private BigDecimal imbalancePressure(BigDecimal unmatchedBuy, BigDecimal unmatchedSell) {
-        BigDecimal total = unmatchedBuy.add(unmatchedSell);
-        if (BigDecimal.ZERO.compareTo(total) == 0) {
-            return null;
-        }
-        return unmatchedBuy.subtract(unmatchedSell).abs().divide(total, 6, RoundingMode.HALF_UP);
-    }
-
-    private int directionRaw(BigDecimal unmatchedBuy, BigDecimal unmatchedSell) {
-        return unmatchedBuy.compareTo(unmatchedSell) > 0 ? 1 : unmatchedSell.compareTo(unmatchedBuy) > 0 ? -1 : 0;
-    }
-
-    private BigDecimal zeroDefault(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
     }
 
     private StockChartDTO.MinuteBarsDTO minuteBars(Map<String, List<StockChartDTO.KlineBarDTO>> bars) {
@@ -766,41 +603,6 @@ public class StockChartQueryAppService {
                 .thirtyMinute(List.of())
                 .sixtyMinute(List.of())
                 .build();
-    }
-
-    private String normalizePeriod(String period) {
-        String value = period == null || period.isBlank() ? "1d" : period.trim().toLowerCase();
-        return switch (value) {
-            case "1", "1min", "1m" -> "1m";
-            case "5", "5min", "5m" -> "5m";
-            case "15", "15min", "15m" -> "15m";
-            case "30", "30min", "30m" -> "30m";
-            case "60", "60min", "60m" -> "60m";
-            case "120", "120min", "120m" -> "120m";
-            case "day", "daily", "1d" -> "1d";
-            default -> "1d";
-        };
-    }
-
-    private int periodMinutes(String period) {
-        String normalized = normalizePeriod(period);
-        return switch (normalized) {
-            case "1m" -> 1;
-            case "5m" -> 5;
-            case "15m" -> 15;
-            case "30m" -> 30;
-            case "60m" -> 60;
-            case "120m" -> 120;
-            default -> 1;
-        };
-    }
-
-    private String blankDefault(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
-    private LocalDate parseDateOrToday(String value) {
-        return value == null || value.isBlank() ? LocalDate.now(SHANGHAI) : LocalDate.parse(value);
     }
 
     private String formatOffsetDateTime(OffsetDateTime value) {

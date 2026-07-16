@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.HeatmapSnapshotDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.HeatmapSnapshotDTO;
 import cn.cccs7.cynexus.market.domain.entity.HeatmapSnapshotBO;
-import cn.cccs7.cynexus.market.domain.service.HeatmapSnapshotDomainService;
+import cn.cccs7.cynexus.market.domain.pulse.HeatmapSnapshotDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

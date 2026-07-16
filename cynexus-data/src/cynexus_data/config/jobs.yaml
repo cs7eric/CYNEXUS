@@ -42,6 +42,11 @@ jobs:
       call: optional
       payload: optional; test/dry-run payload
       payloads: optional; per-dataset test payload map
+      cailian_telegraph: market-level Cailian Press telegraph feed
+      cninfo_market_announcements: macro/policy announcements from CNInfo
+      cninfo_regulatory_announcements: regulatory letters, inquiries, penalties, and disciplinary notices from CNInfo
+      official_market_information: government, central-bank, statistics, regulator, exchange, and media market headlines
+      market_information_content_backfill_limit: optional; bounded recent full-text retry count with a six-hour cooldown
 
   sync_trade_calendar:
     description: Sync trade calendar data.

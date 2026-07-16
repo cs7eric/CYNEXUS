@@ -12,62 +12,49 @@ import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
-import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
+import cn.cccs7.cynexus.ai.domain.mediatranscription.MediaTranscriptionContentDomainPolicy;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
 public class MediaTranscriptionAiAppService {
 
-    private static final int MAX_INPUT_LENGTH = 60000;
     private static final int MAX_LOG_TEXT_LENGTH = 8000;
 
-    private final ModelRouteAppService modelRouteAppService;
+    private final ApplicationAnalysisRoutingDomainService routingDomainService;
     private final AgentExecutor agentExecutor;
     private final AiPromptRepository aiPromptRepository;
-    private final AiUsageBindingRepository aiUsageBindingRepository;
-    private final AiProviderRepository aiProviderRepository;
     private final AiExecutionLogRepository aiExecutionLogRepository;
     private final StructuredJsonExtractor structuredJsonExtractor;
     private final ObjectMapper objectMapper;
+    private final MediaTranscriptionContentDomainPolicy contentPolicy = new MediaTranscriptionContentDomainPolicy();
 
-    public MediaTranscriptionAiAppService(ModelRouteAppService modelRouteAppService,
+    public MediaTranscriptionAiAppService(ApplicationAnalysisRoutingDomainService routingDomainService,
                                           AgentExecutor agentExecutor,
                                           AiPromptRepository aiPromptRepository,
-                                          AiUsageBindingRepository aiUsageBindingRepository,
-                                          AiProviderRepository aiProviderRepository,
                                           AiExecutionLogRepository aiExecutionLogRepository,
                                           StructuredJsonExtractor structuredJsonExtractor) {
-        this.modelRouteAppService = modelRouteAppService;
+        this.routingDomainService = routingDomainService;
         this.agentExecutor = agentExecutor;
         this.aiPromptRepository = aiPromptRepository;
-        this.aiUsageBindingRepository = aiUsageBindingRepository;
-        this.aiProviderRepository = aiProviderRepository;
         this.aiExecutionLogRepository = aiExecutionLogRepository;
         this.structuredJsonExtractor = structuredJsonExtractor;
         this.objectMapper = new ObjectMapper();
     }
 
     public MediaTranscriptionTextDTO polish(MediaTranscriptionPolishRequest request) {
-        String text = truncate(normalize(request == null ? null : request.getText()), MAX_INPUT_LENGTH);
+        String text = contentPolicy.truncate(request == null ? null : request.getText(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
         if (text.isBlank()) {
             return MediaTranscriptionTextDTO.builder().text("").build();
         }
@@ -78,14 +65,14 @@ public class MediaTranscriptionAiAppService {
     }
 
     public MediaTranscriptionTextDTO summary(MediaTranscriptionSummaryRequest request) {
-        String text = truncate(normalize(request == null ? null : request.getText()), MAX_INPUT_LENGTH);
+        String text = contentPolicy.truncate(request == null ? null : request.getText(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
         if (text.isBlank()) {
             return MediaTranscriptionTextDTO.builder().text("").build();
         }
         String content = executeText("text_summary", "mp4_text_summary", Map.of(
                         "text", text,
-                        "title", normalize(request == null ? null : request.getTitle()),
-                        "platform", normalize(request == null ? null : request.getPlatform()),
+                        "title", contentPolicy.normalize(request == null ? null : request.getTitle()),
+                        "platform", contentPolicy.normalize(request == null ? null : request.getPlatform()),
                         "duration", request == null || request.getDuration() == null ? "" : String.valueOf(request.getDuration())
                 ),
                 request == null ? null : request.getPreferredModelCode());
@@ -93,23 +80,26 @@ public class MediaTranscriptionAiAppService {
     }
 
     public MediaTranscriptionMetadataDTO metadata(MediaTranscriptionMetadataRequest request) {
-        String polishedText = truncate(normalize(request == null ? null : request.getPolishedText()), MAX_INPUT_LENGTH);
-        String summaryText = truncate(normalize(request == null ? null : request.getSummaryText()), MAX_INPUT_LENGTH);
+        String polishedText = contentPolicy.truncate(request == null ? null : request.getPolishedText(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
+        String summaryText = contentPolicy.truncate(request == null ? null : request.getSummaryText(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
         if (polishedText.isBlank() && summaryText.isBlank()) {
-            return fallbackMetadata();
+            MediaTranscriptionContentDomainPolicy.MetadataDraft metadata = contentPolicy.fallbackMetadata();
+            return MediaTranscriptionMetadataDTO.builder().title(metadata.title()).categories(metadata.categories()).tags(metadata.tags()).build();
         }
         String content = executeText("post_metadata", "post_metadata", Map.of(
                         "polished_text", polishedText,
                         "summary_text", summaryText
                 ),
                 request == null ? null : request.getPreferredModelCode());
-        return parseMetadata(content);
+        MediaTranscriptionContentDomainPolicy.MetadataDraft metadata = contentPolicy.parseMetadata(
+                structuredJsonExtractor.extractObject(content));
+        return MediaTranscriptionMetadataDTO.builder().title(metadata.title()).categories(metadata.categories()).tags(metadata.tags()).build();
     }
 
     public MediaTranscriptionAskDTO ask(MediaTranscriptionAskRequest request) {
-        String polishedText = truncate(normalize(request == null ? null : request.getPolishedText()), MAX_INPUT_LENGTH);
-        String summaryText = truncate(normalize(request == null ? null : request.getSummaryText()), MAX_INPUT_LENGTH);
-        String question = normalize(request == null ? null : request.getQuestion());
+        String polishedText = contentPolicy.truncate(request == null ? null : request.getPolishedText(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
+        String summaryText = contentPolicy.truncate(request == null ? null : request.getSummaryText(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
+        String question = contentPolicy.normalize(request == null ? null : request.getQuestion());
         if (question.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "question is required");
         }
@@ -135,7 +125,7 @@ public class MediaTranscriptionAiAppService {
             String executionNo = "AI-" + UUID.randomUUID().toString().replace("-", "");
             Instant startedAt = Instant.now();
             try {
-                AiCompletionResultBO completion = agentExecutor.completeDetailed(model, fullPrompt);
+                AiCompletionResultBO completion = agentExecutor.completeDetailed(model, fullPrompt, capability);
                 recordExecutionLog(executionNo, capability, prompt, model, "SUCCEEDED", startedAt, fullPrompt, completion, null);
                 return normalize(completion.getContent());
             } catch (Exception exception) {
@@ -176,76 +166,7 @@ public class MediaTranscriptionAiAppService {
     }
 
     private List<AiModelBO> routeModels(AiScenarioBO scenario, String capability, String preferredModelCode) {
-        List<AiModelBO> bindingModels = routeByUsageBinding(capability, preferredModelCode);
-        if (!bindingModels.isEmpty()) {
-            return bindingModels;
-        }
-        try {
-            return List.of(modelRouteAppService.route(scenario, preferredModelCode));
-        } catch (Exception ignored) {
-            return List.of();
-        }
-    }
-
-    private List<AiModelBO> routeByUsageBinding(String capability, String preferredModelCode) {
-        AiUsageBindingBO binding = aiUsageBindingRepository.listAll().stream()
-                .filter(item -> capability.equals(item.getCapability()))
-                .filter(item -> Boolean.TRUE.equals(item.getEnabled()))
-                .findFirst()
-                .orElse(null);
-        List<AiModelBO> models = new ArrayList<>();
-        Set<String> modelKeys = new LinkedHashSet<>();
-        Long bindingProviderId = null;
-        if (binding != null && binding.getProviderId() != null) {
-            bindingProviderId = binding.getProviderId();
-            AiProviderBO provider = aiProviderRepository.findById(binding.getProviderId());
-            addProviderModels(models, modelKeys, provider, List.of(
-                    normalize(preferredModelCode),
-                    normalize(binding.getModelOverride()),
-                    provider == null ? "" : normalize(provider.getDefaultModel())
-            ));
-        }
-
-        for (AiProviderBO provider : aiProviderRepository.listAll()) {
-            if (provider == null || provider.getId() == null || provider.getId().equals(bindingProviderId)) {
-                continue;
-            }
-            addProviderModels(models, modelKeys, provider, List.of(normalize(provider.getDefaultModel())));
-        }
-        return models;
-    }
-
-    private void addProviderModels(List<AiModelBO> models, Set<String> modelKeys, AiProviderBO provider, List<String> modelNames) {
-        if (provider == null || !Boolean.TRUE.equals(provider.getEnabled())) {
-            return;
-        }
-        String providerCode = normalize(provider.getProviderType()).isBlank()
-                ? normalize(provider.getCode())
-                : normalize(provider.getProviderType());
-        if (providerCode.isBlank() || "mock".equalsIgnoreCase(providerCode)) {
-            return;
-        }
-        LinkedHashSet<String> names = new LinkedHashSet<>();
-        for (String modelName : modelNames) {
-            addIfPresent(names, modelName);
-        }
-        for (String modelName : names) {
-            String key = providerCode + "|" + modelName;
-            if (!modelKeys.add(key)) {
-                continue;
-            }
-            models.add(AiModelBO.builder()
-                    .modelCode(modelName)
-                    .providerCode(providerCode)
-                    .modelName(modelName)
-                    .baseUrl(provider.getBaseUrl())
-                    .apiKey(provider.getApiKey())
-                    .apiKeyEnv(provider.getApiKeyEnv())
-                    .extra(provider.getExtra())
-                    .capability(ModelCapability.builder().structuredOutputSupported(true).build())
-                    .enabled(true)
-                    .build());
-        }
+        return routingDomainService.routeModels(capability, preferredModelCode);
     }
 
     private String render(PromptRuntime prompt, Map<String, String> variables) {
@@ -270,41 +191,6 @@ public class MediaTranscriptionAiAppService {
 
     private boolean jsonRequired(String capability) {
         return "mp4_qa".equals(capability) || "post_metadata".equals(capability);
-    }
-
-    private MediaTranscriptionMetadataDTO parseMetadata(String content) {
-        try {
-            JsonNode root = objectMapper.readTree(structuredJsonExtractor.extractObject(content));
-            return MediaTranscriptionMetadataDTO.builder()
-                    .title(blankTo(root.path("title").asText(null), "未命名笔记"))
-                    .categories(readStringList(root.get("categories"), List.of("未分类")))
-                    .tags(readStringList(root.get("tags"), List.of("待整理")))
-                    .build();
-        } catch (Exception ignored) {
-            return fallbackMetadata();
-        }
-    }
-
-    private MediaTranscriptionMetadataDTO fallbackMetadata() {
-        return MediaTranscriptionMetadataDTO.builder()
-                .title("未命名笔记")
-                .categories(List.of("未分类"))
-                .tags(List.of("待整理"))
-                .build();
-    }
-
-    private List<String> readStringList(JsonNode node, List<String> fallback) {
-        if (node == null || !node.isArray()) {
-            return fallback;
-        }
-        List<String> values = new ArrayList<>();
-        for (JsonNode item : node) {
-            String value = normalize(item.asText(""));
-            if (!value.isBlank()) {
-                values.add(value);
-            }
-        }
-        return values.isEmpty() ? fallback : values;
     }
 
     private void recordExecutionLog(String executionNo, String capability, PromptRuntime prompt, AiModelBO model,
@@ -332,13 +218,6 @@ public class MediaTranscriptionAiAppService {
         }
     }
 
-    private void addIfPresent(Set<String> values, String value) {
-        String normalized = normalize(value);
-        if (!normalized.isBlank()) {
-            values.add(normalized);
-        }
-    }
-
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
@@ -358,11 +237,6 @@ public class MediaTranscriptionAiAppService {
     private String truncate(String value, int maxLength) {
         String normalized = normalize(value);
         return normalized.length() > maxLength ? normalized.substring(0, maxLength) : normalized;
-    }
-
-    private String blankTo(String value, String fallback) {
-        String normalized = normalize(value);
-        return normalized.isBlank() ? fallback : normalized;
     }
 
     private record PromptRuntime(String promptKey, String promptVersion, String systemPrompt, String userPromptTemplate) {

@@ -1,5 +1,12 @@
 # Cynexus Setup Findings
 
+## Market Information dashboard redesign (2026-07-15)
+
+- User approved seven layers: Market Pulse, What Matters Today, Impact Map, Risk/Watchlist, Company Events, Upcoming Triggers, and Raw Feed.
+- Existing brief JSON already provides market tone, key events, policy/industry/company signals, risk signals, uncertainties, affected scopes, source coverage, and analysis window.
+- Existing feed rows provide category, source, AI status, direction, materiality, impact industries, and event Sheet navigation.
+- First implementation should organize existing data before expanding backend capabilities; new providers or extra concepts are intentionally deferred.
+
 ## Guide Requirements
 
 - Root project: `cynexus`
@@ -550,3 +557,146 @@ Required market modules:
 - The first implementation keeps extraction synchronous per explicit user action, but persists both success and failure states. This gives immediate reader feedback, a retry path, and a natural cache boundary before introducing a background worker.
 - Sina's declared `ISO-8859-1` response charset is unreliable: its recent article pages contain valid UTF-8. Extraction now tries strict UTF-8 before GB18030 fallback and removes the standard Sina promotion/footer marker before hashing or AI analysis.
 - `ScenarioExecutionAppService` had two existing generic-path limitations: it attempted to query a missing model-config table and `AgentExecutor.execute` returned synthetic content. The stock-information no-tool path now resolves a configured provider binding and invokes the actual adapter; its successful live result used the existing DeepSeek application-analysis binding.
+## Market Information Research
+
+- Pending inventory.
+## Market Information (2026-07-13)
+
+- Reused existing market facts: `a_stock_news` (`eastmoney.7x24` only), `a_stock_limit_pool_snapshot`, `a_stock_hot_rank_snapshot`, and `a_stock_dragon_tiger_daily`.
+- No new fact table is required; all data already lands in `cynexus_appl_market` through the Python A-stock datasets.
+- Added Java layered query API at `/api/market/information` and a dedicated UI service under `src/services/market`.
+## Market Information source expansion (2026-07-13)
+
+- Added Cailian Press telegraph ingestion through `https://www.cls.cn/api/cache?name=telegraph` with home warm-up, cache-busting, and 418 retry handling.
+- Added CNInfo/Juchao market-policy ingestion using global announcement search terms and exclusion of rows carrying a security code.
+- Market API now exposes Cailian macro news, CNInfo policy announcements, leader-linked events, hot-rank leaders, limit-pool signals, and Dragon Tiger rows.
+- The user approved integrating all proposed source families: government/official macro sources, regulatory and exchange notices, CNInfo extensions, Cailian/EastMoney/media feeds, industry sources, and leader-company events.
+- Existing persistence already supports general news in `a_stock_news` and official notices in `a_stock_announcement`; new source adapters should reuse those contracts unless a source requires a genuinely different fact model.
+- The expansion must preserve source-level throttling, encoding validation, canonical URLs, raw payload provenance, and per-source failure isolation. It must not bypass the Python -> Java -> UI layering.
+- Live endpoint inventory confirmed accessible HTML list pages for China Government policy, PBoC, NBS, MOF, NDRC, CSRC, SZSE, Xinhua, and CCTV; SSE and some exchange pages are blocked or dynamic and require dedicated adapters later.
+- The generic collector successfully persisted 96 rows from eight official sources. A single global `ORDER BY ... LIMIT` hid these rows behind CLS/EastMoney volume, so the Java feed now queries and interleaves each source independently.
+- CNInfo regulatory search terms (`监管函`, `问询`, `纪律处分`, `行政处罚`, `监管措施`, `异常交易`, `自律监管`, `立案`) returned 94 rows in the live run and can be persisted alongside market policy announcements.
+- CAAM industry/policy lists and China Nonferrous news/statistics/policy lists are reachable and produced 60 additional source rows in the refreshed 156-row official collection.
+- SSE currently responds with 403 and BSE public list probes return 404 or anti-bot shells. SZSE and CNInfo regulation remain the stable exchange/regulatory coverage; blocked sources are intentionally not represented as successful feeds.
+## Market Information Pagination Findings (2026-07-13)
+
+- The apparent 60-row limit was an API/UI contract limit, not a database limit. Before this change, more than 400 eligible rows were already persisted but unreachable from the page.
+- EastMoney `getFastNewsList` returns a `data.sortEnd` cursor and a maximum practical batch of 50. Reusing that cursor yielded 300 unique rows in six paced requests.
+- A single content table is a better fit for this page than separate news, policy, signal, leader, and Dragon-Tiger panels. Market news and CNInfo announcements share a stable common shape and can be classified without losing source provenance.
+- The live unified query currently contains 1,157 rows. Source-balanced ranking prevents EastMoney's 550 rows from crowding out official, exchange, media, association, and CNInfo records on early pages.
+
+## Market Information AI Findings (2026-07-14)
+
+- `OpenAiCompatibleChatAdapter` already selects `/responses` from provider `extra.wire_api`, sends `store=false`, maps `model_reasoning_effort`, and parses `output_text` or nested output content.
+- Provider adapters are registered by a fixed `providerCode`; a database row with `provider_type=custom` therefore needs a `custom` adapter bean rather than only a provider seed.
+- Existing `ScenarioExecutionAppService` routes stock information through one binding/provider and cannot express Custom-to-DeepSeek fallback. Market information needs a dedicated typed AI application service.
+- Existing source content extraction supports inline text and approved HTML/PDF sources, but its exact-host allowlist does not cover most market-wide official/media/association providers.
+- Core owns business schedules. Automatic analysis should be triggered through a typed Market automation client rather than a hidden Market scheduler or Python-to-Java callback.
+- The current first-pass `refreshPipeline` deletes all members/clusters before insertion. Although deterministic IDs reduce churn, it must be replaced with upsert/member reconciliation to preserve referential history and analyses safely.
+- Existing collection jobs normalize and batch-write raw news, so content extraction should run after raw PostgreSQL writes using the persisted source identity, not during source fetch normalization.
+- The scheduler currently treats only Python data-job mappings as runnable. Market pipeline refresh needs an explicit typed automation dispatch branch plus fixed Market base URL configuration.
+- Full UI build currently fails in unrelated files; the scoped Market Information ESLint command passes and should remain the feature regression gate until those existing failures are separately repaired.
+- Maven previously used Surefire 2.12.4 and silently skipped JUnit 5 tests. The root build now activates Surefire 3.5.3, and the new cluster/evaluation tests execute rather than only compile.
+- The supplied Custom secret is not present in the working `.env`; a blank ignored entry was created. Live Custom smoke/evaluation cannot run until the local value is populated, and no DeepSeek call was made.
+- AI Provider credentials support two modes: `ai_providers.api_key` (database-managed and masked by the UI) and `ai_providers.api_key_env` (environment reference). Existing providers use both modes; the Market Information Custom provider is now aligned with the database-managed providers.
+- Custom `gpt-5.5` completed one event analysis and one daily brief through the Responses API with `fallbackUsed=false`. After moving the secret from `.env` to `ai_providers.api_key`, a second request reached the provider with the container environment blank and returned `429 DAILY_LIMIT_EXCEEDED`, proving database secret resolution works while identifying upstream quota as the current live blocker.
+
+## My Codex provider addition (2026-07-14)
+
+- A second provider row must use a unique database code such as `custom-yancc` while keeping `provider_type=custom` for adapter dispatch.
+- The supplied bearer credential is runtime data and must be stored only in `cynexus_appl_ai.ai_providers.api_key`; the migration must preserve any existing key and contain no plaintext secret.
+- Existing Market Information bindings should remain on the current provider; this task adds an available provider rather than changing production routing.
+- `AiModelBO.providerCode` is currently the adapter-dispatch key throughout `AgentExecutor`; changing its meaning globally would break registered adapters.
+- Market Information should therefore add a separate provider-row identity field and use it only for persisted provenance/cache keys, while `providerCode` remains `provider_type` (`custom`) for adapter dispatch.
+- `ai_providers.code` remains the unique row identifier; the new row can safely use `custom-yancc` with `provider_type=custom`.
+- The existing Provider controller already masks `apiKey` in API responses, so no new secret-response mechanism is required.
+- Release `1.0.20-260714-RELEASE` remains online and healthy while the working tree has advanced to development version `1.0.21-SNAPSHOT`; no Release redeploy is required to persist a new provider row.
+- The new migration applied successfully and created `custom-yancc` with the intended Responses API metadata and an empty credential ready for Provider-managed storage.
+- Provider CRUD successfully stored the credential in `ai_providers.api_key`, returned only a masked value, and left `api_key_env` empty.
+- A direct Responses API smoke succeeded with `gpt-5.4`, low reasoning, `store=false`, and valid JSON output; no DeepSeek fallback was invoked.
+
+## Market Information DeepSeek switch (2026-07-14)
+
+- The persisted `deepseek` provider is enabled, has a database-managed key, and successfully returned structured JSON from `deepseek-v4-flash`.
+- Both Market Information bindings currently point to the Custom provider and list DeepSeek only as fallback.
+- Release currently injects `CYNEXUS_AI_DEEPSEEK_LIVE_LIMIT=20`, and the persistent development usage counter has already reached 20; production processing would therefore be blocked unless Release uses `-1` (the worker's existing unlimited mode).
+- Dev should retain its 20-call evaluation cap; only the Release runtime should become unlimited.
+- The worker already had an `if (deepSeekLiveLimit < 0) return true` branch, but its constructor used `Math.max(0, value)`, so unlimited mode was unreachable. The constructor must preserve `-1`.
+- The first real DeepSeek task proved provider routing worked, but strict validation correctly rejected its analysis because the cached source was `summary_only` and contained only the title while the model inferred full policy details. The prompt needs explicit title-only constraints rather than weakening evidence validation.
+- Prompt v2 resolved the title-only case without relaxing validation: the next forced event completed successfully on DeepSeek V4 Flash with no fallback, and the latest daily brief is also successful on DeepSeek.
+
+## Market Brief structure audit (2026-07-14)
+
+- The current top-level fields roughly match the original checklist, but the protocol is only a free-form object with string arrays and field-existence validation.
+- `loadBriefInput` currently reads any successful analysis created in the previous 36 hours; it does not select one latest row per cluster or require the current cluster content hash and current prompt/schema versions.
+- The UI renders only the first three key events, merges policy and industry signals, and hides source coverage and event references, which makes the result look materially different from the intended market-level brief.
+- The live brief includes 30 references and source counts, demonstrating that the data exists but the current UI and schema do not expose or structure it adequately.
+- The AI repository contract currently has version-agnostic `loadBriefInput()` and `enqueueDailyBrief()` methods, so the worker cannot ask for a current-version input snapshot.
+- Market persists and transports the brief as JSON text, which can remain backward-compatible while the worker strengthens the schema and the UI parses typed v2 content.
+- `latestBrief()` selects the newest successful row regardless of schema/prompt version; a newly generated v2 row will naturally replace the old display without a destructive data migration.
+- The current-version SQL snapshot returns 30 unique current clusters and deterministic analysis-window/source-coverage metadata successfully against live PostgreSQL.
+- Deterministic fields should not rely on the model copying JSON perfectly: source coverage, analysis window, event references, and selected-event metadata can be reattached from validated event inputs before final validation.
+- Existing pending daily-brief tasks can carry obsolete input hashes; because brief processing reloads current input, they would otherwise spend repeated model calls and persist duplicate rows under stale hashes. The worker should mark stale-hash tasks complete without calling the provider.
+- The final live v2 brief is produced by DeepSeek V4 Flash with prompt v3, uses 30 current events, and exposes the new structured fields through the existing `contentJson` API boundary.
+
+## Market Event value and analysis audit (2026-07-14)
+
+- Any official/CNInfo regulation currently reaches the `highValue` threshold from category plus source alone, so routine abnormal-volatility notices and inquiry replies are over-promoted.
+- The event protocol contains structured labels but still behaves like a summary because it lacks information delta, transmission mechanism, expectation gap, scenarios, catalysts, and verification watch items.
+- Live event-member content is overwhelmingly `summary_only`: EastMoney 1,440; CLS 329; CNInfo regulation 182; government policy 33. The existing 700 full-text cache rows are not serving current market event members.
+- The event Sheet visually centers `summary` under “Assessment”; its richer fields are only badges/lists, reinforcing the summary-only experience.
+- The `impeccable` product register requires restrained, task-first density, familiar controls, clear state semantics, and no nested-card decoration; the Sheet should emphasize analysis flow and evidence quality rather than decorative panels.
+- Live CNInfo PDF extraction itself is healthy: `https://static.cninfo.com.cn/finalpage/2026-07-15/1225425117.PDF` produced 20,894 characters of selectable text inside Data Executor. The coverage gap is therefore mainly historical/retry orchestration, not PDF parsing.
+- Current event-member cache coverage is already good for official HTML and CLS sources, but remains `summary_only` for 181/182 CNInfo regulation members and all EastMoney 7x24 members. EastMoney wires often have no article body URL, so title/summary degradation is expected there; CNInfo should be backfilled.
+- The current post-write extraction only examines rows in the latest collected batches and re-attempts them without first checking for an existing full-text cache. A bounded recent-content backfill and retry cooldown are needed to improve coverage without repeatedly fetching the same sources.
+- `market_information_event_member` can be joined to current cache quality, so cluster scoring can use actual full-text availability instead of assuming every raw row has equal evidence quality.
+- Event-analysis protocol versions must be part of the Market read/queue contract as well as the AI cache key. Otherwise an old successful v1 analysis makes the UI appear current and prevents automatic v2 work from being queued for the same cluster content hash.
+- Existing task uniqueness only applies to active tasks, so current-version work can safely be re-queued after an old task has succeeded as long as queue checks only treat `PENDING`/`RUNNING` rows as active.
+
+## Information Dashboard competitor review (2026-07-15)
+
+- 财联社公开电报页强调“市场状态/热度 -> 头条 -> 实时电报 -> 投资日历/热点”，而不是长摘要纵向堆叠。
+- 东方财富全球快讯把焦点、地区、央行、经济数据、全球市场、商品、外汇、债券、基金做成并列分类，同时提供自动刷新和行情模块。
+- 同花顺把财经要闻、公司新闻、行业、投资日历、事件掘金、异动观察、7x24、早盘必读和限售解禁按用户任务拆开。
+- Koyfin强调可组合 Dashboard、Watchlist、Macro Dashboard 与 News + market data，适合参考模块化而非报告式布局。
+- TradingView News强调 Top stories、资产分类、来源/时间和 Watchlist/图表联动。
+- Wind/Bloomberg公开页面无法完整访问终端，但其公开产品结构仍可作为事件库、宏观日历、Market Monitor 和资产关联的模型参考。
+- 当前 Information 页面主要问题是所有区域视觉权重接近、内容重复、Impact Map 只展示出现次数、空的 Upcoming Triggers 占用纵向空间，缺少强势的当前市场状态入口。
+- V2 方案应采用 Market Pulse -> 决策工作区 -> 完整资讯流三层结构；中部使用左右布局，避免 Brief、Risk、Company Events 和 Table 继续连续堆叠。
+
+## Langfuse observability (2026-07-15)
+
+- The repository already includes `com.knuddels:jtokkit:1.1.0`, but it is not wired into the runtime and is unrelated to call-level observability.
+- `cynexus_appl_ai.ai_execution_log` persists token counts for the main AI application flows, but there is no aggregate API/UI or cost calculation.
+- `AgentExecutor.completeDetailed` is the common model-call boundary for the current AI features, making it the least invasive Langfuse instrumentation point.
+- Langfuse can receive `generation-create` events through `/api/public/ingestion`; a small Java HTTP client avoids introducing a vendor SDK or Maven module coupling.
+- Langfuse cost calculation requires model pricing metadata in Langfuse. The integration should send provider/model and usage, while pricing remains configurable in the Langfuse project.
+- Observability must be fail-open: a Langfuse timeout/auth/server failure cannot change an AI completion result.
+- Prompt/response content should default to disabled; only sanitized previews may be enabled explicitly for local debugging.
+- The official Langfuse v3 Compose layout uses separate web/worker, PostgreSQL, ClickHouse, Redis, and MinIO services; the project copy binds only the web/MinIO ports and joins the existing application Docker network for AI-to-Langfuse traffic.
+- Langfuse was removed after runtime evaluation because the separate six-service stack was too heavy for the intended local workflow. Native PostgreSQL aggregation is now the preferred direction.
+
+## Shared-resource Langfuse usage view (2026-07-15)
+
+- Langfuse v3's official deployment uses a separate `langfuse-worker` image; the shared-resource compose therefore uses `langfuse/langfuse:3` for Web and `langfuse/langfuse-worker:3` for Worker.
+- The shared Cynexus network exposes existing containers as `cynexus-postgres`, `cynexus-clickhouse`, and `cynexus-redis`; unique Langfuse service names avoid Compose DNS collisions.
+- The native UI can remain credential-free by proxying Langfuse observations through the AI service at `/api/ai/usage`.
+
+## DDD application/domain audit (2026-07-15)
+
+- `KnowledgeBaseIndexAppService` contained Markdown chunking, content hashing, token estimation, and index-task construction. These rules now belong to `KnowledgeBaseIndexDomainService`.
+- Application services may translate API DTOs and coordinate a use case, but must not own domain validation, normalization, scoring, routing, parsing, scheduling policy, or aggregate state transitions.
+- Domain modules must remain independent of API DTOs, MVC, persistence PO classes, MyBatis, Feign, Spring AI, and infrastructure clients.
+- Infrastructure implementations remain responsible for persistence and external calls; application services should depend on domain service contracts and repositories only through the domain module.
+- Final dependency audit found no direct `infra` imports or Infra dependencies in the four application-controller modules; AI market access now uses the `ai-api` `MarketDataGateway` port.
+
+## DDD follow-up audit (2026-07-15)
+
+- The first DDD pass was incomplete: Knowledge Base is mostly thin, but Market still has large query services with date fallback, JSON parsing, scoring, aggregation, and query-policy decisions in application; Core still has scheduler reconciliation/history/status logic and media workflow rules; AI still has evidence/schema validation, prompt fallback, enrichment, JSON normalization, and K-line aggregation in application.
+- Highest-risk remaining services are `MarketPulseQueryAppService`, `StockChartQueryAppService`, `MarketSentimentQueryAppService`, `SchedulerAppService`, `MediaTranscriptionAppService`, `MarketInformationAiWorker`, `KnowledgeBaseDocumentGenerationAppService`, `ApplicationAnalysisRecent30Executor`, and `ApplicationAnalysisKlineInputBuilder`.
+- CRUD-only services are not automatically exempt: their input validation and aggregate state rules must still be checked, while pure repository delegation may remain in application.
+
+## Domain package audit (2026-07-16)
+
+- The flat `domain/service` layout obscured ownership even after business rules were moved out of Application. Feature folders now separate application analysis, knowledge base, market information, media transcription, scheduler, routing, ports, and Market subdomains.
+- Package declarations and imports were audited after the move; all four module Domain roots compile without Java sources under `domain/service`.

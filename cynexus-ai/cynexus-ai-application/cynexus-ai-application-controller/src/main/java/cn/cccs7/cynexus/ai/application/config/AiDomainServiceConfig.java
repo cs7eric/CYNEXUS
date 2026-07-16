@@ -1,9 +1,9 @@
 package cn.cccs7.cynexus.ai.application.config;
 
-import cn.cccs7.cynexus.ai.domain.service.ModelRoutingDomainService;
-import cn.cccs7.cynexus.ai.domain.service.OutputValidationDomainService;
-import cn.cccs7.cynexus.ai.domain.service.impl.ModelRoutingDomainServiceImpl;
-import cn.cccs7.cynexus.ai.domain.service.impl.OutputValidationDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainService;
+import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
+import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

@@ -18,7 +18,7 @@ import org.springframework.core.env.Environment;
 
 public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(90);
+    private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(90);
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
     private static final String V1_CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
     private static final String RESPONSES_PATH = "/responses";
@@ -51,7 +51,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             boolean jsonOutput = shouldRequestJsonOutput(model, prompt);
             String payload = responsesApi ? buildResponsesPayload(model, prompt, jsonOutput) : buildChatPayload(model, prompt, jsonOutput);
             HttpRequest request = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
-                    .timeout(REQUEST_TIMEOUT)
+                    .timeout(resolveRequestTimeout(model))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
@@ -158,6 +158,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         return URI.create(baseUrl + path);
     }
 
+    private Duration resolveRequestTimeout(AiModelBO model) {
+        int seconds = extraInt(model, "request_timeout_seconds", (int) DEFAULT_REQUEST_TIMEOUT.toSeconds());
+        return Duration.ofSeconds(Math.max(10, Math.min(seconds, 600)));
+    }
+
     private String extractChatContent(String responseBody) throws IOException {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode content = root.at("/choices/0/message/content");
@@ -239,6 +244,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         JsonNode extra = extra(model);
         JsonNode value = extra.get(field);
         return value == null || value.isNull() ? defaultValue : value.asBoolean(defaultValue);
+    }
+
+    private int extraInt(AiModelBO model, String field, int defaultValue) {
+        JsonNode value = extra(model).get(field);
+        return value == null || value.isNull() || !value.canConvertToInt() ? defaultValue : value.asInt(defaultValue);
     }
 
     private boolean shouldRequestJsonOutput(AiModelBO model, String prompt) {

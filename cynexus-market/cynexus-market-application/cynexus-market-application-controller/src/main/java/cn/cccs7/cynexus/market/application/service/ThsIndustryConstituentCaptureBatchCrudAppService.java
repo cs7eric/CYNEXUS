@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.ThsIndustryConstituentCaptureBatchDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.ThsIndustryConstituentCaptureBatchDTO;
 import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentCaptureBatchBO;
-import cn.cccs7.cynexus.market.domain.service.ThsIndustryConstituentCaptureBatchDomainService;
+import cn.cccs7.cynexus.market.domain.sector.ThsIndustryConstituentCaptureBatchDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

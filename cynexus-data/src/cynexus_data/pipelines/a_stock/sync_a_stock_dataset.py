@@ -6,13 +6,20 @@ import time
 from typing import Any, Callable
 
 from cynexus_data.domain.stock.a_stock_persistence import AStockBatch, normalize_dataset
+from cynexus_data.pipelines.a_stock.market_information_content import (
+    extract_and_persist,
+    identities_from_batches,
+    recent_backfill_identities,
+)
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.sources.baidu.client import BaiduStockClient
+from cynexus_data.sources.cailian.client import CailianClient
 from cynexus_data.sources.cninfo.client import CninfoClient
 from cynexus_data.sources.eastmoney import a_stock as em
 from cynexus_data.sources.eastmoney.http import EastMoneyHttpClient
 from cynexus_data.sources.iwencai.client import IwencaiClient, dedup_articles
+from cynexus_data.sources.market_information.client import OfficialMarketInformationClient
 from cynexus_data.sources.sina.a_stock import SinaAStockClient
 from cynexus_data.sources.tdx.mootdx_market import fetch_order_book, fetch_transactions
 from cynexus_data.sources.ths.a_stock import ThsAStockClient
@@ -143,6 +150,11 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         if create_table:
             pg_repo.create_tables()
         rows_written += pg_repo.upsert_batches(pg_batches)
+        information_identities = identities_from_batches(pg_batches)
+        if information_identities and _bool(params.get("extract_market_information_content"), True):
+            backfill_limit = _int(params.get("market_information_content_backfill_limit")) or 0
+            information_identities.extend(recent_backfill_identities(pg_repo.client, backfill_limit))
+            dataset_results["market_information_content"] = extract_and_persist(pg_repo.client, information_identities)
     if ch_batches:
         ch_repo = AStockClickHouseRepository(context.hooks.clickhouse.get_client())
         if create_table:
@@ -230,7 +242,16 @@ def _fetch_sina_stock_news(params: dict[str, Any]) -> Any:
 
 
 def _fetch_eastmoney_global_news(params: dict[str, Any]) -> Any:
-    return em.global_news(_em_client(), page_size=_int(params.get("page_size")) or 50)
+    return em.global_news(_em_client(), page_size=_int(params.get("eastmoney_news_page_size")) or _int(params.get("page_size")) or 50)
+
+
+def _fetch_cailian_telegraph(params: dict[str, Any]) -> Any:
+    return CailianClient().telegraph(page_size=_int(params.get("cailian_page_size")) or _int(params.get("page_size")) or 50)
+
+
+def _fetch_official_market_information(params: dict[str, Any]) -> Any:
+    keys = _list_param(params.get("source_keys") or params.get("sources"))
+    return OfficialMarketInformationClient().fetch(source_keys=keys or None, page_size=_int(params.get("official_page_size")) or _int(params.get("page_size")) or 40)
 
 
 def _fetch_eastmoney_limit_pool(params: dict[str, Any]) -> Any:
@@ -267,6 +288,14 @@ def _fetch_ths_hot_list(params: dict[str, Any]) -> Any:
 
 def _fetch_cninfo_announcements(params: dict[str, Any]) -> Any:
     return CninfoClient().announcements(str(params["code"]), page_size=_int(params.get("page_size")) or 30)
+
+
+def _fetch_cninfo_market_announcements(params: dict[str, Any]) -> Any:
+    return CninfoClient().market_announcements(page_size=_int(params.get("cninfo_market_page_size")) or _int(params.get("page_size")) or 200)
+
+
+def _fetch_cninfo_regulatory_announcements(params: dict[str, Any]) -> Any:
+    return CninfoClient().regulatory_announcements(page_size=_int(params.get("cninfo_regulatory_page_size")) or _int(params.get("page_size")) or 100)
 
 
 def _fetch_cninfo_irm(params: dict[str, Any]) -> Any:
@@ -327,6 +356,8 @@ DATASETS: dict[str, DatasetSpec] = {
     "eastmoney_stock_news": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_stock_news),
     "sina_stock_news": DatasetSpec("sina", "postgres", True, 1.0, _fetch_sina_stock_news),
     "eastmoney_global_news": DatasetSpec("eastmoney", "postgres", False, 2.0, _fetch_eastmoney_global_news),
+    "cailian_telegraph": DatasetSpec("cailian", "postgres", False, 1.0, _fetch_cailian_telegraph),
+    "official_market_information": DatasetSpec("official", "postgres", False, 2.0, _fetch_official_market_information),
     "eastmoney_limit_pool": DatasetSpec("eastmoney", "postgres", False, 2.0, _fetch_eastmoney_limit_pool),
     "eastmoney_hot_rank": DatasetSpec("eastmoney", "postgres", False, 5.0, _fetch_eastmoney_hot_rank),
     "eastmoney_hot_concept": DatasetSpec("eastmoney", "postgres", True, 5.0, _fetch_eastmoney_hot_concept),
@@ -336,6 +367,8 @@ DATASETS: dict[str, DatasetSpec] = {
     "ths_limit_up_pool": DatasetSpec("ths", "postgres", False, 1.0, _fetch_ths_limit_up_pool),
     "ths_hot_list": DatasetSpec("ths", "postgres", False, 1.0, _fetch_ths_hot_list),
     "cninfo_announcements": DatasetSpec("cninfo", "postgres", True, 1.5, _fetch_cninfo_announcements),
+    "cninfo_market_announcements": DatasetSpec("cninfo", "postgres", False, 1.5, _fetch_cninfo_market_announcements),
+    "cninfo_regulatory_announcements": DatasetSpec("cninfo", "postgres", False, 1.5, _fetch_cninfo_regulatory_announcements),
     "cninfo_irm": DatasetSpec("cninfo", "postgres", True, 1.5, _fetch_cninfo_irm),
     "sina_financial_report": DatasetSpec("sina", "postgres", True, 0.5, _fetch_sina_financial),
     "sina_option_codes": DatasetSpec("sina", "postgres", False, 0.5, _fetch_sina_option_codes),

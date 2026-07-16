@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.ProfitEffectDailyDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.ProfitEffectDailyDTO;
 import cn.cccs7.cynexus.market.domain.entity.ProfitEffectDailyBO;
-import cn.cccs7.cynexus.market.domain.service.ProfitEffectDailyDomainService;
+import cn.cccs7.cynexus.market.domain.sentiment.ProfitEffectDailyDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

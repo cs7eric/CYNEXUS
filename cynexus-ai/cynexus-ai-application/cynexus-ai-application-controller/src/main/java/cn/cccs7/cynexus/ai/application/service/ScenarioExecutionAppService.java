@@ -11,10 +11,10 @@ import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
-import cn.cccs7.cynexus.ai.domain.service.OutputValidationDomainService;
+import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionTracePort;
+import cn.cccs7.cynexus.ai.domain.port.AiToolCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
-import cn.cccs7.cynexus.ai.infra.observability.AiTraceLogger;
-import cn.cccs7.cynexus.ai.infra.tool.registry.AiToolRegistry;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -25,8 +25,8 @@ public class ScenarioExecutionAppService {
     private final ModelRouteAppService modelRouteAppService;
     private final PromptRenderAppService promptRenderAppService;
     private final AgentExecutor agentExecutor;
-    private final AiToolRegistry aiToolRegistry;
-    private final AiTraceLogger aiTraceLogger;
+    private final AiToolCatalog aiToolCatalog;
+    private final AiExecutionTracePort aiExecutionTracePort;
     private final OutputValidationDomainService outputValidationDomainService;
     private final AiExecutionAssembler aiExecutionAssembler;
     private final AiUsageBindingRepository aiUsageBindingRepository;
@@ -35,8 +35,8 @@ public class ScenarioExecutionAppService {
     public ScenarioExecutionAppService(ModelRouteAppService modelRouteAppService,
                                        PromptRenderAppService promptRenderAppService,
                                        AgentExecutor agentExecutor,
-                                       AiToolRegistry aiToolRegistry,
-                                       AiTraceLogger aiTraceLogger,
+                                       AiToolCatalog aiToolCatalog,
+                                       AiExecutionTracePort aiExecutionTracePort,
                                        OutputValidationDomainService outputValidationDomainService,
                                        AiExecutionAssembler aiExecutionAssembler,
                                        AiUsageBindingRepository aiUsageBindingRepository,
@@ -44,8 +44,8 @@ public class ScenarioExecutionAppService {
         this.modelRouteAppService = modelRouteAppService;
         this.promptRenderAppService = promptRenderAppService;
         this.agentExecutor = agentExecutor;
-        this.aiToolRegistry = aiToolRegistry;
-        this.aiTraceLogger = aiTraceLogger;
+        this.aiToolCatalog = aiToolCatalog;
+        this.aiExecutionTracePort = aiExecutionTracePort;
         this.outputValidationDomainService = outputValidationDomainService;
         this.aiExecutionAssembler = aiExecutionAssembler;
         this.aiUsageBindingRepository = aiUsageBindingRepository;
@@ -69,7 +69,7 @@ public class ScenarioExecutionAppService {
         String prompt = promptRenderAppService.render(systemPrompt(request.getScenarioCode()), request.getUserInput(),
                 request.getVariables());
         List<String> toolCodes = "stock_information_analysis".equals(request.getScenarioCode())
-                ? List.of() : aiToolRegistry.enabledToolCodes();
+                ? List.of() : aiToolCatalog.enabledToolCodes();
         String content = agentExecutor.execute(scenario, model, prompt, toolCodes);
         boolean valid = outputValidationDomainService.validateJsonRequired(scenario.isJsonOutputRequired(), content);
         AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
@@ -81,7 +81,7 @@ public class ScenarioExecutionAppService {
                 content,
                 toolCodes
         );
-        aiTraceLogger.record(execution.getExecutionNo(), status.name());
+        aiExecutionTracePort.record(execution.getExecutionNo(), status);
         return aiExecutionAssembler.toTarget(execution);
     }
 
@@ -113,7 +113,8 @@ public class ScenarioExecutionAppService {
         return AiModelBO.builder()
                 .modelCode(modelCode).modelName(modelCode).providerCode(providerCode)
                 .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
-                .extra(provider.getExtra()).enabled(true)
+                .extra(provider.getExtra()).inputPricePerMillion(provider.getInputPricePerMillion())
+                .outputPricePerMillion(provider.getOutputPricePerMillion()).pricingCurrency(provider.getPricingCurrency()).enabled(true)
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build())
                 .build();
     }

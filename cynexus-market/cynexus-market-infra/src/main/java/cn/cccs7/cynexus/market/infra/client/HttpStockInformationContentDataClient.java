@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.market.infra.client;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.market.domain.entity.StockInformationBO;
+import cn.cccs7.cynexus.market.domain.information.StockInformationContentExtractor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -18,7 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class HttpStockInformationContentDataClient {
+public class HttpStockInformationContentDataClient implements StockInformationContentExtractor {
 
     private static final String TOKEN_HEADER = "X-Cynexus-Internal-Token";
     private final HttpClient httpClient;
@@ -37,6 +38,7 @@ public class HttpStockInformationContentDataClient {
         this.httpClient = HttpClient.newBuilder().connectTimeout(this.requestTimeout).build();
     }
 
+    @Override
     public StockInformationBO.Content extract(StockInformationBO.SourceRecord record) {
         try {
             Map<String, String> body = new LinkedHashMap<>();

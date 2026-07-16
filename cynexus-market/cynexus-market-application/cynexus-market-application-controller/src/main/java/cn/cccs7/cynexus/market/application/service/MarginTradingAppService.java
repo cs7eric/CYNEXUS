@@ -12,31 +12,24 @@ import cn.cccs7.cynexus.market.domain.entity.MarginIndustrySummaryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginMarketSummaryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginStockDetailBO;
 import cn.cccs7.cynexus.market.domain.repository.MarginTradingRepository;
+import cn.cccs7.cynexus.market.domain.margin.MarginTradingDomainPolicy;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 
 @Service
 public class MarginTradingAppService {
 
-    private static final int DEFAULT_TOP_STOCK_LIMIT = 20;
-    private static final int DEFAULT_STOCK_LIMIT = 100;
-    private static final int DEFAULT_RANKING_PAGE_SIZE = 20;
-    private static final int MAX_STOCK_LIMIT = 500;
-    private static final int DEFAULT_HISTORY_DAYS = 120;
-
     private final MarginTradingRepository marginTradingRepository;
+    private final MarginTradingDomainPolicy domainPolicy = new MarginTradingDomainPolicy();
 
     public MarginTradingAppService(MarginTradingRepository marginTradingRepository) {
         this.marginTradingRepository = marginTradingRepository;
     }
 
     public MarginTradingLatestDTO latest(String tradeDate, int top) {
-        LocalDate requestedTradeDate = parseDate(tradeDate).orElse(null);
+        LocalDate requestedTradeDate = domainPolicy.parseDate(tradeDate).orElse(null);
         LocalDate servingTradeDate = marginTradingRepository.findLatestTradeDate(requestedTradeDate).orElse(null);
         if (servingTradeDate == null) {
             return MarginTradingLatestDTO.builder()
@@ -50,18 +43,19 @@ public class MarginTradingAppService {
                     .error("margin trading data is empty")
                     .build();
         }
-        int safeTop = clampLimit(top, DEFAULT_TOP_STOCK_LIMIT);
+        int safeTop = domainPolicy.clampLimit(top, MarginTradingDomainPolicy.DEFAULT_TOP_STOCK_LIMIT);
         List<MarginMarketSummaryBO> summaries = marginTradingRepository.listMarketSummaryByTradeDate(servingTradeDate);
         MarginAccountStatsBO account = marginTradingRepository.findAccountStatsByTradeDate(servingTradeDate).orElse(null);
         List<MarginStockDetailBO> topStocks = marginTradingRepository.listStocks(servingTradeDate, null, null, "margin_balance", "desc", 0, safeTop);
         int stockCount = marginTradingRepository.countStocks(servingTradeDate, null, null);
+        MarginTradingDomainPolicy.ServingMetadata metadata = domainPolicy.servingMetadata(summaries, account, topStocks);
         return MarginTradingLatestDTO.builder()
                 .ok(true)
                 .tradeDate(servingTradeDate)
                 .requestedTradeDate(requestedTradeDate)
                 .fallbackTradeDate(requestedTradeDate != null && !requestedTradeDate.equals(servingTradeDate))
-                .source(resolveSource(summaries, account))
-                .updatedAt(resolveUpdatedAt(summaries, account, topStocks))
+                 .source(metadata.source())
+                 .updatedAt(metadata.updatedAt())
                 .summaryCount(summaries.size())
                 .stockCount(stockCount)
                 .summaries(summaries.stream().map(this::summaryDTO).toList())
@@ -71,8 +65,8 @@ public class MarginTradingAppService {
     }
 
     public MarginTradingHistoryDTO summaryHistory(String start, String end) {
-        LocalDate endDate = parseDate(end).orElse(LocalDate.now());
-        LocalDate startDate = parseDate(start).orElse(endDate.minusDays(DEFAULT_HISTORY_DAYS - 1L));
+        LocalDate endDate = domainPolicy.parseDate(end).orElse(LocalDate.now());
+        LocalDate startDate = domainPolicy.parseDate(start).orElse(endDate.minusDays(MarginTradingDomainPolicy.DEFAULT_HISTORY_DAYS - 1L));
         if (startDate.isAfter(endDate)) {
             LocalDate previousStart = startDate;
             startDate = endDate;
@@ -99,13 +93,14 @@ public class MarginTradingAppService {
                                          Integer page,
                                          Integer pageSize,
                                          int limit) {
-        LocalDate requestedTradeDate = parseDate(tradeDate).orElse(null);
+        LocalDate requestedTradeDate = domainPolicy.parseDate(tradeDate).orElse(null);
         LocalDate servingTradeDate = marginTradingRepository.findLatestTradeDate(requestedTradeDate).orElse(null);
-        PageQuery pageQuery = PageQuery.of(page, pageSize == null ? limit : pageSize, DEFAULT_STOCK_LIMIT, MAX_STOCK_LIMIT);
-        String normalizedSort = normalizeStockSort(sort);
-        String normalizedSortDir = normalizeSortDir(sortDir);
-        String normalizedExchange = normalizeExchange(exchange);
-        String normalizedIndustryCode = normalizeIndustryCode(industryCode);
+        PageQuery pageQuery = PageQuery.of(page, pageSize == null ? limit : pageSize,
+                MarginTradingDomainPolicy.DEFAULT_STOCK_LIMIT, MarginTradingDomainPolicy.MAX_STOCK_LIMIT);
+        String normalizedSort = domainPolicy.normalizeStockSort(sort);
+        String normalizedSortDir = domainPolicy.normalizeSortDirection(sortDir);
+        String normalizedExchange = domainPolicy.normalizeExchange(exchange);
+        String normalizedIndustryCode = domainPolicy.normalizeIndustryCode(industryCode);
         if (servingTradeDate == null) {
             return MarginTradingStocksDTO.builder()
                     .ok(false)
@@ -143,9 +138,9 @@ public class MarginTradingAppService {
     }
 
     public MarginTradingStockHistoryDTO stockHistory(String stockCode, int limit) {
-        String normalizedCode = stockCode == null ? "" : stockCode.trim().replaceAll("^(?i)(SH|SZ|BJ)", "");
+        String normalizedCode = domainPolicy.normalizeStockCode(stockCode);
         List<MarginTradingDTO.StockDetailDTO> items = marginTradingRepository
-                .listStockHistory(normalizedCode, clampLimit(limit, DEFAULT_HISTORY_DAYS))
+                .listStockHistory(normalizedCode, domainPolicy.clampLimit(limit, MarginTradingDomainPolicy.DEFAULT_HISTORY_DAYS))
                 .stream()
                 .map(this::stockDTO)
                 .toList();
@@ -158,11 +153,12 @@ public class MarginTradingAppService {
     }
 
     public MarginTradingIndustriesDTO industries(String tradeDate, String sort, String sortDir, Integer page, Integer pageSize) {
-        LocalDate requestedTradeDate = parseDate(tradeDate).orElse(null);
+        LocalDate requestedTradeDate = domainPolicy.parseDate(tradeDate).orElse(null);
         LocalDate servingTradeDate = marginTradingRepository.findLatestTradeDate(requestedTradeDate).orElse(null);
-        PageQuery pageQuery = PageQuery.of(page, pageSize, DEFAULT_RANKING_PAGE_SIZE, MAX_STOCK_LIMIT);
-        String normalizedSort = normalizeIndustrySort(sort);
-        String normalizedSortDir = normalizeSortDir(sortDir);
+        PageQuery pageQuery = PageQuery.of(page, pageSize, MarginTradingDomainPolicy.DEFAULT_RANKING_PAGE_SIZE,
+                MarginTradingDomainPolicy.MAX_STOCK_LIMIT);
+        String normalizedSort = domainPolicy.normalizeIndustrySort(sort);
+        String normalizedSortDir = domainPolicy.normalizeSortDirection(sortDir);
         if (servingTradeDate == null) {
             return MarginTradingIndustriesDTO.builder()
                     .ok(false)
@@ -279,89 +275,4 @@ public class MarginTradingAppService {
                 .build();
     }
 
-    private Optional<LocalDate> parseDate(String value) {
-        if (value == null || value.isBlank()) {
-            return Optional.empty();
-        }
-        String normalized = value.trim();
-        if (normalized.length() == 8 && !normalized.contains("-")) {
-            normalized = normalized.substring(0, 4) + "-" + normalized.substring(4, 6) + "-" + normalized.substring(6, 8);
-        }
-        return Optional.of(LocalDate.parse(normalized));
-    }
-
-    private int clampLimit(int limit, int fallback) {
-        int value = limit <= 0 ? fallback : limit;
-        return Math.max(1, Math.min(value, MAX_STOCK_LIMIT));
-    }
-
-    private String normalizeExchange(String exchange) {
-        if (exchange == null || exchange.isBlank()) {
-            return null;
-        }
-        return exchange.trim().toUpperCase();
-    }
-
-    private String normalizeIndustryCode(String industryCode) {
-        if (industryCode == null || industryCode.isBlank()) {
-            return null;
-        }
-        return industryCode.trim();
-    }
-
-    private String normalizeStockSort(String sort) {
-        if (sort == null || sort.isBlank()) {
-            return "margin_balance";
-        }
-        return switch (sort.trim()) {
-            case "stock_code", "stock_name", "exchange",
-                    "financing_balance", "financing_buy_amount", "financing_repay_amount",
-                    "securities_lending_balance", "securities_lending_balance_amount", "margin_balance" -> sort.trim();
-            default -> "margin_balance";
-        };
-    }
-
-    private String normalizeIndustrySort(String sort) {
-        if (sort == null || sort.isBlank()) {
-            return "margin_balance";
-        }
-        return switch (sort.trim()) {
-            case "industry_code", "industry_name", "tdx_code", "tdx_name", "constituent_count", "matched_stock_count",
-                    "financing_balance", "financing_buy_amount", "financing_repay_amount",
-                    "securities_lending_balance", "securities_lending_balance_amount", "margin_balance" -> sort.trim();
-            default -> "margin_balance";
-        };
-    }
-
-    private String normalizeSortDir(String sortDir) {
-        if (sortDir == null || sortDir.isBlank()) {
-            return "desc";
-        }
-        return "asc".equalsIgnoreCase(sortDir.trim()) ? "asc" : "desc";
-    }
-
-    private String resolveSource(List<MarginMarketSummaryBO> summaries, MarginAccountStatsBO account) {
-        return summaries.stream()
-                .map(MarginMarketSummaryBO::getSource)
-                .filter(item -> item != null && !item.isBlank())
-                .findFirst()
-                .orElse(account == null ? null : account.getSource());
-    }
-
-    private OffsetDateTime resolveUpdatedAt(List<MarginMarketSummaryBO> summaries,
-                                            MarginAccountStatsBO account,
-                                            List<MarginStockDetailBO> stocks) {
-        Optional<OffsetDateTime> summaryUpdatedAt = summaries.stream()
-                .map(MarginMarketSummaryBO::getUpdatedAt)
-                .filter(item -> item != null)
-                .max(Comparator.naturalOrder());
-        Optional<OffsetDateTime> stockUpdatedAt = stocks.stream()
-                .map(MarginStockDetailBO::getUpdatedAt)
-                .filter(item -> item != null)
-                .max(Comparator.naturalOrder());
-        return Stream.of(summaryUpdatedAt.orElse(null), account == null ? null : account.getUpdatedAt(), stockUpdatedAt.orElse(null))
-                .filter(item -> item != null)
-                .max(Comparator.naturalOrder())
-                .orElse(null);
-    }
 }

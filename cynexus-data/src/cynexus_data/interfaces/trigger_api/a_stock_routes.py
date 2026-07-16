@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from cynexus_data.interfaces.trigger_api.auth import require_internal_token
 from cynexus_data.sources.baidu.client import BaiduStockClient
 from cynexus_data.sources.cninfo.client import CninfoClient
+from cynexus_data.sources.cailian.client import CailianClient
 from cynexus_data.sources.eastmoney import a_stock as em
 from cynexus_data.sources.eastmoney.http import EastMoneyHttpClient
 from cynexus_data.sources.iwencai.client import IwencaiClient, dedup_articles
@@ -108,6 +109,12 @@ def eastmoney_global_news(page_size: int = 50) -> dict:
     return {"items": rows, "count": len(rows)}
 
 
+@router.get("/cailian/telegraph")
+def cailian_telegraph(page_size: int = 50) -> dict:
+    rows = CailianClient().telegraph(page_size=page_size)
+    return {"items": rows, "count": len(rows)}
+
+
 @router.get("/eastmoney/limit-pool")
 def eastmoney_limit_pool(pool: str = "zt", trade_date: str = "") -> dict:
     rows = em.limit_pool(_em_client, pool, trade_date)
@@ -169,6 +176,12 @@ def ths_hot_list(period: str = "hour") -> dict:
 @router.get("/cninfo/announcements")
 def cninfo_announcements(code: str, page_size: int = 30) -> dict:
     rows = CninfoClient().announcements(code, page_size=page_size)
+    return {"items": rows, "count": len(rows)}
+
+
+@router.get("/cninfo/market-announcements")
+def cninfo_market_announcements(page_size: int = 200) -> dict:
+    rows = CninfoClient().market_announcements(page_size=page_size)
     return {"items": rows, "count": len(rows)}
 
 

@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.core.application.service;
 import cn.cccs7.cynexus.core.application.convert.TaskJobRunDTOConverter;
 import cn.cccs7.cynexus.core.api.dto.TaskJobRunDTO;
 import cn.cccs7.cynexus.core.domain.entity.TaskJobRunBO;
-import cn.cccs7.cynexus.core.domain.service.TaskJobRunDomainService;
+import cn.cccs7.cynexus.core.domain.task.TaskJobRunDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

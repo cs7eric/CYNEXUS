@@ -15,6 +15,7 @@ import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.knowledgebase.KnowledgeBaseDocumentDraftPolicy;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
@@ -69,6 +70,7 @@ public class KnowledgeBaseDocumentGenerationAppService {
     private final StructuredJsonExtractor structuredJsonExtractor;
     private final KnowledgeBaseStructuredOutputParser outputParser;
     private final ObjectMapper objectMapper;
+    private final KnowledgeBaseDocumentDraftPolicy draftPolicy = new KnowledgeBaseDocumentDraftPolicy();
 
     public KnowledgeBaseDocumentGenerationAppService(ModelRouteAppService modelRouteAppService,
                                                      AgentExecutor agentExecutor,
@@ -90,13 +92,11 @@ public class KnowledgeBaseDocumentGenerationAppService {
     }
 
     public KnowledgeBaseGenerateDTO generate(KnowledgeBaseGenerateRequest request) {
-        String sourceText = request == null ? "" : normalize(request.getSourceText());
+        String sourceText = request == null ? "" : draftPolicy.normalizeSource(request.getSourceText());
         if (sourceText.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "sourceText is required");
         }
-        if (sourceText.length() > MAX_SOURCE_LENGTH) {
-            sourceText = sourceText.substring(0, MAX_SOURCE_LENGTH);
-        }
+        sourceText = draftPolicy.truncateSource(sourceText);
 
         AiUsageBindingBO binding = findUsageBinding(request);
         PromptRuntime promptRuntime = resolvePrompt(binding);
@@ -109,7 +109,7 @@ public class KnowledgeBaseDocumentGenerationAppService {
             String executionNo = "AI-" + UUID.randomUUID().toString().replace("-", "");
             Instant startedAt = Instant.now();
             try {
-                AiCompletionResultBO completion = agentExecutor.completeDetailed(model, prompt);
+                AiCompletionResultBO completion = agentExecutor.completeDetailed(model, prompt, CAPABILITY);
                 KnowledgeBaseGenerateDTO result = parseOrRepair(model, promptRuntime, sourceText, completion);
                 recordExecutionLog(executionNo, promptRuntime, model, "SUCCEEDED", startedAt,
                         sourceText, completion, null);
@@ -132,7 +132,7 @@ public class KnowledgeBaseDocumentGenerationAppService {
             return outputParser.convert(structuredJsonExtractor.extractObject(completion.getContent()));
         } catch (Exception parseException) {
             String repairPrompt = buildRepairPrompt(promptRuntime, sourceText, completion.getContent(), parseException);
-            AiCompletionResultBO repaired = agentExecutor.completeDetailed(model, repairPrompt);
+            AiCompletionResultBO repaired = agentExecutor.completeDetailed(model, repairPrompt, CAPABILITY);
             return outputParser.convert(structuredJsonExtractor.extractObject(repaired.getContent()));
         }
     }
@@ -267,6 +267,9 @@ public class KnowledgeBaseDocumentGenerationAppService {
                 .apiKey(provider.getApiKey())
                 .apiKeyEnv(provider.getApiKeyEnv())
                 .extra(provider.getExtra())
+                .inputPricePerMillion(provider.getInputPricePerMillion())
+                .outputPricePerMillion(provider.getOutputPricePerMillion())
+                .pricingCurrency(provider.getPricingCurrency())
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build())
                 .enabled(true)
                 .build();
@@ -357,84 +360,22 @@ public class KnowledgeBaseDocumentGenerationAppService {
     }
 
     private KnowledgeBaseGenerateDTO normalizeResult(KnowledgeBaseGenerateDTO result, String sourceText) {
-        if (result == null) {
-            return fallbackResult(sourceText, null);
-        }
-        String title = normalize(result.getTitle());
-        String description = normalize(result.getDescription());
-        String content = normalize(result.getContent());
+        KnowledgeBaseDocumentDraftPolicy.Draft draft = draftPolicy.normalize(
+                result == null ? null : result.getTitle(), result == null ? null : result.getDescription(),
+                result == null ? null : result.getTags(), result == null ? null : result.getCategories(),
+                result == null ? null : result.getContent(), sourceText, null);
         return KnowledgeBaseGenerateDTO.builder()
-                .title(title.isBlank() ? buildTitle(sourceText) : title)
-                .description(description.isBlank() ? buildDescription(sourceText) : description)
-                .tags(normalizeList(result.getTags(), fallbackTags(sourceText)))
-                .categories(normalizeList(result.getCategories(), List.of("Knowledge Base")))
-                .content(content.isBlank() ? buildContent(sourceText) : content)
-                .build();
+                .title(draft.title()).description(draft.description()).tags(draft.tags())
+                .categories(draft.categories()).content(draft.content()).build();
     }
 
     private KnowledgeBaseGenerateDTO fallbackResult(String sourceText, Exception error) {
-        String content = buildContent(sourceText);
-        if (error != null && !normalize(error.getMessage()).isBlank()) {
-            content += System.lineSeparator()
-                    + System.lineSeparator()
-                    + "<!-- AI fallback reason: "
-                    + truncate(error.getMessage(), 500).replace("--", "-")
-                    + " -->";
-        }
+        KnowledgeBaseDocumentDraftPolicy.Draft draft = draftPolicy.normalize(null, null, null, null, null,
+                sourceText, error == null ? null : error.getMessage());
         return KnowledgeBaseGenerateDTO.builder()
-                .title(buildTitle(sourceText))
-                .description(buildDescription(sourceText))
-                .tags(fallbackTags(sourceText))
-                .categories(List.of("Knowledge Base"))
-                .content(content)
+                .title(draft.title()).description(draft.description()).tags(draft.tags())
+                .categories(draft.categories()).content(draft.content())
                 .build();
-    }
-
-    private List<String> normalizeList(List<String> values, List<String> fallback) {
-        Set<String> normalized = new LinkedHashSet<>();
-        if (values != null) {
-            for (String value : values) {
-                String item = normalize(value);
-                if (!item.isBlank()) {
-                    normalized.add(item);
-                }
-            }
-        }
-        return normalized.isEmpty() ? fallback : new ArrayList<>(normalized);
-    }
-
-    private List<String> fallbackTags(String sourceText) {
-        List<String> tags = new ArrayList<>();
-        tags.add("markdown");
-        tags.add("knowledge-base");
-        if (sourceText.toLowerCase().contains("ai")) {
-            tags.add("ai");
-        }
-        return tags;
-    }
-
-    private String buildTitle(String sourceText) {
-        String firstLine = sourceText.lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .findFirst()
-                .orElse("Untitled Knowledge Document");
-        return firstLine.length() > 40 ? firstLine.substring(0, 40) : firstLine;
-    }
-
-    private String buildDescription(String sourceText) {
-        String text = sourceText.replaceAll("\\s+", " ").trim();
-        return text.length() > 120 ? text.substring(0, 120) : text;
-    }
-
-    private String buildContent(String sourceText) {
-        return "# " + buildTitle(sourceText) + System.lineSeparator()
-                + System.lineSeparator()
-                + "## Summary" + System.lineSeparator()
-                + buildDescription(sourceText) + System.lineSeparator()
-                + System.lineSeparator()
-                + "## Source Notes" + System.lineSeparator()
-                + sourceText;
     }
 
     private void addIfPresent(Set<String> values, String value) {

@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.core.application.service;
 import cn.cccs7.cynexus.core.application.convert.TaskJobLockDTOConverter;
 import cn.cccs7.cynexus.core.api.dto.TaskJobLockDTO;
 import cn.cccs7.cynexus.core.domain.entity.TaskJobLockBO;
-import cn.cccs7.cynexus.core.domain.service.TaskJobLockDomainService;
+import cn.cccs7.cynexus.core.domain.task.TaskJobLockDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

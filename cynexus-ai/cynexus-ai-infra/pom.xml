@@ -7,13 +7,18 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-ai</artifactId>
-        <version>1.0.3-SNAPSHOT</version>
+        <version>1.0.82-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-ai-infra</artifactId>
     <name>cynexus-ai-infra</name>
 
     <dependencies>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-ai-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-ai-domain</artifactId>

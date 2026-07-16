@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.StyleRiskDailyDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.StyleRiskDailyDTO;
 import cn.cccs7.cynexus.market.domain.entity.StyleRiskDailyBO;
-import cn.cccs7.cynexus.market.domain.service.StyleRiskDailyDomainService;
+import cn.cccs7.cynexus.market.domain.sentiment.StyleRiskDailyDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

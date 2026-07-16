@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.StyleSectorSnapshotDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.StyleSectorSnapshotDTO;
 import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
-import cn.cccs7.cynexus.market.domain.service.StyleSectorSnapshotDomainService;
+import cn.cccs7.cynexus.market.domain.sector.StyleSectorSnapshotDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

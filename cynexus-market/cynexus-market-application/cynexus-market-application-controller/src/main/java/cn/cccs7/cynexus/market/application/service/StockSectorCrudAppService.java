@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.StockSectorDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.StockSectorDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockSectorBO;
-import cn.cccs7.cynexus.market.domain.service.StockSectorDomainService;
+import cn.cccs7.cynexus.market.domain.stock.StockSectorDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

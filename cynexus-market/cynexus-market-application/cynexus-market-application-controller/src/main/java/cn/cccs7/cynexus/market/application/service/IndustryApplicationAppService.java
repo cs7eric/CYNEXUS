@@ -5,9 +5,8 @@ import cn.cccs7.cynexus.market.api.request.IndustryApplicationRequest;
 import cn.cccs7.cynexus.market.application.convert.IndustryApplicationDTOConverter;
 import cn.cccs7.cynexus.market.domain.entity.IndustryApplicationBO;
 import cn.cccs7.cynexus.market.domain.repository.IndustryApplicationRepository;
+import cn.cccs7.cynexus.market.domain.industry.IndustryApplicationDomainPolicy;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -16,9 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IndustryApplicationAppService {
 
-    private static final int REFRESH_KLINE_COUNT = 240;
-
     private final IndustryApplicationRepository industryApplicationRepository;
+    private final IndustryApplicationDomainPolicy domainPolicy = new IndustryApplicationDomainPolicy();
     private final IndustryApplicationDTOConverter converter = IndustryApplicationDTOConverter.INSTANCE;
 
     public IndustryApplicationAppService(IndustryApplicationRepository industryApplicationRepository) {
@@ -54,7 +52,11 @@ public class IndustryApplicationAppService {
     @Transactional
     public IndustryApplicationDTO.RefreshResponse refresh(IndustryApplicationRequest.RefreshRequest request) {
         String targetId = request == null ? null : request.getTargetId();
-        List<IndustryApplicationBO.Target> targets = resolveRefreshTargets(targetId);
+        List<IndustryApplicationBO.Target> targets = domainPolicy.resolveRefreshTargets(
+                targetId,
+                industryApplicationRepository.getConfig(),
+                targetId == null || targetId.isBlank() ? List.of() : industryApplicationRepository.findTarget(targetId.trim()).stream().toList()
+        );
         List<IndustryApplicationDTO.RefreshItem> items = targets.stream()
                 .map(this::refreshOne)
                 .toList();
@@ -79,81 +81,50 @@ public class IndustryApplicationAppService {
                 .items(items)
                 .industryCount((int) items.stream().filter(item -> "industry".equals(item.getKind())).count())
                 .conceptCount((int) items.stream().filter(item -> "concept".equals(item.getKind())).count())
-                .fetchedAt(OffsetDateTime.now())
+                .fetchedAt(java.time.OffsetDateTime.now())
                 .source("clickhouse.daily_raw")
                 .build();
     }
 
     public IndustryApplicationDTO.FundFlowResponse getFundFlow(String tradeDate, Integer top) {
-        LocalDate parsedTradeDate = parseTradeDate(tradeDate);
-        Integer normalizedTop = top == null || top <= 0 ? null : Math.min(top, 500);
+        LocalDate parsedTradeDate = domainPolicy.parseTradeDate(tradeDate);
+        Integer normalizedTop = domainPolicy.normalizeTop(top);
         return converter.toFundFlowResponse(industryApplicationRepository.getFundFlow(parsedTradeDate, normalizedTop));
     }
 
     public IndustryApplicationDTO.FundFlowHistoryResponse getFundFlowHistory(String maxTradeDate, int days, Integer top) {
-        LocalDate parsedMaxTradeDate = parseTradeDate(maxTradeDate);
-        int normalizedDays = Math.max(1, Math.min(days <= 0 ? 365 : days, 500));
-        Integer normalizedTop = top == null || top <= 0 ? null : Math.min(top, 500);
+        LocalDate parsedMaxTradeDate = domainPolicy.parseTradeDate(maxTradeDate);
+        int normalizedDays = domainPolicy.normalizeHistoryDays(days);
+        Integer normalizedTop = domainPolicy.normalizeTop(top);
         return converter.toFundFlowHistoryResponse(
                 industryApplicationRepository.getFundFlowHistory(parsedMaxTradeDate, normalizedDays, normalizedTop)
         );
     }
 
     public IndustryApplicationDTO.TdxFundFlowResponse getTdxFundFlow(String targetType, String symbol, String tradeDate, int days) {
-        LocalDate parsedTradeDate = parseTradeDate(tradeDate);
+        LocalDate parsedTradeDate = domainPolicy.parseTradeDate(tradeDate);
         int normalizedDays = Math.max(1, Math.min(days <= 0 ? 30 : days, 252));
         return converter.toTdxFundFlowResponse(
                 industryApplicationRepository.getTdxFundFlow(targetType, symbol, parsedTradeDate, normalizedDays)
         );
     }
 
-    private List<IndustryApplicationBO.Target> resolveRefreshTargets(String targetId) {
-        if (targetId != null && !targetId.isBlank()) {
-            return industryApplicationRepository.findTarget(targetId.trim()).stream().toList();
-        }
-        return industryApplicationRepository.getConfig().getItems().stream()
-                .filter(item -> item.getEnabled() == null || item.getEnabled())
-                .toList();
-    }
-
-    private LocalDate parseTradeDate(String tradeDate) {
-        if (tradeDate == null || tradeDate.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(tradeDate.trim());
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("trade_date must be yyyy-MM-dd");
-        }
-    }
-
     private IndustryApplicationDTO.RefreshItem refreshOne(IndustryApplicationBO.Target target) {
-        if (target == null) {
-            return IndustryApplicationDTO.RefreshItem.builder()
-                    .ok(false)
-                    .error("target not found")
-                    .build();
-        }
+        IndustryApplicationBO.Kline kline = null;
+        Exception failure = null;
         try {
-            IndustryApplicationBO.Kline kline = industryApplicationRepository.getKline(
+            kline = industryApplicationRepository.getKline(
                     target.getTargetType(),
                     target.getSymbol(),
                     "day",
-                    REFRESH_KLINE_COUNT
+                    IndustryApplicationDomainPolicy.REFRESH_KLINE_COUNT
             );
             industryApplicationRepository.saveResult(target, kline);
-            return IndustryApplicationDTO.RefreshItem.builder()
-                    .id(target.getTargetKey())
-                    .ok(true)
-                    .klineCount(kline.getBars() == null ? 0 : kline.getBars().size())
-                    .build();
         } catch (Exception ex) {
-            return IndustryApplicationDTO.RefreshItem.builder()
-                    .id(target.getTargetKey())
-                    .ok(false)
-                    .klineCount(0)
-                    .error(ex.getMessage())
-                    .build();
+            failure = ex;
         }
+        IndustryApplicationDomainPolicy.RefreshDecision decision = domainPolicy.refreshDecision(target, kline, failure);
+        return IndustryApplicationDTO.RefreshItem.builder().id(decision.id()).ok(decision.ok())
+                .klineCount(decision.klineCount()).error(decision.error()).build();
     }
 }

@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-ai</artifactId>
-        <version>1.0.3-SNAPSHOT</version>
+        <version>1.0.82-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-ai-starter</artifactId>
@@ -17,6 +17,11 @@
         <dependency>
             <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-ai-application-controller</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-ai-infra</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

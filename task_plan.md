@@ -61,6 +61,61 @@ Status: complete
 
 Do not create: `cynexus-document`, `cynexus-strategy`, `cynexus-gateway`, `cynexus-admin`, `cynexus-oss`, `cynexus-user`, `cynexus-iam`, Jenkins config, Elasticsearch config, RabbitMQ config, Prometheus config, or Grafana config.
 
+## Phase 52 - Market Information Decision Dashboard
+
+Status: complete
+
+- Reframe the Market Information page around the seven user-approved layers: market pulse, key catalysts/risks, impact map, company events, upcoming triggers, and raw feed.
+- Keep the first pass UI-only where existing API fields are sufficient; do not add unapproved data sources or new concepts.
+- Preserve the existing event Sheet, industry filtering, pagination, and raw 7x24 access.
+- Verify scoped frontend lint/build and keep Dev running on the documented ports.
+
+### Phase 52 Verification Results
+
+- Added an impact map, risk/watchlist, company-event lane, and an explicit upcoming-trigger POC using only existing Market Information fields.
+- Renamed the primary feed section to “What matters today” while preserving pagination, impact filters, event Sheet navigation, and raw 7x24 expansion.
+- Scoped Market Information ESLint and direct Vite production build passed.
+- Full Maven package passed at `1.0.39-SNAPSHOT`; Maven and UI versions remain aligned.
+- Upcoming triggers intentionally remains an empty state until a verified calendar source is approved; no new provider or table was added.
+
+## Phase 53 - Information Dashboard V2 Proposal
+
+Status: complete
+
+- Replace the current vertically stacked report layout with a three-layer Information workspace: Market Pulse, decision workspace, and full information feed.
+- Keep the first layer compact and decision-oriented: market stance, market status, key risk, event count, source freshness, and a small market breadth signal.
+- Use a two-column middle workspace: left-side What matters today event stream; right-side Upcoming Triggers, Impact Map, and Risk/Watchlist.
+- Replace impact-count bars with event-to-industry relationships: event title, affected industry, direction, impact strength, and related stocks when deterministic data exists.
+- Keep the bottom table as the complete feed with filters, pagination, AI status, source, and event Sheet; keep Raw 7x24 as a secondary view rather than a competing primary section.
+- Introduce task-oriented filters inspired by the reviewed competitors: Focus, Macro/Policy, Company, Industry, Calendar, and 7x24.
+- Do not add new data providers in this phase. Upcoming Triggers remains data-source gated; any calendar source requires a separate POC and approval before implementation.
+- After approval, implement the UI first, then evaluate whether a dedicated trigger API/table is needed.
+
+### Phase 53 Verification Results
+
+- Rebuilt the page as a compact Market Pulse, a two-column decision workspace, and a full information feed.
+- Added task-oriented views for Focus, All, Macro / Policy, Company, Industry, Calendar / Events, and 7x24.
+- Replaced the impact count bars with event-to-industry rows showing direction and relationship counts.
+- Kept Upcoming Triggers data-source gated with a compact empty state; no provider or table was added.
+- Scoped Information ESLint and direct Vite build passed. Full Maven package passed at `1.0.42-SNAPSHOT`.
+- Dev was restarted from the versioned `1.0.42-SNAPSHOT` artifacts and all application health checks are up.
+
+## Phase 54 - Information Event Relationship Chain
+
+Status: complete
+
+- Make the decision workspace visibly render the complete relationship chain: Event → Industry → Direction → Impact strength → Related stocks.
+- Use existing deterministic impact mappings, feed issuer values, and structured brief `affectedCompanies` values; do not invent stock relationships.
+- Keep missing relationships explicit as `Unmapped industry`, `Unknown direction`, or an omitted related-stock segment.
+- Add the same related-stock context to the compact Impact Map where deterministic constituent data exists.
+- Extend the existing Market API impact mapping with up to five latest THS constituents per mapped industry; no new provider or table was added.
+- Scoped Information ESLint and direct Vite build passed. Full Maven package passed at `1.0.45-SNAPSHOT`; Dev restarted from the new artifacts.
+
+### Phase 54 Errors
+
+- Maven repackage initially hit a locked Market starter JAR because Dev was still running; stopped Dev and reran the Market reactor successfully.
+- Vite logged transient proxy connection errors while the restarted Gateway was still booting; subsequent UI, Gateway, Core, AI, and Market health checks returned `200`.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
@@ -942,3 +997,336 @@ Status: complete
 - Bumped both analysis schema and prompt cache versions to `stock_information_v2`, so existing v1 output is not reused.
 - The Information reader now renders relevance, horizon, sentiment, materiality, confidence, and evidence quotations alongside the summary.
 - Direct and Vite-proxy smoke for `600415` returned a v2 DeepSeek analysis with source quotes. Market and AI packages plus scoped frontend ESLint passed.
+
+## Phase 45 - Expand Market Information Sources
+
+Status: complete
+
+- Inventory all existing message-source clients and persistence contracts before adding new providers.
+- Add stable official-source collectors for macro, policy, regulation, and exchange information.
+- Add market-media and industry-source collectors with source-specific throttling, encoding validation, and failure isolation.
+- Extend the Java aggregation API and UI feed to classify and display the expanded source set without reintroducing stock-only filtering.
+- Add scheduler mappings, focused tests, version increments, and a versioned Release deployment.
+
+### Phase 45 Progress
+
+- Added a generic, encoding-safe official-source HTML collector for government, central-bank, statistics, finance, development/reform, regulator, exchange, Xinhua, and CCTV pages.
+- Added the `official_market_information` data job and persisted 96 official headlines into `cynexus_appl_market.a_stock_news`.
+- Expanded the market feed source set and changed Java news aggregation to round-robin per source so official rows are not hidden behind the higher-volume media feeds.
+- Added CNInfo regulatory announcements for inquiry letters, regulatory measures, penalties, and disciplinary notices, including related stock codes and PDF links.
+- Added automotive and nonferrous-industry association feeds and kept the existing leader-event aggregation over hot-rank/Dragon-Tiger stocks.
+- Deployed `1.0.18-260713-RELEASE`; the live 60-item feed contains four rows from each of 15 source streams, with no replacement-character encoding failures.
+
+### Phase 45 Errors
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Scope includes multiple providers with different access and licensing constraints | Initial "all sources" request | Split into source families and require stable/approved adapters; no arbitrary scraping or direct UI-to-source calls. |
+| Python endpoint inventory probe had an unterminated URL string | First live probe | Correct the probe before interpreting source availability. |
+| SSE returned 403 and BSE list URLs returned 404/anti-bot shells | Exchange-source probe | Keep SZSE and CNInfo regulation live; leave SSE/BSE out until a stable first-party endpoint is verified. |
+
+## Phase 46 - Paginated Market Information History
+
+Status: complete
+
+- Replace the fixed-size Market News response with a server-side paginated contract.
+- Preserve source-balanced ordering across pages so high-volume feeds do not hide official sources.
+- Add compact pagination controls while keeping the secondary panels bounded.
+- Expand EastMoney 7x24 history through its `sortEnd` cursor and raise official-source collection limits.
+- Update scheduled collection defaults, backfill the expanded history, increment versions, verify, and deploy a versioned Release.
+
+### Phase 46 Verification Results
+
+- The Market API now returns a source-balanced page contract with 30 records per page and explicit total/page metadata.
+- Market news and CNInfo market/regulatory announcements are unified into one information stream with category, kind, issuer, and contextual labels.
+- The UI uses the project shadcn Table and Pagination components; page changes return the table to its visible top without hiding it behind the workspace header.
+- EastMoney 7x24 uses `sortEnd` cursor pagination and the official-source collector retains up to 40 rows per source. The live backfill wrote 877 rows and expanded the unified feed to 1,157 records across 39 pages.
+- Python tests, Maven package, scoped ESLint, Vite build, live API page checks, Playwright interaction checks, and Release deployment passed for `1.0.19-260713-RELEASE`.
+
+## Phase 47 - Market Information AI Pipeline
+
+Status: complete
+
+- Add stable Market information identities, extracted-content cache, deterministic 48-hour event clustering, members, priority scoring, and pipeline state without copying raw facts.
+- Add a `custom` Responses API provider, structured event/brief protocols, cross-provider fallback, AI-owned durable tasks/results/briefs, and sanitized execution records.
+- Add typed Market-to-Data and Market-to-AI orchestration, asynchronous refresh/manual analysis APIs, table enrichment, event detail Sheet, and market brief UI.
+- Add layered media/official schedules through Core, a 60-record evaluation dataset and offline/live evaluation harness, then bump versions, verify, and deploy Release.
+
+### Phase 47 Guardrails
+
+- The supplied bearer credential is local-only in ignored `.env`; it must not enter source, migrations, database rows, logs, screenshots, or final output.
+- Custom `gpt-5.6-sol` is primary and unrestricted for development. DeepSeek is fallback only; live development/evaluation calls must not exceed 20.
+- Preserve the unified paginated information table, raw source tables, source-level failure isolation, and one-online-environment deployment rule.
+
+### Phase 47 Implementation Status
+
+- [x] Persist extracted full text with summary-only fallback and SSRF/redirect/size controls.
+- [x] Incrementally upsert stable 48-hour clusters and queue at most 10 high-value events per refresh.
+- [x] Add Custom Responses routing, persisted task recovery/retry, structured analysis validation, fallback, and daily brief storage.
+- [x] Add Market APIs, batch polling, brief/table/Sheet UI, and typed Core collection/pipeline schedules.
+- [x] Add 60-case offline evaluation assets and guarded live evaluation runner.
+- [x] Align Maven/UI versions to `1.0.20-SNAPSHOT` and pass focused Python/Maven/ESLint/migration verification.
+- [ ] Populate the ignored Custom API key, run the 5-case live smoke/full evaluation, build versioned Release images, deploy `1.0.20-260714-RELEASE`, and run API/Playwright smoke.
+## Market Information
+
+- [x] Inventory existing cynexus-data information sources, storage conventions, and market UI patterns.
+- [x] Design and implement Python market-information ingestion/API and market persistence.
+- [x] Implement Java market application API/service/repository layers.
+- [x] Implement UI route, services, components, filtering, and styling.
+- [x] Increment versions and verify the versioned Release deployment.
+## Market Information delivery
+
+- [x] Reuse existing cynexus-data market-level datasets and confirm no duplicate fact table.
+- [x] Add Java domain/API/application/infra layers for the aggregate feed.
+- [x] Add market UI service, route, sidebar entry, and decomposed page components.
+- [x] Build Maven and UI, update design documentation and versions.
+## Market Information source expansion
+
+- [x] Add Cailian Press telegraph source with anti-bot warm-up/cache-busting/retry handling.
+- [x] Add market-level CNInfo policy announcement dataset and persistence path.
+- [x] Add Java DTO/repository aggregation for policy announcements and leader events.
+- [x] Add UI panels for Cailian wire, CNInfo policy, and leader-linked events.
+- [x] Rebuild data executor and deploy `1.0.12-260713-RELEASE`.
+
+## Phase 52 - Langfuse AI observability integration (2026-07-15)
+
+Status: cancelled by user
+
+- Add a Langfuse HTTP ingestion client in `cynexus-ai` without coupling domain/application code to a vendor SDK.
+- Report every centralized `AgentExecutor` model completion with provider, model, status, latency, token usage, and optional redacted content.
+- Keep Langfuse disabled by default and make all credentials/environment settings external; failures must never fail an AI request.
+- Add a self-hosted Langfuse deployment definition and documented bootstrap/configuration using a dedicated observability stack.
+- Add focused unit tests for payload construction, authentication, disabled mode, and failure isolation.
+- Advance Maven and UI development versions together after the functional change; do not deploy Release until the user explicitly requests it.
+
+Cancellation: the user chose a lighter native AI usage/cost view instead of running Langfuse as a separate observability stack. Langfuse code, configuration, local credentials, containers, volumes, images, and network were removed.
+
+## Phase 53 - Shared-resource Langfuse API usage view (2026-07-15)
+
+Status: complete
+
+- Reintroduce only Langfuse Web/Worker and MinIO; use the existing Cynexus PostgreSQL, ClickHouse, and Redis containers with isolated schema/database/Redis namespace.
+- Restore provider-neutral generation ingestion from the centralized AI completion boundary.
+- Add a typed AI backend proxy for Langfuse observations and summary aggregation; the browser must not hold Langfuse credentials.
+- Add a lightweight native AI Usage page with KPI cards, breakdowns, and recent calls.
+- Keep Langfuse optional and fail-open; existing PostgreSQL execution logs remain the durable fallback.
+- Advance Maven/UI versions together and verify shared infrastructure remains healthy.
+
+### Phase 53 Verification Results
+
+- Added shared-resource Compose with only Langfuse Web, Langfuse Worker, and MinIO; PostgreSQL schema, ClickHouse database, and Redis DB 4 are isolated from Cynexus application data.
+- Added local start/stop scripts and documented the shared-resource bootstrap; no Langfuse credentials are committed or exposed to the browser.
+- Added `/api/ai/usage` backend aggregation and a native Settings → AI Usage page with date range, KPI cards, provider/model/capability breakdown, recent calls, status, token, cost, and latency.
+- Maven AI reactor compile passed under `1.0.48-SNAPSHOT`; scoped ESLint for the new usage service/page passed; Compose config validation passed.
+- Full UI type-check remains blocked by the existing unrelated Market Pulse, Industry Application, Market Sentiment, and stock-overview errors. New Information dashboard type errors were corrected.
+- Docker daemon was unavailable during this turn, so the optional Langfuse containers were not started or smoke-tested.
+
+### Phase 53 Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Full UI build failed in unrelated existing modules | `npm run build` | Scoped lint passed; recorded the pre-existing type errors and did not modify unrelated modules. |
+| Docker daemon pipe unavailable | Compose/runtime smoke | Compose syntax still validates; startup is documented for the next Docker-enabled run. |
+
+### Phase 52 Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| PowerShell split Maven `-Dcheckstyle.skip=true` into an invalid lifecycle phase | First focused compile | Quote Maven `-D` arguments in the retry. |
+| `cynexus-ai-infra` had no JUnit 5 test dependency | First reporter test compile | Add the existing managed `junit-jupiter` test dependency to the infra module. |
+| Full UI ESLint reports 98 existing errors across unrelated components | Version-sync verification | No Langfuse UI code was added; retain the repository's existing frontend lint baseline. |
+| First PowerShell script parser check used an unescaped `$file:` interpolation | Diagnostic command only | Reran the parser check with `${file}`; both scripts parse successfully. |
+| Langfuse Web resolved `postgres`/other service names to Cynexus shared-network containers | First runtime start | Renamed internal services to unique `langfuse-*` hostnames and recreated only Langfuse containers while preserving volumes. |
+| Old Langfuse containers kept MinIO port mappings after service rename | Compose recreation | Removed only Compose orphan containers with `--remove-orphans`; Cynexus shared infrastructure remained running. |
+
+### Phase 52 Verification Results
+
+- `LangfuseGenerationReporter` reports success and failure generations asynchronously through `/api/public/ingestion`.
+- `AgentExecutor` is instrumented as the shared completion boundary for current AI features.
+- Provider/model identity, status, latency, and input/output/total usage are sent; Prompt/Response content is disabled by default.
+- Capability names are propagated into generation names and metadata for business-level filtering in Langfuse.
+- Langfuse failures are fail-open and cannot change the AI completion outcome.
+- Self-hosted Langfuse v3 Compose and `.env.example` are under `deploy/observability/langfuse`; its databases and object storage are isolated from Cynexus application stores.
+- Start/stop PowerShell entrypoints are provided; Compose config validates with the example environment file.
+- Focused Maven test passed: 2 reporter tests under `1.0.46-SNAPSHOT`.
+- AI infra/application compile passed under `1.0.46-SNAPSHOT`; Compose config validation passed.
+- Complete `cynexus-ai-starter` reactor package passed under `1.0.46-SNAPSHOT`.
+- Maven and UI development versions are now synchronized at `1.0.46-SNAPSHOT`.
+- Release was intentionally not rebuilt or deployed; Langfuse credentials and model pricing require operator configuration first.
+- Generated local ignored Langfuse credentials, started the stack, and verified Web/Worker/PostgreSQL/ClickHouse/Redis/MinIO are running; project and admin rows were initialized and HTTP health returned 200.
+- Root `.env` now contains the Langfuse client settings. Existing Dev Java processes were not restarted in this turn, so AI reporting becomes active after the next Dev/Release application restart.
+
+### Phase 52 Removal Verification
+
+- No runtime Langfuse references remain in `cynexus-ai`, Release Compose, or root `.env`.
+- No Langfuse containers, observability volumes, or Langfuse images remain.
+- Shared Cynexus PostgreSQL, Redis, ClickHouse, and Data Executor remained healthy.
+- AI Starter reactor package passed after removal under `1.0.47-SNAPSHOT`; Maven and UI versions are synchronized.
+
+## Phase 48 - Add My Codex Custom Provider (2026-07-14)
+
+Status: complete
+
+- Preserve the existing `xtyooo` Custom provider and add a second uniquely identified provider row for `My Codex`.
+- Keep the supplied credential in `ai_providers.api_key`; never place it in source, migrations, logs, or `.env`.
+- Fix Market Information adapter dispatch so multiple provider rows with `provider_type=custom` share the registered `custom` adapter while retaining provider-row provenance.
+- Add an idempotent secret-free migration seed for the provider metadata.
+- Verify the provider CRUD response masks the key and run a focused Responses API smoke without invoking DeepSeek fallback.
+- Keep existing Market Information usage bindings unchanged unless explicitly requested.
+- Increment Maven and UI development versions together after the functional change.
+
+### Phase 48 Verification Results
+
+- Provider `custom-yancc` is enabled in PostgreSQL with model `gpt-5.4`, Responses API, low reasoning, `store=false`, and a database-managed credential.
+- Provider API returns a mask only and does not return the raw credential.
+- Live Responses API smoke returned valid JSON using `gpt-5.4`; DeepSeek was not called.
+- Migration rerun preserved the stored credential.
+- Focused AI tests passed: 4 tests.
+- Full 41-module Maven package passed under `1.0.21-SNAPSHOT` after limiting tiered compilation to avoid a local Corretto JIT crash.
+- Maven and UI versions are aligned at `1.0.21-SNAPSHOT`.
+- Existing Release `1.0.20-260714-RELEASE` remains online; Gateway and AI health are `UP`.
+
+### Phase 48 Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Planning append context did not match `findings.md` | First append patch | Read file tails and append against exact current EOF context. |
+| Full Maven package crashed in Corretto 21 JVM with `EXCEPTION_ACCESS_VIOLATION` | First full package attempt | Retry with tiered compilation limited to level 1; focused AI tests had already passed. |
+
+## Phase 49 - Switch Market Information AI To DeepSeek V4 Flash (2026-07-14)
+
+Status: complete
+
+- Verify the persisted DeepSeek provider can call `deepseek-v4-flash` successfully.
+- Switch both Market Information usage bindings to DeepSeek as the primary provider with no self-fallback.
+- Keep the 20-call limit only for Dev evaluation; configure Release runtime for unlimited production processing.
+- Add an idempotent migration and preserve the existing database-managed DeepSeek credential.
+- Advance Maven and UI versions together to `1.0.22-SNAPSHOT`.
+- Recreate only the Release AI container, verify binding state, queue processing, and health without stopping shared infrastructure.
+
+### Phase 49 Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Release AI still rejected DeepSeek after receiving limit `-1` | First queued event smoke | Constructor clamped all negative values to zero, making its existing unlimited branch unreachable. Preserve `-1`, add a regression test, and deploy the corrected version. |
+| First DeepSeek event exhausted retries on strict evidence validation | First post-deploy event smoke | The event had only a title (`summary_only`), but the model inferred full policy details and fabricated non-verbatim quotes. Upgrade the prompt to v2 with an explicit evidence boundary and title-only behavior. |
+
+### Phase 49 Verification Results
+
+- Both Market Information bindings use provider `deepseek` and model `deepseek-v4-flash` with prompt version `v2`.
+- The migration passed twice and keeps the existing database-managed provider credential unchanged.
+- Dev retains its 20-call cap; Release uses unlimited mode and the regression test confirms negative limits remain unlimited.
+- Focused AI tests passed: 6 total tests across the worker and evaluation fixture.
+- Full 41-module Maven package passed under `1.0.23-SNAPSHOT`.
+- Event analysis completed with `provider_code=deepseek`, `model_code=deepseek-v4-flash`, `fallback_used=false`, and strict evidence validation enabled.
+- Latest daily brief also reports DeepSeek V4 Flash, prompt version v2, and successful status.
+- Release `1.0.23-260714-RELEASE` is deployed across UI, Core, Market, AI, and Gateway; all Java health endpoints are `UP`.
+
+## Phase 50 - Strengthen Market Brief Structure And Freshness (2026-07-14)
+
+Status: complete
+
+- Replace the loose string-list brief with a typed market-level protocol containing headline, executive summary, structured tone, structured key events, policy/industry/company/risk signals, uncertainties, source coverage, analysis window, and event references.
+- Select only the latest successful analysis for each cluster whose content hash is still current and whose prompt/schema versions match the brief pipeline.
+- Validate nested brief fields, enums, confidence ranges, unique/current event references, and source coverage instead of checking top-level field presence only.
+- Keep backward-compatible API persistence while updating the Market Brief UI to render the richer structure without hiding policy/industry/source information.
+- Add focused repository/worker/frontend verification, advance Maven/UI versions together, and deploy a versioned Release after live DeepSeek generation succeeds.
+
+### Phase 50 Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Scoped ESLint returned `ERR_PNPM_RECURSIVE_EXEC_NO_PACKAGE` | First frontend verification | Command was run from the repository root; rerun from `cynexus-ui`. Maven tests had already passed. |
+| Full UI build failed in unrelated Market Pulse/Industry/Sentiment files | First UI build | Scoped Market Information ESLint passed before the build step. Record the existing errors and continue with scoped verification plus Release image smoke. |
+| Stale-task smoke could not parse `INSERT ... RETURNING` output as a scalar | First runtime stale-task check | PostgreSQL emitted both command status and ID. Locate the inserted row by its unique smoke hash, then verify status and provider-call count. |
+| Inline Node console audit could not import Playwright | Browser-console verification | The Playwright CLI is available but not a local importable package. Retain the successful CLI screenshot/visual QA and API smoke instead of adding test-only dependencies. |
+
+### Phase 50 Verification Results
+
+- Brief input now contains one latest successful analysis per current cluster content hash, filtered to event schema v1/prompt v2, with deterministic analysis window and source coverage.
+- Brief output uses schema v2/prompt v3 with structured tone, key events, policy/industry/company/risk signals, uncertainties, source coverage, analysis window, event references, and disclaimer.
+- Nested enums, confidence, current cluster references, metadata equality, and required fields are validated; authoritative event metadata is reattached before validation.
+- Obsolete queued brief hashes are skipped without provider calls; the runtime smoke completed with zero new AI executions and its test row was removed.
+- Focused AI tests passed: 9 worker/evaluation tests. Full 41-module Maven package passed.
+- Scoped frontend ESLint and direct Vite production build passed; full `tsc -b` remains blocked only by documented unrelated modules.
+- Live DeepSeek V4 Flash generation succeeded with schema v2/prompt v3 and no fallback.
+- Desktop Playwright screenshot confirmed the new Market Brief renders headline, summary, tone/confidence, structured events, separated signals, risks/uncertainties, and coverage.
+- Release `1.0.25-260714-RELEASE` is deployed across UI, Core, Market, AI, and Gateway; all service health checks are `UP`.
+- Maven and UI versions are aligned at `1.0.25-SNAPSHOT`.
+
+## Phase 51 - Market Event Value And Analysis V3 (2026-07-14)
+
+Status: complete
+
+- Expand market-information full-text extraction for official pages, CNInfo PDFs, exchange disclosures, and supported media while retaining SSRF/redirect/size controls and summary-only fallback.
+- Replace source/category-only high-value scoring with explicit market breadth, novelty, source confirmation, content quality, actionable fact, leader relevance, and routine-announcement penalties.
+- Prevent template abnormal-volatility notices, generic inquiry replies, and title-only single-company disclosures from becoming Key Events without material facts.
+- Upgrade event analysis to schema v2/prompt v3 with event facts, information delta, why it matters, transmission paths, expectation gap, affected industries/companies, catalysts, scenarios, watch items, risks, uncertainties, evidence, and content-quality assessment.
+- Keep evidence verbatim and make analysis depth degrade explicitly when only summary/title content is available.
+- Redesign the event Sheet into a dense professional analysis view using the existing product design system, without nested-card clutter.
+- Add Python/Java/frontend tests, advance Maven/UI versions together, deploy a versioned Release, backfill representative content, and verify live DeepSeek analysis quality.
+
+### Phase 51 Verification Results
+
+- Python content/extraction tests pass: 7 focused tests. CNInfo/SZSE backfill persisted 30 documents in the live database, 27 as full text and 3 as explicit summary-only fallback; PostgreSQL-incompatible PDF NUL bytes are sanitized.
+- Deterministic cluster tests pass: 10 tests covering 48-hour clustering, stable content, routine notices, material company facts, named-document merging, and cross-category policy/media merging.
+- AI worker tests pass: 9 focused tests covering provider budget, prompt protocol, exact evidence, event schema v2, brief validation, and stale-input suppression.
+- Market Information scoped ESLint passes. Full Maven package passes all 41 modules. Direct Vite production build passes; the full UI type-check remains blocked only by the existing unrelated Market Pulse, Industry Application, Market Sentiment, and stock-overview errors.
+- Live Release `1.0.28-260714-RELEASE` is healthy on Core 18080, AI 18081, Market 18082, Gateway 18000, and UI 5173. Data Executor remains healthy on 18083.
+- Live cluster smoke confirms named policy/media coverage is merged into one Policy cluster, routine abnormal-volatility/inquiry rows have maximum active priority `0.9` and are not high value, and the latest v2/v3 DeepSeek analysis includes information delta, why-it-matters, transmission paths, scenarios, watch items, and exact evidence.
+- Latest Market Brief refreshed at runtime with policy, macro, regulation, and material company events after the current scoring pass; no longer dominated by routine inquiry/abnormal-volatility notices.
+
+## Phase 54 - DDD business logic relocation (2026-07-15)
+
+Status: complete
+
+- Relocate Knowledge Base indexing rules from the application controller module into the domain service layer.
+- Relocate high-value Market query/aggregation rules into domain services while keeping DTO conversion at the application boundary.
+- Relocate Core scheduler rules and AI prompt/validation/routing rules into domain services.
+- Record the layering rule in `AGENTS.md` and keep Maven/UI development versions aligned.
+- Run focused module tests and the full Maven package after the migration.
+
+### Phase 54 Verification Results
+
+- Knowledge Base, Market, Core, and AI targeted reactors compile successfully.
+- Focused tests passed: AI application 10 tests and Market Domain 10 tests.
+- Full `mvn package -DskipTests` passed for all 41 Maven projects at `1.0.78-SNAPSHOT`.
+- `mvn clean package -DskipTests` reached all code compilation but could not delete the locked old Core Starter JAR; the non-clean package produced all new versioned artifacts successfully.
+- Maven and UI versions are aligned at `1.0.78-SNAPSHOT`.
+
+### Phase 54 Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Initial recursive Java inventory included generated `target` sources and produced truncated output | 1 | Excluded `target` and inspected application/domain packages by module |
+
+## Phase 55 - Complete Application Business Logic Relocation (2026-07-15)
+
+Status: complete
+
+- Re-audit every Knowledge Base, Market, Core, and AI application service after the first DDD pass.
+- Move remaining validation, normalization, scoring, routing, parsing, aggregation, fallback, scheduling, and aggregate-state rules into domain entities, value objects, policies, domain services, and ports.
+- Keep application services limited to request orchestration, transaction boundaries, cross-aggregate coordination, and API DTO conversion.
+- Process modules in the requested order: Knowledge Base, Market, Core, AI.
+- Add focused tests for each extracted domain policy and update Maven/UI versions together after functional changes.
+- Verify with focused module tests and the complete Maven package; document any environment-only verification blocker.
+
+## Phase 56 - Domain Feature Package Audit (2026-07-16)
+
+Status: complete
+
+- Move newly added domain policies, feature services, and domain ports out of the flat `domain/service` package.
+- Group them by bounded capability: application analysis, knowledge base, market information, media transcription, scheduler, routing, and ports.
+- Update package declarations/imports and verify Spring wiring, focused tests, and the full reactor.
+- Leave legacy CRUD-oriented domain service conventions unchanged unless the package move is required for the audit.
+
+### Phase 56 Verification Results
+
+- Feature packages now own the relevant domain code: `applicationanalysis`, `knowledgebase`, `marketinformation`, `mediatranscription`, `scheduler`, `routing`, `validation`, `port`, `pulse`, `sentiment`, `stock`, `sector`, `fundflow`, `information`, `calendar`, `feature`, `industry`, `margin`, `coreinfo`, and `task`.
+- No Java source remains under the four module `domain/service` roots; no application import points to the moved feature classes through the old flat package.
+- Market Domain tests: 10 passed. AI application tests: 10 passed. Full `mvn package -DskipTests`: 41 projects passed.
+
+### Phase 55 User Feedback
+
+- User reported that the previous migration left substantial business logic in application services and was not acceptable as a complete DDD refactor.
+- Do not mark this phase complete based only on moving a few representative classes; the remaining high-risk application services must be audited and reduced.

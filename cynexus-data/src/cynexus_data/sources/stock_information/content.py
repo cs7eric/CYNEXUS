@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from io import BytesIO
+import ipaddress
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -11,12 +13,28 @@ import requests
 from bs4 import BeautifulSoup
 
 
-ALLOWED_HOSTS = {
+ALLOWED_HOST_SUFFIXES = {
     "static.cninfo.com.cn",
     "finance.sina.com.cn",
     "vip.stock.finance.sina.com.cn",
     "data.eastmoney.com",
     "pdf.dfcfw.com",
+    "cninfo.com.cn",
+    "eastmoney.com",
+    "cls.cn",
+    "gov.cn",
+    "pbc.gov.cn",
+    "stats.gov.cn",
+    "mof.gov.cn",
+    "ndrc.gov.cn",
+    "csrc.gov.cn",
+    "sse.com.cn",
+    "szse.cn",
+    "bse.cn",
+    "news.cn",
+    "cctv.com",
+    "caam.org.cn",
+    "chinania.org.cn",
 }
 MAX_BYTES = 12 * 1024 * 1024
 MAX_TEXT_LENGTH = 320_000
@@ -84,7 +102,28 @@ def extract_content(*, url: str | None, title: str | None = None, inline_text: s
 
 def _allowed_url(url: str) -> bool:
     parsed = urlparse(url)
-    return parsed.scheme == "https" and (parsed.hostname or "").lower() in ALLOWED_HOSTS
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password:
+        return False
+    if not any(host == suffix or host.endswith(f".{suffix}") for suffix in ALLOWED_HOST_SUFFIXES):
+        return False
+    try:
+        addresses = {item[4][0] for item in socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)}
+    except socket.gaierror:
+        return False
+    return bool(addresses) and all(_public_address(value) for value in addresses)
+
+
+def _public_address(value: str) -> bool:
+    address = ipaddress.ip_address(value)
+    return not (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    )
 
 
 def _read_limited(response: requests.Response) -> bytes:
@@ -145,7 +184,7 @@ def _result(status: str, title: str | None, text: str, url: str | None, content_
 
 
 def _normalize(value: str | None) -> str:
-    return " ".join((value or "").replace("\u00a0", " ").split())
+    return " ".join((value or "").replace("\x00", "").replace("\u00a0", " ").split())
 
 
 def _normalize_text(value: str | None) -> str:

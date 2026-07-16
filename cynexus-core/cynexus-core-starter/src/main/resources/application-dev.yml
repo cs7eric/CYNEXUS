@@ -21,6 +21,9 @@ spring:
       password: C020611.
 
 cynexus:
+  market:
+    automation:
+      base-url: http://127.0.0.1:28082
   data:
     job-executor:
       base-url: http://127.0.0.1:18083

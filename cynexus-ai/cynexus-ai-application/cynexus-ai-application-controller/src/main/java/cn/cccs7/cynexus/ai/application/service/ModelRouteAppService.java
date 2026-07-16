@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.ai.application.service;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiModelRepository;
-import cn.cccs7.cynexus.ai.domain.service.ModelRoutingDomainService;
+import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

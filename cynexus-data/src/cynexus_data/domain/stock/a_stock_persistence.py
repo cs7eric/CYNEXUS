@@ -53,12 +53,20 @@ def normalize_dataset(dataset: str, payload: Any, params: dict[str, Any]) -> ASt
         put_pg("a_stock_financial_statement", [_financial_row(item, code=code, report_type=report_type) for item in _items(payload)])
     elif dataset == "cninfo_announcements":
         put_pg("a_stock_announcement", [_announcement_row("cninfo", item, code=code) for item in _items(payload)])
+    elif dataset == "cninfo_market_announcements":
+        put_pg("a_stock_announcement", [_announcement_row("cninfo.market", item, code="") for item in _items(payload)])
+    elif dataset == "cninfo_regulatory_announcements":
+        put_pg("a_stock_announcement", [_announcement_row("cninfo.regulation", item, code=_plain_code(item.get("sec_code") or "")) for item in _items(payload)])
     elif dataset == "eastmoney_stock_news":
         put_pg("a_stock_news", [_news_row("eastmoney.search", item, code=code) for item in _items(payload)])
     elif dataset == "sina_stock_news":
         put_pg("a_stock_news", [_news_row("sina.stock", item, code=code) for item in _items(payload)])
     elif dataset == "eastmoney_global_news":
         put_pg("a_stock_news", [_news_row("eastmoney.7x24", item, code="") for item in _items(payload)])
+    elif dataset == "cailian_telegraph":
+        put_pg("a_stock_news", [_news_row("cls.telegraph", item, code="") for item in _items(payload)])
+    elif dataset == "official_market_information":
+        put_pg("a_stock_news", [_news_row(str(item.get("source") or "official.market"), item, code="") for item in _items(payload)])
     elif dataset == "cninfo_irm":
         put_pg("a_stock_investor_interaction", [_interaction_row("cninfo.irm", item, code=code) for item in _items(payload)])
     elif dataset == "eastmoney_fund_flow_120d":

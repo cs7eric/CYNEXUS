@@ -29,6 +29,8 @@ import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
 import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
+import cn.cccs7.cynexus.market.domain.pulse.MarketPulseDomainService;
+import cn.cccs7.cynexus.market.domain.pulse.MarketPulsePayloadDomainPolicy;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -37,12 +39,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -50,19 +49,22 @@ import org.springframework.stereotype.Service;
 @Service
 public class MarketPulseQueryAppService {
 
-    private static final List<String> DEFAULT_INDEX_CODES = List.of("000001", "399001", "399006");
     private static final Logger LOGGER = LoggerFactory.getLogger(MarketPulseQueryAppService.class);
 
     private final MarketPulseQueryRepository marketPulseQueryRepository;
     private final ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository;
+    private final MarketPulseDomainService domainService;
+    private final MarketPulsePayloadDomainPolicy payloadPolicy = new MarketPulsePayloadDomainPolicy();
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository,
-                                      ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository) {
+                                      ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
+                                      MarketPulseDomainService domainService) {
         this.marketPulseQueryRepository = marketPulseQueryRepository;
         this.thsIndustryConstituentSnapshotRepository = thsIndustryConstituentSnapshotRepository;
+        this.domainService = domainService;
     }
 
     public MarketPulseOverviewDTO getOverviewAkshare() {
@@ -70,7 +72,7 @@ public class MarketPulseQueryAppService {
         if (row == null) {
             return overviewError("market overview is empty");
         }
-        applyServingFacts(row);
+        domainService.applyServingFacts(row);
         return overviewPayload(row, marketPulseQueryRepository.findPreviousOverview(row.getTradeDate()).orElse(null));
     }
 
@@ -79,7 +81,7 @@ public class MarketPulseQueryAppService {
         if (row == null) {
             return MarketPulseOverviewEltdxDTO.builder().ok(false).error("market overview is empty").build();
         }
-        applyServingFacts(row);
+        domainService.applyServingFacts(row);
         MarketOverviewBO previous = marketPulseQueryRepository.findPreviousOverview(row.getTradeDate()).orElse(null);
         return MarketPulseOverviewEltdxDTO.builder()
                 .ok(true)
@@ -99,26 +101,21 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseOverviewDTO getOverviewArchive(String tradingDate) {
-        LocalDate date = LocalDate.parse(normalizeDate(tradingDate));
+        LocalDate date = LocalDate.parse(domainService.normalizeDate(tradingDate));
         MarketOverviewBO row = marketPulseQueryRepository.findOverviewByDate(date).orElse(null);
         if (row == null) {
             return overviewError("market overview archive not found");
         }
-        applyServingFacts(row);
+        domainService.applyServingFacts(row);
         return overviewPayload(row, marketPulseQueryRepository.findPreviousOverview(date).orElse(null));
     }
 
     public MarketPulseOverviewHistoryDTO getOverviewHistory(String range) {
         String normalizedRange = range == null ? "60d" : range;
-        int days = switch (normalizedRange) {
-            case "20d" -> 20;
-            case "120d" -> 120;
-            case "1y" -> 365;
-            default -> 60;
-        };
+        int days = domainService.historyDays(normalizedRange);
         LocalDate start = LocalDate.now().minusDays(days * 2L);
         List<MarketOverviewBO> rows = marketPulseQueryRepository.listOverviewSince(start, days);
-        applyServingFacts(rows);
+        domainService.applyServingFacts(rows);
         List<MarketPulseOverviewHistoryDTO.ItemDTO> items = rows.stream()
                 .sorted(Comparator.comparing(MarketOverviewBO::getTradeDate))
                 .map(this::historyItem)
@@ -155,7 +152,7 @@ public class MarketPulseQueryAppService {
                 .tradeDate(tradeDate)
                 .requestedTradeDate(requestedTradeDate)
                 .fallbackTradeDate(!tradeDate.equals(requestedTradeDate))
-                .servingMode(resolveServingMode(tradeDate, batch))
+                .servingMode(domainService.resolveServingMode(tradeDate, batch == null ? null : batch.getSourceKind()))
                 .sourceKind(batch == null ? null : batch.getSourceKind())
                 .sourceName(batch == null ? null : batch.getSourceName())
                 .status(batch == null ? null : batch.getStatus())
@@ -166,7 +163,7 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseSectorSnapshotHistoryDTO getSectorSnapshotHistory(int days) {
-        int safeDays = Math.max(1, Math.min(days, 365));
+        int safeDays = domainService.safeHistoryDays(days);
         List<LocalDate> dates = marketPulseQueryRepository.listLatestPulseTradeDates(safeDays);
         if (dates.isEmpty()) {
             return MarketPulseSectorSnapshotHistoryDTO.builder()
@@ -242,10 +239,10 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseIndexKlineBatchDTO getIndexKlineBatch(List<String> codes, LocalDate date, String interval) {
-        List<String> targetCodes = codes == null || codes.isEmpty() ? DEFAULT_INDEX_CODES : codes;
+        List<String> targetCodes = codes == null || codes.isEmpty() ? domainService.defaultIndexCodes() : codes;
         List<MarketPulseIndexKlineBatchDTO.ItemDTO> items = new ArrayList<>();
         List<String> returnedDates = new ArrayList<>();
-        String normalizedInterval = interval == null ? "1m" : interval;
+        String normalizedInterval = domainService.normalizeInterval(interval);
         for (String code : targetCodes) {
             LocalDate tradeDate = marketPulseQueryRepository.findLatestIndexMinuteDate(code, date).orElse(date);
             List<IndexMinuteBarBO> points = marketPulseQueryRepository.listIndexMinuteBars(code, tradeDate);
@@ -253,7 +250,7 @@ public class MarketPulseQueryAppService {
             items.add(MarketPulseIndexKlineBatchDTO.ItemDTO.builder()
                     .ok(!points.isEmpty())
                     .code(code)
-                    .name(indexName(code))
+                    .name(domainService.indexName(code))
                     .date(tradeDate.toString())
                     .interval(normalizedInterval)
                     .previousClose(previousClose)
@@ -286,7 +283,8 @@ public class MarketPulseQueryAppService {
         StyleSectorSnapshotBO row = marketPulseQueryRepository.findLatestStyleSector(name).orElse(null);
         List<MarketPulseStyleSectorConstituentsDTO.ConstituentDTO> constituents = List.of();
         if (row != null) {
-            MarketPulseStyleSectorConstituentsDTO parsed = readJson(row.getPayload(), MarketPulseStyleSectorConstituentsDTO.class);
+            MarketPulseStyleSectorConstituentsDTO parsed = toDto(payloadPolicy.parsePayload(row.getPayload()),
+                    MarketPulseStyleSectorConstituentsDTO.class);
             if (parsed != null && parsed.getConstituents() != null) {
                 constituents = parsed.getConstituents();
             }
@@ -347,27 +345,8 @@ public class MarketPulseQueryAppService {
             return styleHeatmap();
         }
         return marketPulseQueryRepository.findLatestHeatmap(kind)
-                .map(row -> {
-                    MarketPulseHeatmapDTO parsed = readJson(row.getPayload(), MarketPulseHeatmapDTO.class);
-                    if (parsed == null) {
-                        return emptyHeatmap(kind);
-                    }
-                    parsed.setOk(true);
-                    if (parsed.getKind() == null) {
-                        parsed.setKind(kind);
-                    }
-                    if (parsed.getSource() == null) {
-                        parsed.setSource(row.getSource());
-                    }
-                    if (parsed.getItems() == null) {
-                        parsed.setItems(List.of());
-                    }
-                    parsed.getItems().forEach(this::normalizeHeatmapItem);
-                    if (parsed.getCount() == null) {
-                        parsed.setCount(parsed.getItems().size());
-                    }
-                    return parsed;
-                })
+                .map(row -> toDto(payloadPolicy.normalizeHeatmap(row.getPayload(), kind, row.getSource()),
+                        MarketPulseHeatmapDTO.class))
                 .orElseGet(() -> emptyHeatmap(kind));
     }
 
@@ -410,22 +389,13 @@ public class MarketPulseQueryAppService {
         if (row == null) {
             return MarketPulseLimitEmotionDTO.builder().ok(false).error("limit emotion is empty").build();
         }
-        MarketPulseLimitEmotionDTO parsed = readJson(row.getExtra(), MarketPulseLimitEmotionDTO.class);
-        if (parsed != null && parsed.getLimitUp() != null) {
-            normalizeLimitEmotion(parsed, row);
-            return parsed;
-        }
-        return MarketPulseLimitEmotionDTO.builder()
-                .ok(true)
-                .tradeDate(row.getTradeDate())
-                .updateTime(timeString(row.getUpdatedAt()))
-                .marketStatus(row.getMarketStatus())
-                .dataStatus(row.getDataStatus() == null ? "normal" : row.getDataStatus())
-                .limitUp(limitBlock(row.getTradeDate(), "limit_up", "涨停", row.getLimitUpCount()))
-                .limitDown(limitBlock(row.getTradeDate(), "limit_down", "跌停", row.getLimitDownCount()))
-                .breakBoard(breakBoardBlock(row))
-                .streak(streakBlock(row))
-                .build();
+        return toDto(payloadPolicy.normalizeLimitEmotion(
+                        row.getExtra(),
+                        row,
+                        marketPulseQueryRepository.listLimitStocks(row.getTradeDate(), "limit_up", 80),
+                        marketPulseQueryRepository.listLimitStocks(row.getTradeDate(), "limit_down", 80),
+                        marketPulseQueryRepository.listLimitStocks(row.getTradeDate(), "broken", 80)),
+                MarketPulseLimitEmotionDTO.class);
     }
 
     private MarketPulseStyleSectorConstituentsDTO.IndustryRowDTO industryRow(ThsIndustryConstituentSnapshotBO row) {
@@ -505,260 +475,6 @@ public class MarketPulseQueryAppService {
                 .build();
     }
 
-    private MarketPulseLimitEmotionDTO.LimitBlockDTO limitBlock(LocalDate tradeDate,
-                                                                String category,
-                                                                String label,
-                                                                Integer count) {
-        return MarketPulseLimitEmotionDTO.LimitBlockDTO.builder()
-                .count(count)
-                .label(label)
-                .stocks(stockItems(tradeDate, category, 80))
-                .build();
-    }
-
-    private MarketPulseLimitEmotionDTO.BreakBoardDTO breakBoardBlock(MarketLimitDailySnapshotBO row) {
-        return MarketPulseLimitEmotionDTO.BreakBoardDTO.builder()
-                .touchedCount(row.getTouchedCount())
-                .brokenCount(row.getBrokenCount())
-                .rate(row.getBreakBoardRate())
-                .status("ready")
-                .label("炸板率")
-                .brokenStocks(stockItems(row.getTradeDate(), "broken", 80))
-                .build();
-    }
-
-    private MarketPulseLimitEmotionDTO.StreakDTO streakBlock(MarketLimitDailySnapshotBO row) {
-        return MarketPulseLimitEmotionDTO.StreakDTO.builder()
-                .maxHeight(row.getMaxStreakHeight())
-                .label("连板高度")
-                .leaders(List.of())
-                .distribution(List.of())
-                .promotion(MarketPulseLimitEmotionDTO.PromotionDTO.builder()
-                        .overallRate(row.getPromotionOverallRate())
-                        .levels(List.of())
-                        .build())
-                .broken(MarketPulseLimitEmotionDTO.BrokenDTO.builder()
-                        .count(row.getBrokenCount())
-                        .highStreakBrokenCount(0)
-                        .stocks(List.of())
-                        .build())
-                .sentiment(MarketPulseLimitEmotionDTO.SentimentDTO.builder()
-                        .level(row.getSentimentLevel() == null ? "normal" : row.getSentimentLevel())
-                        .text(row.getSentimentText() == null ? "" : row.getSentimentText())
-                        .build())
-                .build();
-    }
-
-    private List<MarketPulseLimitEmotionDTO.StockDTO> stockItems(LocalDate tradeDate, String category, int limit) {
-        return MarketPulseLimitEmotionStockDTOConverter.INSTANCE
-                .toSourceList(marketPulseQueryRepository.listLimitStocks(tradeDate, category, limit));
-    }
-
-    private void applyServingFacts(MarketOverviewBO row) {
-        if (row == null || row.getTradeDate() == null) {
-            return;
-        }
-        marketPulseQueryRepository.findDailyBreadth(row.getTradeDate()).ifPresent(breadth -> applyBreadth(row, breadth));
-        marketPulseQueryRepository.findLimitEmotionByDate(row.getTradeDate()).ifPresent(limit -> applyLimitCounts(row, limit));
-    }
-
-    private void applyServingFacts(List<MarketOverviewBO> rows) {
-        if (rows == null || rows.isEmpty()) {
-            return;
-        }
-        LocalDate startDate = rows.stream()
-                .map(MarketOverviewBO::getTradeDate)
-                .filter(date -> date != null)
-                .min(LocalDate::compareTo)
-                .orElse(null);
-        LocalDate endDate = rows.stream()
-                .map(MarketOverviewBO::getTradeDate)
-                .filter(date -> date != null)
-                .max(LocalDate::compareTo)
-                .orElse(null);
-        Map<LocalDate, MarketOverviewBO> breadthByDate = startDate == null || endDate == null
-                ? Map.of()
-                : marketPulseQueryRepository.listDailyBreadth(startDate, endDate)
-                        .stream()
-                        .filter(item -> item.getTradeDate() != null)
-                        .collect(Collectors.toMap(MarketOverviewBO::getTradeDate, Function.identity(), (left, right) -> right));
-        for (MarketOverviewBO row : rows) {
-            if (row.getTradeDate() == null) {
-                continue;
-            }
-            MarketOverviewBO breadth = breadthByDate.get(row.getTradeDate());
-            if (breadth != null) {
-                applyBreadth(row, breadth);
-            }
-            marketPulseQueryRepository.findLimitEmotionByDate(row.getTradeDate()).ifPresent(limit -> applyLimitCounts(row, limit));
-        }
-    }
-
-    private void applyBreadth(MarketOverviewBO row, MarketOverviewBO breadth) {
-        row.setRisingCount(breadth.getRisingCount());
-        row.setFallingCount(breadth.getFallingCount());
-        row.setFlatCount(breadth.getFlatCount());
-        row.setStockCount(breadth.getStockCount());
-    }
-
-    private void applyLimitCounts(MarketOverviewBO row, MarketLimitDailySnapshotBO limit) {
-        row.setLimitUpCount(limit.getLimitUpCount());
-        row.setLimitDownCount(limit.getLimitDownCount());
-    }
-
-    private void normalizeLimitEmotion(MarketPulseLimitEmotionDTO value, MarketLimitDailySnapshotBO row) {
-        value.setOk(true);
-        if (value.getTradeDate() == null) {
-            value.setTradeDate(row.getTradeDate());
-        }
-        if (value.getUpdateTime() == null) {
-            value.setUpdateTime(timeString(row.getUpdatedAt()));
-        }
-        if (value.getMarketStatus() == null) {
-            value.setMarketStatus(row.getMarketStatus());
-        }
-        if (value.getDataStatus() == null) {
-            value.setDataStatus(row.getDataStatus() == null ? "normal" : row.getDataStatus());
-        }
-        if (value.getLimitUp() == null) {
-            value.setLimitUp(limitBlock(row.getTradeDate(), "limit_up", "涨停", row.getLimitUpCount()));
-        } else {
-            if (value.getLimitUp().getCount() == null) {
-                value.getLimitUp().setCount(row.getLimitUpCount());
-            }
-            if (value.getLimitUp().getStocks() == null) {
-                value.getLimitUp().setStocks(List.of());
-            }
-        }
-        if (value.getLimitDown() == null) {
-            value.setLimitDown(limitBlock(row.getTradeDate(), "limit_down", "跌停", row.getLimitDownCount()));
-        } else {
-            if (value.getLimitDown().getCount() == null) {
-                value.getLimitDown().setCount(row.getLimitDownCount());
-            }
-            if (value.getLimitDown().getStocks() == null) {
-                value.getLimitDown().setStocks(List.of());
-            }
-        }
-        if (value.getBreakBoard() == null) {
-            value.setBreakBoard(breakBoardBlock(row));
-        } else if (value.getBreakBoard().getBrokenStocks() == null) {
-            value.getBreakBoard().setBrokenStocks(List.of());
-        }
-        if (value.getStreak() == null) {
-            value.setStreak(streakBlock(row));
-            return;
-        }
-        if (value.getStreak().getMaxHeight() == null) {
-            value.getStreak().setMaxHeight(row.getMaxStreakHeight());
-        }
-        if (value.getStreak().getLeaders() == null) {
-            value.getStreak().setLeaders(List.of());
-        }
-        if (value.getStreak().getDistribution() == null) {
-            value.getStreak().setDistribution(List.of());
-        } else {
-            value.getStreak().getDistribution().forEach(item -> {
-                if (item.getStreak() == null) {
-                    item.setStreak(item.getHeight());
-                }
-                if (item.getStocks() == null) {
-                    item.setStocks(List.of());
-                }
-            });
-            fillDistributionStocks(value);
-        }
-        if (value.getStreak().getPromotion() == null) {
-            value.getStreak().setPromotion(MarketPulseLimitEmotionDTO.PromotionDTO.builder()
-                    .overallRate(row.getPromotionOverallRate())
-                    .levels(List.of())
-                    .build());
-        } else {
-            if (value.getStreak().getPromotion().getLevels() == null) {
-                value.getStreak().getPromotion().setLevels(List.of());
-            }
-            fillPromotionLevels(value);
-        }
-        if (value.getStreak().getBroken() == null) {
-            value.getStreak().setBroken(MarketPulseLimitEmotionDTO.BrokenDTO.builder()
-                    .count(row.getBrokenCount())
-                    .highStreakBrokenCount(0)
-                    .stocks(List.of())
-                    .build());
-        } else if (value.getStreak().getBroken().getStocks() == null) {
-            value.getStreak().getBroken().setStocks(List.of());
-        }
-        if (value.getStreak().getSentiment() == null) {
-            value.getStreak().setSentiment(MarketPulseLimitEmotionDTO.SentimentDTO.builder()
-                    .level(row.getSentimentLevel() == null ? "normal" : row.getSentimentLevel())
-                    .text(row.getSentimentText() == null ? "" : row.getSentimentText())
-                    .build());
-        }
-    }
-
-    private void fillDistributionStocks(MarketPulseLimitEmotionDTO value) {
-        if (value.getLimitUp() == null || value.getLimitUp().getStocks() == null) {
-            return;
-        }
-        List<MarketPulseLimitEmotionDTO.StockDTO> limitUpStocks = value.getLimitUp().getStocks();
-        for (MarketPulseLimitEmotionDTO.DistributionRowDTO row : value.getStreak().getDistribution()) {
-            if (row.getStreak() == null || !row.getStocks().isEmpty()) {
-                continue;
-            }
-            row.setStocks(limitUpStocks.stream()
-                    .filter(stock -> row.getStreak().equals(stock.getStreak()))
-                    .toList());
-        }
-    }
-
-    private void fillPromotionLevels(MarketPulseLimitEmotionDTO value) {
-        if (value.getStreak() == null || value.getStreak().getPromotion() == null) {
-            return;
-        }
-        Map<Integer, Integer> denominator = new LinkedHashMap<>();
-        Map<Integer, Integer> numerator = new LinkedHashMap<>();
-        if (value.getLimitUp() != null && value.getLimitUp().getStocks() != null) {
-            for (MarketPulseLimitEmotionDTO.StockDTO stock : value.getLimitUp().getStocks()) {
-                Integer streak = stock.getStreak();
-                if (streak != null && streak > 1) {
-                    int from = streak - 1;
-                    denominator.put(from, denominator.getOrDefault(from, 0) + 1);
-                    numerator.put(from, numerator.getOrDefault(from, 0) + 1);
-                }
-            }
-        }
-        if (value.getStreak().getBroken() != null && value.getStreak().getBroken().getStocks() != null) {
-            for (MarketPulseLimitEmotionDTO.BrokenStockDTO stock : value.getStreak().getBroken().getStocks()) {
-                Integer prev = stock.getPreviousStreak();
-                if (prev != null && prev > 0) {
-                    denominator.put(prev, denominator.getOrDefault(prev, 0) + 1);
-                }
-            }
-        }
-        List<MarketPulseLimitEmotionDTO.PromotionLevelDTO> levels = new ArrayList<>();
-        int totalDenominator = 0;
-        int totalNumerator = 0;
-        for (Integer from : denominator.keySet()) {
-            int yc = denominator.getOrDefault(from, 0);
-            int tc = numerator.getOrDefault(from, 0);
-            totalDenominator += yc;
-            totalNumerator += tc;
-            levels.add(MarketPulseLimitEmotionDTO.PromotionLevelDTO.builder()
-                    .from(from)
-                    .to(from + 1)
-                    .yesterdayCount(yc)
-                    .todayPromotedCount(tc)
-                    .rate(yc > 0 ? BigDecimal.valueOf(tc).divide(BigDecimal.valueOf(yc), 4, java.math.RoundingMode.HALF_UP) : null)
-                    .build());
-        }
-        value.getStreak().getPromotion().setLevels(levels);
-        if (value.getStreak().getPromotion().getOverallRate() == null && totalDenominator > 0) {
-            value.getStreak().getPromotion().setOverallRate(
-                    BigDecimal.valueOf(totalNumerator).divide(BigDecimal.valueOf(totalDenominator), 4, java.math.RoundingMode.HALF_UP)
-            );
-        }
-    }
-
     private MarketPulseHeatmapDTO emptyHeatmap(String kind) {
         return MarketPulseHeatmapDTO.builder()
                 .ok(true)
@@ -769,35 +485,6 @@ public class MarketPulseQueryAppService {
                 .build();
     }
 
-    private void normalizeHeatmapItem(MarketPulseHeatmapDTO.ItemDTO item) {
-        if (item.getChangePercent() == null) {
-            item.setChangePercent(item.getChangePct());
-        }
-        if (item.getChangePct() == null) {
-            item.setChangePct(item.getChangePercent());
-        }
-        if (item.getStockCount() == null) {
-            item.setStockCount(item.getCount());
-        }
-        if (item.getCount() == null) {
-            item.setCount(item.getStockCount());
-        }
-        if (item.getConceptTags() == null) {
-            item.setConceptTags(List.of());
-        }
-        if (item.getChildren() == null) {
-            item.setChildren(List.of());
-        }
-        item.getChildren().forEach(child -> {
-            if (child.getConceptTags() == null) {
-                child.setConceptTags(List.of());
-            }
-            if (child.getIsLimitUp() == null) {
-                child.setIsLimitUp(false);
-            }
-        });
-    }
-
     private MarketPulseOverviewDTO overviewError(String message) {
         return MarketPulseOverviewDTO.builder()
                 .ok(false)
@@ -805,43 +492,20 @@ public class MarketPulseQueryAppService {
                 .build();
     }
 
-    private String resolveServingMode(LocalDate tradeDate, MarketPulseCaptureBatchBO batch) {
-        if (tradeDate != null && tradeDate.equals(LocalDate.now()) && batch != null && "live_capture".equals(batch.getSourceKind())) {
-            return "intraday";
-        }
-        return "close";
-    }
-
-    private <T> T readJson(String value, Class<T> type) {
-        if (value == null || value.isBlank()) {
+    private <T> T toDto(com.fasterxml.jackson.databind.JsonNode value, Class<T> type) {
+        if (value == null || value.isNull()) {
             return null;
         }
         try {
-            return objectMapper.readValue(value, type);
+            return objectMapper.treeToValue(value, type);
         } catch (Exception ex) {
-            LOGGER.warn("Failed to parse persisted market pulse JSON as {}: {}", type.getSimpleName(), ex.getMessage());
+            LOGGER.warn("Failed to map persisted market pulse payload as {}: {}", type.getSimpleName(), ex.getMessage());
             return null;
         }
-    }
-
-    private String normalizeDate(String tradingDate) {
-        String normalized = tradingDate == null ? "" : tradingDate;
-        if (normalized.length() == 8 && !normalized.contains("-")) {
-            return normalized.substring(0, 4) + "-" + normalized.substring(4, 6) + "-" + normalized.substring(6, 8);
-        }
-        return normalized;
     }
 
     private String timeString(OffsetDateTime value) {
         return value == null ? null : value.toString();
     }
 
-    private String indexName(String code) {
-        return switch (code) {
-            case "000001" -> "上证指数";
-            case "399001" -> "深证成指";
-            case "399006" -> "创业板指";
-            default -> code;
-        };
-    }
 }

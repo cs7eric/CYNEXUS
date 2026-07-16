@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-knowledgebase</artifactId>
-        <version>1.0.3-SNAPSHOT</version>
+        <version>1.0.82-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-knowledgebase-starter</artifactId>
@@ -17,6 +17,11 @@
         <dependency>
             <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-knowledgebase-application-controller</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-knowledgebase-infra</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -22,7 +22,8 @@ import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionStreamBO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionTaskBO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionTaskRefBO;
 import cn.cccs7.cynexus.core.domain.repository.MediaTranscriptionHistoryRepository;
-import cn.cccs7.cynexus.core.domain.service.MediaTranscriptionTaskDomainService;
+import cn.cccs7.cynexus.core.domain.mediatranscription.MediaTranscriptionTaskDomainService;
+import cn.cccs7.cynexus.core.domain.mediatranscription.MediaTranscriptionDomainPolicy;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,7 +33,6 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -54,6 +54,7 @@ public class MediaTranscriptionAppService {
     private final MediaTranscriptionHistoryRepository mediaTranscriptionHistoryRepository;
     private final ConcurrentMap<String, MediaTranscriptionTaskBO> aiEnrichedTasks = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final MediaTranscriptionDomainPolicy domainPolicy = new MediaTranscriptionDomainPolicy();
 
     public MediaTranscriptionAppService(MediaTranscriptionTaskDomainService mediaTranscriptionTaskDomainService,
                                         MediaTranscriptionAiClient mediaTranscriptionAiClient,
@@ -104,11 +105,11 @@ public class MediaTranscriptionAppService {
             throw new BizException(ErrorCode.BAD_REQUEST, "问题不能为空");
         }
         MediaTranscriptionTaskBO task = getAiEnrichedTask(taskId);
-        if (task == null || !"done".equals(task.getStatus())) {
+        if (!domainPolicy.isDone(task)) {
             throw new BizException(ErrorCode.BAD_REQUEST, "任务尚未完成");
         }
         MediaTranscriptionAskResultBO result = mediaTranscriptionAiClient.ask(
-                firstText(task.getPolished(), task.getTranscript()),
+                domainPolicy.firstText(task.getPolished(), task.getTranscript()),
                 task.getSummary(),
                 question);
         return MediaTranscriptionAskResponseDTO.builder()
@@ -118,15 +119,16 @@ public class MediaTranscriptionAppService {
 
     public MediaTranscriptionBinaryBO exportMarkdown(String taskId) {
         MediaTranscriptionTaskBO task = getAiEnrichedTask(taskId);
-        if (task == null || !"done".equals(task.getStatus())) {
+        if (!domainPolicy.isDone(task)) {
             throw new BizException(ErrorCode.BAD_REQUEST, "任务尚未完成");
         }
         String title = task.getMetadata() == null || task.getMetadata().getTitle() == null || task.getMetadata().getTitle().isBlank()
-                ? safeStem(task.getFileName())
+                ? domainPolicy.safeStem(task.getFileName())
                 : task.getMetadata().getTitle();
-        String markdown = buildMarkdown(title, task);
+        String markdown = domainPolicy.buildMarkdown(title, task,
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
         return MediaTranscriptionBinaryBO.builder()
-                .fileName(safeFileName(title) + ".md")
+                .fileName(domainPolicy.safeFileName(title) + ".md")
                 .contentType("text/markdown; charset=utf-8")
                 .content(markdown.getBytes(StandardCharsets.UTF_8))
                 .build();
@@ -155,16 +157,17 @@ public class MediaTranscriptionAppService {
             throw new BizException(ErrorCode.BAD_REQUEST, "taskId is required");
         }
         MediaTranscriptionTaskBO task = getAiEnrichedTask(taskId);
-        if (task == null || !"done".equals(task.getStatus())) {
+        if (!domainPolicy.isDone(task)) {
             throw new BizException(ErrorCode.BAD_REQUEST, "任务尚未完成");
         }
         MediaTranscriptionHistoryBO existing = mediaTranscriptionHistoryRepository.findByTaskId(taskId);
         Map<String, Object> record = existing == null
-                ? buildHistoryRecord(null, task, null)
-                : buildHistoryRecord(existing.getId(), task, readQaItems(parseRecord(existing.getRecordJson())));
+                ? domainPolicy.buildHistoryRecord(null, task, null, OffsetDateTime.now())
+                : domainPolicy.buildHistoryRecord(existing.getId(), task,
+                        readQaItems(parseRecord(existing.getRecordJson())), OffsetDateTime.now());
         String recordJson = toJson(record);
         String title = asString(record.get("title"));
-        String status = normalize(task.getStatus());
+        String status = domainPolicy.normalize(task.getStatus());
         if (existing == null) {
             Long id = mediaTranscriptionHistoryRepository.create(MediaTranscriptionHistoryBO.builder()
                     .taskId(taskId)
@@ -222,7 +225,7 @@ public class MediaTranscriptionAppService {
         Map<String, Object> record = parseRecord(history.getRecordJson());
         Map<String, Object> task = asMap(record.get("task"));
         String answer = mediaTranscriptionAiClient.ask(
-                firstText(asString(task.get("polished")), asString(task.get("transcript"))),
+                domainPolicy.firstText(asString(task.get("polished")), asString(task.get("transcript"))),
                 asString(task.get("summary")),
                 question).getAnswer();
         MediaTranscriptionHistoryQaItemDTO item = MediaTranscriptionHistoryQaItemDTO.builder()
@@ -243,7 +246,7 @@ public class MediaTranscriptionAppService {
 
     private MediaTranscriptionTaskBO getAiEnrichedTask(String taskId) {
         MediaTranscriptionTaskBO task = mediaTranscriptionTaskDomainService.getTask(taskId);
-        if (task == null || !"done".equals(task.getStatus())) {
+        if (!domainPolicy.isDone(task)) {
             return task;
         }
         MediaTranscriptionTaskBO cached = aiEnrichedTasks.get(taskId);
@@ -282,71 +285,6 @@ public class MediaTranscriptionAppService {
                 .fileName(history.getFileName())
                 .dataFile("postgres:media_transcription_history/" + history.getId())
                 .build();
-    }
-
-    private Map<String, Object> buildHistoryRecord(Long existingId, MediaTranscriptionTaskBO task, List<Map<String, Object>> qaItems) {
-        OffsetDateTime now = OffsetDateTime.now();
-        String id = existingId == null ? "" : String.valueOf(existingId);
-        Map<String, Object> taskMap = new LinkedHashMap<>();
-        taskMap.put("task_id", task.getTaskId());
-        taskMap.put("status", task.getStatus());
-        taskMap.put("transcript", normalize(task.getTranscript()));
-        taskMap.put("polished", normalize(task.getPolished()));
-        taskMap.put("summary", normalize(task.getSummary()));
-        taskMap.put("metadata", metadataToMap(task.getMetadata()));
-        taskMap.put("file_name", task.getFileName());
-        taskMap.put("error", task.getError());
-        taskMap.put("download_progress", progressToMap(task.getDownloadProgress()));
-        taskMap.put("intake_progress", progressToMap(task.getIntakeProgress()));
-        taskMap.put("qa_items", qaItems == null ? List.of() : qaItems);
-
-        Map<String, Object> record = new LinkedHashMap<>();
-        record.put("id", id);
-        record.put("type", "mp4_parse");
-        record.put("version", 1);
-        record.put("created_at", now.toString());
-        record.put("updated_at", now.toString());
-        record.put("title", historyTitle(task));
-        record.put("task", taskMap);
-        return record;
-    }
-
-    private String historyTitle(MediaTranscriptionTaskBO task) {
-        MediaTranscriptionMetadataBO metadata = task.getMetadata();
-        return firstText(metadata == null ? null : metadata.getTitle(), safeStem(task.getFileName()));
-    }
-
-    private Map<String, Object> metadataToMap(MediaTranscriptionMetadataBO metadata) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        if (metadata == null) {
-            return map;
-        }
-        map.put("title", metadata.getTitle());
-        map.put("categories", metadata.getCategories() == null ? List.of() : metadata.getCategories());
-        map.put("tags", metadata.getTags() == null ? List.of() : metadata.getTags());
-        map.put("source_url", metadata.getSourceUrl());
-        map.put("download_url", metadata.getDownloadUrl());
-        map.put("platform", metadata.getPlatform());
-        map.put("duration", metadata.getDuration());
-        map.put("noteType", metadata.getNoteType());
-        map.put("download_audio_url", metadata.getAudioUrl());
-        map.put("original_url", metadata.getOriginalUrl());
-        return map;
-    }
-
-    private Map<String, Object> progressToMap(MediaTranscriptionProgressBO progress) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        if (progress == null) {
-            return map;
-        }
-        map.put("phase", progress.getPhase());
-        map.put("progress", progress.getProgress());
-        map.put("downloaded_bytes", progress.getDownloadedBytes());
-        map.put("total_bytes", progress.getTotalBytes());
-        map.put("processed_bytes", progress.getProcessedBytes());
-        map.put("eta_seconds", progress.getEtaSeconds());
-        map.put("speed_bytes_per_sec", progress.getSpeedBytesPerSec());
-        return map;
     }
 
     private Map<String, Object> parseRecord(String json) {
@@ -406,109 +344,28 @@ public class MediaTranscriptionAppService {
     }
 
     private MediaTranscriptionTaskBO enrichTask(MediaTranscriptionTaskBO task) {
-        String transcript = normalize(task.getTranscript());
-        String polished = normalize(task.getPolished());
-        String summary = normalize(task.getSummary());
+        String transcript = domainPolicy.normalize(task.getTranscript());
+        String polished = domainPolicy.normalize(task.getPolished());
+        String summary = domainPolicy.normalize(task.getSummary());
         MediaTranscriptionMetadataBO metadata = task.getMetadata();
         try {
             if (!transcript.isBlank() && (polished.isBlank() || polished.equals(transcript))) {
-                polished = normalize(mediaTranscriptionAiClient.polish(transcript));
+                polished = domainPolicy.normalize(mediaTranscriptionAiClient.polish(transcript));
             }
             if (!polished.isBlank()) {
-                summary = normalize(mediaTranscriptionAiClient.summarize(
+                summary = domainPolicy.normalize(mediaTranscriptionAiClient.summarize(
                         polished,
                         metadata == null ? null : metadata.getTitle(),
                         metadata == null ? null : metadata.getPlatform(),
                         metadata == null ? null : metadata.getDuration()));
             }
-            MediaTranscriptionMetadataBO aiMetadata = mediaTranscriptionAiClient.metadata(firstText(polished, transcript), summary);
-            metadata = mergeMetadata(metadata, aiMetadata);
-            return copyTask(task, firstText(polished, transcript), summary, metadata, null);
+            MediaTranscriptionMetadataBO aiMetadata = mediaTranscriptionAiClient.metadata(domainPolicy.firstText(polished, transcript), summary);
+            metadata = domainPolicy.mergeMetadata(metadata, aiMetadata);
+            return domainPolicy.copyWithAiResult(task, domainPolicy.firstText(polished, transcript), summary, metadata, null);
         } catch (Exception exception) {
-            return copyTask(task, firstText(polished, transcript), summary, metadata,
+            return domainPolicy.copyWithAiResult(task, domainPolicy.firstText(polished, transcript), summary, metadata,
                     "AI polish/summary/metadata failed: " + exception.getMessage());
         }
-    }
-
-    private MediaTranscriptionTaskBO copyTask(MediaTranscriptionTaskBO source,
-                                              String polished,
-                                              String summary,
-                                              MediaTranscriptionMetadataBO metadata,
-                                              String warning) {
-        String error = source.getError();
-        if (warning != null && !warning.isBlank()) {
-            error = error == null || error.isBlank() ? warning : error + "; " + warning;
-        }
-        return MediaTranscriptionTaskBO.builder()
-                .taskId(source.getTaskId())
-                .status(source.getStatus())
-                .transcript(source.getTranscript())
-                .polished(polished)
-                .summary(summary)
-                .metadata(metadata)
-                .fileName(source.getFileName())
-                .error(error)
-                .downloadProgress(source.getDownloadProgress())
-                .intakeProgress(source.getIntakeProgress())
-                .build();
-    }
-
-    private MediaTranscriptionMetadataBO mergeMetadata(MediaTranscriptionMetadataBO original, MediaTranscriptionMetadataBO ai) {
-        if (original == null && ai == null) {
-            return null;
-        }
-        if (original == null) {
-            original = MediaTranscriptionMetadataBO.builder().build();
-        }
-        return MediaTranscriptionMetadataBO.builder()
-                .title(firstText(ai == null ? null : ai.getTitle(), original.getTitle()))
-                .categories(mergeList(ai == null ? null : ai.getCategories(), original.getCategories()))
-                .tags(mergeList(ai == null ? null : ai.getTags(), original.getTags()))
-                .sourceUrl(original.getSourceUrl())
-                .downloadUrl(original.getDownloadUrl())
-                .platform(original.getPlatform())
-                .duration(original.getDuration())
-                .noteType(original.getNoteType())
-                .audioUrl(original.getAudioUrl())
-                .originalUrl(original.getOriginalUrl())
-                .build();
-    }
-
-    private List<String> mergeList(List<String> preferred, List<String> fallback) {
-        LinkedHashSet<String> values = new LinkedHashSet<>();
-        addAll(values, preferred);
-        addAll(values, fallback);
-        return new ArrayList<>(values);
-    }
-
-    private void addAll(LinkedHashSet<String> values, List<String> items) {
-        if (items == null) {
-            return;
-        }
-        for (String item : items) {
-            String normalized = normalize(item);
-            if (!normalized.isBlank()) {
-                values.add(normalized);
-            }
-        }
-    }
-
-    private String buildMarkdown(String title, MediaTranscriptionTaskBO task) {
-        MediaTranscriptionMetadataBO metadata = task.getMetadata();
-        StringBuilder builder = new StringBuilder();
-        builder.append("---\n")
-                .append("title: ").append(title).append('\n')
-                .append("date: ").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))).append('\n')
-                .append("categories: ").append(String.join(",", metadata == null || metadata.getCategories() == null ? List.of() : metadata.getCategories())).append('\n')
-                .append("tags: ").append(String.join(",", metadata == null || metadata.getTags() == null ? List.of() : metadata.getTags())).append('\n')
-                .append("---\n\n")
-                .append("## Transcript\n")
-                .append(normalize(task.getTranscript())).append("\n\n")
-                .append("## Polished\n")
-                .append(normalize(task.getPolished())).append("\n\n")
-                .append("## Summary\n")
-                .append(normalize(task.getSummary())).append('\n');
-        return builder.toString();
     }
 
     private static MediaTranscriptionTaskRefDTO toTaskRef(MediaTranscriptionTaskRefBO value) {
@@ -591,24 +448,6 @@ public class MediaTranscriptionAppService {
         return suffix.length() > 16 ? ".bin" : suffix;
     }
 
-    private static String safeStem(String fileName) {
-        if (fileName == null || fileName.isBlank()) {
-            return "transcription";
-        }
-        int index = fileName.lastIndexOf('.');
-        return index > 0 ? fileName.substring(0, index) : fileName;
-    }
-
-    private static String safeFileName(String value) {
-        String normalized = normalize(value).replaceAll("[<>:\"/\\\\|?*\\x00-\\x1f]+", "_");
-        return normalized.isBlank() ? "transcription" : normalized;
-    }
-
-    private static String firstText(String preferred, String fallback) {
-        String normalized = normalize(preferred);
-        return normalized.isBlank() ? normalize(fallback) : normalized;
-    }
-
     private static String asString(Object value) {
         if (value == null) {
             return "";
@@ -622,10 +461,6 @@ public class MediaTranscriptionAppService {
         } catch (Exception exception) {
             return null;
         }
-    }
-
-    private static String normalize(String value) {
-        return value == null ? "" : value.trim();
     }
 
     private static void deleteQuietly(Path path) {

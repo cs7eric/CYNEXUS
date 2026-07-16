@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.TdxIndustryQuoteBatchDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.TdxIndustryQuoteBatchDTO;
 import cn.cccs7.cynexus.market.domain.entity.TdxIndustryQuoteBatchBO;
-import cn.cccs7.cynexus.market.domain.service.TdxIndustryQuoteBatchDomainService;
+import cn.cccs7.cynexus.market.domain.sector.TdxIndustryQuoteBatchDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

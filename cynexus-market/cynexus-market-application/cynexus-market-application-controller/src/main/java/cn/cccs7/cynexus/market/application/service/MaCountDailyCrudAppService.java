@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.MaCountDailyDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.MaCountDailyDTO;
 import cn.cccs7.cynexus.market.domain.entity.MaCountDailyBO;
-import cn.cccs7.cynexus.market.domain.service.MaCountDailyDomainService;
+import cn.cccs7.cynexus.market.domain.sentiment.MaCountDailyDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-ai-application</artifactId>
-        <version>1.0.3-SNAPSHOT</version>
+        <version>1.0.82-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-ai-application-controller</artifactId>
@@ -21,7 +21,12 @@
         </dependency>
         <dependency>
             <groupId>cn.cccs7</groupId>
-            <artifactId>cynexus-ai-infra</artifactId>
+            <artifactId>cynexus-ai-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-market-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -45,5 +50,21 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+    <build>
+        <testResources>
+            <testResource>
+                <directory>${maven.multiModuleProjectDirectory}/cynexus-ai/src/test/resources</directory>
+            </testResource>
+        </testResources>
+    </build>
 </project>

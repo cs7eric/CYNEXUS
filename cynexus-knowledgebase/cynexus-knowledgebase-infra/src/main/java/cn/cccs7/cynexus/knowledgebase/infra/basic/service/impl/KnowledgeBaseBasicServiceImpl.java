@@ -86,7 +86,6 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
         if (document.getId() == null) {
             document.setId(snowflakeIdGenerator.nextId());
         }
-        applyDocumentDefaults(document);
         documentMapper.insert(document);
         replaceDocumentTags(document.getId(), tagIds);
         replaceDocumentCategories(document.getId(), categoryIds);
@@ -99,7 +98,6 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
         if (document == null || document.getId() == null) {
             return false;
         }
-        applyDocumentDefaults(document);
         document.setUpdatedAt(OffsetDateTime.now());
         boolean updated = documentMapper.updateById(document) > 0;
         if (updated) {
@@ -167,9 +165,6 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
         if (tag.getId() == null) {
             tag.setId(snowflakeIdGenerator.nextId());
         }
-        if (!hasText(tag.getTagCode())) {
-            tag.setTagCode(slug(tag.getTagName()));
-        }
         tagMapper.insert(tag);
         return tag.getId();
     }
@@ -221,12 +216,6 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
     public Long createCategory(CategoryPO category) {
         if (category.getId() == null) {
             category.setId(snowflakeIdGenerator.nextId());
-        }
-        if (!hasText(category.getCategoryCode())) {
-            category.setCategoryCode(slug(category.getCategoryName()));
-        }
-        if (category.getSortOrder() == null) {
-            category.setSortOrder(0);
         }
         categoryMapper.insert(category);
         return category.getId();
@@ -334,33 +323,11 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
                 .set(DocumentCategoryMappingPO::getDeletedAt, now));
     }
 
-    private void applyDocumentDefaults(DocumentPO document) {
-        if (!hasText(document.getContent())) {
-            document.setContent("");
-        }
-        if (!hasText(document.getContentFormat())) {
-            document.setContentFormat("markdown");
-        }
-        if (!hasText(document.getStatus())) {
-            document.setStatus("draft");
-        }
-        if (!hasText(document.getExtra())) {
-            document.setExtra("{}");
-        }
-    }
-
     private List<Long> distinctIds(List<Long> ids) {
         if (ids == null) {
             return List.of();
         }
         return new ArrayList<>(new LinkedHashSet<>(ids.stream().filter(id -> id != null && id > 0).toList()));
-    }
-
-    private String slug(String value) {
-        if (!hasText(value)) {
-            return "item-" + snowflakeIdGenerator.nextId();
-        }
-        return value.trim().toLowerCase().replaceAll("[^a-z0-9\\u4e00-\\u9fa5]+", "-").replaceAll("(^-|-$)", "");
     }
 
     private boolean hasText(String value) {

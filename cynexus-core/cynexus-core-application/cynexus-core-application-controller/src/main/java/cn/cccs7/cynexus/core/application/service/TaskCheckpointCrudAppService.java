@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.core.application.service;
 import cn.cccs7.cynexus.core.application.convert.TaskCheckpointDTOConverter;
 import cn.cccs7.cynexus.core.api.dto.TaskCheckpointDTO;
 import cn.cccs7.cynexus.core.domain.entity.TaskCheckpointBO;
-import cn.cccs7.cynexus.core.domain.service.TaskCheckpointDomainService;
+import cn.cccs7.cynexus.core.domain.task.TaskCheckpointDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

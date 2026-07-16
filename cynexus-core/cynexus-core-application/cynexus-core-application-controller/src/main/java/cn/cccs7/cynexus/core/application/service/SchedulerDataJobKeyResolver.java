@@ -127,11 +127,35 @@ final class SchedulerDataJobKeyResolver {
             entry("a_stock_marketwide_daily", "sync_a_stock_dataset", Map.ofEntries(
                     Map.entry("create_table", true),
                     Map.entry("ignore_errors", true),
-                    Map.entry("datasets", List.of("eastmoney_industry_rank", "eastmoney_daily_dragon_tiger", "eastmoney_limit_pool", "eastmoney_hot_rank", "eastmoney_global_news", "ths_hot_reason", "ths_limit_up_pool", "ths_hot_list", "sina_option_codes")),
+                    Map.entry("datasets", List.of("eastmoney_industry_rank", "eastmoney_daily_dragon_tiger", "eastmoney_limit_pool", "eastmoney_hot_rank", "eastmoney_global_news", "ths_hot_reason", "ths_limit_up_pool", "ths_hot_list", "sina_option_codes", "cailian_telegraph", "cninfo_market_announcements", "cninfo_regulatory_announcements", "official_market_information")),
                     Map.entry("pool", "zt"),
                     Map.entry("top", 100),
                     Map.entry("top_n", 30),
-                    Map.entry("page_size", 50)
+                    Map.entry("page_size", 50),
+                    Map.entry("eastmoney_news_page_size", 300),
+                    Map.entry("official_page_size", 40),
+                    Map.entry("cailian_page_size", 50),
+                    Map.entry("cninfo_market_page_size", 300),
+                    Map.entry("cninfo_regulatory_page_size", 200)
+            )),
+            entry("market_information_media_refresh", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("datasets", List.of("eastmoney_global_news", "cailian_telegraph")),
+                    Map.entry("eastmoney_news_page_size", 300),
+                    Map.entry("cailian_page_size", 50),
+                    Map.entry("extract_market_information_content", true),
+                    Map.entry("market_information_content_backfill_limit", 6)
+            )),
+            entry("market_information_official_refresh", "sync_a_stock_dataset", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("datasets", List.of("official_market_information", "cninfo_market_announcements", "cninfo_regulatory_announcements")),
+                    Map.entry("official_page_size", 40),
+                    Map.entry("cninfo_market_page_size", 300),
+                    Map.entry("cninfo_regulatory_page_size", 200),
+                    Map.entry("extract_market_information_content", true),
+                    Map.entry("market_information_content_backfill_limit", 30)
             )),
             entry("a_stock_code_daily", "sync_a_stock_dataset", Map.ofEntries(
                     Map.entry("create_table", true),

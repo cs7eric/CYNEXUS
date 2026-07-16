@@ -7,7 +7,8 @@ import cn.cccs7.cynexus.knowledgebase.application.convert.KnowledgeCategoryDTOCo
 import cn.cccs7.cynexus.knowledgebase.application.convert.KnowledgeDocumentDTOConverter;
 import cn.cccs7.cynexus.knowledgebase.application.convert.KnowledgeTagDTOConverter;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
-import cn.cccs7.cynexus.knowledgebase.domain.service.KnowledgeBaseDomainService;
+import cn.cccs7.cynexus.knowledgebase.domain.knowledgebase.KnowledgeBaseDomainService;
+import cn.cccs7.cynexus.knowledgebase.domain.index.KnowledgeBaseIndexDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +16,12 @@ import org.springframework.stereotype.Service;
 public class KnowledgeBaseAppService {
 
     private final KnowledgeBaseDomainService domainService;
-    private final KnowledgeBaseIndexAppService indexAppService;
+    private final KnowledgeBaseIndexDomainService indexDomainService;
 
     public KnowledgeBaseAppService(KnowledgeBaseDomainService domainService,
-                                   KnowledgeBaseIndexAppService indexAppService) {
+                                   KnowledgeBaseIndexDomainService indexDomainService) {
         this.domainService = domainService;
-        this.indexAppService = indexAppService;
+        this.indexDomainService = indexDomainService;
     }
 
     public List<KnowledgeDocumentDTO> listDocuments(String keyword, String status, Long tagId, Long categoryId) {
@@ -35,14 +36,14 @@ public class KnowledgeBaseAppService {
 
     public Long createDocument(KnowledgeDocumentDTO dto) {
         Long id = domainService.createDocument(KnowledgeDocumentDTOConverter.INSTANCE.toTarget(dto));
-        indexAppService.refreshDocumentIndex(domainService.findDocumentById(id));
+        indexDomainService.refreshDocumentIndex(domainService.findDocumentById(id));
         return id;
     }
 
     public boolean updateDocument(KnowledgeDocumentDTO dto) {
         boolean updated = domainService.updateDocument(KnowledgeDocumentDTOConverter.INSTANCE.toTarget(dto));
         if (updated && dto != null && dto.getId() != null) {
-            indexAppService.refreshDocumentIndex(domainService.findDocumentById(dto.getId()));
+            indexDomainService.refreshDocumentIndex(domainService.findDocumentById(dto.getId()));
         }
         return updated;
     }
@@ -50,7 +51,7 @@ public class KnowledgeBaseAppService {
     public boolean deleteDocument(Long id) {
         boolean deleted = domainService.deleteDocument(id);
         if (deleted) {
-            indexAppService.deleteDocumentIndex(id);
+            indexDomainService.deleteDocumentIndex(id);
         }
         return deleted;
     }

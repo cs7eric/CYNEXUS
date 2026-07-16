@@ -20,6 +20,7 @@ public interface AiModelPOConverter extends BaseMapper<AiModelConfigPO, AiModelB
     @Override
     @Mapping(target = "modelCode", source = "modelCode")
     @Mapping(target = "providerCode", source = "providerCode")
+    @Mapping(target = "providerIdentity", source = "providerCode")
     @Mapping(target = "modelName", source = "modelName")
     @Mapping(target = "capability", expression = "java(new ModelCapability(true, true, false))")
     @Mapping(target = "runtimeOptions", expression = "java(new ModelRuntimeOptions(null, null, null))")

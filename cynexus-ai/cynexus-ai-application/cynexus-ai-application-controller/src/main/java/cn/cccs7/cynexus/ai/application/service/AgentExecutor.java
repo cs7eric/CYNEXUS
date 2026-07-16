@@ -3,18 +3,17 @@ package cn.cccs7.cynexus.ai.application.service;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
-import cn.cccs7.cynexus.ai.infra.ai.adapter.AiModelAdapter;
-import cn.cccs7.cynexus.ai.infra.ai.factory.DynamicChatClientFactory;
+import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AgentExecutor {
 
-    private final DynamicChatClientFactory dynamicChatClientFactory;
+    private final AiCompletionGateway completionGateway;
 
-    public AgentExecutor(DynamicChatClientFactory dynamicChatClientFactory) {
-        this.dynamicChatClientFactory = dynamicChatClientFactory;
+    public AgentExecutor(AiCompletionGateway completionGateway) {
+        this.completionGateway = completionGateway;
     }
 
     public String execute(AiScenarioBO scenario, AiModelBO model, String prompt, List<String> toolCodes) {
@@ -31,13 +30,10 @@ public class AgentExecutor {
     }
 
     public AiCompletionResultBO completeDetailed(AiModelBO model, String prompt) {
-        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()
-                ? "mock"
-                : model.getProviderCode();
-        AiModelAdapter adapter = dynamicChatClientFactory.resolve(providerCode);
-        if (adapter == null) {
-            throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
-        }
-        return adapter.complete(model, prompt);
+        return completeDetailed(model, prompt, "");
+    }
+
+    public AiCompletionResultBO completeDetailed(AiModelBO model, String prompt, String capability) {
+        return completionGateway.complete(model, prompt, capability);
     }
 }

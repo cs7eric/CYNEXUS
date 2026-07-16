@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.TradeCalendarDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.TradeCalendarDTO;
 import cn.cccs7.cynexus.market.domain.entity.TradeCalendarBO;
-import cn.cccs7.cynexus.market.domain.service.TradeCalendarDomainService;
+import cn.cccs7.cynexus.market.domain.calendar.TradeCalendarDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.VolatilityDailyDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.VolatilityDailyDTO;
 import cn.cccs7.cynexus.market.domain.entity.VolatilityDailyBO;
-import cn.cccs7.cynexus.market.domain.service.VolatilityDailyDomainService;
+import cn.cccs7.cynexus.market.domain.sentiment.VolatilityDailyDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

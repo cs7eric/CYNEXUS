@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-market-application</artifactId>
-        <version>1.0.3-SNAPSHOT</version>
+        <version>1.0.82-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-market-application-controller</artifactId>
@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>cn.cccs7</groupId>
-            <artifactId>cynexus-market-infra</artifactId>
+            <artifactId>cynexus-market-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -32,6 +32,10 @@
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

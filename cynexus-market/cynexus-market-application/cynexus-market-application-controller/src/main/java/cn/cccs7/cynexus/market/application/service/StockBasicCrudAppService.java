@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.application.convert.StockBasicDTOConverter;
 import cn.cccs7.cynexus.market.api.dto.StockBasicDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockBasicBO;
-import cn.cccs7.cynexus.market.domain.service.StockBasicDomainService;
+import cn.cccs7.cynexus.market.domain.stock.StockBasicDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
