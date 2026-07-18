@@ -32,3 +32,6 @@ cynexus:
         base-url: http://127.0.0.1:18083/internal/media-transcription
       ai:
         base-url: http://127.0.0.1:28081/api/ai/media-transcription
+  finance:
+    ai:
+      base-url: http://127.0.0.1:28081

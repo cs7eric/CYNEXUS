@@ -14,6 +14,8 @@ import {
   Beaker,
   Server,
   Newspaper,
+  WalletCards,
+  Camera,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -35,6 +37,16 @@ export const sidebarConfig = {
     },
   ],
   navMain: [
+    {
+      title: "Finance",
+      url: "/finance/ledger",
+      icon: WalletCards,
+      items: [
+        { title: "Ledger", url: "/finance/ledger" },
+        { title: "Accounts", url: "/finance/accounts" },
+        { title: "AI Capture", url: "/finance/ai-capture" },
+      ],
+    },
     {
       title: "Dashboard",
       url: "/dashboard",
@@ -221,6 +233,16 @@ export const sidebarConfig = {
       name: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      name: "Finance Ledger",
+      url: "/finance/ledger",
+      icon: WalletCards,
+    },
+    {
+      name: "Finance AI Capture",
+      url: "/finance/ai-capture",
+      icon: Camera,
     },
     {
       name: "Downloader",

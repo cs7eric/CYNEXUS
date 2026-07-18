@@ -1021,3 +1021,17 @@
 - Created and applied the many-to-many mapping DDL and 6,213-row seed for all 1,549 ETF codes.
 - Added runtime mapping persistence to the ETF sync pipeline and rebuilt the Data Executor.
 - Seed replay is idempotent; mapping coverage and group counts were verified in PostgreSQL.
+
+## 2026-07-19 - AI bookkeeping workspace
+
+- Started Phase 60 after reviewing the repository DDD rules, core schema/runtime, UI routing/service conventions, existing upload patterns, and current AI provider limitations.
+- Mainstream product research and the review-first receipt workflow are recorded in `findings.md`; implementation is now organized around core-owned ledger aggregates and a multimodal AI port.
+
+## 2026-07-19 - AI bookkeeping implementation complete
+
+- Applied the finance ledger migration to the live Dev PostgreSQL instance and seeded 13 default categories.
+- Implemented the core DDD/application/infra workflow for accounts, categories, income/expense/transfer entries, overview statistics, archiving, and AI capture review/confirmation.
+- Added single/multi-image upload UI and vision execution plumbing with explicit review-before-posting behavior.
+- Added Finance navigation and routes: `/finance/ledger`, `/finance/accounts`, `/finance/ai-capture`.
+- Scoped finance UI ESLint passed; Maven core/AI compilation passed; the full UI type-check still reports only existing unrelated errors.
+- Restarted Dev through `deploy/dev/start-dev.ps1`; live Gateway/Core/AI/Market/UI ports are listening. Manual API smoke test confirmed account balance and period/category totals.

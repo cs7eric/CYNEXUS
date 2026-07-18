@@ -2,6 +2,8 @@ package cn.cccs7.cynexus.ai.application.service;
 
 import cn.cccs7.cynexus.ai.api.dto.AiExecuteDTO;
 import cn.cccs7.cynexus.ai.api.request.AiExecuteRequest;
+import cn.cccs7.cynexus.ai.api.request.AiVisionExecuteRequest;
+import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.application.assembler.AiExecutionAssembler;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -31,6 +33,7 @@ public class ScenarioExecutionAppService {
     private final AiExecutionAssembler aiExecutionAssembler;
     private final AiUsageBindingRepository aiUsageBindingRepository;
     private final AiProviderRepository aiProviderRepository;
+    private final ApplicationAnalysisModelRouter applicationAnalysisModelRouter;
 
     public ScenarioExecutionAppService(ModelRouteAppService modelRouteAppService,
                                        PromptRenderAppService promptRenderAppService,
@@ -40,7 +43,8 @@ public class ScenarioExecutionAppService {
                                        OutputValidationDomainService outputValidationDomainService,
                                        AiExecutionAssembler aiExecutionAssembler,
                                        AiUsageBindingRepository aiUsageBindingRepository,
-                                       AiProviderRepository aiProviderRepository) {
+                                       AiProviderRepository aiProviderRepository,
+                                       ApplicationAnalysisModelRouter applicationAnalysisModelRouter) {
         this.modelRouteAppService = modelRouteAppService;
         this.promptRenderAppService = promptRenderAppService;
         this.agentExecutor = agentExecutor;
@@ -50,6 +54,7 @@ public class ScenarioExecutionAppService {
         this.aiExecutionAssembler = aiExecutionAssembler;
         this.aiUsageBindingRepository = aiUsageBindingRepository;
         this.aiProviderRepository = aiProviderRepository;
+        this.applicationAnalysisModelRouter = applicationAnalysisModelRouter;
     }
 
     public AiExecuteDTO execute(AiExecuteRequest request) {
@@ -81,6 +86,29 @@ public class ScenarioExecutionAppService {
                 content,
                 toolCodes
         );
+        aiExecutionTracePort.record(execution.getExecutionNo(), status);
+        return aiExecutionAssembler.toTarget(execution);
+    }
+
+    public AiExecuteDTO executeVision(AiVisionExecuteRequest request) {
+        String scenarioCode = request == null || request.getScenarioCode() == null || request.getScenarioCode().isBlank()
+                ? "accounting_receipt_parse" : request.getScenarioCode();
+        String capability = "accounting_receipt_parse";
+        AiScenarioBO scenario = AiScenarioBO.builder().scenarioCode(scenarioCode).scenarioName("Accounting Receipt Recognition")
+                .defaultModelCode("mock-model").maxToolCalls(0).toolCallRequired(false).jsonOutputRequired(true).enabled(true).build();
+        AiModelBO model = applicationAnalysisModelRouter.routeModels(capability, request == null ? null : request.getPreferredModelCode()).stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("No AI model available for accounting receipt recognition"));
+        String prompt = """
+                你是记账单据识别助手。只从用户上传的图片中提取可见事实，不要猜测；金额必须是正数，无法确认的字段使用 null。
+                一张图片可能包含多笔消费，必须拆成多条 items；多张图片中的重复小票只保留一次。transactionType 只能是 expense 或 income。
+                只输出合法 JSON：{"items":[{"imageIndex":0,"transactionType":"expense","occurredAt":"2026-01-01T12:00:00+08:00","amount":12.50,"currency":"CNY","merchant":"","categoryHint":"餐饮","note":"","confidence":0.8,"rawText":""}]}。
+                """ + (request == null || request.getUserInput() == null ? "" : request.getUserInput());
+        List<AiImageInputBO> images = request == null || request.getImages() == null ? List.of() : request.getImages().stream()
+                .map(item -> AiImageInputBO.builder().fileName(item.getFileName()).contentType(item.getContentType()).dataUrl(item.getDataUrl()).build()).toList();
+        var completion = agentExecutor.completeVisionDetailed(model, prompt, images, capability);
+        boolean valid = outputValidationDomainService.validateJsonRequired(true, completion.getContent());
+        AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
+        AiExecutionBO execution = new AiExecutionBO("AI-" + UUID.randomUUID().toString().replace("-", ""), scenario, model.getModelCode(), status, completion.getContent(), List.of());
         aiExecutionTracePort.record(execution.getExecutionNo(), status);
         return aiExecutionAssembler.toTarget(execution);
     }

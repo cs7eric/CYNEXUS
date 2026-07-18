@@ -2,7 +2,9 @@ package cn.cccs7.cynexus.ai.infra.ai.gateway;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
+import java.util.List;
 import cn.cccs7.cynexus.ai.infra.ai.adapter.AiModelAdapter;
 import cn.cccs7.cynexus.ai.infra.ai.factory.DynamicChatClientFactory;
 import cn.cccs7.cynexus.ai.infra.observability.LangfuseGenerationReporter;
@@ -31,6 +33,22 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
         Instant startedAt = Instant.now();
         try {
             AiCompletionResultBO result = adapter.complete(model, prompt);
+            reporter.report(model, capability, prompt, result, startedAt, null);
+            return result;
+        } catch (RuntimeException exception) {
+            reporter.report(model, capability, prompt, null, startedAt, exception);
+            throw exception;
+        }
+    }
+
+    @Override
+    public AiCompletionResultBO completeVision(AiModelBO model, String prompt, List<AiImageInputBO> images, String capability) {
+        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank() ? "mock" : model.getProviderCode();
+        AiModelAdapter adapter = factory.resolve(providerCode);
+        if (adapter == null) throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
+        Instant startedAt = Instant.now();
+        try {
+            AiCompletionResultBO result = adapter.completeVision(model, prompt, images);
             reporter.report(model, capability, prompt, result, startedAt, null);
             return result;
         } catch (RuntimeException exception) {

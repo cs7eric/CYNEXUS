@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.ai.adapter;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import org.springframework.core.env.Environment;
 
@@ -79,6 +81,29 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
     }
 
+    @Override
+    public AiCompletionResultBO completeVision(AiModelBO model, String prompt, List<AiImageInputBO> images) {
+        String apiKey = resolveApiKey(model);
+        if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
+        try {
+            String payload = buildChatPayload(model, prompt, shouldRequestJsonOutput(model, prompt), images);
+            HttpRequest request = HttpRequest.newBuilder(resolveEndpoint(model, false))
+                    .timeout(resolveRequestTimeout(model)).header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(payload)).build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) throw new IllegalStateException("AI provider returned " + response.statusCode() + ": " + response.body());
+            String content = extractChatContent(response.body());
+            return AiCompletionResultBO.builder().content(content).providerCode(providerCode()).modelCode(resolveModelName(model))
+                    .inputTokens(extractInputTokens(response.body(), prompt)).outputTokens(extractOutputTokens(response.body(), content))
+                    .totalTokens(extractTotalTokens(response.body(), prompt, content)).rawResponse(response.body()).build();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to call AI vision provider: " + providerCode(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI vision provider call interrupted: " + providerCode(), e);
+        }
+    }
+
     protected abstract String baseUrlProperty();
 
     protected abstract String apiKeyEnvProperty();
@@ -90,15 +115,28 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     protected abstract String defaultModelName();
 
     private String buildChatPayload(AiModelBO model, String prompt, boolean jsonOutput) throws IOException {
+        return buildChatPayload(model, prompt, jsonOutput, List.of());
+    }
+
+    private String buildChatPayload(AiModelBO model, String prompt, boolean jsonOutput, List<AiImageInputBO> images) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("temperature", 0);
         if (jsonOutput) {
             payload.put("response_format", Map.of("type", "json_object"));
         }
-        payload.put("messages", List.of(
-                Map.of("role", "user", "content", prompt == null ? "" : prompt)
-        ));
+        if (images == null || images.isEmpty()) {
+            payload.put("messages", List.of(Map.of("role", "user", "content", prompt == null ? "" : prompt)));
+        } else {
+            List<Map<String, Object>> content = new ArrayList<>();
+            content.add(Map.of("type", "text", "text", prompt == null ? "" : prompt));
+            for (AiImageInputBO image : images) {
+                if (image != null && image.getDataUrl() != null && !image.getDataUrl().isBlank()) {
+                    content.add(Map.of("type", "image_url", "image_url", Map.of("url", image.getDataUrl())));
+                }
+            }
+            payload.put("messages", List.of(Map.of("role", "user", "content", content)));
+        }
         return objectMapper.writeValueAsString(payload);
     }
 

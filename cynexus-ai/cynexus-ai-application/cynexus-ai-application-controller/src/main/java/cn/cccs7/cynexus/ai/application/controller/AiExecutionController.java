@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.application.controller;
 
 import cn.cccs7.cynexus.ai.api.request.AiExecuteRequest;
+import cn.cccs7.cynexus.ai.api.request.AiVisionExecuteRequest;
 import cn.cccs7.cynexus.ai.api.dto.AiExecuteDTO;
 import cn.cccs7.cynexus.ai.application.service.ScenarioExecutionAppService;
 import cn.cccs7.cynexus.common.core.result.Result;
@@ -22,5 +23,10 @@ public class AiExecutionController {
     @PostMapping
     public Result<AiExecuteDTO> execute(@RequestBody AiExecuteRequest request) {
         return Result.success(scenarioExecutionAppService.execute(request));
+    }
+
+    @PostMapping("/vision")
+    public Result<AiExecuteDTO> executeVision(@RequestBody AiVisionExecuteRequest request) {
+        return Result.success(scenarioExecutionAppService.executeVision(request));
     }
 }

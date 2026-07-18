@@ -103,3 +103,22 @@
 - The normalized mapping table uses `(etf_code, mapping_group, mapping_code, source)` as its active business key, allowing one ETF to have multiple style/theme/index mappings while retaining one primary universe/asset/region mapping.
 - Full seed analysis produced 6,213 rows for 1,549 ETF codes. The seed is generated from `domain/market/etf_mapping.py`, so the seed and future `sync_market_etf` writes share the same policy.
 - Mapping provenance is `analysis.name_rule_v3` for the current catalog; official code-level ETF classification is not claimed because the available EastMoney fund-index catalog had zero intersections with the ETF listing.
+
+## 2026-07-19 AI bookkeeping product analysis
+
+- Mainstream bookkeeping products converge on six workflows: fast manual entry, account/liability management, category and tag customization, budgets/statistics, recurring or scheduled obligations, and import/review/archiving.
+- Chinese products such as 钱迹、随手记、鲨鱼记账、薄荷记账 emphasize low-friction entry, account/category templates, charts, recurring bills, and bill import. YNAB emphasizes envelope budgeting, reconciliation, and scheduled transactions. Money Manager/MoneyWiz emphasize multi-account, multi-currency, attachments, exports, and reporting.
+- The most important trust rule for AI receipt recognition is review-before-posting: a receipt can contain several purchases, tax/service fees, refunds, or ambiguous dates. AI output must land in an editable draft batch with confidence and source image references; confirmation is the only operation that posts ledger transactions.
+- Account types need to distinguish assets from liabilities. Credit/e-wallet debt accounts are liabilities; a credit-card payment is a transfer between an asset account and a liability account and must not inflate income/expense statistics.
+- Transactions should store positive magnitude plus an explicit `transaction_type`; transfers carry both source and destination account IDs. This avoids negative amount ambiguity and makes category statistics deterministic.
+- A default `owner_key` is needed because the current Cynexus deployment has no user/auth aggregate. Keeping it on every finance table allows a later identity integration without rewriting the ledger schema.
+- Core already owns PostgreSQL schema `cynexus_appl_core`, uses BIGINT IDs, soft-delete timestamps, Spring JDBC/MyBatis infrastructure, and Snowflake ID generation. Finance persistence belongs in core infra behind domain repository ports; DTOs/controllers must remain in application.
+- Existing AI execution only sends text to OpenAI-compatible chat adapters. Receipt images require an explicit multimodal AI contract and chat content parts; core should call that contract through an infra client so provider credentials and model routing remain owned by AI.
+
+## 2026-07-19 AI bookkeeping implementation decisions
+
+- First usable surface: Ledger dashboard, Accounts management, and AI Capture review. Budgets/recurring rules are represented as next-phase-ready fields/extension points but are not allowed to block the core ledger workflow.
+- Tables: `finance_accounts`, `finance_categories`, `finance_transactions`, `finance_ai_captures`, `finance_ai_capture_images`, and `finance_ai_capture_items`. All include owner, timestamps, soft archive/delete markers where applicable, stable business status values, and JSONB raw payloads for provider/audit context.
+- AI capture is a batch, supports multiple images, persists source images in `bytea` for a self-contained local workflow, creates draft items, and never writes posted transactions before explicit confirmation.
+- Manual and AI-confirmed writes share the same domain transaction policy and repository port. Confirming a batch is idempotent through capture-item status and transaction linkage.
+- UI uses restrained workspace styling: compact summary band, explicit account/liability distinction, red/green financial semantics consistent with the existing market screens, skeletons during fetches, and a review-first upload panel rather than a decorative landing page.

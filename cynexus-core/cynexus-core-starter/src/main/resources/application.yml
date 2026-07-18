@@ -68,3 +68,6 @@ cynexus:
     automation:
       base-url: ${CYNEXUS_MARKET_AUTOMATION_BASE_URL:http://127.0.0.1:18082}
       timeout-ms: ${CYNEXUS_MARKET_AUTOMATION_TIMEOUT_MS:30000}
+  finance:
+    ai:
+      base-url: ${CYNEXUS_FINANCE_AI_BASE_URL:http://127.0.0.1:28081}

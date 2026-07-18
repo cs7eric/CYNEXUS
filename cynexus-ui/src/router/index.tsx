@@ -31,6 +31,9 @@ import StockReviewPage from "../views/stock-review"
 import KnowledgeBasePage from "../views/knowledge-base"
 import KnowledgeBaseWritingPage from "../views/knowledge-base/writing"
 import KnowledgeBaseViewPage from "../views/knowledge-base/view"
+import FinanceLedgerPage from "../views/finance/ledger"
+import FinanceAccountsPage from "../views/finance/accounts"
+import FinanceAiCapturePage from "../views/finance/ai-capture"
 
 export const router = createBrowserRouter([
   {
@@ -48,6 +51,18 @@ export const router = createBrowserRouter([
       {
         path: "dashboard",
         element: <DashboardPage />,
+      },
+      {
+        path: "finance/ledger",
+        element: <FinanceLedgerPage />,
+      },
+      {
+        path: "finance/accounts",
+        element: <FinanceAccountsPage />,
+      },
+      {
+        path: "finance/ai-capture",
+        element: <FinanceAiCapturePage />,
       },
       {
         path: "mp4-to-word",

@@ -1397,3 +1397,26 @@ Status: in_progress
 - Host-side AkShare probing was blocked by the local proxy; the same catalog probe in Data Executor succeeded, so no host network assumption was added.
 
 Status: complete
+
+## Phase 60 - AI Bookkeeping Workspace
+
+Status: complete
+
+- Analyze the common workflows of mainstream bookkeeping products and translate them into a focused Cynexus finance domain.
+- Add core-owned finance tables under `cynexus_appl_core` for accounts, categories, posted transactions, AI receipt captures/images/draft items, and soft-archive/audit fields.
+- Implement DDD ports, policies, repositories, application orchestration, DTOs, and controllers in `cynexus-core`.
+- Extend the AI module with a vision execution contract so core can parse one or many receipt images through the configured vision-capable provider without placing provider logic in core application code.
+- Add `/finance/ledger`, `/finance/accounts`, and `/finance/ai-capture` routes with services under `src/services/finance` and colocated components.
+- Complete the workflow: create account/category, manually post income/expense/transfer, upload one or many images, review/edit AI draft rows, confirm them into the ledger, archive entries, and view period/category/account statistics.
+- Seed useful Chinese default categories and keep the default owner key ready for future authentication/household sharing.
+- Synchronize Maven/UI versions, run focused tests and builds, apply the migration, restart Dev, and smoke-test the full workflow.
+
+### Phase 60 Verification Results
+
+- Added the core finance schema and applied it to `cynexus_appl_core`, including seeded expense/income categories.
+- Added domain policies and repository ports, JDBC persistence, application services, DTOs, and controllers for accounts, categories, transactions, overview, capture batches, images, and review items.
+- Added the AI vision contract and OpenAI-compatible image input path; AI recognition remains draft-first and confirmation is idempotent.
+- Added `/finance/ledger`, `/finance/accounts`, and `/finance/ai-capture` with colocated services/components, responsive forms, review editing, archive actions, empty/error/loading states, and local-date handling.
+- Corrected overview totals to use SQL aggregation instead of the recent-transaction limit and fixed daily-stat SQL aliasing.
+- Scoped UI ESLint passed. Maven core/AI compilation passed. Full UI build remains blocked only by pre-existing TypeScript errors outside the finance files.
+- Synchronized all Maven modules and UI to `1.1.44-SNAPSHOT`, restarted the documented Dev stack, and verified the live finance category/accounts/overview APIs plus manual account and transaction posting. Smoke data was removed afterward.
