@@ -12,7 +12,7 @@ from cynexus_data.runtime.job_runner import JobRunner
 
 router = APIRouter()
 _context = PipelineContext.default(persist_job_state=True)
-ASYNC_TRIGGER_JOBS = {"market_sentiment_chain_refresh"}
+ASYNC_TRIGGER_JOBS = {"market_sentiment_chain_refresh", "a_stock_fund_flow_history_backfill"}
 
 
 @router.get("/internal/health")

@@ -36,6 +36,7 @@ SOURCE_OVERWRITE_FIELDS = {
     "clickhouse_daily_qfq": MARKET_FIELDS,
     "clickhouse.daily_qfq": MARKET_FIELDS,
     "manual": FUND_FLOW_FIELDS,
+    "eastmoney.market_fund_flow": FUND_FLOW_FIELDS,
 }
 
 

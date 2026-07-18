@@ -23,7 +23,8 @@ public class SchedulerDailyCounterBO {
             success++;
         } else if ("skipped".equals(normalized)) {
             skipped++;
-        } else if ("failed".equals(normalized) || "error".equals(normalized) || "partial_failed".equals(normalized)) {
+        } else if ("failed".equals(normalized) || "error".equals(normalized)
+                || "partial".equals(normalized) || "partial_failed".equals(normalized)) {
             failed++;
         }
     }

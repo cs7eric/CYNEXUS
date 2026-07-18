@@ -31,7 +31,8 @@ public class SchedulerTodayCountersBO {
             success++;
         } else if ("skipped".equals(normalized)) {
             skipped++;
-        } else if ("failed".equals(normalized) || "error".equals(normalized) || "partial_failed".equals(normalized)) {
+        } else if ("failed".equals(normalized) || "error".equals(normalized)
+                || "partial".equals(normalized) || "partial_failed".equals(normalized)) {
             failed++;
             OffsetDateTime startedAt = item.getStartedAt();
             if (failedAt == null || (startedAt != null && startedAt.isAfter(failedAt))) {

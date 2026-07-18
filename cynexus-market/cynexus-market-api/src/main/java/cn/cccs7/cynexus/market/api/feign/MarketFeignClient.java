@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.api.feign;
 
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.MarketOverviewDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.SectorRankDTO;
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.StockDailyFeatureDTO;
@@ -17,6 +18,10 @@ public interface MarketFeignClient {
 
     @GetMapping("/overview")
     Result<MarketOverviewDTO> getMarketOverview(@RequestParam("tradeDate") String tradeDate);
+
+    @GetMapping("/sentiment/market-overview/history")
+    Result<MarketPulseOverviewHistoryDTO> getMarketOverviewHistory(@RequestParam("start") String start,
+                                                                    @RequestParam("end") String end);
 
     @GetMapping("/sectors/rank")
     Result<SectorRankDTO> getSectorRank(@RequestParam("tradeDate") String tradeDate,

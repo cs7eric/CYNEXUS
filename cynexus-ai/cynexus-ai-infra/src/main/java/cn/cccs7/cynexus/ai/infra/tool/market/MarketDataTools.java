@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.feign.MarketFeignClient;
 import cn.cccs7.cynexus.market.api.dto.MarketOverviewDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.SectorRankDTO;
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.StockDailyFeatureDTO;
@@ -22,6 +23,11 @@ public class MarketDataTools implements MarketDataGateway {
     @Override
     public MarketOverviewDTO getMarketOverview(String tradeDate) {
         return unwrap(marketFeignClient.getMarketOverview(tradeDate));
+    }
+
+    @Override
+    public MarketPulseOverviewHistoryDTO getMarketOverviewHistory(String start, String end) {
+        return unwrap(marketFeignClient.getMarketOverviewHistory(start, end));
     }
 
     @Override

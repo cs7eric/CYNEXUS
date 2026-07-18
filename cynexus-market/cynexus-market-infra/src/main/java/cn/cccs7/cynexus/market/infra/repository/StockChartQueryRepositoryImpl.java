@@ -10,10 +10,13 @@ import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorJoinedPO;
 import cn.cccs7.cynexus.market.infra.basic.mapper.StockSectorMapper;
 import cn.cccs7.cynexus.market.infra.basic.service.StockBasicBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.StockFundFlowSnapshotBasicService;
+import cn.cccs7.cynexus.market.infra.basic.service.StockTurnoverSeriesSnapshotBasicService;
 import cn.cccs7.cynexus.market.infra.client.ClickHouseStockChartClient;
 import cn.cccs7.cynexus.market.infra.client.HttpStockChartF10DataClient;
 import cn.cccs7.cynexus.market.infra.client.PostgresAStockSkillDataClient;
 import cn.cccs7.cynexus.market.infra.client.TdxLocalDayKlineClient;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -34,14 +37,17 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
 
     private final StockBasicBasicService stockBasicBasicService;
     private final StockFundFlowSnapshotBasicService stockFundFlowSnapshotBasicService;
+    private final StockTurnoverSeriesSnapshotBasicService stockTurnoverSeriesSnapshotBasicService;
     private final StockSectorMapper stockSectorMapper;
     private final TdxLocalDayKlineClient tdxLocalDayKlineClient;
     private final ClickHouseStockChartClient clickHouseStockChartClient;
     private final HttpStockChartF10DataClient stockChartF10DataClient;
     private final PostgresAStockSkillDataClient postgresAStockSkillDataClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StockChartQueryRepositoryImpl(StockBasicBasicService stockBasicBasicService,
                                          StockFundFlowSnapshotBasicService stockFundFlowSnapshotBasicService,
+                                         StockTurnoverSeriesSnapshotBasicService stockTurnoverSeriesSnapshotBasicService,
                                          StockSectorMapper stockSectorMapper,
                                          TdxLocalDayKlineClient tdxLocalDayKlineClient,
                                          ClickHouseStockChartClient clickHouseStockChartClient,
@@ -49,6 +55,7 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                                          PostgresAStockSkillDataClient postgresAStockSkillDataClient) {
         this.stockBasicBasicService = stockBasicBasicService;
         this.stockFundFlowSnapshotBasicService = stockFundFlowSnapshotBasicService;
+        this.stockTurnoverSeriesSnapshotBasicService = stockTurnoverSeriesSnapshotBasicService;
         this.stockSectorMapper = stockSectorMapper;
         this.tdxLocalDayKlineClient = tdxLocalDayKlineClient;
         this.clickHouseStockChartClient = clickHouseStockChartClient;
@@ -97,7 +104,7 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
         String normalizedAdjust = blankToNull(adjust) == null ? "qfq" : adjust.trim().toLowerCase();
         if ("stock".equalsIgnoreCase(normalizedTargetType) && "qfq".equals(normalizedAdjust)) {
             String code = normalizeCode(symbol);
-            return clickHouseStockChartClient.listQfqDailyBars(code, limit).stream()
+            List<StockChartBO.Bar> bars = clickHouseStockChartClient.listQfqDailyBars(code, limit).stream()
                     .map(row -> StockChartBO.Bar.builder()
                             .tradeDate(row.getTradeDate())
                             .open(row.getOpen())
@@ -108,6 +115,9 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                             .turnover(row.getAmount())
                             .build())
                     .toList();
+            Map<LocalDate, BigDecimal> turnoverRatesByDate = loadTurnoverRates(code, bars);
+            bars.forEach(bar -> bar.setTurnoverRate(turnoverRatesByDate.get(bar.getTradeDate())));
+            return bars;
         }
         String resolvedSymbol = normalizeTdxSymbol(targetType, symbol);
         return tdxLocalDayKlineClient.readDailyBars(resolvedSymbol, limit).stream()
@@ -353,9 +363,13 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
         List<StockChartBO.FundFlowPoint> history = stockFundFlowSnapshotBasicService.listRecentByCode(code, 30).stream()
                 .map(row -> StockChartBO.FundFlowPoint.builder()
                         .tradeDate(row.getTradeDate())
+                        .lastPrice(row.getLastPrice())
+                        .turnoverRate(row.getTurnoverRate())
                         .activeNetAmountWan(row.getActiveNetAmountWan())
                         .activeBuyRatio(row.getActiveBuyRatio())
                         .activeSellRatio(row.getActiveSellRatio())
+                        .buyBigRatio(row.getBuyBigRatio())
+                        .sellBigRatio(row.getSellBigRatio())
                         .amountWan(row.getAmountWan())
                         .changePct(row.getChangePct())
                         .build())
@@ -396,12 +410,13 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
         List<StockChartBO.Bar> bars = listDailyBars("stock", code, 140, "qfq");
         Map<LocalDate, StockChartBO.Bar> barsByDate = bars.stream()
                 .collect(Collectors.toMap(StockChartBO.Bar::getTradeDate, Function.identity(), (left, right) -> right));
+        Map<LocalDate, BigDecimal> turnoverRatesByDate = loadTurnoverRates(code, bars);
 
         Set<LocalDate> dates = new TreeSet<>(Collections.reverseOrder());
         dates.addAll(dailyByDate.keySet());
         dates.addAll(snapshotsByDate.keySet());
         List<StockChartBO.FundFlowPoint> history = dates.stream().limit(120)
-                .map(date -> fundFlowPoint(date, dailyByDate.get(date), snapshotsByDate.get(date), barsByDate, bars))
+                .map(date -> fundFlowPoint(date, dailyByDate.get(date), snapshotsByDate.get(date), barsByDate, bars, turnoverRatesByDate))
                 .toList();
 
         StockChartBO.FundFlowPoint newest = history.getFirst();
@@ -416,10 +431,10 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                 .symbol(code)
                 .name(newestSnapshot != null && newestSnapshot.getName() != null ? newestSnapshot.getName() : meta.getName())
                 .tradeDate(newestDate)
-                .lastPrice(newestSnapshot != null ? newestSnapshot.getLastPrice() : newestBar == null ? null : newestBar.getClose())
+                .lastPrice(newest.getLastPrice())
                 .changePct(newest.getChangePct())
                 .amountWan(newest.getAmountWan())
-                .turnoverRate(newestSnapshot == null ? null : newestSnapshot.getTurnoverRate())
+                .turnoverRate(newest.getTurnoverRate())
                 .activeNetAmountWan(newest.getActiveNetAmountWan())
                 .mainNetAmountWan(newest.getMainNetAmountWan())
                 .superNetAmountWan(newest.getSuperNetAmountWan())
@@ -428,8 +443,8 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                 .smallNetAmountWan(newest.getSmallNetAmountWan())
                 .activeBuyRatio(newest.getActiveBuyRatio())
                 .activeSellRatio(newest.getActiveSellRatio())
-                .buyBigRatio(newestSnapshot == null ? null : newestSnapshot.getBuyBigRatio())
-                .sellBigRatio(newestSnapshot == null ? null : newestSnapshot.getSellBigRatio())
+                .buyBigRatio(newest.getBuyBigRatio())
+                .sellBigRatio(newest.getSellBigRatio())
                 .source(source)
                 .capturedAt(newestSnapshot == null ? null : newestSnapshot.getCapturedAt())
                 .history(history)
@@ -441,12 +456,19 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
             PostgresAStockSkillDataClient.FundFlowDailyRow daily,
             StockFundFlowSnapshotPO snapshot,
             Map<LocalDate, StockChartBO.Bar> barsByDate,
-            List<StockChartBO.Bar> bars) {
+            List<StockChartBO.Bar> bars,
+            Map<LocalDate, BigDecimal> turnoverRatesByDate) {
         StockChartBO.Bar bar = barsByDate.get(date);
         int barIndex = bar == null ? -1 : bars.indexOf(bar);
         StockChartBO.Bar previous = barIndex > 0 ? bars.get(barIndex - 1) : null;
         return StockChartBO.FundFlowPoint.builder()
                 .tradeDate(date)
+                .lastPrice(snapshot != null && snapshot.getLastPrice() != null
+                        ? snapshot.getLastPrice()
+                        : bar == null ? null : bar.getClose())
+                .turnoverRate(snapshot != null && snapshot.getTurnoverRate() != null
+                        ? snapshot.getTurnoverRate()
+                        : turnoverRatesByDate.get(date))
                 .activeNetAmountWan(snapshot == null ? null : snapshot.getActiveNetAmountWan())
                 .mainNetAmountWan(daily == null ? null : toWan(daily.mainNet()))
                 .superNetAmountWan(daily == null ? null : toWan(daily.superNet()))
@@ -455,6 +477,8 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                 .smallNetAmountWan(daily == null ? null : toWan(daily.smallNet()))
                 .activeBuyRatio(snapshot == null ? null : snapshot.getActiveBuyRatio())
                 .activeSellRatio(snapshot == null ? null : snapshot.getActiveSellRatio())
+                .buyBigRatio(snapshot == null ? null : snapshot.getBuyBigRatio())
+                .sellBigRatio(snapshot == null ? null : snapshot.getSellBigRatio())
                 .amountWan(snapshot != null && snapshot.getAmountWan() != null
                         ? snapshot.getAmountWan()
                         : bar == null ? null : toWan(bar.getTurnover()))
@@ -462,6 +486,43 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                         ? snapshot.getChangePct()
                         : changePct(bar, previous))
                 .build();
+    }
+
+    private Map<LocalDate, BigDecimal> loadTurnoverRates(String code, List<StockChartBO.Bar> bars) {
+        var series = stockTurnoverSeriesSnapshotBasicService.findBySymbol(code);
+        if (series == null || series.getPayload() == null || series.getPayload().isBlank()) {
+            return Map.of();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(series.getPayload());
+            JsonNode entries = root.path("entries");
+            Map<LocalDate, BigDecimal> result = new java.util.HashMap<>();
+            for (JsonNode entry : entries) {
+                String date = entry.path("trade_date").asText("");
+                BigDecimal rate = decimal(entry, "turnover_rate");
+                if (!date.isBlank() && rate != null) {
+                    result.put(LocalDate.parse(date.substring(0, Math.min(10, date.length()))), rate);
+                }
+            }
+            BigDecimal circulatingShares = decimal(root, "circulating_shares");
+            if (circulatingShares != null && circulatingShares.compareTo(BigDecimal.ZERO) > 0) {
+                for (StockChartBO.Bar bar : bars) {
+                    if (bar.getTradeDate() != null && bar.getVolume() != null && !result.containsKey(bar.getTradeDate())) {
+                        result.put(bar.getTradeDate(), bar.getVolume()
+                                .multiply(BigDecimal.valueOf(10000))
+                                .divide(circulatingShares, 4, RoundingMode.HALF_UP));
+                    }
+                }
+            }
+            return result;
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    private BigDecimal decimal(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.get(field);
+        return value == null || value.isNull() || !value.isNumber() ? null : value.decimalValue();
     }
 
     @Override
@@ -527,12 +588,15 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                     .build();
         }
         StockChartBO.StockMeta meta = stockMeta(code);
+        Map<LocalDate, BigDecimal> turnoverRatesByDate = loadTurnoverRates(code, bars);
         List<StockChartBO.FundFlowPoint> history = new ArrayList<>();
         for (int index = Math.max(0, bars.size() - 30); index < bars.size(); index++) {
             StockChartBO.Bar current = bars.get(index);
             StockChartBO.Bar previous = index > 0 ? bars.get(index - 1) : null;
             history.add(StockChartBO.FundFlowPoint.builder()
                     .tradeDate(current.getTradeDate())
+                    .lastPrice(current.getClose())
+                    .turnoverRate(turnoverRatesByDate.get(current.getTradeDate()))
                     .amountWan(toWan(current.getTurnover()))
                     .changePct(changePct(current, previous))
                     .build());

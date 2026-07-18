@@ -7,8 +7,8 @@ services:
       dockerfile: deploy/local/Dockerfile.app
       args:
         MAVEN_PROJECT: cynexus-core/cynexus-core-starter
-        JAR_NAME: cynexus-core-starter-${CYNEXUS_MAVEN_VERSION:-1.0.1-SNAPSHOT}.jar
-    image: cynexus-core:${CYNEXUS_RELEASE_VERSION:-1.0.1-RELEASE}
+        JAR_NAME: cynexus-core-starter-${CYNEXUS_MAVEN_VERSION:-1.1.1-ALPHA-260716-SNAPSHOT}.jar
+    image: cynexus-core:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
     container_name: cynexus-release-core
     restart: unless-stopped
     environment:
@@ -34,8 +34,8 @@ services:
       dockerfile: deploy/local/Dockerfile.app
       args:
         MAVEN_PROJECT: cynexus-market/cynexus-market-starter
-        JAR_NAME: cynexus-market-starter-${CYNEXUS_MAVEN_VERSION:-1.0.1-SNAPSHOT}.jar
-    image: cynexus-market:${CYNEXUS_RELEASE_VERSION:-1.0.1-RELEASE}
+        JAR_NAME: cynexus-market-starter-${CYNEXUS_MAVEN_VERSION:-1.1.1-ALPHA-260716-SNAPSHOT}.jar
+    image: cynexus-market:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
     container_name: cynexus-release-market
     restart: unless-stopped
     environment:
@@ -64,8 +64,8 @@ services:
       dockerfile: deploy/local/Dockerfile.app
       args:
         MAVEN_PROJECT: cynexus-ai/cynexus-ai-starter
-        JAR_NAME: cynexus-ai-starter-${CYNEXUS_MAVEN_VERSION:-1.0.1-SNAPSHOT}.jar
-    image: cynexus-ai:${CYNEXUS_RELEASE_VERSION:-1.0.1-RELEASE}
+        JAR_NAME: cynexus-ai-starter-${CYNEXUS_MAVEN_VERSION:-1.1.1-ALPHA-260716-SNAPSHOT}.jar
+    image: cynexus-ai:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
     container_name: cynexus-release-ai
     restart: unless-stopped
     environment:
@@ -97,8 +97,8 @@ services:
       dockerfile: deploy/local/Dockerfile.app
       args:
         MAVEN_PROJECT: cynexus-gateway/cynexus-gateway-starter
-        JAR_NAME: cynexus-gateway-starter-${CYNEXUS_MAVEN_VERSION:-1.0.1-SNAPSHOT}.jar
-    image: cynexus-gateway:${CYNEXUS_RELEASE_VERSION:-1.0.1-RELEASE}
+        JAR_NAME: cynexus-gateway-starter-${CYNEXUS_MAVEN_VERSION:-1.1.1-ALPHA-260716-SNAPSHOT}.jar
+    image: cynexus-gateway:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
     container_name: cynexus-release-gateway
     restart: unless-stopped
     environment:
@@ -111,7 +111,7 @@ services:
     build:
       context: ../..
       dockerfile: deploy/release/Dockerfile.ui
-    image: cynexus-ui:${CYNEXUS_RELEASE_VERSION:-1.0.1-RELEASE}
+    image: cynexus-ui:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
     container_name: cynexus-release-ui
     restart: unless-stopped
     depends_on:

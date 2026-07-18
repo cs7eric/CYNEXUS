@@ -189,6 +189,12 @@ public class KnowledgeBaseDocumentGenerationAppService {
     }
 
     private PromptRuntime resolvePrompt(AiUsageBindingBO binding) {
+        if (binding != null && binding.getPromptId() != null) {
+            AiPromptBO boundPrompt = aiPromptRepository.findById(binding.getPromptId());
+            if (boundPrompt != null && "active".equalsIgnoreCase(boundPrompt.getStatus())) {
+                return promptRuntime(boundPrompt);
+            }
+        }
         String promptVersion = stringParam(binding == null ? null : binding.getParams(), "prompt_version");
         List<AiPromptBO> prompts = aiPromptRepository.list(PROMPT_KEY, null, "active").stream()
                 .filter(prompt -> PROMPT_KEY.equals(prompt.getPromptKey()))
@@ -204,6 +210,12 @@ public class KnowledgeBaseDocumentGenerationAppService {
         }
         return new PromptRuntime(PROMPT_KEY, "fallback-service-default", DEFAULT_SYSTEM_PROMPT,
                 DEFAULT_USER_PROMPT_TEMPLATE);
+    }
+
+    private PromptRuntime promptRuntime(AiPromptBO prompt) {
+        return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(),
+                normalize(prompt.getSystemPrompt()).isBlank() ? DEFAULT_SYSTEM_PROMPT : prompt.getSystemPrompt(),
+                normalize(prompt.getUserPromptTemplate()).isBlank() ? DEFAULT_USER_PROMPT_TEMPLATE : prompt.getUserPromptTemplate());
     }
 
     private List<AiModelBO> routeModels(AiScenarioBO scenario,

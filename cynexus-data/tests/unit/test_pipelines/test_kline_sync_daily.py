@@ -39,7 +39,7 @@ def test_sync_daily_dry_run_discovers_tdx_day_files(tmp_path) -> None:
 
     result = run(context, JobRequest(job_key="sync_kline_daily", dry_run=True, params={"market": "sh"}))
 
-    assert result["providers"] == ["tencent", "eastmoney", "tdx"]
+    assert result["providers"] == ["tencent", "eastmoney", "easy_tdx", "tdx"]
     assert result["discovered_files"] == 1
     assert result["rows_written"] == 0
 

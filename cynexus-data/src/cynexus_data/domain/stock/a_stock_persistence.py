@@ -267,10 +267,11 @@ def _interaction_row(source: str, item: dict[str, Any], *, code: str) -> dict[st
 
 
 def _fund_flow_daily_row(source: str, item: dict[str, Any], *, code: str) -> dict[str, Any]:
+    # easy_tdx classifies transaction amounts in yuan; the existing table also stores yuan.
     return {
         "source": source,
         "code": code,
-        "trade_date": _date(item.get("date")) or date.today(),
+        "trade_date": _date(item.get("date") or item.get("trade_date")) or date.today(),
         "main_net": _num(item.get("main_net")),
         "small_net": _num(item.get("small_net")),
         "mid_net": _num(item.get("mid_net")),

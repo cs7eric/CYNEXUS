@@ -113,6 +113,14 @@ public class ApplicationAnalysisRecent30Executor {
 
     private ApplicationAnalysisPromptRuntime resolvePrompt() {
         AiUsageBindingBO binding = modelRouter.findBinding(CAPABILITY);
+        if (binding != null && binding.getPromptId() != null) {
+            AiPromptBO boundPrompt = aiPromptRepository.findById(binding.getPromptId());
+            if (boundPrompt != null && "active".equalsIgnoreCase(boundPrompt.getStatus())) {
+                return new ApplicationAnalysisPromptRuntime(boundPrompt.getPromptKey(), boundPrompt.getPromptVersion(),
+                        defaultString(boundPrompt.getSystemPrompt(), DEFAULT_SYSTEM_PROMPT),
+                        defaultString(boundPrompt.getUserPromptTemplate(), DEFAULT_USER_PROMPT_TEMPLATE));
+            }
+        }
         String promptVersion = modelRouter.promptVersion(binding);
         List<AiPromptBO> prompts = aiPromptRepository.list(PROMPT_KEY, null, "active").stream()
                 .filter(prompt -> PROMPT_KEY.equals(prompt.getPromptKey()))

@@ -16,6 +16,7 @@ public class AiUsageBindingDTO {
     private String capability;
     private String label;
     private Long providerId;
+    private Long promptId;
     private String modelOverride;
     private Boolean enabled;
     private String params;

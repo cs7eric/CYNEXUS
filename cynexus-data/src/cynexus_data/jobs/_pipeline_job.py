@@ -15,17 +15,31 @@ PipelineCallable = Callable[[PipelineContext, JobRequest], dict]
 def run_pipeline_job(context: PipelineContext, request: JobRequest, run_id: str, pipeline: PipelineCallable) -> JobResult:
     started_at = datetime.now(timezone.utc)
     payload = pipeline(context, request)
+    success = bool(payload.get("success", True))
+    errors = _string_list(payload.get("errors"))
+    if not success and not errors and payload.get("error"):
+        errors = [str(payload["error"])]
     return JobResult(
         run_id=run_id,
         job_key=request.job_key,
-        success=True,
-        status="success",
+        success=success,
+        status=str(payload.get("status") or ("success" if success else "failed")),
         started_at=started_at,
         finished_at=datetime.now(timezone.utc),
         rows_read=int(payload.get("rows_read") or 0),
         rows_written=int(payload.get("rows_written") or 0),
+        warnings=_string_list(payload.get("warnings")),
+        errors=errors,
         metadata=payload,
     )
+
+
+def _string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item) for item in value if item is not None]
+    return [str(value)]
 
 
 def main_for_job(job_key: str, description: str | None = None) -> None:

@@ -1,6 +1,7 @@
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 import { cynexusResult } from "@/services/common/cynexus-result"
+import { fetchEasyTdxFundFlow } from "@/services/market/easy-tdx"
 import type {
   StockAdjust,
   StockAnnotation,
@@ -41,6 +42,7 @@ export async function backfillStockFundFlowHistory(symbol: string): Promise<void
         codes: [symbol],
         datasets: ["eastmoney_fund_flow_120d"],
         fund_flow_mode: "history",
+        fund_flow_provider: "easy_tdx",
         create_table: true,
         ignore_errors: false,
       },
@@ -87,6 +89,8 @@ export interface MarketBreadthResponse {
 
 export interface StockFundFlowPoint {
   trade_date: string
+  lastPrice?: number | null
+  turnoverRate?: number | null
   activeNetAmountWan: number | null
   mainNetAmountWan: number | null
   superNetAmountWan: number | null
@@ -95,6 +99,8 @@ export interface StockFundFlowPoint {
   smallNetAmountWan: number | null
   activeBuyRatio: number | null
   activeSellRatio: number | null
+  buyBigRatio?: number | null
+  sellBigRatio?: number | null
   amountWan: number | null
   changePct: number | null
 }
@@ -119,6 +125,7 @@ export interface StockFundFlowResponse {
   buyBigRatio?: number | null
   sellBigRatio?: number | null
   source?: string | null
+  providerAttempts?: Array<{ provider: string; ok: boolean; rows?: number; error?: string }> | null
   captured_at?: string | null
   error?: string | null
   history: StockFundFlowPoint[]
@@ -308,9 +315,116 @@ export async function fetchStockMeta(params: {
 }
 
 export async function fetchStockFundFlow(symbol: string): Promise<StockFundFlowResponse> {
-  const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/fund-flow?symbol=${encodeURIComponent(symbol)}`, { cache: "no-store" })
-  const data = await cynexusResult<StockFundFlowResponse>(res)
-  return { ...data, history: data.history ?? [] }
+  const storedRequest = fetchWithRetry(`${STOCK_CHART_API_BASE}/fund-flow?symbol=${encodeURIComponent(symbol)}`, { cache: "no-store" })
+    .then((res) => cynexusResult<StockFundFlowResponse>(res))
+  const easyRequest = fetchEasyTdxFundFlow({ code: symbol, history: true, count: 120 }) as Promise<{
+    items: Array<Record<string, unknown>>
+    source: string
+  }>
+  const [stored, easy] = await Promise.allSettled([storedRequest, easyRequest])
+  const storedData = stored.status === "fulfilled" ? stored.value : null
+  if (easy.status === "fulfilled" && easy.value.items.length > 0) {
+    const easyHistory = easy.value.items
+      .map((row) => toEasyTdxFundFlowPoint(row))
+      .filter((row): row is StockFundFlowPoint => row !== null)
+    const history = mergeFundFlowHistory(easyHistory, storedData?.history ?? [])
+    const latest = history[0]
+    const latestMatchesStored = latest?.trade_date === storedData?.trade_date
+    return {
+      ...(storedData ?? { ok: true, symbol }),
+      symbol: storedData?.symbol ?? symbol,
+      trade_date: latest?.trade_date ?? storedData?.trade_date ?? null,
+      lastPrice: latest?.lastPrice ?? (latestMatchesStored ? storedData?.lastPrice ?? null : null),
+      turnoverRate: latest?.turnoverRate ?? (latestMatchesStored ? storedData?.turnoverRate ?? null : null),
+      changePct: latest?.changePct ?? null,
+      amountWan: latest?.amountWan ?? null,
+      activeBuyRatio: latest?.activeBuyRatio ?? null,
+      activeSellRatio: latest?.activeSellRatio ?? null,
+      mainNetAmountWan: latest?.mainNetAmountWan ?? storedData?.mainNetAmountWan ?? null,
+      superNetAmountWan: latest?.superNetAmountWan ?? storedData?.superNetAmountWan ?? null,
+      largeNetAmountWan: latest?.largeNetAmountWan ?? storedData?.largeNetAmountWan ?? null,
+      mediumNetAmountWan: latest?.mediumNetAmountWan ?? storedData?.mediumNetAmountWan ?? null,
+      smallNetAmountWan: latest?.smallNetAmountWan ?? storedData?.smallNetAmountWan ?? null,
+      buyBigRatio: latest?.buyBigRatio ?? (latestMatchesStored ? storedData?.buyBigRatio ?? null : null),
+      sellBigRatio: latest?.sellBigRatio ?? (latestMatchesStored ? storedData?.sellBigRatio ?? null : null),
+      source: easy.value.source || "easy_tdx.tdx",
+      error: null,
+      history,
+    }
+  }
+  if (storedData) return { ...storedData, history: storedData.history ?? [] }
+  if (easy.status === "rejected") throw easy.reason
+  throw new Error("资金流暂无数据")
+}
+
+function mergeFundFlowHistory(
+  primary: StockFundFlowPoint[],
+  fallback: StockFundFlowPoint[],
+): StockFundFlowPoint[] {
+  const byDate = new Map(fallback.map((item) => [item.trade_date, item]))
+  const merged = primary.map((item) => {
+    const stored = byDate.get(item.trade_date)
+    byDate.delete(item.trade_date)
+    return mergeFundFlowPoint(item, stored)
+  })
+  merged.push(...byDate.values())
+  return merged.sort((left, right) => right.trade_date.localeCompare(left.trade_date))
+}
+
+function mergeFundFlowPoint(primary: StockFundFlowPoint, fallback?: StockFundFlowPoint): StockFundFlowPoint {
+  if (!fallback) return primary
+  return {
+    trade_date: primary.trade_date,
+    lastPrice: primary.lastPrice ?? fallback.lastPrice,
+    turnoverRate: primary.turnoverRate ?? fallback.turnoverRate,
+    activeNetAmountWan: primary.activeNetAmountWan ?? fallback.activeNetAmountWan,
+    mainNetAmountWan: primary.mainNetAmountWan ?? fallback.mainNetAmountWan,
+    superNetAmountWan: primary.superNetAmountWan ?? fallback.superNetAmountWan,
+    largeNetAmountWan: primary.largeNetAmountWan ?? fallback.largeNetAmountWan,
+    mediumNetAmountWan: primary.mediumNetAmountWan ?? fallback.mediumNetAmountWan,
+    smallNetAmountWan: primary.smallNetAmountWan ?? fallback.smallNetAmountWan,
+    activeBuyRatio: primary.activeBuyRatio ?? fallback.activeBuyRatio,
+    activeSellRatio: primary.activeSellRatio ?? fallback.activeSellRatio,
+    buyBigRatio: primary.buyBigRatio ?? fallback.buyBigRatio,
+    sellBigRatio: primary.sellBigRatio ?? fallback.sellBigRatio,
+    amountWan: primary.amountWan ?? fallback.amountWan,
+    changePct: primary.changePct ?? fallback.changePct,
+  }
+}
+
+function toEasyTdxFundFlowPoint(row: Record<string, unknown>): StockFundFlowPoint | null {
+  const tradeDate = String(row.trade_date ?? row.date ?? "").slice(0, 10)
+  if (!tradeDate) return null
+  const wan = (value: unknown) => {
+    const parsed = typeof value === "number" ? value : Number(value)
+    return Number.isFinite(parsed) ? parsed / 10000 : null
+  }
+  const wanValue = (value: unknown) => {
+    const parsed = typeof value === "number" ? value : Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return {
+    trade_date: tradeDate,
+    lastPrice: numberValue(row.last_price),
+    turnoverRate: numberValue(row.turnover_rate),
+    activeNetAmountWan: wanValue(row.active_net_amount_wan),
+    mainNetAmountWan: wan(row.main_net),
+    superNetAmountWan: wan(row.super_net),
+    largeNetAmountWan: wan(row.large_net),
+    mediumNetAmountWan: wan(row.medium_net ?? row.mid_net),
+    smallNetAmountWan: wan(row.small_net),
+    activeBuyRatio: wanValue(row.active_buy_ratio),
+    activeSellRatio: wanValue(row.active_sell_ratio),
+    buyBigRatio: wanValue(row.buy_big_ratio),
+    sellBigRatio: wanValue(row.sell_big_ratio),
+    amountWan: wan(row.amount),
+    changePct: wanValue(row.change_pct),
+  }
+}
+
+function numberValue(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 export async function fetchMarketBreadth(): Promise<MarketBreadthResponse> {

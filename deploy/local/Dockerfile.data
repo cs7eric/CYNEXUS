@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -11,16 +13,24 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY cynexus-data/requirements.txt /tmp/requirements.txt
+
+# Keep the base data-runtime layer independent from optional live providers.
+# BuildKit preserves downloaded wheels across invalidated dependency layers.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install -r /tmp/requirements.txt
+
 COPY cynexus-data/requirements-live.txt /tmp/requirements-live.txt
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r /tmp/requirements.txt -r /tmp/requirements-live.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /tmp/requirements-live.txt
 
 COPY cynexus-data/pyproject.toml /app/pyproject.toml
 COPY cynexus-data/src /app/src
 COPY cynexus-data/sql /app/sql
 
-RUN pip install --no-cache-dir --no-deps .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --no-deps .
 
 RUN mkdir -p /app/var
 

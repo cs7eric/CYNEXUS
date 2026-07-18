@@ -68,6 +68,10 @@ public class SchedulerAppService {
     private static final Logger log = LoggerFactory.getLogger(SchedulerAppService.class);
     private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String MARKET_SENTIMENT_CHAIN_JOB_CODE = "market_sentiment_chain_refresh";
+    private static final Set<String> PROGRESS_POLL_JOB_CODES = Set.of(
+            MARKET_SENTIMENT_CHAIN_JOB_CODE,
+            "a_stock_fund_flow_history_bootstrap_120"
+    );
     private static final int MARKET_SENTIMENT_CHAIN_STEP_COUNT = 17;
 
     private final SchedulerDomainService schedulerDomainService;
@@ -647,8 +651,8 @@ public class SchedulerAppService {
             params.putIfAbsent("trade_date", request.getTargetDate());
             params.putIfAbsent("snapshot_date", request.getTargetDate());
         }
-        if (MARKET_SENTIMENT_CHAIN_JOB_CODE.equals(job.getCode())) {
-            return triggerChainJobAsync(job, dataJob, params, request, triggerType, triggeredBy, startedAt);
+        if (PROGRESS_POLL_JOB_CODES.contains(job.getCode())) {
+            return triggerProgressJobAsync(job, dataJob, params, request, triggerType, triggeredBy, startedAt);
         }
         DataJobTriggerResultBO result;
         try {
@@ -703,7 +707,7 @@ public class SchedulerAppService {
         return SchedulerDataJobKeyResolver.resolve(job == null ? null : job.getCode());
     }
 
-    private SchedulerManagementJobActionResponseDTO triggerChainJobAsync(SchedulerJobBO job,
+    private SchedulerManagementJobActionResponseDTO triggerProgressJobAsync(SchedulerJobBO job,
                                                                          SchedulerDataJobKeyResolver.ResolvedDataJob dataJob,
                                                                          Map<String, Object> params,
                                                                          SchedulerManagementTriggerRequest request,
@@ -713,10 +717,12 @@ public class SchedulerAppService {
         SchedulerJobStatusBO jobStatus = ensureStatus(job);
         Map<String, Object> extra = new LinkedHashMap<>(readExtra(jobStatus.getExtra()));
         extra.put("lastStep", "starting");
-        extra.put("lastCompletedSteps", List.of());
-        extra.put("lastStepResults", List.of());
-        extra.put("plannedSteps", MARKET_SENTIMENT_CHAIN_STEP_COUNT);
-        extra.put("lastMessage", "market_sentiment_chain 已在后台启动");
+        if (MARKET_SENTIMENT_CHAIN_JOB_CODE.equals(job.getCode())) {
+            extra.put("lastCompletedSteps", List.of());
+            extra.put("lastStepResults", List.of());
+            extra.put("plannedSteps", MARKET_SENTIMENT_CHAIN_STEP_COUNT);
+        }
+        extra.put("lastMessage", job.getCode() + " 已在后台启动");
         extra.put("lastDataJobKey", dataJob.jobKey());
         Map<String, Object> progress = runResultPolicy.progress(extra, "running", startedAt);
         schedulerDomainService.updateStatusProgress(
@@ -726,19 +732,25 @@ public class SchedulerAppService {
                 "running",
                 toJson(progress),
                 toJson(extra),
-                "market_sentiment_chain started");
+                job.getCode() + " started");
 
-        Long historyId = schedulerDomainService.createRunHistory(SchedulerJobRunHistoryBO.builder()
-                .jobId(job.getId())
-                .startedAt(startedAt)
-                .endedAt(startedAt)
-                .triggerType(triggerType)
-                .status("processing")
-                .durationSeconds(BigDecimal.ZERO)
-                .remark("market_sentiment_chain processing")
-                .resultSummary(toJson(runResultPolicy.resultSummary(null, extra, "processing", null, startedAt)))
-                .build());
+        Long historyId = null;
+        try {
+            historyId = schedulerDomainService.createRunHistory(SchedulerJobRunHistoryBO.builder()
+                    .jobId(job.getId())
+                    .startedAt(startedAt)
+                    .endedAt(startedAt)
+                    .triggerType(triggerType)
+                    .status("processing")
+                    .durationSeconds(BigDecimal.ZERO)
+                    .remark(job.getCode() + " processing")
+                    .resultSummary(toJson(runResultPolicy.resultSummary(null, extra, "processing", null, startedAt)))
+                    .build());
+        } catch (RuntimeException exception) {
+            log.warn("Create scheduler processing history failed, continue triggering data job: jobCode={}", job.getCode(), exception);
+        }
 
+        Long openHistoryId = historyId;
         CompletableFuture.runAsync(() -> {
             try {
                 DataJobTriggerResultBO result = schedulerDomainService.triggerDataJob(dataJob.jobKey(), DataJobTriggerRequestBO.builder()
@@ -748,17 +760,17 @@ public class SchedulerAppService {
                         .params(params)
                         .build());
                 if (SchedulerManagementPolicy.shouldPoll(result)) {
-                    pollChainDataJobRun(job, startedAt, triggerType, result, historyId);
+                    pollProgressDataJobRun(job, startedAt, triggerType, result, openHistoryId);
                     return;
                 }
                 boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(result);
                 String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
                 String error = SchedulerManagementPolicy.triggerError(result);
                 OffsetDateTime endedAt = OffsetDateTime.now(CHINA_ZONE);
-                recordTriggerResult(job, startedAt, endedAt, ok, status, error, triggerType, result, historyId);
+                recordTriggerResult(job, startedAt, endedAt, ok, status, error, triggerType, result, openHistoryId);
             } catch (RuntimeException exception) {
                 OffsetDateTime endedAt = OffsetDateTime.now(CHINA_ZONE);
-                recordTriggerResult(job, startedAt, endedAt, false, "failed", exception.getMessage(), triggerType, null, historyId);
+                recordTriggerResult(job, startedAt, endedAt, false, "failed", exception.getMessage(), triggerType, null, openHistoryId);
                 log.warn("Async scheduler chain trigger failed: jobCode={}", job.getCode(), exception);
             }
         });
@@ -774,12 +786,12 @@ public class SchedulerAppService {
                         .jobId(job.getCode())
                         .ok(true)
                         .lastStatus("processing")
-                        .lastMessage("chain 已在后台启动, 请刷新查看进度")
+                        .lastMessage("job 已在后台启动, 请刷新查看进度")
                         .build()))
                 .build();
     }
 
-    private void pollChainDataJobRun(SchedulerJobBO job,
+    private void pollProgressDataJobRun(SchedulerJobBO job,
                                      OffsetDateTime startedAt,
                                      String triggerType,
                                      DataJobTriggerResultBO initialResult,
@@ -1223,11 +1235,21 @@ public class SchedulerAppService {
                 .status(item.getStatus())
                 .error(item.getErrorMessage())
                 .message(item.getRemark())
-                .durationSeconds(item.getDurationSeconds())
+                .durationSeconds(historyDurationSeconds(item))
                 .targetCount(targetCount)
                 .succeeded("success".equalsIgnoreCase(item.getStatus()) ? targetCount : null)
                 .resultSummary(readResultSummary(item.getResultSummary(), item.getRemark(), item.getUpdatedAt()))
                 .build();
+    }
+
+    private BigDecimal historyDurationSeconds(SchedulerJobRunHistoryBO item) {
+        if (item == null) {
+            return null;
+        }
+        if (isOpenHistoryStatus(item.getStatus()) && item.getStartedAt() != null) {
+            return runResultPolicy.durationSeconds(item.getStartedAt(), OffsetDateTime.now(CHINA_ZONE));
+        }
+        return item.getDurationSeconds();
     }
 
     private Integer historyTargetCount(SchedulerJobRunHistoryBO item) {

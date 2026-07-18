@@ -13,6 +13,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
@@ -138,6 +139,14 @@ public class MediaTranscriptionAiAppService {
     }
 
     private PromptRuntime resolvePrompt(String promptKey, String capability) {
+        AiUsageBindingBO binding = routingDomainService.findBinding(capability);
+        if (binding != null && binding.getPromptId() != null) {
+            AiPromptBO boundPrompt = aiPromptRepository.findById(binding.getPromptId());
+            if (boundPrompt != null && "active".equalsIgnoreCase(boundPrompt.getStatus())) {
+                return new PromptRuntime(boundPrompt.getPromptKey(), boundPrompt.getPromptVersion(),
+                        normalize(boundPrompt.getSystemPrompt()), normalize(boundPrompt.getUserPromptTemplate()));
+            }
+        }
         List<AiPromptBO> prompts = aiPromptRepository.list(promptKey, null, "active").stream()
                 .filter(prompt -> promptKey.equals(prompt.getPromptKey()))
                 .toList();

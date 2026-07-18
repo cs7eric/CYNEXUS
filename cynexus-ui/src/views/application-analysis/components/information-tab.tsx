@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { BookOpenText, BrainCircuit, CalendarDays, ExternalLink, FileText, LoaderCircle, MessageCircleMore, Newspaper, RefreshCw, ScrollText, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   fetchStockInformation,
   fetchStockInformationAnalysis,
@@ -174,21 +175,31 @@ export function InformationTab({ symbol }: { symbol: string }) {
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<StockInformationKind | "all">("all")
+  const requestRef = useRef(0)
 
   const refresh = useCallback(async () => {
+    await Promise.resolve()
+    const requestId = requestRef.current + 1
+    requestRef.current = requestId
     setLoading(true)
+    setFeed(null)
+    setLoadError(null)
     try {
-      setFeed(await fetchStockInformation(symbol))
+      const next = await fetchStockInformation(symbol)
+      if (requestRef.current !== requestId) return
+      setFeed(next)
       setLoadError(null)
     } catch (error) {
+      if (requestRef.current !== requestId) return
+      setFeed(null)
       setLoadError(error instanceof Error ? error.message : "Information request failed")
     } finally {
-      setLoading(false)
+      if (requestRef.current === requestId) setLoading(false)
     }
   }, [symbol])
 
   useEffect(() => {
-    void refresh()
+    void Promise.resolve().then(refresh)
   }, [refresh])
 
   const grouped = useMemo(() => {
@@ -239,7 +250,19 @@ export function InformationTab({ symbol }: { symbol: string }) {
 
       {loading && !feed ? (
         <div className="space-y-2 rounded-xl bg-muted/40 p-3">
-          {[0, 1, 2, 3].map((index) => <div key={index} className="h-12 animate-pulse rounded-lg bg-muted" />)}
+          <div className="mb-3 flex items-center justify-between">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          {[0, 1, 2, 3].map((index) => (
+            <div key={index} className="flex items-start gap-3 rounded-lg bg-white/70 px-3 py-2.5">
+              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : grouped.length ? (
         <div className="space-y-4">

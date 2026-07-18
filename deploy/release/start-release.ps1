@@ -22,17 +22,17 @@ $mavenVersion = if ([string]::IsNullOrWhiteSpace($Version)) {
 } elseif ($Version.EndsWith("-SNAPSHOT")) {
     $Version
 } else {
-    (($Version -replace "-\d{6}-RELEASE$", "" -replace "-RELEASE$", "") + "-SNAPSHOT")
+    (($Version -replace "-RELEASE$", "") + "-SNAPSHOT")
 }
 $releaseVersion = if ([string]::IsNullOrWhiteSpace($Version)) {
-    "$baseVersion-$todaySuffix-RELEASE"
+    if ($baseVersion -match "-\d{6}$") { "$baseVersion-RELEASE" } else { "$baseVersion-$todaySuffix-RELEASE" }
 } elseif ($Version.EndsWith("-RELEASE")) {
     $Version
 } else {
-    "$Version-$todaySuffix-RELEASE"
+    (($Version -replace "-SNAPSHOT$", "") + "-RELEASE")
 }
-$releasePattern = '^\d+\.\d+\.\d+-\d{6}-RELEASE$'
-if ($releaseVersion -notmatch $releasePattern) { throw "Release version must match x.y.z-YYMMDD-RELEASE, for example 1.0.1-260712-RELEASE." }
+$releasePattern = '^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+)*-\d{6}-RELEASE$'
+if ($releaseVersion -notmatch $releasePattern) { throw "Release version must match x.y.z[-QUALIFIER]-YYMMDD-RELEASE, for example 1.1.1-ALPHA-260716-RELEASE." }
 $env:CYNEXUS_MAVEN_VERSION = $mavenVersion
 $env:CYNEXUS_RELEASE_VERSION = $releaseVersion
 Write-Host "[cynexus] Release version: $releaseVersion"

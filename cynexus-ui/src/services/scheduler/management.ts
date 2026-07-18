@@ -15,8 +15,37 @@ export interface SchedulerProgress {
   stepResults?: SchedulerChainStepResult[]
   message?: string | null
   metrics?: Record<string, unknown>
-  payload?: Record<string, unknown>
+  payload?: SchedulerProgressPayload
   updatedAt?: string | null
+}
+
+export interface SchedulerProgressPayload {
+  lastDataJobRunId?: string | null
+  lastDataJobKey?: string | null
+  pipeline?: string | null
+  qcSummary?: SchedulerFundFlowQcSummary
+  [key: string]: unknown
+}
+
+export interface SchedulerFundFlowQcSample {
+  code?: string | null
+  tradeDate?: string | null
+  easyTdxMainNet?: number | null
+  eastmoneyMainNet?: number | null
+  mainNetDiff?: number | null
+  mainNetDiffRatio?: number | null
+  directionMatch?: boolean | null
+  error?: string | null
+}
+
+export interface SchedulerFundFlowQcSummary {
+  sampleSize?: number | null
+  successCount?: number | null
+  failedCount?: number | null
+  directionMatchCount?: number | null
+  directionMatchRate?: number | null
+  avgAbsDiffRatio?: number | null
+  samples?: SchedulerFundFlowQcSample[]
 }
 
 export interface SchedulerCurrentStepProgress {
@@ -28,6 +57,10 @@ export interface SchedulerCurrentStepProgress {
   totalFiles?: number
   rowsRead?: number
   rowsWritten?: number
+  completedCodes?: number
+  failedCodes?: number
+  pendingCodes?: number
+  totalCodes?: number
 }
 
 export interface SchedulerChainStepResult {

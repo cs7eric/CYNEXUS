@@ -11,6 +11,18 @@ from cynexus_data.sources.eastmoney.http import EastMoneyHttpClient
 from cynexus_data.sources.iwencai.client import IwencaiClient, dedup_articles
 from cynexus_data.sources.sina.a_stock import SinaAStockClient
 from cynexus_data.sources.tdx.mootdx_market import fetch_order_book, fetch_quotes, fetch_transactions
+from cynexus_data.sources.tdx.easy_tdx import (
+    fetch_board_change_ranking,
+    fetch_belong_board_rows,
+    fetch_board_list,
+    fetch_board_members,
+    fetch_board_ranking,
+    fetch_board_summary,
+    fetch_history_stock_fund_flow,
+    fetch_current_stock_fund_flow,
+    fetch_history_timeshare_rows,
+    fetch_kline_rows,
+)
 from cynexus_data.sources.ths.a_stock import ThsAStockClient
 
 
@@ -241,3 +253,76 @@ def tdx_order_book(symbol: str) -> dict:
 def tdx_transactions(symbol: str, trade_date: str | None = None) -> dict:
     rows = fetch_transactions(symbol, trade_date=trade_date)
     return {"items": rows, "count": len(rows)}
+
+
+@router.get("/tdx/fund-flow")
+def tdx_fund_flow(code: str, history: bool = False, count: int = 120, start: int = 0) -> dict:
+    if history:
+        rows = fetch_history_stock_fund_flow(code, count=count, start=start)
+    else:
+        rows = fetch_current_stock_fund_flow(code)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.tdx"}
+
+
+@router.get("/tdx/kline")
+def tdx_kline(code: str, period: str = "1m", adjust: str = "none", limit: int = 500) -> dict:
+    rows = fetch_kline_rows(code, period=period, adjust=adjust, limit=limit)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.mac"}
+
+
+@router.get("/tdx/timeshare")
+def tdx_timeshare(code: str, trade_date: str) -> dict:
+    rows = fetch_history_timeshare_rows(code, trade_date)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.tdx"}
+
+
+@router.get("/tdx/boards")
+def tdx_boards(board_type: str = "all", count: int = 10000) -> dict:
+    rows = fetch_board_list(board_type, count=count)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.mac"}
+
+
+@router.get("/tdx/board-members")
+def tdx_board_members(board_symbol: str, count: int = 100000) -> dict:
+    rows = fetch_board_members(board_symbol, count=count)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.mac"}
+
+
+@router.get("/tdx/belong-board")
+def tdx_belong_board(code: str) -> dict:
+    rows = fetch_belong_board_rows(code)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.mac"}
+
+
+@router.get("/tdx/board-summary")
+def tdx_board_summary(board_symbol: str) -> dict:
+    return {**fetch_board_summary(board_symbol), "source": "easy_tdx.mac"}
+
+
+@router.get("/tdx/board-ranking")
+def tdx_board_ranking(
+    board_type: str = "hy",
+    top_n: int = 50,
+    sort_by: str = "change_pct",
+    ascending: bool = False,
+) -> dict:
+    rows = fetch_board_ranking(board_type, top_n=top_n, sort_by=sort_by, ascending=ascending)
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.mac"}
+
+
+@router.get("/tdx/board-change-ranking")
+def tdx_board_change_ranking(
+    board_type: str = "hy",
+    days: int = 20,
+    top_n: int = 50,
+    target_date: int | None = None,
+    ascending: bool = False,
+) -> dict:
+    rows = fetch_board_change_ranking(
+        board_type,
+        days=days,
+        top_n=top_n,
+        target_date=target_date,
+        ascending=ascending,
+    )
+    return {"items": rows, "count": len(rows), "source": "easy_tdx.mac"}

@@ -4,6 +4,7 @@ import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, XAx
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   ChartContainer,
   ChartTooltip,
@@ -135,6 +136,51 @@ function SummaryBlock({
   )
 }
 
+function FundFlowSkeleton({
+  symbol,
+  name,
+}: {
+  symbol: string
+  name: string
+}) {
+  return (
+    <section className="min-w-0 space-y-2 rounded-2xl bg-muted/50 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Fund Flow</div>
+          <div className="mt-1 text-[11px] text-slate-500">
+            正在加载 {name} · <span className="font-mono">{symbol}</span> 的资金流
+          </div>
+        </div>
+        <Skeleton className="h-7 w-28 rounded-lg bg-white/80" />
+      </div>
+      <div className="rounded-xl bg-white/70 px-3 py-2.5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((index) => (
+              <Skeleton key={index} className="h-8 w-28 rounded-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+      <Skeleton className="h-16 rounded-xl bg-white/70" />
+      <div className="grid min-w-0 gap-2 xl:grid-cols-2">
+        <Skeleton className="h-[230px] rounded-xl bg-white/70" />
+        <Skeleton className="h-[230px] rounded-xl bg-white/70" />
+      </div>
+      <div className="space-y-1.5">
+        {[0, 1, 2, 3].map((index) => (
+          <Skeleton key={index} className="h-12 rounded-xl bg-white/70" />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function FiveDayFundTrend({ items }: { items: StockFundFlowPoint[] }) {
   const hasMainFlow = items.some((item) => isFiniteNumber(item.mainNetAmountWan))
   const recent = useMemo(
@@ -202,12 +248,8 @@ const fundTrendChartConfig = {
 
 function FundFlowTrendChart({
   items,
-  backfilling,
-  onBackfill,
 }: {
   items: StockFundFlowPoint[]
-  backfilling: boolean
-  onBackfill: () => void
 }) {
   const data = useMemo(() => {
     const ordered = [...items]
@@ -241,10 +283,6 @@ function FundFlowTrendChart({
         <div className="flex shrink-0 items-center gap-3 text-[11px]">
           <span className="text-slate-500">Latest <b className={cn("font-mono font-semibold", signedTone(latest.net))}>{formatWan(latest.net)}</b></span>
           <span className="text-slate-500">Peak <b className={cn("font-mono font-semibold", signedTone(peak.net))}>{formatWan(peak.net)}</b></span>
-          <Button type="button" size="sm" variant="secondary" className="h-6 gap-1 px-2 text-[10px]" disabled={backfilling} onClick={onBackfill}>
-            <RefreshCw className={cn("size-3", backfilling && "animate-spin")} />
-            Backfill
-          </Button>
         </div>
       </div>
 
@@ -451,6 +489,10 @@ function FundFlowDetail({
   snapshot: StockFundFlowResponse | null
 }) {
   const isLatest = snapshot?.trade_date === item.trade_date
+  const lastPrice = item.lastPrice ?? (isLatest ? snapshot?.lastPrice : null)
+  const turnoverRate = item.turnoverRate ?? (isLatest ? snapshot?.turnoverRate : null)
+  const buyBigRatio = item.buyBigRatio ?? (isLatest ? snapshot?.buyBigRatio : null)
+  const sellBigRatio = item.sellBigRatio ?? (isLatest ? snapshot?.sellBigRatio : null)
   const hasOrderSplit = [
     item.mainNetAmountWan,
     item.superNetAmountWan,
@@ -478,14 +520,14 @@ function FundFlowDetail({
         </div>
       )}
 
-      {isLatest ? (
-        <>
-          <div className="grid gap-2 lg:grid-cols-4">
-            <SummaryBlock label="最新价" value={formatPrice(snapshot?.lastPrice)} caption={snapshot?.trade_date ? `交易日 ${snapshot.trade_date}` : undefined} />
-            <SummaryBlock label="换手率" value={formatPct(snapshot?.turnoverRate)} />
-            <SummaryBlock label="大单买入占比" value={formatRatio(snapshot?.buyBigRatio)} />
-            <SummaryBlock label="大单卖出占比" value={formatRatio(snapshot?.sellBigRatio)} />
-          </div>
+      <>
+        <div className="grid gap-2 lg:grid-cols-4">
+          <SummaryBlock label="最新价" value={formatPrice(lastPrice)} caption={item.trade_date ? `交易日 ${item.trade_date}` : undefined} />
+          <SummaryBlock label="换手率" value={formatPct(turnoverRate)} />
+          <SummaryBlock label="大单买入占比" value={formatRatio(buyBigRatio)} />
+          <SummaryBlock label="大单卖出占比" value={formatRatio(sellBigRatio)} />
+        </div>
+        {isLatest ? (
           <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-50/70 px-3 py-2 text-[11px] text-slate-500">
             <span>Source</span>
             <Badge variant="outline" className="rounded-full bg-white px-2 py-0 text-[10px] text-slate-600">{snapshot?.source || "—"}</Badge>
@@ -496,8 +538,8 @@ function FundFlowDetail({
               </>
             ) : null}
           </div>
-        </>
-      ) : null}
+        ) : null}
+      </>
     </div>
   )
 }
@@ -553,23 +595,32 @@ export function FundFlowTab({ symbol, name }: FundFlowTabProps) {
   const [marginItems, setMarginItems] = useState<MarginStockDetail[]>([])
   const [marginBackfilling, setMarginBackfilling] = useState(false)
   const [fundFlowBackfilling, setFundFlowBackfilling] = useState(false)
+  const requestRef = useRef(0)
 
   const refresh = useCallback(async () => {
+    await Promise.resolve()
+    const requestId = requestRef.current + 1
+    requestRef.current = requestId
     try {
       setLoading(true)
       setError("")
+      setData(null)
+      setMarginItems([])
       const [fundFlow, margin] = await Promise.allSettled([
         fetchStockFundFlow(symbol),
         fetchMarginStockHistory(symbol, 120),
       ])
+      if (requestRef.current !== requestId) return
       setMarginItems(margin.status === "fulfilled" ? margin.value.items : [])
       if (fundFlow.status === "rejected") throw fundFlow.reason
       setData(fundFlow.value)
     } catch (err) {
+      if (requestRef.current !== requestId) return
       setData(null)
+      setMarginItems([])
       setError(err instanceof Error ? err.message : "加载资金流失败")
     } finally {
-      setLoading(false)
+      if (requestRef.current === requestId) setLoading(false)
     }
   }, [symbol])
 
@@ -601,7 +652,7 @@ export function FundFlowTab({ symbol, name }: FundFlowTabProps) {
   }, [symbol])
 
   useEffect(() => {
-    void refresh()
+    void Promise.resolve().then(refresh)
   }, [refresh])
 
   const items = useMemo(() => {
@@ -630,15 +681,32 @@ export function FundFlowTab({ symbol, name }: FundFlowTabProps) {
   const latestBias = flowBias(latestNet)
   const dataTip = error || data?.error || ""
 
+  if (loading && data === null && marginItems.length === 0) {
+    return <FundFlowSkeleton symbol={symbol} name={name} />
+  }
+
   return (
     <section className="min-w-0 space-y-2 rounded-2xl bg-muted/50 p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm font-semibold text-slate-900">Fund Flow</div>
-          <div className="text-[11px] text-slate-500">Stock fund-flow snapshots · newest first · {items.length} sessions</div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+            <span>Stock fund-flow snapshots · newest first · {items.length} sessions</span>
+            {data?.source ? <Badge variant="outline" className="rounded-full bg-white px-2 py-0 text-[10px]">{data.source}</Badge> : null}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {latestDate ? <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">Latest {latestDate}</Badge> : null}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void backfillFundFlow()}
+            disabled={fundFlowBackfilling || loading}
+            className="h-7 gap-1.5 rounded-lg border-slate-200 bg-white px-2.5 text-[11px]"
+          >
+            <RefreshCw className={cn("size-3.5", fundFlowBackfilling && "animate-spin")} />
+            拉取 120 日
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => void refresh()} disabled={loading} className="h-7 gap-1.5 rounded-lg px-2.5 text-[11px]">
             <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
             Refresh
@@ -664,7 +732,7 @@ export function FundFlowTab({ symbol, name }: FundFlowTabProps) {
 
       <FiveDayFundTrend items={items} />
       <div className="grid min-w-0 gap-2 xl:grid-cols-2">
-        <FundFlowTrendChart items={items} backfilling={fundFlowBackfilling} onBackfill={() => void backfillFundFlow()} />
+        <FundFlowTrendChart items={items} />
         <MarginTrend items={marginItems} backfilling={marginBackfilling} onBackfill={() => void backfillMargin()} />
       </div>
 
@@ -676,7 +744,7 @@ export function FundFlowTab({ symbol, name }: FundFlowTabProps) {
 
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-500">
-          {loading ? "Loading fund-flow snapshots..." : "No stock fund-flow snapshots yet"}
+          {loading ? "Loading fund-flow snapshots..." : "暂无资金流历史，请点击“拉取 120 日”主动获取"}
         </div>
       ) : (
         <div className="space-y-1.5">

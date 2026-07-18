@@ -22,6 +22,7 @@ from cynexus_data.sources.iwencai.client import IwencaiClient, dedup_articles
 from cynexus_data.sources.market_information.client import OfficialMarketInformationClient
 from cynexus_data.sources.sina.a_stock import SinaAStockClient
 from cynexus_data.sources.tdx.mootdx_market import fetch_order_book, fetch_transactions
+from cynexus_data.sources.tdx.easy_tdx import fetch_history_stock_fund_flow_payload
 from cynexus_data.sources.ths.a_stock import ThsAStockClient
 from cynexus_data.storage.clickhouse.a_stock import AStockClickHouseRepository
 from cynexus_data.storage.postgres.a_stock import AStockPostgresRepository
@@ -90,6 +91,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
                 if isinstance(payload, dict):
                     if payload.get("source"):
                         payload_sources.add(str(payload["source"]))
+                    for attempt in payload.get("provider_attempts") or []:
+                        if attempt.get("provider") and attempt.get("ok"):
+                            payload_sources.add(str(attempt["provider"]))
                     if payload.get("mode") == "daily_fallback":
                         fallback_count += 1
                     if payload.get("history_complete") is True:
@@ -135,7 +139,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
             notes.append("dry_run skipped live provider fetch; pass fetch_live=true to probe source connectivity")
         return {
             "dataset_results": dataset_results,
-            "rows_read": sum(item["rows_normalized"] for item in dataset_results.values()),
+            "rows_read": sum(int(item.get("rows_normalized") or 0) for item in dataset_results.values()),
             "rows_written": 0,
             "postgres_tables": {table: len(rows) for table, rows in pg_batches.items()},
             "clickhouse_tables": {table: len(rows) for table, rows in ch_batches.items()},
@@ -154,7 +158,12 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         if information_identities and _bool(params.get("extract_market_information_content"), True):
             backfill_limit = _int(params.get("market_information_content_backfill_limit")) or 0
             information_identities.extend(recent_backfill_identities(pg_repo.client, backfill_limit))
-            dataset_results["market_information_content"] = extract_and_persist(pg_repo.client, information_identities)
+            content_result = extract_and_persist(pg_repo.client, information_identities)
+            dataset_results["market_information_content"] = {
+                **content_result,
+                # Content extraction is a post-processing stage, not another source dataset.
+                "rows_normalized": 0,
+            }
     if ch_batches:
         ch_repo = AStockClickHouseRepository(context.hooks.clickhouse.get_client())
         if create_table:
@@ -163,7 +172,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
 
     return {
         "dataset_results": dataset_results,
-        "rows_read": sum(item["rows_normalized"] for item in dataset_results.values()),
+        "rows_read": sum(int(item.get("rows_normalized") or 0) for item in dataset_results.values()),
         "rows_written": rows_written,
         "postgres_tables": {table: len(rows) for table, rows in pg_batches.items()},
         "clickhouse_tables": {table: len(rows) for table, rows in ch_batches.items()},
@@ -203,6 +212,31 @@ def _fetch_eastmoney_fund_flow_120d(params: dict[str, Any]) -> Any:
         str(params["code"]),
         mode=str(params.get("fund_flow_mode") or "auto").strip().lower(),
     )
+
+
+def _fetch_easy_tdx_fund_flow_120d(params: dict[str, Any]) -> Any:
+    return fetch_history_stock_fund_flow_payload(
+        str(params["code"]),
+        count=_int(params.get("fund_flow_count") or params.get("count")) or 120,
+        timeout=float(params.get("provider_timeout") or 15),
+    )
+
+
+def _fetch_stock_fund_flow_120d(params: dict[str, Any]) -> Any:
+    primary = str(params.get("fund_flow_provider") or params.get("provider") or "easy_tdx").strip().lower()
+    order = [primary] + [item for item in ("easy_tdx", "eastmoney") if item != primary]
+    attempts: list[dict[str, Any]] = []
+    for provider in order:
+        try:
+            payload = _fetch_easy_tdx_fund_flow_120d(params) if provider == "easy_tdx" else _fetch_eastmoney_fund_flow_120d(params)
+            if isinstance(payload, dict) and payload.get("items"):
+                payload = dict(payload)
+                payload["provider_attempts"] = attempts + [{"provider": provider, "ok": True, "rows": len(payload.get("items") or [])}]
+                return payload
+            attempts.append({"provider": provider, "ok": False, "error": "empty_response"})
+        except Exception as exc:  # noqa: BLE001 - fallback is part of the source contract.
+            attempts.append({"provider": provider, "ok": False, "error": f"{type(exc).__name__}: {exc}"})
+    raise RuntimeError("all stock fund-flow providers failed: " + "; ".join(str(item) for item in attempts))
 
 
 def _fetch_eastmoney_industry_rank(params: dict[str, Any]) -> Any:
@@ -345,7 +379,7 @@ DATASETS: dict[str, DatasetSpec] = {
     "eastmoney_stock_info": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_stock_info),
     "eastmoney_concept_blocks": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_concept_blocks),
     "eastmoney_fund_flow_minute": DatasetSpec("eastmoney", "clickhouse", True, 5.0, _fetch_eastmoney_fund_flow_minute),
-    "eastmoney_fund_flow_120d": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_fund_flow_120d),
+    "eastmoney_fund_flow_120d": DatasetSpec("easy_tdx+eastmoney", "postgres", True, 0.2, _fetch_stock_fund_flow_120d),
     "eastmoney_industry_rank": DatasetSpec("eastmoney", "postgres", False, 2.0, _fetch_eastmoney_industry_rank),
     "eastmoney_daily_dragon_tiger": DatasetSpec("eastmoney", "postgres", False, 2.0, _fetch_eastmoney_daily_dragon_tiger),
     "eastmoney_dragon_tiger": DatasetSpec("eastmoney", "postgres", True, 2.0, _fetch_eastmoney_dragon_tiger),
@@ -461,13 +495,13 @@ def _missing_fund_flow_history_codes(context: PipelineContext) -> list[str]:
                 ), coverage AS (
                     SELECT code, count(*) AS history_rows
                       FROM cynexus_appl_market.a_stock_fund_flow_daily
-                     WHERE source = 'eastmoney.push2his'
+                     WHERE source IN ('easy_tdx.tdx', 'eastmoney.push2his', 'eastmoney.push2delay')
                      GROUP BY code
                 )
                 SELECT selected.code
                   FROM selected
                   LEFT JOIN coverage ON coverage.code = selected.code
-                 WHERE COALESCE(coverage.history_rows, 0) < 100
+                 WHERE COALESCE(coverage.history_rows, 0) < 120
                  ORDER BY COALESCE(coverage.history_rows, 0), selected.code
                 """
             )

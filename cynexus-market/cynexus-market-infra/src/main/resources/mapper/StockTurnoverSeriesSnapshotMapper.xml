@@ -26,4 +26,16 @@
     <sql id="BaseColumnList">
         id, symbol, target_type, period, adjust, circulating_shares, total_shares, latest_trade_date, latest_turnover_rate, entry_count, source, payload, generated_at, created_at, updated_at, deleted_at
     </sql>
+
+    <select id="findBySymbol" resultMap="BaseResultMap">
+        SELECT <include refid="BaseColumnList"/>
+        FROM stock_turnover_series_snapshot
+        WHERE deleted_at IS NULL
+          AND symbol = #{symbol}
+          AND target_type = 'stock'
+          AND period = '1d'
+          AND adjust = 'qfq'
+        ORDER BY updated_at DESC
+        LIMIT 1
+    </select>
 </mapper>

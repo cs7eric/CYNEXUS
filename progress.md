@@ -983,3 +983,41 @@
 
 - Reorganized domain code by bounded feature instead of keeping unrelated policies and ports in `domain/service`.
 - Verified package/path consistency, focused tests, and the full Maven reactor.
+## 2026-07-18 - Fund-flow 120 bootstrap option
+
+- Confirmed active-stock 120-day fund-flow coverage is incomplete: 1048/5530 active stocks have at least 120 rows; 4482 still need bootstrap.
+- Added `missing-120` stock scope to the history chain so a bootstrap run targets only active stocks with fewer than 120 distinct fund-flow history dates.
+- Added scheduler job `a_stock_fund_flow_history_bootstrap_120` as a manual/no-schedule 120-day bootstrap option. It targets `stock_scope=missing-120`, `fund_flow_count=120`, `minimum_history_rows=120`, `shard_size=300`, workers=6, easy_tdx primary.
+- Added Core mapping for the bootstrap scheduler job to the existing `a_stock_fund_flow_history_backfill` Python job and included it in the background polling path so scheduler progress can update while it runs.
+- Applied migration `20260718_add_stock_fund_flow_120_bootstrap_job.sql`; scheduler API shows the job disabled with `{}` schedule and default params present.
+- Synced data executor files and restarted `cynexus-data-job-executor`; Dev restarted via documented scripts.
+- Verification passed: Python fund-flow job tests 8 passed; Maven package passed; Dev Core health UP; Data Executor healthy.
+
+## 2026-07-18 - Market ETF Flow Workspace
+
+- Started the ETF market-flow integration requested by the user.
+- Read project layering rules, product/design register, existing Market Pulse/Sentiment routes, Python job registry/trigger API, PostgreSQL table conventions, and current TDX adapters.
+- Confirmed free live source coverage through AkShare/EastMoney, SSE/SZSE share data, eltdx ETF quotes, and easy_tdx ETF/security APIs.
+- Implementation is in progress; verification results will be appended after the Python, Java, schema, and UI layers are complete.
+- Added the Python ETF catalog/spot/daily-share pipeline, AkShare share-source adapters, PostgreSQL tables, and `sync_market_etf` scheduler registration.
+- Added the Market DDD read path and `GET /api/market/etf`, including direction, breadth, rotation, premium/IOPV, activity, and share-flow proxy fields.
+- Added `/market/etf` with colocated service/components, loading/error states, trend chart, breadth panel, rotation table, broad ETF table, and sector ETF table.
+- Synchronized Maven/UI development versions to `1.1.36-SNAPSHOT`; added the deployable ETF schema migration and corrected strict sector filtering/date-window SQL.
+- Verification: 10 focused Python tests passed, ETF frontend ESLint passed, Market Starter compilation passed, and direct Vite production build passed. Full UI type-check remains blocked by the existing unrelated errors recorded above. Docker/runtime smoke is pending because Docker Desktop is currently unavailable.
+- Runtime follow-up: started Docker shared infrastructure and Dev, applied ETF schema/scheduler migrations, rebuilt Data Executor, fixed non-finite AkShare JSON and source trade-date inference, and completed a live ETF sync with 1549 rows.
+- Final runtime verification: Core, Market, Gateway, UI, and Data Executor are reachable; `GET /api/market/etf` returns `ok=true`, trade date `2026-07-17`, 924 full-scope ETFs, 24 rotations, and bounded broad/sector detail lists. Scheduler job `market_etf_daily` is registered for 17:35 on trading days.
+
+## 2026-07-18 - ETF classification correction
+
+- Audited the existing name-keyword mapping and live PostgreSQL catalog.
+- Confirmed 625 of 1,549 active ETFs are `other` and excluded from the page; the current sector bucket also contains non-sector asset classes.
+- Began Phase 58 to add code-keyed, source-aware ETF classification and coverage diagnostics.
+- Added optional source-aware classification enrichment, expanded fallback rules, live reclassification, stable ETF IDs, and coverage counters. Python tests, Java package, scoped ESLint, live API, Data Executor rebuild, and Dev restart completed successfully.
+- Full UI build was rechecked at `1.1.41-SNAPSHOT`; it remains blocked only by the existing unrelated TypeScript errors outside the ETF page/service.
+- Follow-up audit found 378 `other` rows; 136 are intentional non-target products, while 242 need a second mapping pass, including several broad-index and domestic theme families.
+
+## 2026-07-18 - ETF mapping registry
+
+- Created and applied the many-to-many mapping DDL and 6,213-row seed for all 1,549 ETF codes.
+- Added runtime mapping persistence to the ETF sync pipeline and rebuilt the Data Executor.
+- Seed replay is idempotent; mapping coverage and group counts were verified in PostgreSQL.

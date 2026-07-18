@@ -62,7 +62,9 @@ public final class SchedulerRunResultDomainPolicy {
         Object pipeline = firstPresent(metadata, Set.of("pipeline"));
         if (pipeline != null) extra.put("pipeline", pipeline);
         copyIfPresent(metadata, extra, "lastStep");
-        copyIfPresent(metadata, extra, "currentStepProgress");
+        Object stepProgress = withTotalCodeProgress(firstPresent(metadata, Set.of("currentStepProgress")), metadata);
+        if (stepProgress != null) extra.put("currentStepProgress", stepProgress);
+        copyIfPresent(metadata, extra, "qcSummary");
         copyIfPresent(metadata, extra, "lastCompletedSteps");
         copyIfPresent(metadata, extra, "lastStepResults");
         Object plannedSteps = firstNumber(resultMap, metadata, "planned_steps", "plannedSteps");
@@ -108,6 +110,7 @@ public final class SchedulerRunResultDomainPolicy {
         putIfPresent(payload, "lastDataJobRunId", extra.get("lastDataJobRunId"));
         putIfPresent(payload, "lastDataJobKey", extra.get("lastDataJobKey"));
         putIfPresent(payload, "pipeline", extra.get("pipeline"));
+        putIfPresent(payload, "qcSummary", extra.get("qcSummary"));
         Map<String, Object> progress = new LinkedHashMap<>();
         progress.put("schemaVersion", 1);
         progress.put("type", inferProgressType(extra));
@@ -136,6 +139,7 @@ public final class SchedulerRunResultDomainPolicy {
         putIfPresent(payload, "pipeline", extra.get("pipeline"));
         putIfPresent(payload, "completedSteps", firstPresent(extra, Set.of("lastCompletedSteps", "completedSteps")));
         putIfPresent(payload, "stepResults", firstPresent(extra, Set.of("lastStepResults", "stepResults")));
+        putIfPresent(payload, "qcSummary", extra.get("qcSummary"));
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("schemaVersion", 1);
         summary.put("type", inferProgressType(extra));
@@ -150,6 +154,21 @@ public final class SchedulerRunResultDomainPolicy {
     }
 
     private static void putIfPresent(Map<String, Object> target, String key, Object value) { if (value != null) target.put(key, value); }
+    private static Object withTotalCodeProgress(Object value, Map<String, Object> metadata) {
+        if (!(value instanceof Map<?, ?> map)) {
+            return value;
+        }
+        Map<String, Object> progress = new LinkedHashMap<>();
+        map.forEach((key, item) -> progress.put(String.valueOf(key), item));
+        putIfAbsent(progress, "completedCodes", firstPresent(metadata, Set.of("completed_codes", "completedCodes")));
+        putIfAbsent(progress, "failedCodes", firstPresent(metadata, Set.of("failed_codes", "failedCodes")));
+        putIfAbsent(progress, "pendingCodes", firstPresent(metadata, Set.of("pending_codes", "pendingCodes")));
+        putIfAbsent(progress, "totalCodes", firstPresent(metadata, Set.of("total_codes", "totalCodes")));
+        return progress;
+    }
+    private static void putIfAbsent(Map<String, Object> target, String key, Object value) {
+        if (value != null && !target.containsKey(key)) target.put(key, value);
+    }
     private static String inferProgressType(Map<String, Object> extra) {
         return extra.containsKey("lastStepResults") || extra.containsKey("lastCompletedSteps") ? "chain" : "job";
     }

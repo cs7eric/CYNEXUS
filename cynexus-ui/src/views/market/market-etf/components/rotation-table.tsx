@@ -1,0 +1,11 @@
+import type { MarketEtfRotation } from "@/services/market/etf"
+import { formatPct, formatWan } from "../lib/format"
+
+export function RotationTable({ rows, loading }: { rows: MarketEtfRotation[]; loading: boolean }) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-lg bg-muted/35 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="text-base font-semibold">行业 ETF 轮动</h2><p className="text-xs text-muted-foreground">按成交额聚合主题，结合份额变化和强弱排序</p></div><span className="text-xs text-muted-foreground">{loading ? "加载中" : `${rows.length} 个主题`}</span></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[660px] text-sm"><thead><tr className="border-b border-border/60 text-left text-xs text-muted-foreground"><th className="pb-2 font-medium">主题</th><th className="pb-2 text-right font-medium">ETF</th><th className="pb-2 text-right font-medium">成交额</th><th className="pb-2 text-right font-medium">份额变化</th><th className="pb-2 text-right font-medium">平均涨跌</th><th className="pb-2 pl-4 font-medium">成交主力</th></tr></thead><tbody>{rows.map((row) => <tr key={row.theme} className="border-b border-border/35 last:border-0"><td className="py-3 font-medium">{row.theme}</td><td className="py-3 text-right tabular-nums text-muted-foreground">{row.etfCount ?? "—"}</td><td className="py-3 text-right tabular-nums">{formatWan(row.amount)}</td><td className={`py-3 text-right font-mono tabular-nums ${row.shareDelta == null || row.shareDelta === 0 ? "text-muted-foreground" : row.shareDelta > 0 ? "text-red-600" : "text-emerald-600"}`}>{formatWan(row.shareDelta)}</td><td className={`py-3 text-right font-mono tabular-nums ${row.averageChangePct == null || row.averageChangePct === 0 ? "text-muted-foreground" : row.averageChangePct > 0 ? "text-red-600" : "text-emerald-600"}`}>{formatPct(row.averageChangePct)}</td><td className="py-3 pl-4"><div className="max-w-[190px] truncate font-medium">{row.leaderName || "—"}</div><div className="text-xs text-muted-foreground">{row.leaderCode || "—"}</div></td></tr>)}</tbody></table>{!loading && rows.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">暂无行业主题数据</div> : null}</div>
+    </section>
+  )
+}

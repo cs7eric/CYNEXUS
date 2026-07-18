@@ -11,8 +11,16 @@ import org.springframework.stereotype.Service;
 public class StockTurnoverSeriesSnapshotBasicServiceImpl extends AbstractCrudBasicService<StockTurnoverSeriesSnapshotPO>
         implements StockTurnoverSeriesSnapshotBasicService {
 
+    private final StockTurnoverSeriesSnapshotMapper mapper;
+
     public StockTurnoverSeriesSnapshotBasicServiceImpl(StockTurnoverSeriesSnapshotMapper mapper,
                                            SnowflakeIdGenerator snowflakeIdGenerator) {
         super(mapper, snowflakeIdGenerator);
+        this.mapper = mapper;
+    }
+
+    @Override
+    public StockTurnoverSeriesSnapshotPO findBySymbol(String symbol) {
+        return mapper.findBySymbol(symbol);
     }
 }

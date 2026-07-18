@@ -206,12 +206,13 @@ export interface MarketInformationFeed {
   impactIndustries?: MarketInformationImpactIndustry[]
 }
 
-export async function fetchMarketInformation(page = 1, pageSize = 30, impactIndustryCode?: string): Promise<MarketInformationFeed> {
+export async function fetchMarketInformation(page = 1, pageSize = 30, impactIndustryCode?: string, analysisStatus?: string): Promise<MarketInformationFeed> {
   const query = new URLSearchParams({
     page: String(Math.max(page, 1)),
     pageSize: String(Math.min(Math.max(pageSize, 1), 60)),
   })
   if (impactIndustryCode) query.set("impactIndustryCode", impactIndustryCode)
+  if (analysisStatus) query.set("analysisStatus", analysisStatus)
   return cynexusResult<MarketInformationFeed>(
     await fetchWithRetry(`${SERVICE_PREFIX.market}/information?${query.toString()}`, {
       cache: "no-store",

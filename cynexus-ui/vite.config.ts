@@ -29,6 +29,11 @@ export default defineConfig(({ mode }) => {
         target: backendUrl,
         changeOrigin: true,
       },
+      '/data-api': {
+        target: env.VITE_CYNEXUS_DATA_API_BASE || 'http://127.0.0.1:18083',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/data-api/, ''),
+      },
     },
   },
   resolve: {

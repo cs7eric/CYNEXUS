@@ -36,6 +36,9 @@ def mark_parent_step_progress(
         "rowsRead": rows_read,
         "rowsWritten": rows_written,
     }
+    extra_progress = params.get("progress_extra")
+    if isinstance(extra_progress, dict):
+        progress.update(extra_progress)
     if resolved_unit_label == "文件":
         progress["processedFiles"] = processed
         progress["totalFiles"] = total

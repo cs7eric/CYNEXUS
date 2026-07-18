@@ -381,6 +381,8 @@ public class StockChartQueryAppService {
     private StockChartDTO.FundFlowPointDTO fundFlowPoint(StockChartBO.FundFlowPoint value) {
         return StockChartDTO.FundFlowPointDTO.builder()
                 .tradeDate(value.getTradeDate())
+                .lastPrice(value.getLastPrice())
+                .turnoverRate(value.getTurnoverRate())
                 .activeNetAmountWan(value.getActiveNetAmountWan())
                 .mainNetAmountWan(value.getMainNetAmountWan())
                 .superNetAmountWan(value.getSuperNetAmountWan())
@@ -389,6 +391,8 @@ public class StockChartQueryAppService {
                 .smallNetAmountWan(value.getSmallNetAmountWan())
                 .activeBuyRatio(value.getActiveBuyRatio())
                 .activeSellRatio(value.getActiveSellRatio())
+                .buyBigRatio(value.getBuyBigRatio())
+                .sellBigRatio(value.getSellBigRatio())
                 .amountWan(value.getAmountWan())
                 .changePct(value.getChangePct())
                 .build();

@@ -4,6 +4,7 @@ import { Compass, MapPin, RefreshCw, Sparkles, Target } from "lucide-react"
 import type { ApplicationAnalysisRecent30FullItem } from "@/services/ai/application-analysis"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { cn } from "@/lib/utils"
 import { BIAS_TONE } from "../lib/constants"
@@ -29,6 +30,8 @@ function DirectionDetails({
   const momentum = safeRecord(trend.momentum)
   const maPosition = safeRecord(trend.ma_position)
   const pricePosition = safeRecord(trend.price_position)
+  const support = safeRecord(trend.nearby_support)
+  const resistance = safeRecord(trend.nearby_resistance)
   const scenario = safeRecord(trend.scenario_analysis)
   const evidence = textList(trend.key_evidence)
   const invalidList = textList(trend.invalid_conditions)
@@ -40,6 +43,21 @@ function DirectionDetails({
   const statusTags = textList(situation.status_tags)
   const situationEvidence = textList(situation.key_evidence)
   const situationNote = safeString(situation.note)
+  const maStructure = fmt(maPosition.short_ma_structure ?? maPosition.structure)
+  const pricePositionLabel = fmt(pricePosition.position_vs_range_20d ?? pricePosition.label)
+  const volumePriceState = fmt(trend.volume_price_state)
+  const turnoverState = fmt(trend.turnover_state)
+  const benchmarkConfirmation = fmt(trend.benchmark_confirmation)
+  const sentimentConfirmation = fmt(trend.sentiment_confirmation)
+
+  const zoneText = (zone: Record<string, unknown>) => {
+    if (!Object.keys(zone).length) return "—"
+    const low = toNumber(zone.price_low)
+    const high = toNumber(zone.price_high)
+    const distance = toNumber(zone.distance_pct)
+    const range = low != null && high != null ? `${fmt(low)}-${fmt(high)}` : "—"
+    return `${range} · 距离 ${fmtPercent(distance ?? NaN)} · ${fmt(zone.level)}`
+  }
 
   return (
     <div className="min-w-0 space-y-2 pt-1">
@@ -137,11 +155,27 @@ function DirectionDetails({
           </div>
           <div>
             <span className="text-slate-400">短均线结构</span>{" "}
-            <span className="text-slate-700">{fmt(maPosition.structure) || "—"}</span>
+            <span className="text-slate-700">{maStructure || "—"}</span>
           </div>
           <div>
             <span className="text-slate-400">价格位置</span>{" "}
-            <span className="text-slate-700">{fmt(pricePosition.label) || "—"}</span>
+            <span className="text-slate-700">{pricePositionLabel || "—"}</span>
+          </div>
+          <div>
+            <span className="text-slate-400">量价状态</span>{" "}
+            <span className="text-slate-700">{volumePriceState || "—"}</span>
+          </div>
+          <div>
+            <span className="text-slate-400">换手状态</span>{" "}
+            <span className="text-slate-700">{turnoverState || "—"}</span>
+          </div>
+          <div>
+            <span className="text-slate-400">指数确认</span>{" "}
+            <span className="text-slate-700">{benchmarkConfirmation || "—"}</span>
+          </div>
+          <div>
+            <span className="text-slate-400">情绪确认</span>{" "}
+            <span className="text-slate-700">{sentimentConfirmation || "—"}</span>
           </div>
         </div>
       </div>
@@ -155,6 +189,9 @@ function DirectionDetails({
             {(["upside", "base", "downside"] as const).map((key) => {
               const block = safeRecord(scenario[key])
               if (!Object.keys(block).length) return null
+              const condition = fmt(block.condition ?? block.trigger)
+              const observation = fmt(block.observation)
+              const confidenceValue = toNumber(block.confidence)
               const tone =
                 key === "upside" ? "bg-rose-50/60" : key === "downside" ? "bg-emerald-50/60" : "bg-slate-100/70"
               return (
@@ -163,13 +200,23 @@ function DirectionDetails({
                     {key === "upside" ? "乐观" : key === "downside" ? "悲观" : "基准"}
                   </div>
                   <div className="mt-1 space-y-1 text-[11px] text-slate-700">
-                    {fmt(block.trigger) ? <div className="break-words">触发：{fmt(block.trigger)}</div> : null}
-                    {fmt(block.target) ? <div className="break-words">目标：{fmt(block.target)}</div> : null}
-                    {fmt(block.range) ? <div className="break-words">区间：{fmt(block.range)}</div> : null}
+                    {condition !== "—" ? <div className="break-words">条件：{condition}</div> : null}
+                    {observation !== "—" ? <div className="break-words">观察：{observation}</div> : null}
+                    {confidenceValue != null ? <div className="font-mono text-slate-500">置信：{confidenceValue.toFixed(2)}</div> : null}
                   </div>
                 </div>
               )
             })}
+          </div>
+        </div>
+      ) : null}
+
+      {(Object.keys(support).length || Object.keys(resistance).length) ? (
+        <div className="rounded-xl bg-slate-50/70 p-3">
+          <div className="text-[10px] uppercase tracking-[0.08em] text-slate-500">支撑 / 压力</div>
+          <div className="mt-1.5 grid gap-1 text-[11px] text-slate-600 sm:grid-cols-2">
+            <div><span className="text-slate-400">支撑：</span>{zoneText(support)}</div>
+            <div><span className="text-slate-400">压力：</span>{zoneText(resistance)}</div>
           </div>
         </div>
       ) : null}
@@ -395,6 +442,28 @@ function DateItem({
   )
 }
 
+function AIDirectionSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 rounded-xl bg-white/70 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <Skeleton className="h-4 w-3/4 max-w-[520px]" />
+        <Skeleton className="h-7 w-32 rounded-lg" />
+      </div>
+      <Skeleton className="h-16 rounded-xl bg-white/70" />
+      <div className="space-y-1.5">
+        {[0, 1, 2, 3, 4].map((index) => (
+          <div key={index} className="rounded-xl bg-white/70 px-3 py-2.5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function AIDirectionCard({
   dailySnapshotsFull,
   dailySnapshotsLoading,
@@ -426,6 +495,9 @@ export function AIDirectionCard({
         {latestDate ? <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">Latest {latestDate}</Badge> : null}
       </div>
 
+      {dailySnapshotsLoading && dailySnapshotsFull.length === 0 ? (
+        <AIDirectionSkeleton />
+      ) : (
       <div className="space-y-3">
         <div className="flex flex-col gap-2 rounded-xl bg-white/70 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0 break-words text-[11px] text-slate-500">
@@ -464,6 +536,7 @@ export function AIDirectionCard({
           </div>
         )}
       </div>
+      )}
     </section>
   )
 }

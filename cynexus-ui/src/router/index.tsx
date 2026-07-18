@@ -9,22 +9,24 @@ import IndustryApplicationPage from "../views/industry-application"
 import Mp4ToWordPage from "../views/mp4-to-word"
 import Mp4HistoryPage from "../views/mp4-to-word/history"
 import SchedulerSettingsPage from "../views/settings/scheduler"
-import AiProviderSettingsPage from "../views/settings/ai-provider"
+import AiProviderSettingsPage from "../views/ai/provider"
 import DataSourceSettingsPage from "../views/settings/data-source"
 import ProviderSettingsPage from "../views/settings/provider"
-import PromptSettingsPage from "../views/settings/prompt"
-import AiUsageSettingsPage from "../views/settings/ai-usage"
+import PromptSettingsPage from "../views/ai/prompt"
+import AiUsageSettingsPage from "../views/ai/usage"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
 import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
 import MarketMarginTradingPage from "../views/market/market-margin-trading"
-import MarketInformationPage from "../views/information"
+import MarketEtfPage from "../views/market/market-etf"
+import MarketInformationPage, { MarketInformationAnalyzedPage } from "../views/information"
 import PocPage from "../views/poc"
 import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
 import AiPocPage from "../views/poc/ai"
 import MarkdownRenderPocPage from "../views/poc/markdown-render"
+import EasyTdxPocPage from "../views/poc/easy-tdx/page"
 import StockReviewPage from "../views/stock-review"
 import KnowledgeBasePage from "../views/knowledge-base"
 import KnowledgeBaseWritingPage from "../views/knowledge-base/writing"
@@ -80,8 +82,16 @@ export const router = createBrowserRouter([
         element: <MarketMarginTradingPage />,
       },
       {
+        path: "market/etf",
+        element: <MarketEtfPage />,
+      },
+      {
         path: "information",
         element: <MarketInformationPage />,
+      },
+      {
+        path: "information/analyzed",
+        element: <MarketInformationAnalyzedPage />,
       },
       {
         path: "market/information",
@@ -102,6 +112,10 @@ export const router = createBrowserRouter([
       {
         path: "poc/markdown-render",
         element: <MarkdownRenderPocPage />,
+      },
+      {
+        path: "poc/easy-tdx",
+        element: <EasyTdxPocPage />,
       },
       {
         path: "knowledge-base",
@@ -144,7 +158,11 @@ export const router = createBrowserRouter([
         element: <SchedulerSettingsPage />,
       },
       {
-        path: "settings/ai-provider",
+        path: "ai",
+        element: <Navigate to="/ai/provider" replace />,
+      },
+      {
+        path: "ai/provider",
         element: <AiProviderSettingsPage />,
       },
       {
@@ -156,12 +174,24 @@ export const router = createBrowserRouter([
         element: <ProviderSettingsPage />,
       },
       {
-        path: "settings/prompt",
+        path: "ai/prompt",
         element: <PromptSettingsPage />,
       },
       {
-        path: "settings/ai-usage",
+        path: "ai/usage",
         element: <AiUsageSettingsPage />,
+      },
+      {
+        path: "settings/ai-provider",
+        element: <Navigate to="/ai/provider" replace />,
+      },
+      {
+        path: "settings/prompt",
+        element: <Navigate to="/ai/prompt" replace />,
+      },
+      {
+        path: "settings/ai-usage",
+        element: <Navigate to="/ai/usage" replace />,
       },
     ],
   },

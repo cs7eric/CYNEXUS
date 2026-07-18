@@ -32,8 +32,9 @@ final class SchedulerDataJobKeyResolver {
             )),
             entry("stock_fund_flow_daily", "sync_stock_fund_flow", Map.ofEntries(
                     Map.entry("create_table", true),
-                    Map.entry("code_source", "self_selected"),
-                    Map.entry("batch_size", 120)
+                    Map.entry("code_source", "all"),
+                    Map.entry("provider", "easy_tdx"),
+                    Map.entry("batch_size", 300)
             )),
             entry("turnover", "sync_stock_turnover", Map.ofEntries(
                     Map.entry("create_table", true),
@@ -69,6 +70,27 @@ final class SchedulerDataJobKeyResolver {
             entry("turnover_activity_refresh", "build_turnover_activity"),
             entry("volatility_sentiment_refresh", "build_volatility_sentiment"),
             entry("market_overview_daily", "build_market_overview"),
+            entry("market_fund_flow_daily", "sync_market_fund_flow", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("limit", 120)
+            )),
+            entry("market_etf_daily", "sync_market_etf", Map.ofEntries(
+                    Map.entry("create_table", true)
+            )),
+            entry("limit_up_fund_flow_minute_archive", "sync_limit_up_fund_flow_minute_archive", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("ignore_errors", true),
+                    Map.entry("shard_size", 80),
+                    Map.entry("batch_flush_successes", 10),
+                    Map.entry("max_runtime_seconds", 1200),
+                    Map.entry("request_sleep_seconds", 0.5),
+                    Map.entry("provider_timeout_seconds", 8),
+                    Map.entry("fetch_retries", 1),
+                    Map.entry("retry_sleep_min_seconds", 2),
+                    Map.entry("retry_sleep_max_seconds", 6),
+                    Map.entry("complete_after_time", "14:50:00"),
+                    Map.entry("checkpoint_key", "a_stock.sync_limit_up_fund_flow_minute_archive.round_robin")
+            )),
             entry("market_overview_inside", "build_market_overview", Map.ofEntries(
                     Map.entry("create_table", true),
                     Map.entry("source", "akshare"),
@@ -167,14 +189,55 @@ final class SchedulerDataJobKeyResolver {
                     Map.entry("page_size", 20),
                     Map.entry("num", 8)
             )),
-            entry("a_stock_fund_flow_history_backfill", "sync_a_stock_dataset", Map.ofEntries(
+            entry("a_stock_fund_flow_history_backfill", "a_stock_fund_flow_history_backfill", Map.ofEntries(
                     Map.entry("create_table", true),
-                    Map.entry("ignore_errors", false),
-                    Map.entry("code_source", "fund_flow_history_missing"),
-                    Map.entry("limit_codes", 1),
-                    Map.entry("datasets", List.of("eastmoney_fund_flow_120d")),
-                    Map.entry("fund_flow_mode", "history"),
-                    Map.entry("request_sleep_seconds", 5)
+                    Map.entry("run_all", true),
+                    Map.entry("stock_scope", "remaining-active"),
+                    Map.entry("fund_flow_workers", 6),
+                    Map.entry("fund_flow_count", 5),
+                    Map.entry("fund_flow_provider", "easy_tdx"),
+                    Map.entry("checkpoint_scope", "remaining-active")
+            )),
+            entry("a_stock_fund_flow_limit_up_history", "a_stock_fund_flow_history_backfill", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("run_all", true),
+                    Map.entry("stock_scope", "limit-up-history"),
+                    Map.entry("fund_flow_workers", 6),
+                    Map.entry("fund_flow_count", 5),
+                    Map.entry("fund_flow_provider", "easy_tdx"),
+                    Map.entry("checkpoint_scope", "limit-up-history")
+            )),
+            entry("a_stock_fund_flow_history_bootstrap_120", "a_stock_fund_flow_history_backfill", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("run_all", true),
+                    Map.entry("shard_size", 300),
+                    Map.entry("stock_scope", "missing-120"),
+                    Map.entry("minimum_history_rows", 120),
+                    Map.entry("fund_flow_workers", 6),
+                    Map.entry("fund_flow_count", 120),
+                    Map.entry("fund_flow_provider", "easy_tdx"),
+                    Map.entry("batch_sleep_seconds", 30),
+                    Map.entry("checkpoint_scope", "missing-120")
+            )),
+            entry("a_stock_fund_flow_daily_qc", "a_stock_fund_flow_daily_qc", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("sample_size", 50),
+                    Map.entry("provider_timeout", 15),
+                    Map.entry("request_sleep_seconds", 0)
+            )),
+            entry("a_stock_fund_flow_limit_up_qc", "a_stock_fund_flow_daily_qc", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("stock_scope", "limit-up-history"),
+                    Map.entry("sample_size", 50),
+                    Map.entry("provider_timeout", 15),
+                    Map.entry("request_sleep_seconds", 0)
+            )),
+            entry("a_stock_fund_flow_remaining_qc", "a_stock_fund_flow_daily_qc", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("stock_scope", "remaining-active"),
+                    Map.entry("sample_size", 50),
+                    Map.entry("provider_timeout", 15),
+                    Map.entry("request_sleep_seconds", 0)
             )),
             entry("margin_stock_history_backfill", "sync_margin", Map.ofEntries(
                     Map.entry("create_table", true),

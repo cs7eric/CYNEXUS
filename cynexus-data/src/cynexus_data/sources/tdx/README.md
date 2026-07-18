@@ -14,5 +14,13 @@ Current code:
 - `sector_quote.py`: optional `eltdx` `f10.theme_market` parser/client helpers for TDX sector detail snapshots.
 - `stock_profile.py`: optional `eltdx` share-profile helper for stock turnover calculations.
 - `mootdx.py`: optional `mootdx` K-line fallback adapter used only when explicitly requested by provider fallback.
+- `easy_tdx.py`: optional easy_tdx standard/MAC adapter for online 1m and adjusted K-line, historical timeshare, stock fund-flow, and board queries.
 
 Source modules fetch and parse only; persistence and job/checkpoint state belong in pipelines/runtime.
+
+Online usage:
+
+- `sync_kline_minute` keeps local TDX files as the bulk path and uses `easy_tdx` when the requested code has no local 1m file.
+- `sync_kline_daily` can use `easy_tdx` for direct qfq/hfq daily bars through the provider fallback.
+- `sync_tdx_intraday_detail --provider easy_tdx` uses easy_tdx for historical timeshare. Auction data continues to use the existing eltdx auction adapter; the default remains eltdx for compatibility.
+- Internal routes under `/internal/a-stock/tdx/*` expose easy_tdx fund-flow and board data.

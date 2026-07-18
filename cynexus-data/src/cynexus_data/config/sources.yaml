@@ -1,15 +1,15 @@
 sources:
   kline:
     daily:
-      providers: [tencent, eastmoney, tdx]
+      providers: [tencent, eastmoney, easy_tdx, tdx]
       fallback: true
     minute:
-      providers: [tdx, tencent, mootdx, sina, eastmoney]
+      providers: [tdx, easy_tdx, tencent, mootdx, sina, eastmoney]
       fallback: true
 
   fund_flow:
     stock:
-      providers: [eastmoney, ths, tencent]
+      providers: [easy_tdx, eastmoney, ths, tencent]
       fallback: true
     sector:
       providers: [ths, eastmoney]

@@ -1326,7 +1326,74 @@ Status: complete
 - No Java source remains under the four module `domain/service` roots; no application import points to the moved feature classes through the old flat package.
 - Market Domain tests: 10 passed. AI application tests: 10 passed. Full `mvn package -DskipTests`: 41 projects passed.
 
+## Phase 57 - Market ETF Flow Workspace
+
+Status: complete
+
+## Phase 59 - ETF Many-to-Many Mapping Registry
+
+Status: in_progress
+
+- Add a normalized many-to-many ETF mapping table keyed by ETF code, mapping group, and mapping value.
+- Define reusable mapping analysis for universe, asset class, region, index scope, style, and industry/theme tags.
+- Generate a complete seed SQL for the current 1,549 ETF catalog and use the same mapping logic during future ETF syncs.
+- Persist mapping provenance, primary flags, confidence, and idempotent stable IDs.
+- Verify seed counts, database constraints, Python tests, Java compatibility, and Dev runtime without disturbing unrelated worktree changes.
+
+### Phase 59 Verification Results
+
+- Added `market_etf_mapping` with six mapping groups: `universe`, `asset_class`, `region`, `index_scope`, `style`, and `theme`.
+- Generated `20260718_seed_market_etf_mapping.sql` from the active 1,549 ETF catalog using the shared Python mapping policy.
+- Seed contains 6,213 many-to-many rows; every ETF has mappings in `universe`, `asset_class`, and `region`, with 3 to 6 total rows per ETF.
+- Applied the DDL and seed to live PostgreSQL; rerunning the seed is idempotent and remains at 6,213 rows / 1,549 distinct ETF codes.
+- Added daily sync persistence through `MarketEtfRepository.upsert_mappings`; Data Executor was rebuilt and restarted.
+- Focused Python tests passed: 8 tests. Existing Java/UI runtime remains healthy.
+
+Status: complete
+
+- Add Python ETF spot and daily-share ingestion using the existing Data Executor boundary.
+- Persist ETF catalog, live snapshots, and daily share history under `cynexus_appl_market` with source provenance and idempotent keys.
+- Add Java Market domain/API/application/infra read path at `/api/market/etf`.
+- Add UI route `/market/etf` with services under `src/services/market/etf.ts` and colocated components.
+- Render broad-market and sector ETF rotation, share-flow proxies, activity, premium/discount, IOPV deviation, and market breadth without mixing low-value stock news into the page.
+- Verify Python tests, Java compilation/package, frontend lint/build, live data routes, database schema, and Dev runtime.
+
 ### Phase 55 User Feedback
 
 - User reported that the previous migration left substantial business logic in application services and was not acceptable as a complete DDD refactor.
 - Do not mark this phase complete based only on moving a few representative classes; the remaining high-risk application services must be audited and reduced.
+
+### Phase 57 Verification Results
+
+- Python ETF normalization, existing market fund-flow, and easy_tdx focused tests passed: 10 tests.
+- Java Market Starter reactor compilation passed at `1.1.36-SNAPSHOT`.
+- ETF-scoped frontend ESLint passed; direct Vite production build passed.
+- Added `deploy/local/postgres/migrations/20260718_create_market_etf_tables.sql`; live migration/API smoke could not run because Docker Desktop is unavailable and no Dev application ports are listening.
+
+## Phase 58 - Official ETF Classification Mapping
+
+Status: in_progress
+
+- Replace name-only ETF classification with a code-keyed classification registry and explicit provenance.
+- Use official or authoritative index/fund metadata when available, with controlled manual overrides for unresolved products.
+- Separate broad, industry, theme, style, overseas, commodity, bond, currency, and unknown categories so non-industry products are not mislabeled as sectors.
+- Keep the existing ETF page compatible while expanding query coverage beyond the current broad/sector-only filter.
+- Add coverage diagnostics and focused tests; synchronize Maven/UI versions and verify Python, Java, and UI changes.
+
+### Phase 58 Verification Results
+
+- Added code-keyed classification input with optional EastMoney fund/index catalog enrichment and deterministic name fallback.
+- Expanded broad/industry keyword coverage and excluded overseas, commodity, bond, currency, and style-only products from the industry bucket.
+- Persisted `classification_source` on ETF catalog, spot, and daily tables; added a deployment migration and API/UI coverage counters.
+- Reclassified the live 1,549 ETF catalog: 428 broad, 743 industry, 378 other. The Market API now includes 1,171 broad/industry ETFs, up from 924.
+- Replaced ETF table ID generation with stable business-key IDs after a duplicate primary-key failure during the first live sync attempt.
+- Focused Python tests passed: 6 tests. Market Maven reactor passed. ETF-scoped frontend ESLint passed. Data Executor image rebuilt and restarted; Dev Java/UI processes restarted.
+- The official EastMoney index-fund catalog was probed successfully in Data Executor but had zero code intersections with the listed ETF catalog; current records therefore correctly report `fallback.name_keyword` rather than claiming official coverage.
+- Full UI `npm run build` remains blocked by the pre-existing TypeScript errors in `market/pulse.ts`, Industry Application, Market Sentiment, POC easy-tdx, and stock-overview PageHeader; no new ETF-file errors were reported. ETF-scoped ESLint passes.
+
+### Phase 58 Errors
+
+- First live sync after adding `classification_source` failed with `market_etf_spot_snapshot_pkey` duplicate ID; resolved by switching ETF catalog/spot/daily IDs to `stable_bigint_id` business keys and rerunning successfully.
+- Host-side AkShare probing was blocked by the local proxy; the same catalog probe in Data Executor succeeded, so no host network assumption was added.
+
+Status: complete

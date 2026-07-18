@@ -126,3 +126,57 @@ class AStockClickHouseRepository:
         values = [tuple(row.get(column) for column in columns) for row in rows]
         self.client.insert(table, values, columns)
         return len(values)
+
+    def latest_fund_flow_minute_daily_rows(
+        self,
+        *,
+        trade_date: str,
+        codes: list[str] | None = None,
+        source: str = "eastmoney.push2",
+        min_trade_time: str | None = None,
+    ) -> list[dict[str, Any]]:
+        code_filter = ""
+        params: dict[str, Any] = {"trade_date": trade_date, "source": source}
+        if codes:
+            code_filter = "AND code IN %(codes)s"
+            params["codes"] = tuple(codes)
+        min_time_filter = ""
+        if min_trade_time:
+            min_time_filter = "AND formatDateTime(trade_time, '%%H:%%M:%%S') >= %(min_trade_time)s"
+            params["min_trade_time"] = min_trade_time
+        rows = self.client.query_rows(
+            f"""
+            SELECT
+                code,
+                toString(trade_date) AS trade_date_text,
+                argMax(main_net, trade_time) AS main_net,
+                argMax(small_net, trade_time) AS small_net,
+                argMax(mid_net, trade_time) AS mid_net,
+                argMax(large_net, trade_time) AS large_net,
+                argMax(super_net, trade_time) AS super_net,
+                max(trade_time) AS latest_trade_time,
+                count() AS minute_rows
+              FROM ch_ods_stock_fund_flow_minute
+             WHERE source = %(source)s
+               AND trade_date = toDate(%(trade_date)s)
+               {code_filter}
+               {min_time_filter}
+             GROUP BY code, trade_date
+             ORDER BY code
+            """,
+            params,
+        )
+        return [
+            {
+                "code": str(row[0]),
+                "trade_date": str(row[1]),
+                "main_net": row[2],
+                "small_net": row[3],
+                "mid_net": row[4],
+                "large_net": row[5],
+                "super_net": row[6],
+                "latest_trade_time": row[7],
+                "minute_rows": int(row[8] or 0),
+            }
+            for row in rows
+        ]

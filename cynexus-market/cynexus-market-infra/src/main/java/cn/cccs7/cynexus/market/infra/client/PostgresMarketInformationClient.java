@@ -37,7 +37,7 @@ public class PostgresMarketInformationClient {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    public List<MarketInformationBO.News> news(int page, int pageSize, String impactIndustryCode) {
+    public List<MarketInformationBO.News> news(int page, int pageSize, String impactIndustryCode, String analysisStatus) {
         long offset = (long) (page - 1) * pageSize;
         return jdbcTemplate.query("""
                 with information_rows as (
@@ -123,7 +123,7 @@ public class PostgresMarketInformationClient {
                        where value.cluster_id = member.cluster_id
                          and value.cluster_content_hash = cluster.content_hash
                          and value.schema_version = 'v2'
-                         and value.prompt_version = 'v3'
+                         and value.prompt_version = (select prompt.prompt_version from cynexus_appl_ai.ai_usage_bindings binding join cynexus_appl_ai.ai_prompt prompt on prompt.id = binding.prompt_id where binding.capability = 'market_information_event_analysis' and binding.deleted_at is null and binding.is_enabled and prompt.deleted_at is null limit 1)
                        order by value.created_at desc limit 1
                   ) analysis on true
                   left join lateral (
@@ -160,6 +160,7 @@ public class PostgresMarketInformationClient {
                                   where keyword_map.tdx_code6 = map.tdx_code6
                                     and (ranked.title || ' ' || coalesce(ranked.summary, '')) like '%' || keyword_map.keyword || '%'))
                  ))
+                   and (cast(? as text) is null or coalesce(task.task_status, analysis.analysis_status, 'NOT_REQUESTED') = cast(? as text))
                  order by source_rank, source_order, published_at desc nulls last
                  limit ? offset ?
                 """, (rs, n) -> {
@@ -174,10 +175,10 @@ public class PostgresMarketInformationClient {
                 .analysisStatus(rs.getString("analysis_status")).materiality(rs.getString("materiality"))
                 .marketDirection(rs.getString("market_direction")).impactIndustries(impacts)
                 .impactStatus(impactStatus(impacts)).build();
-                }, impactIndustryCode, impactIndustryCode, pageSize, offset);
+                }, impactIndustryCode, impactIndustryCode, analysisStatus, analysisStatus, pageSize, offset);
     }
 
-    public long newsCount(String impactIndustryCode) {
+    public long newsCount(String impactIndustryCode, String analysisStatus) {
         Long value = jdbcTemplate.queryForObject("""
                 with rows as (
                     select source, news_id as source_record_id, nullif(trim(code), '') as subject_key, title, summary
@@ -188,8 +189,27 @@ public class PostgresMarketInformationClient {
                     select source, announcement_id, nullif(trim(code), ''), title, null
                       from a_stock_announcement
                      where source in ('cninfo.market', 'cninfo.regulation') and nullif(trim(title), '') is not null
-                ), latest as (select max(snapshot_date) as snapshot_date from ths_industry_constituent_snapshot where deleted_at is null)
-                select count(*) from rows r cross join latest
+                ), latest as (select max(snapshot_date) as snapshot_date from ths_industry_constituent_snapshot where deleted_at is null), clustered as (
+                    select r.*, member.cluster_id, cluster.content_hash,
+                           coalesce(task.task_status, analysis.analysis_status, 'NOT_REQUESTED') as analysis_status
+                      from rows r
+                      left join market_information_event_member member on member.source = r.source and member.source_record_id = r.source_record_id
+                      left join market_information_event_cluster cluster on cluster.id = member.cluster_id
+                      left join lateral (
+                          select analysis_status from cynexus_appl_ai.market_information_event_analysis value
+                           where value.cluster_id = member.cluster_id and value.cluster_content_hash = cluster.content_hash
+                             and value.schema_version = 'v2' and value.prompt_version = (select prompt.prompt_version from cynexus_appl_ai.ai_usage_bindings binding join cynexus_appl_ai.ai_prompt prompt on prompt.id = binding.prompt_id where binding.capability = 'market_information_event_analysis' and binding.deleted_at is null and binding.is_enabled and prompt.deleted_at is null limit 1)
+                           order by value.created_at desc limit 1
+                      ) analysis on true
+                      left join lateral (
+                          select task_status from cynexus_appl_ai.market_information_ai_task value
+                           where value.cluster_id = member.cluster_id and value.task_type = 'EVENT_ANALYSIS'
+                             and value.cluster_content_hash = cluster.content_hash
+                             and value.task_status in ('PENDING', 'RUNNING', 'FAILED')
+                           order by value.created_at desc limit 1
+                      ) task on true
+                )
+                select count(*) from clustered r cross join latest
                  where (cast(? as text) is null or exists (
                      select 1 from tdx_ths_industry_mapping map
                       where map.deleted_at is null and map.tdx_code6 = ?
@@ -212,7 +232,8 @@ public class PostgresMarketInformationClient {
                                   where keyword_map.tdx_code6 = map.tdx_code6
                                     and (r.title || ' ' || coalesce(r.summary, '')) like '%' || keyword_map.keyword || '%'))
                  ))
-                """, Long.class, impactIndustryCode, impactIndustryCode);
+                   and (cast(? as text) is null or r.analysis_status = cast(? as text))
+                """, Long.class, impactIndustryCode, impactIndustryCode, analysisStatus, analysisStatus);
         return value == null ? 0 : value;
     }
 
@@ -452,7 +473,7 @@ public class PostgresMarketInformationClient {
                   left join lateral (
                       select * from cynexus_appl_ai.market_information_event_analysis value
                        where value.cluster_id = cluster.id and value.cluster_content_hash = cluster.content_hash
-                         and value.schema_version = 'v2' and value.prompt_version = 'v3'
+                         and value.schema_version = 'v2' and value.prompt_version = (select prompt.prompt_version from cynexus_appl_ai.ai_usage_bindings binding join cynexus_appl_ai.ai_prompt prompt on prompt.id = binding.prompt_id where binding.capability = 'market_information_event_analysis' and binding.deleted_at is null and binding.is_enabled and prompt.deleted_at is null limit 1)
                        order by value.created_at desc limit 1
                   ) analysis on true
                   left join lateral (
@@ -495,7 +516,7 @@ public class PostgresMarketInformationClient {
                   left join lateral (
                       select analysis_status, analysis_json from cynexus_appl_ai.market_information_event_analysis value
                        where value.cluster_id = cluster.id and value.cluster_content_hash = cluster.content_hash
-                         and value.schema_version = 'v2' and value.prompt_version = 'v3'
+                         and value.schema_version = 'v2' and value.prompt_version = (select prompt.prompt_version from cynexus_appl_ai.ai_usage_bindings binding join cynexus_appl_ai.ai_prompt prompt on prompt.id = binding.prompt_id where binding.capability = 'market_information_event_analysis' and binding.deleted_at is null and binding.is_enabled and prompt.deleted_at is null limit 1)
                        order by value.created_at desc limit 1
                   ) analysis on true
                   left join lateral (
@@ -606,19 +627,22 @@ public class PostgresMarketInformationClient {
                     insert into cynexus_appl_ai.market_information_ai_task
                         (task_type, cluster_id, cluster_content_hash, priority, requested_by)
                     select 'EVENT_ANALYSIS', cluster.id, cluster.content_hash, round(cluster.priority_score * 10)::int, 'pipeline'
-                      from market_information_event_cluster cluster
+                     from market_information_event_cluster cluster
                      where cluster.high_value
+                       and exists (
+                           select 1 from market_information_event_member member
+                            where member.cluster_id = cluster.id
+                       )
                        and not exists (
                            select 1 from cynexus_appl_ai.market_information_event_analysis analysis
                             where analysis.cluster_id = cluster.id and analysis.cluster_content_hash = cluster.content_hash
-                              and analysis.schema_version = 'v2' and analysis.prompt_version = 'v3'
+                              and analysis.schema_version = 'v2' and analysis.prompt_version = (select prompt.prompt_version from cynexus_appl_ai.ai_usage_bindings binding join cynexus_appl_ai.ai_prompt prompt on prompt.id = binding.prompt_id where binding.capability = 'market_information_event_analysis' and binding.deleted_at is null and binding.is_enabled and prompt.deleted_at is null limit 1)
                               and analysis.analysis_status = 'SUCCEEDED'
                        )
                        and not exists (
                            select 1 from cynexus_appl_ai.market_information_ai_task task
                             where task.cluster_id = cluster.id and task.cluster_content_hash = cluster.content_hash
                               and task.task_type = 'EVENT_ANALYSIS'
-                              and task.task_status in ('PENDING', 'RUNNING')
                        )
                      order by cluster.priority_score desc, cluster.last_published_at desc
                      limit 10

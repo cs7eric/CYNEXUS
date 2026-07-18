@@ -4,6 +4,7 @@ import { Play, RefreshCw, ShieldAlert, Sparkles, Target } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   fetchAuctionAiAnalysisSnapshot,
   fetchStockAuctionHistory,
@@ -564,6 +565,36 @@ function AuctionHistoryList({
   )
 }
 
+function AuctionLoadingSkeleton({ symbol, name }: { symbol: string; name: string }) {
+  return (
+    <div className="min-w-0 space-y-4">
+      {[0, 1].map((section) => (
+        <section key={section} className="min-w-0 space-y-2 rounded-2xl bg-muted/50 p-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <Skeleton className="h-4 w-40" />
+              <div className="mt-2 text-[11px] text-slate-500">
+                正在加载 {name} · <span className="font-mono">{symbol}</span>
+              </div>
+            </div>
+            <Skeleton className="h-5 w-24 rounded-full bg-white/80" />
+          </div>
+          <div className="space-y-1.5">
+            {[0, 1, 2].map((index) => (
+              <div key={index} className="rounded-xl bg-white/70 px-3 py-2.5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-4 w-56" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
 export function AuctionTab({
   targetType,
   symbol,
@@ -584,6 +615,8 @@ export function AuctionTab({
         if (!active) return
         setAuctionLoading(true)
         setError("")
+        setAuctionItems([])
+        setAiByDate({})
         const auctionResult = await fetchStockAuctionHistory(symbol, 30)
         if (!active) return
         setAuctionItems(auctionResult.items ?? [])
@@ -602,10 +635,6 @@ export function AuctionTab({
       active = false
     }
   }, [symbol, name])
-
-  useEffect(() => {
-    setAiByDate({})
-  }, [targetType, symbol, name, adjust])
 
   const canRunAi = useMemo(() => Boolean(symbol && name), [symbol, name])
   const auctionDates = useMemo(
@@ -695,9 +724,13 @@ export function AuctionTab({
   }
 
   useEffect(() => {
-    if (latestAuctionDate) void handleRefreshAiSnapshot(latestAuctionDate)
+    if (latestAuctionDate) void Promise.resolve().then(() => handleRefreshAiSnapshot(latestAuctionDate))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetType, symbol, latestAuctionDate])
+
+  if (auctionLoading && auctionItems.length === 0) {
+    return <AuctionLoadingSkeleton symbol={symbol} name={name} />
+  }
 
   return (
     <div className="min-w-0 space-y-4">

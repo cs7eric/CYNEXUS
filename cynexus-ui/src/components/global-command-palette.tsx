@@ -60,6 +60,7 @@ const STATIC_NAV_ITEMS: PaletteItem[] = [
   { id: "page-market-pulse", label: "Market Pulse · 市场脉搏", group: "Market", icon: TrendingUp, to: "/market/pulse", keywords: "market pulse breadth industry fund flow 涨跌 行业 资金 市场脉搏" },
   { id: "page-market-sentiment", label: "Market Sentiment · MSI", group: "Market", icon: LineChart, to: "/market/sentiment", keywords: "market sentiment msi emotion risk appetite 市场情绪 情绪指数" },
   { id: "page-market-margin-trading", label: "Market Margin Trading · 两融", group: "Market", icon: LineChart, to: "/market/margin-trading", keywords: "margin trading financing securities lending 两融 融资融券 余额" },
+  { id: "page-market-etf", label: "Market ETF · ETF 资金方向", group: "Market", icon: TrendingUp, to: "/market/etf", keywords: "etf fund flow share subscription redemption premium iopv rotation ETF 资金 申赎 折溢价 轮动" },
   { id: "page-app-analysis", label: "Application Analysis", group: "Market", icon: Compass, to: "/stock-overview/application-analysis", keywords: "application analysis theme 题材 120 日 四段 分析" },
   { id: "page-industry-application", label: "Industry / Concept · 行业概念", group: "Market", icon: Compass, to: "/stock-overview/industry-application", keywords: "industry concept sector heatmap 行业 概念 板块 sh8803 sh8804 eltdx 热力图" },
   { id: "page-poc", label: "POC Lab", group: "Dev", icon: Sparkles, to: "/poc", keywords: "poc lab prototype demo 实验" },

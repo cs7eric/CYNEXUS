@@ -26,9 +26,9 @@ import type {
 } from "../../stock-chart/lib/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { notification } from "@/components/ui/notification"
-import DogLoader from "@/components/loader/dog-loader"
 
 export interface TechnicalIndicatorTabProps {
   targetType: StockTargetType
@@ -357,6 +357,43 @@ function TechnicalDateItem({
   )
 }
 
+function TechnicalIndicatorSkeleton({
+  symbol,
+  name,
+}: {
+  symbol: string
+  name: string
+}) {
+  return (
+    <section className="min-w-0 space-y-2 rounded-2xl bg-muted/50 p-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Technical Indicators</div>
+          <div className="mt-1 text-[11px] text-slate-500">
+            正在计算 {name} · <span className="font-mono">{symbol}</span> 的技术指标
+          </div>
+        </div>
+        <Skeleton className="h-5 w-24 rounded-full bg-white/80" />
+      </div>
+      <Skeleton className="h-16 rounded-xl bg-white/70" />
+      <div className="space-y-1.5">
+        {[0, 1, 2, 3, 4].map((index) => (
+          <div key={index} className="rounded-xl bg-white/70 px-3 py-2.5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <Skeleton className="h-4 w-40" />
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-7 w-24 rounded-full" />
+                <Skeleton className="h-7 w-24 rounded-full" />
+                <Skeleton className="h-7 w-24 rounded-full" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function TechnicalIndicatorTab({
   targetType,
   symbol,
@@ -380,6 +417,11 @@ export function TechnicalIndicatorTab({
         if (!active) return
         setError("")
         setLoading(true)
+        setBars([])
+        setIndexBarsMap({})
+        setStockMeta(null)
+        setBreadth(null)
+        setBreadthSeries([])
         const klineResult = await fetchStockKlines({ targetType, symbol, name, period, adjust })
         if (!active) return
         setBars(klineResult.items)
@@ -470,7 +512,7 @@ export function TechnicalIndicatorTab({
   }
 
   if (loading && bars.length === 0) {
-    return <DogLoader overlay size={25} label="正在加载技术指标..." />
+    return <TechnicalIndicatorSkeleton symbol={symbol} name={name} />
   }
 
   return (

@@ -74,6 +74,51 @@ class EastMoneyBrowserSession:
             self._write_cache(cookies)
             return cookies
 
+    def request_json(
+        self,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        page_url: str = "https://data.eastmoney.com/zjlx/dpzjlx.html",
+        timeout_ms: int = 30_000,
+    ) -> dict[str, Any]:
+        """Request an EastMoney API from a persistent Chromium context."""
+        with self._lock:
+            self.profile_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                from playwright.sync_api import sync_playwright
+            except ImportError as exc:
+                raise RuntimeError("Playwright is required for EastMoney browser-context requests") from exc
+
+            with sync_playwright() as playwright:
+                context = playwright.chromium.launch_persistent_context(
+                    str(self.profile_dir),
+                    headless=True,
+                    executable_path=os.getenv("EASTMONEY_CHROMIUM_EXECUTABLE") or None,
+                    user_agent=MOBILE_USER_AGENT,
+                    viewport={"width": 412, "height": 915},
+                    locale="zh-CN",
+                    args=["--no-sandbox", "--disable-dev-shm-usage"],
+                )
+                try:
+                    page = context.pages[0] if context.pages else context.new_page()
+                    page.goto(page_url, wait_until="domcontentloaded", timeout=timeout_ms)
+                    response = context.request.get(
+                        url,
+                        params=params,
+                        headers=headers,
+                        timeout=timeout_ms,
+                    )
+                    if not response.ok:
+                        raise RuntimeError(f"EastMoney browser request returned HTTP {response.status}")
+                    payload = response.json()
+                    if not isinstance(payload, dict):
+                        raise RuntimeError("EastMoney browser request returned a non-object JSON payload")
+                    return payload
+                finally:
+                    context.close()
+
     def _write_cache(self, cookies: dict[str, str]) -> None:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.cache_path.with_suffix(".tmp")

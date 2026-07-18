@@ -11,9 +11,9 @@ import org.springframework.stereotype.Service;
 public class MarketInformationAppService {
     private final MarketInformationRepository repository;
     public MarketInformationAppService(MarketInformationRepository repository) { this.repository = repository; }
-    public MarketInformationDTO.FeedDTO feed(Integer page, Integer pageSize, String impactIndustryCode) {
+    public MarketInformationDTO.FeedDTO feed(Integer page, Integer pageSize, String impactIndustryCode, String analysisStatus) {
         PageQuery query = PageQuery.of(page, pageSize, 30, 60);
-        MarketInformationBO.Feed value = repository.feed(query.getPageNo(), query.getPageSize(), impactIndustryCode);
+        MarketInformationBO.Feed value = repository.feed(query.getPageNo(), query.getPageSize(), impactIndustryCode, analysisStatus);
         List<MarketInformationDTO.NewsDTO> news = mapNews(value.getNews());
         MarketInformationBO.NewsPage newsPage = value.getNewsPage();
         return MarketInformationDTO.FeedDTO.builder().queriedAt(value.getQueriedAt())

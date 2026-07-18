@@ -38,7 +38,7 @@ public final class SchedulerManagementPolicy {
         if (status == null) {
             return false;
         }
-        return Set.of("success", "skipped", "failed", "locked", "unknown_job").contains(status.toLowerCase());
+        return Set.of("success", "skipped", "failed", "locked", "unknown_job", "partial").contains(status.toLowerCase());
     }
 
     public static boolean isAcceptedSuccess(DataJobTriggerResultBO result) {

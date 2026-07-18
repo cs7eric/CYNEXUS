@@ -1,6 +1,7 @@
 import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
+import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
 
 export interface AiCapability {
   code: string
@@ -8,6 +9,7 @@ export interface AiCapability {
   group: string
   description: string
   entry: string
+  prompt_key?: string
   reads_binding: boolean
   runtime: string
   aliases?: string[]
@@ -52,6 +54,8 @@ export interface AiBindingItem {
   label: string
   provider_id: string
   provider: AiProviderItem | null
+  prompt_id: string
+  prompt: AiPromptItem | null
   model_override: string
   is_enabled: boolean
   params: Record<string, unknown>
@@ -88,6 +92,7 @@ interface JavaAiUsageBindingDTO {
   capability?: string | null
   label?: string | null
   providerId?: string | null
+  promptId?: string | null
   modelOverride?: string | null
   enabled?: boolean | null
   params?: string | null
@@ -106,6 +111,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "MP4 to Text / AI Polish",
     reads_binding: true,
     runtime: "MediaTranscriptionAiAppService",
+    prompt_key: "mp4_text_polish",
   },
   {
     code: "text_summary",
@@ -115,6 +121,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "MP4 to Text / AI Summary",
     reads_binding: true,
     runtime: "MediaTranscriptionAiAppService",
+    prompt_key: "mp4_text_summary",
   },
   {
     code: "post_metadata",
@@ -124,6 +131,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "MP4 to Text / History export",
     reads_binding: true,
     runtime: "MediaTranscriptionAiAppService",
+    prompt_key: "post_metadata",
   },
   {
     code: "mp4_qa",
@@ -133,6 +141,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "MP4 to Text / Ask",
     reads_binding: true,
     runtime: "MediaTranscriptionAiAppService",
+    prompt_key: "mp4_qa",
   },
   {
     code: "application_analysis",
@@ -142,6 +151,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Stock Overview / Application Analysis",
     reads_binding: true,
     runtime: "ApplicationAnalysisModelRouter",
+    prompt_key: "application_analysis_annotation",
     aliases: ["Application Analysis"],
   },
   {
@@ -152,6 +162,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Stock Overview / Application Analysis / AI Direction",
     reads_binding: true,
     runtime: "ApplicationAnalysisRecent30Executor",
+    prompt_key: "application_recent30_short_term_daily",
     aliases: ["AI Direction", "当日 AI 整体判断", "Recent 30-day analysis"],
   },
   {
@@ -162,6 +173,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Auction analysis jobs",
     reads_binding: true,
     runtime: "Auction AI service",
+    prompt_key: "auction_analysis",
   },
   {
     code: "market_information_event_analysis",
@@ -171,6 +183,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Information / Event analysis",
     reads_binding: true,
     runtime: "MarketInformationAiWorker",
+    prompt_key: "market_information_event_analysis",
     aliases: ["Market Information", "Event analysis"],
   },
   {
@@ -181,6 +194,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Information / Daily brief",
     reads_binding: true,
     runtime: "MarketInformationAiWorker",
+    prompt_key: "market_information_daily_brief",
     aliases: ["Market brief", "Daily brief"],
   },
   {
@@ -191,6 +205,7 @@ const AI_CAPABILITIES: AiCapability[] = [
     entry: "Knowledge Base / Writing / AI Generate",
     reads_binding: true,
     runtime: "KnowledgeBaseDocumentGenerationAppService",
+    prompt_key: "knowledge_base_document_generate",
   },
 ]
 
@@ -310,14 +325,18 @@ function toJavaAiProviderPayload(payload: Partial<AiProviderItem>): Partial<Java
 function toAiBindingItem(
   dto: JavaAiUsageBindingDTO,
   providerById: Map<string, AiProviderItem> = new Map(),
+  promptById: Map<string, AiPromptItem> = new Map(),
 ): AiBindingItem {
   const providerId = dto.providerId ? String(dto.providerId) : ""
+  const promptId = dto.promptId ? String(dto.promptId) : ""
   return {
     id: String(dto.id),
     capability: dto.capability || "",
     label: dto.label || dto.capability || "",
     provider_id: providerId,
     provider: providerById.get(providerId) || null,
+    prompt_id: promptId,
+    prompt: promptById.get(promptId) || null,
     model_override: dto.modelOverride || "",
     is_enabled: dto.enabled ?? true,
     params: parseJsonObject(dto.params),
@@ -331,6 +350,7 @@ function toJavaAiBindingPayload(payload: Partial<AiBindingItem>): Partial<JavaAi
     capability: payload.capability,
     label: payload.label,
     providerId: payload.provider_id || null,
+    promptId: payload.prompt_id || null,
     modelOverride: payload.model_override,
     enabled: payload.is_enabled,
     params: JSON.stringify(payload.params || {}),
@@ -391,16 +411,18 @@ export async function deleteAiProvider(id: string): Promise<void> {
 }
 
 export async function fetchAiBindings(): Promise<AiBindingItem[]> {
-  const [providers, bindings] = await Promise.all([
+  const [providers, prompts, bindings] = await Promise.all([
     fetchAiProviders(),
+    fetchAiPrompts({ status: "active" }),
     cynexusResult<JavaAiUsageBindingDTO[]>(
       await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/usage-bindings`, { cache: "no-store" }),
     ),
   ])
   const providerById = new Map(providers.map((provider) => [provider.id, provider]))
+  const promptById = new Map(prompts.map((prompt) => [prompt.id, prompt]))
   return (bindings || [])
     .filter((item) => !item.deletedAt)
-    .map((item) => toAiBindingItem(item, providerById))
+    .map((item) => toAiBindingItem(item, providerById, promptById))
     .sort((a, b) => a.capability.localeCompare(b.capability))
 }
 
@@ -419,6 +441,6 @@ export async function upsertAiBinding(payload: Partial<AiBindingItem>): Promise<
   const dto = await cynexusResult<JavaAiUsageBindingDTO>(
     await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/usage-bindings/${encodeURIComponent(id)}`, { cache: "no-store" }),
   )
-  const providerById = new Map((await fetchAiProviders()).map((provider) => [provider.id, provider]))
-  return toAiBindingItem(dto, providerById)
+  const [providers, prompts] = await Promise.all([fetchAiProviders(), fetchAiPrompts({ status: "active" })])
+  return toAiBindingItem(dto, new Map(providers.map((provider) => [provider.id, provider])), new Map(prompts.map((prompt) => [prompt.id, prompt])))
 }

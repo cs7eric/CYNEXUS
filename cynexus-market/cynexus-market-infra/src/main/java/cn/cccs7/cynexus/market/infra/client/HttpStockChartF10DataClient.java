@@ -25,6 +25,9 @@ import org.springframework.stereotype.Component;
 public class HttpStockChartF10DataClient {
 
     private static final String TOKEN_HEADER = "X-Cynexus-Internal-Token";
+    private static final Duration F10_REQUEST_TIMEOUT = Duration.ofSeconds(35);
+    private static final String F10_SOURCE_TIMEOUT_SECONDS = "30";
+    private static final String F10_SOURCE_POOL_SIZE = "1";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -46,7 +49,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10Valuation valuation(String symbol, String reqId) {
-        JsonNode root = get("/internal/f10/valuation", Map.of("symbol", symbol, "req_id", reqId));
+        JsonNode root = getF10("/internal/f10/valuation", Map.of("symbol", symbol, "req_id", reqId));
         List<StockChartBO.F10ValuationRow> rows = new ArrayList<>();
         for (JsonNode row : iterable(root.path("rows"))) {
             rows.add(StockChartBO.F10ValuationRow.builder()
@@ -74,7 +77,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10FinanceReport financeReport(String symbol, String reportType) {
-        JsonNode root = get("/internal/f10/finance-report", Map.of("symbol", symbol, "report_type", reportType));
+        JsonNode root = getF10("/internal/f10/finance-report", Map.of("symbol", symbol, "report_type", reportType));
         List<StockChartBO.F10FinanceReportRow> rows = new ArrayList<>();
         for (JsonNode row : iterable(root.path("rows"))) {
             rows.add(StockChartBO.F10FinanceReportRow.builder()
@@ -97,7 +100,7 @@ public class HttpStockChartF10DataClient {
         if (reportDate != null && !reportDate.isBlank()) {
             params.put("report_date", reportDate);
         }
-        JsonNode root = get("/internal/f10/business-composition", params);
+        JsonNode root = getF10("/internal/f10/business-composition", params);
         List<StockChartBO.F10BusinessCompositionItem> items = new ArrayList<>();
         for (JsonNode item : iterable(root.path("items"))) {
             items.add(StockChartBO.F10BusinessCompositionItem.builder()
@@ -119,7 +122,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10ProfitForecast profitForecast(String symbol) {
-        JsonNode root = get("/internal/f10/profit-forecast", Map.of("symbol", symbol));
+        JsonNode root = getF10("/internal/f10/profit-forecast", Map.of("symbol", symbol));
         List<StockChartBO.F10ProfitForecastItem> items = new ArrayList<>();
         for (JsonNode item : iterable(root.path("items"))) {
             items.add(StockChartBO.F10ProfitForecastItem.builder()
@@ -139,7 +142,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10Announcements announcements(String symbol) {
-        JsonNode root = get("/internal/f10/announcements", Map.of("symbol", symbol));
+        JsonNode root = getF10("/internal/f10/announcements", Map.of("symbol", symbol));
         List<StockChartBO.F10AnnouncementItem> items = new ArrayList<>();
         for (JsonNode item : iterable(root.path("items"))) {
             items.add(StockChartBO.F10AnnouncementItem.builder()
@@ -164,7 +167,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10News news(String symbol) {
-        JsonNode root = get("/internal/f10/news", Map.of("symbol", symbol));
+        JsonNode root = getF10("/internal/f10/news", Map.of("symbol", symbol));
         List<StockChartBO.F10NewsItem> items = new ArrayList<>();
         for (JsonNode item : iterable(root.path("items"))) {
             items.add(StockChartBO.F10NewsItem.builder()
@@ -187,7 +190,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10Roadshows roadshows(String symbol) {
-        JsonNode root = get("/internal/f10/roadshows", Map.of("symbol", symbol));
+        JsonNode root = getF10("/internal/f10/roadshows", Map.of("symbol", symbol));
         List<StockChartBO.F10RoadshowItem> items = new ArrayList<>();
         for (JsonNode item : iterable(root.path("items"))) {
             items.add(StockChartBO.F10RoadshowItem.builder()
@@ -210,7 +213,7 @@ public class HttpStockChartF10DataClient {
     }
 
     public StockChartBO.F10CompanyNews companyNews(String symbol, String section) {
-        JsonNode root = get("/internal/f10/company-news", Map.of("symbol", symbol, "section", section));
+        JsonNode root = getF10("/internal/f10/company-news", Map.of("symbol", symbol, "section", section));
         List<StockChartBO.F10CompanyNewsItem> items = new ArrayList<>();
         for (JsonNode item : iterable(root.path("items"))) {
             items.add(StockChartBO.F10CompanyNewsItem.builder()
@@ -238,11 +241,23 @@ public class HttpStockChartF10DataClient {
         return send(request);
     }
 
+    private JsonNode getF10(String path, Map<String, String> params) {
+        Map<String, String> f10Params = new LinkedHashMap<>(params);
+        f10Params.put("timeout_seconds", F10_SOURCE_TIMEOUT_SECONDS);
+        f10Params.put("pool_size", F10_SOURCE_POOL_SIZE);
+        HttpRequest request = baseRequest(path, f10Params, F10_REQUEST_TIMEOUT).GET().build();
+        return send(request);
+    }
+
     private HttpRequest.Builder baseRequest(String path, Map<String, String> params) {
+        return baseRequest(path, params, requestTimeout);
+    }
+
+    private HttpRequest.Builder baseRequest(String path, Map<String, String> params, Duration timeout) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path + queryString(params)))
                 .version(HttpClient.Version.HTTP_1_1)
-                .timeout(requestTimeout)
+                .timeout(timeout)
                 .header("Accept", "application/json");
         if (!internalToken.isBlank()) {
             builder.header(TOKEN_HEADER, internalToken);

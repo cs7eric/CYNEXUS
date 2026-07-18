@@ -229,6 +229,8 @@ public final class StockChartDTO {
     public static class FundFlowPointDTO {
         @JsonProperty("trade_date")
         private LocalDate tradeDate;
+        private BigDecimal lastPrice;
+        private BigDecimal turnoverRate;
         private BigDecimal activeNetAmountWan;
         private BigDecimal mainNetAmountWan;
         private BigDecimal superNetAmountWan;
@@ -237,6 +239,8 @@ public final class StockChartDTO {
         private BigDecimal smallNetAmountWan;
         private BigDecimal activeBuyRatio;
         private BigDecimal activeSellRatio;
+        private BigDecimal buyBigRatio;
+        private BigDecimal sellBigRatio;
         private BigDecimal amountWan;
         private BigDecimal changePct;
     }

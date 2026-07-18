@@ -62,7 +62,7 @@ function RawWireList({ items, onSelectEvent }: { items: MarketInformationFeed["n
   </details>
 }
 
-export default function MarketInformationPage() {
+export default function MarketInformationPage({ analysisStatus }: { analysisStatus?: string } = {}) {
   const [feed, setFeed] = useState<MarketInformationFeed | null>(null)
   const [page, setPage] = useState(1)
   const [impactIndustryCode, setImpactIndustryCode] = useState("all")
@@ -82,7 +82,7 @@ export default function MarketInformationPage() {
   const filteredItems = impactStatus === "all" ? viewItems : viewItems.filter((item) => impactStatus === "mapped" ? item.impactStatus !== "Unmapped" : item.impactStatus === "Unmapped")
   const priorityItems = filteredItems.filter((item) => !wireSources.has(item.source ?? "") || item.materiality === "high").sort((left, right) => priorityRank(left) - priorityRank(right) || new Date(right.publishedAt ?? 0).getTime() - new Date(left.publishedAt ?? 0).getTime())
   const rawWireItems = filteredItems.filter((item) => wireSources.has(item.source ?? "")).sort((left, right) => new Date(right.publishedAt ?? 0).getTime() - new Date(left.publishedAt ?? 0).getTime())
-  const load = useCallback(async () => { setLoading(true); setError(null); try { setFeed(await fetchMarketInformation(page, 30, impactIndustryCode === "all" ? undefined : impactIndustryCode)) } catch (e) { setError(e instanceof Error ? e.message : "Unable to load market information") } finally { setLoading(false) } }, [page, impactIndustryCode])
+  const load = useCallback(async () => { setLoading(true); setError(null); try { setFeed(await fetchMarketInformation(page, 30, impactIndustryCode === "all" ? undefined : impactIndustryCode, analysisStatus)) } catch (e) { setError(e instanceof Error ? e.message : "Unable to load market information") } finally { setLoading(false) } }, [page, impactIndustryCode, analysisStatus])
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timer)
@@ -119,18 +119,19 @@ export default function MarketInformationPage() {
     setEventDetail({ ...eventDetail, analysisStatus: "PENDING" })
     void load()
   }, [eventDetail, load])
-  return <WorkspaceShell sectionLabel="Information" sectionUrl="/information" pageTitle="Market Information">
+  const analyzedView = analysisStatus === "SUCCEEDED"
+  return <WorkspaceShell sectionLabel="Information" sectionUrl="/information" pageTitle={analyzedView ? "AI Analyzed" : "Market Information"}>
     <main className="flex min-h-[calc(100vh-8rem)] flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2.5"><Activity className="size-5 text-primary" /><div><h1 className="text-xl font-semibold tracking-tight">Market Information</h1><p className="text-xs text-muted-foreground">Prioritized market signals, official releases, and industry events.</p></div></div><div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">{feed?.queriedAt ? `Updated ${new Date(feed.queriedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting snapshot"}</span><Button variant="secondary" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />Refresh</Button></div></header>
+      <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2.5"><Activity className="size-5 text-primary" /><div><h1 className="text-xl font-semibold tracking-tight">{analyzedView ? "AI Analyzed Information" : "Market Information"}</h1><p className="text-xs text-muted-foreground">{analyzedView ? "Information with a completed structured AI analysis." : "Prioritized market signals, official releases, and industry events."}</p></div></div><div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">{feed?.queriedAt ? `Updated ${new Date(feed.queriedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting snapshot"}</span><Button variant="secondary" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />Refresh</Button></div></header>
       {error ? <div className="rounded-lg bg-rose-500/10 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       <MarketBrief brief={feed?.brief} />
-      {feed ? <MarketDecisionWorkspace brief={feed.brief} items={priorityItems} onSelectEvent={(clusterId) => void openEvent(clusterId)} /> : null}
+      {!analyzedView && feed ? <MarketDecisionWorkspace brief={feed.brief} items={priorityItems} onSelectEvent={(clusterId) => void openEvent(clusterId)} /> : null}
       <section className="rounded-xl border border-border/70 bg-card px-3 py-2.5 shadow-none">
         <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="size-3.5" />View</div><div className="flex max-w-full flex-wrap items-center gap-1" role="tablist" aria-label="Information views">{feedViewOptions.map((option) => <Button key={option.value} type="button" size="sm" variant={feedView === option.value ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => { setFeedView(option.value); setPage(1) }}>{option.label}</Button>)}</div></div><div className="flex items-center gap-2"><span className="hidden text-xs text-muted-foreground sm:inline">{feed?.newsPage?.total ?? pageItems.length} records · {mappedCount} mapped · {keyCount} high impact</span><Select value={impactStatus} onValueChange={setImpactStatus}><SelectTrigger className="h-7 w-28 border-0 bg-muted/45 px-2 text-xs shadow-none"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All impact</SelectItem><SelectItem value="mapped">Mapped only</SelectItem><SelectItem value="unmapped">Unmapped</SelectItem></SelectContent></Select><Select value={impactIndustryCode} onValueChange={(value) => { setImpactIndustryCode(value); setPage(1) }}><SelectTrigger className="h-7 w-44 border-0 bg-muted/45 px-2 text-xs shadow-none"><SelectValue placeholder="All industries" /></SelectTrigger><SelectContent><SelectItem value="all">All industries</SelectItem>{(feed?.impactIndustries ?? []).map((industry) => <SelectItem key={industry.tdxCode} value={industry.tdxCode}>{industry.tdxName}</SelectItem>)}</SelectContent></Select></div></div>
       </section>
       {loading && !feed ? <div className="space-y-3 rounded-xl border border-border/70 bg-card px-4 py-5" aria-busy="true"><div className="h-4 w-32 animate-pulse rounded bg-muted motion-reduce:animate-none" /><div className="h-8 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none" /><div className="h-4 w-full animate-pulse rounded bg-muted motion-reduce:animate-none" /><div className="h-4 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" /></div> : <>
         <section>
-          <div className="mb-2 flex items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">Full information feed</h2><p className="text-xs text-muted-foreground">The complete paginated feed with source, impact, and analysis state.</p></div><span className="text-xs tabular-nums text-muted-foreground">{priorityItems.length} visible</span></div>
+          <div className="mb-2 flex items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">{analyzedView ? "Completed AI analyses" : "Full information feed"}</h2><p className="text-xs text-muted-foreground">{analyzedView ? "Only information whose latest v2/v3 analysis completed successfully." : "The complete paginated feed with source, impact, and analysis state."}</p></div><span className="text-xs tabular-nums text-muted-foreground">{priorityItems.length} visible</span></div>
           <MarketInformationTable items={priorityItems} pagination={feedView === "focus" && impactStatus === "all" ? feed?.newsPage : undefined} loading={loading} onPageChange={setPage} onSelectEvent={(clusterId) => void openEvent(clusterId)} />
         </section>
         <RawWireList items={rawWireItems} onSelectEvent={(clusterId) => void openEvent(clusterId)} />
@@ -138,4 +139,8 @@ export default function MarketInformationPage() {
       <MarketEventSheet open={eventOpen} loading={eventLoading} detail={eventDetail} onOpenChange={setEventOpen} onAnalyze={() => void analyzeEvent()} />
     </main>
   </WorkspaceShell>
+}
+
+export function MarketInformationAnalyzedPage() {
+  return <MarketInformationPage analysisStatus="SUCCEEDED" />
 }

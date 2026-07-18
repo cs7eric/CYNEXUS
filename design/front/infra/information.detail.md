@@ -45,3 +45,5 @@ Before modifying this page, review:
 - `design/front/reuse/reuse.md`
 
 The compatibility route `/market/information` must remain a redirect unless all external links are migrated.
+
+The `/information/analyzed` child route reuses this module's feed and event-detail components with a server-side `SUCCEEDED` analysis filter. Keep both route docs synchronized when changing the feed contract.

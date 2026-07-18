@@ -75,6 +75,7 @@ import {
   type SchedulerCategory,
   type SchedulerCurrentStepProgress,
   type SchedulerDailyStatItem,
+  type SchedulerFundFlowQcSummary,
   type SchedulerJobHistoryItem,
   type SchedulerJobItem,
   createSchedulerCategory,
@@ -186,6 +187,16 @@ function formatSeconds(value: number | null | undefined): string {
 function formatInteger(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—"
   return new Intl.NumberFormat("zh-CN").format(value)
+}
+
+function formatPercentValue(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—"
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function formatWan(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—"
+  return `${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(value / 10000)} 万`
 }
 
 function todayStatNumber(job: SchedulerJobItem, key: keyof SchedulerTodayStatSnapshot): number {
@@ -363,6 +374,19 @@ function stepProgressTotal(progress: SchedulerCurrentStepProgress | null | undef
   return progress?.totalItems ?? progress?.totalFiles
 }
 
+function totalCodeProgressPercent(progress: SchedulerCurrentStepProgress | null | undefined): number | null {
+  const completed = progress?.completedCodes
+  const total = progress?.totalCodes
+  if (typeof completed !== "number" || typeof total !== "number" || total <= 0) return null
+  return Math.max(0, Math.min(100, Math.round((completed / total) * 100)))
+}
+
+function totalCodePending(progress: SchedulerCurrentStepProgress | null | undefined): number | undefined {
+  if (typeof progress?.pendingCodes === "number") return progress.pendingCodes
+  if (typeof progress?.completedCodes !== "number" || typeof progress?.totalCodes !== "number") return undefined
+  return Math.max(0, progress.totalCodes - progress.completedCodes)
+}
+
 function ChainStepProgress({
   currentStep,
   currentStepProgress,
@@ -399,6 +423,8 @@ function ChainStepProgress({
     || typeof currentStepProgress?.rowsRead === "number"
     || typeof currentStepProgress?.rowsWritten === "number"
   const subProgressUnit = stepProgressUnit(currentStepProgress)
+  const totalCodePercent = totalCodeProgressPercent(currentStepProgress)
+  const pendingCodes = totalCodePending(currentStepProgress)
   const showSubProgress = Boolean(
     !isFinished
     && currentStepProgress
@@ -495,6 +521,29 @@ function ChainStepProgress({
 
       {showSubProgress ? (
         <div className="rounded-md border border-border/40 bg-background/60 px-2 py-1.5">
+          {totalCodePercent !== null ? (
+            <div className="mb-1.5 space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                <span className="font-medium text-foreground/80">总进度</span>
+                <span className="tabular-nums">
+                  股票 {formatInteger(currentStepProgress?.completedCodes)}/{formatInteger(currentStepProgress?.totalCodes)}
+                </span>
+                <span className="tabular-nums">
+                  {typeof currentStepProgress?.failedCodes === "number" ? `失败 ${formatInteger(currentStepProgress.failedCodes)} · ` : ""}
+                  待跑 {formatInteger(pendingCodes)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${totalCodePercent}%` }}
+                  />
+                </div>
+                <span className="w-9 text-right text-[10px] tabular-nums text-muted-foreground">{totalCodePercent}%</span>
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 text-foreground/80">
               <RefreshCw className="size-2.5 animate-spin text-blue-600" />
@@ -527,6 +576,73 @@ function ChainStepProgress({
         <div className="flex items-start gap-1 rounded border border-destructive/20 bg-destructive/5 px-2 py-1 text-[10px] leading-4 text-destructive">
           <AlertTriangle className="mt-0.5 size-2.5 shrink-0" />
           <span className="break-all">{failedStep.lastRunError}</span>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function FundFlowQcSummaryCard({ summary }: { summary?: SchedulerFundFlowQcSummary | null }) {
+  if (!summary) return null
+  const samples = summary.samples || []
+  return (
+    <div className="space-y-2 rounded-xl border border-border/50 bg-background/70 p-3 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="font-medium text-foreground">同日质检结果</div>
+        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+          抽样 {formatInteger(summary.sampleSize)} · 成功 {formatInteger(summary.successCount)} · 失败 {formatInteger(summary.failedCount)}
+        </Badge>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+          <div className="text-[10px] text-muted-foreground">方向一致率</div>
+          <div className="font-mono text-base font-semibold">{formatPercentValue(summary.directionMatchRate)}</div>
+        </div>
+        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+          <div className="text-[10px] text-muted-foreground">方向一致数量</div>
+          <div className="font-mono text-base font-semibold">
+            {formatInteger(summary.directionMatchCount)}/{formatInteger(summary.successCount)}
+          </div>
+        </div>
+        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+          <div className="text-[10px] text-muted-foreground">平均绝对偏差率</div>
+          <div className="font-mono text-base font-semibold">{formatPercentValue(summary.avgAbsDiffRatio)}</div>
+        </div>
+      </div>
+      {samples.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-[11px]">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-2 font-medium">代码</th>
+                <th className="py-1 pr-2 font-medium">日期</th>
+                <th className="py-1 pr-2 font-medium">easy_tdx</th>
+                <th className="py-1 pr-2 font-medium">EastMoney</th>
+                <th className="py-1 pr-2 font-medium">偏差率</th>
+                <th className="py-1 pr-2 font-medium">方向</th>
+              </tr>
+            </thead>
+            <tbody>
+              {samples.map((item, index) => (
+                <tr key={`${item.code || "row"}-${index}`} className="border-t border-border/40">
+                  <td className="py-1 pr-2 font-mono">{item.code || "—"}</td>
+                  <td className="py-1 pr-2 text-muted-foreground">{item.tradeDate || "—"}</td>
+                  <td className="py-1 pr-2 font-mono">{formatWan(item.easyTdxMainNet)}</td>
+                  <td className="py-1 pr-2 font-mono">{formatWan(item.eastmoneyMainNet)}</td>
+                  <td className="py-1 pr-2 font-mono">{formatPercentValue(item.mainNetDiffRatio)}</td>
+                  <td className="py-1 pr-2">
+                    {item.error ? (
+                      <span className="text-destructive" title={item.error}>失败</span>
+                    ) : item.directionMatch ? (
+                      <span className="text-emerald-600">一致</span>
+                    ) : (
+                      <span className="text-amber-600">相反</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : null}
     </div>
@@ -616,7 +732,6 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
   const totalRuns = lastRunSummary?.total_runs ?? pickValue<number>(config, "total_runs")
   const registeredAt = job.registered_at
   const inflight = pickValue<Record<string, string>>(live, "inflight")
-  const lastRun = pickValue<Record<string, unknown>>(live, "last_run")
   const progress = job.progress || null
 
   // Chain step progress fields (market_sentiment_chain_refresh)
@@ -625,6 +740,7 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
   const chainCompletedSteps = progress?.completedSteps ?? pickValue<string[]>(config, "lastCompletedSteps")
   const chainStepResults = progress?.stepResults ?? pickValue<ChainStepResult[]>(config, "lastStepResults")
   const hasChainProgress = chainCurrentStep || (chainCompletedSteps && chainCompletedSteps.length > 0)
+  const qcSummary = progress?.payload?.qcSummary
 
   const isActionPending = (action: ActionKey) => pending === action
   const expectedCount = job.today_stats?.expected_count ?? 0
@@ -901,6 +1017,13 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
             </>
           ) : null}
 
+          {qcSummary ? (
+            <>
+              <FundFlowQcSummaryCard summary={qcSummary} />
+              <Separator />
+            </>
+          ) : null}
+
           {/* 上次运行 + 注册信息 */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5 text-sm">
@@ -967,36 +1090,6 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
                       {targetId} · {formatDateTime(startedAtValue)}
                     </Badge>
                   ))}
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          {/* Per-target last run */}
-          {lastRun && Object.keys(lastRun).length > 0 ? (
-            <>
-              <Separator />
-              <div className="space-y-1.5 text-sm">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">最近 per-target run</div>
-                <div className="space-y-1">
-                  {Object.entries(lastRun).slice(0, 4).map(([targetId, info]) => {
-                    const infoRecord = info as Record<string, unknown> | undefined
-                    const status = pickValue<string>(infoRecord, "status") || "—"
-                    return (
-                      <div key={targetId} className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                        <span className="break-all font-mono">{targetId}</span>
-                        <span className="flex flex-wrap items-center gap-2 text-muted-foreground">
-                          <Badge variant={statusBadgeVariant(status)} className={cn(statusBadgeClass(status), "px-1.5 py-0")}>{status}</Badge>
-                          <span>{formatDateTime(pickValue<string>(infoRecord, "finished_at"))}</span>
-                        </span>
-                      </div>
-                    )
-                  })}
-                  {Object.keys(lastRun).length > 4 ? (
-                    <div className="text-xs text-muted-foreground">
-                      ……还有 {Object.keys(lastRun).length - 4} 个 target
-                    </div>
-                  ) : null}
                 </div>
               </div>
             </>

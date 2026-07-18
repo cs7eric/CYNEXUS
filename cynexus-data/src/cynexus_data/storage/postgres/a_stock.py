@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
-from cynexus_data.storage.postgres.ids import next_bigint_id
+from cynexus_data.storage.postgres.ids import next_bigint_id, stable_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260707_create_a_stock_data_tables.sql"
@@ -71,7 +71,7 @@ class AStockPostgresRepository:
         total = 0
         with self.client.session() as db:
             for raw in rows:
-                record = _prepare_record(raw, key_columns=key_columns)
+                record = _prepare_record(table, raw, key_columns=key_columns)
                 columns = list(record.keys())
                 values = ", ".join(_placeholder(column) for column in columns)
                 updates = ", ".join(f"{column}=EXCLUDED.{column}" for column in columns if column != "id")
@@ -88,12 +88,15 @@ class AStockPostgresRepository:
         return total
 
 
-def _prepare_record(raw: dict[str, Any], *, key_columns: list[str]) -> dict[str, Any]:
+def _prepare_record(table: str, raw: dict[str, Any], *, key_columns: list[str]) -> dict[str, Any]:
     record = {key: value for key, value in raw.items() if value is not None or key in key_columns}
     for column in key_columns:
         if column not in record:
             raise ValueError(f"A-stock upsert record missing key column {column}: {raw}")
-    record.setdefault("id", next_bigint_id())
+    if table == "a_stock_fund_flow_daily":
+        record.setdefault("id", stable_bigint_id(table, *(record[column] for column in key_columns)))
+    else:
+        record.setdefault("id", next_bigint_id())
     for column in JSONB_COLUMNS:
         if column in record:
             record[column] = json.dumps(record[column], ensure_ascii=False, default=str, separators=(",", ":"))

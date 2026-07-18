@@ -81,6 +81,7 @@
 | `eastmoney_concept_blocks` | `/internal/a-stock/eastmoney/concept-blocks` | 已接入 | slist 个股概念归属 |
 | `eastmoney_fund_flow_minute` | `/internal/a-stock/eastmoney/fund-flow-minute` | 已接入 | 分钟级资金流，smoke 中偶发 reset |
 | `eastmoney_fund_flow_120d` | `/internal/a-stock/eastmoney/fund-flow-120d` | 已接入 | 120 日资金流，smoke 中 reset |
+| `market_fund_flow_daily` | `sync_market_fund_flow` | 已接入 | 东方财富大盘日级主力/超大/大/中/小单资金流，交易日每日 17:45，归属 `data_collection` |
 | `eastmoney_industry_rank` | `/internal/a-stock/eastmoney/industry-rank` | 已接入 | 东财行业排名，smoke 中 reset |
 | `eastmoney_daily_dragon_tiger` | `/internal/a-stock/eastmoney/daily-dragon-tiger` | 已接入 | 全市场龙虎榜 |
 | `eastmoney_dragon_tiger` | `/internal/a-stock/eastmoney/dragon-tiger` | 已接入 | 单股龙虎榜与席位 |
@@ -169,6 +170,7 @@ python -m cynexus_data.jobs.sync_a_stock_dataset --dry-run --dataset eastmoney_f
 | `eastmoney_stock_news`, `eastmoney_global_news` | PG `a_stock_news` |
 | `cninfo_irm` | PG `a_stock_investor_interaction` |
 | `eastmoney_fund_flow_120d` | PG `a_stock_fund_flow_daily` |
+| `market_fund_flow_daily` | PG `market_overview_snapshots` |
 | `eastmoney_fund_flow_minute` | CH `ch_ods_stock_fund_flow_minute` |
 | `eastmoney_industry_rank` | PG `a_stock_industry_rank_snapshot` |
 | `eastmoney_daily_dragon_tiger`, `eastmoney_dragon_tiger` | PG `a_stock_dragon_tiger_daily`, `a_stock_dragon_tiger_seat` |

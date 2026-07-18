@@ -38,3 +38,36 @@
 - Input: Page, page size, and optional industry code
 - Output: `MarketInformationFeed`
 - Reuse Scope: Same domain pages
+
+## Page: AI Configuration
+
+### Components
+
+#### SummaryMetric
+- Path: `cynexus-ui/src/views/ai/usage/index.tsx`
+- Purpose: Render a labeled AI usage metric with icon and supporting detail.
+- Reuse Scope: Same domain pages
+- Props Summary:
+  - `label`: metric name
+  - `value`: formatted metric value
+  - `detail`: supporting context
+- Notes: Kept local to the usage surface until another AI observability page needs it.
+
+#### ProviderHealthRow
+- Path: `cynexus-ui/src/views/ai/usage/index.tsx`
+- Purpose: Render request success rate and failure count for a provider/model pair.
+- Reuse Scope: Same domain pages
+- Props Summary:
+  - `provider`: display provider name
+  - `model`: display model name
+  - `requests`, `succeeded`, `failed`: health counters
+- Notes: Uses the existing product status colors.
+
+### Lib Methods
+
+#### fetchAiUsage
+- Path: `cynexus-ui/src/services/ai/usage.ts`
+- Purpose: Fetch Langfuse-backed AI usage observations and aggregates.
+- Input: Optional UTC `from`, `to`, and `limit` query parameters
+- Output: `AiUsagePage`
+- Reuse Scope: Same domain pages

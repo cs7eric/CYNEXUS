@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
+import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.MarketInformationAiTaskRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,6 +60,29 @@ class MarketInformationAiWorkerTest {
     }
 
     @Test
+    void explicitPromptBindingTakesPrecedenceOverFallbackVersion() {
+        AiPromptRepository prompts = new AiPromptRepository() {
+            @Override public List<AiPromptBO> list(String keyword, String scenarioCode, String status) { return List.of(); }
+            @Override public AiPromptBO findById(Long id) {
+                return AiPromptBO.builder().id(id).promptKey("managed-event-prompt").promptVersion("v9")
+                        .status("active").systemPrompt("managed system").userPromptTemplate("{{sources}}").build();
+            }
+            @Override public Long create(AiPromptBO prompt) { return 0L; }
+            @Override public boolean update(AiPromptBO prompt) { return true; }
+            @Override public boolean delete(Long id) { return true; }
+        };
+
+        MarketInformationAiWorker worker = worker(0, prompts);
+        MarketInformationAiWorker.PromptRuntime resolved = worker.resolvePrompt(
+                cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO.builder()
+                        .capability("market_information_event_analysis").promptId(42L).build(), "v4");
+
+        assertEquals("managed-event-prompt", resolved.promptKey());
+        assertEquals("v9", resolved.promptVersion());
+        assertEquals("managed system", resolved.systemPrompt());
+    }
+
+    @Test
     void summaryOnlyPromptForbidsInferringMissingDetails() throws Exception {
         MarketInformationAiTaskBO task = MarketInformationAiTaskBO.builder()
                 .title("政策标题")
@@ -79,6 +104,22 @@ class MarketInformationAiWorkerTest {
         assertTrue(prompt.contains("informationDelta"));
         assertTrue(prompt.contains("transmissionPaths"));
         assertTrue(prompt.contains("marketExpectationGap"));
+        assertTrue(prompt.contains("event background"));
+        assertTrue(prompt.contains("information change"));
+    }
+
+    @Test
+    void briefFallbackPromptExplainsSnapshotBackgroundBeforeSynthesis() {
+        MarketInformationAiWorker worker = worker(0);
+
+        MarketInformationAiWorker.PromptRuntime prompt = worker.resolvePrompt(
+                cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO.builder()
+                        .capability("market_information_daily_brief").build(), "v6");
+
+        assertTrue(prompt.systemPrompt().contains("current input snapshot"));
+        assertTrue(prompt.systemPrompt().contains("First understand the background"));
+        assertTrue(prompt.systemPrompt().contains("executiveSummary"));
+        assertTrue(prompt.userPromptTemplate().contains("This is the only factual input"));
     }
 
     @Test
@@ -167,7 +208,11 @@ class MarketInformationAiWorkerTest {
     }
 
     private MarketInformationAiWorker worker(int limit) {
-        return new MarketInformationAiWorker(new BudgetRepository(), null, null, null, null, limit, 10);
+        return worker(limit, null);
+    }
+
+    private MarketInformationAiWorker worker(int limit, AiPromptRepository prompts) {
+        return new MarketInformationAiWorker(new BudgetRepository(), null, prompts, null, null, null, limit, 10);
     }
 
     private static final class BudgetRepository implements MarketInformationAiTaskRepository {

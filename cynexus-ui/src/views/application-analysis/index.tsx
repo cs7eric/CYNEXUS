@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Activity, Bell, Bot, CandlestickChart, Eye, Gauge, Landmark, List, Plus } from "lucide-react"
+import { Activity, Bell, Bot, BriefcaseBusiness, CandlestickChart, Eye, Gauge, Landmark, List, Plus } from "lucide-react"
 
 import {
   Tabs,
@@ -59,6 +59,7 @@ import { ChartHeader } from "./components/chart-header"
 import { FundFlowTab } from "./components/fund-flow-tab"
 import { InformationTab } from "./components/information-tab"
 import { IntradayAnalysisDialog } from "./components/intraday-analysis-dialog"
+import { ProfileTab } from "./components/profile-tab"
 import { SelectionPanel } from "./components/selection-panel"
 import { TargetCard, type HorizonPatch } from "./components/target-card"
 import { TechnicalIndicatorTab } from "./components/technical-indicator-tab"
@@ -83,7 +84,7 @@ function formatTradeDateFromTimestamp(timestamp?: number | null) {
 }
 
 export default function ApplicationAnalysisPage() {
-  type MainTab = "chart" | "ai-direction" | "auction" | "ma-support" | "fund-flow" | "information"
+  type MainTab = "chart" | "ai-direction" | "auction" | "ma-support" | "fund-flow" | "information" | "profile"
   const isMobile = useIsMobile()
   const [searchParams, setSearchParams] = useSearchParams()
   const querySymbol = searchParams.get("symbol")
@@ -98,6 +99,7 @@ export default function ApplicationAnalysisPage() {
   const [previewTarget, setPreviewTarget] = useState<ApplicationAnalysisTarget | null>(null)
   const [adjust, setAdjust] = useState<StockAdjust>("qfq")
   const [bars, setBars] = useState<StockKlineBar[]>([])
+  const [barsLoading, setBarsLoading] = useState(false)
   const [running, setRunning] = useState(false)
   const [saving, setSaving] = useState(false)
   const persistTimerRef = useRef<number | null>(null)
@@ -126,6 +128,7 @@ export default function ApplicationAnalysisPage() {
   const [dailySnapshotsLoading, setDailySnapshotsLoading] = useState(false)
   const [dailyRefreshing, setDailyRefreshing] = useState(false)
   const [dailyLastRefreshAt, setDailyLastRefreshAt] = useState<string | null>(null)
+  const dailySnapshotsRequestRef = useRef(0)
   const [selectedChartItems, setSelectedChartItems] = useState<ChartPanelSelectionItem[]>([])
   const selectedBarTimestamps = useMemo(
     () => selectedChartItems
@@ -156,6 +159,9 @@ export default function ApplicationAnalysisPage() {
   const displayedTargetSymbol = displayedTarget?.symbol
   const displayedTargetName = displayedTarget?.name
   const displayedTargetAdjust = (displayedTarget?.adjust as StockAdjust | undefined) || adjust
+  const displayedTargetKey = displayedTarget
+    ? `${displayedTarget.target_type}:${displayedTarget.symbol}:${displayedTarget.name || ""}:${displayedTargetAdjust}`
+    : "none"
 
   useEffect(() => {
     selectedIdRef.current = selectedId
@@ -299,9 +305,14 @@ export default function ApplicationAnalysisPage() {
     if (!displayedTargetType || !displayedTargetSymbol) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBars([])
+      setBarsLoading(false)
+      setSelectedChartItems([])
       return
     }
     let active = true
+    setBars([])
+    setBarsLoading(true)
+    setSelectedChartItems([])
     void fetchStockKlines({
       targetType: displayedTargetType as StockTargetType,
       symbol: displayedTargetSymbol,
@@ -314,6 +325,9 @@ export default function ApplicationAnalysisPage() {
       })
       .catch(() => {
         if (active) setBars([])
+      })
+      .finally(() => {
+        if (active) setBarsLoading(false)
       })
     return () => {
       active = false
@@ -328,6 +342,8 @@ export default function ApplicationAnalysisPage() {
       return
     }
     let active = true
+    setResult(null)
+    setSelectedChartItems([])
     void fetchApplicationAnalysisResult(selectedId)
       .then((data) => {
         if (!active) return
@@ -448,9 +464,14 @@ export default function ApplicationAnalysisPage() {
   }
 
   const refreshDailySnapshots = useCallback(async (targetId: string) => {
+    const requestId = dailySnapshotsRequestRef.current + 1
+    dailySnapshotsRequestRef.current = requestId
     try {
       setDailySnapshotsLoading(true)
+      setDailySnapshotsFull([])
+      setDailyLastRefreshAt(null)
       const data = await listApplicationAnalysisRecent30Full(targetId, 60)
+      if (dailySnapshotsRequestRef.current !== requestId) return
       const items = (data.items || []).slice().sort((a, b) => (a.date < b.date ? 1 : -1))
       setDailySnapshotsFull(items)
       if (items.length) {
@@ -459,10 +480,11 @@ export default function ApplicationAnalysisPage() {
         setDailyLastRefreshAt(null)
       }
     } catch {
+      if (dailySnapshotsRequestRef.current !== requestId) return
       setDailySnapshotsFull([])
       setDailyLastRefreshAt(null)
     } finally {
-      setDailySnapshotsLoading(false)
+      if (dailySnapshotsRequestRef.current === requestId) setDailySnapshotsLoading(false)
     }
   }, [])
 
@@ -514,11 +536,15 @@ export default function ApplicationAnalysisPage() {
 
   useEffect(() => {
     if (!selectedId) {
-      setDailySnapshotsFull([])
-      setDailyLastRefreshAt(null)
+      void Promise.resolve().then(() => {
+        dailySnapshotsRequestRef.current += 1
+        setDailySnapshotsFull([])
+        setDailyLastRefreshAt(null)
+        setDailySnapshotsLoading(false)
+      })
       return
     }
-    void refreshDailySnapshots(selectedId)
+    void Promise.resolve().then(() => refreshDailySnapshots(selectedId))
   }, [selectedId, refreshDailySnapshots])
 
   const handleTriggerTarget = async (targetId: string) => {
@@ -777,6 +803,7 @@ export default function ApplicationAnalysisPage() {
                 }}
                 mobileCompact={false}
                 sidebarPreview
+                loading={barsLoading}
               />
             ) : null}
 
@@ -858,6 +885,7 @@ export default function ApplicationAnalysisPage() {
                     <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="ma-support"><Gauge className="size-3.5" />Indicators</TabsTrigger>
                     <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="fund-flow"><Activity className="size-3.5" />Fund Flow</TabsTrigger>
                     <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="information"><Bell className="size-3.5" />Information</TabsTrigger>
+                    <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="profile"><BriefcaseBusiness className="size-3.5" />Profile</TabsTrigger>
                   </TabsList>
                 </div>
                 <div className="hidden flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-muted-foreground 2xl:flex 2xl:px-0">
@@ -903,6 +931,7 @@ export default function ApplicationAnalysisPage() {
                     if (item.kind === "bar") handleOpenIntradayDialog(item)
                   }}
                   mobileCompact={isMobile}
+                  loading={barsLoading}
                 />
               ) : null}
               </TabsContent>
@@ -934,6 +963,7 @@ export default function ApplicationAnalysisPage() {
               >
                 {displayedTarget ? (
                   <AuctionTab
+                    key={`auction:${displayedTargetKey}`}
                     targetType={displayedTarget.target_type as StockTargetType}
                     symbol={displayedTarget.symbol}
                     name={displayedTarget.name}
@@ -948,6 +978,7 @@ export default function ApplicationAnalysisPage() {
               >
                 {displayedTarget ? (
                   <TechnicalIndicatorTab
+                    key={`technical:${displayedTargetKey}`}
                     targetType={displayedTarget.target_type as StockTargetType}
                     symbol={displayedTarget.symbol}
                     name={displayedTarget.name}
@@ -963,6 +994,7 @@ export default function ApplicationAnalysisPage() {
               >
                 {displayedTarget ? (
                   <FundFlowTab
+                    key={`fund-flow:${displayedTargetKey}`}
                     targetType={displayedTarget.target_type as StockTargetType}
                     symbol={displayedTarget.symbol}
                     name={displayedTarget.name}
@@ -974,7 +1006,14 @@ export default function ApplicationAnalysisPage() {
                 value="information"
                 className="m-0 min-w-0 lg:h-full lg:min-h-0 lg:overflow-auto"
               >
-                {displayedTarget ? <InformationTab symbol={displayedTarget.symbol} /> : null}
+                {displayedTarget ? <InformationTab key={`information:${displayedTargetKey}`} symbol={displayedTarget.symbol} /> : null}
+              </TabsContent>
+
+              <TabsContent
+                value="profile"
+                className="m-0 min-w-0 lg:h-full lg:overflow-auto"
+              >
+                {displayedTarget ? <ProfileTab key={`profile:${displayedTargetKey}`} symbol={displayedTarget.symbol} name={displayedTarget.name} /> : null}
               </TabsContent>
             </main>
 

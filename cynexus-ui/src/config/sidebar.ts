@@ -76,12 +76,26 @@ export const sidebarConfig = {
           title: "market-margin-trading",
           url: "/market/margin-trading",
         },
+        {
+          title: "market-etf",
+          url: "/market/etf",
+        },
       ],
     },
     {
       title: "Information",
       url: "/information",
       icon: Newspaper,
+      items: [
+        {
+          title: "Feed",
+          url: "/information",
+        },
+        {
+          title: "AI analyzed",
+          url: "/information/analyzed",
+        },
+      ],
     },
     {
       title: "Stock Overview",
@@ -142,6 +156,10 @@ export const sidebarConfig = {
           title: "markdown render",
           url: "/poc/markdown-render",
         },
+        {
+          title: "easy_tdx data lab",
+          url: "/poc/easy-tdx",
+        },
       ],
     },
     {
@@ -169,10 +187,6 @@ export const sidebarConfig = {
           url: "/settings/scheduler",
         },
         {
-          title: "AI Provider",
-          url: "/settings/ai-provider",
-        },
-        {
           title: "Data Source",
           url: "/settings/data-source",
         },
@@ -180,13 +194,24 @@ export const sidebarConfig = {
           title: "Provider",
           url: "/settings/provider",
         },
+      ],
+    },
+    {
+      title: "AI",
+      url: "/ai",
+      icon: BrainCircuit,
+      items: [
+        {
+          title: "AI Provider",
+          url: "/ai/provider",
+        },
         {
           title: "Prompt",
-          url: "/settings/prompt",
+          url: "/ai/prompt",
         },
         {
           title: "AI Usage",
-          url: "/settings/ai-usage",
+          url: "/ai/usage",
         },
       ],
     },
@@ -233,6 +258,11 @@ export const sidebarConfig = {
       icon: Newspaper,
     },
     {
+      name: "Information · AI analyzed",
+      url: "/information/analyzed",
+      icon: BrainCircuit,
+    },
+    {
       name: "Application Analysis",
       url: "/stock-overview/application-analysis",
       icon: LineChart,
@@ -268,13 +298,18 @@ export const sidebarConfig = {
       icon: FileText,
     },
     {
+      name: "POC · easy_tdx Data Lab",
+      url: "/poc/easy-tdx",
+      icon: Database,
+    },
+    {
       name: "Settings · Scheduler",
       url: "/settings/scheduler",
       icon: Settings,
     },
     {
-      name: "Settings · AI Provider",
-      url: "/settings/ai-provider",
+      name: "AI · Provider",
+      url: "/ai/provider",
       icon: BrainCircuit,
     },
     {
@@ -288,13 +323,13 @@ export const sidebarConfig = {
       icon: Server,
     },
     {
-      name: "Settings · Prompt",
-      url: "/settings/prompt",
+      name: "AI · Prompt",
+      url: "/ai/prompt",
       icon: BrainCircuit,
     },
     {
-      name: "Settings · AI Usage",
-      url: "/settings/ai-usage",
+      name: "AI · Usage",
+      url: "/ai/usage",
       icon: Activity,
     },
     {

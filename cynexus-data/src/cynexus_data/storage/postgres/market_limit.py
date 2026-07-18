@@ -176,6 +176,28 @@ class MarketLimitRepository:
             ).mappings().all()
         return [dict(row) for row in rows]
 
+    def list_historical_limit_up_codes(self, *, limit: int | None = None, offset: int = 0) -> list[str]:
+        limit_sql = "LIMIT :limit" if limit is not None else ""
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    SELECT code
+                      FROM {self.client.schema}.{STOCK_TABLE}
+                     WHERE deleted_at IS NULL
+                       AND category = 'limit_up'
+                       AND code IS NOT NULL
+                       AND code <> ''
+                     GROUP BY code
+                     ORDER BY max(trade_date) DESC, count(*) DESC, code
+                     {limit_sql}
+                     OFFSET :offset
+                    """
+                ),
+                {"limit": int(limit) if limit is not None else None, "offset": max(0, int(offset or 0))},
+            ).all()
+        return [str(row[0]).strip()[-6:].zfill(6) for row in rows if str(row[0]).strip()]
+
 
 def _limit_emotion_extra(payload: dict[str, Any], stock_rows: list[dict[str, Any]]) -> dict[str, Any]:
     trade_date = str(payload.get("tradeDate") or "")[:10]

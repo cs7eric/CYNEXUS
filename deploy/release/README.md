@@ -16,10 +16,10 @@ Start the current Release Docker stack:
 .\deploy\release\start-release.ps1
 ```
 
-Run a specific developed version as a Release build, for example `1.0.1-260712-RELEASE`:
+Run a specific developed version as a Release build, for example `1.1.1-ALPHA-260716-RELEASE`:
 
 ```powershell
-.\deploy\release\start-release.ps1 -Version 1.0.1-260712-RELEASE
+.\deploy\release\start-release.ps1 -Version 1.1.1-ALPHA-260716-RELEASE
 ```
 
 Build the Maven artifacts and Docker images first:
@@ -28,7 +28,7 @@ Build the Maven artifacts and Docker images first:
 .\deploy\release\start-release.ps1 -Build
 ```
 
-`-Version 1.0.1-260712-RELEASE` uses the current `1.0.1-SNAPSHOT` development artifacts and tags all Docker images as `1.0.1-260712-RELEASE`. When `-Version` is omitted, the script uses the current Maven base version and today's `YYMMDD` date. Release is always Docker-managed. Development remains `1.0.1-SNAPSHOT`.
+`-Version 1.1.1-ALPHA-260716-RELEASE` uses the matching `1.1.1-ALPHA-260716-SNAPSHOT` development artifacts and tags all Docker images as `1.1.1-ALPHA-260716-RELEASE`. When `-Version` is omitted, the script uses the current Maven base version and adds today's `YYMMDD` date when needed. Release is always Docker-managed. Development remains `1.1.1-ALPHA-260716-SNAPSHOT`.
 
 Stop the Release Docker stack:
 

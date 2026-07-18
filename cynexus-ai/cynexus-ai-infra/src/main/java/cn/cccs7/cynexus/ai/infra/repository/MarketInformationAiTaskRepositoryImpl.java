@@ -19,7 +19,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
 
     @Override
     public int recoverStaleTasks(int timeoutMinutes) {
-        return jdbcTemplate.update("""
+        int recovered = jdbcTemplate.update("""
                 update market_information_ai_task
                    set task_status = case when attempt_count >= max_attempts then 'FAILED' else 'PENDING' end,
                        next_attempt_at = now(), claimed_at = null, claimed_by = null,
@@ -27,6 +27,47 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                  where task_status = 'RUNNING'
                    and claimed_at < now() - (? * interval '1 minute')
                 """, Math.max(timeoutMinutes, 1));
+        int requeued = jdbcTemplate.update("""
+                with retryable as (
+                    select distinct on (task.cluster_id, task.cluster_content_hash) task.id
+                      from market_information_ai_task task
+                     where task.task_type = 'EVENT_ANALYSIS'
+                       and task.task_status = 'FAILED'
+                       and task.requested_by <> 'automatic-retry'
+                       and task.last_error <> 'Event has no source content'
+                       and exists (
+                           select 1 from cynexus_appl_market.market_information_event_member member
+                            where member.cluster_id = task.cluster_id
+                       )
+                       and not exists (
+                           select 1 from market_information_ai_task active
+                            where active.task_type = task.task_type
+                              and active.cluster_id = task.cluster_id
+                              and active.cluster_content_hash = task.cluster_content_hash
+                              and active.task_status in ('PENDING', 'RUNNING')
+                       )
+                       and not exists (
+                           select 1 from market_information_event_analysis analysis
+                            where analysis.cluster_id = task.cluster_id
+                              and analysis.cluster_content_hash = task.cluster_content_hash
+                              and analysis.schema_version = 'v2'
+                              and analysis.prompt_version = (select prompt.prompt_version
+                                                               from cynexus_appl_ai.ai_usage_bindings binding
+                                                               join cynexus_appl_ai.ai_prompt prompt on prompt.id = binding.prompt_id
+                                                              where binding.capability = 'market_information_event_analysis'
+                                                                and binding.deleted_at is null and binding.is_enabled
+                                                                and prompt.deleted_at is null limit 1)
+                              and analysis.analysis_status = 'SUCCEEDED'
+                       )
+                     order by task.cluster_id, task.cluster_content_hash, task.updated_at desc, task.id desc
+                )
+                update market_information_ai_task task
+                   set task_status = 'PENDING', attempt_count = 0, next_attempt_at = now(),
+                       claimed_at = null, claimed_by = null, requested_by = 'automatic-retry',
+                       last_error = 'Retrying eligible AI analysis failure', updated_at = now()
+                 where task.id in (select id from retryable)
+                """);
+        return recovered + requeued;
     }
 
     @Override

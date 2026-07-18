@@ -47,7 +47,7 @@ class FakeSession:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def execute(self, statement, params):
+    def execute(self, statement, params=None):
         self.calls.append((str(statement), params))
         return FakeExecuteResult(self.result)
 
@@ -92,3 +92,43 @@ def test_upsert_detail_writes_json_payload_to_detail_table() -> None:
     assert params["source_table"] == "daily_raw"
     assert '"regimeBucket": "trend_up"' in params["payload"]
     assert row["payload"]["regimeBucket"] == "trend_up"
+
+
+def test_record_source_failure_uses_latest_successful_flow_value() -> None:
+    class FailureSession:
+        def __init__(self):
+            self.calls = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement, params=None):
+            sql = str(statement)
+            self.calls.append((sql, params))
+            if "main_net_inflow IS NOT NULL" in sql:
+                return FakeExecuteResult(FakeResult(first_row={"trade_date": date(2026, 7, 8), "extra": {}}))
+            return FakeExecuteResult(FakeResult(first_row=None))
+
+    class FailureClient:
+        schema = "cynexus_appl_market"
+
+        def __init__(self):
+            self.session_obj = FailureSession()
+
+        def session(self):
+            return self.session_obj
+
+    client = FailureClient()
+    last_successful = MarketOverviewRepository(client).record_source_failure(
+        source="eastmoney.market_fund_flow",
+        error="upstream unavailable",
+        attempted_at="2026-07-16T09:00:00+00:00",
+    )
+
+    assert last_successful == "2026-07-08"
+    update_sql, update_params = client.session_obj.calls[-1]
+    assert "SET extra = CAST(:extra AS jsonb)" in update_sql
+    assert '"last_successful_trade_date": "2026-07-08"' in update_params["extra"]

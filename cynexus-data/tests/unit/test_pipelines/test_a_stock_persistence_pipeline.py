@@ -4,6 +4,73 @@ from cynexus_data.domain.stock.a_stock_persistence import normalize_dataset
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.a_stock.sync_a_stock_dataset import run
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.storage.postgres import a_stock
+
+
+def test_fund_flow_daily_uses_stable_id_for_natural_key() -> None:
+    row = {
+        "source": "easy_tdx.tdx",
+        "code": "000791",
+        "trade_date": "2026-07-08",
+        "main_net": 1,
+    }
+
+    first = a_stock._prepare_record("a_stock_fund_flow_daily", row, key_columns=["source", "code", "trade_date"])
+    second = a_stock._prepare_record("a_stock_fund_flow_daily", row, key_columns=["source", "code", "trade_date"])
+    other = a_stock._prepare_record(
+        "a_stock_fund_flow_daily",
+        {**row, "trade_date": "2026-07-09"},
+        key_columns=["source", "code", "trade_date"],
+    )
+
+    assert first["id"] == second["id"]
+    assert first["id"] != other["id"]
+
+
+def test_pipeline_counts_content_extraction_result_without_rows_normalized_key(monkeypatch) -> None:
+    class FakePostgresHook:
+        def get_client(self):
+            return object()
+
+    class FakeHooks:
+        postgres = FakePostgresHook()
+
+    class FakeRepo:
+        def __init__(self, client):
+            self.client = client
+
+        def upsert_batches(self, batches):
+            return sum(len(rows) for rows in batches.values())
+
+    monkeypatch.setattr("cynexus_data.pipelines.a_stock.sync_a_stock_dataset.AStockPostgresRepository", FakeRepo)
+    monkeypatch.setattr(
+        "cynexus_data.pipelines.a_stock.sync_a_stock_dataset.extract_and_persist",
+        lambda client, identities: {"ready": 1, "failed": 2, "needs_ocr": 0, "unsupported": 0, "summary_only": 1, "skipped_cached": 3},
+    )
+    monkeypatch.setattr(
+        "cynexus_data.pipelines.a_stock.sync_a_stock_dataset.identities_from_batches",
+        lambda batches: [object()],
+    )
+    monkeypatch.setattr(
+        "cynexus_data.pipelines.a_stock.sync_a_stock_dataset.recent_backfill_identities",
+        lambda client, limit: [],
+    )
+
+    result = run(
+        PipelineContext(hooks=FakeHooks()),
+        JobRequest(
+            job_key="sync_a_stock_dataset",
+            dry_run=False,
+            params={
+                "dataset": "eastmoney_global_news",
+                "payload": [{"id": "news-1", "title": "Market news", "time": "2026-07-17 09:00", "url": "https://example.test/news"}],
+                "extract_market_information_content": True,
+            },
+        ),
+    )
+
+    assert result["rows_read"] == 1
+    assert result["dataset_results"]["market_information_content"]["rows_normalized"] == 0
 
 
 def test_normalize_eastmoney_minute_fund_flow_to_clickhouse() -> None:

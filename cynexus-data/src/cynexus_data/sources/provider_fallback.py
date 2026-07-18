@@ -10,6 +10,7 @@ from cynexus_data.sources.sina.adapter import adapt_minute_payload as adapt_sina
 from cynexus_data.sources.tdx.mootdx import create_mootdx_client, fetch_mootdx_kline_rows, mootdx_server_candidates
 from cynexus_data.sources.tencent.adapter import adapt_kline_payload as adapt_tencent_kline_payload
 from cynexus_data.sources.tencent.adapter import adapt_minute_query_payload as adapt_tencent_minute_query_payload
+from cynexus_data.sources.tdx.easy_tdx import fetch_kline_rows as fetch_easy_tdx_kline_rows
 
 if TYPE_CHECKING:
     from cynexus_data.runtime.context import HookBundle
@@ -79,6 +80,7 @@ def fetch_daily_kline_with_fallback(hooks: HookBundle, *, symbol: str, providers
     fetchers: dict[str, FetchCallable] = {
         "tencent": lambda: _fetch_tencent_daily(hooks, market_symbol, adjust=adjust, limit=limit),
         "eastmoney": lambda: _fetch_eastmoney_daily(hooks, market_symbol, adjust=adjust, limit=limit),
+        "easy_tdx": lambda: fetch_easy_tdx_kline_rows(market_symbol, period="day", adjust=adjust, limit=limit),
         "mootdx": lambda: _fetch_mootdx_daily(market_symbol, adjust=adjust, limit=limit),
     }
     return fetch_with_fallback([p for p in providers if p != "tdx"], fetchers)
@@ -98,6 +100,7 @@ def fetch_minute_kline_with_fallback(
         "sina": lambda: adapt_sina_minute_payload(hooks.sina.get_client().fetch_minute_kline_raw(market_symbol, scale=period, datalen=limit)),
         "eastmoney": lambda: _fetch_eastmoney_minute(hooks, market_symbol, period=period, limit=limit),
         "tencent": lambda: _fetch_tencent_minute(hooks, market_symbol, period=period, limit=limit),
+        "easy_tdx": lambda: fetch_easy_tdx_kline_rows(market_symbol, period=period, adjust="none", limit=limit),
         "mootdx": lambda: _fetch_mootdx_minute(market_symbol, period=period, limit=limit, target_type=target_type),
     }
     return fetch_with_fallback([p for p in providers if p != "tdx"], fetchers)

@@ -21,8 +21,9 @@ public class MarketInformationController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(required = false) Integer pageSize,
             @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false) String impactIndustryCode) {
-        return Result.success(appService.feed(page, pageSize == null ? limit : pageSize, impactIndustryCode));
+            @RequestParam(required = false) String impactIndustryCode,
+            @RequestParam(required = false) String analysisStatus) {
+        return Result.success(appService.feed(page, pageSize == null ? limit : pageSize, impactIndustryCode, analysisStatus));
     }
 
     @GetMapping("/brief/latest")

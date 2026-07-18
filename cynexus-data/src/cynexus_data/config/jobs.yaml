@@ -48,6 +48,32 @@ jobs:
       official_market_information: government, central-bank, statistics, regulator, exchange, and media market headlines
       market_information_content_backfill_limit: optional; bounded recent full-text retry count with a six-hour cooldown
 
+  a_stock_fund_flow_history_backfill:
+    description: Incrementally sync stock fund-flow history through easy_tdx with EastMoney fallback. Supports historical limit-up scope and remaining-active scope.
+    params:
+      shard_size: optional; defaults to 300; set 0 or run_all=true to process the full scope in one run
+      run_all: optional; process every pending stock in the selected scope
+      batch_sleep_seconds: optional; when run_all=true and shard_size > 0, sleep between internal batches
+      stock_scope: optional; all-active, limit-up-history, remaining-active, or missing-120
+      fund_flow_count: optional; defaults to 5 after the initial 120-day bootstrap
+      minimum_history_rows: optional; defaults to 120 for missing-120 scope
+      fund_flow_workers: optional; defaults to 6, bounded to 1..8
+      codes: optional; explicit stock codes override the active-stock universe
+      checkpoint_scope: optional; stable checkpoint namespace
+      create_table: optional
+      provider_timeout: optional
+
+  a_stock_fund_flow_daily_qc:
+    description: Sequential same-day QC comparing easy_tdx and EastMoney stock fund-flow for a randomized 50-symbol market sample.
+    params:
+      sample_size: optional; defaults to 50 and is capped at 50
+      sample_seed: optional; omit for a different randomized sample each run
+      sample_date: optional; defaults to today
+      codes: optional; explicit stock codes override the randomized active-stock sample
+      create_table: optional
+      provider_timeout: optional; defaults to 15
+      request_sleep_seconds: optional; extra sleep between sampled symbols
+
   sync_trade_calendar:
     description: Sync trade calendar data.
     params:
@@ -67,6 +93,7 @@ jobs:
       symbols: optional
       limit: optional
       create_table: optional
+
       force: optional
 
   sync_stock_sectors:
@@ -200,7 +227,7 @@ jobs:
       urlopen_backoff_seconds: optional
 
   sync_tdx_intraday_detail:
-    description: Sync eltdx auction points and historical 1m timeshare details into ClickHouse.
+    description: Sync auction and historical intraday details using easy_tdx or eltdx into ClickHouse.
     params:
       trade_date: optional
       datasets: optional
@@ -218,6 +245,7 @@ jobs:
       eltdx_timeout: optional
       batch_size: optional
       limit_codes: optional
+      provider: optional; easy_tdx or eltdx, default eltdx; easy_tdx is available for timeshare
 
   aggregate_kline_periods:
     description: Aggregate 1m kline into higher periods.
@@ -239,11 +267,11 @@ jobs:
       page_sleep: optional
 
   sync_stock_fund_flow:
-    description: Sync Tencent stock fund-flow snapshots into PostgreSQL.
+    description: Sync Tencent or easy_tdx stock fund-flow snapshots into PostgreSQL.
     params:
       trade_date: optional
       providers: optional
-      provider: optional
+      provider: optional; tencent or easy_tdx
       codes: optional
       symbols: optional
       code_source: optional; self_selected/watchlist, stock_basic/all/active
@@ -363,6 +391,43 @@ jobs:
       fields: optional
       totalAmount: optional
       mainNetInflow: optional
+
+  sync_market_fund_flow:
+    description: Sync EastMoney market-wide fund-flow daily history into market overview snapshots.
+    params:
+      limit: optional; EastMoney daily rows to request, default 120
+      create_table: optional
+
+  sync_market_etf:
+    description: Sync ETF spot, IOPV, premium/discount, activity, and daily share-flow proxies into PostgreSQL.
+    params:
+      trade_date: optional
+      snapshot_date: optional
+      create_table: optional
+      refresh_classification: optional; refresh the best-effort fund/index classification catalog, default false
+
+  sync_limit_up_fund_flow_minute_archive:
+    description: Fetch EastMoney minute fund-flow for historical limit-up stocks in small checkpointed shards and archive the latest full-day minute as daily fallback history.
+    params:
+      trade_date: optional; defaults to today
+      create_table: optional
+      fetch_live: optional; dry-run defaults to false, live runs default to true
+      ignore_errors: optional; defaults to true
+      shard_size: optional; per-run stock count, default 80
+      limit_codes: optional; alias of shard_size for compatibility
+      code_pool_limit: optional; cap historical limit-up stock pool size before sharding
+      code_offset: optional; manual offset override into historical limit-up stock pool
+      checkpoint_key: optional; round-robin checkpoint key, default a_stock.sync_limit_up_fund_flow_minute_archive.round_robin
+      codes: optional; explicit stock code list override
+      request_sleep_seconds: optional; extra sleep after each stock request, default 0.5
+      provider_timeout_seconds: optional; EastMoney request timeout, default 8
+      max_runtime_seconds: optional; clean stop and checkpoint after this runtime, default 1200
+      batch_flush_successes: optional; flush ClickHouse after this many successful stocks, default 10
+      fetch_retries: optional; per-stock retry count after the first failed request, default 1
+      retry_sleep_min_seconds: optional; default 2
+      retry_sleep_max_seconds: optional; default 6
+      complete_after_time: optional; default 14:50:00, only archive days with a minute at or after this time
+      aggregate_source: optional; default eastmoney.push2.minute_agg
 
   build_market_overview_detail:
     description: Build market overview technical/detail JSON snapshot from daily bars and breadth snapshots.

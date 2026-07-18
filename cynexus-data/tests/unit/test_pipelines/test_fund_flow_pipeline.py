@@ -76,6 +76,10 @@ class FakeStockHooks:
     tencent = FakeTencentHook()
 
 
+class FakeEasyTdxHooks:
+    postgres = FakePostgresHook()
+
+
 class FakeWatchlistSession:
     def __enter__(self):
         return self
@@ -295,6 +299,40 @@ def test_sync_stock_flow_live_uses_tencent_client(monkeypatch) -> None:
     assert call["source_type"] == "crawler"
     assert call["records"][0]["code"] == "600000"
     assert call["records"][0]["source"] == "tencent.qt"
+
+
+def test_sync_stock_flow_live_uses_easy_tdx(monkeypatch) -> None:
+    FakeStockRepo.created = 0
+    FakeStockRepo.calls = []
+    monkeypatch.setattr(sync_stock_flow, "StockFundFlowRepository", FakeStockRepo)
+    monkeypatch.setattr(
+        sync_stock_flow,
+        "fetch_current_stock_fund_flow_batch",
+        lambda codes, trade_date: [
+            {
+                "symbol": "sh600000",
+                "code": "600000",
+                "name": "浦发银行",
+                "trade_date": trade_date,
+                "active_net_amount_wan": 12.5,
+            }
+        ],
+    )
+
+    result = sync_stock_flow.run(
+        PipelineContext(hooks=FakeEasyTdxHooks()),
+        JobRequest(
+            job_key="sync_stock_fund_flow",
+            dry_run=False,
+            params={"provider": "easy_tdx", "trade_date": "2026-06-26", "codes": "600000"},
+        ),
+    )
+
+    assert result["rows_read"] == 1
+    assert result["rows_written"] == 1
+    call = FakeStockRepo.calls[0]
+    assert call["source"] == "easy_tdx.tdx"
+    assert call["requested_codes"] == ["sh600000"]
 
 
 def test_sync_stock_flow_resolves_self_selected_codes(monkeypatch) -> None:

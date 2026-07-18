@@ -247,7 +247,12 @@ public final class MarketInformationAnalysisDomainPolicy {
     }
 
     private void requireConfidence(JsonNode value, String field) {
-        double confidence = value.path(field).asDouble(-1); if (confidence < 0 || confidence > 1) throw new IllegalArgumentException(field + " must be between 0 and 1");
+        JsonNode confidenceNode = value.path(field);
+        if (!confidenceNode.isNumber()) throw new IllegalArgumentException(field + " must be between 0 and 1");
+        double confidence = confidenceNode.asDouble();
+        if (!Double.isFinite(confidence) || confidence < 0 || confidence > 1) {
+            throw new IllegalArgumentException(field + " must be between 0 and 1");
+        }
     }
 
     private void collectReferences(JsonNode value, String field, Set<Long> availableIds, Set<Long> target) {

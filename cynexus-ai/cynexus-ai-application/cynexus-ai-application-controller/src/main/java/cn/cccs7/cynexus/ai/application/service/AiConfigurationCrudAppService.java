@@ -99,15 +99,32 @@ public class AiConfigurationCrudAppService {
     }
 
     public Long createUsageBinding(AiUsageBindingBO binding) {
+        validateBindingReferences(binding);
         return aiUsageBindingRepository.create(binding);
     }
 
     public boolean updateUsageBinding(AiUsageBindingBO binding) {
+        validateBindingReferences(binding);
         return aiUsageBindingRepository.update(binding);
     }
 
     public boolean deleteUsageBinding(Long id) {
         return aiUsageBindingRepository.delete(id);
+    }
+
+    private void validateBindingReferences(AiUsageBindingBO binding) {
+        if (binding == null) {
+            throw new IllegalArgumentException("AI usage binding is required");
+        }
+        if (binding.getProviderId() != null && aiProviderRepository.findById(binding.getProviderId()) == null) {
+            throw new IllegalArgumentException("AI provider binding target does not exist");
+        }
+        if (binding.getPromptId() != null) {
+            AiPromptBO prompt = aiPromptRepository.findById(binding.getPromptId());
+            if (prompt == null || !"active".equalsIgnoreCase(prompt.getStatus())) {
+                throw new IllegalArgumentException("AI prompt binding target must be active");
+            }
+        }
     }
 
     public List<ApplicationAnalysisConfigBO> listAnalysisConfigs() {

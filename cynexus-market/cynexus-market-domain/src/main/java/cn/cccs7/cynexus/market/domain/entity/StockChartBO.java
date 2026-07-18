@@ -172,6 +172,8 @@ public final class StockChartBO {
     @AllArgsConstructor
     public static class FundFlowPoint {
         private LocalDate tradeDate;
+        private BigDecimal lastPrice;
+        private BigDecimal turnoverRate;
         private BigDecimal activeNetAmountWan;
         private BigDecimal mainNetAmountWan;
         private BigDecimal superNetAmountWan;
@@ -180,6 +182,8 @@ public final class StockChartBO {
         private BigDecimal smallNetAmountWan;
         private BigDecimal activeBuyRatio;
         private BigDecimal activeSellRatio;
+        private BigDecimal buyBigRatio;
+        private BigDecimal sellBigRatio;
         private BigDecimal amountWan;
         private BigDecimal changePct;
     }

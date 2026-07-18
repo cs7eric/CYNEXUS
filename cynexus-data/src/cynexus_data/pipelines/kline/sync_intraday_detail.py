@@ -8,6 +8,7 @@ from cynexus_data.sources.tdx.intraday import (
     fetch_stock_history_timeshare,
     timeshare_to_frame,
 )
+from cynexus_data.sources.tdx.easy_tdx import fetch_history_timeshare_rows
 from cynexus_data.storage.clickhouse.writers import ClickHouseIntradayDetailSink
 from cynexus_data.storage.postgres.stock_basic import StockBasicRepository
 
@@ -19,6 +20,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     trade_date = request.params.get("trade_date")
     target_type = request.params.get("target_type")
     timeout = float(request.params.get("timeout_seconds") or request.params.get("eltdx_timeout") or 20.0)
+    provider = str(request.params.get("provider") or "eltdx").strip().lower()
+    if provider not in {"easy_tdx", "eltdx"}:
+        raise ValueError("provider must be easy_tdx or eltdx")
     batch_size = int(request.params.get("batch_size") or 50_000)
     create_table = _truthy(request.params.get("create_table"))
     resume = _truthy(request.params.get("resume"))
@@ -30,7 +34,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
 
     result = {
         "pipeline": "kline.sync_intraday_detail",
-        "provider": "eltdx",
+        "provider": provider,
         "dry_run": request.dry_run,
         "datasets": datasets,
         "auction_phases": auction_phases,
@@ -47,7 +51,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "ignore_errors": ignore_errors,
     }
     if request.dry_run:
-        result["notes"] = ["dry_run skipped eltdx and ClickHouse access"]
+        result["notes"] = [f"dry_run skipped {provider} and ClickHouse access"]
         return result
     if context.hooks is None:
         raise RuntimeError("PipelineContext.hooks is required")
@@ -60,7 +64,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     if not codes:
         raise ValueError("codes/symbols are required or sec_stock_basic must contain active codes")
 
-    client = context.hooks.tdx.get_intraday_detail_client(timeout=timeout)
+    # easy_tdx supplies historical timeshare with the standard protocol. The
+    # existing eltdx client remains available for auction-specific datasets.
+    client = context.hooks.tdx.get_intraday_detail_client(timeout=timeout) if "auction" in datasets or provider == "eltdx" else None
     sink = ClickHouseIntradayDetailSink(context.hooks.clickhouse.get_config())
     if create_table:
         sink.create_tables()
@@ -77,13 +83,20 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 continue
             try:
                 if dataset == "auction":
+                    if client is None:
+                        raise RuntimeError("auction dataset requires the eltdx intraday client")
                     auction_payload = fetch_stock_auction(client, code, trade_date, target_type=target_type)
                     points = _filter_auction_points(auction_payload["points"], auction_phases)
                     frame = auction_points_to_frame(points)
                     written = sink.insert_auction_points(frame, batch_size=batch_size)
                     code_result["auction_rows"] = len(frame)
                 else:
-                    rows = fetch_stock_history_timeshare(client, code, trade_date, target_type=target_type)
+                    if provider == "easy_tdx":
+                        rows = fetch_history_timeshare_rows(code, trade_date, timeout=timeout)
+                    else:
+                        if client is None:
+                            raise RuntimeError("eltdx intraday client is not initialized")
+                        rows = fetch_stock_history_timeshare(client, code, trade_date, target_type=target_type)
                     frame = timeshare_to_frame(rows)
                     written = sink.insert_timeshare(frame, batch_size=batch_size)
                     code_result["timeshare_rows"] = len(frame)

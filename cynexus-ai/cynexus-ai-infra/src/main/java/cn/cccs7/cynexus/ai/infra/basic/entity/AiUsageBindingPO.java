@@ -15,6 +15,7 @@ public class AiUsageBindingPO extends BasePO {
     private String capability;
     private String label;
     private Long providerId;
+    private Long promptId;
     private String modelOverride;
     @TableField("is_enabled")
     private Boolean enabled;

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from threading import Event, Thread
 
 from cynexus_data.jobs.contracts import JobRequest, JobResult
+from cynexus_data.jobs._pipeline_job import run_pipeline_job
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.runtime.job_runner import JobRunner
 
@@ -50,3 +51,20 @@ def test_job_runner_lock_scope_allows_parallel_scopes() -> None:
 
     assert second.success is True
     assert second.status == "success"
+
+
+def test_pipeline_job_maps_failure_payload_to_alertable_job_result() -> None:
+    def failed_pipeline(context, request):
+        return {"success": False, "status": "failed", "error": "source unavailable", "stale": True}
+
+    result = run_pipeline_job(
+        PipelineContext(),
+        JobRequest(job_key="failed", dry_run=True),
+        "run-1",
+        failed_pipeline,
+    )
+
+    assert result.success is False
+    assert result.status == "failed"
+    assert result.errors == ["source unavailable"]
+    assert result.metadata["stale"] is True

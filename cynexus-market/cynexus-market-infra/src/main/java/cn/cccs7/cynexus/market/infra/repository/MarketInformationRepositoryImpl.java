@@ -11,9 +11,9 @@ import org.springframework.stereotype.Repository;
 public class MarketInformationRepositoryImpl implements MarketInformationRepository {
     private final PostgresMarketInformationClient client;
     public MarketInformationRepositoryImpl(PostgresMarketInformationClient client) { this.client = client; }
-    @Override public MarketInformationBO.Feed feed(int page, int pageSize, String impactIndustryCode) {
-        var macroNews = client.news(page, pageSize, impactIndustryCode);
-        long total = client.newsCount(impactIndustryCode);
+    @Override public MarketInformationBO.Feed feed(int page, int pageSize, String impactIndustryCode, String analysisStatus) {
+        var macroNews = client.news(page, pageSize, impactIndustryCode, analysisStatus);
+        long total = client.newsCount(impactIndustryCode, analysisStatus);
         int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
         var newsPage = MarketInformationBO.NewsPage.builder().items(macroNews).total(total).page(page).pageSize(pageSize)
                 .totalPages(totalPages).hasPrevious(page > 1).hasNext(page < totalPages).build();

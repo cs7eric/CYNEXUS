@@ -44,10 +44,20 @@ import {
   upsertAiBinding,
 } from "@/services/ai/provider"
 import { cn } from "@/lib/utils"
+import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
 
-// AI Provider frontend docs:
-//   design/frontend/ai-provider.md
-// Keep that document in sync when changing this settings UI, route behavior, or payload shape.
+/**
+ * Maintenance Notice:
+ * Before modifying this page, review the related documentation under:
+ * - design/front/infra/index.md
+ * - design/front/infra/ai-provider.detail.md
+ * - design/front/reuse/reuse.md
+ *
+ * If this page's route, data source, API usage, component structure,
+ * or reusable logic changes, update the corresponding design documents.
+ */
+
+// Keep the AI Provider page documentation in sync when changing this UI, route behavior, or payload shape.
 
 type ProviderDraft = {
   id?: string
@@ -72,6 +82,7 @@ type ProviderDraft = {
 type BindingDraft = {
   providerId: string
   modelOverride: string
+  promptId: string
 }
 
 const emptyDraft: ProviderDraft = {
@@ -119,6 +130,7 @@ export default function AiProviderSettingsPage() {
   const [providers, setProviders] = useState<AiProviderItem[]>([])
   const [providerTypes, setProviderTypes] = useState<AiProviderType[]>([])
   const [bindings, setBindings] = useState<AiBindingItem[]>([])
+  const [prompts, setPrompts] = useState<AiPromptItem[]>([])
   const [capabilities, setCapabilities] = useState<AiCapability[]>([])
   const [draft, setDraft] = useState<ProviderDraft>(emptyDraft)
   const [selectedProviderId, setSelectedProviderId] = useState("")
@@ -141,16 +153,18 @@ export default function AiProviderSettingsPage() {
     setLoading(true)
     setError("")
     try {
-      const [nextCapabilities, nextProviders, nextBindings] = await Promise.all([
+      const [nextCapabilities, nextProviders, nextBindings, nextPrompts] = await Promise.all([
         fetchAiCapabilities(),
         fetchAiProviders(),
         fetchAiBindings(),
+        fetchAiPrompts({ status: "active" }),
       ])
       const nextProviderTypes = await fetchAiProviderTypes()
       setCapabilities(nextCapabilities)
       setProviderTypes(nextProviderTypes)
       setProviders(nextProviders)
       setBindings(nextBindings)
+      setPrompts(nextPrompts)
       setBindingDrafts(
         Object.fromEntries(
           nextBindings.map((binding) => [
@@ -158,6 +172,7 @@ export default function AiProviderSettingsPage() {
             {
               providerId: binding.provider_id || "",
               modelOverride: binding.model_override || "",
+              promptId: binding.prompt_id || "",
             },
           ]),
         ),
@@ -199,10 +214,11 @@ export default function AiProviderSettingsPage() {
       const providerId = draftRoute?.providerId ?? binding?.provider_id ?? ""
       const provider = providerById.get(providerId) || null
       const modelOverride = draftRoute?.modelOverride ?? binding?.model_override ?? ""
+      const promptId = draftRoute?.promptId ?? binding?.prompt_id ?? ""
       const effectiveModel = modelOverride || provider?.default_model || ""
       const issues = routeIssues(provider, effectiveModel)
-      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "")
-      return { capability, binding, providerId, provider, modelOverride, effectiveModel, issues, dirty }
+      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "") || promptId !== (binding?.prompt_id || "")
+      return { capability, binding, providerId, provider, modelOverride, promptId, effectiveModel, issues, dirty }
     }),
     [bindingByCapability, bindingDrafts, capabilities, providerById],
   )
@@ -286,6 +302,7 @@ export default function AiProviderSettingsPage() {
       const existing = current[capabilityCode] || {
         providerId: binding?.provider_id || "",
         modelOverride: binding?.model_override || "",
+        promptId: binding?.prompt_id || "",
       }
       return {
         ...current,
@@ -297,11 +314,11 @@ export default function AiProviderSettingsPage() {
     })
   }
 
-  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string) {
+  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string, promptId: string) {
     const previous = bindingSaveTimers[capability.code]
     if (previous) window.clearTimeout(previous)
     const timer = window.setTimeout(() => {
-      void handleBindingChange(capability, providerId, modelOverride)
+      void handleBindingChange(capability, providerId, modelOverride, promptId)
       setBindingSaveTimers((current) => {
         const next = { ...current }
         delete next[capability.code]
@@ -311,7 +328,7 @@ export default function AiProviderSettingsPage() {
     setBindingSaveTimers((current) => ({ ...current, [capability.code]: timer }))
   }
 
-  async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string) {
+  async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string, promptId: string) {
     const provider = providerById.get(providerId) || null
     const normalizedModel = modelOverride.trim() || provider?.default_model || ""
     const issues = routeIssues(provider, normalizedModel)
@@ -329,6 +346,7 @@ export default function AiProviderSettingsPage() {
         label: capability.label,
         provider_id: providerId,
         model_override: normalizedModel,
+        prompt_id: promptId,
         is_enabled: true,
       })
       setBindings((current) => {
@@ -340,6 +358,7 @@ export default function AiProviderSettingsPage() {
         [saved.capability]: {
           providerId: saved.provider_id || "",
           modelOverride: saved.model_override || "",
+          promptId: saved.prompt_id || "",
         },
       }))
       notification.success({ title: "绑定已保存", description: capability.label })
@@ -357,7 +376,7 @@ export default function AiProviderSettingsPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <BrainCircuit className="size-4" />
-              Settings
+              AI
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">AI Provider</h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -479,21 +498,22 @@ export default function AiProviderSettingsPage() {
               <Badge variant="secondary">{capabilities.length}</Badge>
             </div>
             <div className="overflow-x-auto rounded-lg bg-white/70">
-              <div className="sticky top-0 z-10 grid min-w-[1120px] grid-cols-[minmax(240px,1.35fr)_minmax(170px,0.9fr)_minmax(210px,1fr)_minmax(210px,1fr)_minmax(190px,1fr)_108px] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 z-10 grid min-w-[1320px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_108px] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
                 <div>Capability</div>
                 <div>Group</div>
                 <div>Provider</div>
                 <div>Model</div>
+                <div>Prompt</div>
                 <div>Runtime / entry</div>
                 <div className="text-right">Action</div>
               </div>
               <div className="divide-y divide-border/50">
                 {routeRows.map((row) => {
-                  const { capability, binding, providerId, provider, modelOverride, issues, dirty } = row
+                  const { capability, binding, providerId, provider, modelOverride, promptId, issues, dirty } = row
                   const providerModels = provider?.models || []
                   const availableModels = uniq([provider?.default_model || "", ...providerModels, modelOverride].filter(Boolean))
                   return (
-                    <div key={capability.code} className="grid min-w-[1120px] grid-cols-[minmax(240px,1.35fr)_minmax(170px,0.9fr)_minmax(210px,1fr)_minmax(210px,1fr)_minmax(190px,1fr)_108px] items-start gap-3 px-3 py-3">
+                    <div key={capability.code} className="grid min-w-[1320px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_108px] items-start gap-3 px-3 py-3">
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate font-medium">{capability.label}</span>
@@ -522,7 +542,7 @@ export default function AiProviderSettingsPage() {
                               providerId: nextProviderId,
                               modelOverride: nextModel,
                             })
-                            scheduleBindingSave(capability, nextProviderId, nextModel)
+                            scheduleBindingSave(capability, nextProviderId, nextModel, promptId)
                           }}
                       >
                         <SelectTrigger>
@@ -540,7 +560,7 @@ export default function AiProviderSettingsPage() {
                           value={modelOverride || provider?.default_model || ""}
                           onValueChange={(value) => {
                             updateBindingDraft(capability.code, { modelOverride: value })
-                            scheduleBindingSave(capability, providerId, value)
+                            scheduleBindingSave(capability, providerId, value, promptId)
                           }}
                         >
                           <SelectTrigger>
@@ -556,10 +576,26 @@ export default function AiProviderSettingsPage() {
                         <Input
                           value={modelOverride}
                           onChange={(event) => updateBindingDraft(capability.code, { modelOverride: event.target.value })}
-                          onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value)}
+                          onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value, promptId)}
                           placeholder={provider?.default_model || "provider default"}
                         />
                       )}
+                      <Select
+                        value={promptId || "none"}
+                        onValueChange={(value) => {
+                          const nextPromptId = value === "none" ? "" : value
+                          updateBindingDraft(capability.code, { promptId: nextPromptId })
+                          scheduleBindingSave(capability, providerId, modelOverride, nextPromptId)
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="No prompt" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No prompt</SelectItem>
+                          {prompts.filter((prompt) => prompt.prompt_key === (capability.prompt_key || capability.code)).map((prompt) => (
+                            <SelectItem key={prompt.id} value={prompt.id}>{prompt.name} · {prompt.prompt_version}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <div className="min-w-0">
                         <div className="truncate text-xs text-muted-foreground">{capability.runtime}</div>
                         <div className="mt-1 truncate text-xs text-muted-foreground">{capability.entry}</div>

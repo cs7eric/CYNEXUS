@@ -63,10 +63,12 @@ public class PostgresAStockSkillDataClient {
                 """
                 select distinct on (trade_date)
                        trade_date, main_net, super_net, large_net, mid_net, small_net, source
-                  from cynexus_appl_market.a_stock_fund_flow_daily
+                 from cynexus_appl_market.a_stock_fund_flow_daily
                  where code = ?
                  order by trade_date desc,
-                          case when source = 'eastmoney.push2his' then 0 else 1 end,
+                          case when source = 'easy_tdx.tdx' then 0
+                               when source = 'eastmoney.push2his' then 1
+                               else 2 end,
                           ingested_at desc
                  limit ?
                 """,

@@ -4,12 +4,16 @@ import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisKlineDomainPolicy;
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewHistoryDTO;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -56,7 +60,8 @@ public class ApplicationAnalysisKlineInputBuilder {
         ));
         input.put("bars", bars);
         input.put("benchmark_bars", benchmarkBars(adjust));
-        input.put("market_breadth_series", List.of());
+        List<Map<String, Object>> marketBreadthSeries = marketBreadthSeries(dailyTail);
+        input.put("market_breadth_series", marketBreadthSeries);
         input.put("analysis_windows", List.of(3, 5, 10, 20));
         input.put("enabled_features", Map.of(
                 "support_resistance", true,
@@ -77,8 +82,8 @@ public class ApplicationAnalysisKlineInputBuilder {
                 "weekly", "aggregated_from_daily",
                 "weekly_total_count", weeklyTail.size(),
                 "weekly_kept", weeklyTail.size(),
-                "market_breadth_series", "none",
-                "market_breadth_series_kept", 0
+                "market_breadth_series", marketBreadthSeries.isEmpty() ? "none" : "java-pg",
+                "market_breadth_series_kept", marketBreadthSeries.size()
         ));
         return input;
     }
@@ -121,8 +126,13 @@ public class ApplicationAnalysisKlineInputBuilder {
         return response.getItems().stream()
                 .filter(item -> item != null && item.getClose() != null)
                 .sorted(Comparator.comparingLong(this::timestamp))
-                .map(this::barItem)
-                .toList();
+                .collect(Collectors.toMap(
+                        this::timestamp,
+                        this::barItem,
+                        (first, second) -> second,
+                        LinkedHashMap::new
+                ))
+                .values().stream().toList();
     }
 
     private Map<String, Object> barItem(StockChartDTO.KlineBarDTO item) {
@@ -134,9 +144,40 @@ public class ApplicationAnalysisKlineInputBuilder {
         result.put("close", decimal(item.getClose()));
         result.put("volume", decimal(item.getVolume()));
         result.put("turnover", decimal(item.getTurnover()));
-        result.put("turnover_rate", decimal(item.getTurnoverRate()));
-        result.put("volume_ratio", decimal(item.getVolumeRatio()));
+        result.put("turnover_rate", nullableDecimal(item.getTurnoverRate()));
+        result.put("volume_ratio", nullableDecimal(item.getVolumeRatio()));
         return result;
+    }
+
+    private List<Map<String, Object>> marketBreadthSeries(List<Map<String, Object>> dailyItems) {
+        if (dailyItems.isEmpty()) return List.of();
+        try {
+            String latestDate = LocalDate.ofInstant(
+                    java.time.Instant.ofEpochMilli(((Number) dailyItems.getLast().get("timestamp")).longValue()),
+                    SHANGHAI
+            ).toString();
+            LocalDate end = LocalDate.parse(latestDate);
+            LocalDate start = end.minusDays(45);
+            MarketPulseOverviewHistoryDTO history = marketDataGateway.getMarketOverviewHistory(start.toString(), end.toString());
+            if (history == null || history.getItems() == null) return List.of();
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (MarketPulseOverviewHistoryDTO.ItemDTO item : history.getItems()) {
+                if (item == null || item.getTradeDate() == null) continue;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("trade_date", item.getTradeDate().toString());
+                row.put("total_amount", item.getTotalAmount());
+                row.put("rising_count", item.getRisingCount());
+                row.put("falling_count", item.getFallingCount());
+                row.put("flat_count", item.getFlatCount());
+                row.put("limit_up_count", item.getLimitUpCount());
+                row.put("limit_down_count", item.getLimitDownCount());
+                row.put("main_net_inflow", item.getMainNetInflow());
+                result.add(row);
+            }
+            return result;
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
     }
 
     private long timestamp(StockChartDTO.KlineBarDTO item) {
@@ -151,6 +192,10 @@ public class ApplicationAnalysisKlineInputBuilder {
 
     private Number decimal(BigDecimal value) {
         return value == null ? 0 : value;
+    }
+
+    private BigDecimal nullableDecimal(BigDecimal value) {
+        return value;
     }
 
     private String source(StockChartDTO.KlineResponseDTO value) {

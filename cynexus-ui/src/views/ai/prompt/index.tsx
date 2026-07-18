@@ -28,6 +28,17 @@ import {
   updateAiPrompt,
 } from "@/services/ai/prompt"
 
+/**
+ * Maintenance Notice:
+ * Before modifying this page, review the related documentation under:
+ * - design/front/infra/index.md
+ * - design/front/infra/ai-prompt.detail.md
+ * - design/front/reuse/reuse.md
+ *
+ * If this page's route, data source, API usage, component structure,
+ * or reusable logic changes, update the corresponding design documents.
+ */
+
 type PromptDraft = Omit<AiPromptItem, "id" | "created_at" | "updated_at"> & { id?: string }
 
 const emptyDraft: PromptDraft = {
@@ -205,7 +216,7 @@ export default function PromptSettingsPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <BrainCircuit className="size-4" />
-              Settings
+              AI
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">Prompt</h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">

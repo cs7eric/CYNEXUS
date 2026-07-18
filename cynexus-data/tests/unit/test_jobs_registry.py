@@ -10,6 +10,7 @@ def test_required_jobs_are_registered() -> None:
         "sync_adjusted_kline_daily",
         "sync_index_daily_raw_from_daily_raw",
         "sync_kline_minute",
+        "sync_limit_up_fund_flow_minute_archive",
         "sync_tdx_hsjday",
         "sync_tdx_industry_quotes",
         "sync_tdx_sector_quote_details",
