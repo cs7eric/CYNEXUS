@@ -193,8 +193,14 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                  GROUP BY occurred_at::date ORDER BY day_date
                 """, (rs, rowNum) -> FinanceOverviewBO.DailyStatBO.builder().date(rs.getObject("day_date", LocalDate.class))
                 .income(rs.getBigDecimal("income")).expense(rs.getBigDecimal("expense")).build(), ownerKey, atStart(start), atStart(end.plusDays(1)));
+        List<FinanceAccountBO> accounts = listAccounts(ownerKey, false);
+        BigDecimal assetTotal = accounts.stream().filter(item -> "asset".equals(item.getNature()))
+                .map(item -> value(item.getBalance(), BigDecimal.ZERO)).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal liabilityTotal = accounts.stream().filter(item -> "credit".equals(item.getNature()))
+                .map(item -> value(item.getBalance(), BigDecimal.ZERO)).reduce(BigDecimal.ZERO, BigDecimal::add);
         return FinanceOverviewBO.builder().startDate(start).endDate(end).income(income).expense(expense).net(income.subtract(expense))
-                .accounts(listAccounts(ownerKey, false)).categories(categories).daily(daily).recentTransactions(transactions.stream().limit(12).toList()).build();
+                .assetTotal(assetTotal).liabilityTotal(liabilityTotal).netAssets(assetTotal.subtract(liabilityTotal))
+                .accounts(accounts).categories(categories).daily(daily).recentTransactions(transactions.stream().limit(12).toList()).build();
     }
 
     @Override

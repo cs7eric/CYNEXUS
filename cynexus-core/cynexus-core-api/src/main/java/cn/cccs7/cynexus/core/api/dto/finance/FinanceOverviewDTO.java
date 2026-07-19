@@ -18,6 +18,9 @@ public class FinanceOverviewDTO {
     private BigDecimal income;
     private BigDecimal expense;
     private BigDecimal net;
+    private BigDecimal assetTotal;
+    private BigDecimal liabilityTotal;
+    private BigDecimal netAssets;
     private List<FinanceAccountDTO> accounts;
     private List<CategoryStat> categories;
     private List<DailyStat> daily;

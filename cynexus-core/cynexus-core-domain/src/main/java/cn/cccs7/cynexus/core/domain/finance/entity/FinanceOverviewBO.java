@@ -18,6 +18,9 @@ public class FinanceOverviewBO {
     private BigDecimal income;
     private BigDecimal expense;
     private BigDecimal net;
+    private BigDecimal assetTotal;
+    private BigDecimal liabilityTotal;
+    private BigDecimal netAssets;
     private List<FinanceAccountBO> accounts;
     private List<CategoryStatBO> categories;
     private List<DailyStatBO> daily;

@@ -155,6 +155,7 @@ public class FinanceLedgerAppService {
 
     private FinanceOverviewDTO overview(FinanceOverviewBO value) {
         return FinanceOverviewDTO.builder().startDate(value.getStartDate()).endDate(value.getEndDate()).income(value.getIncome()).expense(value.getExpense()).net(value.getNet())
+                .assetTotal(value.getAssetTotal()).liabilityTotal(value.getLiabilityTotal()).netAssets(value.getNetAssets())
                 .accounts(value.getAccounts().stream().map(this::account).toList())
                 .categories(value.getCategories().stream().map(item -> FinanceOverviewDTO.CategoryStat.builder().categoryId(item.getCategoryId()).categoryName(item.getCategoryName()).direction(item.getDirection()).amount(item.getAmount()).percentage(item.getPercentage()).build()).toList())
                 .daily(value.getDaily().stream().map(item -> FinanceOverviewDTO.DailyStat.builder().date(item.getDate()).income(item.getIncome()).expense(item.getExpense()).build()).toList())

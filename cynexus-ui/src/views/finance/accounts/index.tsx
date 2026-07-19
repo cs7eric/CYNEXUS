@@ -58,12 +58,14 @@ export default function FinanceAccountsPage() {
   const activeAccounts = accounts.filter((item) => !item.archived)
   const assetTotal = activeAccounts.filter((item) => item.nature === "asset").reduce((sum, item) => sum + (item.balance ?? 0), 0)
   const creditTotal = activeAccounts.filter((item) => item.nature === "credit").reduce((sum, item) => sum + (item.balance ?? 0), 0)
+  const netAssets = assetTotal - creditTotal
 
   return <WorkspaceShell sectionLabel="Finance" pageTitle="Accounts">
     <FinancePageHeader current="accounts" description="管理资金账户和信用账户，余额会随账目自动更新。" onRefresh={() => void load()} loading={loading} />
-    <section className="grid overflow-hidden rounded-xl border border-border/70 bg-card sm:grid-cols-3 sm:divide-x sm:divide-border/60">
+    <section className="grid overflow-hidden rounded-xl border border-border/70 bg-card sm:grid-cols-4 sm:divide-x sm:divide-border/60">
       <AccountMetric label="资产余额" value={assetTotal} tone="text-emerald-600 dark:text-emerald-400" detail={`${activeAccounts.filter((item) => item.nature === "asset").length} 个账户`} />
-      <AccountMetric label="待还信用" value={creditTotal} tone="text-rose-600 dark:text-rose-400" detail={`${activeAccounts.filter((item) => item.nature === "credit").length} 个账户`} />
+      <AccountMetric label="负债余额" value={creditTotal} tone="text-rose-600 dark:text-rose-400" detail="信用账户当前待还" />
+      <AccountMetric label="净资产" value={netAssets} tone={netAssets >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-amber-600 dark:text-amber-400"} detail="资产 - 负债" />
       <AccountMetric label="账户总数" value={activeAccounts.length} detail="包含资产与信用" count />
     </section>
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -85,7 +87,7 @@ function AccountMetric({ label, value, tone = "text-foreground", detail, count =
 
 function AccountRow({ item, onArchive }: { item: FinanceAccount; onArchive: (id: number) => Promise<void> }) {
   const Icon = item.nature === "credit" ? CreditCard : item.accountType === "bank" ? Landmark : Wallet
-  return <div className={`flex items-center justify-between gap-3 py-3.5 ${item.archived ? "opacity-50" : ""}`}><div className="flex min-w-0 items-center gap-3"><span className={`flex size-9 shrink-0 items-center justify-center rounded-md ${item.nature === "credit" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}><Icon className="size-4" /></span><div className="min-w-0"><div className="truncate text-sm font-medium">{item.name}</div><div className="mt-0.5 text-xs text-muted-foreground">{accountTypeLabel(item.accountType)} · {item.nature === "credit" ? "信用" : "资产"}{item.archived ? " · 已归档" : ""}</div></div></div><div className="flex items-center gap-2"><span className={`font-mono text-sm tabular-nums ${item.nature === "credit" ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>{formatMoney(item.balance)}</span>{!item.archived ? <Button type="button" variant="ghost" size="icon-sm" title="归档账户" aria-label={`归档 ${item.name}`} onClick={() => void onArchive(item.id)}><Archive className="size-4" /></Button> : null}</div></div>
+  return <div className={`flex items-center justify-between gap-3 py-3.5 ${item.archived ? "opacity-50" : ""}`}><div className="flex min-w-0 items-center gap-3"><span className={`flex size-9 shrink-0 items-center justify-center rounded-md ${item.nature === "credit" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}><Icon className="size-4" /></span><div className="min-w-0"><div className="truncate text-sm font-medium">{item.name}</div><div className="mt-0.5 text-xs text-muted-foreground">{accountTypeLabel(item.accountType)} · {item.nature === "credit" ? "信用" : "资产"}{item.archived ? " · 已归档" : ""}</div>{item.notes ? <div className="mt-1 max-w-[34rem] truncate text-[11px] text-muted-foreground" title={item.notes}>{item.notes}</div> : null}</div></div><div className="flex items-center gap-2"><div className="text-right"><span className={`font-mono text-sm tabular-nums ${item.nature === "credit" ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>{formatMoney(item.balance)}</span>{item.nature === "credit" && item.creditLimit != null ? <div className="text-[11px] text-muted-foreground">额度 {formatMoney(item.creditLimit)}</div> : null}</div>{!item.archived ? <Button type="button" variant="ghost" size="icon-sm" title="归档账户" aria-label={`归档 ${item.name}`} onClick={() => void onArchive(item.id)}><Archive className="size-4" /></Button> : null}</div></div>
 }
 
 function Field({ label, compact = false, children }: { label: string; compact?: boolean; children: React.ReactNode }) { return <label className={`block space-y-1.5 text-xs font-medium ${compact ? "min-w-[120px]" : ""}`}><span>{label}</span>{children}</label> }

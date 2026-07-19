@@ -91,6 +91,9 @@ export interface FinanceOverview {
   income: number
   expense: number
   net: number
+  assetTotal: number
+  liabilityTotal: number
+  netAssets: number
   accounts: FinanceAccount[]
   categories: Array<{ categoryId: number; categoryName: string; direction: "expense" | "income"; amount: number; percentage: number }>
   daily: Array<{ date: string; income: number; expense: number }>
