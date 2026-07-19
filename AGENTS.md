@@ -10,6 +10,7 @@ DO NOT send optional commentary!!!
 - Only one application environment may be online at a time. Starting Dev must stop the Release application stack first; starting Release must stop Dev application processes first. Never stop the shared infrastructure containers during this switch.
 - Dev entrypoint: `deploy/dev/start-dev.ps1` and `deploy/dev/stop-dev.ps1`.
 - Release entrypoint: `deploy/release/start-release.ps1 -Version <version>` and `deploy/release/stop-release.ps1`.
+- Every new AI capability must be registered in the AI Provider page's Capability routing list, with its runtime entry, prompt key, group, and description kept synchronized with the backend capability code before the feature is considered complete.
 
 ## DDD Layering Discipline
 
