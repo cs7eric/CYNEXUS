@@ -167,6 +167,10 @@ export async function archiveFinanceAccount(id: number) {
   return data<boolean>(await fetchWithRetry(`${FINANCE_API}/accounts/${id}`, { method: "DELETE" }), "账户归档失败")
 }
 
+export async function restoreFinanceAccount(id: number) {
+  return data<boolean>(await fetchWithRetry(`${FINANCE_API}/accounts/${id}/restore`, { method: "POST" }), "账户恢复失败")
+}
+
 export async function fetchFinanceInstallmentPlans(accountId?: number) {
   return data<FinanceInstallmentPlan[]>(await fetchWithRetry(`${FINANCE_API}/installments/plans${accountId ? `?accountId=${accountId}` : ""}`, { cache: "no-store" }), "分期计划加载失败")
 }

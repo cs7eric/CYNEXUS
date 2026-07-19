@@ -101,6 +101,11 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     }
 
     @Override
+    public boolean restoreAccount(String ownerKey, Long id) {
+        return jdbcTemplate.update("UPDATE finance_accounts SET is_archived = false, updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL", id, ownerKey) > 0;
+    }
+
+    @Override
     public List<FinanceCategoryBO> listCategories(String ownerKey, boolean includeArchived) {
         return jdbcTemplate.query("""
                 SELECT * FROM finance_categories

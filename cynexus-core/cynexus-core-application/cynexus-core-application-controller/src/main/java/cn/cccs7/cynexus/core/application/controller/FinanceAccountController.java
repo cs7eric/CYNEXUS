@@ -28,4 +28,7 @@ public class FinanceAccountController {
 
     @DeleteMapping("/{id}")
     public Result<Boolean> archive(@org.springframework.web.bind.annotation.PathVariable Long id) { return Result.success(service.archiveAccount(id)); }
+
+    @PostMapping("/{id}/restore")
+    public Result<Boolean> restore(@org.springframework.web.bind.annotation.PathVariable Long id) { return Result.success(service.restoreAccount(id)); }
 }

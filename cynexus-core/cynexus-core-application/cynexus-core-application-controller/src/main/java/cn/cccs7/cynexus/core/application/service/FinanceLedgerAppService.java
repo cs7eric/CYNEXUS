@@ -53,6 +53,11 @@ public class FinanceLedgerAppService {
         return repository.archiveAccount(DEFAULT_OWNER, id);
     }
 
+    @Transactional
+    public boolean restoreAccount(Long id) {
+        return repository.restoreAccount(DEFAULT_OWNER, id);
+    }
+
     public List<FinanceCategoryDTO> listCategories(boolean includeArchived) {
         return repository.listCategories(DEFAULT_OWNER, includeArchived).stream().map(this::category).toList();
     }

@@ -16,6 +16,7 @@ public interface FinanceRepository {
     Long saveAccount(FinanceAccountBO account);
     boolean updateAccount(FinanceAccountBO account);
     boolean archiveAccount(String ownerKey, Long id);
+    boolean restoreAccount(String ownerKey, Long id);
 
     List<FinanceCategoryBO> listCategories(String ownerKey, boolean includeArchived);
     Long saveCategory(FinanceCategoryBO category);
