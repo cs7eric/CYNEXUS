@@ -7,11 +7,13 @@ import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.application.assembler.AiExecutionAssembler;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
 import cn.cccs7.cynexus.ai.domain.port.AiExecutionTracePort;
@@ -32,6 +34,7 @@ public class ScenarioExecutionAppService {
     private final OutputValidationDomainService outputValidationDomainService;
     private final AiExecutionAssembler aiExecutionAssembler;
     private final AiUsageBindingRepository aiUsageBindingRepository;
+    private final AiPromptRepository aiPromptRepository;
     private final AiProviderRepository aiProviderRepository;
     private final ApplicationAnalysisModelRouter applicationAnalysisModelRouter;
 
@@ -43,6 +46,7 @@ public class ScenarioExecutionAppService {
                                        OutputValidationDomainService outputValidationDomainService,
                                        AiExecutionAssembler aiExecutionAssembler,
                                        AiUsageBindingRepository aiUsageBindingRepository,
+                                       AiPromptRepository aiPromptRepository,
                                        AiProviderRepository aiProviderRepository,
                                        ApplicationAnalysisModelRouter applicationAnalysisModelRouter) {
         this.modelRouteAppService = modelRouteAppService;
@@ -53,6 +57,7 @@ public class ScenarioExecutionAppService {
         this.outputValidationDomainService = outputValidationDomainService;
         this.aiExecutionAssembler = aiExecutionAssembler;
         this.aiUsageBindingRepository = aiUsageBindingRepository;
+        this.aiPromptRepository = aiPromptRepository;
         this.aiProviderRepository = aiProviderRepository;
         this.applicationAnalysisModelRouter = applicationAnalysisModelRouter;
     }
@@ -98,12 +103,7 @@ public class ScenarioExecutionAppService {
                 .defaultModelCode("mock-model").maxToolCalls(0).toolCallRequired(false).jsonOutputRequired(true).enabled(true).build();
         AiModelBO model = applicationAnalysisModelRouter.routeModels(capability, request == null ? null : request.getPreferredModelCode()).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("No AI model available for accounting receipt recognition"));
-        String prompt = """
-                你是记账单据识别助手。只从用户上传的图片中提取可见事实，不要猜测；金额必须是正数，无法确认的字段使用 null。
-                一张图片可能包含多笔消费，必须拆成多条 items；多张图片中的重复小票只保留一次。transactionType 只能是 expense 或 income。
-                用户输入会提供当前可用账户和分类候选。必须优先根据小票、支付方式、商户、备注等可见信息从候选中选择 accountId 和 categoryId，不得编造候选之外的 ID；无法可靠判断时返回 null，并填写 accountHint 或 categoryHint 供后端处理。
-                只输出合法 JSON：{"items":[{"imageIndex":0,"transactionType":"expense","occurredAt":"2026-01-01T12:00:00+08:00","amount":12.50,"currency":"CNY","merchant":"","accountId":null,"accountHint":"","categoryId":null,"categoryHint":"餐饮","note":"","installmentCount":null,"installmentFee":null,"confidence":0.8,"rawText":""}]}。
-                """ + (request == null || request.getUserInput() == null ? "" : request.getUserInput());
+        String prompt = resolveVisionPrompt(capability, request == null ? "" : request.getUserInput());
         List<AiImageInputBO> images = request == null || request.getImages() == null ? List.of() : request.getImages().stream()
                 .map(item -> AiImageInputBO.builder().fileName(item.getFileName()).contentType(item.getContentType()).dataUrl(item.getDataUrl()).build()).toList();
         var completion = agentExecutor.completeVisionDetailed(model, prompt, images, capability);
@@ -125,6 +125,28 @@ public class ScenarioExecutionAppService {
                     """;
         }
         return "Summarize market information with JSON output.";
+    }
+
+    private String resolveVisionPrompt(String capability, String candidateContext) {
+        AiUsageBindingBO binding = enabledBinding(capability);
+        if (binding != null && binding.getPromptId() != null) {
+            AiPromptBO prompt = aiPromptRepository.findById(binding.getPromptId());
+            if (prompt != null && "active".equalsIgnoreCase(prompt.getStatus())) {
+                String userPrompt = prompt.getUserPromptTemplate() == null || prompt.getUserPromptTemplate().isBlank()
+                        ? candidateContext : prompt.getUserPromptTemplate().replace("{{candidate_context}}", candidateContext == null ? "" : candidateContext);
+                return prompt.getSystemPrompt() + System.lineSeparator() + userPrompt;
+            }
+        }
+        return defaultVisionPrompt(candidateContext);
+    }
+
+    private String defaultVisionPrompt(String candidateContext) {
+        return """
+                你是记账单据识别助手。只从用户上传的图片中提取可见事实，不要猜测；金额必须是正数，无法确认的字段使用 null。
+                一张图片可能包含多笔消费，必须拆成多条 items；多张图片中的重复小票只保留一次。transactionType 只能是 expense 或 income。
+                用户输入会提供当前可用账户和分类候选。必须优先根据小票、支付方式、商户、备注等可见信息从候选中选择 accountId 和 categoryId，不得编造候选之外的 ID；无法可靠判断时返回 null，并填写 accountHint 或 categoryHint 供后端处理。
+                只输出合法 JSON：{"items":[{"imageIndex":0,"transactionType":"expense","occurredAt":"2026-01-01T12:00:00+08:00","amount":12.50,"currency":"CNY","merchant":"","accountId":null,"accountHint":"","categoryId":null,"categoryHint":"餐饮","note":"","installmentCount":null,"installmentFee":null,"confidence":0.8,"rawText":""}]}。
+                """ + (candidateContext == null ? "" : candidateContext);
     }
 
     private AiModelBO routeInformationModel(String preferredModelCode) {
