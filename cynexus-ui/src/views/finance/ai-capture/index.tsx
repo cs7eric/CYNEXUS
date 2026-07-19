@@ -40,7 +40,7 @@ export default function FinanceAiCapturePage() {
   async function parse() {
     if (!files.length) { notification.warn({ title: "请先选择图片" }); return }
     setUploading(true); setCapture(null); setDrafts([])
-    try { const result = await createFinanceAiCapture(files, { review: true }); setCapture(result); setDrafts(result.items); if (result.status === "failed") notification.danger({ title: "图片识别失败", description: result.errorMessage || "模型没有返回可用结果。" }); else notification.success({ title: "识别完成", description: `识别到 ${result.items.length} 条待审核账目。` }) }
+    try { const result = await createFinanceAiCapture(files, { review: true, idempotencyKey: `web-review-${crypto.randomUUID()}` }); setCapture(result); setDrafts(result.items); if (result.status === "failed") notification.danger({ title: "图片识别失败", description: result.errorMessage || "模型没有返回可用结果。" }); else notification.success({ title: "识别完成", description: `识别到 ${result.items.length} 条待审核账目。` }) }
     catch (cause) { notification.danger({ title: "图片解析失败", description: cause instanceof Error ? cause.message : String(cause) }) }
     finally { setUploading(false) }
   }
