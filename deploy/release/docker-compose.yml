@@ -24,6 +24,7 @@ services:
       REDIS_PASSWORD: C020611.
       CYNEXUS_DATA_JOB_EXECUTOR_BASE_URL: http://cynexus-data-job-executor:18083
       CYNEXUS_MARKET_AUTOMATION_BASE_URL: http://market:18082
+      CYNEXUS_FINANCE_AI_BASE_URL: http://ai:18081
     ports:
       - "127.0.0.1:18080:18080"
     networks: [cynexus-shared]
