@@ -7,8 +7,8 @@ const FINANCE_API = `${SERVICE_PREFIX.core}/finance`
 export interface FinanceAccount {
   id: number
   name: string
-  accountType: "cash" | "bank" | "e_wallet" | "credit" | "investment" | "other"
-  nature: "asset" | "liability"
+  accountType: "cash" | "bank" | "e_wallet" | "huabei" | "baitiao" | "douyin_monthly" | "credit_card" | "investment" | "other"
+  nature: "asset" | "credit"
   currency: string
   openingBalance: number | null
   creditLimit: number | null
@@ -19,6 +19,38 @@ export interface FinanceAccount {
   archived: boolean
   balance: number | null
   createdAt?: string | null
+}
+
+export interface FinanceInstallment {
+  id: number
+  planId: number
+  installmentNo: number
+  dueDate: string
+  principalAmount: number
+  feeAmount: number
+  amount: number
+  status: "pending" | "paid" | "cancelled"
+  paidAt: string | null
+  paymentTransactionId: number | null
+}
+
+export interface FinanceInstallmentPlan {
+  id: number
+  accountId: number
+  accountName: string | null
+  accountType: FinanceAccount["accountType"]
+  purchaseTransactionId: number | null
+  merchant: string | null
+  totalAmount: number
+  feeTotal: number
+  installmentCount: number
+  firstDueDate: string
+  intervalMonths: number
+  status: "active" | "completed" | "cancelled"
+  note: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  installments: FinanceInstallment[]
 }
 
 export interface FinanceCategory {
@@ -79,6 +111,8 @@ export interface FinanceAiCaptureItem {
   categoryName: string | null
   accountId: number | null
   accountName: string | null
+  installmentCount: number | null
+  installmentFee: number | null
   note: string | null
   confidence: number | null
   rawText: string | null
@@ -128,6 +162,18 @@ export async function saveFinanceAccount(payload: Partial<FinanceAccount>) {
 
 export async function archiveFinanceAccount(id: number) {
   return data<boolean>(await fetchWithRetry(`${FINANCE_API}/accounts/${id}`, { method: "DELETE" }), "账户归档失败")
+}
+
+export async function fetchFinanceInstallmentPlans(accountId?: number) {
+  return data<FinanceInstallmentPlan[]>(await fetchWithRetry(`${FINANCE_API}/installments/plans${accountId ? `?accountId=${accountId}` : ""}`, { cache: "no-store" }), "分期计划加载失败")
+}
+
+export async function saveFinanceInstallmentPlan(payload: { accountId: number; purchaseTransactionId?: number; merchant?: string; totalAmount: number; feeTotal?: number; installmentCount: number; firstDueDate: string; intervalMonths?: number; note?: string }) {
+  return data<FinanceInstallmentPlan>(await fetchWithRetry(`${FINANCE_API}/installments/plans`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }), "分期计划保存失败")
+}
+
+export async function payFinanceInstallment(planId: number, installmentNo: number, payload: { paymentAccountId: number; occurredAt?: string; note?: string }) {
+  return data<FinanceInstallmentPlan>(await fetchWithRetry(`${FINANCE_API}/installments/plans/${planId}/installments/${installmentNo}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }), "分期还款失败")
 }
 
 export async function fetchFinanceCategories(includeArchived = false) {

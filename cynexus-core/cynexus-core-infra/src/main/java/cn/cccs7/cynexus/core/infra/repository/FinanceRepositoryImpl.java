@@ -4,6 +4,8 @@ import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAccountBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCategoryBO;
+import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCreditInstallmentBO;
+import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCreditInstallmentPlanBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceOverviewBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceTransactionBO;
 import cn.cccs7.cynexus.core.domain.finance.port.FinanceRepository;
@@ -196,6 +198,62 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     }
 
     @Override
+    public Long saveInstallmentPlan(FinanceCreditInstallmentPlanBO plan) {
+        long id = idGenerator.nextId();
+        jdbcTemplate.update("""
+                INSERT INTO finance_credit_installment_plans (id, owner_key, account_id, purchase_transaction_id, merchant, total_amount,
+                    fee_total, installment_count, first_due_date, interval_months, status, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, id, plan.getOwnerKey(), plan.getAccountId(), plan.getPurchaseTransactionId(), plan.getMerchant(), plan.getTotalAmount(),
+                value(plan.getFeeTotal(), BigDecimal.ZERO), plan.getInstallmentCount(), plan.getFirstDueDate(), value(plan.getIntervalMonths(), 1),
+                value(plan.getStatus(), "active"), plan.getNote());
+        return id;
+    }
+
+    @Override
+    public Long saveInstallment(FinanceCreditInstallmentBO installment) {
+        long id = idGenerator.nextId();
+        jdbcTemplate.update("""
+                INSERT INTO finance_credit_installments (id, plan_id, installment_no, due_date, principal_amount, fee_amount, amount, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, id, installment.getPlanId(), installment.getInstallmentNo(), installment.getDueDate(), installment.getPrincipalAmount(),
+                value(installment.getFeeAmount(), BigDecimal.ZERO), installment.getAmount(), value(installment.getStatus(), "pending"));
+        return id;
+    }
+
+    @Override
+    public FinanceCreditInstallmentPlanBO findInstallmentPlan(String ownerKey, Long id) {
+        return jdbcTemplate.query(installmentPlanSql(" AND p.id = ?"), this::installmentPlanRow, ownerKey, id).stream().findFirst().map(this::withInstallments).orElse(null);
+    }
+
+    @Override
+    public FinanceCreditInstallmentPlanBO findInstallmentPlanByPurchaseTransaction(String ownerKey, Long transactionId) {
+        return jdbcTemplate.query(installmentPlanSql(" AND p.purchase_transaction_id = ?"), this::installmentPlanRow, ownerKey, transactionId).stream().findFirst().map(this::withInstallments).orElse(null);
+    }
+
+    @Override
+    public List<FinanceCreditInstallmentPlanBO> listInstallmentPlans(String ownerKey, Long accountId) {
+        return jdbcTemplate.query(installmentPlanSql(" AND (CAST(? AS bigint) IS NULL OR p.account_id = ?) ORDER BY p.first_due_date, p.id"), this::installmentPlanRow,
+                ownerKey, accountId, accountId).stream().map(this::withInstallments).toList();
+    }
+
+    @Override
+    public boolean markInstallmentPaid(String ownerKey, Long planId, Integer installmentNo, Long paymentTransactionId) {
+        return jdbcTemplate.update("""
+                UPDATE finance_credit_installments i SET status = 'paid', paid_at = now(), payment_transaction_id = ?, updated_at = now()
+                  FROM finance_credit_installment_plans p
+                 WHERE i.plan_id = p.id AND p.owner_key = ? AND p.id = ? AND i.installment_no = ?
+                   AND i.status = 'pending' AND i.deleted_at IS NULL AND p.deleted_at IS NULL
+                """, paymentTransactionId, ownerKey, planId, installmentNo) > 0;
+    }
+
+    @Override
+    public boolean updateInstallmentPlanStatus(String ownerKey, Long planId, String status) {
+        return jdbcTemplate.update("UPDATE finance_credit_installment_plans SET status = ?, updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL",
+                status, planId, ownerKey) > 0;
+    }
+
+    @Override
     public Long createCapture(FinanceAiCaptureBO capture) {
         long id = idGenerator.nextId();
         jdbcTemplate.update("INSERT INTO finance_ai_captures (id, owner_key, status, source_count, idempotency_key) VALUES (?, ?, ?, ?, ?)", id, capture.getOwnerKey(), capture.getStatus(), value(capture.getSourceCount(), 0), capture.getIdempotencyKey());
@@ -265,11 +323,11 @@ public class FinanceRepositoryImpl implements FinanceRepository {
         long id = idGenerator.nextId();
         jdbcTemplate.update("""
                 INSERT INTO finance_ai_capture_items (id, capture_id, image_id, item_index, transaction_type, occurred_at, amount, currency,
-                    merchant, category_hint, category_id, account_id, note, confidence, raw_text, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    merchant, category_hint, category_id, account_id, installment_count, installment_fee, note, confidence, raw_text, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, item.getCaptureId(), item.getImageId(), value(item.getItemIndex(), 0), value(item.getTransactionType(), "expense"), item.getOccurredAt(),
                 item.getAmount(), value(item.getCurrency(), "CNY"), item.getMerchant(), item.getCategoryHint(), item.getCategoryId(), item.getAccountId(),
-                item.getNote(), item.getConfidence(), item.getRawText(), value(item.getStatus(), "draft"));
+                item.getInstallmentCount(), item.getInstallmentFee(), item.getNote(), item.getConfidence(), item.getRawText(), value(item.getStatus(), "draft"));
         return id;
     }
 
@@ -277,10 +335,10 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     public boolean updateCaptureItem(FinanceAiCaptureBO.Item item) {
         return jdbcTemplate.update("""
                 UPDATE finance_ai_capture_items SET transaction_type = ?, occurred_at = ?, amount = ?, currency = ?, merchant = ?, category_id = ?,
-                    account_id = ?, note = ?, status = ?, transaction_id = ?, updated_at = now()
+                    account_id = ?, installment_count = ?, installment_fee = ?, note = ?, status = ?, transaction_id = ?, updated_at = now()
                  WHERE id = ? AND capture_id = ? AND deleted_at IS NULL
                 """, item.getTransactionType(), item.getOccurredAt(), item.getAmount(), value(item.getCurrency(), "CNY"), item.getMerchant(),
-                item.getCategoryId(), item.getAccountId(), item.getNote(), item.getStatus(), item.getTransactionId(), item.getId(), item.getCaptureId()) > 0;
+                item.getCategoryId(), item.getAccountId(), item.getInstallmentCount(), item.getInstallmentFee(), item.getNote(), item.getStatus(), item.getTransactionId(), item.getId(), item.getCaptureId()) > 0;
     }
 
     private String transactionSql(String suffix) {
@@ -292,6 +350,15 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                   LEFT JOIN finance_accounts ta ON ta.id = t.to_account_id
                   LEFT JOIN finance_categories c ON c.id = t.category_id
                  WHERE t.owner_key = ? AND t.deleted_at IS NULL AND t.is_archived = false
+                """ + suffix;
+    }
+
+    private String installmentPlanSql(String suffix) {
+        return """
+                SELECT p.*, a.name account_name, a.account_type
+                  FROM finance_credit_installment_plans p
+                  JOIN finance_accounts a ON a.id = p.account_id
+                 WHERE p.owner_key = ? AND p.deleted_at IS NULL
                 """ + suffix;
     }
 
@@ -321,12 +388,35 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                 .attachmentCount(rs.getInt("attachment_count")).createdAt(rs.getObject("created_at", OffsetDateTime.class)).updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build();
     }
 
+    private FinanceCreditInstallmentPlanBO installmentPlanRow(ResultSet rs, int rowNum) throws SQLException {
+        return FinanceCreditInstallmentPlanBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
+                .accountId(rs.getLong("account_id")).accountName(rs.getString("account_name")).accountType(rs.getString("account_type"))
+                .purchaseTransactionId((Long) rs.getObject("purchase_transaction_id")).merchant(rs.getString("merchant"))
+                .totalAmount(rs.getBigDecimal("total_amount")).feeTotal(rs.getBigDecimal("fee_total")).installmentCount(rs.getInt("installment_count"))
+                .firstDueDate(rs.getObject("first_due_date", LocalDate.class)).intervalMonths(rs.getInt("interval_months"))
+                .status(rs.getString("status")).note(rs.getString("note")).createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                .updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build();
+    }
+
+    private FinanceCreditInstallmentPlanBO withInstallments(FinanceCreditInstallmentPlanBO plan) {
+        plan.setInstallments(jdbcTemplate.query("""
+                SELECT id, plan_id, installment_no, due_date, principal_amount, fee_amount, amount, status, paid_at, payment_transaction_id
+                  FROM finance_credit_installments
+                 WHERE plan_id = ? AND deleted_at IS NULL ORDER BY installment_no
+                """, (rs, rowNum) -> FinanceCreditInstallmentBO.builder().id(rs.getLong("id")).planId(rs.getLong("plan_id"))
+                .installmentNo(rs.getInt("installment_no")).dueDate(rs.getObject("due_date", LocalDate.class)).principalAmount(rs.getBigDecimal("principal_amount"))
+                .feeAmount(rs.getBigDecimal("fee_amount")).amount(rs.getBigDecimal("amount")).status(rs.getString("status"))
+                .paidAt(rs.getObject("paid_at", OffsetDateTime.class)).paymentTransactionId((Long) rs.getObject("payment_transaction_id")).build(), plan.getId()));
+        return plan;
+    }
+
     private FinanceAiCaptureBO.Item itemRow(ResultSet rs) throws SQLException {
         return FinanceAiCaptureBO.Item.builder().id(rs.getLong("id")).captureId(rs.getLong("capture_id")).imageId((Long) rs.getObject("image_id"))
                 .itemIndex(rs.getInt("item_index")).transactionType(rs.getString("transaction_type")).occurredAt(rs.getObject("occurred_at", OffsetDateTime.class))
                 .amount(rs.getBigDecimal("amount")).currency(rs.getString("currency")).merchant(rs.getString("merchant")).categoryHint(rs.getString("category_hint"))
                 .categoryId((Long) rs.getObject("category_id")).categoryName(rs.getString("category_name")).accountId((Long) rs.getObject("account_id"))
-                .accountName(rs.getString("account_name")).note(rs.getString("note")).confidence(rs.getBigDecimal("confidence")).rawText(rs.getString("raw_text"))
+                .accountName(rs.getString("account_name")).installmentCount((Integer) rs.getObject("installment_count")).installmentFee(rs.getBigDecimal("installment_fee"))
+                .note(rs.getString("note")).confidence(rs.getBigDecimal("confidence")).rawText(rs.getString("raw_text"))
                 .status(rs.getString("status")).transactionId((Long) rs.getObject("transaction_id")).build();
     }
 

@@ -1047,3 +1047,10 @@
 - Added idempotency persistence under `cynexus_appl_core.finance_ai_captures` and a migration for existing databases.
 - Automatic parsing falls back to current time for an absent receipt date and the seeded other-income/other-expense category; items still missing an amount or asset account remain visible as review items.
 - AI parsing now receives the current account/category candidate lists and returns candidate IDs plus hints; Core validates and maps those IDs before automatic posting.
+
+## 2026-07-19 - Credit accounts and installments
+
+- Started Phase 61 to replace the liability vocabulary with credit, add Huabei/Baitiao/Douyin Monthly Pay/credit-card account types, and model installment schedules separately from consumption transactions.
+- Added live schema migration, domain schedule policy, plan/payment API, credit account UI, AI installment extraction, automatic plan creation after a credit purchase, and repayment UI.
+- Updated all Maven/UI versions to `1.1.49-SNAPSHOT`; full Maven package and Finance ESLint passed. Live API plan creation and first-installment payment passed with temporary test records fully removed.
+- Full UI production build remains blocked by existing unrelated TypeScript errors in Market and easy-tdx files.

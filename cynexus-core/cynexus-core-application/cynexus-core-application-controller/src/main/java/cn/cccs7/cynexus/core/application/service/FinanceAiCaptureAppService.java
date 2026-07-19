@@ -29,11 +29,14 @@ public class FinanceAiCaptureAppService {
     private final FinanceRepository repository;
     private final ReceiptAiParserPort parser;
     private final FinanceLedgerAppService ledgerAppService;
+    private final FinanceInstallmentAppService installmentAppService;
 
-    public FinanceAiCaptureAppService(FinanceRepository repository, ReceiptAiParserPort parser, FinanceLedgerAppService ledgerAppService) {
+    public FinanceAiCaptureAppService(FinanceRepository repository, ReceiptAiParserPort parser, FinanceLedgerAppService ledgerAppService,
+                                      FinanceInstallmentAppService installmentAppService) {
         this.repository = repository;
         this.parser = parser;
         this.ledgerAppService = ledgerAppService;
+        this.installmentAppService = installmentAppService;
     }
 
     @Transactional
@@ -68,7 +71,8 @@ public class FinanceAiCaptureAppService {
                 repository.createCaptureItem(FinanceAiCaptureBO.Item.builder().captureId(captureId).imageId(imageIds.get(parsed.imageIndex()))
                         .itemIndex(index).transactionType(normalizeType(parsed.transactionType())).occurredAt(parsed.occurredAt() == null && "auto".equals(processingMode) ? OffsetDateTime.now() : parsed.occurredAt()).amount(parsed.amount())
                         .currency(parsed.currency()).merchant(parsed.merchant()).categoryHint(parsed.categoryHint()).categoryId(category == null ? null : category.getId())
-                        .accountId(account == null ? null : account.getId()).note(parsed.note()).confidence(parsed.confidence()).rawText(parsed.rawText()).status("draft").build());
+                        .accountId(account == null ? null : account.getId()).installmentCount(parsed.installmentCount()).installmentFee(parsed.installmentFee())
+                        .note(parsed.note()).confidence(parsed.confidence()).rawText(parsed.rawText()).status("draft").build());
             }
             repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(FinanceLedgerAppService.DEFAULT_OWNER).status("review")
                     .sourceCount(images.size()).modelCode(result.modelCode()).rawResponse(result.rawResponse()).build());
@@ -109,6 +113,7 @@ public class FinanceAiCaptureAppService {
             transaction.setMerchant(item.getMerchant()); transaction.setNote(item.getNote());
             FinanceTransactionDTOHolder posted = new FinanceTransactionDTOHolder(ledgerAppService.saveCapturedTransaction(transaction, "capture-" + id + "-" + item.getId()).getId());
             item.setStatus("confirmed"); item.setTransactionId(posted.id()); repository.updateCaptureItem(item);
+            installmentAppService.createForPurchase(item.getAccountId(), posted.id(), item.getAmount(), item.getInstallmentFee(), item.getInstallmentCount(), item.getOccurredAt(), item.getMerchant());
         }
         capture.setStatus(capture.getItems().stream().allMatch(item -> "confirmed".equals(item.getStatus()) || "rejected".equals(item.getStatus())) ? "confirmed" : "review");
         repository.updateCapture(capture);
@@ -129,6 +134,8 @@ public class FinanceAiCaptureAppService {
         if (source.getMerchant() != null) target.setMerchant(source.getMerchant());
         if (source.getCategoryId() != null) target.setCategoryId(source.getCategoryId());
         if (source.getAccountId() != null) target.setAccountId(source.getAccountId());
+        if (source.getInstallmentCount() != null) target.setInstallmentCount(source.getInstallmentCount());
+        if (source.getInstallmentFee() != null) target.setInstallmentFee(source.getInstallmentFee());
         if (source.getNote() != null) target.setNote(source.getNote());
     }
 
@@ -170,6 +177,7 @@ public class FinanceAiCaptureAppService {
             transaction.setMerchant(item.getMerchant()); transaction.setNote(item.getNote());
             Long transactionId = ledgerAppService.saveCapturedTransaction(transaction, "capture-" + captureId + "-" + item.getId()).getId();
             item.setStatus("confirmed"); item.setTransactionId(transactionId); repository.updateCaptureItem(item);
+            installmentAppService.createForPurchase(item.getAccountId(), transactionId, item.getAmount(), item.getInstallmentFee(), item.getInstallmentCount(), item.getOccurredAt(), item.getMerchant());
         }
         capture.setStatus(capture.getItems().stream().allMatch(item -> "confirmed".equals(item.getStatus())) ? "confirmed" : "review");
         repository.updateCapture(capture);
@@ -182,7 +190,8 @@ public class FinanceAiCaptureAppService {
                 .errorMessage(value.getErrorMessage()).processingMode(processingMode).autoPostedCount((int) autoPosted).reviewCount((int) review).createdAt(value.getCreatedAt()).updatedAt(value.getUpdatedAt()).items(value.getItems() == null ? List.of() : value.getItems().stream().map(item -> FinanceAiCaptureDTO.Item.builder()
                         .id(item.getId()).imageId(item.getImageId()).itemIndex(item.getItemIndex()).transactionType(item.getTransactionType()).occurredAt(item.getOccurredAt()).amount(item.getAmount())
                         .currency(item.getCurrency()).merchant(item.getMerchant()).categoryHint(item.getCategoryHint()).categoryId(item.getCategoryId()).categoryName(item.getCategoryName())
-                        .accountId(item.getAccountId()).accountName(item.getAccountName()).note(item.getNote()).confidence(item.getConfidence()).rawText(item.getRawText()).status(item.getStatus()).transactionId(item.getTransactionId()).build()).toList()).build();
+                        .accountId(item.getAccountId()).accountName(item.getAccountName()).installmentCount(item.getInstallmentCount()).installmentFee(item.getInstallmentFee())
+                        .note(item.getNote()).confidence(item.getConfidence()).rawText(item.getRawText()).status(item.getStatus()).transactionId(item.getTransactionId()).build()).toList()).build();
     }
 
     private record FinanceTransactionDTOHolder(Long id) { }

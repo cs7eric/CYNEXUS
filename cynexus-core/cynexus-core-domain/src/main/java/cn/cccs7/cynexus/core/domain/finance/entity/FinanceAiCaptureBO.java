@@ -44,6 +44,8 @@ public class FinanceAiCaptureBO {
         private String categoryName;
         private Long accountId;
         private String accountName;
+        private Integer installmentCount;
+        private BigDecimal installmentFee;
         private String note;
         private BigDecimal confidence;
         private String rawText;

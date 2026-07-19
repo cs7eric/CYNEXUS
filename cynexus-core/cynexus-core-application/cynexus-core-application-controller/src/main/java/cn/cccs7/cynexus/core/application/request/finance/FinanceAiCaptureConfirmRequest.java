@@ -20,6 +20,8 @@ public class FinanceAiCaptureConfirmRequest {
         private String merchant;
         private Long categoryId;
         private Long accountId;
+        private Integer installmentCount;
+        private BigDecimal installmentFee;
         private String note;
     }
 }

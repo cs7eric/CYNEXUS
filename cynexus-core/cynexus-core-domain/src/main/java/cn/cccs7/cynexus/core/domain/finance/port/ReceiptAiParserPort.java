@@ -13,7 +13,8 @@ public interface ReceiptAiParserPort {
     record ParsedItem(Integer imageIndex, String transactionType, OffsetDateTime occurredAt,
                       java.math.BigDecimal amount, String currency, String merchant, Long accountId,
                       String accountHint, Long categoryId,
-                      String categoryHint, String note, java.math.BigDecimal confidence,
+                      String categoryHint, String note, Integer installmentCount, java.math.BigDecimal installmentFee,
+                      java.math.BigDecimal confidence,
                       String rawText) {
     }
 

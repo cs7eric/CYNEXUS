@@ -25,7 +25,7 @@ function localDate(value: Date) {
 }
 
 export function accountTypeLabel(value: string) {
-  return ({ cash: "现金", bank: "银行卡", e_wallet: "电子钱包", credit: "信用账户", investment: "投资账户", other: "其他" } as Record<string, string>)[value] ?? value
+  return ({ cash: "现金", bank: "银行卡", e_wallet: "电子钱包", huabei: "花呗", baitiao: "白条", douyin_monthly: "抖音月付", credit_card: "信用卡", investment: "投资账户", other: "其他" } as Record<string, string>)[value] ?? value
 }
 
 export function categoryDirectionLabel(value: string) {

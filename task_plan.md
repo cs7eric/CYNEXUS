@@ -124,6 +124,23 @@ Status: complete
 | `rg --files` access denied from bundled rg.exe | Initial file listing | Use PowerShell `Get-ChildItem` fallback for local inspection. |
 | `spring-ai-tools` dependency version missing | First Maven build | Removed unused artifact; Spring AI BOM remains in dependency management for later provider-specific starters. |
 
+## Phase 61 - Credit Accounts And Installments
+
+Status: complete
+
+- Replace the finance account nature `liability` with the user-facing/domain value `credit`, preserving existing rows through a migration.
+- Add account types for Huabei, Baitiao, Douyin Monthly Pay, and credit cards, while keeping account balance semantics correct.
+- Add a reusable credit-installment plan and installment schedule model with API persistence and transaction linkage.
+- Extend AI receipt parsing and the finance UI so credit purchases can carry installment metadata without requiring Shortcut parameters.
+- Verify migration, focused Java/UI checks, package version synchronization, and Dev runtime health.
+
+### Phase 61 Verification Results
+
+- Added migration `20260719_add_credit_accounts_and_installments.sql`; live Dev PostgreSQL now uses `asset|credit` nature and concrete credit types `huabei`, `baitiao`, `douyin_monthly`, and `credit_card`.
+- Added credit installment plans, generated schedules, payment transfers, idempotent purchase-plan lookup, AI installment fields, and account/plan UI.
+- Focused Maven compile, full Maven package at `1.1.49-SNAPSHOT`, Finance ESLint, live plan listing, plan creation, and payment workflow passed.
+- Full UI production build remains blocked by existing unrelated TypeScript errors in Market and easy-tdx files.
+
 ## Verification Results
 
 - `mvn clean package -DskipTests` succeeded on 2026-06-26.

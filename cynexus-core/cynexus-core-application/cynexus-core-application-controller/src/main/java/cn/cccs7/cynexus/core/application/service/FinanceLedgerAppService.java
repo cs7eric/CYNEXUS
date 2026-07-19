@@ -93,6 +93,11 @@ public class FinanceLedgerAppService {
         return saveTransaction(request, "ai_capture", sourceRef);
     }
 
+    @Transactional
+    public FinanceTransactionDTO saveSystemTransaction(FinanceTransactionRequest request, String sourceRef) {
+        return saveTransaction(request, "system", sourceRef);
+    }
+
     private FinanceTransactionDTO saveTransaction(FinanceTransactionRequest request, String source, String sourceRef) {
         OffsetDateTime occurredAt = request.getOccurredAt() == null ? OffsetDateTime.now() : request.getOccurredAt();
         FinanceTransactionBO value = FinanceTransactionBO.builder().id(request.getId()).ownerKey(DEFAULT_OWNER)

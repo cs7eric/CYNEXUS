@@ -12,17 +12,19 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class FinanceLedgerDomainPolicy {
-    private static final Set<String> ACCOUNT_TYPES = Set.of("cash", "bank", "e_wallet", "credit", "investment", "other");
+    private static final Set<String> ACCOUNT_TYPES = Set.of("cash", "bank", "e_wallet", "huabei", "baitiao", "douyin_monthly", "credit_card", "investment", "other");
     private static final Set<String> TRANSACTION_TYPES = Set.of("expense", "income", "transfer");
 
     public void validateAccount(FinanceAccountBO account) {
         require(account != null, "账户不能为空");
         requireText(account.getName(), "账户名称不能为空");
         require(ACCOUNT_TYPES.contains(account.getAccountType()), "账户类型不受支持");
-        require("asset".equals(account.getNature()) || "liability".equals(account.getNature()), "账户性质不正确");
+        require("asset".equals(account.getNature()) || "credit".equals(account.getNature()), "账户性质不正确");
         require(account.getOpeningBalance() == null || account.getOpeningBalance().signum() >= 0, "期初余额不能为负数");
-        if ("credit".equals(account.getAccountType())) {
-            require("liability".equals(account.getNature()), "信用账户必须是负债账户");
+        if (Set.of("huabei", "baitiao", "douyin_monthly", "credit_card").contains(account.getAccountType())) {
+            require("credit".equals(account.getNature()), "信用账户必须是信用性质");
+        } else {
+            require("asset".equals(account.getNature()), "非信用账户必须是资产性质");
         }
     }
 

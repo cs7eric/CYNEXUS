@@ -3,6 +3,8 @@ package cn.cccs7.cynexus.core.domain.finance.port;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAccountBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCategoryBO;
+import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCreditInstallmentBO;
+import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCreditInstallmentPlanBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceOverviewBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceTransactionBO;
 import java.time.LocalDate;
@@ -24,6 +26,14 @@ public interface FinanceRepository {
     FinanceTransactionBO findTransaction(String ownerKey, Long id);
     List<FinanceTransactionBO> listTransactions(String ownerKey, LocalDate start, LocalDate end, int limit);
     FinanceOverviewBO overview(String ownerKey, LocalDate start, LocalDate end);
+
+    Long saveInstallmentPlan(FinanceCreditInstallmentPlanBO plan);
+    Long saveInstallment(FinanceCreditInstallmentBO installment);
+    FinanceCreditInstallmentPlanBO findInstallmentPlan(String ownerKey, Long id);
+    FinanceCreditInstallmentPlanBO findInstallmentPlanByPurchaseTransaction(String ownerKey, Long transactionId);
+    List<FinanceCreditInstallmentPlanBO> listInstallmentPlans(String ownerKey, Long accountId);
+    boolean markInstallmentPaid(String ownerKey, Long planId, Integer installmentNo, Long paymentTransactionId);
+    boolean updateInstallmentPlanStatus(String ownerKey, Long planId, String status);
 
     Long createCapture(FinanceAiCaptureBO capture);
     FinanceAiCaptureBO findCaptureByIdempotencyKey(String ownerKey, String idempotencyKey);
