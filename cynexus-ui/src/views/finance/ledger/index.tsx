@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowRight, CalendarDays, RefreshCw } from "lucide-react"
+import { ArrowRight, CalendarDays } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -66,9 +66,9 @@ export default function FinanceLedgerPage() {
 
   return <WorkspaceShell sectionLabel="Finance" pageTitle="Ledger">
     <FinancePageHeader current="ledger" description="把日常收支、转账和账户余额放在同一个可回看的账本里。" onRefresh={() => void load()} loading={loading} />
-    <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-border/70 bg-card p-3">
-      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><CalendarDays className="size-4" />统计周期</div>
-      <div className="flex flex-wrap items-center gap-2"><Input type="date" value={range.start} onChange={(event) => setRange((value) => ({ ...value, start: event.target.value }))} className="w-auto" /><span className="text-xs text-muted-foreground">至</span><Input type="date" value={range.end} onChange={(event) => setRange((value) => ({ ...value, end: event.target.value }))} className="w-auto" /><Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />应用</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/25 px-4 py-3">
+      <div className="flex items-center gap-2 text-xs font-medium"><CalendarDays className="size-4 text-primary" />统计周期</div>
+      <div className="flex flex-wrap items-center gap-2"><Input aria-label="开始日期" type="date" value={range.start} onChange={(event) => setRange((value) => ({ ...value, start: event.target.value }))} className="w-auto bg-background" /><span className="text-xs text-muted-foreground">至</span><Input aria-label="结束日期" type="date" value={range.end} onChange={(event) => setRange((value) => ({ ...value, end: event.target.value }))} className="w-auto bg-background" /><Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>应用</Button></div>
     </div>
     {error && !loading ? <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">{error}</div> : null}
     {loading ? <LoadingLedger /> : overview ? <>
