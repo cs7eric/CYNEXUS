@@ -1035,3 +1035,10 @@
 - Added Finance navigation and routes: `/finance/ledger`, `/finance/accounts`, `/finance/ai-capture`.
 - Scoped finance UI ESLint passed; Maven core/AI compilation passed; the full UI type-check still reports only existing unrelated errors.
 - Restarted Dev through `deploy/dev/start-dev.ps1`; live Gateway/Core/AI/Market/UI ports are listening. Manual API smoke test confirmed account balance and period/category totals.
+
+## 2026-07-19 - Finance overview redirected to consumption analysis
+
+- Removed the manual quick-entry form from the Finance overview workflow.
+- Added daily consumption analysis with average spend, peak spend day, income-day count, and daily expense bars.
+- Promoted AI image ingestion as the primary action and relabeled the main route as 消费分析.
+- Kept the existing multipart image API, draft review, confirmation, account, category, and archive capabilities unchanged.

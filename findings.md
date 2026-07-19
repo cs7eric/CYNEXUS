@@ -122,3 +122,9 @@
 - AI capture is a batch, supports multiple images, persists source images in `bytea` for a self-contained local workflow, creates draft items, and never writes posted transactions before explicit confirmation.
 - Manual and AI-confirmed writes share the same domain transaction policy and repository port. Confirming a batch is idempotent through capture-item status and transaction linkage.
 - UI uses restrained workspace styling: compact summary band, explicit account/liability distinction, red/green financial semantics consistent with the existing market screens, skeletons during fetches, and a review-first upload panel rather than a decorative landing page.
+
+## 2026-07-19 AI bookkeeping consumption-analysis adjustment
+
+- The primary user workflow is API-driven image ingestion, not manual transaction entry.
+- The Finance landing view is therefore a consumption-analysis workspace: period filter, AI image-ingestion CTA, income/expense summary, daily spending rhythm, category distribution, account balances, and recent confirmed entries.
+- Manual entry remains available as backend capability for correction/import compatibility, but is no longer presented as the main overview action.

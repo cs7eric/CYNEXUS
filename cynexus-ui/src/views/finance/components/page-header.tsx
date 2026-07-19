@@ -4,7 +4,7 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 
 const tabs = [
-  { key: "ledger", label: "账本", href: "/finance/ledger", icon: BookOpen },
+  { key: "ledger", label: "消费分析", href: "/finance/ledger", icon: BookOpen },
   { key: "accounts", label: "账户", href: "/finance/accounts", icon: WalletCards },
   { key: "ai-capture", label: "图片记账", href: "/finance/ai-capture", icon: Camera },
 ] as const
@@ -45,7 +45,7 @@ export function FinancePageHeader({
           {onRefresh ? <Button type="button" variant="ghost" size="icon-sm" title="刷新数据" aria-label="刷新数据" onClick={onRefresh} disabled={loading}><RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} /></Button> : null}
         </nav>
       </div>
-      {current === "ledger" ? <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><span className="font-medium text-foreground">今天想记什么？</span><Link to="/finance/ai-capture" className="inline-flex items-center gap-1 text-primary hover:underline">上传小票或账单 <ArrowRight className="size-3" /></Link></div> : null}
+      {current === "ledger" ? <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><span className="font-medium text-foreground">主要入口</span><Link to="/finance/ai-capture" className="inline-flex items-center gap-1 text-primary hover:underline">AI 图片记账 <ArrowRight className="size-3" /></Link></div> : null}
     </header>
   )
 }
