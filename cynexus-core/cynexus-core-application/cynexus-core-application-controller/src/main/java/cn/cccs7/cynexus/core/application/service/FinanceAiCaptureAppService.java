@@ -38,7 +38,7 @@ public class FinanceAiCaptureAppService {
     }
 
     @Transactional
-    public FinanceAiCaptureDTO parse(MultipartFile[] files) {
+    public FinanceAiCaptureDTO parse(MultipartFile[] files, String mode, String idempotencyKey, Long defaultAccountId) {
         if (files == null || files.length == 0) throw new BizException(ErrorCode.BAD_REQUEST, "至少上传一张图片");
         if (files.length > MAX_IMAGES) throw new BizException(ErrorCode.BAD_REQUEST, "单批最多上传 10 张图片");
         List<ReceiptAiParserPort.ReceiptImage> images = java.util.stream.IntStream.range(0, files.length).mapToObj(index -> {
@@ -50,7 +50,11 @@ public class FinanceAiCaptureAppService {
             catch (Exception e) { throw new BizException(ErrorCode.BAD_REQUEST, "读取图片失败"); }
         }).toList();
 
-        Long captureId = repository.createCapture(FinanceAiCaptureBO.builder().ownerKey(FinanceLedgerAppService.DEFAULT_OWNER).status("processing").sourceCount(images.size()).build());
+        String processingMode = "review".equalsIgnoreCase(mode) ? "review" : "auto";
+        String requestKey = idempotencyKey == null || idempotencyKey.isBlank() ? sha256((processingMode + ":" + images.stream().map(image -> sha256(image.content())).reduce((left, right) -> sha256((left + right).getBytes(java.nio.charset.StandardCharsets.UTF_8))).orElse("" )).getBytes(java.nio.charset.StandardCharsets.UTF_8)) : idempotencyKey.trim();
+        FinanceAiCaptureBO existing = repository.findCaptureByIdempotencyKey(FinanceLedgerAppService.DEFAULT_OWNER, requestKey);
+        if (existing != null) return toDto(existing, processingMode);
+        Long captureId = repository.createCapture(FinanceAiCaptureBO.builder().ownerKey(FinanceLedgerAppService.DEFAULT_OWNER).status("processing").sourceCount(images.size()).idempotencyKey(requestKey).build());
         Map<Integer, Long> imageIds = new HashMap<>();
         for (ReceiptAiParserPort.ReceiptImage image : images) {
             imageIds.put(image.imageIndex(), repository.createCaptureImage(captureId, image.imageIndex(), image.fileName(), image.contentType(), image.content().length, sha256(image.content()), image.content()));
@@ -58,28 +62,32 @@ public class FinanceAiCaptureAppService {
         try {
             ReceiptAiParserPort.ParseResult result = parser.parse(FinanceLedgerAppService.DEFAULT_OWNER, images);
             List<FinanceCategoryBO> categories = repository.listCategories(FinanceLedgerAppService.DEFAULT_OWNER, false);
-            FinanceAccountBO defaultAccount = repository.listAccounts(FinanceLedgerAppService.DEFAULT_OWNER, false).stream().filter(item -> "asset".equals(item.getNature())).findFirst().orElse(null);
+            FinanceAccountBO defaultAccount = repository.listAccounts(FinanceLedgerAppService.DEFAULT_OWNER, false).stream()
+                    .filter(item -> "asset".equals(item.getNature()))
+                    .filter(item -> defaultAccountId == null || item.getId().equals(defaultAccountId))
+                    .findFirst().orElse(null);
             for (int index = 0; index < result.items().size(); index++) {
                 ReceiptAiParserPort.ParsedItem parsed = result.items().get(index);
                 FinanceCategoryBO category = findCategory(categories, parsed.categoryHint(), parsed.transactionType());
                 repository.createCaptureItem(FinanceAiCaptureBO.Item.builder().captureId(captureId).imageId(imageIds.get(parsed.imageIndex()))
-                        .itemIndex(index).transactionType(normalizeType(parsed.transactionType())).occurredAt(parsed.occurredAt()).amount(parsed.amount())
+                        .itemIndex(index).transactionType(normalizeType(parsed.transactionType())).occurredAt(parsed.occurredAt() == null && "auto".equals(processingMode) ? OffsetDateTime.now() : parsed.occurredAt()).amount(parsed.amount())
                         .currency(parsed.currency()).merchant(parsed.merchant()).categoryHint(parsed.categoryHint()).categoryId(category == null ? null : category.getId())
                         .accountId(defaultAccount == null ? null : defaultAccount.getId()).note(parsed.note()).confidence(parsed.confidence()).rawText(parsed.rawText()).status("draft").build());
             }
             repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(FinanceLedgerAppService.DEFAULT_OWNER).status("review")
                     .sourceCount(images.size()).modelCode(result.modelCode()).rawResponse(result.rawResponse()).build());
+            if ("auto".equals(processingMode)) autoPost(captureId);
         } catch (RuntimeException exception) {
             repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(FinanceLedgerAppService.DEFAULT_OWNER).status("failed")
                     .sourceCount(images.size()).errorMessage(exception.getMessage()).rawResponse("{}").build());
         }
-        return toDto(repository.findCapture(FinanceLedgerAppService.DEFAULT_OWNER, captureId));
+        return toDto(repository.findCapture(FinanceLedgerAppService.DEFAULT_OWNER, captureId), processingMode);
     }
 
     public FinanceAiCaptureDTO get(Long id) {
         FinanceAiCaptureBO capture = repository.findCapture(FinanceLedgerAppService.DEFAULT_OWNER, id);
         if (capture == null) throw new BizException(ErrorCode.NOT_FOUND, "AI 识别批次不存在");
-        return toDto(capture);
+        return toDto(capture, "review");
     }
 
     @Transactional
@@ -108,7 +116,7 @@ public class FinanceAiCaptureAppService {
         }
         capture.setStatus(capture.getItems().stream().allMatch(item -> "confirmed".equals(item.getStatus()) || "rejected".equals(item.getStatus())) ? "confirmed" : "review");
         repository.updateCapture(capture);
-        return toDto(repository.findCapture(FinanceLedgerAppService.DEFAULT_OWNER, id));
+        return toDto(repository.findCapture(FinanceLedgerAppService.DEFAULT_OWNER, id), "review");
     }
 
     @Transactional
@@ -129,17 +137,37 @@ public class FinanceAiCaptureAppService {
     }
 
     private FinanceCategoryBO findCategory(List<FinanceCategoryBO> categories, String hint, String direction) {
-        if (hint == null || hint.isBlank()) return null;
-        return categories.stream().filter(item -> ("both".equals(item.getDirection()) || Objects.equals(item.getDirection(), normalizeType(direction))))
-                .filter(item -> item.getName().equalsIgnoreCase(hint) || hint.contains(item.getName()) || item.getName().contains(hint)).findFirst().orElse(null);
+        String normalizedDirection = normalizeType(direction);
+        FinanceCategoryBO matched = categories.stream().filter(item -> ("both".equals(item.getDirection()) || Objects.equals(item.getDirection(), normalizedDirection)))
+                .filter(item -> hint != null && !hint.isBlank() && (item.getName().equalsIgnoreCase(hint) || hint.contains(item.getName()) || item.getName().contains(hint))).findFirst().orElse(null);
+        if (matched != null) return matched;
+        String fallbackName = "income".equals(normalizedDirection) ? "其他收入" : "其他支出";
+        return categories.stream().filter(item -> fallbackName.equals(item.getName()) && ("both".equals(item.getDirection()) || normalizedDirection.equals(item.getDirection()))).findFirst().orElse(null);
     }
 
     private String normalizeType(String value) { return "income".equalsIgnoreCase(value) ? "income" : "expense"; }
     private String sha256(byte[] data) { try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data)); } catch (Exception e) { throw new IllegalStateException(e); } }
 
-    private FinanceAiCaptureDTO toDto(FinanceAiCaptureBO value) {
+    private void autoPost(Long captureId) {
+        FinanceAiCaptureBO capture = repository.findCapture(FinanceLedgerAppService.DEFAULT_OWNER, captureId);
+        for (FinanceAiCaptureBO.Item item : capture.getItems()) {
+            if (item.getAmount() == null || item.getAccountId() == null || item.getCategoryId() == null || item.getOccurredAt() == null) continue;
+            FinanceTransactionRequest transaction = new FinanceTransactionRequest();
+            transaction.setTransactionType(item.getTransactionType()); transaction.setAccountId(item.getAccountId()); transaction.setCategoryId(item.getCategoryId());
+            transaction.setAmount(item.getAmount()); transaction.setCurrency(item.getCurrency()); transaction.setOccurredAt(item.getOccurredAt());
+            transaction.setMerchant(item.getMerchant()); transaction.setNote(item.getNote());
+            Long transactionId = ledgerAppService.saveCapturedTransaction(transaction, "capture-" + captureId + "-" + item.getId()).getId();
+            item.setStatus("confirmed"); item.setTransactionId(transactionId); repository.updateCaptureItem(item);
+        }
+        capture.setStatus(capture.getItems().stream().allMatch(item -> "confirmed".equals(item.getStatus())) ? "confirmed" : "review");
+        repository.updateCapture(capture);
+    }
+
+    private FinanceAiCaptureDTO toDto(FinanceAiCaptureBO value, String processingMode) {
+        long autoPosted = value.getItems() == null ? 0 : value.getItems().stream().filter(item -> "confirmed".equals(item.getStatus())).count();
+        long review = value.getItems() == null ? 0 : value.getItems().stream().filter(item -> "draft".equals(item.getStatus())).count();
         return FinanceAiCaptureDTO.builder().id(value.getId()).status(value.getStatus()).sourceCount(value.getSourceCount()).modelCode(value.getModelCode())
-                .errorMessage(value.getErrorMessage()).createdAt(value.getCreatedAt()).updatedAt(value.getUpdatedAt()).items(value.getItems() == null ? List.of() : value.getItems().stream().map(item -> FinanceAiCaptureDTO.Item.builder()
+                .errorMessage(value.getErrorMessage()).processingMode(processingMode).autoPostedCount((int) autoPosted).reviewCount((int) review).createdAt(value.getCreatedAt()).updatedAt(value.getUpdatedAt()).items(value.getItems() == null ? List.of() : value.getItems().stream().map(item -> FinanceAiCaptureDTO.Item.builder()
                         .id(item.getId()).imageId(item.getImageId()).itemIndex(item.getItemIndex()).transactionType(item.getTransactionType()).occurredAt(item.getOccurredAt()).amount(item.getAmount())
                         .currency(item.getCurrency()).merchant(item.getMerchant()).categoryHint(item.getCategoryHint()).categoryId(item.getCategoryId()).categoryName(item.getCategoryName())
                         .accountId(item.getAccountId()).accountName(item.getAccountName()).note(item.getNote()).confidence(item.getConfidence()).rawText(item.getRawText()).status(item.getStatus()).transactionId(item.getTransactionId()).build()).toList()).build();

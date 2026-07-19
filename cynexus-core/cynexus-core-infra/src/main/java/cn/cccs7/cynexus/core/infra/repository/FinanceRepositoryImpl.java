@@ -198,8 +198,28 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     @Override
     public Long createCapture(FinanceAiCaptureBO capture) {
         long id = idGenerator.nextId();
-        jdbcTemplate.update("INSERT INTO finance_ai_captures (id, owner_key, status, source_count) VALUES (?, ?, ?, ?)", id, capture.getOwnerKey(), capture.getStatus(), value(capture.getSourceCount(), 0));
+        jdbcTemplate.update("INSERT INTO finance_ai_captures (id, owner_key, status, source_count, idempotency_key) VALUES (?, ?, ?, ?, ?)", id, capture.getOwnerKey(), capture.getStatus(), value(capture.getSourceCount(), 0), capture.getIdempotencyKey());
         return id;
+    }
+
+    @Override
+    public FinanceAiCaptureBO findCaptureByIdempotencyKey(String ownerKey, String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) return null;
+        return jdbcTemplate.query("SELECT * FROM finance_ai_captures WHERE owner_key = ? AND idempotency_key = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",
+                (rs, rowNum) -> FinanceAiCaptureBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
+                        .status(rs.getString("status")).sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code"))
+                        .rawResponse(rs.getString("raw_response")).errorMessage(rs.getString("error_message"))
+                        .idempotencyKey(rs.getString("idempotency_key")).createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                        .updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build(), ownerKey, idempotencyKey).stream().findFirst().map(capture -> {
+                            capture.setItems(jdbcTemplate.query("""
+                                    SELECT i.*, c.name category_name, a.name account_name
+                                      FROM finance_ai_capture_items i
+                                      LEFT JOIN finance_categories c ON c.id = i.category_id
+                                      LEFT JOIN finance_accounts a ON a.id = i.account_id
+                                     WHERE i.capture_id = ? AND i.deleted_at IS NULL ORDER BY i.item_index, i.id
+                                    """, (rs, rowNum) -> itemRow(rs), capture.getId()));
+                            return capture;
+                        }).orElse(null);
     }
 
     @Override
@@ -211,7 +231,7 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     @Override
     public FinanceAiCaptureBO findCapture(String ownerKey, Long captureId) {
         FinanceAiCaptureBO capture = jdbcTemplate.query("SELECT * FROM finance_ai_captures WHERE id = ? AND owner_key = ? AND deleted_at IS NULL", (rs, rowNum) -> FinanceAiCaptureBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
-                .status(rs.getString("status")).sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code")).rawResponse(rs.getString("raw_response")).errorMessage(rs.getString("error_message"))
+                .status(rs.getString("status")).sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code")).rawResponse(rs.getString("raw_response")).errorMessage(rs.getString("error_message")).idempotencyKey(rs.getString("idempotency_key"))
                 .createdAt(rs.getObject("created_at", OffsetDateTime.class)).updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build(), captureId, ownerKey).stream().findFirst().orElse(null);
         if (capture == null) return null;
         capture.setItems(jdbcTemplate.query("""

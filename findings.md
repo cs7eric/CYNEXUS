@@ -128,3 +128,5 @@
 - The primary user workflow is API-driven image ingestion, not manual transaction entry.
 - The Finance landing view is therefore a consumption-analysis workspace: period filter, AI image-ingestion CTA, income/expense summary, daily spending rhythm, category distribution, account balances, and recent confirmed entries.
 - Manual entry remains available as backend capability for correction/import compatibility, but is no longer presented as the main overview action.
+- The default capture API mode is now `auto`: it posts complete AI items immediately, falls back to the seeded other-income/other-expense category, and leaves only incomplete items in `review`.
+- Shortcut retries are deduplicated through `Idempotency-Key`; when omitted, the service derives a deterministic key from the image contents. The optional `accountId` query parameter selects the asset account used for automatic posting.

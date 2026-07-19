@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 const tabs = [
   { key: "ledger", label: "消费分析", href: "/finance/ledger", icon: BookOpen },
   { key: "accounts", label: "账户", href: "/finance/accounts", icon: WalletCards },
-  { key: "ai-capture", label: "图片记账", href: "/finance/ai-capture", icon: Camera },
+  { key: "ai-capture", label: "AI 入账", href: "/finance/ai-capture", icon: Camera },
 ] as const
 
 export function FinancePageHeader({

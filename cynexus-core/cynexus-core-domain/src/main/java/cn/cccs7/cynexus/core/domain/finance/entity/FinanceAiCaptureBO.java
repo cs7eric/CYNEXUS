@@ -20,6 +20,7 @@ public class FinanceAiCaptureBO {
     private String modelCode;
     private String rawResponse;
     private String errorMessage;
+    private String idempotencyKey;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private List<Item> items;

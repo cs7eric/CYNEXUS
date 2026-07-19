@@ -1042,3 +1042,7 @@
 - Added daily consumption analysis with average spend, peak spend day, income-day count, and daily expense bars.
 - Promoted AI image ingestion as the primary action and relabeled the main route as 消费分析.
 - Kept the existing multipart image API, draft review, confirmation, account, category, and archive capabilities unchanged.
+- Changed `POST /api/core/finance/ai-captures` default mode to `auto`; complete parsed items are posted immediately and returned with `transactionId`/`confirmed` status.
+- Added `mode=review` for the web exception flow, plus optional `accountId` and `Idempotency-Key` support for iPhone Shortcuts.
+- Added idempotency persistence under `cynexus_appl_core.finance_ai_captures` and a migration for existing databases.
+- Automatic parsing falls back to current time for an absent receipt date and the seeded other-income/other-expense category; items still missing an amount or asset account remain visible as review items.

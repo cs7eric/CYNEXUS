@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,7 +24,12 @@ public class FinanceAiCaptureController {
     public FinanceAiCaptureController(FinanceAiCaptureAppService service) { this.service = service; }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Result<FinanceAiCaptureDTO> parse(@RequestParam("images") MultipartFile[] images) { return Result.success(service.parse(images)); }
+    public Result<FinanceAiCaptureDTO> parse(@RequestParam("images") MultipartFile[] images,
+                                              @RequestParam(value = "mode", required = false, defaultValue = "auto") String mode,
+                                              @RequestParam(value = "accountId", required = false) Long accountId,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return Result.success(service.parse(images, mode, idempotencyKey, accountId));
+    }
 
     @GetMapping("/{id}")
     public Result<FinanceAiCaptureDTO> get(@PathVariable Long id) { return Result.success(service.get(id)); }

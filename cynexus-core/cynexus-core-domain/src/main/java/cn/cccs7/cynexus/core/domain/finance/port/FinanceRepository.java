@@ -26,6 +26,7 @@ public interface FinanceRepository {
     FinanceOverviewBO overview(String ownerKey, LocalDate start, LocalDate end);
 
     Long createCapture(FinanceAiCaptureBO capture);
+    FinanceAiCaptureBO findCaptureByIdempotencyKey(String ownerKey, String idempotencyKey);
     boolean updateCapture(FinanceAiCaptureBO capture);
     FinanceAiCaptureBO findCapture(String ownerKey, Long captureId);
     boolean archiveCapture(String ownerKey, Long captureId);

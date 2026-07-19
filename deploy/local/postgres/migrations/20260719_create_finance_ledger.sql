@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_core.finance_ai_captures (
     model_code varchar(128),
     raw_response jsonb NOT NULL DEFAULT '{}'::jsonb,
     error_message text,
+    idempotency_key varchar(128),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     deleted_at timestamptz,
@@ -119,6 +120,10 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_core.finance_ai_captures (
 CREATE INDEX IF NOT EXISTS ix_finance_ai_captures_owner_created
     ON cynexus_appl_core.finance_ai_captures (owner_key, created_at DESC)
     WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_finance_ai_captures_owner_idempotency
+    ON cynexus_appl_core.finance_ai_captures (owner_key, idempotency_key)
+    WHERE deleted_at IS NULL AND idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS cynexus_appl_core.finance_ai_capture_images (
     id bigint PRIMARY KEY,

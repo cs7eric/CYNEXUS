@@ -92,6 +92,9 @@ export interface FinanceAiCapture {
   sourceCount: number
   modelCode: string | null
   errorMessage: string | null
+  processingMode?: "auto" | "review"
+  autoPostedCount?: number
+  reviewCount?: number
   createdAt: string
   updatedAt: string
   items: FinanceAiCaptureItem[]
@@ -147,10 +150,13 @@ export async function archiveFinanceTransaction(id: number) {
   return data<boolean>(await fetchWithRetry(`${FINANCE_API}/transactions/${id}`, { method: "DELETE" }), "账目归档失败")
 }
 
-export async function createFinanceAiCapture(files: File[]) {
+export async function createFinanceAiCapture(files: File[], options: { mode?: "auto" | "review"; accountId?: number; idempotencyKey?: string } = {}) {
   const body = new FormData()
   files.forEach((file) => body.append("images", file))
-  return data<FinanceAiCapture>(await fetchWithRetry(`${FINANCE_API}/ai-captures`, { method: "POST", body }), "图片解析失败")
+  const headers = new Headers()
+  if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey)
+  const params = query({ mode: options.mode ?? "auto", accountId: options.accountId })
+  return data<FinanceAiCapture>(await fetchWithRetry(`${FINANCE_API}/ai-captures?${params}`, { method: "POST", headers, body }), "图片解析失败")
 }
 
 export async function confirmFinanceAiCapture(id: number, items: Array<Partial<FinanceAiCaptureItem>>) {
