@@ -166,6 +166,17 @@ const AI_CAPABILITIES: AiCapability[] = [
     aliases: ["AI Direction", "当日 AI 整体判断", "Recent 30-day analysis"],
   },
   {
+    code: "accounting_receipt_parse",
+    label: "Accounting receipt recognition",
+    group: "Finance AI",
+    description: "Parse one receipt image into expense or income items, account/category candidates, and installment details.",
+    entry: "Finance / AI Capture",
+    reads_binding: true,
+    runtime: "ScenarioExecutionAppService.executeVision",
+    prompt_key: "accounting_receipt_parse",
+    aliases: ["AI 记账", "小票识别", "Receipt recognition"],
+  },
+  {
     code: "auction_analysis",
     label: "Auction AI analysis",
     group: "Stock AI",
