@@ -25,7 +25,8 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
     public HttpReceiptAiParser(Environment environment) { this.environment = environment; }
 
     @Override
-    public ParseResult parse(String ownerKey, List<ReceiptImage> images) {
+    public ParseResult parse(String ownerKey, List<ReceiptImage> images, List<AccountCandidate> accounts,
+                             List<CategoryCandidate> categories) {
         try {
             List<Map<String, Object>> payloadImages = images.stream().map(image -> {
                 Map<String, Object> value = new LinkedHashMap<>();
@@ -34,7 +35,9 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
                 return value;
             }).toList();
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("scenarioCode", "accounting_receipt_parse"); payload.put("userInput", "请识别这些记账图片，按图片索引返回明细。"); payload.put("images", payloadImages);
+            payload.put("scenarioCode", "accounting_receipt_parse");
+            payload.put("userInput", candidatePrompt(accounts, categories));
+            payload.put("images", payloadImages);
             String baseUrl = environment.getProperty("cynexus.finance.ai.base-url", "http://127.0.0.1:28081").replaceAll("/+$", "");
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/ai/executions/vision")).timeout(Duration.ofMinutes(3))
                     .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload))).build();
@@ -60,9 +63,23 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
         if (!date.isBlank()) try { occurredAt = OffsetDateTime.parse(date); } catch (Exception ignored) { }
         return new ParsedItem(node.path("imageIndex").asInt(0), node.path("transactionType").asText("expense"), occurredAt,
                 node.path("amount").isNumber() ? node.path("amount").decimalValue() : null, node.path("currency").asText("CNY"),
-                text(node, "merchant"), text(node, "categoryHint"), text(node, "note"), node.path("confidence").isNumber() ? node.path("confidence").decimalValue() : null,
+                text(node, "merchant"), longValue(node, "accountId"), text(node, "accountHint"), longValue(node, "categoryId"),
+                text(node, "categoryHint"), text(node, "note"), node.path("confidence").isNumber() ? node.path("confidence").decimalValue() : null,
                 text(node, "rawText"));
     }
 
+    private String candidatePrompt(List<AccountCandidate> accounts, List<CategoryCandidate> categories) {
+        try {
+            Map<String, Object> context = new LinkedHashMap<>();
+            context.put("instruction", "只从下面候选中选择 accountId 和 categoryId，不得创造新的账户或分类；transactionType 只能是 expense 或 income。若无法确定账户，accountId 返回 null。日期缺失返回 null。");
+            context.put("accounts", accounts.stream().map(item -> Map.of("id", item.id(), "name", item.name(), "accountType", item.accountType(), "nature", item.nature(), "notes", item.notes() == null ? "" : item.notes())).toList());
+            context.put("categories", categories.stream().map(item -> Map.of("id", item.id(), "name", item.name(), "direction", item.direction())).toList());
+            return objectMapper.writeValueAsString(context);
+        } catch (Exception exception) {
+            throw new IllegalStateException("AI receipt candidate context failed", exception);
+        }
+    }
+
     private String text(JsonNode node, String field) { String value = node.path(field).asText(""); return value.isBlank() ? null : value; }
+    private Long longValue(JsonNode node, String field) { return node.path(field).canConvertToLong() ? node.path(field).asLong() : null; }
 }

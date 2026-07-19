@@ -150,13 +150,13 @@ export async function archiveFinanceTransaction(id: number) {
   return data<boolean>(await fetchWithRetry(`${FINANCE_API}/transactions/${id}`, { method: "DELETE" }), "账目归档失败")
 }
 
-export async function createFinanceAiCapture(files: File[], options: { mode?: "auto" | "review"; accountId?: number; idempotencyKey?: string } = {}) {
+export async function createFinanceAiCapture(files: File[], options: { review?: boolean; idempotencyKey?: string } = {}) {
   const body = new FormData()
-  files.forEach((file) => body.append("images", file))
+  files.forEach((file) => body.append("image", file))
   const headers = new Headers()
   if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey)
-  const params = query({ mode: options.mode ?? "auto", accountId: options.accountId })
-  return data<FinanceAiCapture>(await fetchWithRetry(`${FINANCE_API}/ai-captures?${params}`, { method: "POST", headers, body }), "图片解析失败")
+  const endpoint = options.review ? `${FINANCE_API}/ai-captures/review` : `${FINANCE_API}/ai-captures`
+  return data<FinanceAiCapture>(await fetchWithRetry(endpoint, { method: "POST", headers, body }), "图片解析失败")
 }
 
 export async function confirmFinanceAiCapture(id: number, items: Array<Partial<FinanceAiCaptureItem>>) {

@@ -1031,7 +1031,7 @@
 
 - Applied the finance ledger migration to the live Dev PostgreSQL instance and seeded 13 default categories.
 - Implemented the core DDD/application/infra workflow for accounts, categories, income/expense/transfer entries, overview statistics, archiving, and AI capture review/confirmation.
-- Added single/multi-image upload UI and vision execution plumbing with explicit review-before-posting behavior.
+- Added single-image upload UI and vision execution plumbing with automatic posting for complete items plus an explicit review exception flow.
 - Added Finance navigation and routes: `/finance/ledger`, `/finance/accounts`, `/finance/ai-capture`.
 - Scoped finance UI ESLint passed; Maven core/AI compilation passed; the full UI type-check still reports only existing unrelated errors.
 - Restarted Dev through `deploy/dev/start-dev.ps1`; live Gateway/Core/AI/Market/UI ports are listening. Manual API smoke test confirmed account balance and period/category totals.
@@ -1043,6 +1043,7 @@
 - Promoted AI image ingestion as the primary action and relabeled the main route as 消费分析.
 - Kept the existing multipart image API, draft review, confirmation, account, category, and archive capabilities unchanged.
 - Changed `POST /api/core/finance/ai-captures` default mode to `auto`; complete parsed items are posted immediately and returned with `transactionId`/`confirmed` status.
-- Added `mode=review` for the web exception flow, plus optional `accountId` and `Idempotency-Key` support for iPhone Shortcuts.
+- Added a separate `/review` endpoint for the web exception flow; the Shortcut endpoint accepts only one `image` file and an optional `Idempotency-Key` header.
 - Added idempotency persistence under `cynexus_appl_core.finance_ai_captures` and a migration for existing databases.
 - Automatic parsing falls back to current time for an absent receipt date and the seeded other-income/other-expense category; items still missing an amount or asset account remain visible as review items.
+- AI parsing now receives the current account/category candidate lists and returns candidate IDs plus hints; Core validates and maps those IDs before automatic posting.

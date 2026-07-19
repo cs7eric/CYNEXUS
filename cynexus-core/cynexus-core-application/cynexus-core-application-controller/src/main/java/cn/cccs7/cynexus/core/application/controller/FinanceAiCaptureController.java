@@ -24,11 +24,15 @@ public class FinanceAiCaptureController {
     public FinanceAiCaptureController(FinanceAiCaptureAppService service) { this.service = service; }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Result<FinanceAiCaptureDTO> parse(@RequestParam("images") MultipartFile[] images,
-                                              @RequestParam(value = "mode", required = false, defaultValue = "auto") String mode,
-                                              @RequestParam(value = "accountId", required = false) Long accountId,
+    public Result<FinanceAiCaptureDTO> parse(@RequestParam("image") MultipartFile image,
                                               @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
-        return Result.success(service.parse(images, mode, idempotencyKey, accountId));
+        return Result.success(service.parse(image, "auto", idempotencyKey));
+    }
+
+    @PostMapping(value = "/review", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<FinanceAiCaptureDTO> review(@RequestParam("image") MultipartFile image,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return Result.success(service.parse(image, "review", idempotencyKey));
     }
 
     @GetMapping("/{id}")
