@@ -67,7 +67,7 @@ public class FinanceAiCaptureAppService {
             for (int index = 0; index < result.items().size(); index++) {
                 ReceiptAiParserPort.ParsedItem parsed = result.items().get(index);
                 FinanceCategoryBO category = findCategory(categories, parsed.categoryId(), parsed.categoryHint(), parsed.transactionType());
-                FinanceAccountBO account = findAccount(accounts, parsed.accountId(), parsed.accountHint());
+                FinanceAccountBO account = findAccount(accounts, parsed.accountId(), parsed.accountHint(), parsed.rawText());
                 repository.createCaptureItem(FinanceAiCaptureBO.Item.builder().captureId(captureId).imageId(imageIds.get(parsed.imageIndex()))
                         .itemIndex(index).transactionType(normalizeType(parsed.transactionType())).occurredAt(parsed.occurredAt() == null && "auto".equals(processingMode) ? OffsetDateTime.now() : parsed.occurredAt()).amount(parsed.amount())
                         .currency(parsed.currency()).merchant(parsed.merchant()).categoryHint(parsed.categoryHint()).categoryId(category == null ? null : category.getId())
@@ -139,14 +139,21 @@ public class FinanceAiCaptureAppService {
         if (source.getNote() != null) target.setNote(source.getNote());
     }
 
-    private FinanceAccountBO findAccount(List<FinanceAccountBO> accounts, Long id, String hint) {
+    private FinanceAccountBO findAccount(List<FinanceAccountBO> accounts, Long id, String hint, String rawText) {
         FinanceAccountBO direct = accounts.stream().filter(item -> !Boolean.TRUE.equals(item.getArchived())).filter(item -> id != null && item.getId().equals(id)).findFirst().orElse(null);
         if (direct != null) return direct;
         String normalizedHint = normalizeText(hint);
+        String normalizedRawText = normalizeText(rawText);
+        if (normalizedHint.isBlank() && (normalizedRawText.contains("paymentmethodbalance") || normalizedRawText.contains("支付方式balance"))) {
+            normalizedHint = "微信余额";
+        }
         if (normalizedHint.isBlank()) return null;
+        String accountHint = normalizedHint;
+        boolean wechatBalance = accountHint.contains("微信") || accountHint.contains("balance") || accountHint.contains("wechat");
         return accounts.stream().filter(item -> !Boolean.TRUE.equals(item.getArchived())).filter(item -> {
             String searchable = normalizeText(String.join(" ", item.getName(), item.getAccountType(), item.getNature(), item.getNotes() == null ? "" : item.getNotes()));
-            return normalizeText(item.getName()).equals(normalizedHint) || searchable.contains(normalizedHint) || normalizedHint.contains(normalizeText(item.getName()));
+            if (normalizeText(item.getName()).equals(accountHint) || searchable.contains(accountHint) || accountHint.contains(normalizeText(item.getName()))) return true;
+            return wechatBalance && (searchable.contains("微信") || searchable.contains("wechat") || searchable.contains("钱包"));
         }).findFirst().orElse(null);
     }
 

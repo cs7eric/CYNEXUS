@@ -145,6 +145,7 @@ public class ScenarioExecutionAppService {
                 你是记账单据识别助手。只从用户上传的图片中提取可见事实，不要猜测；金额必须是正数，无法确认的字段使用 null。
                 一张图片可能包含多笔消费，必须拆成多条 items；多张图片中的重复小票只保留一次。transactionType 只能是 expense 或 income。
                 用户输入会提供当前可用账户和分类候选。必须优先根据小票、支付方式、商户、备注等可见信息从候选中选择 accountId 和 categoryId，不得编造候选之外的 ID；无法可靠判断时返回 null，并填写 accountHint 或 categoryHint 供后端处理。
+                微信转账详情中的 Payment Method: Balance 表示微信余额，优先选择名称或备注包含微信、微信余额、微信钱包的账户；如果候选中没有对应账户，accountHint 必须返回“微信余额”。
                 只输出合法 JSON：{"items":[{"imageIndex":0,"transactionType":"expense","occurredAt":"2026-01-01T12:00:00+08:00","amount":12.50,"currency":"CNY","merchant":"","accountId":null,"accountHint":"","categoryId":null,"categoryHint":"餐饮","note":"","installmentCount":null,"installmentFee":null,"confidence":0.8,"rawText":""}]}。
                 """ + (candidateContext == null ? "" : candidateContext);
     }
