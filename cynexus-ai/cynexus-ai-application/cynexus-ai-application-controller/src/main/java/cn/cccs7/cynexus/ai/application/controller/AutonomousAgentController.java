@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,34 @@ public class AutonomousAgentController {
             }
         });
         return emitter;
+    }
+
+    @GetMapping(value = "/runs/{runNo}/stream", produces = "text/event-stream")
+    public SseEmitter reconnect(@PathVariable String runNo,
+                                @RequestParam(required = false) Integer afterEventNo,
+                                @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
+                                HttpServletRequest httpRequest) {
+        AgentIdentity agentIdentity = identity(httpRequest);
+        int cursor = afterEventNo == null ? parseEventSequence(lastEventId) : Math.max(0, afterEventNo);
+        SseEmitter emitter = new SseEmitter(10 * 60 * 1000L);
+        CompletableFuture.runAsync(() -> {
+            try {
+                agentAppService.replayStream(agentIdentity, runNo, cursor, event -> send(emitter, event));
+                emitter.complete();
+            } catch (RuntimeException exception) {
+                emitter.completeWithError(exception);
+            }
+        });
+        return emitter;
+    }
+
+    @GetMapping("/runs/{runNo}/events")
+    public Result<List<AgentStreamEventDTO>> events(@PathVariable String runNo,
+                                                    @RequestParam(defaultValue = "0") int afterEventNo,
+                                                    @RequestParam(defaultValue = "200") int limit,
+                                                    HttpServletRequest httpRequest) {
+        return Result.success(agentAppService.events(identity(httpRequest), runNo, afterEventNo, limit).stream()
+                .map(this::toEventDTO).toList());
     }
 
     @PostMapping("/runs/{runNo}/cancel")
@@ -95,13 +124,29 @@ public class AutonomousAgentController {
 
     private void send(SseEmitter emitter, AgentRunEventBO event) {
         try {
-            emitter.send(SseEmitter.event().name(event.getType()).data(AgentStreamEventDTO.builder()
-                    .type(event.getType()).runNo(event.getRunNo()).status(event.getStatus()).stepNo(event.getStepNo())
-                    .toolCode(event.getToolCode()).summary(event.getSummary()).answer(event.getAnswer())
-                    .delta(event.getDelta())
-                    .errorMessage(event.getErrorMessage()).build()));
+            SseEmitter.SseEventBuilder builder = SseEmitter.event().name(event.getType())
+                    .data(toEventDTO(event));
+            if (event.getSequenceNo() != null) builder.id(String.valueOf(event.getSequenceNo()));
+            emitter.send(builder);
         } catch (Exception exception) {
             throw new IllegalStateException("Agent stream disconnected", exception);
+        }
+    }
+
+    private AgentStreamEventDTO toEventDTO(AgentRunEventBO event) {
+        return AgentStreamEventDTO.builder().sequenceNo(event.getSequenceNo()).type(event.getType())
+                .runNo(event.getRunNo()).status(event.getStatus()).stepNo(event.getStepNo())
+                .toolCode(event.getToolCode()).summary(event.getSummary()).answer(event.getAnswer())
+                .delta(event.getDelta()).errorMessage(event.getErrorMessage())
+                .occurredAt(event.getOccurredAt()).build();
+    }
+
+    private int parseEventSequence(String value) {
+        if (value == null || value.isBlank()) return 0;
+        try {
+            return Math.max(0, Integer.parseInt(value));
+        } catch (NumberFormatException ignored) {
+            return 0;
         }
     }
 

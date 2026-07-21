@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -17,6 +18,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
@@ -93,6 +95,13 @@ class AutonomousAgentWorkflowTest {
         assertTrue(stepCaptor.getAllValues().get(0).getOutputJson().contains("truncated"));
         verify(repository).findRunByIdempotencyKey("tenant-1::user-1", "idem-1");
         verify(lease).release(eq("tenant-1::user-1"), any());
+        ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);
+        verify(repository, atLeast(4)).saveEvent(eq("tenant-1::user-1"), eventCaptor.capture());
+        assertEquals("RUN_STARTED", eventCaptor.getAllValues().get(0).getType());
+        assertEquals("RUN_COMPLETED", eventCaptor.getAllValues().get(eventCaptor.getAllValues().size() - 1).getType());
+        for (int index = 0; index < eventCaptor.getAllValues().size(); index++) {
+            assertEquals(index + 1, eventCaptor.getAllValues().get(index).getSequenceNo());
+        }
     }
 
     @Test

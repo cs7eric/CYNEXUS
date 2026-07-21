@@ -53,6 +53,7 @@ export interface AgentMessage {
 }
 
 export interface AgentStreamEvent {
+  sequenceNo?: number | null
   type?: string | null
   runNo?: string | null
   status?: string | null
@@ -126,14 +127,48 @@ export async function runAgentStream(
   onEvent: (event: AgentStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<AgentRun> {
-  const response = await fetch(`${SERVICE_PREFIX.ai}/agent/runs/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify(input),
-    signal,
-  })
-  if (!response.ok || !response.body) throw new Error(`Agent stream failed (${response.status})`)
-  const reader = response.body.getReader()
+  const idempotencyKey = input.idempotencyKey ?? globalThis.crypto?.randomUUID?.()
+  let runNo = ""
+  let afterEventNo = 0
+  let completed = false
+  const maxReconnects = 3
+
+  for (let attempt = 0; attempt <= maxReconnects; attempt += 1) {
+    try {
+      const endpoint = runNo
+        ? `${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/stream?afterEventNo=${encodeURIComponent(String(afterEventNo))}`
+        : `${SERVICE_PREFIX.ai}/agent/runs/stream`
+      const response = await fetch(endpoint, {
+        method: runNo ? "GET" : "POST",
+        headers: runNo ? { Accept: "text/event-stream" } : { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: runNo ? undefined : JSON.stringify({ ...input, idempotencyKey }),
+        signal,
+      })
+      if (!response.ok || !response.body) throw new Error(`Agent stream failed (${response.status})`)
+      const result = await consumeAgentStream(response, (event) => {
+        if (event.runNo) runNo = event.runNo
+        if (event.sequenceNo != null) afterEventNo = Math.max(afterEventNo, event.sequenceNo)
+        if (event.type === "RUN_COMPLETED") completed = true
+        onEvent(event)
+      })
+      if (result.runNo) runNo = result.runNo
+      if (completed) return getAgentRun(runNo)
+      if (!runNo) throw new Error("Agent stream completed without a run id")
+    } catch (reason: unknown) {
+      if (signal?.aborted) throw reason
+      if (!runNo || attempt >= maxReconnects) throw reason
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+    }
+  }
+  throw new Error("Agent stream reconnect failed")
+}
+
+async function consumeAgentStream(
+  response: Response,
+  onEvent: (event: AgentStreamEvent) => void,
+): Promise<{ runNo: string }> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("Agent stream has no body")
   const decoder = new TextDecoder()
   let buffer = ""
   let runNo = ""
@@ -153,8 +188,7 @@ export async function runAgentStream(
     if (done) break
   }
   if (buffer.trim()) dispatch(buffer)
-  if (!runNo) throw new Error("Agent stream completed without a run id")
-  return getAgentRun(runNo)
+  return { runNo }
 }
 
 export async function cancelAgent(runNo: string): Promise<boolean> {

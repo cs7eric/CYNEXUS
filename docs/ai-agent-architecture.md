@@ -195,6 +195,10 @@ Stores an auditable model/tool step: `id`, `run_id`, `step_no`, `turn_no`, `step
 
 Indexes cover owner/created time, conversation/created time, run/status, and run/step order. Tool output is truncated before persistence and sensitive values are redacted.
 
+### `ai_agent_run_event`
+
+Stores the ordered, replayable public workflow events for one run. Each event is scoped by the tenant-qualified owner, has a monotonically increasing `sequence_no`, and contains only user-visible workflow data such as tool status, source summary, answer text, or token delta. It is the source for SSE reconnect and does not store hidden chain-of-thought. Reconnect requests replay events after `Last-Event-ID` without executing the provider or tools again.
+
 ## 8. API Surface
 
 ### Start Agent run

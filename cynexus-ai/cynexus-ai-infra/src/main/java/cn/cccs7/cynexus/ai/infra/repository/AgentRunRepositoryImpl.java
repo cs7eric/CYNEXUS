@@ -3,14 +3,17 @@ package cn.cccs7.cynexus.ai.infra.repository;
 import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentMessageBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
 import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentConversationBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentMessageBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunEventBasicService;
 import cn.cccs7.cynexus.ai.infra.convert.AgentConversationPOConverter;
 import cn.cccs7.cynexus.ai.infra.convert.AgentMessagePOConverter;
 import cn.cccs7.cynexus.ai.infra.convert.AgentRunPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.AgentRunEventPOConverter;
 import cn.cccs7.cynexus.ai.infra.convert.AgentRunStepPOConverter;
 import java.util.List;
 import java.util.Optional;
@@ -22,12 +25,14 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     private final AgentConversationBasicService conversationService;
     private final AgentRunBasicService runService;
     private final AgentMessageBasicService messageService;
+    private final AgentRunEventBasicService eventService;
 
     public AgentRunRepositoryImpl(AgentConversationBasicService conversationService, AgentRunBasicService runService,
-                                  AgentMessageBasicService messageService) {
+                                  AgentMessageBasicService messageService, AgentRunEventBasicService eventService) {
         this.conversationService = conversationService;
         this.runService = runService;
         this.messageService = messageService;
+        this.eventService = eventService;
     }
 
     @Override
@@ -103,5 +108,19 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     public List<AgentRunBO> findStaleRunningRuns(OffsetDateTime cutoff) {
         return runService.findStaleRunning(cutoff).stream()
                 .map(AgentRunPOConverter.INSTANCE::toTarget).toList();
+    }
+
+    @Override
+    public void saveEvent(String ownerKey, AgentRunEventBO event) {
+        var source = AgentRunEventPOConverter.INSTANCE.toSource(event);
+        source.setOwnerKey(ownerKey);
+        source.setRunNo(event.getRunNo());
+        eventService.create(source);
+    }
+
+    @Override
+    public List<AgentRunEventBO> findEvents(String ownerKey, String runNo, int afterSequenceNo, int limit) {
+        return eventService.find(ownerKey, runNo, afterSequenceNo, limit).stream()
+                .map(AgentRunEventPOConverter.INSTANCE::toTarget).toList();
     }
 }

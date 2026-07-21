@@ -2248,3 +2248,28 @@ Status: complete
 - Added Agent UI clarification rendering; the existing conversation number is retained for follow-up input.
 - Focused workflow tests passed: 2 tests, 0 failures.
 - Versions synchronized to `1.1.130-SNAPSHOT`; Release migration/runtime verification remains pending.
+
+### 105.12 Durable Agent event log and SSE recovery
+
+Status: complete
+
+- Persist every public Agent workflow event with a tenant-qualified owner and monotonic sequence number.
+- Expose `Last-Event-ID`/sequence-based replay without re-running the provider or any tool.
+- Keep a disconnected SSE subscriber from cancelling the underlying Agent run.
+- Add JSON event polling for clients that cannot hold an SSE connection and cover sequence/order behavior in focused tests.
+- Synchronize Maven/UI versions and apply the event-log migration before Release verification.
+
+### 105.12 Verification Results
+
+- Added `ai_agent_run_event`, owner/run/sequence indexing, event repository/basic-service/PO/BO layers, and migration `20260722_add_ai_agent_event_log.sql`.
+- Added `GET /api/ai/agent/runs/{runNo}/stream`, `GET /api/ai/agent/runs/{runNo}/events`, SSE event ids, and browser reconnect with bounded retries.
+- Focused AI workflow tests passed: 18 tests, 0 failures; event persistence asserts ordered `RUN_STARTED` through `RUN_COMPLETED` events.
+- UI production build passed; Maven/UI versions are synchronized at `1.1.131-SNAPSHOT`.
+- Migration applied to local `cynexus`; versioned Release rebuild and real-provider reconnect check remain pending.
+
+## Errors Encountered
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| Event converter package was not imported | First event-log compile | Added the converter import and explicit MapStruct field mappings. |
+| Stream DTO lacked `sequenceNo` | First controller compile | Added the sequence field to the API DTO and frontend event contract. |

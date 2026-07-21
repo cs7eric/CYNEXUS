@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 
@@ -154,7 +155,16 @@ public class AutonomousAgentAppService {
             }
             throw exception;
         }
-        emit(eventConsumer, AgentRunEventBO.builder().type("RUN_STARTED").runNo(runNo).status("RUNNING").build());
+        AtomicInteger eventSequence = new AtomicInteger(0);
+        Consumer<AgentRunEventBO> publisher = event -> {
+            AgentRunEventBO sequenced = event.toBuilder()
+                    .sequenceNo(eventSequence.incrementAndGet())
+                    .occurredAt(OffsetDateTime.now())
+                    .build();
+            agentRunRepository.saveEvent(ownerKey, sequenced);
+            emit(eventConsumer, sequenced);
+        };
+        publisher.accept(AgentRunEventBO.builder().type("RUN_STARTED").runNo(runNo).status("RUNNING").build());
 
         List<AgentRunStepBO> steps = new ArrayList<>();
         try {
@@ -182,7 +192,7 @@ public class AutonomousAgentAppService {
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
                         .systemPrompt(systemPrompt()).messages(List.copyOf(messages)).tools(definitions).build();
                 AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest,
-                        streamTokens ? delta -> emit(eventConsumer, AgentRunEventBO.builder().type("TOKEN_DELTA")
+                        streamTokens ? delta -> publisher.accept(AgentRunEventBO.builder().type("TOKEN_DELTA")
                                 .runNo(runNo).status("STREAMING").delta(delta).build()) : null);
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
                 if (!response.hasToolCalls()) {
@@ -206,7 +216,7 @@ public class AutonomousAgentAppService {
                             ? saveAnswerStep(runNo, steps.size() + 1, answer)
                             : saveClarificationStep(runNo, steps.size() + 1, clarification);
                     steps.add(answerStep);
-                    emit(eventConsumer, AgentRunEventBO.builder().type(clarification == null ? "ANSWER" : "CLARIFICATION")
+                    publisher.accept(AgentRunEventBO.builder().type(clarification == null ? "ANSWER" : "CLARIFICATION")
                             .runNo(runNo).status(clarification == null ? "SUCCEEDED" : "NEEDS_CLARIFICATION")
                             .stepNo(answerStep.getStepNo()).answer(answer).build());
                     break;
@@ -247,7 +257,7 @@ public class AutonomousAgentAppService {
                     else if ("SUCCEEDED".equals(result.getStatus())) circuitBreaker.recordSuccess(toolCircuitKey);
                     AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result, attempts);
                     steps.add(step);
-                    emit(eventConsumer, AgentRunEventBO.builder().type("TOOL_STEP").runNo(runNo).status(result.getStatus())
+                    publisher.accept(AgentRunEventBO.builder().type("TOOL_STEP").runNo(runNo).status(result.getStatus())
                             .stepNo(step.getStepNo()).toolCode(step.getToolCode()).summary(step.getSummary()).build());
                     AgentModelMessage toolMessage = AgentModelMessage.builder().role("tool").toolCallId(call.getCallId())
                             .toolName(call.getToolCode()).content(result.getOutputJson()).build();
@@ -268,7 +278,7 @@ public class AutonomousAgentAppService {
             conversation.setLastMessage(answer);
             conversation.setUpdatedAt(OffsetDateTime.now());
             agentRunRepository.updateConversation(conversation);
-            emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
+            publisher.accept(AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .answer(answer).build());
         } catch (RuntimeException exception) {
             boolean cancelled = runtimeLease.isCancellationRequested(runNo);
@@ -277,7 +287,7 @@ public class AutonomousAgentAppService {
             run.setFailureCategory(cancelled ? "CANCELLED" : classifyFailure(exception));
             run.setFinishedAt(OffsetDateTime.now());
             agentRunRepository.updateRun(run);
-            emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
+            publisher.accept(AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .errorMessage(exception.getMessage()).build());
         } finally {
             runtimeLease.release(ownerKey, runNo);
@@ -299,7 +309,43 @@ public class AutonomousAgentAppService {
     }
 
     private void emit(Consumer<AgentRunEventBO> consumer, AgentRunEventBO event) {
-        if (consumer != null) consumer.accept(event);
+        if (consumer == null) return;
+        try {
+            consumer.accept(event);
+        } catch (RuntimeException ignored) {
+            // A disconnected SSE subscriber must not cancel the persisted Agent run.
+        }
+    }
+
+    public void replayStream(AgentIdentity identity, String runNo, int afterSequenceNo,
+                             Consumer<AgentRunEventBO> eventConsumer) {
+        AgentIdentity safeIdentity = identity == null ? AgentIdentity.singleUser() : identity;
+        String ownerKey = safeIdentity.storageOwnerKey();
+        int cursor = Math.max(0, afterSequenceNo);
+        long deadline = System.currentTimeMillis() + (MAX_RUN_SECONDS + 60L) * 1000L;
+        while (System.currentTimeMillis() < deadline) {
+            List<AgentRunEventBO> events = agentRunRepository.findEvents(ownerKey, runNo, cursor, 200);
+            for (AgentRunEventBO event : events) {
+                if (event.getSequenceNo() != null) cursor = event.getSequenceNo();
+                emit(eventConsumer, event);
+            }
+            AgentRunBO run = agentRunRepository.findRun(ownerKey, runNo)
+                    .orElseThrow(() -> new IllegalArgumentException("Agent run was not found"));
+            if (isTerminal(run.getStatus()) && events.isEmpty()) return;
+            if (isTerminal(run.getStatus())) return;
+            try {
+                Thread.sleep(300L);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        throw new IllegalStateException("Agent event replay timed out");
+    }
+
+    private boolean isTerminal(String status) {
+        return "SUCCEEDED".equals(status) || "NEEDS_CLARIFICATION".equals(status)
+                || "FAILED".equals(status) || "CANCELLED".equals(status);
     }
 
     private AgentToolResult bounded(AgentToolResult result) {
@@ -386,6 +432,15 @@ public class AutonomousAgentAppService {
 
     public List<AgentMessageDTO> messages(AgentIdentity identity, String conversationNo) {
         return messages(identity == null ? null : identity.storageOwnerKey(), conversationNo);
+    }
+
+    public List<AgentRunEventBO> events(AgentIdentity identity, String runNo, int afterSequenceNo, int limit) {
+        AgentIdentity safeIdentity = identity == null ? AgentIdentity.singleUser() : identity;
+        String ownerKey = safeIdentity.storageOwnerKey();
+        if (agentRunRepository.findRun(ownerKey, runNo).isEmpty()) {
+            throw new IllegalArgumentException("Agent run was not found");
+        }
+        return agentRunRepository.findEvents(ownerKey, runNo, Math.max(0, afterSequenceNo), Math.min(200, Math.max(1, limit)));
     }
 
     private AiModelBO resolveModel(String preferredModelCode) {

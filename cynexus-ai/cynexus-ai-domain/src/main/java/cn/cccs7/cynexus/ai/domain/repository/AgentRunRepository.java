@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.ai.domain.repository;
 import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentMessageBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
 import java.util.List;
 import java.util.Optional;
@@ -39,4 +40,12 @@ public interface AgentRunRepository {
     List<AgentMessageBO> findMessages(String ownerKey, String conversationNo);
 
     List<AgentRunBO> findStaleRunningRuns(OffsetDateTime cutoff);
+
+    default void saveEvent(String ownerKey, AgentRunEventBO event) {
+        // Legacy test repositories may not persist stream events.
+    }
+
+    default List<AgentRunEventBO> findEvents(String ownerKey, String runNo, int afterSequenceNo, int limit) {
+        return List.of();
+    }
 }

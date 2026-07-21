@@ -11,6 +11,7 @@
 
 - User input: 12,000 characters.
 - Tool output persisted and returned to the model: 24,000 characters per result, with `OUTPUT_TRUNCATED` warning.
+- Public Agent stream events are persisted with owner scope and monotonic sequence numbers; reconnect replays the event log and never reruns a provider/tool call.
 - Run: 8 model turns, 12 total tool calls, 4 calls per turn, 600 seconds, and 2 active runs per owner per AI instance.
 - Only `readOnly=true` and `requiresConfirmation=false` handlers are available to autonomous execution.
 

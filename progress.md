@@ -1638,3 +1638,12 @@
 - Updated the Agent UI to render clarification questions and retain the same conversation for the user's follow-up.
 - Focused `AutonomousAgentWorkflowTest` passed 2/2.
 - Synchronized Maven/UI versions to `1.1.130-SNAPSHOT`.
+
+## 2026-07-22 - Durable Agent event log and SSE recovery
+
+- Added owner-scoped `ai_agent_run_event` persistence with monotonic event sequence numbers and an idempotent PostgreSQL migration.
+- Every public Agent workflow event is now persisted for replay; a disconnected SSE consumer is isolated from the underlying run execution.
+- Added `Last-Event-ID` replay, bounded browser reconnect, and JSON event polling under the AI service boundary.
+- Added focused assertions for event ordering and terminal completion events.
+- AI-focused Maven tests passed: 18 tests, 0 failures; UI production build passed.
+- Synchronized Maven/UI versions to `1.1.131-SNAPSHOT`.

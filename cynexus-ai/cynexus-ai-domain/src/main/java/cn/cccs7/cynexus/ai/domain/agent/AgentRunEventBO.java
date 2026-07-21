@@ -2,10 +2,12 @@ package cn.cccs7.cynexus.ai.domain.agent;
 
 import lombok.Builder;
 import lombok.Value;
+import java.time.OffsetDateTime;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class AgentRunEventBO {
+    Integer sequenceNo;
     String type;
     String runNo;
     String status;
@@ -15,4 +17,5 @@ public class AgentRunEventBO {
     String answer;
     String delta;
     String errorMessage;
+    OffsetDateTime occurredAt;
 }
