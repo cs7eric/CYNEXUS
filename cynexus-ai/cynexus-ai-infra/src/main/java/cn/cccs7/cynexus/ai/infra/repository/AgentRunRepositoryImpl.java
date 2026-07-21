@@ -10,6 +10,7 @@ import cn.cccs7.cynexus.ai.infra.basic.service.AgentConversationBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentMessageBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunEventBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunRetentionBasicService;
 import cn.cccs7.cynexus.ai.infra.convert.AgentConversationPOConverter;
 import cn.cccs7.cynexus.ai.infra.convert.AgentMessagePOConverter;
 import cn.cccs7.cynexus.ai.infra.convert.AgentRunPOConverter;
@@ -26,13 +27,16 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     private final AgentRunBasicService runService;
     private final AgentMessageBasicService messageService;
     private final AgentRunEventBasicService eventService;
+    private final AgentRunRetentionBasicService retentionService;
 
     public AgentRunRepositoryImpl(AgentConversationBasicService conversationService, AgentRunBasicService runService,
-                                  AgentMessageBasicService messageService, AgentRunEventBasicService eventService) {
+                                  AgentMessageBasicService messageService, AgentRunEventBasicService eventService,
+                                  AgentRunRetentionBasicService retentionService) {
         this.conversationService = conversationService;
         this.runService = runService;
         this.messageService = messageService;
         this.eventService = eventService;
+        this.retentionService = retentionService;
     }
 
     @Override
@@ -122,5 +126,10 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     public List<AgentRunEventBO> findEvents(String ownerKey, String runNo, int afterSequenceNo, int limit) {
         return eventService.find(ownerKey, runNo, afterSequenceNo, limit).stream()
                 .map(AgentRunEventPOConverter.INSTANCE::toTarget).toList();
+    }
+
+    @Override
+    public int archiveBefore(OffsetDateTime cutoff) {
+        return retentionService.archiveBefore(cutoff);
     }
 }

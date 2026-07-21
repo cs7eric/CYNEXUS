@@ -48,4 +48,8 @@ public interface AgentRunRepository {
     default List<AgentRunEventBO> findEvents(String ownerKey, String runNo, int afterSequenceNo, int limit) {
         return List.of();
     }
+
+    default int archiveBefore(OffsetDateTime cutoff) {
+        return 0;
+    }
 }

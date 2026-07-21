@@ -2307,6 +2307,15 @@ Status: complete
 - Provider/tool retry events are persisted in the durable Agent event log.
 - Focused Agent workflow tests passed: 19 tests, 0 failures, including in-flight Provider cancellation.
 
+### 105.16 Transcript/tool-output retention and archive policy
+
+Status: complete
+
+- Add a scheduled, configurable retention policy for terminal runs with a minimum retention guard.
+- Archive old runs while preserving status, tool code, source, dates, and failure metadata needed for audit.
+- Clear user/assistant transcript, tool arguments/results, event answer/delta/error bodies, and other sensitive payloads during archive.
+- Add bounded batch processing and keep the operation behind the AI repository/infra boundary.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |

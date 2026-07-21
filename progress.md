@@ -1668,3 +1668,10 @@
 - A late Provider completion cannot overwrite cancellation; the run persists `CANCELLED` and emits the terminal event.
 - Transient Provider/tool retry attempts emit persisted `RETRYING` events with attempt context.
 - Added an in-flight Provider cancellation regression test; focused Agent tests passed 19/19.
+
+## 2026-07-22 - Agent retention and archive policy
+
+- Added a scheduled retention job with configurable days and a seven-day minimum guard.
+- Terminal runs are archived in bounded batches while preserving audit metadata and clearing transcript, tool payload, and event body content.
+- Archive execution is implemented through the AI domain repository and infra basic mappers, with no controller-to-infra dependency.
+- Focused AI tests passed 19/19; the retention job is ready for Release runtime verification.
