@@ -37,8 +37,14 @@ public class AgentConversationBasicServiceImpl implements AgentConversationBasic
     }
 
     @Override
-    public List<AgentConversationPO> list(String ownerKey, int limit) {
-        return mapper.selectList(new QueryWrapper<AgentConversationPO>().eq("owner_key", ownerKey)
-                .isNull("deleted_at").orderByDesc("updated_at").last("LIMIT " + Math.max(1, Math.min(limit, 100))));
+    public List<AgentConversationPO> list(String ownerKey, int limit, String query) {
+        QueryWrapper<AgentConversationPO> wrapper = new QueryWrapper<AgentConversationPO>().eq("owner_key", ownerKey)
+                .isNull("deleted_at");
+        if (query != null && !query.isBlank()) {
+            String value = query.trim();
+            wrapper.and(item -> item.like("conversation_no", value).or().like("title", value).or().like("last_message", value));
+        }
+        return mapper.selectList(wrapper.orderByDesc("updated_at")
+                .last("LIMIT " + Math.max(1, Math.min(limit, 100))));
     }
 }

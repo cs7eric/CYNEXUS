@@ -14,7 +14,11 @@ public interface AgentRunRepository {
 
     Optional<AgentConversationBO> findConversation(String ownerKey, String conversationNo);
 
-    List<AgentConversationBO> listConversations(String ownerKey, int limit);
+    default List<AgentConversationBO> listConversations(String ownerKey, int limit) {
+        return listConversations(ownerKey, limit, null);
+    }
+
+    List<AgentConversationBO> listConversations(String ownerKey, int limit, String query);
 
     void saveRun(AgentRunBO run);
 

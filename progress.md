@@ -1579,3 +1579,10 @@
 - Added OpenAI-compatible Chat Completions SSE parsing for text and tool-call deltas, plus Responses API text/function-call delta parsing.
 - Added `TOKEN_DELTA` Agent SSE events and incremental UI answer rendering while the persisted run remains the source of truth after completion.
 - Added adapter contract coverage for streamed text and tool deltas; 3 focused adapter tests passed.
+
+## 2026-07-22 - Agent retry, regenerate, and history search
+
+- Added owner-scoped `retry` and `regenerate` run actions that create a new persisted execution in the existing conversation without reusing the prior idempotency key.
+- Added server-side conversation search across conversation number, title, and latest message, with a UI search control.
+- Added Agent UI retry/regenerate controls and kept the execution trace/evidence visible after reruns.
+- AI focused Maven tests and UI TypeScript check passed.

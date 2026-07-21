@@ -363,3 +363,4 @@
 - Circuit state is shared by provider/tool dependency key. Failures open the circuit after three transient upstream failures, one probe is admitted after the open window, and success resets the state.
 - Stale recovery must check the Redis lease before marking a database `RUNNING` row failed; otherwise a slow but healthy run could be incorrectly terminated.
 - Provider streaming must preserve tool-call fragments until the final JSON arguments are complete. Text deltas are emitted immediately, while the normal Agent loop still waits for the complete turn before executing tools.
+- Retry/regenerate must intentionally create a new run without carrying forward the old idempotency key; otherwise a user-visible retry would resolve to the old terminal run instead of invoking the Agent again.

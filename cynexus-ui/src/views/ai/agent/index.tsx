@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { cancelAgent, fetchAgentConversations, fetchAgentTools, getAgentRun, runAgentStream, type AgentConversation, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { cancelAgent, fetchAgentConversations, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentConversation, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { Input } from "@/components/ui/input"
 
 function stepLabel(step: AgentRunStep) {
   if (step.kind === "ANSWER") return "Answer"
@@ -48,6 +49,7 @@ export default function AutonomousAgentPage() {
   const abortController = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [historyQuery, setHistoryQuery] = useState("")
 
   useEffect(() => {
     void Promise.all([fetchAgentTools(), fetchAgentConversations()]).then(([nextTools, nextConversations]) => {
@@ -113,6 +115,20 @@ export default function AutonomousAgentPage() {
     }
   }
 
+  async function rerun(action: "retry" | "regenerate") {
+    if (!run?.runNo || loading) return
+    setLoading(true)
+    setError(null)
+    try {
+      setRun(action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo))
+      setConversations(await fetchAgentConversations())
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Unable to rerun Agent")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <WorkspaceShell sectionLabel="Workspace AI" pageTitle="Cynexus Agent" contentScrollable={false}>
       <div className="flex h-full min-h-0 flex-col gap-5">
@@ -132,7 +148,7 @@ export default function AutonomousAgentPage() {
         <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card">
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
-              {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div><div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}</div></div>)}</div></div> : null}</div></div>}
+              {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div><div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}</div></div>)}</div></div> : null}<div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></div></div></div>}
             </div>
             <div className="border-t border-border/70 p-4"><div className="rounded-xl border border-border bg-background p-2 shadow-sm"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 text-sm shadow-none focus-visible:ring-0" /><div className="flex items-center justify-between px-2 pt-2"><span className="text-xs text-muted-foreground">Read-only research tools · Ctrl/Cmd + Enter to run</span>{loading ? <Button size="sm" variant="outline" onClick={() => void stopAgent()}><Square className="size-3.5" /> Stop</Button> : <Button size="sm" onClick={() => void submit()} disabled={!input.trim()}><ArrowUpRight className="size-4" /> Run Agent</Button>}</div></div></div>
           </section>
@@ -145,6 +161,7 @@ export default function AutonomousAgentPage() {
                   <RefreshCw className={historyLoading ? "size-3.5 animate-spin" : "size-3.5"} />
                 </Button>
               </div>
+              <Input value={historyQuery} onChange={(event) => { const value = event.target.value; setHistoryQuery(value); void (value.trim() ? searchAgentConversations(value.trim()) : fetchAgentConversations()).then(setConversations) }} placeholder="Search history" className="mb-3 h-8 text-xs" />
               {conversations.length ? <div className="space-y-1.5">{conversations.map((conversation) => <button key={conversation.conversationNo} type="button" className="w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/50" onClick={() => void openConversation(conversation)}>
                 <div className="truncate text-xs font-medium">{conversation.lastMessage?.slice(0, 72) || conversation.title || conversation.conversationNo}</div>
                 <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span className="truncate">{conversation.conversationNo}</span><span>{conversation.updatedAt ? new Date(conversation.updatedAt).toLocaleDateString() : ""}</span></div>

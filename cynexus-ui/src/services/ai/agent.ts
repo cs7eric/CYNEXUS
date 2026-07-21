@@ -21,7 +21,6 @@ export interface AgentRun {
   status?: string | null
   userInput?: string | null
   answer?: string | null
-  delta?: string | null
   modelCode?: string | null
   planJson?: string | null
   evidenceJson?: string | null
@@ -60,6 +59,7 @@ export interface AgentStreamEvent {
   toolCode?: string | null
   summary?: string | null
   answer?: string | null
+  delta?: string | null
   errorMessage?: string | null
 }
 
@@ -105,6 +105,12 @@ export async function fetchAgentTools(): Promise<AgentToolDefinition[]> {
 export async function fetchAgentConversations(limit = 30): Promise<AgentConversation[]> {
   return cynexusResult<AgentConversation[]>(await fetchWithRetry(
     `${SERVICE_PREFIX.ai}/agent/conversations?limit=${encodeURIComponent(String(limit))}`,
+  ))
+}
+
+export async function searchAgentConversations(query: string, limit = 30): Promise<AgentConversation[]> {
+  return cynexusResult<AgentConversation[]>(await fetchWithRetry(
+    `${SERVICE_PREFIX.ai}/agent/conversations?limit=${encodeURIComponent(String(limit))}&query=${encodeURIComponent(query)}`,
   ))
 }
 
@@ -154,4 +160,12 @@ export async function cancelAgent(runNo: string): Promise<boolean> {
   return cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/cancel`, {
     method: "POST",
   }))
+}
+
+export async function retryAgent(runNo: string): Promise<AgentRun> {
+  return cynexusResult<AgentRun>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/retry`, { method: "POST" }))
+}
+
+export async function regenerateAgent(runNo: string): Promise<AgentRun> {
+  return cynexusResult<AgentRun>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/regenerate`, { method: "POST" }))
 }

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -61,6 +62,16 @@ public class AutonomousAgentController {
         return Result.success(agentAppService.cancel(identity(httpRequest), runNo));
     }
 
+    @PostMapping("/runs/{runNo}/retry")
+    public Result<AgentRunDTO> retry(@PathVariable String runNo, HttpServletRequest httpRequest) {
+        return Result.success(agentAppService.retry(identity(httpRequest), runNo));
+    }
+
+    @PostMapping("/runs/{runNo}/regenerate")
+    public Result<AgentRunDTO> regenerate(@PathVariable String runNo, HttpServletRequest httpRequest) {
+        return Result.success(agentAppService.regenerate(identity(httpRequest), runNo));
+    }
+
     @GetMapping("/runs/{runNo}")
     public Result<AgentRunDTO> getRun(@PathVariable String runNo, HttpServletRequest httpRequest) {
         return Result.success(agentAppService.getRun(identity(httpRequest), runNo));
@@ -72,8 +83,9 @@ public class AutonomousAgentController {
     }
 
     @GetMapping("/conversations")
-    public Result<List<AgentConversationDTO>> conversations(HttpServletRequest httpRequest) {
-        return Result.success(agentAppService.conversations(identity(httpRequest), 30));
+    public Result<List<AgentConversationDTO>> conversations(@RequestParam(required = false) String query,
+                                                            HttpServletRequest httpRequest) {
+        return Result.success(agentAppService.conversations(identity(httpRequest), 30, query));
     }
 
     @GetMapping("/conversations/{conversationNo}/messages")

@@ -42,7 +42,12 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
 
     @Override
     public List<AgentConversationBO> listConversations(String ownerKey, int limit) {
-        return conversationService.list(ownerKey, limit).stream()
+        return listConversations(ownerKey, limit, null);
+    }
+
+    @Override
+    public List<AgentConversationBO> listConversations(String ownerKey, int limit, String query) {
+        return conversationService.list(ownerKey, limit, query).stream()
                 .map(AgentConversationPOConverter.INSTANCE::toTarget).toList();
     }
 

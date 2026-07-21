@@ -2186,6 +2186,8 @@ Current implementation: an executable Mock Agent workflow test now verifies mode
 - Add truthful live status for queued/running/retrying/paused/cancelled/failed states and accessible empty/loading/error states.
 - Preserve the shadcn Message/MessageScroller composition and verify desktop/mobile layout visually.
 
+Current implementation: retry/regenerate actions, owner-scoped conversation search, run trace details, and incremental streamed answer rendering are available. Clarification-state contracts, source URL navigation, export, and mobile visual verification remain pending.
+
 ### 105.7 True Provider Streaming
 
 - Add provider-neutral streaming ports and OpenAI-compatible token/tool-delta parsing.

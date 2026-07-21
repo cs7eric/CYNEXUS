@@ -324,7 +324,11 @@ public class AutonomousAgentAppService {
     }
 
     public List<AgentConversationDTO> conversations(String ownerKey, int limit) {
-        return agentRunRepository.listConversations(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), limit).stream()
+        return conversations(ownerKey, limit, null);
+    }
+
+    public List<AgentConversationDTO> conversations(String ownerKey, int limit, String query) {
+        return agentRunRepository.listConversations(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), limit, query).stream()
                 .map(item -> AgentConversationDTO.builder().conversationNo(item.getConversationNo()).title(item.getTitle())
                         .status(item.getStatus()).lastRunNo(item.getLastRunNo()).lastMessage(item.getLastMessage())
                         .createdAt(item.getCreatedAt()).updatedAt(item.getUpdatedAt()).build()).toList();
@@ -332,6 +336,21 @@ public class AutonomousAgentAppService {
 
     public List<AgentConversationDTO> conversations(AgentIdentity identity, int limit) {
         return conversations(identity == null ? null : identity.storageOwnerKey(), limit);
+    }
+
+    public List<AgentConversationDTO> conversations(AgentIdentity identity, int limit, String query) {
+        return conversations(identity == null ? null : identity.storageOwnerKey(), limit, query);
+    }
+
+    public AgentRunDTO retry(AgentIdentity identity, String runNo) {
+        AgentRunBO original = agentRunRepository.findRun(identity == null ? null : identity.storageOwnerKey(), runNo)
+                .orElseThrow(() -> new IllegalArgumentException("Agent run was not found"));
+        return execute(AgentRunRequest.builder().conversationNo(original.getConversationNo()).userInput(original.getUserInput())
+                .workspace("agent").locale("zh-CN").build(), identity, ignored -> { });
+    }
+
+    public AgentRunDTO regenerate(AgentIdentity identity, String runNo) {
+        return retry(identity, runNo);
     }
 
     public List<AgentMessageDTO> messages(String ownerKey, String conversationNo) {
