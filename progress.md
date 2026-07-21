@@ -1606,3 +1606,9 @@
 - Real `xtyooo/gpt-5.4-mini` smoke proved provider routing and model-directed multi-turn tool selection, but exposed invalid `jsonb` from raw character truncation of oversized tool output.
 - Normalized every tool output to valid JSON before persistence/model follow-up and replaced truncation with a valid `{truncated, originalChars, preview}` envelope.
 - Added a workflow regression assertion that oversized/invalid tool output still persists valid JSON; targeted Maven test passed.
+
+## 2026-07-22 - Agent Provider tool-name compatibility
+
+- Real `1.1.127` smoke reached `xtyooo/gpt-5.4-mini` but the provider rejected `market.overview` as an invalid Function Name because dots are not allowed by the OpenAI-compatible schema.
+- Added reversible provider-boundary encoding for tool names and decoding for Chat Completions, Responses API, and SSE tool calls; internal registry codes remain unchanged.
+- Updated adapter contract coverage to assert legal provider names and canonical-code recovery; 3 focused adapter tests passed.

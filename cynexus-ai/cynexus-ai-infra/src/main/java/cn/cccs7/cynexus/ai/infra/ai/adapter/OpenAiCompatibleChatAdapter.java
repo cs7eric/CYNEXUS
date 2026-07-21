@@ -20,6 +20,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private static final String V1_CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
     private static final String RESPONSES_PATH = "/responses";
     private static final String V1_RESPONSES_PATH = "/v1/responses";
+    private static final String PROVIDER_TOOL_PREFIX = "cynexus_tool_";
 
     private final ObjectMapper objectMapper;
     private final SecretResolver secretResolver;
@@ -350,7 +352,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                         : objectMapper.readTree(accumulator.arguments.toString());
                 if (!arguments.isObject()) throw new IllegalStateException("AI tool arguments must be a JSON object");
                 calls.add(AgentModelToolCall.builder().callId(nonBlank(accumulator.id, "stream-call-" + calls.size()))
-                        .toolCode(accumulator.name).arguments(objectMapper.convertValue(arguments, Map.class)).build());
+                        .toolCode(canonicalToolName(accumulator.name)).arguments(objectMapper.convertValue(arguments, Map.class)).build());
             } catch (IOException exception) {
                 throw new IllegalStateException("AI provider emitted invalid tool arguments", exception);
             }
@@ -419,7 +421,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private Map<String, Object> toResponsesFunctionCall(AgentModelToolCall call) {
         try {
-            return Map.of("type", "function_call", "call_id", call.getCallId(), "name", call.getToolCode(),
+            return Map.of("type", "function_call", "call_id", call.getCallId(), "name", providerToolName(call.getToolCode()),
                     "arguments", objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments()));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize Agent tool arguments", exception);
@@ -431,7 +433,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (definitions == null) return tools;
         for (AgentToolDefinition definition : definitions) {
             Map<String, Object> function = new LinkedHashMap<>();
-            function.put("name", definition.getCode());
+            function.put("name", providerToolName(definition.getCode()));
             function.put("description", definition.getDescription());
             function.put("parameters", objectMapper.readTree(definition.getInputSchemaJson()));
             tools.add(Map.of("type", "function", "function", function));
@@ -442,7 +444,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private Map<String, Object> toChatToolCall(AgentModelToolCall call) {
         try {
             return Map.of("id", call.getCallId(), "type", "function",
-                    "function", Map.of("name", call.getToolCode(),
+                    "function", Map.of("name", providerToolName(call.getToolCode()),
                             "arguments", objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments())));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize Agent tool arguments", exception);
@@ -459,7 +461,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 JsonNode function = toolCall.get("function");
                 calls.add(AgentModelToolCall.builder()
                         .callId(textValue(toolCall.get("id"), "call_" + calls.size()))
-                        .toolCode(textValue(function == null ? null : function.get("name"), ""))
+                        .toolCode(canonicalToolName(textValue(function == null ? null : function.get("name"), "")))
                         .arguments(parseArguments(function == null ? null : function.get("arguments")))
                         .build());
             }
@@ -486,7 +488,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 if ("function_call".equals(textValue(item.get("type"), ""))) {
                     calls.add(AgentModelToolCall.builder()
                             .callId(textValue(item.get("call_id"), textValue(item.get("id"), "call_" + calls.size())))
-                            .toolCode(textValue(item.get("name"), ""))
+                            .toolCode(canonicalToolName(textValue(item.get("name"), "")))
                             .arguments(parseArguments(item.get("arguments")))
                             .build());
                 }
@@ -520,6 +522,30 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private String textValue(JsonNode node, String fallback) {
         return node == null || node.isNull() ? fallback : node.asText(fallback);
+    }
+
+    private String providerToolName(String canonicalToolCode) {
+        String value = canonicalToolCode == null ? "" : canonicalToolCode;
+        StringBuilder encoded = new StringBuilder(PROVIDER_TOOL_PREFIX);
+        for (byte item : value.getBytes(StandardCharsets.UTF_8)) {
+            encoded.append(String.format("%02x", item & 0xff));
+        }
+        return encoded.toString();
+    }
+
+    private String canonicalToolName(String providerToolName) {
+        if (providerToolName == null || !providerToolName.startsWith(PROVIDER_TOOL_PREFIX)) return providerToolName;
+        String hex = providerToolName.substring(PROVIDER_TOOL_PREFIX.length());
+        if (hex.isBlank() || (hex.length() % 2) != 0 || !hex.matches("[0-9a-fA-F]+")) return providerToolName;
+        try {
+            byte[] decoded = new byte[hex.length() / 2];
+            for (int index = 0; index < hex.length(); index += 2) {
+                decoded[index / 2] = (byte) Integer.parseInt(hex.substring(index, index + 2), 16);
+            }
+            return new String(decoded, StandardCharsets.UTF_8);
+        } catch (RuntimeException exception) {
+            return providerToolName;
+        }
     }
 
     private String requestPrompt(AgentModelTurnRequest request) {

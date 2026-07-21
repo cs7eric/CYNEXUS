@@ -46,7 +46,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
             assertThat(call.getToolCode()).isEqualTo("market.overview");
             assertThat(call.getArguments()).containsEntry("tradeDate", "2026-07-22");
         });
-        assertThat(requestBody.get()).contains("market.overview").contains("tradeDate").contains("tool_choice");
+        assertThat(requestBody.get()).contains("cynexus_tool_6d61726b65742e6f76657276696577")
+                .doesNotContain("\"name\":\"market.overview\"").contains("tradeDate").contains("tool_choice");
     }
 
     @Test
