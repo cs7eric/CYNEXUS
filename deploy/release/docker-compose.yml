@@ -90,6 +90,11 @@ services:
       CYNEXUS_AI_LANGFUSE_BASE_URL: ${CYNEXUS_AI_LANGFUSE_BASE_URL:-http://cynexus-langfuse-web:3000}
       CYNEXUS_AI_LANGFUSE_PUBLIC_KEY: ${CYNEXUS_AI_LANGFUSE_PUBLIC_KEY:-}
       CYNEXUS_AI_LANGFUSE_SECRET_KEY: ${CYNEXUS_AI_LANGFUSE_SECRET_KEY:-}
+      HTTP_PROXY: ${CYNEXUS_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CYNEXUS_HTTPS_PROXY:-}
+      NO_PROXY: ${CYNEXUS_NO_PROXY:-localhost,127.0.0.1,cynexus-postgres,cynexus-redis,cynexus-nacos,cynexus-market,cynexus-core,cynexus-data-job-executor}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:18081:18081"
     networks: [cynexus-shared]

@@ -2135,3 +2135,65 @@ Status: in_progress
 
 - Full UI TypeScript check and production Vite build now pass after fixing existing Market/POC typing blockers; the build still reports only non-fatal font/chunk warnings.
 - Versioned Release image rebuild and end-to-end verification against the new AI image are still pending.
+
+## Phase 105 - Agent Production Completion Backlog
+
+Status: in_progress
+
+This phase is the complete follow-up backlog requested after the Agent MVP review. Every item requires implementation evidence, a focused test, a runtime check where applicable, synchronized Maven/UI versions, and an individual commit before it is marked complete.
+
+### 105.1 Real Provider End-to-End
+
+- Execute real multi-tool requests through the configured `xtyooo` provider using `gpt-5.4-mini`.
+- Verify the persisted provider/model provenance, tool selection, arguments, tool outputs, answer, evidence, warnings, and data dates.
+- Verify real SSE start/tool/answer/completion events, cancellation, conversation resume, follow-up, provider failure, and unavailable-data behavior.
+- Remove or replace any mock/fallback behavior that can make a successful result appear real without a provider/tool execution.
+
+### 105.2 Identity, Tenant, and Authorization Boundary
+
+- Stop accepting client-controlled `ownerKey` as identity. Resolve owner and tenant from the authenticated request context, with an explicit development-only compatibility mode.
+- Enforce owner/tenant scope on runs, conversations, messages, tool context, cancellation, history, and rate limits.
+- Add authorization tests for cross-owner and cross-tenant reads, cancellation, and tool access.
+
+### 105.3 Distributed Runtime Reliability
+
+- Replace JVM-only active-run and cancellation state with Redis-backed leases/tokens and database-backed terminal state.
+- Add distributed per-owner rate limits, run idempotency, bounded retries with backoff, provider timeout, tool timeout, circuit breaking, and stale-run recovery.
+- Persist retry attempts and failure categories; never retry non-transient validation, authorization, or policy failures.
+- Ensure concurrent instances cannot execute the same run or duplicate tool call.
+
+### 105.4 Security and Data Governance
+
+- Centralize prompt-injection boundaries, tool allow-list policy, argument/output size limits, secret/PII redaction, and audit-safe serialization.
+- Add explicit confirmation tokens and UI for future write tools; keep unconfirmed writes impossible.
+- Add retention/archive policy for transcripts and tool outputs, and document sensitive-data handling.
+
+### 105.5 Executable Test and Evaluation System
+
+- Add an executable mock-provider Agent workflow test suite covering all acceptance scenarios, failure/replan paths, cancellation, retry, resume, idempotency, and security cases.
+- Run the versioned evaluation dataset in CI and persist pass/fail metrics without storing hidden chain-of-thought.
+- Add contract tests for every registered tool schema, capability routing row, source/freshness metadata, and unsupported-service behavior.
+
+### 105.6 Product Workflow Completion
+
+- Add clarification questions for missing or ambiguous inputs, retry/regenerate/edit actions, inspectable plan/tool details, source navigation, run duration, history search, and result export.
+- Add truthful live status for queued/running/retrying/paused/cancelled/failed states and accessible empty/loading/error states.
+- Preserve the shadcn Message/MessageScroller composition and verify desktop/mobile layout visually.
+
+### 105.7 True Provider Streaming
+
+- Add provider-neutral streaming ports and OpenAI-compatible token/tool-delta parsing.
+- Persist resumable stream checkpoints and reconnect behavior; keep event ordering and cancellation correct.
+- Verify providers without streaming support continue to use truthful workflow events rather than fabricated token output.
+
+### 105.8 Capability Expansion
+
+- Add application-analysis, market-information, deeper finance, and knowledge-base citation capabilities through the same registry and service-layer ports.
+- Register every capability in the AI Provider page with synchronized runtime entry, prompt key, group, description, schema, source, freshness, and availability.
+- Add write capabilities only after confirmation policy and audit workflow are complete.
+
+### 105.9 Final Audit and Release Gate
+
+- Build versioned Release images only through the documented scripts.
+- Verify database migrations, health, API, UI, provider provenance, persistence, security, failure, and recovery paths from the Release runtime.
+- Double-check every Phase 99-105 item against code and runtime evidence, remove placeholders, commit all functional changes, and record the final evidence.

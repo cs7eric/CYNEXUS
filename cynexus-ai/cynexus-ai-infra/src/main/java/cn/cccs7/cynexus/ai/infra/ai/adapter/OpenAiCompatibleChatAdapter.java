@@ -23,8 +23,12 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import org.springframework.core.env.Environment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpenAiCompatibleChatAdapter.class);
 
     private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(90);
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
@@ -104,10 +108,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                     .build();
             HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("AI provider returned " + response.statusCode() + ": " + response.body());
+                throw providerHttpFailure(response.statusCode(), response.body());
             }
             return responsesApi ? extractResponsesAgentResponse(response.body(), request) : extractChatAgentResponse(response.body(), request);
         } catch (IOException exception) {
+            logProviderFailure("agent", model, exception);
             throw new IllegalStateException("Failed to call AI provider: " + providerCode(), exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -125,7 +130,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                     .timeout(resolveRequestTimeout(model)).header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(payload)).build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) throw new IllegalStateException("AI provider returned " + response.statusCode() + ": " + response.body());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) throw providerHttpFailure(response.statusCode(), response.body());
             String content = extractChatContent(response.body());
             return AiCompletionResultBO.builder().content(content).providerCode(providerCode()).modelCode(resolveModelName(model))
                     .inputTokens(extractInputTokens(response.body(), prompt)).outputTokens(extractOutputTokens(response.body(), content))
@@ -521,6 +526,26 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             return objectMapper.readTree(model.getExtra());
         } catch (IOException ignored) {
             return objectMapper.createObjectNode();
+        }
+    }
+
+    private IllegalStateException providerHttpFailure(int statusCode, String responseBody) {
+        String detail = responseBody == null ? "" : responseBody.replaceAll("[\\r\\n\\t]+", " ").trim();
+        if (detail.length() > 240) detail = detail.substring(0, 240);
+        LOGGER.warn("AI provider {} returned HTTP {} with safe detail: {}", providerCode(), statusCode, detail);
+        return new IllegalStateException("AI provider returned HTTP " + statusCode);
+    }
+
+    private void logProviderFailure(String operation, AiModelBO model, Exception exception) {
+        LOGGER.warn("AI provider {} {} failed for model {} at {}: {}", providerCode(), operation,
+                resolveModelName(model), safeEndpoint(model), exception.getClass().getSimpleName(), exception);
+    }
+
+    private String safeEndpoint(AiModelBO model) {
+        try {
+            return resolveEndpoint(model, "responses".equalsIgnoreCase(extraString(model, "wire_api"))).toString();
+        } catch (RuntimeException ignored) {
+            return "unresolved";
         }
     }
 }

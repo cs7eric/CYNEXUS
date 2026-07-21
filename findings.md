@@ -18,6 +18,17 @@
 - The latest overview row can exist without fund-flow values, so failure metadata must select the latest row with `main_net_inflow IS NOT NULL`; otherwise it falsely reports a non-flow date as the last successful value.
 - In the current container network, both requests were closed upstream: HTTP reported `RemoteDisconnected` and Playwright reported `socket hang up`. This confirms the fallback path is operational even though the external source remains unavailable from that egress.
 
+## Agent Production Completion Audit - 2026-07-22
+
+- `AutonomousAgentController` still accepts `ownerKey` in request/query parameters, and `AgentRunRequest` accepts it in the body. This is not an authenticated identity boundary.
+- `AutonomousAgentAppService` keeps active-run counts and cancellation tokens in `ConcurrentHashMap`; this works only inside one JVM and cannot coordinate multiple AI instances or recover after restart.
+- The Agent loop currently executes tool calls sequentially even though the contract documents bounded parallel reads; this is correct for safety but does not yet satisfy the intended parallel execution behavior.
+- Provider resolution has the desired `autonomous_agent -> workspace_chat -> text_summary` priority, but a controlled live call is still required to prove `xtyooo/gpt-5.4-mini` provenance in the newly built Release image.
+- The current SSE stream emits workflow boundary events, not token deltas. This is truthful and should remain so until a provider-neutral streaming contract is implemented.
+- Existing tool and adapter tests cover contracts and parsing, but no executable end-to-end mock-provider workflow currently proves multi-turn planning, re-planning, persistence, cancellation, retry, resume, idempotency, and authorization together.
+- Phase 105 was added to `task_plan.md` so these gaps remain explicit and cannot be mistaken for completed MVP behavior.
+- The Release script incorrectly derived `1.1.122-260722-SNAPSHOT` from an explicit `1.1.122-260722-RELEASE` argument; Maven artifacts use `1.1.122-SNAPSHOT`. The parser must strip the six-digit release date before adding `-SNAPSHOT`.
+
 ## Market Information Refresh Error
 
 - `market_information_media_refresh` and `market_information_official_refresh` both dispatch to `sync_a_stock_dataset`.
@@ -339,3 +350,4 @@
 - Existing callable service capabilities available for Agent expansion are Core finance read APIs (`/api/core/finance/overview`, `/transactions`), Knowledge Base document lookup (`/api/knowledge-base/documents/{id}`), and Market APIs backed by ClickHouse for chart/detail data. No arbitrary SQL capability should be exposed; ClickHouse access must use typed, allow-listed queries.
 - Controlled live smoke exposed a real routing defect in the deployed Agent code: because bindings were filtered with `findFirst()` over an unordered list of fallback capabilities, the run reported model `auto` instead of the dedicated `autonomous_agent` `gpt-5.4-mini` route. The resolver must use an explicit capability priority and the new image must be deployed before claiming provider provenance.
 - Capability-pack test initially failed because the test used a bare Jackson `ObjectMapper` that cannot serialize Java time DTO fields. The runtime already supplies the configured mapper; the test was corrected to register `JavaTimeModule` so the contract matches production serialization.
+- Release verification first failed because `start-release.ps1 -Version 1.1.121-260722-RELEASE` derives a dated Maven snapshot name that does not exist; the repository's release script intentionally uses the current `1.1.121-SNAPSHOT` when `-Version` is omitted. The next attempt will use the script's no-argument version derivation, preserving the versioned release image requirement.

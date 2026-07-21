@@ -21,6 +21,8 @@ $mavenVersion = if ([string]::IsNullOrWhiteSpace($Version)) {
     $currentMavenVersion
 } elseif ($Version.EndsWith("-SNAPSHOT")) {
     $Version
+} elseif ($Version -match "^(.*)-\d{6}-RELEASE$") {
+    "$($Matches[1])-SNAPSHOT"
 } else {
     (($Version -replace "-RELEASE$", "") + "-SNAPSHOT")
 }
@@ -35,6 +37,19 @@ $releasePattern = '^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+)*-\d{6}-RELEASE$'
 if ($releaseVersion -notmatch $releasePattern) { throw "Release version must match x.y.z[-QUALIFIER]-YYMMDD-RELEASE, for example 1.1.1-ALPHA-260716-RELEASE." }
 $env:CYNEXUS_MAVEN_VERSION = $mavenVersion
 $env:CYNEXUS_RELEASE_VERSION = $releaseVersion
+
+# The local Windows runtime may expose outbound HTTPS through a host proxy.
+# Translate loopback proxy addresses so containers can reach the same proxy.
+foreach ($proxyName in @("HTTP_PROXY", "HTTPS_PROXY")) {
+    $sourceValue = [Environment]::GetEnvironmentVariable($proxyName)
+    if (-not [string]::IsNullOrWhiteSpace($sourceValue)) {
+        $containerValue = $sourceValue -replace "127\.0\.0\.1", "host.docker.internal" -replace "localhost", "host.docker.internal"
+        [Environment]::SetEnvironmentVariable("CYNEXUS_$proxyName", $containerValue, "Process")
+    }
+}
+if ([string]::IsNullOrWhiteSpace($env:CYNEXUS_NO_PROXY)) {
+    $env:CYNEXUS_NO_PROXY = "localhost,127.0.0.1,cynexus-postgres,cynexus-redis,cynexus-nacos,cynexus-market,cynexus-core,cynexus-data-job-executor"
+}
 Write-Host "[cynexus] Release version: $releaseVersion"
 
 if ($Build) {
