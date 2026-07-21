@@ -2074,15 +2074,21 @@ Status: in_progress
 
 ## Phase 100 - Agent provider binding and integration contract
 
-Status: in_progress
+Status: complete
 
 - Bind `autonomous_agent` to the live `xtyooo` provider (`custom`) and model `gpt-5.4-mini` through an idempotent migration.
 - Add a provider-independent HTTP integration harness covering native Chat Completions tool calls, Responses function calls, and strict JSON fallback without using a real credential in tests.
 - Run one controlled live smoke through the configured `xtyooo` provider and verify provider/model provenance and persisted trace.
 
+### Phase 100 Verification Results
+
+- Migration applied locally and verified `autonomous_agent -> xtyooo/custom -> gpt-5.4-mini`.
+- Local HTTP contract tests passed for Chat Completions native tool calls and Responses function calls, including schemas, arguments, and usage.
+- The first deployed-image smoke found and fixed unordered fallback binding selection; a new versioned image is still required for final release verification.
+
 ## Phase 101 - Persistent conversations and resumable Agent workflow
 
-Status: pending
+Status: in_progress
 
 - Persist transcript messages and conversation metadata with owner isolation.
 - Add conversation/history APIs, resume/continue/retry/regenerate actions, and UI history/recovery.

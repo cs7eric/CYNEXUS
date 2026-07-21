@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
-import { AlertCircle, ArrowUpRight, Check, CircleDashed, Loader2, Sparkles, Wrench } from "lucide-react"
+import { AlertCircle, ArrowUpRight, Check, CircleDashed, History, Loader2, RefreshCw, Sparkles, Wrench } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { fetchAgentTools, runAgent, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { fetchAgentConversations, fetchAgentTools, getAgentRun, runAgent, type AgentConversation, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 
 function stepLabel(step: AgentRunStep) {
   if (step.kind === "ANSWER") return "Answer"
@@ -32,11 +32,16 @@ export default function AutonomousAgentPage() {
   const [input, setInput] = useState("")
   const [run, setRun] = useState<AgentRun | null>(null)
   const [tools, setTools] = useState<AgentToolDefinition[]>([])
+  const [conversations, setConversations] = useState<AgentConversation[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    void fetchAgentTools().then(setTools).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load Agent tools"))
+    void Promise.all([fetchAgentTools(), fetchAgentConversations()]).then(([nextTools, nextConversations]) => {
+      setTools(nextTools)
+      setConversations(nextConversations)
+    }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load Agent workspace"))
   }, [])
 
   const toolGroups = useMemo(() => {
@@ -51,12 +56,27 @@ export default function AutonomousAgentPage() {
     setLoading(true)
     setError(null)
     try {
-      setRun(await runAgent({ userInput, workspace: "agent", locale: "zh-CN" }))
+      const nextRun = await runAgent({ conversationNo: run?.conversationNo ?? undefined, userInput, workspace: "agent", locale: "zh-CN" })
+      setRun(nextRun)
+      setConversations(await fetchAgentConversations())
       setInput("")
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Agent run failed")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function openConversation(conversation: AgentConversation) {
+    if (!conversation.lastRunNo || historyLoading) return
+    setHistoryLoading(true)
+    setError(null)
+    try {
+      setRun(await getAgentRun(conversation.lastRunNo))
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Unable to reopen conversation")
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -85,6 +105,18 @@ export default function AutonomousAgentPage() {
           </section>
 
           <aside className="min-h-0 space-y-4 overflow-y-auto">
+            <section className="rounded-xl border border-border/70 bg-card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold"><History className="size-3.5 text-sky-600" /> Recent conversations</h2>
+                <Button variant="ghost" size="icon" className="size-7" aria-label="Refresh conversations" onClick={() => void fetchAgentConversations().then(setConversations)} disabled={historyLoading}>
+                  <RefreshCw className={historyLoading ? "size-3.5 animate-spin" : "size-3.5"} />
+                </Button>
+              </div>
+              {conversations.length ? <div className="space-y-1.5">{conversations.map((conversation) => <button key={conversation.conversationNo} type="button" className="w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/50" onClick={() => void openConversation(conversation)}>
+                <div className="truncate text-xs font-medium">{conversation.lastMessage?.slice(0, 72) || conversation.title || conversation.conversationNo}</div>
+                <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span className="truncate">{conversation.conversationNo}</span><span>{conversation.updatedAt ? new Date(conversation.updatedAt).toLocaleDateString() : ""}</span></div>
+              </button>)}</div> : <p className="text-xs leading-5 text-muted-foreground">Completed conversations will be available here for review and follow-up.</p>}
+            </section>
             <section className="rounded-xl border border-border/70 bg-card p-4"><div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold">Run trace</h2>{run ? <Badge variant={run.status === "SUCCEEDED" ? "secondary" : "destructive"}>{run.status}</Badge> : null}</div>{run?.steps?.length ? <div className="space-y-2">{run.steps.map((step) => <details key={`${step.stepNo}-${step.toolCode ?? step.kind}`} className="group rounded-lg border border-border/70 bg-background"><summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs"><span className={step.status === "FAILED" ? "text-destructive" : "text-emerald-600"}>{statusIcon(step.status)}</span><span className="min-w-0 flex-1 truncate font-medium">{stepLabel(step)}</span><span className="text-muted-foreground">{step.dataDate ?? ""}</span></summary><div className="border-t border-border/60 px-3 py-3 text-xs"><p className="text-muted-foreground">{step.summary}</p><pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-[10px] leading-5">{outputPreview(step)}</pre></div></details>)}</div> : <p className="text-xs leading-5 text-muted-foreground">Tool calls and source dates will appear here after a run.</p>}</section>
             <section className="rounded-xl border border-border/70 bg-card p-4"><h2 className="mb-3 text-sm font-semibold">Available modules</h2><div className="space-y-3">{toolGroups.map(([module, moduleTools]) => <div key={module}><div className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{module}</div>{moduleTools.map((tool) => <div key={tool.code} className="flex items-start gap-2 py-1.5"><Wrench className="mt-0.5 size-3 text-sky-600" /><div><div className="text-xs font-medium">{tool.name}</div><div className="text-[11px] leading-4 text-muted-foreground">{tool.freshness}</div></div></div>)}</div>)}</div></section>
           </aside>

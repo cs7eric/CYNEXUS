@@ -2,6 +2,8 @@ package cn.cccs7.cynexus.ai.application.controller;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.application.service.AutonomousAgentAppService;
 import cn.cccs7.cynexus.common.core.result.Result;
@@ -38,5 +40,18 @@ public class AutonomousAgentController {
     @GetMapping("/tools")
     public Result<List<AgentToolDefinitionDTO>> tools() {
         return Result.success(agentAppService.enabledTools());
+    }
+
+    @GetMapping("/conversations")
+    public Result<List<AgentConversationDTO>> conversations(
+            @RequestParam(defaultValue = "anonymous") String ownerKey,
+            @RequestParam(defaultValue = "30") Integer limit) {
+        return Result.success(agentAppService.conversations(ownerKey, limit == null ? 30 : limit));
+    }
+
+    @GetMapping("/conversations/{conversationNo}/messages")
+    public Result<List<AgentMessageDTO>> messages(@PathVariable String conversationNo,
+                                                  @RequestParam(defaultValue = "anonymous") String ownerKey) {
+        return Result.success(agentAppService.messages(ownerKey, conversationNo));
     }
 }

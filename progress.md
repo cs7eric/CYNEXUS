@@ -1483,6 +1483,16 @@
 - Changed model resolution to prefer `autonomous_agent`, then explicitly fall back to `workspace_chat`, then `text_summary`.
 - Synchronized Maven/UI versions to `1.1.117-SNAPSHOT`; targeted AI compile is required before commit.
 
+## 2026-07-22 - Persistent Agent conversation history
+
+- Added `ai_agent_message` with ordered transcript persistence for user, assistant tool-call, tool result, and final answer messages.
+- Added domain repository ports and infra MyBatis/basic-service/converter implementations for conversation history and owner-scoped message reads.
+- Agent runs now restore the saved transcript when a conversation number is supplied, append the new user turn, and persist every model/tool message for later continuation.
+- Added `GET /api/ai/agent/conversations` and `GET /api/ai/agent/conversations/{conversationNo}/messages`.
+- Added Agent UI history list, reopen action, and follow-up requests on the selected conversation; targeted ESLint passed.
+- Applied the message migration locally. Maven AI application compile passed.
+- Synchronized Maven/UI versions to `1.1.118-SNAPSHOT`.
+
 ## 2026-07-22 - Strict JSON Agent fallback
 
 - Added a strict `{"type":"tool_calls","calls":[...]}` fallback for providers that return structured JSON instead of native function calls.

@@ -29,6 +29,26 @@ export interface AgentRun {
   steps?: AgentRunStep[] | null
 }
 
+export interface AgentConversation {
+  conversationNo: string
+  title?: string | null
+  status?: string | null
+  lastRunNo?: string | null
+  lastMessage?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface AgentMessage {
+  sequenceNo?: number | null
+  role?: string | null
+  content?: string | null
+  toolCallId?: string | null
+  toolName?: string | null
+  toolCallsJson?: string | null
+  createdAt?: string | null
+}
+
 export interface AgentToolDefinition {
   code: string
   name: string
@@ -65,4 +85,16 @@ export async function getAgentRun(runNo: string, ownerKey = "anonymous"): Promis
 
 export async function fetchAgentTools(): Promise<AgentToolDefinition[]> {
   return cynexusResult<AgentToolDefinition[]>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/tools`))
+}
+
+export async function fetchAgentConversations(limit = 30): Promise<AgentConversation[]> {
+  return cynexusResult<AgentConversation[]>(await fetchWithRetry(
+    `${SERVICE_PREFIX.ai}/agent/conversations?limit=${encodeURIComponent(String(limit))}`,
+  ))
+}
+
+export async function fetchAgentMessages(conversationNo: string): Promise<AgentMessage[]> {
+  return cynexusResult<AgentMessage[]>(await fetchWithRetry(
+    `${SERVICE_PREFIX.ai}/agent/conversations/${encodeURIComponent(conversationNo)}/messages`,
+  ))
 }

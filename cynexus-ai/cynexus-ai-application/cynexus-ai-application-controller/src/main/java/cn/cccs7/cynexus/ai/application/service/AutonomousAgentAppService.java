@@ -3,12 +3,15 @@ package cn.cccs7.cynexus.ai.application.service;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunStepDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.agent.AgentMessageBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
@@ -85,8 +88,11 @@ public class AutonomousAgentAppService {
             AiModelBO model = resolveModel(safeRequest.getPreferredModelCode());
             run.setModelCode(model.getModelCode());
             List<AgentToolDefinition> definitions = toolCatalog.enabledTools();
-            List<AgentModelMessage> messages = new ArrayList<>();
-            messages.add(AgentModelMessage.builder().role("user").content(userInput).build());
+            List<AgentModelMessage> messages = new ArrayList<>(agentRunRepository.findMessages(ownerKey, conversationNo).stream()
+                    .map(this::toModelMessage).toList());
+            AgentModelMessage userMessage = AgentModelMessage.builder().role("user").content(userInput).build();
+            messages.add(userMessage);
+            saveMessage(conversationNo, runNo, messages.size(), userMessage);
             AgentExecutionContext context = AgentExecutionContext.builder()
                     .ownerKey(ownerKey).conversationNo(conversationNo).runNo(runNo)
                     .workspace(safeRequest.getWorkspace()).locale(safeRequest.getLocale())
@@ -112,14 +118,19 @@ public class AutonomousAgentAppService {
                 }
                 if (!response.hasToolCalls()) {
                     answer = valueOr(response.getContent(), "The Agent did not produce an answer.");
+                    AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer).build();
+                    messages.add(finalMessage);
+                    saveMessage(conversationNo, runNo, messages.size(), finalMessage);
                     steps.add(saveAnswerStep(runNo, steps.size() + 1, answer));
                     break;
                 }
                 if (response.getToolCalls().size() > MAX_PARALLEL_READ_CALLS) {
                     throw new IllegalStateException("The Agent requested too many tools in one turn");
                 }
-                messages.add(AgentModelMessage.builder().role("assistant").content(valueOr(response.getContent(), ""))
-                        .toolCalls(response.getToolCalls()).build());
+                AgentModelMessage assistantMessage = AgentModelMessage.builder().role("assistant")
+                        .content(valueOr(response.getContent(), "")).toolCalls(response.getToolCalls()).build();
+                messages.add(assistantMessage);
+                saveMessage(conversationNo, runNo, messages.size(), assistantMessage);
                 for (var modelCall : response.getToolCalls()) {
                     if (intValue(run, "toolCallCount") > MAX_TOOL_CALLS) {
                         throw new IllegalStateException("The Agent exceeded the tool call limit");
@@ -129,8 +140,10 @@ public class AutonomousAgentAppService {
                     AgentToolResult result = toolExecutor.execute(call, context);
                     AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result);
                     steps.add(step);
-                    messages.add(AgentModelMessage.builder().role("tool").toolCallId(call.getCallId())
-                            .toolName(call.getToolCode()).content(result.getOutputJson()).build());
+                    AgentModelMessage toolMessage = AgentModelMessage.builder().role("tool").toolCallId(call.getCallId())
+                            .toolName(call.getToolCode()).content(result.getOutputJson()).build();
+                    messages.add(toolMessage);
+                    saveMessage(conversationNo, runNo, messages.size(), toolMessage);
                 }
             }
             if (answer == null) throw new IllegalStateException("The Agent exceeded the turn limit");
@@ -165,6 +178,20 @@ public class AutonomousAgentAppService {
                 .outputSchemaJson(definition.getOutputSchemaJson()).readOnly(definition.isReadOnly())
                 .requiresConfirmation(definition.isRequiresConfirmation()).freshness(definition.getFreshness())
                 .source(definition.getSource()).build()).toList();
+    }
+
+    public List<AgentConversationDTO> conversations(String ownerKey, int limit) {
+        return agentRunRepository.listConversations(valueOr(ownerKey, "anonymous"), limit).stream()
+                .map(item -> AgentConversationDTO.builder().conversationNo(item.getConversationNo()).title(item.getTitle())
+                        .status(item.getStatus()).lastRunNo(item.getLastRunNo()).lastMessage(item.getLastMessage())
+                        .createdAt(item.getCreatedAt()).updatedAt(item.getUpdatedAt()).build()).toList();
+    }
+
+    public List<AgentMessageDTO> messages(String ownerKey, String conversationNo) {
+        return agentRunRepository.findMessages(valueOr(ownerKey, "anonymous"), conversationNo).stream()
+                .map(item -> AgentMessageDTO.builder().sequenceNo(item.getSequenceNo()).role(item.getRole())
+                        .content(item.getContent()).toolCallId(item.getToolCallId()).toolName(item.getToolName())
+                        .toolCallsJson(item.getToolCallsJson()).createdAt(item.getCreatedAt()).build()).toList();
     }
 
     private AiModelBO resolveModel(String preferredModelCode) {
@@ -243,6 +270,27 @@ public class AutonomousAgentAppService {
         } catch (JsonProcessingException exception) {
             return "{}";
         }
+    }
+
+    private void saveMessage(String conversationNo, String runNo, int sequenceNo, AgentModelMessage message) {
+        agentRunRepository.saveMessage(AgentMessageBO.builder().conversationNo(conversationNo).runNo(runNo)
+                .sequenceNo(sequenceNo).role(message.getRole()).content(message.getContent())
+                .toolCallId(message.getToolCallId()).toolName(message.getToolName())
+                .toolCallsJson(json(message.getToolCalls() == null ? List.of() : message.getToolCalls())).build());
+    }
+
+    private AgentModelMessage toModelMessage(AgentMessageBO message) {
+        List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> calls = List.of();
+        if (message.getToolCallsJson() != null && !message.getToolCallsJson().isBlank()) {
+            try {
+                calls = objectMapper.readValue(message.getToolCallsJson(), objectMapper.getTypeFactory()
+                        .constructCollectionType(List.class, cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall.class));
+            } catch (Exception ignored) {
+                calls = List.of();
+            }
+        }
+        return AgentModelMessage.builder().role(message.getRole()).content(valueOr(message.getContent(), ""))
+                .toolCallId(message.getToolCallId()).toolName(message.getToolName()).toolCalls(calls).build();
     }
 
     private List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> parseFallbackToolCalls(String content) {
