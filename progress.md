@@ -1612,3 +1612,11 @@
 - Real `1.1.127` smoke reached `xtyooo/gpt-5.4-mini` but the provider rejected `market.overview` as an invalid Function Name because dots are not allowed by the OpenAI-compatible schema.
 - Added reversible provider-boundary encoding for tool names and decoding for Chat Completions, Responses API, and SSE tool calls; internal registry codes remain unchanged.
 - Updated adapter contract coverage to assert legal provider names and canonical-code recovery; 3 focused adapter tests passed.
+
+## 2026-07-22 - Market data authenticity audit
+
+- Removed hard-coded sector ranking rows and routed ranking reads through the persisted sector fund-flow snapshot repository.
+- Replaced synthetic stock daily and intraday feature values with ClickHouse-backed bars, calculated change/volume/amplitude metrics, and explicit no-data behavior.
+- Kept stock-level main net inflow unavailable when the existing persisted sources cannot support it; no fabricated value is returned.
+- Added focused Market application tests for persisted daily bars, missing intraday data, and persisted sector ranking delegation; all 3 tests passed after correcting Lombok accessor names.
+- Synchronized Maven/UI versions to `1.1.129-SNAPSHOT`.

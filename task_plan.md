@@ -2206,6 +2206,22 @@ Current implementation: the OpenAI-compatible adapter now sends `stream: true`, 
 
 Current implementation: added `market.information_feed`, `application_analysis.result`, and `application_analysis.recent30` as typed read-only registry handlers backed by existing Market/Application Analysis service ports. Their runtime metadata is exposed by the existing Agent tool catalog and inherits the `autonomous_agent` provider route; citation-source URL metadata and live Release verification remain pending.
 
+### 105.10 Market Data Authenticity Audit
+
+Status: complete
+
+- Remove remaining hard-coded sector ranking and stock feature responses in the Agent-consumed Market APIs.
+- Read sector rankings from persisted Market snapshots and stock features from persisted ClickHouse bars.
+- Return explicit no-data values where no trustworthy source exists instead of fabricating market metrics.
+- Add focused application tests and synchronize Maven/UI versions.
+
+### 105.10 Verification Results
+
+- Sector ranking now delegates to `SectorRankRepository`, implemented by the Market infra snapshot repository.
+- Stock daily/intraday features now use the existing `StockChartQueryRepository` and ClickHouse daily/minute bars.
+- Focused Market tests passed: 3 tests, 0 failures.
+- Versions synchronized to `1.1.129-SNAPSHOT`; versioned Release verification remains part of Phase 105.9.
+
 ### 105.9 Final Audit and Release Gate
 
 - Build versioned Release images only through the documented scripts.

@@ -370,3 +370,9 @@
 - The first `1.1.125` proxy fix still failed because Spring's property lookup did not expose the uppercase container environment to the adapter. The client now falls back to `System.getenv` and explicitly prefers HTTP/2 through the configured proxy; `1.1.126` must be rebuilt before another real-provider attempt.
 - Real `1.1.126` provider smoke reached `xtyooo/gpt-5.4-mini`, executed four model turns and nine tool calls, then exposed a persistence defect: character truncation of a tool result produced invalid PostgreSQL `jsonb`. Tool output must be parsed/normalized before size limiting, and truncation must produce a valid JSON envelope.
 - Real `1.1.127` smoke then reached the provider boundary but received HTTP 400 because OpenAI-compatible function names reject internal capability codes containing dots. Provider tool names now use reversible UTF-8 hex encoding with a `cynexus_tool_` prefix; the adapter decodes them back to canonical codes before Agent execution.
+
+## Market data authenticity audit (2026-07-22)
+
+- Sector ranking was still returning hard-coded AI/SEMICONDUCTOR/BROKERAGE rows, and stock daily/intraday features were returning synthetic values. The ranking path now reads persisted sector fund-flow snapshots, while daily/intraday features read ClickHouse bars and calculate derived metrics.
+- Stock-level main net inflow remains `null` when no trustworthy persisted source exists; missing bars return no data.
+- The first test compile used `getName()` on Lombok value objects that expose `getStockName()` and `getSectorName()`; corrected accessors and the focused suite now passes 3 tests.
