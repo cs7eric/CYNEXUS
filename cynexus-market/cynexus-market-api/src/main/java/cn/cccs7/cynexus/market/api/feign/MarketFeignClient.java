@@ -11,6 +11,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import java.util.Map;
 
 @FeignClient(name = "cynexus-market", contextId = "marketFeignClient",
         url = "${CYNEXUS_AI_MARKET_BASE_URL:}", path = "/api/market")
@@ -41,4 +42,11 @@ public interface MarketFeignClient {
             @RequestParam("symbol") String symbol,
             @RequestParam("period") String period,
             @RequestParam("adjust") String adjust);
+
+    @GetMapping("/information")
+    Result<Map<String, Object>> getMarketInformationFeed(
+            @RequestParam("page") Integer page,
+            @RequestParam("pageSize") Integer pageSize,
+            @RequestParam(value = "impactIndustryCode", required = false) String impactIndustryCode,
+            @RequestParam(value = "analysisStatus", required = false) String analysisStatus);
 }

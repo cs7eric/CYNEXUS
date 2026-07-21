@@ -10,6 +10,7 @@ import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.StockDailyFeatureDTO;
 import cn.cccs7.cynexus.market.api.dto.StockIntradayFeatureDTO;
 import org.springframework.stereotype.Component;
+import java.util.Map;
 
 @Component
 public class MarketDataTools implements MarketDataGateway {
@@ -52,6 +53,13 @@ public class MarketDataTools implements MarketDataGateway {
             String period,
             String adjust) {
         return unwrap(marketFeignClient.getStockChartKlines(targetType, symbol, period, adjust));
+    }
+
+    @Override
+    public Map<String, Object> getMarketInformationFeed(Integer page, Integer pageSize, String impactIndustryCode,
+                                                         String analysisStatus) {
+        return unwrap(marketFeignClient.getMarketInformationFeed(page == null ? 1 : page,
+                pageSize == null ? 20 : pageSize, impactIndustryCode, analysisStatus));
     }
 
     private static <T> T unwrap(Result<T> result) {
