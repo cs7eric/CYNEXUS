@@ -31,6 +31,8 @@
 - The first trusted-identity bootstrap attempt used the newer static `RandomNumberGenerator.Fill` API, which is unavailable in the installed PowerShell/.NET runtime. Use `RandomNumberGenerator.Create().GetBytes(...)` for the supported runtime.
 - The first Mock Agent workflow test compile lacked Mockito on the application-controller test classpath; the module previously declared JUnit only. Added the standard Spring Boot test starter as a test-scoped dependency.
 - The first Mock Agent workflow assertion expected one persisted step, but the runtime correctly persists both the tool step and final answer step. The assertion was corrected to require two persisted steps.
+- Idempotency belongs on the persisted run with a partial unique index scoped by the tenant-qualified owner key; a Redis-only key would not survive a Redis flush or support history replay.
+- Active-run leases and rate limits are separate policies: the former limits concurrent work and owns cancellation tokens, while the latter uses a rolling request window and should not block a legitimate retry lookup.
 
 ## Market Information Refresh Error
 

@@ -2164,6 +2164,8 @@ Current implementation: gateway-issued HMAC identity assertions are verified by 
 - Persist retry attempts and failure categories; never retry non-transient validation, authorization, or policy failures.
 - Ensure concurrent instances cannot execute the same run or duplicate tool call.
 
+Current implementation: Redis-backed active-run leases, cancellation tokens, and a per-owner rolling-window request limiter are wired through domain ports. Idempotency keys and persisted retry attempt counts are implemented; provider/tool retry classification, circuit breaking, and stale-run recovery remain pending.
+
 ### 105.4 Security and Data Governance
 
 - Centralize prompt-injection boundaries, tool allow-list policy, argument/output size limits, secret/PII redaction, and audit-safe serialization.
@@ -2175,6 +2177,8 @@ Current implementation: gateway-issued HMAC identity assertions are verified by 
 - Add an executable mock-provider Agent workflow test suite covering all acceptance scenarios, failure/replan paths, cancellation, retry, resume, idempotency, and security cases.
 - Run the versioned evaluation dataset in CI and persist pass/fail metrics without storing hidden chain-of-thought.
 - Add contract tests for every registered tool schema, capability routing row, source/freshness metadata, and unsupported-service behavior.
+
+Current implementation: an executable Mock Agent workflow test now verifies model-directed tool selection, tool execution, trace persistence, evidence generation, identity scope, and lease release. Full evaluation-dataset execution and HTTP-level recovery/security assertions remain pending.
 
 ### 105.6 Product Workflow Completion
 

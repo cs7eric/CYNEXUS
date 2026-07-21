@@ -1,13 +1,14 @@
 package cn.cccs7.cynexus.ai.infra.agent;
 
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
 import java.time.Duration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort {
+public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort, AgentRateLimitPort {
 
     private static final String PREFIX = "cynexus:ai:agent:";
     private static final DefaultRedisScript<Long> ACQUIRE_SCRIPT = new DefaultRedisScript<>(
@@ -21,6 +22,11 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort {
             "local count = tonumber(redis.call('get', KEYS[1]) or '0') "
                     + "if count <= 1 then redis.call('del', KEYS[1]) else redis.call('decr', KEYS[1]) end "
                     + "redis.call('del', KEYS[2]) "
+            + "return 1", Long.class);
+    private static final DefaultRedisScript<Long> RATE_LIMIT_SCRIPT = new DefaultRedisScript<>(
+            "local count = redis.call('incr', KEYS[1]) "
+                    + "if count == 1 then redis.call('expire', KEYS[1], ARGV[2]) end "
+                    + "if count > tonumber(ARGV[1]) then return 0 end "
                     + "return 1", Long.class);
 
     private final StringRedisTemplate redis;
@@ -59,6 +65,13 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort {
         return Boolean.TRUE.equals(redis.hasKey(cancelKey(runNo)));
     }
 
+    @Override
+    public boolean allow(String ownerKey, int maxRequests, int windowSeconds) {
+        Long result = redis.execute(RATE_LIMIT_SCRIPT, java.util.List.of(rateKey(ownerKey)),
+                String.valueOf(Math.max(1, maxRequests)), String.valueOf(Math.max(1, windowSeconds)));
+        return Long.valueOf(1L).equals(result);
+    }
+
     private String activeKey(String ownerKey) {
         return PREFIX + "active:" + ownerKey;
     }
@@ -73,5 +86,9 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort {
 
     private String cancelKey(String runNo) {
         return PREFIX + "cancel:" + runNo;
+    }
+
+    private String rateKey(String ownerKey) {
+        return PREFIX + "rate:" + ownerKey;
     }
 }

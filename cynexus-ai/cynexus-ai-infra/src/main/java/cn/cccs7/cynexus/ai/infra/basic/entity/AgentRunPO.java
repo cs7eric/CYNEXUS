@@ -15,6 +15,7 @@ public class AgentRunPO extends BasePO {
     @TableField("run_no") private String runNo;
     @TableField("conversation_no") private String conversationNo;
     @TableField("owner_key") private String ownerKey;
+    @TableField("idempotency_key") private String idempotencyKey;
     private String status;
     @TableField("user_input") private String userInput;
     private String answer;

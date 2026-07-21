@@ -14,6 +14,7 @@ import lombok.EqualsAndHashCode;
 public class AgentRunStepPO extends BasePO {
     @TableField("run_no") private String runNo;
     @TableField("step_no") private Integer stepNo;
+    @TableField("attempt_count") private Integer attemptCount;
     private String kind;
     @TableField("tool_code") private String toolCode;
     @TableField(value = "input_json", typeHandler = JsonbTypeHandler.class) private String inputJson;

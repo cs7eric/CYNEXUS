@@ -11,6 +11,7 @@ public class AgentRunStepBO {
     private Long id;
     private String runNo;
     private Integer stepNo;
+    private Integer attemptCount;
     private String kind;
     private String toolCode;
     private String inputJson;

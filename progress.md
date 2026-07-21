@@ -1555,3 +1555,11 @@
 - Release identity bootstrap initially failed because the installed PowerShell/.NET runtime lacks static `RandomNumberGenerator.Fill`; changed both Dev and Release scripts to the compatible instance API.
 - The first Mock Agent workflow test compile exposed a missing Mockito test dependency in the application-controller module; added `spring-boot-starter-test` with test scope before rerunning.
 - The first Mock Agent workflow assertion expected one step; the actual contract persists one tool step plus one answer step. Updated the test to assert both.
+
+## 2026-07-22 - Agent idempotency, retry metadata, and distributed rate limiting
+
+- Added optional owner-scoped Agent idempotency keys with a PostgreSQL partial unique index; repeated requests return the persisted run instead of executing the provider again.
+- Added persisted tool `attempt_count` metadata and bounded retry classification for transient provider/tool failures; validation and policy failures are not retried.
+- Added a Redis rolling-window per-owner request limiter through a domain port, alongside the existing active-run lease and cancellation token.
+- Applied `20260722_add_ai_agent_idempotency_and_retry_fields.sql` locally.
+- Synchronized Maven/UI versions to `1.1.124-SNAPSHOT`; focused Agent workflow and identity tests passed.

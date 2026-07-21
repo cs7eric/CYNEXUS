@@ -77,6 +77,7 @@ export interface AgentToolDefinition {
 
 export async function runAgent(input: {
   conversationNo?: string
+  idempotencyKey?: string
   userInput: string
   preferredModelCode?: string
   workspace?: string
@@ -113,7 +114,7 @@ export async function fetchAgentMessages(conversationNo: string): Promise<AgentM
 }
 
 export async function runAgentStream(
-  input: { conversationNo?: string; userInput: string; preferredModelCode?: string; workspace?: string; locale?: string; tradeDate?: string },
+  input: { conversationNo?: string; idempotencyKey?: string; userInput: string; preferredModelCode?: string; workspace?: string; locale?: string; tradeDate?: string },
   onEvent: (event: AgentStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<AgentRun> {

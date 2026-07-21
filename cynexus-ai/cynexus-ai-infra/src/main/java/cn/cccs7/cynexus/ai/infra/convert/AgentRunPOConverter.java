@@ -12,7 +12,7 @@ public final class AgentRunPOConverter {
         if (source == null) return null;
         AgentRunPO target = new AgentRunPO();
         target.setId(source.getId()); target.setRunNo(source.getRunNo()); target.setConversationNo(source.getConversationNo());
-        target.setOwnerKey(source.getOwnerKey()); target.setStatus(source.getStatus()); target.setUserInput(source.getUserInput());
+        target.setOwnerKey(source.getOwnerKey()); target.setIdempotencyKey(source.getIdempotencyKey()); target.setStatus(source.getStatus()); target.setUserInput(source.getUserInput());
         target.setAnswer(source.getAnswer()); target.setModelCode(source.getModelCode()); target.setPlan(source.getPlanJson());
         target.setContextJson(source.getContextJson()); target.setAssumptionsJson(source.getAssumptionsJson());
         target.setEvidenceJson(source.getEvidenceJson()); target.setWarningsJson(source.getWarningsJson());
@@ -26,7 +26,7 @@ public final class AgentRunPOConverter {
     public AgentRunBO toTarget(AgentRunPO source) {
         if (source == null) return null;
         return AgentRunBO.builder().id(source.getId()).runNo(source.getRunNo()).conversationNo(source.getConversationNo())
-                .ownerKey(source.getOwnerKey()).status(source.getStatus()).userInput(source.getUserInput())
+                .ownerKey(source.getOwnerKey()).idempotencyKey(source.getIdempotencyKey()).status(source.getStatus()).userInput(source.getUserInput())
                 .answer(source.getAnswer()).modelCode(source.getModelCode()).planJson(source.getPlan())
                 .contextJson(source.getContextJson()).assumptionsJson(source.getAssumptionsJson())
                 .evidenceJson(source.getEvidenceJson()).warningsJson(source.getWarningsJson())

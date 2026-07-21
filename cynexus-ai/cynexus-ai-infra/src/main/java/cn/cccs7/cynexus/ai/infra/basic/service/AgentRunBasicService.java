@@ -9,5 +9,6 @@ public interface AgentRunBasicService {
     void update(AgentRunPO run);
     void createStep(AgentRunStepPO step);
     AgentRunPO find(String ownerKey, String runNo);
+    AgentRunPO findByIdempotencyKey(String ownerKey, String idempotencyKey);
     List<AgentRunStepPO> findSteps(String ownerKey, String runNo);
 }

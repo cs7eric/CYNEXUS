@@ -71,6 +71,12 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     }
 
     @Override
+    public Optional<AgentRunBO> findRunByIdempotencyKey(String ownerKey, String idempotencyKey) {
+        return Optional.ofNullable(runService.findByIdempotencyKey(ownerKey, idempotencyKey))
+                .map(AgentRunPOConverter.INSTANCE::toTarget);
+    }
+
+    @Override
     public List<AgentRunStepBO> findSteps(String ownerKey, String runNo) {
         return runService.findSteps(ownerKey, runNo).stream()
                 .map(AgentRunStepPOConverter.INSTANCE::toTarget).toList();

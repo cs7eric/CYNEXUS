@@ -12,6 +12,7 @@ public class AgentRunBO {
     private String runNo;
     private String conversationNo;
     private String ownerKey;
+    private String idempotencyKey;
     private String status;
     private String userInput;
     private String answer;

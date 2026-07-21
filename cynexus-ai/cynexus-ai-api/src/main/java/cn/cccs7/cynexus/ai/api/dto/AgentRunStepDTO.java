@@ -8,6 +8,7 @@ import lombok.Data;
 @Builder
 public class AgentRunStepDTO {
     private Integer stepNo;
+    private Integer attemptCount;
     private String kind;
     private String toolCode;
     private String status;

@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AgentRunRequest {
     private String conversationNo;
+    private String idempotencyKey;
     private String userInput;
     private String preferredModelCode;
     private String workspace;

@@ -25,6 +25,8 @@ public interface AgentRunRepository {
 
     Optional<AgentRunBO> findRun(String ownerKey, String runNo);
 
+    Optional<AgentRunBO> findRunByIdempotencyKey(String ownerKey, String idempotencyKey);
+
     List<AgentRunStepBO> findSteps(String ownerKey, String runNo);
 
     void saveMessage(AgentMessageBO message);

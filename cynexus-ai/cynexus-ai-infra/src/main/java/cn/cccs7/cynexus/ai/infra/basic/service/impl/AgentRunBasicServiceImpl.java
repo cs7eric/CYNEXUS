@@ -47,6 +47,12 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
     }
 
     @Override
+    public AgentRunPO findByIdempotencyKey(String ownerKey, String idempotencyKey) {
+        return runMapper.selectOne(new QueryWrapper<AgentRunPO>().eq("owner_key", ownerKey)
+                .eq("idempotency_key", idempotencyKey).isNull("deleted_at"));
+    }
+
+    @Override
     public List<AgentRunStepPO> findSteps(String ownerKey, String runNo) {
         return stepMapper.selectList(new QueryWrapper<AgentRunStepPO>().eq("run_no", runNo)
                 .exists("SELECT 1 FROM ai_agent_run r WHERE r.run_no = ai_agent_run_step.run_no AND r.owner_key = {0}", ownerKey)
