@@ -1675,3 +1675,8 @@
 - Terminal runs are archived in bounded batches while preserving audit metadata and clearing transcript, tool payload, and event body content.
 - Archive execution is implemented through the AI domain repository and infra basic mappers, with no controller-to-infra dependency.
 - Focused AI tests passed 19/19; the retention job is ready for Release runtime verification.
+
+## 2026-07-22 - Agent HTTP authorization contracts
+
+- Added MockMvc tests for valid signed identity, missing signature rejection, tenant-signature replay rejection, and ignored client owner parameters.
+- The HTTP contract suite and Agent workflow suite passed 22/22 tests.

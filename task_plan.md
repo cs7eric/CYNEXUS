@@ -2316,6 +2316,14 @@ Status: complete
 - Clear user/assistant transcript, tool arguments/results, event answer/delta/error bodies, and other sensitive payloads during archive.
 - Add bounded batch processing and keep the operation behind the AI repository/infra boundary.
 
+### 105.17 HTTP authorization and tenant-boundary contract tests
+
+Status: complete
+
+- Add MockMvc-level tests for signed identity acceptance and missing/tampered signature rejection.
+- Prove query/body owner values cannot override the tenant-qualified owner derived from the trusted gateway assertion.
+- Keep cross-tenant run access behind repository owner scope and verify the controller never accepts client-controlled identity.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
