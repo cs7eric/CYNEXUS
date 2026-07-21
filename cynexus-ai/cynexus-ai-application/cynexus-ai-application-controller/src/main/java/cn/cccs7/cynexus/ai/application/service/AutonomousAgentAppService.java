@@ -102,6 +102,15 @@ public class AutonomousAgentAppService {
                                 .tools(definitions).build(), "autonomous_agent");
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
                 if (!response.hasToolCalls()) {
+                    List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
+                    if (!fallbackCalls.isEmpty()) {
+                        response = AgentModelTurnResponse.builder().type("TOOL_CALLS").content("")
+                                .toolCalls(fallbackCalls).inputTokens(response.getInputTokens())
+                                .outputTokens(response.getOutputTokens()).totalTokens(response.getTotalTokens())
+                                .rawResponse(response.getRawResponse()).build();
+                    }
+                }
+                if (!response.hasToolCalls()) {
                     answer = valueOr(response.getContent(), "The Agent did not produce an answer.");
                     steps.add(saveAnswerStep(runNo, steps.size() + 1, answer));
                     break;
@@ -227,6 +236,28 @@ public class AutonomousAgentAppService {
             return objectMapper.writeValueAsString(value == null ? Map.of() : value);
         } catch (JsonProcessingException exception) {
             return "{}";
+        }
+    }
+
+    private List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> parseFallbackToolCalls(String content) {
+        if (content == null || content.isBlank()) return List.of();
+        try {
+            var root = objectMapper.readTree(content);
+            String type = root.path("type").asText("");
+            if (!"tool_calls".equals(type) && !"action".equals(type)) return List.of();
+            var calls = root.get("calls");
+            if (calls == null || !calls.isArray() || calls.isEmpty() || calls.size() > MAX_PARALLEL_READ_CALLS) return List.of();
+            List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> parsed = new ArrayList<>();
+            for (var item : calls) {
+                String toolCode = item.path("toolCode").asText(item.path("tool").asText(""));
+                if (toolCode.isBlank() || !item.has("arguments") || !item.get("arguments").isObject()) return List.of();
+                parsed.add(cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall.builder()
+                        .callId(item.path("callId").asText("fallback-" + parsed.size()))
+                        .toolCode(toolCode).arguments(objectMapper.convertValue(item.get("arguments"), Map.class)).build());
+            }
+            return parsed;
+        } catch (Exception ignored) {
+            return List.of();
         }
     }
 

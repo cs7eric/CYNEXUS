@@ -1469,3 +1469,10 @@
 - Preserved assistant function-call items when building Responses API follow-up turns, so tool outputs can be submitted with their original call IDs.
 - Synchronized Maven and UI versions to `1.1.113-SNAPSHOT`.
 - Targeted AI compile passed.
+
+## 2026-07-22 - Strict JSON Agent fallback
+
+- Added a strict `{"type":"tool_calls","calls":[...]}` fallback for providers that return structured JSON instead of native function calls.
+- Validated fallback shape, call count, and object arguments before execution; arbitrary JSON answers remain final answers.
+- Synchronized Maven and UI versions to `1.1.114-SNAPSHOT`.
+- Targeted AI compile passed.

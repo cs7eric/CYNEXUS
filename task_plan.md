@@ -2070,4 +2070,4 @@ Status: in_progress
 - Completed provider protocol, bounded loop, persistence/API, and UI workflow in commit `1f5e589`.
 - Fixed runtime ObjectMapper wiring and verified the versioned AI container in commit `1cbd469`.
 - Preserved Responses API assistant function-call items in commit `6b446c8`.
-- Remaining Phase 99 work: strict JSON action fallback tests, full Agent model-provider integration test, conversation history UI, and a clean full UI production build.
+- Remaining Phase 99 work: full Agent model-provider integration test, conversation history UI, and a clean full UI production build.
