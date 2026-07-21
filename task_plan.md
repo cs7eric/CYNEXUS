@@ -2202,6 +2202,8 @@ Current implementation: the OpenAI-compatible adapter now sends `stream: true`, 
 - Register every capability in the AI Provider page with synchronized runtime entry, prompt key, group, description, schema, source, freshness, and availability.
 - Add write capabilities only after confirmation policy and audit workflow are complete.
 
+Current implementation: added `market.information_feed`, `application_analysis.result`, and `application_analysis.recent30` as typed read-only registry handlers backed by existing Market/Application Analysis service ports. Their runtime metadata is exposed by the existing Agent tool catalog and inherits the `autonomous_agent` provider route; citation-source URL metadata and live Release verification remain pending.
+
 ### 105.9 Final Audit and Release Gate
 
 - Build versioned Release images only through the documented scripts.

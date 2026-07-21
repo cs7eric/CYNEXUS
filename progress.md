@@ -1586,3 +1586,10 @@
 - Added server-side conversation search across conversation number, title, and latest message, with a UI search control.
 - Added Agent UI retry/regenerate controls and kept the execution trace/evidence visible after reruns.
 - AI focused Maven tests and UI TypeScript check passed.
+
+## 2026-07-22 - Agent application and market-information capability expansion
+
+- Added `market.information_feed` through the existing Market Feign boundary with bounded page/filter arguments and persisted feed source metadata.
+- Added `application_analysis.result` and `application_analysis.recent30` through a domain gateway port backed by the existing application-analysis application service.
+- All three tools are read-only, schema-validated, and assembled dynamically by `AgentToolRegistry`; provider routing remains centralized on `autonomous_agent` so tool capabilities do not introduce fake independent model routes.
+- AI starter reactor compile and 7 focused registry/adapter tests passed.
