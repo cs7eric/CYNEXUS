@@ -1470,6 +1470,19 @@
 - Synchronized Maven and UI versions to `1.1.113-SNAPSHOT`.
 - Targeted AI compile passed.
 
+## 2026-07-22 - Agent provider protocol integration tests
+
+- Added a local HTTP contract test for the OpenAI-compatible adapter using no real credential or external network.
+- Verified native Chat Completions tool-call extraction, JSON argument parsing, schema transmission, Responses API function-call extraction, and token usage propagation.
+- The first Maven invocation failed because PowerShell treated an unquoted `-D` property as a lifecycle phase; reran with quoted Maven properties and passed 2 tests.
+- Synchronized Maven/UI versions to `1.1.116-SNAPSHOT`.
+
+## 2026-07-22 - Agent binding priority repair
+
+- Live smoke showed the previous deployed resolver could select an unrelated fallback binding (`auto`) because it used unordered `findFirst()` across capabilities.
+- Changed model resolution to prefer `autonomous_agent`, then explicitly fall back to `workspace_chat`, then `text_summary`.
+- Synchronized Maven/UI versions to `1.1.117-SNAPSHOT`; targeted AI compile is required before commit.
+
 ## 2026-07-22 - Strict JSON Agent fallback
 
 - Added a strict `{"type":"tool_calls","calls":[...]}` fallback for providers that return structured JSON instead of native function calls.

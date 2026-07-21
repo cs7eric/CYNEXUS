@@ -168,11 +168,13 @@ public class AutonomousAgentAppService {
     }
 
     private AiModelBO resolveModel(String preferredModelCode) {
-        AiUsageBindingBO binding = usageBindingRepository.listAll().stream()
+        List<AiUsageBindingBO> enabledBindings = usageBindingRepository.listAll().stream()
                 .filter(item -> Boolean.TRUE.equals(item.getEnabled()))
-                .filter(item -> "autonomous_agent".equals(item.getCapability()) || "workspace_chat".equals(item.getCapability())
-                        || "text_summary".equals(item.getCapability()))
-                .findFirst().orElseThrow(() -> new IllegalStateException("No AI provider is bound to autonomous_agent"));
+                .toList();
+        AiUsageBindingBO binding = firstBinding(enabledBindings, "autonomous_agent")
+                .or(() -> firstBinding(enabledBindings, "workspace_chat"))
+                .or(() -> firstBinding(enabledBindings, "text_summary"))
+                .orElseThrow(() -> new IllegalStateException("No AI provider is bound to autonomous_agent"));
         AiProviderBO provider = providerRepository.findById(binding.getProviderId());
         if (provider == null || !Boolean.TRUE.equals(provider.getEnabled())) {
             throw new IllegalStateException("The AI provider bound to autonomous_agent is unavailable");
@@ -183,6 +185,10 @@ public class AutonomousAgentAppService {
                 .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
                 .extra(provider.getExtra()).enabled(true)
                 .capability(ModelCapability.builder().structuredOutputSupported(true).toolCallSupported(true).build()).build();
+    }
+
+    private java.util.Optional<AiUsageBindingBO> firstBinding(List<AiUsageBindingBO> bindings, String capability) {
+        return bindings.stream().filter(item -> capability.equals(item.getCapability())).findFirst();
     }
 
     private String systemPrompt() {
