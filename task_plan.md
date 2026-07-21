@@ -2267,6 +2267,22 @@ Status: complete
 - UI production build passed; Maven/UI versions are synchronized at `1.1.131-SNAPSHOT`.
 - Migration applied to local `cynexus`; versioned Release rebuild and real-provider reconnect check remain pending.
 
+### 105.13 Sensitive-data redaction boundary
+
+Status: complete
+
+- Implement a domain-owned sensitive-field policy and a structured JSON redaction boundary for tool arguments/results.
+- Redact bearer tokens, email addresses, and mobile numbers in transcript, error, evidence, and public event fields before persistence or model follow-up.
+- Add focused regression assertions proving secrets do not survive tool output truncation or audit persistence.
+- Synchronize Maven/UI versions and document the exact boundary without claiming hidden chain-of-thought storage.
+
+### 105.13 Verification Results
+
+- Added `AgentSensitiveDataPolicy` under the AI domain and recursive Jackson redaction in the application boundary.
+- Redaction covers tool output before it is passed to the next model turn, persisted step/message/run fields, and replayable public events.
+- Focused Agent workflow tests passed with secret, email, and mobile-number regression assertions; Maven/UI versions are synchronized at `1.1.132-SNAPSHOT`.
+- Release runtime verification remains pending.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |

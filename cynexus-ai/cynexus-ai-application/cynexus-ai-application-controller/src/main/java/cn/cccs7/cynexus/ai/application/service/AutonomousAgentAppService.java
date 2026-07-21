@@ -23,6 +23,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentSensitiveDataPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
@@ -137,7 +138,7 @@ public class AutonomousAgentAppService {
                         .title("Cynexus Agent").status("ACTIVE").metadataJson("{}").build());
         AgentRunBO run = AgentRunBO.builder()
                 .runNo(runNo).conversationNo(conversationNo).ownerKey(ownerKey).idempotencyKey(idempotencyKey).status("RUNNING")
-                .userInput(userInput).contextJson(json(Map.of("workspace", valueOr(safeRequest.getWorkspace(), ""),
+                .userInput(redactText(userInput)).contextJson(json(Map.of("workspace", valueOr(safeRequest.getWorkspace(), ""),
                         "locale", valueOr(safeRequest.getLocale(), "zh-CN"), "tradeDate", safeRequest.getTradeDate() == null ? "" : safeRequest.getTradeDate().toString())))
                 .assumptionsJson("[]").clarificationJson("null").evidenceJson("[]").warningsJson("[]")
                 .turnCount(0).toolCallCount(0).startedAt(startedAt).build();
@@ -158,6 +159,10 @@ public class AutonomousAgentAppService {
         AtomicInteger eventSequence = new AtomicInteger(0);
         Consumer<AgentRunEventBO> publisher = event -> {
             AgentRunEventBO sequenced = event.toBuilder()
+                    .summary(redactText(event.getSummary()))
+                    .answer(redactText(event.getAnswer()))
+                    .delta(redactText(event.getDelta()))
+                    .errorMessage(redactText(event.getErrorMessage()))
                     .sequenceNo(eventSequence.incrementAndGet())
                     .occurredAt(OffsetDateTime.now())
                     .build();
@@ -209,6 +214,7 @@ public class AutonomousAgentAppService {
                     answer = clarification == null
                             ? valueOr(response.getContent(), "The Agent did not produce an answer.")
                             : clarificationAnswer(clarification);
+                    answer = redactText(answer);
                     AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer).build();
                     messages.add(finalMessage);
                     saveMessage(conversationNo, runNo, messages.size(), finalMessage);
@@ -267,6 +273,7 @@ public class AutonomousAgentAppService {
             }
             if (answer == null) throw new IllegalStateException("The Agent exceeded the turn limit");
             run.setStatus(clarification == null ? "SUCCEEDED" : "NEEDS_CLARIFICATION");
+            answer = redactText(answer);
             run.setAnswer(answer);
             run.setClarificationJson(clarification == null ? "null" : json(clarification));
             run.setPlanJson(planJson(steps));
@@ -283,7 +290,7 @@ public class AutonomousAgentAppService {
         } catch (RuntimeException exception) {
             boolean cancelled = runtimeLease.isCancellationRequested(runNo);
             run.setStatus(cancelled ? "CANCELLED" : "FAILED");
-            run.setErrorMessage(exception.getMessage());
+            run.setErrorMessage(redactText(exception.getMessage()));
             run.setFailureCategory(cancelled ? "CANCELLED" : classifyFailure(exception));
             run.setFinishedAt(OffsetDateTime.now());
             agentRunRepository.updateRun(run);
@@ -350,7 +357,7 @@ public class AutonomousAgentAppService {
 
     private AgentToolResult bounded(AgentToolResult result) {
         if (result == null) return AgentToolResult.failure("unknown", "The tool returned no result.", "cynexus-ai", "EMPTY_RESULT");
-        String output = normalizeToolOutput(valueOr(result.getOutputJson(), "{}"));
+        String output = redactJson(normalizeToolOutput(valueOr(result.getOutputJson(), "{}")));
         List<String> warnings = result.getWarnings() == null ? List.of() : result.getWarnings();
         if (output.length() <= MAX_TOOL_OUTPUT_CHARS) return copyResult(result, output, valueOr(result.getSummary(), ""), warnings);
         String preview = output.substring(0, Math.min(output.length(), 8_000));
@@ -361,8 +368,8 @@ public class AutonomousAgentAppService {
 
     private AgentToolResult copyResult(AgentToolResult result, String output, String summary, List<String> warnings) {
         return AgentToolResult.builder().toolCode(result.getToolCode()).status(result.getStatus())
-                .outputJson(output).summary(summary).dataDate(result.getDataDate()).source(result.getSource())
-                .warnings(warnings == null ? List.of() : List.copyOf(warnings)).build();
+                .outputJson(output).summary(redactText(summary)).dataDate(result.getDataDate()).source(result.getSource())
+                .warnings(warnings == null ? List.of() : warnings.stream().map(this::redactText).toList()).build();
     }
 
     private String normalizeToolOutput(String output) {
@@ -372,6 +379,41 @@ public class AutonomousAgentAppService {
         } catch (Exception ignored) {
             return json(Map.of("invalidJson", true, "raw", output));
         }
+    }
+
+    private String redactJson(String value) {
+        try {
+            var node = objectMapper.readTree(value);
+            redactNode(node);
+            return objectMapper.writeValueAsString(node);
+        } catch (Exception ignored) {
+            return redactText(value);
+        }
+    }
+
+    private void redactNode(com.fasterxml.jackson.databind.JsonNode node) {
+        if (node == null) return;
+        if (node.isObject()) {
+            var fields = node.fields();
+            while (fields.hasNext()) {
+                var entry = fields.next();
+                if (AgentSensitiveDataPolicy.isSensitiveKey(entry.getKey())) {
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) node).put(entry.getKey(), AgentSensitiveDataPolicy.marker());
+                } else {
+                    redactNode(entry.getValue());
+                }
+            }
+        } else if (node.isArray()) {
+            for (var item : node) redactNode(item);
+        }
+    }
+
+    private String redactText(String value) {
+        if (value == null || value.isBlank()) return value;
+        return value
+                .replaceAll("(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]+", "$1" + AgentSensitiveDataPolicy.marker())
+                .replaceAll("(?i)([A-Z0-9._%+-]+)@[A-Z0-9.-]+\\.[A-Z]{2,}", AgentSensitiveDataPolicy.marker())
+                .replaceAll("(?<!\\d)(?:\\+?86[- ]?)?1[3-9]\\d{9}(?!\\d)", AgentSensitiveDataPolicy.marker());
     }
 
     public AgentRunDTO getRun(String ownerKey, String runNo) {
@@ -479,9 +521,9 @@ public class AutonomousAgentAppService {
     private AgentRunStepBO saveToolStep(String runNo, int stepNo, AgentToolCall call, AgentToolResult result, int attemptCount) {
         AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("TOOL")
                 .attemptCount(attemptCount)
-                .toolCode(call.getToolCode()).inputJson(json(call.getArguments())).outputJson(result.getOutputJson())
-                .status(result.getStatus()).summary(result.getSummary()).source(result.getSource())
-                .dataDate(result.getDataDate()).errorMessage(result.getWarnings().isEmpty() ? null : String.join(",", result.getWarnings()))
+                .toolCode(call.getToolCode()).inputJson(redactJson(json(call.getArguments()))).outputJson(redactJson(result.getOutputJson()))
+                .status(result.getStatus()).summary(redactText(result.getSummary())).source(result.getSource())
+                .dataDate(result.getDataDate()).errorMessage(result.getWarnings().isEmpty() ? null : redactText(String.join(",", result.getWarnings())))
                 .failureCategory("SUCCEEDED".equals(result.getStatus()) ? null : classifyToolFailure(result))
                 .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
         agentRunRepository.saveStep(step);
@@ -592,9 +634,9 @@ public class AutonomousAgentAppService {
 
     private void saveMessage(String conversationNo, String runNo, int sequenceNo, AgentModelMessage message) {
         agentRunRepository.saveMessage(AgentMessageBO.builder().conversationNo(conversationNo).runNo(runNo)
-                .sequenceNo(sequenceNo).role(message.getRole()).content(message.getContent())
+                .sequenceNo(sequenceNo).role(message.getRole()).content(redactText(message.getContent()))
                 .toolCallId(message.getToolCallId()).toolName(message.getToolName())
-                .toolCallsJson(json(message.getToolCalls() == null ? List.of() : message.getToolCalls())).build());
+                .toolCallsJson(redactJson(json(message.getToolCalls() == null ? List.of() : message.getToolCalls()))).build());
     }
 
     private AgentModelMessage toModelMessage(AgentMessageBO message) {

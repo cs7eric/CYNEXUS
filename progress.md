@@ -1647,3 +1647,10 @@
 - Added focused assertions for event ordering and terminal completion events.
 - AI-focused Maven tests passed: 18 tests, 0 failures; UI production build passed.
 - Synchronized Maven/UI versions to `1.1.131-SNAPSHOT`.
+
+## 2026-07-22 - Agent sensitive-data redaction boundary
+
+- Added domain-owned sensitive field policy and structured JSON recursion for tool arguments and outputs.
+- Redacted bearer tokens, email addresses, mobile numbers, transcript fields, errors, evidence, and replayable stream fields before persistence or model follow-up.
+- Extended the workflow test with secret and PII assertions after output truncation.
+- Synchronized Maven/UI versions to `1.1.132-SNAPSHOT`.

@@ -68,7 +68,9 @@ class AutonomousAgentWorkflowTest {
         when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
                 .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
         when(executor.execute(any(AgentToolCall.class), any(AgentExecutionContext.class)))
-                .thenReturn(AgentToolResult.success("market.overview", "{broken" + "x".repeat(25_000), "Market data", "2026-07-22", "Market API", List.of()));
+                .thenReturn(AgentToolResult.success("market.overview",
+                        "{\"apiKey\":\"secret-value\",\"email\":\"person@example.com\",\"payload\":\""
+                                + "x".repeat(25_000) + "\"}", "Market data", "2026-07-22", "Market API", List.of()));
         when(completion.completeAgent(any(), any(), eq("autonomous_agent")))
                 .thenReturn(AgentModelTurnResponse.builder().type("TOOL_CALLS").toolCalls(List.of(
                         AgentModelToolCall.builder().callId("call-1").toolCode("market.overview").arguments(Map.of()).build())).build())
@@ -93,6 +95,9 @@ class AutonomousAgentWorkflowTest {
             }
         });
         assertTrue(stepCaptor.getAllValues().get(0).getOutputJson().contains("truncated"));
+        assertTrue(stepCaptor.getAllValues().get(0).getOutputJson().contains("[REDACTED]"));
+        assertTrue(!stepCaptor.getAllValues().get(0).getOutputJson().contains("secret-value"));
+        assertTrue(!stepCaptor.getAllValues().get(0).getOutputJson().contains("person@example.com"));
         verify(repository).findRunByIdempotencyKey("tenant-1::user-1", "idem-1");
         verify(lease).release(eq("tenant-1::user-1"), any());
         ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);
