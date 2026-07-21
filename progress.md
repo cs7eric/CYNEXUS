@@ -1455,3 +1455,11 @@
 - Applied the Agent tables to the local `cynexus` database.
 - Synchronized Maven and UI versions to `1.1.111-SNAPSHOT`.
 - Targeted AI compile and four Agent tests passed; changed UI files pass ESLint. The full UI build remains blocked by pre-existing TypeScript errors in unrelated Market/POC files.
+
+## 2026-07-22 - Autonomous Agent runtime verification
+
+- Release Docker smoke test initially exposed a missing Jackson `ObjectMapper` bean for Market Agent handlers.
+- Added `AgentJacksonConfig` in `cynexus-ai-infra` and synchronized Maven/UI versions to `1.1.112-SNAPSHOT`.
+- Rebuilt the versioned AI image `cynexus-ai:1.1.112-260722-RELEASE` and recreated the Release AI container.
+- Verified AI startup, actuator health, Agent tool catalog response, and all three Agent persistence tables in `cynexus_appl_ai`.
+- The full Release UI image was not rebuilt because the existing repository-wide TypeScript build still has unrelated Market/POC errors.
