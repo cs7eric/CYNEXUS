@@ -2151,6 +2151,8 @@ This phase is the complete follow-up backlog requested after the Agent MVP revie
 - Verify real SSE start/tool/answer/completion events, cancellation, conversation resume, follow-up, provider failure, and unavailable-data behavior.
 - Remove or replace any mock/fallback behavior that can make a successful result appear real without a provider/tool execution.
 
+Current verification: Release `1.1.129-260722-RELEASE` completed a real `xtyooo / gpt-5.4-mini` multi-tool request through Gateway. The run persisted provider/model provenance, four model-selected tool calls, tool arguments and outputs, evidence, an explicit truncation warning, plan, and final answer. SSE reconnect, cancellation, conversation resume/follow-up, provider failure, and unavailable-data checks remain pending.
+
 ### 105.2 Identity, Tenant, and Authorization Boundary
 
 - Stop accepting client-controlled `ownerKey` as identity. Resolve owner and tenant from the authenticated request context, with an explicit development-only compatibility mode.
@@ -2227,3 +2229,5 @@ Status: complete
 - Build versioned Release images only through the documented scripts.
 - Verify database migrations, health, API, UI, provider provenance, persistence, security, failure, and recovery paths from the Release runtime.
 - Double-check every Phase 99-105 item against code and runtime evidence, remove placeholders, commit all functional changes, and record the final evidence.
+
+Current verification: Release `1.1.129-260722-RELEASE` was built only through `deploy/release/start-release.ps1 -Version 1.1.129-260722-RELEASE -Build`; Maven 41/41 modules passed, five versioned images built, and Core/Market/AI/Gateway/UI health checks returned HTTP 200. Phase 105 remains open for the listed security, recovery, product workflow, streaming reconnect, and final audit gates.

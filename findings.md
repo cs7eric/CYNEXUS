@@ -376,3 +376,11 @@
 - Sector ranking was still returning hard-coded AI/SEMICONDUCTOR/BROKERAGE rows, and stock daily/intraday features were returning synthetic values. The ranking path now reads persisted sector fund-flow snapshots, while daily/intraday features read ClickHouse bars and calculate derived metrics.
 - Stock-level main net inflow remains `null` when no trustworthy persisted source exists; missing bars return no data.
 - The first test compile used `getName()` on Lombok value objects that expose `getStockName()` and `getSectorName()`; corrected accessors and the focused suite now passes 3 tests.
+
+## Agent Release verification (2026-07-22)
+
+- Release `1.1.129-260722-RELEASE` was built through `deploy/release/start-release.ps1`, including Maven 41/41 success and versioned Core, Market, AI, Gateway, and UI images.
+- Core, Market, AI, Gateway, and UI health/API checks returned HTTP 200.
+- A real Gateway Agent request reached `xtyooo / gpt-5.4-mini`, completed with `SUCCEEDED`, selected four read-only tools dynamically, and persisted model provenance, plan, tool inputs/outputs, answer, evidence, and warnings.
+- The persisted run reported `toolCallCount=4`, `turnCount=2`, and an explicit `OUTPUT_TRUNCATED` warning for the bounded market-information payload. The result is therefore truthful about unavailable/truncated source content.
+- Remaining Phase 105 gates are intentionally still open: SSE reconnect/checkpoints, cancellation/resume/follow-up failure paths, HTTP-level authorization/recovery tests, retention/redaction policy, source navigation/export, mobile visual checks, and final capability-routing audit.

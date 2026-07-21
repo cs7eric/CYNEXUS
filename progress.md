@@ -1620,3 +1620,12 @@
 - Kept stock-level main net inflow unavailable when the existing persisted sources cannot support it; no fabricated value is returned.
 - Added focused Market application tests for persisted daily bars, missing intraday data, and persisted sector ranking delegation; all 3 tests passed after correcting Lombok accessor names.
 - Synchronized Maven/UI versions to `1.1.129-SNAPSHOT`.
+
+## 2026-07-22 - Agent Release and real-provider verification
+
+- Built and started Release `1.1.129-260722-RELEASE` only through `deploy/release/start-release.ps1 -Version 1.1.129-260722-RELEASE -Build`.
+- Maven reactor passed all 41 modules; Core, Market, AI, Gateway, and UI versioned images built and started.
+- Health checks for Core, Market, AI, Gateway, and UI returned HTTP 200.
+- Real Gateway Agent smoke reached `xtyooo / gpt-5.4-mini`, completed `SUCCEEDED`, dynamically selected four read-only Market tools, and persisted the plan, tool traces, evidence, warning, and answer.
+- The persisted trace reported `toolCallCount=4`, `turnCount=2`, `modelCode=gpt-5.4-mini`, and `OUTPUT_TRUNCATED` for the bounded information-feed result.
+- Phase 105 is not complete yet; the remaining reliability, authorization, governance, product workflow, reconnect, and final audit gates are recorded in `task_plan.md`.
