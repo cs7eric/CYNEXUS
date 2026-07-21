@@ -4,6 +4,8 @@ import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -40,5 +42,9 @@ public class AgentExecutor {
 
     public AiCompletionResultBO completeVisionDetailed(AiModelBO model, String prompt, List<AiImageInputBO> images, String capability) {
         return completionGateway.completeVision(model, prompt, images, capability);
+    }
+
+    public AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request, String capability) {
+        return completionGateway.completeAgent(model, request, capability);
     }
 }

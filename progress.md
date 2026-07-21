@@ -1442,3 +1442,16 @@
 - Added required-argument and numeric-range validation at the Market tool boundary.
 - Synchronized Maven and UI versions to `1.1.110-SNAPSHOT`.
 - Targeted AI compile and four Agent registry/Market handler tests passed.
+
+## 2026-07-22 - Autonomous AI Agent runtime, persistence, and UI
+
+- Added provider-neutral Agent model-turn contracts and native OpenAI-compatible `tool_calls` / Responses API parsing with strict JSON argument handling.
+- Extended the AI completion port and gateway so Agent orchestration remains independent of provider-specific payloads.
+- Added bounded autonomous execution in `AutonomousAgentAppService`: 8 turns, 12 tool calls, 4 calls per turn, read-only tool enforcement, failure capture, and concise trace records.
+- Added `ai_agent_conversation`, `ai_agent_run`, and `ai_agent_run_step` tables under `cynexus_appl_ai`, plus PO/basic-service/repository layers.
+- Added Agent API: `POST /api/ai/agent/runs`, `GET /api/ai/agent/runs/{runNo}`, and `GET /api/ai/agent/tools`.
+- Added `/ai/agent` UI with prompt composer, empty state, answer surface, tool trace, source dates, and available module catalog; global workspace chat now delegates to the Agent runtime.
+- Registered `autonomous_agent` in the AI Provider capability routing list.
+- Applied the Agent tables to the local `cynexus` database.
+- Synchronized Maven and UI versions to `1.1.111-SNAPSHOT`.
+- Targeted AI compile and four Agent tests passed; changed UI files pass ESLint. The full UI build remains blocked by pre-existing TypeScript errors in unrelated Market/POC files.

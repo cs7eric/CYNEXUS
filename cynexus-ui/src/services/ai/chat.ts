@@ -1,14 +1,6 @@
-import { cynexusResult } from "@/services/common/cynexus-result"
-import { fetchWithRetry } from "@/services/common/http"
-import { SERVICE_PREFIX } from "@/services/common/service-prefix"
+import { runAgent } from "@/services/ai/agent"
 
 export const WORKSPACE_CHAT_CAPABILITY = "workspace_chat"
-
-interface AiExecuteResponse {
-  content?: string | null
-  status?: string | null
-  executionNo?: string | null
-}
 
 function normalizeWorkspaceChatContent(content: string | null | undefined): string {
   const value = content?.trim() ?? ""
@@ -33,17 +25,6 @@ function normalizeWorkspaceChatContent(content: string | null | undefined): stri
 }
 
 export async function executeWorkspaceChat(userInput: string): Promise<string> {
-  const result = await cynexusResult<AiExecuteResponse>(
-    await fetchWithRetry(`${SERVICE_PREFIX.ai}/executions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scenarioCode: WORKSPACE_CHAT_CAPABILITY,
-        userInput,
-        variables: {},
-      }),
-    }),
-  )
-
-  return normalizeWorkspaceChatContent(result.content)
+  const result = await runAgent({ userInput, workspace: "global-chat", locale: "zh-CN" })
+  return normalizeWorkspaceChatContent(result.answer ?? result.errorMessage)
 }

@@ -1,0 +1,22 @@
+package cn.cccs7.cynexus.ai.api.dto;
+
+import java.time.OffsetDateTime;
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class AgentRunStepDTO {
+    private Integer stepNo;
+    private String kind;
+    private String toolCode;
+    private String status;
+    private String summary;
+    private String source;
+    private String dataDate;
+    private String inputJson;
+    private String outputJson;
+    private String errorMessage;
+    private OffsetDateTime startedAt;
+    private OffsetDateTime finishedAt;
+}

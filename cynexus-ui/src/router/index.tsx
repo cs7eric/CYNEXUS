@@ -15,6 +15,7 @@ import DataSourceSettingsPage from "../views/settings/data-source"
 import ProviderSettingsPage from "../views/settings/provider"
 import PromptSettingsPage from "../views/ai/prompt"
 import AiUsageSettingsPage from "../views/ai/usage"
+import AutonomousAgentPage from "../views/ai/agent"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
@@ -194,6 +195,10 @@ export const router = createBrowserRouter([
       {
         path: "ai/provider",
         element: <AiProviderSettingsPage />,
+      },
+      {
+        path: "ai/agent",
+        element: <AutonomousAgentPage />,
       },
       {
         path: "settings/data-source",

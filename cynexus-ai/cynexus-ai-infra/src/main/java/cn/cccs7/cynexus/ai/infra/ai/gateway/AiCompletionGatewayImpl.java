@@ -3,6 +3,8 @@ package cn.cccs7.cynexus.ai.infra.ai.gateway;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
 import java.util.List;
 import cn.cccs7.cynexus.ai.infra.ai.adapter.AiModelAdapter;
@@ -53,6 +55,26 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
             return result;
         } catch (RuntimeException exception) {
             reporter.report(model, capability, prompt, null, startedAt, exception);
+            throw exception;
+        }
+    }
+
+    @Override
+    public AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request, String capability) {
+        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()
+                ? "mock" : model.getProviderCode();
+        AiModelAdapter adapter = factory.resolve(providerCode);
+        if (adapter == null) {
+            throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
+        }
+        Instant startedAt = Instant.now();
+        try {
+            AgentModelTurnResponse result = adapter.completeAgent(model, request);
+            reporter.report(model, capability, request == null ? "" : request.getSystemPrompt(),
+                    null, startedAt, null);
+            return result;
+        } catch (RuntimeException exception) {
+            reporter.report(model, capability, request == null ? "" : request.getSystemPrompt(), null, startedAt, exception);
             throw exception;
         }
     }

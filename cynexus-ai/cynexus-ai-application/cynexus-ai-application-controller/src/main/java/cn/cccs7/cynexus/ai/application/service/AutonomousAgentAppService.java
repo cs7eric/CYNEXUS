@@ -1,0 +1,254 @@
+package cn.cccs7.cynexus.ai.application.service;
+
+import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentRunStepDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
+import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
+import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
+import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AutonomousAgentAppService {
+
+    private static final int MAX_TURNS = 8;
+    private static final int MAX_TOOL_CALLS = 12;
+    private static final int MAX_PARALLEL_READ_CALLS = 4;
+
+    private final AgentRunRepository agentRunRepository;
+    private final AgentToolCatalogFacade toolCatalog;
+    private final AgentToolExecutorFacade toolExecutor;
+    private final AiCompletionGateway completionGateway;
+    private final AiProviderRepository providerRepository;
+    private final AiUsageBindingRepository usageBindingRepository;
+    private final ObjectMapper objectMapper;
+
+    public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
+                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
+                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
+                                     AiCompletionGateway completionGateway,
+                                     AiProviderRepository providerRepository,
+                                     AiUsageBindingRepository usageBindingRepository,
+                                     ObjectMapper objectMapper) {
+        this.agentRunRepository = agentRunRepository;
+        this.toolCatalog = new AgentToolCatalogFacade(toolCatalog);
+        this.toolExecutor = new AgentToolExecutorFacade(toolExecutor);
+        this.completionGateway = completionGateway;
+        this.providerRepository = providerRepository;
+        this.usageBindingRepository = usageBindingRepository;
+        this.objectMapper = objectMapper;
+    }
+
+    public AgentRunDTO execute(AgentRunRequest request) {
+        AgentRunRequest safeRequest = request == null ? new AgentRunRequest() : request;
+        String ownerKey = valueOr(safeRequest.getOwnerKey(), "anonymous");
+        String conversationNo = valueOr(safeRequest.getConversationNo(), "AGC-" + shortId());
+        String runNo = "AGR-" + shortId();
+        String userInput = valueOr(safeRequest.getUserInput(), "");
+        OffsetDateTime startedAt = OffsetDateTime.now();
+        AgentConversationBO conversation = agentRunRepository.findConversation(ownerKey, conversationNo)
+                .orElseGet(() -> AgentConversationBO.builder().conversationNo(conversationNo).ownerKey(ownerKey)
+                        .title("Cynexus Agent").status("ACTIVE").metadataJson("{}").build());
+        AgentRunBO run = AgentRunBO.builder()
+                .runNo(runNo).conversationNo(conversationNo).ownerKey(ownerKey).status("RUNNING")
+                .userInput(userInput).turnCount(0).toolCallCount(0).startedAt(startedAt).build();
+        if (conversation.getId() == null) agentRunRepository.saveConversation(conversation);
+        agentRunRepository.saveRun(run);
+
+        List<AgentRunStepBO> steps = new ArrayList<>();
+        try {
+            AiModelBO model = resolveModel(safeRequest.getPreferredModelCode());
+            run.setModelCode(model.getModelCode());
+            List<AgentToolDefinition> definitions = toolCatalog.enabledTools();
+            List<AgentModelMessage> messages = new ArrayList<>();
+            messages.add(AgentModelMessage.builder().role("user").content(userInput).build());
+            AgentExecutionContext context = AgentExecutionContext.builder()
+                    .ownerKey(ownerKey).conversationNo(conversationNo).runNo(runNo)
+                    .workspace(safeRequest.getWorkspace()).locale(safeRequest.getLocale())
+                    .tradeDate(safeRequest.getTradeDate()).build();
+
+            String answer = null;
+            for (int turn = 1; turn <= MAX_TURNS; turn++) {
+                run.setTurnCount(turn);
+                AgentModelTurnResponse response = completionGateway.completeAgent(model,
+                        AgentModelTurnRequest.builder()
+                                .systemPrompt(systemPrompt())
+                                .messages(List.copyOf(messages))
+                                .tools(definitions).build(), "autonomous_agent");
+                if (response == null) throw new IllegalStateException("Agent model returned no response");
+                if (!response.hasToolCalls()) {
+                    answer = valueOr(response.getContent(), "The Agent did not produce an answer.");
+                    steps.add(saveAnswerStep(runNo, steps.size() + 1, answer));
+                    break;
+                }
+                if (response.getToolCalls().size() > MAX_PARALLEL_READ_CALLS) {
+                    throw new IllegalStateException("The Agent requested too many tools in one turn");
+                }
+                messages.add(AgentModelMessage.builder().role("assistant").content(valueOr(response.getContent(), ""))
+                        .toolCalls(response.getToolCalls()).build());
+                for (var modelCall : response.getToolCalls()) {
+                    if (intValue(run, "toolCallCount") > MAX_TOOL_CALLS) {
+                        throw new IllegalStateException("The Agent exceeded the tool call limit");
+                    }
+                    AgentToolCall call = AgentToolCall.builder().callId(modelCall.getCallId())
+                            .toolCode(modelCall.getToolCode()).arguments(modelCall.getArguments()).build();
+                    AgentToolResult result = toolExecutor.execute(call, context);
+                    AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result);
+                    steps.add(step);
+                    messages.add(AgentModelMessage.builder().role("tool").toolCallId(call.getCallId())
+                            .toolName(call.getToolCode()).content(result.getOutputJson()).build());
+                }
+            }
+            if (answer == null) throw new IllegalStateException("The Agent exceeded the turn limit");
+            run.setStatus("SUCCEEDED");
+            run.setAnswer(answer);
+            run.setPlanJson(planJson(steps));
+            run.setFinishedAt(OffsetDateTime.now());
+            agentRunRepository.updateRun(run);
+            conversation.setLastRunNo(runNo);
+            conversation.setLastMessage(answer);
+            conversation.setUpdatedAt(OffsetDateTime.now());
+            agentRunRepository.updateConversation(conversation);
+        } catch (RuntimeException exception) {
+            run.setStatus("FAILED");
+            run.setErrorMessage(exception.getMessage());
+            run.setFinishedAt(OffsetDateTime.now());
+            agentRunRepository.updateRun(run);
+        }
+        return toDTO(run, steps);
+    }
+
+    public AgentRunDTO getRun(String ownerKey, String runNo) {
+        AgentRunBO run = agentRunRepository.findRun(valueOr(ownerKey, "anonymous"), runNo)
+                .orElseThrow(() -> new IllegalArgumentException("Agent run was not found"));
+        return toDTO(run, agentRunRepository.findSteps(run.getOwnerKey(), runNo));
+    }
+
+    public List<AgentToolDefinitionDTO> enabledTools() {
+        return toolCatalog.enabledTools().stream().map(definition -> AgentToolDefinitionDTO.builder()
+                .code(definition.getCode()).name(definition.getName()).module(definition.getModule())
+                .description(definition.getDescription()).inputSchemaJson(definition.getInputSchemaJson())
+                .outputSchemaJson(definition.getOutputSchemaJson()).readOnly(definition.isReadOnly())
+                .requiresConfirmation(definition.isRequiresConfirmation()).freshness(definition.getFreshness())
+                .source(definition.getSource()).build()).toList();
+    }
+
+    private AiModelBO resolveModel(String preferredModelCode) {
+        AiUsageBindingBO binding = usageBindingRepository.listAll().stream()
+                .filter(item -> Boolean.TRUE.equals(item.getEnabled()))
+                .filter(item -> "autonomous_agent".equals(item.getCapability()) || "workspace_chat".equals(item.getCapability())
+                        || "text_summary".equals(item.getCapability()))
+                .findFirst().orElseThrow(() -> new IllegalStateException("No AI provider is bound to autonomous_agent"));
+        AiProviderBO provider = providerRepository.findById(binding.getProviderId());
+        if (provider == null || !Boolean.TRUE.equals(provider.getEnabled())) {
+            throw new IllegalStateException("The AI provider bound to autonomous_agent is unavailable");
+        }
+        String modelCode = valueOr(preferredModelCode, valueOr(binding.getModelOverride(), provider.getDefaultModel()));
+        return AiModelBO.builder().modelCode(modelCode).modelName(modelCode)
+                .providerCode(valueOr(provider.getProviderType(), provider.getCode()))
+                .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
+                .extra(provider.getExtra()).enabled(true)
+                .capability(ModelCapability.builder().structuredOutputSupported(true).toolCallSupported(true).build()).build();
+    }
+
+    private String systemPrompt() {
+        return "你是 Cynexus 的自主数据分析 Agent。根据用户请求自主选择并按需调用提供的数据工具，先获取事实再分析。最终回答要包含：结论、使用的数据模块、关键输入输出、数据日期、限制和下一步建议。不要展示隐藏思维链，只展示简洁的工具用途、状态、来源和结果摘要。只能调用只读工具，不得编造工具结果；工具没有数据时明确说明。";
+    }
+
+    private AgentRunStepBO saveToolStep(String runNo, int stepNo, AgentToolCall call, AgentToolResult result) {
+        AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("TOOL")
+                .toolCode(call.getToolCode()).inputJson(json(call.getArguments())).outputJson(result.getOutputJson())
+                .status(result.getStatus()).summary(result.getSummary()).source(result.getSource())
+                .dataDate(result.getDataDate()).errorMessage(result.getWarnings().isEmpty() ? null : String.join(",", result.getWarnings()))
+                .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
+        agentRunRepository.saveStep(step);
+        return step;
+    }
+
+    private AgentRunStepBO saveAnswerStep(String runNo, int stepNo, String answer) {
+        AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("ANSWER")
+                .status("SUCCEEDED").summary("Generated the final Agent answer.").outputJson(json(Map.of("content", answer)))
+                .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
+        agentRunRepository.saveStep(step);
+        return step;
+    }
+
+    private String planJson(List<AgentRunStepBO> steps) {
+        List<Map<String, Object>> plan = steps.stream().filter(step -> "TOOL".equals(step.getKind()))
+                .map(step -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("toolCode", step.getToolCode());
+                    item.put("summary", valueOr(step.getSummary(), ""));
+                    item.put("status", valueOr(step.getStatus(), ""));
+                    return item;
+                }).toList();
+        return json(Map.of("steps", plan));
+    }
+
+    private AgentRunDTO toDTO(AgentRunBO run, List<AgentRunStepBO> steps) {
+        return AgentRunDTO.builder().runNo(run.getRunNo()).conversationNo(run.getConversationNo()).status(run.getStatus())
+                .userInput(run.getUserInput()).answer(run.getAnswer()).modelCode(run.getModelCode()).planJson(run.getPlanJson())
+                .turnCount(run.getTurnCount()).toolCallCount(run.getToolCallCount()).errorMessage(run.getErrorMessage())
+                .startedAt(run.getStartedAt()).finishedAt(run.getFinishedAt())
+                .steps(steps == null ? List.of() : steps.stream().map(step -> AgentRunStepDTO.builder()
+                        .stepNo(step.getStepNo()).kind(step.getKind()).toolCode(step.getToolCode()).status(step.getStatus())
+                        .summary(step.getSummary()).source(step.getSource()).dataDate(step.getDataDate())
+                        .inputJson(step.getInputJson()).outputJson(step.getOutputJson()).errorMessage(step.getErrorMessage())
+                        .startedAt(step.getStartedAt()).finishedAt(step.getFinishedAt()).build()).toList()).build();
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value == null ? Map.of() : value);
+        } catch (JsonProcessingException exception) {
+            return "{}";
+        }
+    }
+
+    private int intValue(AgentRunBO run, String field) {
+        int value = (run.getToolCallCount() == null ? 0 : run.getToolCallCount()) + 1;
+        run.setToolCallCount(value);
+        return value;
+    }
+
+    private String valueOr(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private String shortId() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+    }
+
+    private record AgentToolCatalogFacade(cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog delegate) {
+        List<AgentToolDefinition> enabledTools() { return delegate.enabledTools(); }
+    }
+
+    private record AgentToolExecutorFacade(cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor delegate) {
+        AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) { return delegate.execute(call, context); }
+    }
+}

@@ -16,6 +16,7 @@ import {
   Newspaper,
   WalletCards,
   Camera,
+  Sparkles,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -220,6 +221,10 @@ export const sidebarConfig = {
       icon: BrainCircuit,
       items: [
         {
+          title: "Cynexus Agent",
+          url: "/ai/agent",
+        },
+        {
           title: "AI Provider",
           url: "/ai/provider",
         },
@@ -339,6 +344,11 @@ export const sidebarConfig = {
       name: "Settings · Scheduler",
       url: "/settings/scheduler",
       icon: Settings,
+    },
+    {
+      name: "AI · Cynexus Agent",
+      url: "/ai/agent",
+      icon: Sparkles,
     },
     {
       name: "AI · Provider",

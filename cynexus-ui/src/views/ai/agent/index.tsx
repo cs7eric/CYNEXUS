@@ -1,0 +1,95 @@
+import { useEffect, useMemo, useState } from "react"
+import { AlertCircle, ArrowUpRight, Check, CircleDashed, Loader2, Sparkles, Wrench } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { WorkspaceShell } from "@/layout/workspace-shell"
+import { fetchAgentTools, runAgent, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+
+function stepLabel(step: AgentRunStep) {
+  if (step.kind === "ANSWER") return "Answer"
+  return step.toolCode ?? "Data tool"
+}
+
+function statusIcon(status?: string | null) {
+  if (status === "SUCCEEDED") return <Check className="size-3.5" />
+  if (status === "FAILED") return <AlertCircle className="size-3.5" />
+  return <CircleDashed className="size-3.5" />
+}
+
+function outputPreview(step: AgentRunStep) {
+  if (!step.outputJson) return "No output returned"
+  try {
+    const parsed = JSON.parse(step.outputJson) as Record<string, unknown>
+    return typeof parsed === "object" ? JSON.stringify(parsed, null, 2).slice(0, 680) : String(parsed)
+  } catch {
+    return step.outputJson.slice(0, 680)
+  }
+}
+
+export default function AutonomousAgentPage() {
+  const [input, setInput] = useState("")
+  const [run, setRun] = useState<AgentRun | null>(null)
+  const [tools, setTools] = useState<AgentToolDefinition[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    void fetchAgentTools().then(setTools).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load Agent tools"))
+  }, [])
+
+  const toolGroups = useMemo(() => {
+    const groups = new Map<string, AgentToolDefinition[]>()
+    for (const tool of tools) groups.set(tool.module, [...(groups.get(tool.module) ?? []), tool])
+    return [...groups.entries()]
+  }, [tools])
+
+  async function submit() {
+    const userInput = input.trim()
+    if (!userInput || loading) return
+    setLoading(true)
+    setError(null)
+    try {
+      setRun(await runAgent({ userInput, workspace: "agent", locale: "zh-CN" }))
+      setInput("")
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Agent run failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <WorkspaceShell sectionLabel="Workspace AI" pageTitle="Cynexus Agent" contentScrollable={false}>
+      <div className="flex h-full min-h-0 flex-col gap-5">
+        <header className="flex flex-col gap-3 border-b border-border/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              <Sparkles className="size-3.5 text-sky-600" /> Autonomous analysis
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Ask Cynexus to investigate</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">The Agent chooses relevant read-only data modules, records each call, and returns an evidence-backed answer.</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Wrench className="size-3.5" /> {tools.length} data tools available</div>
+        </header>
+
+        {error ? <Alert variant="destructive"><AlertTitle>Agent unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
+
+        <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+              {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div><div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div></div></div>}
+            </div>
+            <div className="border-t border-border/70 p-4"><div className="rounded-xl border border-border bg-background p-2 shadow-sm"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 text-sm shadow-none focus-visible:ring-0" /><div className="flex items-center justify-between px-2 pt-2"><span className="text-xs text-muted-foreground">Read-only research tools · Ctrl/Cmd + Enter to run</span><Button size="sm" onClick={() => void submit()} disabled={loading || !input.trim()}>{loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUpRight className="size-4" />} Run Agent</Button></div></div></div>
+          </section>
+
+          <aside className="min-h-0 space-y-4 overflow-y-auto">
+            <section className="rounded-xl border border-border/70 bg-card p-4"><div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold">Run trace</h2>{run ? <Badge variant={run.status === "SUCCEEDED" ? "secondary" : "destructive"}>{run.status}</Badge> : null}</div>{run?.steps?.length ? <div className="space-y-2">{run.steps.map((step) => <details key={`${step.stepNo}-${step.toolCode ?? step.kind}`} className="group rounded-lg border border-border/70 bg-background"><summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs"><span className={step.status === "FAILED" ? "text-destructive" : "text-emerald-600"}>{statusIcon(step.status)}</span><span className="min-w-0 flex-1 truncate font-medium">{stepLabel(step)}</span><span className="text-muted-foreground">{step.dataDate ?? ""}</span></summary><div className="border-t border-border/60 px-3 py-3 text-xs"><p className="text-muted-foreground">{step.summary}</p><pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-[10px] leading-5">{outputPreview(step)}</pre></div></details>)}</div> : <p className="text-xs leading-5 text-muted-foreground">Tool calls and source dates will appear here after a run.</p>}</section>
+            <section className="rounded-xl border border-border/70 bg-card p-4"><h2 className="mb-3 text-sm font-semibold">Available modules</h2><div className="space-y-3">{toolGroups.map(([module, moduleTools]) => <div key={module}><div className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{module}</div>{moduleTools.map((tool) => <div key={tool.code} className="flex items-start gap-2 py-1.5"><Wrench className="mt-0.5 size-3 text-sky-600" /><div><div className="text-xs font-medium">{tool.name}</div><div className="text-[11px] leading-4 text-muted-foreground">{tool.freshness}</div></div></div>)}</div>)}</div></section>
+          </aside>
+        </div>
+      </div>
+    </WorkspaceShell>
+  )
+}

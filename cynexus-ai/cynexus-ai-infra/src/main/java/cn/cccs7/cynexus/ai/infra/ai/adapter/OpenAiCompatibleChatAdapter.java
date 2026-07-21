@@ -3,9 +3,15 @@ package cn.cccs7.cynexus.ai.infra.ai.adapter;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -82,6 +88,34 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     @Override
+    public AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request) {
+        String apiKey = resolveApiKey(model);
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("Missing API key for provider: " + providerCode());
+        }
+        try {
+            boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
+            String payload = responsesApi ? buildAgentResponsesPayload(model, request) : buildAgentChatPayload(model, request);
+            HttpRequest httpRequest = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
+                    .timeout(resolveRequestTimeout(model))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload))
+                    .build();
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("AI provider returned " + response.statusCode() + ": " + response.body());
+            }
+            return responsesApi ? extractResponsesAgentResponse(response.body(), request) : extractChatAgentResponse(response.body(), request);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to call AI provider: " + providerCode(), exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI provider call interrupted: " + providerCode(), exception);
+        }
+    }
+
+    @Override
     public AiCompletionResultBO completeVision(AiModelBO model, String prompt, List<AiImageInputBO> images) {
         String apiKey = resolveApiKey(model);
         if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
@@ -153,6 +187,167 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             payload.put("text", Map.of("format", Map.of("type", "json_object")));
         }
         return objectMapper.writeValueAsString(payload);
+    }
+
+    private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request) throws IOException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", resolveModelName(model));
+        payload.put("temperature", 0);
+        payload.put("messages", buildChatMessages(request));
+        payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools()));
+        payload.put("tool_choice", "auto");
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request) throws IOException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", resolveModelName(model));
+        payload.put("input", buildResponsesInput(request));
+        payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools()));
+        payload.put("store", !extraBoolean(model, "disable_response_storage", true));
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    private List<Map<String, Object>> buildChatMessages(AgentModelTurnRequest request) {
+        List<Map<String, Object>> messages = new ArrayList<>();
+        if (request != null && request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
+            messages.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+        }
+        if (request != null && request.getMessages() != null) {
+            for (AgentModelMessage message : request.getMessages()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("role", message.getRole());
+                item.put("content", message.getContent() == null ? "" : message.getContent());
+                if ("tool".equals(message.getRole()) && message.getToolCallId() != null) {
+                    item.put("tool_call_id", message.getToolCallId());
+                }
+                if ("assistant".equals(message.getRole()) && message.getToolCalls() != null && !message.getToolCalls().isEmpty()) {
+                    item.put("tool_calls", message.getToolCalls().stream().map(this::toChatToolCall).toList());
+                    item.put("content", message.getContent() == null ? "" : message.getContent());
+                }
+                messages.add(item);
+            }
+        }
+        return messages;
+    }
+
+    private List<Map<String, Object>> buildResponsesInput(AgentModelTurnRequest request) {
+        List<Map<String, Object>> input = new ArrayList<>();
+        if (request != null && request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
+            input.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+        }
+        if (request != null && request.getMessages() != null) {
+            for (AgentModelMessage message : request.getMessages()) {
+                if ("tool".equals(message.getRole())) {
+                    input.add(Map.of("type", "function_call_output", "call_id", message.getToolCallId(),
+                            "output", message.getContent() == null ? "" : message.getContent()));
+                } else {
+                    input.add(Map.of("role", message.getRole(), "content", message.getContent() == null ? "" : message.getContent()));
+                }
+            }
+        }
+        return input;
+    }
+
+    private List<Map<String, Object>> buildToolDefinitions(List<AgentToolDefinition> definitions) throws IOException {
+        List<Map<String, Object>> tools = new ArrayList<>();
+        if (definitions == null) return tools;
+        for (AgentToolDefinition definition : definitions) {
+            Map<String, Object> function = new LinkedHashMap<>();
+            function.put("name", definition.getCode());
+            function.put("description", definition.getDescription());
+            function.put("parameters", objectMapper.readTree(definition.getInputSchemaJson()));
+            tools.add(Map.of("type", "function", "function", function));
+        }
+        return tools;
+    }
+
+    private Map<String, Object> toChatToolCall(AgentModelToolCall call) {
+        try {
+            return Map.of("id", call.getCallId(), "type", "function",
+                    "function", Map.of("name", call.getToolCode(),
+                            "arguments", objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments())));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to serialize Agent tool arguments", exception);
+        }
+    }
+
+    private AgentModelTurnResponse extractChatAgentResponse(String responseBody, AgentModelTurnRequest request) throws IOException {
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode message = root.at("/choices/0/message");
+        List<AgentModelToolCall> calls = new ArrayList<>();
+        JsonNode toolCalls = message.get("tool_calls");
+        if (toolCalls != null && toolCalls.isArray()) {
+            for (JsonNode toolCall : toolCalls) {
+                JsonNode function = toolCall.get("function");
+                calls.add(AgentModelToolCall.builder()
+                        .callId(textValue(toolCall.get("id"), "call_" + calls.size()))
+                        .toolCode(textValue(function == null ? null : function.get("name"), ""))
+                        .arguments(parseArguments(function == null ? null : function.get("arguments")))
+                        .build());
+            }
+        }
+        String content = textValue(message.get("content"), "");
+        return AgentModelTurnResponse.builder()
+                .type(calls.isEmpty() ? "FINAL" : "TOOL_CALLS")
+                .content(content)
+                .toolCalls(calls)
+                .inputTokens(extractInputTokens(responseBody, requestPrompt(request)))
+                .outputTokens(extractOutputTokens(responseBody, content))
+                .totalTokens(extractTotalTokens(responseBody, requestPrompt(request), content))
+                .rawResponse(responseBody)
+                .build();
+    }
+
+    private AgentModelTurnResponse extractResponsesAgentResponse(String responseBody, AgentModelTurnRequest request) throws IOException {
+        JsonNode root = objectMapper.readTree(responseBody);
+        List<AgentModelToolCall> calls = new ArrayList<>();
+        StringBuilder text = new StringBuilder();
+        JsonNode output = root.get("output");
+        if (output != null && output.isArray()) {
+            for (JsonNode item : output) {
+                if ("function_call".equals(textValue(item.get("type"), ""))) {
+                    calls.add(AgentModelToolCall.builder()
+                            .callId(textValue(item.get("call_id"), textValue(item.get("id"), "call_" + calls.size())))
+                            .toolCode(textValue(item.get("name"), ""))
+                            .arguments(parseArguments(item.get("arguments")))
+                            .build());
+                }
+                JsonNode content = item.get("content");
+                if (content != null && content.isArray()) {
+                    for (JsonNode part : content) {
+                        String partText = textValue(part.get("text"), "");
+                        if (!partText.isBlank()) text.append(partText);
+                    }
+                }
+            }
+        }
+        String content = root.hasNonNull("output_text") ? root.get("output_text").asText("") : text.toString();
+        return AgentModelTurnResponse.builder()
+                .type(calls.isEmpty() ? "FINAL" : "TOOL_CALLS")
+                .content(content)
+                .toolCalls(calls)
+                .inputTokens(extractInputTokens(responseBody, requestPrompt(request)))
+                .outputTokens(extractOutputTokens(responseBody, content))
+                .totalTokens(extractTotalTokens(responseBody, requestPrompt(request), content))
+                .rawResponse(responseBody)
+                .build();
+    }
+
+    private Map<String, Object> parseArguments(JsonNode value) throws IOException {
+        if (value == null || value.isNull() || value.asText("").isBlank()) return Map.of();
+        JsonNode parsed = value.isTextual() ? objectMapper.readTree(value.asText()) : value;
+        if (!parsed.isObject()) throw new IllegalStateException("AI tool arguments must be a JSON object");
+        return objectMapper.convertValue(parsed, Map.class);
+    }
+
+    private String textValue(JsonNode node, String fallback) {
+        return node == null || node.isNull() ? fallback : node.asText(fallback);
+    }
+
+    private String requestPrompt(AgentModelTurnRequest request) {
+        return request == null || request.getMessages() == null ? "" : request.getMessages().stream()
+                .map(AgentModelMessage::getContent).filter(value -> value != null).reduce("", (left, right) -> left + right);
     }
 
     private String resolveApiKey(AiModelBO model) {

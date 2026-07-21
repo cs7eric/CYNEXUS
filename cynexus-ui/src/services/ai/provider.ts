@@ -229,6 +229,17 @@ const AI_CAPABILITIES: AiCapability[] = [
     prompt_key: "workspace_chat",
     aliases: ["Cynexus AI", "Workspace assistant"],
   },
+  {
+    code: "autonomous_agent",
+    label: "Cynexus autonomous Agent",
+    group: "Workspace AI",
+    description: "Model-directed planning and read-only data tool execution for natural-language analysis.",
+    entry: "Workspace / Agent",
+    reads_binding: true,
+    runtime: "AutonomousAgentAppService",
+    prompt_key: "autonomous_agent",
+    aliases: ["Agent", "自主分析 Agent"],
+  },
 ]
 
 const AI_PROVIDER_TYPES: AiProviderType[] = [
