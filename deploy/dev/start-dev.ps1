@@ -23,6 +23,21 @@ if (Test-Path $envFile) {
 # local Market process instead of allowing a stale service-discovery lookup.
 $env:CYNEXUS_AI_MARKET_BASE_URL = "http://127.0.0.1:28082"
 
+$identitySecretPath = Join-Path $scriptDir ".trusted-identity-secret"
+if ([string]::IsNullOrWhiteSpace($env:CYNEXUS_TRUSTED_IDENTITY_SECRET)) {
+    if (Test-Path $identitySecretPath) {
+        $env:CYNEXUS_TRUSTED_IDENTITY_SECRET = (Get-Content $identitySecretPath -Raw).Trim()
+    } else {
+        $bytes = New-Object byte[] 48
+        $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
+        $generator.GetBytes($bytes)
+        $generator.Dispose()
+        $env:CYNEXUS_TRUSTED_IDENTITY_SECRET = [Convert]::ToBase64String($bytes)
+        Set-Content -Path $identitySecretPath -Value $env:CYNEXUS_TRUSTED_IDENTITY_SECRET -NoNewline -Encoding ASCII
+    }
+}
+$env:CYNEXUS_AI_AGENT_ALLOW_ANONYMOUS_OWNER = "false"
+
 # Only one application environment may use the shared data stores at a time.
 & (Join-Path $repoRoot "deploy\release\stop-release.ps1")
 

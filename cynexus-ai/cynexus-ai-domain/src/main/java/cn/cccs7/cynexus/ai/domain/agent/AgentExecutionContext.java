@@ -10,6 +10,7 @@ import lombok.Value;
 public class AgentExecutionContext {
 
     String ownerKey;
+    String tenantKey;
     String conversationNo;
     String runNo;
     String workspace;

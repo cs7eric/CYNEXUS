@@ -90,9 +90,9 @@ export async function runAgent(input: {
   }))
 }
 
-export async function getAgentRun(runNo: string, ownerKey = "anonymous"): Promise<AgentRun> {
+export async function getAgentRun(runNo: string): Promise<AgentRun> {
   return cynexusResult<AgentRun>(await fetchWithRetry(
-    `${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}?ownerKey=${encodeURIComponent(ownerKey)}`,
+    `${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}`,
   ))
 }
 

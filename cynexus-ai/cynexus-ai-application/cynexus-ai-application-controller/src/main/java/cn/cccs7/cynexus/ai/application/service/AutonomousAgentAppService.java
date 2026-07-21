@@ -8,6 +8,7 @@ import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
@@ -18,6 +19,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
@@ -37,8 +39,6 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 
@@ -59,8 +59,7 @@ public class AutonomousAgentAppService {
     private final AiProviderRepository providerRepository;
     private final AiUsageBindingRepository usageBindingRepository;
     private final ObjectMapper objectMapper;
-    private final ConcurrentHashMap<String, AtomicBoolean> cancellations = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Integer> activeOwnerRuns = new ConcurrentHashMap<>();
+    private final AgentRuntimeLeasePort runtimeLease;
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
@@ -68,6 +67,7 @@ public class AutonomousAgentAppService {
                                      AiCompletionGateway completionGateway,
                                      AiProviderRepository providerRepository,
                                      AiUsageBindingRepository usageBindingRepository,
+                                     AgentRuntimeLeasePort runtimeLease,
                                      ObjectMapper objectMapper) {
         this.agentRunRepository = agentRunRepository;
         this.toolCatalog = new AgentToolCatalogFacade(toolCatalog);
@@ -75,23 +75,28 @@ public class AutonomousAgentAppService {
         this.completionGateway = completionGateway;
         this.providerRepository = providerRepository;
         this.usageBindingRepository = usageBindingRepository;
+        this.runtimeLease = runtimeLease;
         this.objectMapper = objectMapper;
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
-        return execute(request, ignored -> { });
+        return execute(request, AgentIdentity.singleUser(), ignored -> { });
     }
 
     public AgentRunDTO execute(AgentRunRequest request, Consumer<AgentRunEventBO> eventConsumer) {
+        return execute(request, AgentIdentity.singleUser(), eventConsumer);
+    }
+
+    public AgentRunDTO execute(AgentRunRequest request, AgentIdentity identity, Consumer<AgentRunEventBO> eventConsumer) {
         AgentRunRequest safeRequest = request == null ? new AgentRunRequest() : request;
-        String ownerKey = valueOr(safeRequest.getOwnerKey(), "anonymous");
+        AgentIdentity safeIdentity = identity == null ? AgentIdentity.singleUser() : identity;
+        String ownerKey = safeIdentity.storageOwnerKey();
         String conversationNo = valueOr(safeRequest.getConversationNo(), "AGC-" + shortId());
         String runNo = "AGR-" + shortId();
         String userInput = valueOr(safeRequest.getUserInput(), "");
         if (userInput.isBlank()) throw new IllegalArgumentException("Agent userInput cannot be blank");
         if (userInput.length() > MAX_USER_INPUT_CHARS) throw new IllegalArgumentException("Agent userInput is too long");
-        if (activeOwnerRuns.merge(ownerKey, 1, Integer::sum) > 2) {
-            activeOwnerRuns.computeIfPresent(ownerKey, (key, value) -> value <= 1 ? null : value - 1);
+        if (!runtimeLease.tryAcquire(ownerKey, runNo, 2, MAX_RUN_SECONDS + 60)) {
             throw new IllegalStateException("Too many active Agent runs for this owner");
         }
         OffsetDateTime startedAt = OffsetDateTime.now();
@@ -108,10 +113,9 @@ public class AutonomousAgentAppService {
             if (conversation.getId() == null) agentRunRepository.saveConversation(conversation);
             agentRunRepository.saveRun(run);
         } catch (RuntimeException exception) {
-            activeOwnerRuns.computeIfPresent(ownerKey, (key, value) -> value <= 1 ? null : value - 1);
+            runtimeLease.release(ownerKey, runNo);
             throw exception;
         }
-        cancellations.put(runNo, new AtomicBoolean(false));
         emit(eventConsumer, AgentRunEventBO.builder().type("RUN_STARTED").runNo(runNo).status("RUNNING").build());
 
         List<AgentRunStepBO> steps = new ArrayList<>();
@@ -125,7 +129,7 @@ public class AutonomousAgentAppService {
             messages.add(userMessage);
             saveMessage(conversationNo, runNo, messages.size(), userMessage);
             AgentExecutionContext context = AgentExecutionContext.builder()
-                    .ownerKey(ownerKey).conversationNo(conversationNo).runNo(runNo)
+                    .ownerKey(ownerKey).tenantKey(safeIdentity.getTenantKey()).conversationNo(conversationNo).runNo(runNo)
                     .workspace(safeRequest.getWorkspace()).locale(safeRequest.getLocale())
                     .tradeDate(safeRequest.getTradeDate()).build();
 
@@ -208,28 +212,29 @@ public class AutonomousAgentAppService {
             emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .answer(answer).build());
         } catch (RuntimeException exception) {
-            run.setStatus(cancellations.getOrDefault(runNo, new AtomicBoolean(false)).get() ? "CANCELLED" : "FAILED");
+            run.setStatus(runtimeLease.isCancellationRequested(runNo) ? "CANCELLED" : "FAILED");
             run.setErrorMessage(exception.getMessage());
             run.setFinishedAt(OffsetDateTime.now());
             agentRunRepository.updateRun(run);
             emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .errorMessage(exception.getMessage()).build());
         } finally {
-            cancellations.remove(runNo);
-            activeOwnerRuns.computeIfPresent(ownerKey, (key, value) -> value <= 1 ? null : value - 1);
+            runtimeLease.release(ownerKey, runNo);
         }
         return toDTO(run, steps);
     }
 
     public boolean cancel(String ownerKey, String runNo) {
-        if (agentRunRepository.findRun(valueOr(ownerKey, "anonymous"), runNo).isEmpty()) return false;
-        AtomicBoolean token = cancellations.get(runNo);
-        return token != null && token.compareAndSet(false, true);
+        if (agentRunRepository.findRun(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), runNo).isEmpty()) return false;
+        return runtimeLease.requestCancellation(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), runNo, MAX_RUN_SECONDS + 60);
+    }
+
+    public boolean cancel(AgentIdentity identity, String runNo) {
+        return cancel(identity == null ? null : identity.storageOwnerKey(), runNo);
     }
 
     private void checkCancelled(String runNo) {
-        AtomicBoolean token = cancellations.get(runNo);
-        if (token != null && token.get()) throw new IllegalStateException("Agent run cancelled by user");
+        if (runtimeLease.isCancellationRequested(runNo)) throw new IllegalStateException("Agent run cancelled by user");
     }
 
     private void emit(Consumer<AgentRunEventBO> consumer, AgentRunEventBO event) {
@@ -248,9 +253,13 @@ public class AutonomousAgentAppService {
     }
 
     public AgentRunDTO getRun(String ownerKey, String runNo) {
-        AgentRunBO run = agentRunRepository.findRun(valueOr(ownerKey, "anonymous"), runNo)
+        AgentRunBO run = agentRunRepository.findRun(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), runNo)
                 .orElseThrow(() -> new IllegalArgumentException("Agent run was not found"));
         return toDTO(run, agentRunRepository.findSteps(run.getOwnerKey(), runNo));
+    }
+
+    public AgentRunDTO getRun(AgentIdentity identity, String runNo) {
+        return getRun(identity == null ? null : identity.storageOwnerKey(), runNo);
     }
 
     public List<AgentToolDefinitionDTO> enabledTools() {
@@ -263,17 +272,25 @@ public class AutonomousAgentAppService {
     }
 
     public List<AgentConversationDTO> conversations(String ownerKey, int limit) {
-        return agentRunRepository.listConversations(valueOr(ownerKey, "anonymous"), limit).stream()
+        return agentRunRepository.listConversations(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), limit).stream()
                 .map(item -> AgentConversationDTO.builder().conversationNo(item.getConversationNo()).title(item.getTitle())
                         .status(item.getStatus()).lastRunNo(item.getLastRunNo()).lastMessage(item.getLastMessage())
                         .createdAt(item.getCreatedAt()).updatedAt(item.getUpdatedAt()).build()).toList();
     }
 
+    public List<AgentConversationDTO> conversations(AgentIdentity identity, int limit) {
+        return conversations(identity == null ? null : identity.storageOwnerKey(), limit);
+    }
+
     public List<AgentMessageDTO> messages(String ownerKey, String conversationNo) {
-        return agentRunRepository.findMessages(valueOr(ownerKey, "anonymous"), conversationNo).stream()
+        return agentRunRepository.findMessages(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), conversationNo).stream()
                 .map(item -> AgentMessageDTO.builder().sequenceNo(item.getSequenceNo()).role(item.getRole())
                         .content(item.getContent()).toolCallId(item.getToolCallId()).toolName(item.getToolName())
                         .toolCallsJson(item.getToolCallsJson()).createdAt(item.getCreatedAt()).build()).toList();
+    }
+
+    public List<AgentMessageDTO> messages(AgentIdentity identity, String conversationNo) {
+        return messages(identity == null ? null : identity.storageOwnerKey(), conversationNo);
     }
 
     private AiModelBO resolveModel(String preferredModelCode) {

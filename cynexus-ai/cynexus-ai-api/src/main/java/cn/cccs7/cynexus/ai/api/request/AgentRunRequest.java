@@ -16,6 +16,5 @@ public class AgentRunRequest {
     private String preferredModelCode;
     private String workspace;
     private String locale;
-    private String ownerKey;
     private LocalDate tradeDate;
 }

@@ -90,6 +90,8 @@ services:
       CYNEXUS_AI_LANGFUSE_BASE_URL: ${CYNEXUS_AI_LANGFUSE_BASE_URL:-http://cynexus-langfuse-web:3000}
       CYNEXUS_AI_LANGFUSE_PUBLIC_KEY: ${CYNEXUS_AI_LANGFUSE_PUBLIC_KEY:-}
       CYNEXUS_AI_LANGFUSE_SECRET_KEY: ${CYNEXUS_AI_LANGFUSE_SECRET_KEY:-}
+      CYNEXUS_TRUSTED_IDENTITY_SECRET: ${CYNEXUS_TRUSTED_IDENTITY_SECRET:-}
+      CYNEXUS_AI_AGENT_ALLOW_ANONYMOUS_OWNER: "false"
       HTTP_PROXY: ${CYNEXUS_HTTP_PROXY:-}
       HTTPS_PROXY: ${CYNEXUS_HTTPS_PROXY:-}
       NO_PROXY: ${CYNEXUS_NO_PROXY:-localhost,127.0.0.1,cynexus-postgres,cynexus-redis,cynexus-nacos,cynexus-market,cynexus-core,cynexus-data-job-executor}
@@ -111,6 +113,9 @@ services:
     restart: unless-stopped
     environment:
       NACOS_SERVER_ADDR: cynexus-nacos:8848
+      CYNEXUS_TRUSTED_IDENTITY_SECRET: ${CYNEXUS_TRUSTED_IDENTITY_SECRET:-}
+      CYNEXUS_GATEWAY_PRINCIPAL: ${CYNEXUS_GATEWAY_PRINCIPAL:-workspace-user}
+      CYNEXUS_GATEWAY_TENANT: ${CYNEXUS_GATEWAY_TENANT:-default}
     ports:
       - "127.0.0.1:18000:18000"
     networks: [cynexus-shared]

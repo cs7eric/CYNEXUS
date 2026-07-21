@@ -50,6 +50,8 @@ deploy/dev/*.pids.json
 deploy/release/*.log
 deploy/release/*.error.log
 deploy/release/*.pids.json
+deploy/release/.trusted-identity-secret
+deploy/dev/.trusted-identity-secret
 
 # local docker infra data
 deploy/local/nacos/data/

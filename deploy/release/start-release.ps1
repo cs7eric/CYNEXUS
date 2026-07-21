@@ -38,6 +38,23 @@ if ($releaseVersion -notmatch $releasePattern) { throw "Release version must mat
 $env:CYNEXUS_MAVEN_VERSION = $mavenVersion
 $env:CYNEXUS_RELEASE_VERSION = $releaseVersion
 
+$identitySecretPath = Join-Path $scriptDir ".trusted-identity-secret"
+if ([string]::IsNullOrWhiteSpace($env:CYNEXUS_TRUSTED_IDENTITY_SECRET)) {
+    if (Test-Path $identitySecretPath) {
+        $env:CYNEXUS_TRUSTED_IDENTITY_SECRET = (Get-Content $identitySecretPath -Raw).Trim()
+    } else {
+        $bytes = New-Object byte[] 48
+        $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
+        $generator.GetBytes($bytes)
+        $generator.Dispose()
+        $env:CYNEXUS_TRUSTED_IDENTITY_SECRET = [Convert]::ToBase64String($bytes)
+        Set-Content -Path $identitySecretPath -Value $env:CYNEXUS_TRUSTED_IDENTITY_SECRET -NoNewline -Encoding ASCII
+    }
+}
+if ($env:CYNEXUS_TRUSTED_IDENTITY_SECRET.Length -lt 32) {
+    throw "CYNEXUS_TRUSTED_IDENTITY_SECRET must contain at least 32 characters."
+}
+
 # The local Windows runtime may expose outbound HTTPS through a host proxy.
 # Translate loopback proxy addresses so containers can reach the same proxy.
 foreach ($proxyName in @("HTTP_PROXY", "HTTPS_PROXY")) {

@@ -28,6 +28,7 @@
 - Existing tool and adapter tests cover contracts and parsing, but no executable end-to-end mock-provider workflow currently proves multi-turn planning, re-planning, persistence, cancellation, retry, resume, idempotency, and authorization together.
 - Phase 105 was added to `task_plan.md` so these gaps remain explicit and cannot be mistaken for completed MVP behavior.
 - The Release script incorrectly derived `1.1.122-260722-SNAPSHOT` from an explicit `1.1.122-260722-RELEASE` argument; Maven artifacts use `1.1.122-SNAPSHOT`. The parser must strip the six-digit release date before adding `-SNAPSHOT`.
+- The first trusted-identity bootstrap attempt used the newer static `RandomNumberGenerator.Fill` API, which is unavailable in the installed PowerShell/.NET runtime. Use `RandomNumberGenerator.Create().GetBytes(...)` for the supported runtime.
 
 ## Market Information Refresh Error
 

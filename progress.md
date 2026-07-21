@@ -1543,3 +1543,13 @@
 - Confirmed the Agent MVP is implemented, but real production completion is not yet proven: owner identity is client-controlled/anonymous-compatible, active-run and cancellation state are JVM-local, persistent retry/recovery is absent, executable mock workflow coverage is incomplete, and the deployed Release image still needs a new end-to-end verification against `xtyooo/gpt-5.4-mini`.
 - Added Phase 105 to `task_plan.md` covering real-provider verification, identity/tenant isolation, distributed reliability, security/data governance, executable evaluation, product workflow completion, true streaming, capability expansion, and the final Release audit.
 - Release start verification exposed an explicit-version parsing defect: the script looked for a date-suffixed Maven SNAPSHOT artifact. The fix strips `-YYMMDD-RELEASE` to derive the matching Maven version.
+
+## 2026-07-22 - Agent trusted identity and distributed lease implementation
+
+- Removed Agent controller/query/body ownership selection from the trusted API path; the controller now requires a gateway-signed principal and tenant assertion.
+- Added HMAC identity signing in `cynexus-common-security`, gateway header injection that discards client-supplied identity headers, and explicit anonymous compatibility only for configured non-Release environments.
+- Added tenant-qualified persistence scope (`tenant::principal`) and removed the UI owner query parameter.
+- Replaced JVM-local active-run/cancellation maps with a Redis-backed bounded lease and cancellation token port; the domain remains independent of Redis.
+- Added identity authorization tests for valid signatures, cross-principal/tenant tampering, and explicit anonymous mode.
+- Synchronized Maven/UI versions to `1.1.123-SNAPSHOT`; targeted compilation is currently passing, with full runtime verification pending the Release rebuild.
+- Release identity bootstrap initially failed because the installed PowerShell/.NET runtime lacks static `RandomNumberGenerator.Fill`; changed both Dev and Release scripts to the compatible instance API.

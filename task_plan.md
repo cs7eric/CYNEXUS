@@ -2155,6 +2155,8 @@ This phase is the complete follow-up backlog requested after the Agent MVP revie
 - Enforce owner/tenant scope on runs, conversations, messages, tool context, cancellation, history, and rate limits.
 - Add authorization tests for cross-owner and cross-tenant reads, cancellation, and tool access.
 
+Current implementation: gateway-issued HMAC identity assertions are verified by AI; persistence scope uses a tenant-qualified storage owner key; anonymous compatibility is explicit and disabled in Release.
+
 ### 105.3 Distributed Runtime Reliability
 
 - Replace JVM-only active-run and cancellation state with Redis-backed leases/tokens and database-backed terminal state.
