@@ -9,4 +9,6 @@ public interface AgentRuntimeLeasePort {
     boolean requestCancellation(String ownerKey, String runNo, int ttlSeconds);
 
     boolean isCancellationRequested(String runNo);
+
+    boolean isLeaseActive(String runNo);
 }

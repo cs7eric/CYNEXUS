@@ -16,7 +16,7 @@ public final class AgentRunPOConverter {
         target.setAnswer(source.getAnswer()); target.setModelCode(source.getModelCode()); target.setPlan(source.getPlanJson());
         target.setContextJson(source.getContextJson()); target.setAssumptionsJson(source.getAssumptionsJson());
         target.setEvidenceJson(source.getEvidenceJson()); target.setWarningsJson(source.getWarningsJson());
-        target.setErrorMessage(source.getErrorMessage()); target.setTurnCount(source.getTurnCount());
+        target.setErrorMessage(source.getErrorMessage()); target.setFailureCategory(source.getFailureCategory()); target.setTurnCount(source.getTurnCount());
         target.setToolCallCount(source.getToolCallCount()); target.setStartedAt(source.getStartedAt());
         target.setFinishedAt(source.getFinishedAt()); target.setCreatedAt(source.getCreatedAt());
         target.setUpdatedAt(source.getUpdatedAt()); target.setDeletedAt(source.getDeletedAt());
@@ -30,7 +30,7 @@ public final class AgentRunPOConverter {
                 .answer(source.getAnswer()).modelCode(source.getModelCode()).planJson(source.getPlan())
                 .contextJson(source.getContextJson()).assumptionsJson(source.getAssumptionsJson())
                 .evidenceJson(source.getEvidenceJson()).warningsJson(source.getWarningsJson())
-                .errorMessage(source.getErrorMessage()).turnCount(source.getTurnCount()).toolCallCount(source.getToolCallCount())
+                .errorMessage(source.getErrorMessage()).failureCategory(source.getFailureCategory()).turnCount(source.getTurnCount()).toolCallCount(source.getToolCallCount())
                 .startedAt(source.getStartedAt()).finishedAt(source.getFinishedAt()).createdAt(source.getCreatedAt())
                 .updatedAt(source.getUpdatedAt()).deletedAt(source.getDeletedAt()).build();
     }

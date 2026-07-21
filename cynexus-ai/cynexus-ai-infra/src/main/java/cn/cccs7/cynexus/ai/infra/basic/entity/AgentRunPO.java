@@ -26,6 +26,7 @@ public class AgentRunPO extends BasePO {
     @TableField(value = "evidence_json", typeHandler = JsonbTypeHandler.class) private String evidenceJson;
     @TableField(value = "warnings_json", typeHandler = JsonbTypeHandler.class) private String warningsJson;
     @TableField("error_message") private String errorMessage;
+    @TableField("failure_category") private String failureCategory;
     @TableField("turn_count") private Integer turnCount;
     @TableField("tool_call_count") private Integer toolCallCount;
     @TableField("started_at") private OffsetDateTime startedAt;

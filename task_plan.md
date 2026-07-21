@@ -2164,7 +2164,7 @@ Current implementation: gateway-issued HMAC identity assertions are verified by 
 - Persist retry attempts and failure categories; never retry non-transient validation, authorization, or policy failures.
 - Ensure concurrent instances cannot execute the same run or duplicate tool call.
 
-Current implementation: Redis-backed active-run leases, cancellation tokens, and a per-owner rolling-window request limiter are wired through domain ports. Idempotency keys and persisted retry attempt counts are implemented; provider/tool retry classification, circuit breaking, and stale-run recovery remain pending.
+Current implementation: Redis-backed active-run leases, cancellation tokens, a per-owner rolling-window request limiter, provider/tool circuit state, persisted retry attempt counts/failure categories, and stale-run reconciliation are wired through domain ports. Release runtime verification and multi-instance failure-path tests remain pending.
 
 ### 105.4 Security and Data Governance
 

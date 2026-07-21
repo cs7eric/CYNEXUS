@@ -356,3 +356,9 @@
 - Controlled live smoke exposed a real routing defect in the deployed Agent code: because bindings were filtered with `findFirst()` over an unordered list of fallback capabilities, the run reported model `auto` instead of the dedicated `autonomous_agent` `gpt-5.4-mini` route. The resolver must use an explicit capability priority and the new image must be deployed before claiming provider provenance.
 - Capability-pack test initially failed because the test used a bare Jackson `ObjectMapper` that cannot serialize Java time DTO fields. The runtime already supplies the configured mapper; the test was corrected to register `JavaTimeModule` so the contract matches production serialization.
 - Release verification first failed because `start-release.ps1 -Version 1.1.121-260722-RELEASE` derives a dated Maven snapshot name that does not exist; the repository's release script intentionally uses the current `1.1.121-SNAPSHOT` when `-Version` is omitted. The next attempt will use the script's no-argument version derivation, preserving the versioned release image requirement.
+
+## 2026-07-22 Agent reliability follow-up
+
+- A Redis active-run counter must only be decremented when the corresponding lease key still exists; unconditional release could undercount concurrent runs after TTL expiry.
+- Circuit state is shared by provider/tool dependency key. Failures open the circuit after three transient upstream failures, one probe is admitted after the open window, and success resets the state.
+- Stale recovery must check the Redis lease before marking a database `RUNNING` row failed; otherwise a slow but healthy run could be incorrectly terminated.

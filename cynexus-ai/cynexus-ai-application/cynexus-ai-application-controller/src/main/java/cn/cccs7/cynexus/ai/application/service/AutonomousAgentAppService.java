@@ -21,6 +21,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
@@ -64,6 +65,7 @@ public class AutonomousAgentAppService {
     private final ObjectMapper objectMapper;
     private final AgentRuntimeLeasePort runtimeLease;
     private final AgentRateLimitPort rateLimiter;
+    private final AgentCircuitBreakerPort circuitBreaker;
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
@@ -73,6 +75,7 @@ public class AutonomousAgentAppService {
                                      AiUsageBindingRepository usageBindingRepository,
                                      AgentRuntimeLeasePort runtimeLease,
                                      AgentRateLimitPort rateLimiter,
+                                     AgentCircuitBreakerPort circuitBreaker,
                                      ObjectMapper objectMapper) {
         this.agentRunRepository = agentRunRepository;
         this.toolCatalog = new AgentToolCatalogFacade(toolCatalog);
@@ -82,6 +85,7 @@ public class AutonomousAgentAppService {
         this.usageBindingRepository = usageBindingRepository;
         this.runtimeLease = runtimeLease;
         this.rateLimiter = rateLimiter;
+        this.circuitBreaker = circuitBreaker;
         this.objectMapper = objectMapper;
     }
 
@@ -209,12 +213,19 @@ public class AutonomousAgentAppService {
                     AgentToolCall call = AgentToolCall.builder().callId(modelCall.getCallId())
                             .toolCode(modelCall.getToolCode()).arguments(modelCall.getArguments()).build();
                     int attempts = 1;
+                    String toolCircuitKey = "tool:" + call.getToolCode();
+                    if (!circuitBreaker.allow(toolCircuitKey)) {
+                        throw new IllegalStateException("Agent tool circuit is open: " + call.getToolCode());
+                    }
                     AgentToolResult result = bounded(toolExecutor.execute(call, context));
                     while (attempts < MAX_RETRY_ATTEMPTS && isTransientToolFailure(result)) {
+                        circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                         attempts++;
                         pauseBeforeRetry(attempts);
                         result = bounded(toolExecutor.execute(call, context));
                     }
+                    if (isTransientToolFailure(result)) circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
+                    else if ("SUCCEEDED".equals(result.getStatus())) circuitBreaker.recordSuccess(toolCircuitKey);
                     AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result, attempts);
                     steps.add(step);
                     emit(eventConsumer, AgentRunEventBO.builder().type("TOOL_STEP").runNo(runNo).status(result.getStatus())
@@ -240,8 +251,10 @@ public class AutonomousAgentAppService {
             emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .answer(answer).build());
         } catch (RuntimeException exception) {
-            run.setStatus(runtimeLease.isCancellationRequested(runNo) ? "CANCELLED" : "FAILED");
+            boolean cancelled = runtimeLease.isCancellationRequested(runNo);
+            run.setStatus(cancelled ? "CANCELLED" : "FAILED");
             run.setErrorMessage(exception.getMessage());
+            run.setFailureCategory(cancelled ? "CANCELLED" : classifyFailure(exception));
             run.setFinishedAt(OffsetDateTime.now());
             agentRunRepository.updateRun(run);
             emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
@@ -355,6 +368,7 @@ public class AutonomousAgentAppService {
                 .toolCode(call.getToolCode()).inputJson(json(call.getArguments())).outputJson(result.getOutputJson())
                 .status(result.getStatus()).summary(result.getSummary()).source(result.getSource())
                 .dataDate(result.getDataDate()).errorMessage(result.getWarnings().isEmpty() ? null : String.join(",", result.getWarnings()))
+                .failureCategory("SUCCEEDED".equals(result.getStatus()) ? null : classifyToolFailure(result))
                 .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
         agentRunRepository.saveStep(step);
         return step;
@@ -397,10 +411,12 @@ public class AutonomousAgentAppService {
                 .contextJson(run.getContextJson()).assumptionsJson(run.getAssumptionsJson()).evidenceJson(run.getEvidenceJson())
                 .warningsJson(run.getWarningsJson())
                 .turnCount(run.getTurnCount()).toolCallCount(run.getToolCallCount()).errorMessage(run.getErrorMessage())
+                .failureCategory(run.getFailureCategory())
                 .startedAt(run.getStartedAt()).finishedAt(run.getFinishedAt())
                 .steps(steps == null ? List.of() : steps.stream().map(step -> AgentRunStepDTO.builder()
                         .stepNo(step.getStepNo()).attemptCount(step.getAttemptCount()).kind(step.getKind()).toolCode(step.getToolCode()).status(step.getStatus())
                         .summary(step.getSummary()).source(step.getSource()).dataDate(step.getDataDate())
+                        .failureCategory(step.getFailureCategory())
                         .inputJson(step.getInputJson()).outputJson(step.getOutputJson()).errorMessage(step.getErrorMessage())
                         .startedAt(step.getStartedAt()).finishedAt(step.getFinishedAt()).build()).toList()).build();
     }
@@ -464,12 +480,20 @@ public class AutonomousAgentAppService {
 
     private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request) {
         RuntimeException last = null;
+        String circuitKey = "provider:" + valueOr(model == null ? null : model.getProviderCode(), "unknown");
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
             try {
-                return completionGateway.completeAgent(model, request, "autonomous_agent");
+                if (!circuitBreaker.allow(circuitKey)) {
+                    throw new IllegalStateException("Agent provider circuit is open");
+                }
+                AgentModelTurnResponse response = completionGateway.completeAgent(model, request, "autonomous_agent");
+                circuitBreaker.recordSuccess(circuitKey);
+                return response;
             } catch (RuntimeException exception) {
                 last = exception;
-                if (attempt >= MAX_RETRY_ATTEMPTS || !isTransientProviderFailure(exception)) throw exception;
+                if (!isTransientProviderFailure(exception)) throw exception;
+                circuitBreaker.recordFailure(circuitKey, 3, 30);
+                if (attempt >= MAX_RETRY_ATTEMPTS) throw exception;
                 pauseBeforeRetry(attempt + 1);
             }
         }
@@ -483,11 +507,31 @@ public class AutonomousAgentAppService {
                 || message.contains("http 503") || message.contains("http 504") || message.contains("failed to call ai provider");
     }
 
+    private String classifyFailure(RuntimeException exception) {
+        String message = exception == null || exception.getMessage() == null ? "" : exception.getMessage().toLowerCase();
+        if (message.contains("rate limit") || message.contains("http 429")) return "RATE_LIMITED";
+        if (message.contains("timeout") || message.contains("timed out")) return "TIMEOUT";
+        if (message.contains("provider")) return "PROVIDER";
+        if (message.contains("tool")) return "TOOL";
+        if (message.contains("policy") || message.contains("unregistered")) return "POLICY";
+        if (message.contains("authorization") || message.contains("identity")) return "AUTHORIZATION";
+        return "INTERNAL";
+    }
+
     private boolean isTransientToolFailure(AgentToolResult result) {
         if (result == null || !"FAILED".equals(result.getStatus()) || result.getWarnings() == null) return false;
         return result.getWarnings().stream().map(value -> value == null ? "" : value.toLowerCase())
                 .anyMatch(value -> value.contains("timeout") || value.contains("http_5") || value.contains("upstream")
                         || value.contains("temporarily") || value.contains("connection"));
+    }
+
+    private String classifyToolFailure(AgentToolResult result) {
+        String warning = result == null || result.getWarnings() == null ? "" : String.join(" ", result.getWarnings()).toLowerCase();
+        if (warning.contains("timeout")) return "TIMEOUT";
+        if (warning.contains("schema") || warning.contains("argument")) return "VALIDATION";
+        if (warning.contains("unauthorized") || warning.contains("owner") || warning.contains("identity")) return "AUTHORIZATION";
+        if (isTransientToolFailure(result)) return "UPSTREAM";
+        return "TOOL";
     }
 
     private void pauseBeforeRetry(int attempt) {

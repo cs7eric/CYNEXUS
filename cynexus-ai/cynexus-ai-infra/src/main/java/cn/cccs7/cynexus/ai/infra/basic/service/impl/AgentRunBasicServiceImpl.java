@@ -8,6 +8,7 @@ import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunBasicService;
 import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.util.List;
+import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -57,5 +58,12 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
         return stepMapper.selectList(new QueryWrapper<AgentRunStepPO>().eq("run_no", runNo)
                 .exists("SELECT 1 FROM ai_agent_run r WHERE r.run_no = ai_agent_run_step.run_no AND r.owner_key = {0}", ownerKey)
                 .isNull("deleted_at").orderByAsc("step_no"));
+    }
+
+    @Override
+    public List<AgentRunPO> findStaleRunning(OffsetDateTime cutoff) {
+        return runMapper.selectList(new QueryWrapper<AgentRunPO>().eq("status", "RUNNING")
+                .lt("started_at", cutoff).isNull("finished_at").isNull("deleted_at")
+                .orderByAsc("started_at").last("LIMIT 100"));
     }
 }

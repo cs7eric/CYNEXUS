@@ -17,6 +17,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
@@ -46,6 +47,8 @@ class AutonomousAgentWorkflowTest {
         AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
         AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
         AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        when(circuitBreaker.allow(any())).thenReturn(true);
 
         AgentToolDefinition definition = AgentToolDefinition.builder().code("market.overview").name("Market overview")
                 .module("market").description("Read market overview").inputSchemaJson("{\"type\":\"object\"}")
@@ -68,7 +71,7 @@ class AutonomousAgentWorkflowTest {
                 .thenReturn(AgentModelTurnResponse.builder().type("FINAL").content("市场成交额为 123。").build());
 
         AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
-                providers, bindings, lease, rateLimiter, new ObjectMapper());
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.execute(AgentRunRequest.builder().userInput("今天市场怎么样？").idempotencyKey("idem-1").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
 

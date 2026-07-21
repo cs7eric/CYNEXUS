@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
 import java.util.List;
 import java.util.Optional;
+import java.time.OffsetDateTime;
 
 public interface AgentRunRepository {
 
@@ -32,4 +33,6 @@ public interface AgentRunRepository {
     void saveMessage(AgentMessageBO message);
 
     List<AgentMessageBO> findMessages(String ownerKey, String conversationNo);
+
+    List<AgentRunBO> findStaleRunningRuns(OffsetDateTime cutoff);
 }

@@ -22,6 +22,7 @@ public class AgentRunDTO {
     private Integer turnCount;
     private Integer toolCallCount;
     private String errorMessage;
+    private String failureCategory;
     private OffsetDateTime startedAt;
     private OffsetDateTime finishedAt;
     private List<AgentRunStepDTO> steps;

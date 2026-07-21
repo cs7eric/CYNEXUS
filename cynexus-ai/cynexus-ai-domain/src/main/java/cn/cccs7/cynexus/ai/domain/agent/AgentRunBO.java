@@ -23,6 +23,7 @@ public class AgentRunBO {
     private String evidenceJson;
     private String warningsJson;
     private String errorMessage;
+    private String failureCategory;
     private Integer turnCount;
     private Integer toolCallCount;
     private OffsetDateTime startedAt;

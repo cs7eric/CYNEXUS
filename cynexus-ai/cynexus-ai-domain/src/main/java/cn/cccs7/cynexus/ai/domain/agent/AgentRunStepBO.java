@@ -21,6 +21,7 @@ public class AgentRunStepBO {
     private String source;
     private String dataDate;
     private String errorMessage;
+    private String failureCategory;
     private OffsetDateTime startedAt;
     private OffsetDateTime finishedAt;
     private OffsetDateTime createdAt;

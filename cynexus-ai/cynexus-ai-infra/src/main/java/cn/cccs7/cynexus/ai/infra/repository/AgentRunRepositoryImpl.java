@@ -14,6 +14,7 @@ import cn.cccs7.cynexus.ai.infra.convert.AgentRunPOConverter;
 import cn.cccs7.cynexus.ai.infra.convert.AgentRunStepPOConverter;
 import java.util.List;
 import java.util.Optional;
+import java.time.OffsetDateTime;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -91,5 +92,11 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     public List<AgentMessageBO> findMessages(String ownerKey, String conversationNo) {
         if (conversationService.find(ownerKey, conversationNo).isEmpty()) return List.of();
         return messageService.find(conversationNo).stream().map(AgentMessagePOConverter.INSTANCE::toTarget).toList();
+    }
+
+    @Override
+    public List<AgentRunBO> findStaleRunningRuns(OffsetDateTime cutoff) {
+        return runService.findStaleRunning(cutoff).stream()
+                .map(AgentRunPOConverter.INSTANCE::toTarget).toList();
     }
 }

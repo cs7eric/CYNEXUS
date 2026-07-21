@@ -18,6 +18,7 @@ public class AgentRunStepDTO {
     private String inputJson;
     private String outputJson;
     private String errorMessage;
+    private String failureCategory;
     private OffsetDateTime startedAt;
     private OffsetDateTime finishedAt;
 }

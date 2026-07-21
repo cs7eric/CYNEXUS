@@ -1563,3 +1563,12 @@
 - Added a Redis rolling-window per-owner request limiter through a domain port, alongside the existing active-run lease and cancellation token.
 - Applied `20260722_add_ai_agent_idempotency_and_retry_fields.sql` locally.
 - Synchronized Maven/UI versions to `1.1.124-SNAPSHOT`; focused Agent workflow and identity tests passed.
+
+## 2026-07-22 - Agent circuit breaking, stale-run recovery, and failure taxonomy
+
+- Added a Redis-backed provider/tool circuit breaker with closed, open, and single-probe half-open behavior through a domain port.
+- Added persisted run/step failure categories so timeout, upstream, validation, authorization, policy, cancellation, and stale recovery are distinguishable.
+- Added a scheduled stale-run reconciler that only fails runs older than the recovery window after their distributed lease has expired.
+- Hardened lease release so an expired/already-released lease cannot decrement the active-run counter below its true value.
+- Added migration `20260722_add_ai_agent_failure_categories.sql` and synchronized Maven/UI versions remain at `1.1.124-SNAPSHOT`.
+- Focused Agent workflow test and full Maven package/UI build passed; live migration and Release verification remain pending.
