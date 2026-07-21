@@ -8,6 +8,7 @@ import HeatmapDemoPage, { HeatmapDataDebug } from "../views/heatmap-demo"
 import IndustryApplicationPage from "../views/industry-application"
 import Mp4ToWordPage from "../views/mp4-to-word"
 import Mp4HistoryPage from "../views/mp4-to-word/history"
+import Mp4ProcessHistoryPage from "../views/mp4-to-word/process-history"
 import SchedulerSettingsPage from "../views/settings/scheduler"
 import AiProviderSettingsPage from "../views/ai/provider"
 import DataSourceSettingsPage from "../views/settings/data-source"
@@ -31,7 +32,9 @@ import StockReviewPage from "../views/stock-review"
 import KnowledgeBasePage from "../views/knowledge-base"
 import KnowledgeBaseWritingPage from "../views/knowledge-base/writing"
 import KnowledgeBaseViewPage from "../views/knowledge-base/view"
+import FinanceOverviewPage from "../views/finance/overview"
 import FinanceLedgerPage from "../views/finance/ledger"
+import FinanceTransactionsPage from "../views/finance/transactions"
 import FinanceAccountsPage from "../views/finance/accounts"
 import FinanceAiCapturePage from "../views/finance/ai-capture"
 
@@ -53,8 +56,16 @@ export const router = createBrowserRouter([
         element: <DashboardPage />,
       },
       {
+        path: "finance/overview",
+        element: <FinanceOverviewPage />,
+      },
+      {
         path: "finance/ledger",
         element: <FinanceLedgerPage />,
+      },
+      {
+        path: "finance/transactions",
+        element: <FinanceTransactionsPage />,
       },
       {
         path: "finance/accounts",
@@ -75,6 +86,10 @@ export const router = createBrowserRouter([
       {
         path: "mp4-to-word/history/:id",
         element: <Mp4HistoryPage />,
+      },
+      {
+        path: "mp4-to-word/process-history",
+        element: <Mp4ProcessHistoryPage />,
       },
       {
         path: "stock-overview",

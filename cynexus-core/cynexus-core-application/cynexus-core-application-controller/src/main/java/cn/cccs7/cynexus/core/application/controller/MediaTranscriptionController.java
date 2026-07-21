@@ -7,11 +7,14 @@ import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionHistoryListDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionHistoryQaItemDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionTaskDetailDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionTaskRefDTO;
+import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionProcessDTO;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionAskRequest;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionHistoryReorderRequest;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionHistorySaveRequest;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionRemoteParseRequest;
+import cn.cccs7.cynexus.core.application.request.MediaTranscriptionProcessRequest;
 import cn.cccs7.cynexus.core.application.service.MediaTranscriptionAppService;
+import cn.cccs7.cynexus.core.application.service.MediaTranscriptionProcessAppService;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionBinaryBO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionStreamBO;
 import java.io.InputStream;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,9 +41,12 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 public class MediaTranscriptionController {
 
     private final MediaTranscriptionAppService mediaTranscriptionAppService;
+    private final MediaTranscriptionProcessAppService mediaTranscriptionProcessAppService;
 
-    public MediaTranscriptionController(MediaTranscriptionAppService mediaTranscriptionAppService) {
+    public MediaTranscriptionController(MediaTranscriptionAppService mediaTranscriptionAppService,
+                                        MediaTranscriptionProcessAppService mediaTranscriptionProcessAppService) {
         this.mediaTranscriptionAppService = mediaTranscriptionAppService;
+        this.mediaTranscriptionProcessAppService = mediaTranscriptionProcessAppService;
     }
 
     @PostMapping(value = "/tasks/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -50,6 +57,28 @@ public class MediaTranscriptionController {
     @PostMapping("/tasks/remote-parse")
     public Result<MediaTranscriptionTaskRefDTO> remoteParse(@RequestBody MediaTranscriptionRemoteParseRequest request) {
         return Result.success(mediaTranscriptionAppService.remoteParse(request));
+    }
+
+    @PostMapping("/processes")
+    public Result<MediaTranscriptionProcessDTO> submitProcess(
+            @RequestBody MediaTranscriptionProcessRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return Result.success(mediaTranscriptionProcessAppService.submit(request, idempotencyKey));
+    }
+
+    @GetMapping("/processes")
+    public Result<Map<String, Object>> listProcesses(@RequestParam(defaultValue = "50") int limit) {
+        return Result.success(Map.of("items", mediaTranscriptionProcessAppService.list(limit)));
+    }
+
+    @GetMapping("/processes/{processId}")
+    public Result<MediaTranscriptionProcessDTO> getProcess(@PathVariable String processId) {
+        return Result.success(mediaTranscriptionProcessAppService.get(processId));
+    }
+
+    @PostMapping("/processes/{processId}/retry")
+    public Result<MediaTranscriptionProcessDTO> retryProcess(@PathVariable String processId) {
+        return Result.success(mediaTranscriptionProcessAppService.retry(processId));
     }
 
     @GetMapping("/tasks/{taskId}")

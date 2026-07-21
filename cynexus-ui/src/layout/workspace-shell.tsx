@@ -10,6 +10,7 @@ import {
   GlobalCommandPalette,
   GlobalCommandTrigger,
 } from "@/components/global-command-palette"
+import { WorkspaceChat } from "@/components/workspace-chat"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -107,7 +108,6 @@ export function WorkspaceShell({
   const sectionLabel = sectionLabelProp ?? routeBreadcrumb.sectionLabel
   const sectionUrl = sectionUrlProp ?? routeBreadcrumb.sectionUrl
   const pageTitle = pageTitleProp ?? routeBreadcrumb.pageTitle
-
   return (
     <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar className="border-sidebar-border/30" variant="inset" />
@@ -155,6 +155,7 @@ export function WorkspaceShell({
             </Breadcrumb>
           </div>
           <div className="ml-auto flex items-center gap-2 px-4">
+            <WorkspaceChat />
             <GlobalCommandTrigger />
           </div>
         </header>

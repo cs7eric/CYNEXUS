@@ -156,10 +156,17 @@ public class MediaTranscriptionAppService {
         if (taskId == null || taskId.isBlank()) {
             throw new BizException(ErrorCode.BAD_REQUEST, "taskId is required");
         }
-        MediaTranscriptionTaskBO task = getAiEnrichedTask(taskId);
+        return saveCompletedTask(getAiEnrichedTask(taskId));
+    }
+
+    public MediaTranscriptionHistoryItemDTO saveCompletedTask(MediaTranscriptionTaskBO task) {
+        if (task == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "转写任务不存在");
+        }
         if (!domainPolicy.isDone(task)) {
             throw new BizException(ErrorCode.BAD_REQUEST, "任务尚未完成");
         }
+        String taskId = task.getTaskId();
         MediaTranscriptionHistoryBO existing = mediaTranscriptionHistoryRepository.findByTaskId(taskId);
         Map<String, Object> record = existing == null
                 ? domainPolicy.buildHistoryRecord(null, task, null, OffsetDateTime.now())

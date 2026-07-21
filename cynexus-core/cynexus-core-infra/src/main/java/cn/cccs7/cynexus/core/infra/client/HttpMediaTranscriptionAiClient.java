@@ -106,7 +106,11 @@ public class HttpMediaTranscriptionAiClient implements MediaTranscriptionAiClien
         } catch (BizException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new BizException(ErrorCode.INTERNAL_ERROR, "Media transcription AI request failed: " + exception.getMessage());
+            String detail = exception.getMessage();
+            if (detail == null || detail.isBlank()) {
+                detail = exception.getClass().getSimpleName();
+            }
+            throw new BizException(ErrorCode.INTERNAL_ERROR, "Media transcription AI request failed: " + detail);
         }
     }
 

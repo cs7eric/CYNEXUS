@@ -15,10 +15,10 @@ import lombok.NoArgsConstructor;
 public class FinanceAiCaptureDTO {
     private Long id;
     private String status;
+    private String processingMode;
     private Integer sourceCount;
     private String modelCode;
     private String errorMessage;
-    private String processingMode;
     private Integer autoPostedCount;
     private Integer reviewCount;
     private OffsetDateTime createdAt;

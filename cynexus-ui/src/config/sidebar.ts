@@ -39,10 +39,12 @@ export const sidebarConfig = {
   navMain: [
     {
       title: "Finance",
-      url: "/finance/ledger",
+      url: "/finance/overview",
       icon: WalletCards,
       items: [
+        { title: "Overview", url: "/finance/overview" },
         { title: "Ledger", url: "/finance/ledger" },
+        { title: "Transactions", url: "/finance/transactions" },
         { title: "Accounts", url: "/finance/accounts" },
         { title: "AI Capture", url: "/finance/ai-capture" },
       ],
@@ -64,6 +66,10 @@ export const sidebarConfig = {
         {
           title: "history",
           url: "/mp4-to-word/history",
+        },
+        {
+          title: "process history",
+          url: "/mp4-to-word/process-history",
         },
         {
           title: "downloader",
@@ -257,6 +263,11 @@ export const sidebarConfig = {
     {
       name: "MP4 History",
       url: "/mp4-to-word/history",
+      icon: FileText,
+    },
+    {
+      name: "MP4 Process History",
+      url: "/mp4-to-word/process-history",
       icon: FileText,
     },
     {

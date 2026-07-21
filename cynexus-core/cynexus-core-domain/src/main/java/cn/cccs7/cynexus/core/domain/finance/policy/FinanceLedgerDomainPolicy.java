@@ -50,6 +50,14 @@ public class FinanceLedgerDomainPolicy {
         }
     }
 
+    public void validateTransactionMutation(boolean hasInstallmentReference) {
+        require(!hasInstallmentReference, "账目已关联分期计划或分期还款，不能直接修改或删除");
+    }
+
+    public void validateCustomCategory(FinanceCategoryBO category) {
+        require(category != null && !Boolean.TRUE.equals(category.getSystem()), "系统分类不能修改或删除");
+    }
+
     private void require(boolean condition, String message) {
         if (!condition) throw new BizException(ErrorCode.BAD_REQUEST, message);
     }

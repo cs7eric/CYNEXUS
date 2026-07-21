@@ -68,11 +68,26 @@ public class FinanceLedgerAppService {
                 .name(request.getName()).direction(request.getDirection()).icon(request.getIcon()).color(request.getColor())
                 .sortOrder(request.getSortOrder()).build();
         policy.validateCategory(value);
-        if (value.getId() != null) throw new BizException(ErrorCode.BAD_REQUEST, "系统分类暂不支持修改");
+        if (value.getId() != null) {
+            FinanceCategoryBO existing = repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(value.getId())).findFirst().orElse(null);
+            if (existing == null) throw new BizException(ErrorCode.NOT_FOUND, "分类不存在");
+            policy.validateCustomCategory(existing);
+            policy.validateCustomCategory(value);
+            if (!repository.updateCategory(value)) throw new BizException(ErrorCode.NOT_FOUND, "分类不存在");
+            return category(repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(value.getId())).findFirst().orElse(null));
+        }
         return category(repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getName().equals(value.getName())).findFirst().orElseGet(() -> {
             Long id = repository.saveCategory(value);
             return repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(id)).findFirst().orElse(null);
         }));
+    }
+
+    @Transactional
+    public boolean archiveCategory(Long id) {
+        FinanceCategoryBO category = repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(id)).findFirst().orElse(null);
+        if (category == null) throw new BizException(ErrorCode.NOT_FOUND, "分类不存在");
+        policy.validateCustomCategory(category);
+        return repository.archiveCategory(DEFAULT_OWNER, id);
     }
 
     public FinanceOverviewDTO overview(LocalDate start, LocalDate end) {
@@ -86,6 +101,12 @@ public class FinanceLedgerAppService {
         LocalDate normalizedStart = start == null ? LocalDate.now().withDayOfMonth(1) : start;
         LocalDate normalizedEnd = end == null ? normalizedStart.withDayOfMonth(normalizedStart.lengthOfMonth()) : end;
         return repository.listTransactions(DEFAULT_OWNER, normalizedStart, normalizedEnd, limit == null ? 100 : limit).stream().map(this::transaction).toList();
+    }
+
+    public FinanceTransactionDTO findTransaction(Long id) {
+        FinanceTransactionBO value = repository.findTransaction(DEFAULT_OWNER, id);
+        if (value == null) throw new BizException(ErrorCode.NOT_FOUND, "账目不存在");
+        return transaction(value);
     }
 
     @Transactional
@@ -124,7 +145,23 @@ public class FinanceLedgerAppService {
 
     @Transactional
     public boolean archiveTransaction(Long id) {
+        policy.validateTransactionMutation(repository.hasInstallmentReference(DEFAULT_OWNER, id));
         return repository.archiveTransaction(DEFAULT_OWNER, id);
+    }
+
+    @Transactional
+    public boolean deleteTransaction(Long id) {
+        if (repository.findInstallmentPlanByPurchaseTransaction(DEFAULT_OWNER, id) != null) {
+            if (!repository.deleteInstallmentPurchase(DEFAULT_OWNER, id)) throw new BizException(ErrorCode.NOT_FOUND, "分期消费不存在");
+            return true;
+        }
+        if (repository.findInstallmentByPaymentTransaction(DEFAULT_OWNER, id) != null) {
+            if (!repository.deleteInstallmentPayment(DEFAULT_OWNER, id)) throw new BizException(ErrorCode.NOT_FOUND, "还款记录不存在");
+            return true;
+        }
+        policy.validateTransactionMutation(repository.hasInstallmentReference(DEFAULT_OWNER, id));
+        if (!repository.deleteTransaction(DEFAULT_OWNER, id)) throw new BizException(ErrorCode.NOT_FOUND, "账目不存在");
+        return true;
     }
 
     private Long updateAccount(FinanceAccountBO value) {
@@ -133,6 +170,7 @@ public class FinanceLedgerAppService {
     }
 
     private Long updateTransaction(FinanceTransactionBO value) {
+        policy.validateTransactionMutation(repository.hasInstallmentReference(DEFAULT_OWNER, value.getId()));
         if (!repository.updateTransaction(value)) throw new BizException(ErrorCode.NOT_FOUND, "账目不存在");
         return value.getId();
     }
@@ -163,7 +201,7 @@ public class FinanceLedgerAppService {
                 .assetTotal(value.getAssetTotal()).liabilityTotal(value.getLiabilityTotal()).netAssets(value.getNetAssets())
                 .accounts(value.getAccounts().stream().map(this::account).toList())
                 .categories(value.getCategories().stream().map(item -> FinanceOverviewDTO.CategoryStat.builder().categoryId(item.getCategoryId()).categoryName(item.getCategoryName()).direction(item.getDirection()).amount(item.getAmount()).percentage(item.getPercentage()).build()).toList())
-                .daily(value.getDaily().stream().map(item -> FinanceOverviewDTO.DailyStat.builder().date(item.getDate()).income(item.getIncome()).expense(item.getExpense()).build()).toList())
+                .daily(value.getDaily().stream().map(item -> FinanceOverviewDTO.DailyStat.builder().date(item.getDate()).income(item.getIncome()).expense(item.getExpense()).activityCount(item.getActivityCount()).build()).toList())
                 .recentTransactions(value.getRecentTransactions().stream().map(this::transaction).toList()).build();
     }
 }

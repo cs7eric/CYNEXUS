@@ -137,3 +137,189 @@
 - Credit account balances must retain the existing sign semantics: expenses increase the credit balance owed, income and repayments reduce it; transfers between an asset account and a credit account must not be counted as consumption.
 - Installments should be represented separately from the purchase expense. A credit purchase records the full expense once, while a plan owns scheduled installment principal/fee rows and each payment can link to a transfer transaction. This prevents installment repayments from inflating expense statistics.
 - The implemented plan model creates 2-60 scheduled rows, splits principal and fees to cents, derives the first due date from the credit account due day when available, and records repayment as an asset-to-credit transfer.
+
+## 2026-07-19 Finance ledger management request
+
+- Existing Core exposes only a bounded `listTransactions` read method; the finance UI renders recent entries inside consumption analysis but has no dedicated ledger management workflow.
+- Transaction persistence updates `finance_accounts.balance`; edit/delete must apply the old transaction delta before applying the new delta, including both sides of transfers.
+- Credit installment plans reference the purchase transaction. Deleting or materially changing a purchase with a plan must be blocked or require explicit plan handling to avoid orphaned schedules.
+- Categories are seeded and listable/creatable through Core, but the UI has no category-management surface; completeness needs both richer seed data and user-managed category CRUD.
+- The implementation keeps the existing `DELETE /transactions/{id}` archive contract and adds `POST /transactions/{id}/delete` for soft deletion, so existing archive/history behavior is not changed.
+- Transaction edits/deletes are blocked when the transaction is referenced by a purchase installment plan or installment repayment; the derived account balance remains SQL-calculated from active, non-deleted transactions.
+
+## 2026-07-19 Installment deletion follow-up
+
+- The live database has one active installment plan with three installments and one paid installment; the blanket mutation guard therefore blocks the purchase delete path the user is trying to use.
+- Safe explicit deletion must cascade soft deletion to the purchase transaction, installment plan, installment rows, and linked repayment transactions; direct deletion of a repayment transaction remains blocked.
+
+## 2026-07-19 Repayment reversal decision
+
+- A repayment transaction is a transfer from an asset account to a credit account. Deleting it must soft-delete that transfer, reset the linked installment to `pending`, clear `paid_at` and `payment_transaction_id`, and set the plan back to `active` unless other paid rows still complete it.
+- The user explicitly requested this reversal behavior; it is distinct from deleting the original installment purchase, which still cascades the entire plan.
+
+## 2026-07-19 Finance Overview
+
+- Finance navigation currently exposes `/finance/ledger` as the consumption-analysis landing page; there is no dedicated Overview route.
+- `GET /api/core/finance/overview` already returns totals, account balances, category totals, sparse daily income/expense amounts, and 12 recent transactions. The repository aggregates daily rows only for dates containing active ledger entries.
+- The daily DTO/BO currently lacks an activity count. A backend `activityCount` field is needed for a GitHub-style contribution heatmap instead of deriving counts from the bounded recent transaction list.
+- The new Overview can use the existing overview endpoint with a rolling 12-month range and should keep the existing month-scoped Ledger page unchanged.
+- The design direction is a restrained operational finance workspace: a compact decision summary, contribution calendar as the signature element, then trend and allocation analysis with explicit empty/loading states.
+
+## 2026-07-19 Finance Overview panel polish
+
+- Screenshot review shows the signal panel has excessive empty vertical space because four rows are stretched to the same height as the account list; its content lacks a primary signal/value hierarchy.
+- The account panel currently renders a single flat list, making assets and credit accounts visually indistinguishable beyond icon color. Group labels and a compact balance summary will improve scanability without changing account data.
+
+## 2026-07-19 Finance chart composition polish
+
+- Screenshot review shows the cash-flow chart has only two active dates but still reserves a large 260px chart canvas, creating mostly empty white space.
+- The expense structure panel has only two categories yet is stretched to the cash-flow panel height by the parent grid; its long bars lack rank and visual amount hierarchy.
+- The better composition is a compact period summary plus a shorter data-driven chart, with the category module using ranked rows and an items-start parent grid.
+
+## 2026-07-19 Finance expense treemap
+
+- The POC route already uses ECharts Treemap with nodeGap, label, tooltip, and ResizeObserver; this is the established project pattern to reuse.
+- Expense category data already has amount and percentage, so treemap area can use amount and tile color can use each category's share of total expense.
+
+## 2026-07-19 Finance Overview period controls
+
+- Finance Overview period selection previously defaulted to a rolling 365-day range and had no date-picker controls.
+- The new period control keeps shortcut ranges, defaults to `month`, and switches to `custom` when either boundary is selected.
+- Finance dates may occur on weekends, so the shared DatePicker now supports opt-in weekend disabling and Finance Overview explicitly enables weekend selection.
+
+## 2026-07-19 Finance account card workspace
+
+- The Overview account panel already receives account balances and the Core account save endpoint supports an `id` for updates, so the card workspace does not require a new backend contract.
+- `Drawer` supports `right` and `bottom` directions; `useSyncExternalStore` keeps the direction synchronized with the 768px desktop breakpoint without an effect-driven state update.
+- Account cards expose detail on single click and enter edit mode on double click, matching the existing Transactions interaction vocabulary.
+
+## 2026-07-19 Finance activity pulse range rendering
+
+- Daily Activity Pulse used a fixed 53-week grid regardless of the selected Overview range. With the current-month default this produced a large empty calendar.
+- Month labels were derived from the first active cell in each week, so a month with no activity in its first week could lose its label entirely.
+- The corrected renderer derives week count and month labels from the selected calendar bounds while preserving the GitHub-style week-column layout for long ranges.
+
+## 2026-07-19 Finance activity pulse independent range
+
+- Daily Activity Pulse is a rhythm/history signal, while cash-flow and expense structure are period analysis panels; they should not share the selected date range.
+- The pulse now fetches a fixed trailing 365-day overview independently and remains stable while the user changes the statistics period or custom dates.
+
+## 2026-07-19 Finance activity pulse full width
+
+- The pulse calendar had a `w-fit` inner surface with a 720px minimum, so wide desktop cards showed unused space to the right.
+- The inner surface now uses `w-full` plus the existing minimum width, allowing the weekly columns to expand across the available card width while still scrolling on narrow screens.
+
+## 2026-07-19 Finance account three column grid
+
+- Account cards were limited to two columns at every desktop width. The responsive grid now uses three columns at the large breakpoint, keeping two columns for narrower layouts.
+
+## 2026-07-19 Finance signal expansion
+
+- Existing overview data supports more trustworthy signals without a schema change: credit balances and limits, active daily rows across the selected range, and asset account balances.
+- Added credit-limit usage, bookkeeping coverage, and largest-asset concentration; each signal has an explicit unavailable state when its source data is insufficient.
+
+## 2026-07-20 Finance dual-platform adaptation
+
+- Existing project pattern uses useIsMobile for Drawer direction; Finance account and transaction drawers now follow it.
+- Mobile transaction tables use progressive disclosure: compact cards on mobile and dense tables on desktop.
+- Finance period controls and credit fields reflow structurally instead of only shrinking widths.
+
+## 2026-07-20 Finance activity heatmap correction
+
+- The week-grid callback used the week variable without declaring its array index; restoring the index parameter fixes the runtime ReferenceError.
+
+## 2026-07-19 Finance signal detail expansion
+
+- Existing daily overview rows provide a reliable calendar-day average and daily expense peak without relying on the bounded recent transaction list.
+- Asset spending buffer is an estimate of current asset balance divided by selected-period average daily expense and is explicitly labeled as an estimate; no new schema is required.
+
+## 2026-07-20 Finance AI capture history
+
+- `finance_ai_captures` already stores `uploaded`, `processing`, `review`, `confirmed`, `failed`, and `archived` states.
+- `finance_ai_capture_images.image_data` stores the original upload, so failed captures can be retried without another upload.
+- `FinanceLedgerAppService.saveCapturedTransaction` accepts an `id` through its request path and updates an existing transaction; this prevents duplicate posting when editing a confirmed capture.
+- The installment mutation policy rejects direct updates to transactions referenced by installment plans. The history flow should surface that validation instead of silently creating a second transaction.
+- Finance drawers use `useIsMobile` and `Drawer` with `direction={isMobile ? "bottom" : "right"}`; AI Capture should follow that convention.
+- The AI Capture Drawer had a generic `max-h-[min(92vh,860px)]`; with `data-[...right]:h-full`, the max-height still won and left a blank strip below the panel. Direction-specific max-height fixes the layout.
+
+## 2026-07-20 Shortcut media processing workflow
+
+- Existing Core `/tasks/remote-parse` expects a final `downloadUrl`; the existing link acquisition capability is the Downloader API at `https://downloader-api.bhwa233.com/api/parse?url=...`.
+- Existing data media runtime downloads the resolved URL, extracts audio with ffmpeg, transcribes asynchronously, and stores the worker task only in an in-memory store. Core therefore needs its own persistent process record for the shortcut workflow.
+- Existing AI media capabilities are `text_polish`, `text_summary`, and `post_metadata`, already bound to `mp4_text_polish`, `mp4_text_summary`, and `post_metadata`; the new workflow reuses them and adds no new AI capability code.
+- The new process table stores source URL, resolved download URL, worker task ID, phase/progress, transcript/polished/summary, metadata, failure, attempt, and linked `media_transcription_history` ID. A partial unique idempotency index prevents duplicate shortcut submissions.
+- Core scheduler claims queued or stale-running processes with PostgreSQL `FOR UPDATE SKIP LOCKED`, then executes them on a bounded task executor. Queued work can resume after Core restart; a missing in-memory data worker task is recorded as a failure rather than silently disappearing.
+
+## 2026-07-21 Workspace AI Chat
+
+- The global workspace header is rendered by `src/layout/workspace-shell.tsx`; `GlobalCommandTrigger` is the existing search control and the correct adjacent entry point for chat.
+- `src/components/ui/message.tsx` already provides the shadcn-style Message row/avatar/content/header/footer primitives, but no MessageScroller primitive exists.
+- Existing `Sheet` provides a Radix-backed right-side portal with responsive width behavior; it is appropriate for the chat surface and avoids a custom overlay.
+- The existing AI execution API is `POST /api/ai/executions` with `scenarioCode`, `userInput`, `variables`, and `preferredModelCode`. Generic execution currently assumes structured JSON, so `workspace_chat` needs a plain-text scenario branch and an explicit provider capability registration.
+- Current synchronized project version is `1.1.95-SNAPSHOT`; the functional change must advance Maven and UI versions together to `1.1.96-SNAPSHOT`.
+- `workspace_chat` is intentionally routed through the existing usage-binding model path. The AI Provider page must have an enabled provider binding for the send action to return a live model response; the UI surfaces the backend error when that route is unavailable.
+- Full Maven package passed after all parent POM versions were synchronized to `1.1.96-SNAPSHOT`; existing duplicate Lombok and MapStruct warnings remain unrelated.
+- The first release start attempt used `-Version 1.1.96-260721-RELEASE`, which made the script look for a dated Maven artifact that does not exist; rerunning with `-Build` and no explicit version correctly produced `1.1.96-260721-RELEASE` from `1.1.96-SNAPSHOT`.
+- Release UI bundle verification found `Open Cynexus AI`, and `POST /api/ai/executions` with `workspace_chat` returned HTTP 200 after the release restart.
+- Follow-up UX correction: the first implementation used `Sheet`, which behaved as a full-height Drawer. It was replaced with the existing Radix-backed `Popover`, anchored to the chat trigger with no overlay; served bundle verification now finds `Workspace assistant` and no `SheetContent` marker.
+
+## 2026-07-21 Workspace AI Chat shadcn base-rhea alignment
+
+- The official `message-scroller` registry component delegates transcript behavior to `@shadcn/react/message-scroller`; the prior local implementation only approximated auto-scroll and did not implement stable-row anchoring, prepend preservation, message jumps, visibility, or active/inactive scroll controls.
+- The official wrapper's content surface has no padding; padding belongs to the consuming chat composition. The chat now keeps `p-4` at that boundary.
+- The official `Bubble` registry source uses `class-variance-authority` for seven variants and exposes `BubbleGroup` and `BubbleReactions`; the local component now matches those classes without adding `@base-ui/react` because the chat only needs the presentational `div` content path.
+- The official scroller class list includes `scroll-fade-b`, which was not previously defined in Cynexus global CSS. A matching scroll-timeline/fallback utility was added so the class has the intended visual behavior.
+
+## 2026-07-21 Workspace AI Chat official demo composition correction
+
+- The official message docs render in-progress state as `Message` containing `Marker role="status"`, not as `MessageAvatar` + `Bubble`.
+- The official empty conversation is an `Empty` block centered inside the content area, with `MessageCircleDashed`, `Morning, shadcn!`, and a short prompt; the prior initial assistant message was structurally wrong.
+- The official demo header is a card-header pattern with `New Chat`, `How can I help you today?`, and a reset icon action.
+- The official composer is a multiline `InputGroup` with `bg-input/50`, `rounded-2xl`, a block-end addon, Plus action, and ArrowUp submit action. The prior `h-10` input, separate send button, and disclaimer did not match.
+
+## 2026-07-21 Workspace AI Chat composer width and overflow correction
+
+- The block-end composer initially missed the official `has-[>[data-align=block-end]]:flex-col` rule and retained `items-center`, leaving the textarea and addon in one row; the textarea consequently shrank to min-content width and rendered one character per line.
+- The chat textarea now uses a fixed starting height, a maximum height, and `overflow-y-auto`; long prompts scroll inside the field instead of growing the chat popup.
+
+## 2026-07-21 Workspace AI Chat bubble and composer correction
+
+- User messages should use `Bubble variant="muted"`; assistant messages should use `Bubble variant="ghost"` so only the sender's gray surface is visible.
+- Ordinary Message rows do not need `MessageAvatar`; omitting the slot preserves the shadcn row/content alignment without introducing an unused avatar column.
+- The composer textarea must be a non-growing full-width block control inside the block-end InputGroup. `flex-none`, bounded height, and hidden scrollbar rules prevent min-content collapse and keep long input scrollable without showing a scrollbar.
+
+## 2026-07-21 Workspace AI Chat response normalization
+
+- `POST /api/ai/executions` returns the provider completion in `data.content`; the configured provider currently places the user-facing answer inside a JSON string field named `response`.
+- Workspace chat is explicitly instructed to return plain text, so this envelope is a provider transport inconsistency rather than content that should be shown to the user.
+- Normalize only in `src/services/ai/chat.ts` to avoid changing JSON contracts used by structured AI capabilities.
+- JSON objects without a supported text field are treated as empty responses, preventing provider transport payloads such as `{}` from leaking into the chat transcript.
+
+## 2026-07-22 Workspace AI Chat bottom-right sizing
+
+- A Popover anchored to the header trigger naturally opens below the header, so the chat surface now overrides Radix positioning with a fixed viewport bottom-right position.
+- The width and height use viewport-relative maximums so the larger desktop surface remains usable on mobile screens.
+
+## 2026-07-22 Workspace AI Chat positioning enforcement
+
+- Radix Popover writes runtime `top`, `left`, and `transform` coordinates; utility classes alone were not sufficiently reliable for this forced viewport placement.
+- The chat surface now has a dedicated important CSS rule for `position: fixed`, bottom/right insets, and `transform: none`, with a narrow-screen override.
+
+## 2026-07-22 Workspace AI Chat anchored bottom-right Popover
+
+- Directly overriding Radix Popover coordinates was not reliable in the running browser.
+- A fixed `PopoverAnchor` is the correct Radix positioning model for this requirement: the trigger controls open state, while the content is positioned above a 1px anchor at the viewport bottom-right.
+
+## 2026-07-22 Workspace AI Chat viewport panel
+
+- The anchor-based Radix positioning still rendered the content under the header in the running UI.
+- The final placement uses a full-viewport Popover shell and positions only the visual chat panel with `position: fixed; right: 24px; bottom: 24px`, removing all dependence on Popper's calculated coordinates.
+
+## 2026-07-22 Workspace AI Chat flex viewport alignment
+
+- To remove any remaining containing-block behavior from nested fixed positioning, the full-viewport shell now uses `align-items: flex-end` and `justify-content: flex-end`; the panel uses only bottom/right margins inside that shell.
+
+## 2026-07-22 Workspace AI Chat direct viewport portal
+
+- Radix Popover content was still able to place the visual panel according to the header trigger in the running UI.
+- The visual panel is now rendered with `createPortal(..., document.body)` and its own fixed right/bottom coordinates; Radix remains responsible only for trigger open state.

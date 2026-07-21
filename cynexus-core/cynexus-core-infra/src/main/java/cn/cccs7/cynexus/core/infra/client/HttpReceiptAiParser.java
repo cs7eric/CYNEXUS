@@ -39,15 +39,19 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
             payload.put("userInput", candidatePrompt(accounts, categories));
             payload.put("images", payloadImages);
             String baseUrl = environment.getProperty("cynexus.finance.ai.base-url", "http://127.0.0.1:28081").replaceAll("/+$", "");
-            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/ai/executions/vision")).timeout(Duration.ofMinutes(3))
-                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload))).build();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) throw new IllegalStateException("AI vision request failed: " + response.statusCode());
+            HttpResponse<String> response = sendWithRetry(baseUrl, payload);
             JsonNode root = objectMapper.readTree(response.body());
             JsonNode data = root.path("data");
-            if (!"0".equals(root.path("code").asText("0")) || data.isMissingNode()) throw new IllegalStateException("AI vision response is invalid");
-            String content = data.path("content").asText("{}");
-            JsonNode parsed = objectMapper.readTree(content);
+            if (!"0".equals(root.path("code").asText("0")) || data.isMissingNode() || data.isNull()) {
+                throw new IllegalStateException("AI vision response is invalid: " + compact(response.body()));
+            }
+            if ("failed".equalsIgnoreCase(data.path("status").asText())) {
+                throw new IllegalStateException("AI vision execution failed: " + data.path("errorMessage").asText("unknown error"));
+            }
+            String content = data.path("content").asText("");
+            if (content.isBlank()) throw new IllegalStateException("AI vision response has no content: " + compact(response.body()));
+            JsonNode parsed = objectMapper.readTree(stripCodeFence(content));
+            if (!parsed.path("items").isArray()) throw new IllegalStateException("AI vision content has no items array: " + compact(content));
             List<ParsedItem> items = parsed.path("items").isArray() ? java.util.stream.StreamSupport.stream(parsed.path("items").spliterator(), false).map(this::item).toList() : List.of();
             return new ParseResult(data.path("modelCode").asText(null), items, content);
         } catch (InterruptedException e) {
@@ -55,6 +59,49 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
         } catch (Exception e) {
             throw new IllegalStateException("AI receipt parsing failed: " + e.getMessage(), e);
         }
+    }
+
+    private HttpResponse<String> sendWithRetry(String baseUrl, Map<String, Object> payload) throws Exception {
+        String requestBody = objectMapper.writeValueAsString(payload);
+        IllegalStateException last = null;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/ai/executions/vision")).timeout(Duration.ofMinutes(3))
+                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(requestBody)).build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                try {
+                    JsonNode root = objectMapper.readTree(response.body());
+                    JsonNode data = root.path("data");
+                    String content = data.path("content").asText("");
+                    JsonNode parsed = content.isBlank() ? objectMapper.createObjectNode() : objectMapper.readTree(stripCodeFence(content));
+                    if ("0".equals(root.path("code").asText("0")) && !data.isMissingNode() && !data.isNull()
+                            && !"failed".equalsIgnoreCase(data.path("status").asText()) && parsed.path("items").isArray()) {
+                        return response;
+                    }
+                    last = new IllegalStateException("AI vision response is invalid: " + compact(response.body()));
+                } catch (Exception exception) {
+                    last = new IllegalStateException("AI vision response is invalid: " + compact(response.body()), exception);
+                }
+            } else {
+                last = new IllegalStateException("AI vision request failed: HTTP " + response.statusCode() + ": " + compact(response.body()));
+                if (response.statusCode() < 500 || attempt == 2) throw last;
+            }
+            if (attempt < 2) Thread.sleep(500);
+        }
+        throw last == null ? new IllegalStateException("AI vision request failed") : last;
+    }
+
+    private String stripCodeFence(String value) {
+        String text = value == null ? "" : value.trim();
+        if (text.startsWith("```")) {
+            text = text.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "").trim();
+        }
+        return text;
+    }
+
+    private String compact(String value) {
+        String text = value == null ? "" : value.replaceAll("\\s+", " ").trim();
+        return text.length() > 1200 ? text.substring(0, 1200) + "..." : text;
     }
 
     private ParsedItem item(JsonNode node) {

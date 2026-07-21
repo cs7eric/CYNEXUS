@@ -22,6 +22,8 @@ interface DatePickerProps {
   triggerClassName?: string
   /** 是否显示清空按钮 (有值时). */
   clearable?: boolean
+  /** 是否禁用周末. 财务日期允许周末, 交易日期默认禁用周末. */
+  disableWeekends?: boolean
   id?: string
   "aria-label"?: string
 }
@@ -43,6 +45,7 @@ export function DatePicker({
   trailing,
   triggerClassName,
   clearable = true,
+  disableWeekends = true,
   id,
   "aria-label": ariaLabel,
 }: DatePickerProps) {
@@ -94,13 +97,13 @@ export function DatePicker({
           selected={selected}
           onSelect={(d) => onChange(d ?? null)}
           // 禁用: 未来日 + 周末 (A 股周末无数据). 周末用本地 weekday 判断.
-          disabled={[
+          disabled={disableWeekends ? [
             { after: max },
             (date) => {
               const dow = date.getDay()
               return dow === 0 || dow === 6
             },
-          ]}
+          ] : { after: max }}
           autoFocus
         />
       </PopoverContent>

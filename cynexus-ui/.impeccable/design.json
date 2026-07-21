@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-20T00:00:00.000Z",
+  "title": "Design System: Cynexus UI",
+  "extensions": {
+    "colorMeta": {
+      "background": { "role": "neutral", "displayName": "Workspace White", "canonical": "oklch(1 0 0)", "tonalRamp": ["#252525", "#454545", "#666666", "#898989", "#ababab", "#cccccc", "#e5e5e5", "#ffffff"] },
+      "foreground": { "role": "neutral", "displayName": "Desk Ink", "canonical": "oklch(0.145 0 0)", "tonalRamp": ["#252525", "#454545", "#666666", "#898989", "#ababab", "#cccccc", "#e5e5e5", "#ffffff"] },
+      "primary": { "role": "primary", "displayName": "Neutral Action", "canonical": "oklch(0.205 0 0)", "tonalRamp": ["#252525", "#454545", "#666666", "#898989", "#ababab", "#cccccc", "#e5e5e5", "#ffffff"] },
+      "muted": { "role": "neutral", "displayName": "Quiet Surface", "canonical": "oklch(0.97 0 0)", "tonalRamp": ["#252525", "#454545", "#666666", "#898989", "#ababab", "#cccccc", "#e5e5e5", "#f7f7f7"] },
+      "border": { "role": "neutral", "displayName": "Hairline Border", "canonical": "oklch(0.922 0 0)", "tonalRamp": ["#454545", "#666666", "#898989", "#ababab", "#cccccc", "#d8d8d8", "#e5e5e5", "#ebebeb"] },
+      "information": { "role": "primary", "displayName": "Market Blue", "canonical": "#0071e3", "tonalRamp": ["#00366e", "#0055a8", "#0071e3", "#338fe9", "#66acef", "#99c7f5", "#cce3fa", "#eaf5ff"] },
+      "positive": { "role": "success", "displayName": "System Emerald", "canonical": "#059669", "tonalRamp": ["#064e3b", "#047857", "#059669", "#34b887", "#66cbaa", "#99ddc5", "#cceee2", "#ecfdf5"] },
+      "negative": { "role": "error", "displayName": "A-Share Up Red", "canonical": "#e11d48", "tonalRamp": ["#881337", "#be123c", "#e11d48", "#e84b6b", "#ed7890", "#f3a5b4", "#f8d2da", "#fff1f2"] }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Montserrat / System Fallback", "purpose": "All ordinary product UI copy; Chinese text falls back to PingFang SC or Microsoft YaHei." },
+      "data": { "displayName": "Data Mono", "purpose": "Numeric and code values that benefit from stable character widths." }
+    },
+    "shadows": [
+      { "name": "resting", "value": "0 1px 2px rgba(0,0,0,0.05)", "purpose": "Subtle separation for the default Card primitive." },
+      { "name": "interactive", "value": "0 1px 3px rgba(0,0,0,0.08)", "purpose": "Hover or selected state when a surface needs slight lift." }
+    ],
+    "motion": [
+      { "name": "state", "value": "150ms–250ms ease-out", "purpose": "Button, row, tab, focus, and disclosure state changes." },
+      { "name": "reduced", "value": "prefers-reduced-motion: reduce", "purpose": "Disable decorative movement and reduce loading/reveal motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "A compact neutral action for the single primary commit on a page.",
+      "html": "<button class=\"ds-btn-primary\"><span>Save</span></button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; padding:8px 16px; border:0; border-radius:8px; background:#343434; color:#fafafa; font:500 14px/1.4 Montserrat, sans-serif; transition:background 180ms ease-out, box-shadow 180ms ease-out; } .ds-btn-primary:hover { background:#4a4a4a; } .ds-btn-primary:focus-visible { outline:0; box-shadow:0 0 0 3px rgba(0,113,227,.25); }"
+    },
+    {
+      "name": "Muted Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "The default low-noise field used for search and filters.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search\" />",
+      "css": ".ds-input { width:100%; height:36px; padding:4px 12px; border:0; border-radius:8px; background:#f7f7f7; color:#252525; font:400 14px/1.4 Montserrat, sans-serif; outline:0; transition:box-shadow 180ms ease-out, background 180ms ease-out; } .ds-input::placeholder { color:#757575; } .ds-input:focus-visible { background:#fff; box-shadow:0 0 0 3px rgba(0,113,227,.2); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "A short state or category label that supplements, never replaces, readable text.",
+      "html": "<span class=\"ds-badge\">Saved</span>",
+      "css": ".ds-badge { display:inline-flex; align-items:center; gap:4px; min-height:20px; padding:2px 8px; border-radius:9999px; background:#f7f7f7; color:#757575; font:500 12px/1.4 Montserrat, sans-serif; }"
+    },
+    {
+      "name": "Data Panel",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "One framed unit for a chart, table, or decision-relevant data group.",
+      "html": "<section class=\"ds-panel\"><h2>Recent activity</h2><p>Data and controls stay in one quiet surface.</p></section>",
+      "css": ".ds-panel { padding:16px; border:1px solid #ebebeb; border-radius:10px; background:#fff; color:#252525; } .ds-panel h2 { margin:0; font:600 16px/1.4 Montserrat, sans-serif; } .ds-panel p { margin:4px 0 0; color:#757575; font:400 12px/1.5 Montserrat, sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A quiet research desk",
+    "overview": "Cynexus UI is a task-first application workbench. It should feel like a well-organized research desk during a busy trading session: the navigation is stable, the content is dense but legible, and every accent exists to identify a state or make the next action obvious. The canonical visual system is the neutral shadcn New York setup; the MP4 glass/gradient workspace and Application Hub tiles are local exceptions.",
+    "keyCharacteristics": ["Restrained light surfaces", "Stable information density", "Flat or tonal depth", "Explicit data freshness and state"],
+    "rules": [
+      { "name": "The Shell-First Rule", "body": "A new route is not complete until it uses the same workspace shell, breadcrumb, sidebar behavior, content scrolling model, and notification root as neighboring pages.", "section": "overview" },
+      { "name": "The Semantic Accent Rule", "body": "Accent colors may identify an action, selection, direction, health state, or warning. They must not be used as ambient decoration across a whole page.", "section": "colors" },
+      { "name": "The No-Card-Wall Rule", "body": "Do not nest cards to create hierarchy. Use a section heading, a divider, a muted row, or a single bordered container before adding another card.", "section": "elevation" }
+    ],
+    "dos": ["Do start new pages from WorkspaceShell and semantic tokens.", "Do keep data, freshness, and state visible together.", "Do use existing primitives and Lucide icons."],
+    "donts": ["Don't make the product feel like a marketing page, information site, or decorative dashboard.", "Don't use large decorative gradients, heavy shadows, floating card walls, or glassmorphism on ordinary operational pages.", "Don't use color alone to communicate state."]
+  }
+}

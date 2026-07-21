@@ -33,9 +33,21 @@ public class FinanceLedgerController {
                                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
                                                             @RequestParam(defaultValue = "100") Integer limit) { return Result.success(service.listTransactions(start, end, limit)); }
 
+    @GetMapping("/transactions/{id}")
+    public Result<FinanceTransactionDTO> transaction(@PathVariable Long id) { return Result.success(service.findTransaction(id)); }
+
     @PostMapping("/transactions")
     public Result<FinanceTransactionDTO> save(@RequestBody FinanceTransactionRequest request) { return Result.success(service.saveTransaction(request)); }
 
+    @org.springframework.web.bind.annotation.PutMapping("/transactions/{id}")
+    public Result<FinanceTransactionDTO> update(@PathVariable Long id, @RequestBody FinanceTransactionRequest request) {
+        request.setId(id);
+        return Result.success(service.saveTransaction(request));
+    }
+
     @DeleteMapping("/transactions/{id}")
     public Result<Boolean> archive(@PathVariable Long id) { return Result.success(service.archiveTransaction(id)); }
+
+    @org.springframework.web.bind.annotation.PostMapping("/transactions/{id}/delete")
+    public Result<Boolean> delete(@PathVariable Long id) { return Result.success(service.deleteTransaction(id)); }
 }

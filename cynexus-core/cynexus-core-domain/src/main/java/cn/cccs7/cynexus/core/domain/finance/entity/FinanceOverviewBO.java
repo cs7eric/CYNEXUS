@@ -46,5 +46,6 @@ public class FinanceOverviewBO {
         private LocalDate date;
         private BigDecimal income;
         private BigDecimal expense;
+        private Integer activityCount;
     }
 }

@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: cynexus-core
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
   config:
     import:
       - optional:nacos:cynexus-core.yml
@@ -60,10 +64,19 @@ cynexus:
       internal-token: ${CYNEXUS_DATA_INTERNAL_TOKEN:}
       timeout-ms: ${CYNEXUS_DATA_JOB_EXECUTOR_TIMEOUT_MS:600000}
   media-transcription:
+    downloader:
+      base-url: ${CYNEXUS_MEDIA_TRANSCRIPTION_DOWNLOADER_BASE_URL:https://downloader-api.bhwa233.com}
+      timeout-ms: ${CYNEXUS_MEDIA_TRANSCRIPTION_DOWNLOADER_TIMEOUT_MS:60000}
     worker:
       base-url: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_BASE_URL:http://127.0.0.1:18083/internal/media-transcription}
       internal-token: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_INTERNAL_TOKEN:${CYNEXUS_DATA_INTERNAL_TOKEN:}}
       timeout-ms: ${CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_TIMEOUT_MS:600000}
+    process:
+      initial-delay-ms: ${CYNEXUS_MEDIA_TRANSCRIPTION_PROCESS_INITIAL_DELAY_MS:5000}
+      dispatch-delay-ms: ${CYNEXUS_MEDIA_TRANSCRIPTION_PROCESS_DISPATCH_DELAY_MS:2000}
+      executor-core-size: ${CYNEXUS_MEDIA_TRANSCRIPTION_PROCESS_EXECUTOR_CORE_SIZE:2}
+      executor-max-size: ${CYNEXUS_MEDIA_TRANSCRIPTION_PROCESS_EXECUTOR_MAX_SIZE:4}
+      executor-queue-capacity: ${CYNEXUS_MEDIA_TRANSCRIPTION_PROCESS_EXECUTOR_QUEUE_CAPACITY:20}
   market:
     automation:
       base-url: ${CYNEXUS_MARKET_AUTOMATION_BASE_URL:http://127.0.0.1:18082}

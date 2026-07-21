@@ -16,6 +16,7 @@ public class FinanceAiCaptureBO {
     private Long id;
     private String ownerKey;
     private String status;
+    private String processingMode;
     private Integer sourceCount;
     private String modelCode;
     private String rawResponse;

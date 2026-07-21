@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.HexFormat;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -126,6 +127,21 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     }
 
     @Override
+    public boolean updateCategory(FinanceCategoryBO category) {
+        return jdbcTemplate.update("""
+                UPDATE finance_categories SET parent_id = ?, name = ?, direction = ?, icon = ?, color = ?, sort_order = ?, updated_at = now()
+                 WHERE id = ? AND owner_key = ? AND is_system = false AND deleted_at IS NULL
+                """, category.getParentId(), category.getName(), category.getDirection(), category.getIcon(), category.getColor(),
+                value(category.getSortOrder(), 0), category.getId(), category.getOwnerKey()) > 0;
+    }
+
+    @Override
+    public boolean archiveCategory(String ownerKey, Long id) {
+        return jdbcTemplate.update("UPDATE finance_categories SET is_archived = true, updated_at = now() WHERE id = ? AND owner_key = ? AND is_system = false AND deleted_at IS NULL",
+                id, ownerKey) > 0;
+    }
+
+    @Override
     public Long saveTransaction(FinanceTransactionBO transaction) {
         long id = idGenerator.nextId();
         jdbcTemplate.update("""
@@ -152,6 +168,89 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     @Override
     public boolean archiveTransaction(String ownerKey, Long id) {
         return jdbcTemplate.update("UPDATE finance_transactions SET is_archived = true, updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL", id, ownerKey) > 0;
+    }
+
+    @Override
+    public boolean deleteTransaction(String ownerKey, Long id) {
+        return jdbcTemplate.update("UPDATE finance_transactions SET deleted_at = now(), updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL", id, ownerKey) > 0;
+    }
+
+    @Override
+    public boolean deleteInstallmentPurchase(String ownerKey, Long purchaseTransactionId) {
+        int planCount = jdbcTemplate.update("""
+                UPDATE finance_credit_installment_plans SET deleted_at = now(), updated_at = now()
+                 WHERE owner_key = ? AND purchase_transaction_id = ? AND deleted_at IS NULL
+                """, ownerKey, purchaseTransactionId);
+        if (planCount == 0) return false;
+        jdbcTemplate.update("""
+                UPDATE finance_credit_installments SET deleted_at = now(), updated_at = now()
+                 WHERE plan_id IN (SELECT id FROM finance_credit_installment_plans WHERE owner_key = ? AND purchase_transaction_id = ?)
+                   AND deleted_at IS NULL
+                """, ownerKey, purchaseTransactionId);
+        jdbcTemplate.update("""
+                UPDATE finance_transactions SET deleted_at = now(), updated_at = now()
+                 WHERE owner_key = ? AND id IN (
+                    SELECT i.payment_transaction_id
+                      FROM finance_credit_installments i
+                      JOIN finance_credit_installment_plans p ON p.id = i.plan_id
+                     WHERE p.owner_key = ? AND p.purchase_transaction_id = ? AND i.payment_transaction_id IS NOT NULL
+                 ) AND deleted_at IS NULL
+                """, ownerKey, ownerKey, purchaseTransactionId);
+        return jdbcTemplate.update("UPDATE finance_transactions SET deleted_at = now(), updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL",
+                purchaseTransactionId, ownerKey) > 0;
+    }
+
+    @Override
+    public FinanceCreditInstallmentBO findInstallmentByPaymentTransaction(String ownerKey, Long paymentTransactionId) {
+        return jdbcTemplate.query("""
+                SELECT i.id, i.plan_id, i.installment_no, i.due_date, i.principal_amount, i.fee_amount, i.amount,
+                       i.status, i.paid_at, i.payment_transaction_id
+                  FROM finance_credit_installments i
+                  JOIN finance_credit_installment_plans p ON p.id = i.plan_id
+                 WHERE p.owner_key = ? AND i.payment_transaction_id = ? AND p.deleted_at IS NULL AND i.deleted_at IS NULL
+                """, (rs, rowNum) -> installmentRow(rs), ownerKey, paymentTransactionId).stream().findFirst().orElse(null);
+    }
+
+    @Override
+    public boolean deleteInstallmentPayment(String ownerKey, Long paymentTransactionId) {
+        int paymentDeleted = jdbcTemplate.update("""
+                UPDATE finance_transactions t SET deleted_at = now(), updated_at = now()
+                 WHERE t.id = ? AND t.owner_key = ? AND t.deleted_at IS NULL
+                   AND EXISTS (
+                       SELECT 1 FROM finance_credit_installments i
+                       JOIN finance_credit_installment_plans p ON p.id = i.plan_id
+                        WHERE p.owner_key = ? AND i.payment_transaction_id = t.id AND i.status = 'paid'
+                          AND p.deleted_at IS NULL AND i.deleted_at IS NULL
+                   )
+        """, paymentTransactionId, ownerKey, ownerKey);
+        if (paymentDeleted == 0) return false;
+        jdbcTemplate.update("""
+                UPDATE finance_credit_installment_plans p SET status = 'active', updated_at = now()
+                 WHERE p.owner_key = ? AND p.deleted_at IS NULL
+                   AND EXISTS (SELECT 1 FROM finance_credit_installments i WHERE i.plan_id = p.id AND i.payment_transaction_id = ? AND i.status = 'paid' AND i.deleted_at IS NULL)
+                """, ownerKey, paymentTransactionId);
+        jdbcTemplate.update("""
+                UPDATE finance_credit_installments i SET status = 'pending', paid_at = NULL, payment_transaction_id = NULL, updated_at = now()
+                 FROM finance_credit_installment_plans p
+                WHERE i.plan_id = p.id AND p.owner_key = ? AND i.payment_transaction_id = ?
+                  AND i.status = 'paid' AND p.deleted_at IS NULL AND i.deleted_at IS NULL
+                """, ownerKey, paymentTransactionId);
+        return true;
+    }
+
+    @Override
+    public boolean hasInstallmentReference(String ownerKey, Long transactionId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM (
+                    SELECT p.id FROM finance_credit_installment_plans p
+                     WHERE p.owner_key = ? AND p.purchase_transaction_id = ? AND p.deleted_at IS NULL
+                    UNION ALL
+                    SELECT i.id FROM finance_credit_installments i
+                    JOIN finance_credit_installment_plans p ON p.id = i.plan_id
+                     WHERE p.owner_key = ? AND i.payment_transaction_id = ? AND p.deleted_at IS NULL AND i.deleted_at IS NULL
+                ) refs
+                """, Integer.class, ownerKey, transactionId, ownerKey, transactionId);
+        return count != null && count > 0;
     }
 
     @Override
@@ -191,13 +290,15 @@ public class FinanceRepositoryImpl implements FinanceRepository {
         List<FinanceOverviewBO.DailyStatBO> daily = jdbcTemplate.query("""
                 SELECT occurred_at::date AS day_date,
                        COALESCE(SUM(amount) FILTER (WHERE transaction_type = 'income'), 0) income,
-                       COALESCE(SUM(amount) FILTER (WHERE transaction_type = 'expense'), 0) expense
+                       COALESCE(SUM(amount) FILTER (WHERE transaction_type = 'expense'), 0) expense,
+                       COUNT(*)::int AS activity_count
                   FROM finance_transactions
                  WHERE owner_key = ? AND deleted_at IS NULL AND is_archived = false
                    AND occurred_at >= ? AND occurred_at < ?
                  GROUP BY occurred_at::date ORDER BY day_date
                 """, (rs, rowNum) -> FinanceOverviewBO.DailyStatBO.builder().date(rs.getObject("day_date", LocalDate.class))
-                .income(rs.getBigDecimal("income")).expense(rs.getBigDecimal("expense")).build(), ownerKey, atStart(start), atStart(end.plusDays(1)));
+                .income(rs.getBigDecimal("income")).expense(rs.getBigDecimal("expense"))
+                .activityCount(rs.getInt("activity_count")).build(), ownerKey, atStart(start), atStart(end.plusDays(1)));
         List<FinanceAccountBO> accounts = listAccounts(ownerKey, false);
         BigDecimal assetTotal = accounts.stream().filter(item -> "asset".equals(item.getNature()))
                 .map(item -> value(item.getBalance(), BigDecimal.ZERO)).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -267,7 +368,8 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     @Override
     public Long createCapture(FinanceAiCaptureBO capture) {
         long id = idGenerator.nextId();
-        jdbcTemplate.update("INSERT INTO finance_ai_captures (id, owner_key, status, source_count, idempotency_key) VALUES (?, ?, ?, ?, ?)", id, capture.getOwnerKey(), capture.getStatus(), value(capture.getSourceCount(), 0), capture.getIdempotencyKey());
+        jdbcTemplate.update("INSERT INTO finance_ai_captures (id, owner_key, status, processing_mode, source_count, idempotency_key) VALUES (?, ?, ?, ?, ?, ?)",
+                id, capture.getOwnerKey(), capture.getStatus(), value(capture.getProcessingMode(), "auto"), value(capture.getSourceCount(), 0), capture.getIdempotencyKey());
         return id;
     }
 
@@ -276,7 +378,7 @@ public class FinanceRepositoryImpl implements FinanceRepository {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return null;
         return jdbcTemplate.query("SELECT * FROM finance_ai_captures WHERE owner_key = ? AND idempotency_key = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",
                 (rs, rowNum) -> FinanceAiCaptureBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
-                        .status(rs.getString("status")).sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code"))
+                        .status(rs.getString("status")).processingMode(rs.getString("processing_mode")).sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code"))
                         .rawResponse(rs.getString("raw_response")).errorMessage(rs.getString("error_message"))
                         .idempotencyKey(rs.getString("idempotency_key")).createdAt(rs.getObject("created_at", OffsetDateTime.class))
                         .updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build(), ownerKey, idempotencyKey).stream().findFirst().map(capture -> {
@@ -292,6 +394,33 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     }
 
     @Override
+    public List<FinanceAiCaptureBO> listCaptures(String ownerKey, int limit, int offset, String status) {
+        boolean filter = status != null && !status.isBlank() && !"all".equalsIgnoreCase(status);
+        String sql = "SELECT * FROM finance_ai_captures WHERE owner_key = ? AND deleted_at IS NULL"
+                + (filter ? " AND status = ?" : "") + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
+        List<Object> arguments = new ArrayList<>();
+        arguments.add(ownerKey);
+        if (filter) arguments.add(status.trim());
+        arguments.add(limit);
+        arguments.add(offset);
+        return jdbcTemplate.query(sql, (rs, rowNum) -> captureRow(rs), arguments.toArray()).stream()
+                .map(capture -> {
+                    capture.setItems(captureItems(capture.getId()));
+                    return capture;
+                }).toList();
+    }
+
+    @Override
+    public long countCaptures(String ownerKey, String status) {
+        boolean filter = status != null && !status.isBlank() && !"all".equalsIgnoreCase(status);
+        String sql = "SELECT count(*) FROM finance_ai_captures WHERE owner_key = ? AND deleted_at IS NULL"
+                + (filter ? " AND status = ?" : "");
+        return filter
+                ? jdbcTemplate.queryForObject(sql, Long.class, ownerKey, status.trim())
+                : jdbcTemplate.queryForObject(sql, Long.class, ownerKey);
+    }
+
+    @Override
     public boolean updateCapture(FinanceAiCaptureBO capture) {
         return jdbcTemplate.update("UPDATE finance_ai_captures SET status = ?, source_count = ?, model_code = ?, raw_response = CAST(? AS jsonb), error_message = ?, updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL",
                 capture.getStatus(), value(capture.getSourceCount(), 0), capture.getModelCode(), value(capture.getRawResponse(), "{}"), capture.getErrorMessage(), capture.getId(), capture.getOwnerKey()) > 0;
@@ -299,23 +428,37 @@ public class FinanceRepositoryImpl implements FinanceRepository {
 
     @Override
     public FinanceAiCaptureBO findCapture(String ownerKey, Long captureId) {
-        FinanceAiCaptureBO capture = jdbcTemplate.query("SELECT * FROM finance_ai_captures WHERE id = ? AND owner_key = ? AND deleted_at IS NULL", (rs, rowNum) -> FinanceAiCaptureBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
-                .status(rs.getString("status")).sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code")).rawResponse(rs.getString("raw_response")).errorMessage(rs.getString("error_message")).idempotencyKey(rs.getString("idempotency_key"))
-                .createdAt(rs.getObject("created_at", OffsetDateTime.class)).updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build(), captureId, ownerKey).stream().findFirst().orElse(null);
+        FinanceAiCaptureBO capture = jdbcTemplate.query("SELECT * FROM finance_ai_captures WHERE id = ? AND owner_key = ? AND deleted_at IS NULL",
+                (rs, rowNum) -> captureRow(rs), captureId, ownerKey).stream().findFirst().orElse(null);
         if (capture == null) return null;
-        capture.setItems(jdbcTemplate.query("""
-                SELECT i.*, c.name category_name, a.name account_name
-                  FROM finance_ai_capture_items i
-                  LEFT JOIN finance_categories c ON c.id = i.category_id
-                  LEFT JOIN finance_accounts a ON a.id = i.account_id
-                 WHERE i.capture_id = ? AND i.deleted_at IS NULL ORDER BY i.item_index, i.id
-                """, (rs, rowNum) -> itemRow(rs), captureId));
+        capture.setItems(captureItems(captureId));
         return capture;
     }
 
     @Override
     public boolean archiveCapture(String ownerKey, Long captureId) {
         return jdbcTemplate.update("UPDATE finance_ai_captures SET status = 'archived', updated_at = now() WHERE id = ? AND owner_key = ? AND deleted_at IS NULL", captureId, ownerKey) > 0;
+    }
+
+    @Override
+    public List<cn.cccs7.cynexus.core.domain.finance.port.ReceiptAiParserPort.ReceiptImage> listCaptureImages(String ownerKey, Long captureId) {
+        return jdbcTemplate.query("""
+                SELECT i.image_index, i.file_name, i.content_type, i.image_data
+                  FROM finance_ai_capture_images i
+                  JOIN finance_ai_captures c ON c.id = i.capture_id
+                 WHERE c.owner_key = ? AND c.id = ? AND c.deleted_at IS NULL AND i.deleted_at IS NULL
+                 ORDER BY i.image_index, i.id
+                """, (rs, rowNum) -> new cn.cccs7.cynexus.core.domain.finance.port.ReceiptAiParserPort.ReceiptImage(
+                        rs.getInt("image_index"), rs.getString("file_name"), rs.getString("content_type"), rs.getBytes("image_data")), ownerKey, captureId);
+    }
+
+    @Override
+    public boolean deleteCaptureItems(String ownerKey, Long captureId) {
+        return jdbcTemplate.update("""
+                UPDATE finance_ai_capture_items i SET deleted_at = now(), updated_at = now()
+                 WHERE i.capture_id = ? AND i.deleted_at IS NULL
+                   AND EXISTS (SELECT 1 FROM finance_ai_captures c WHERE c.id = i.capture_id AND c.owner_key = ? AND c.deleted_at IS NULL)
+                """, captureId, ownerKey) > 0;
     }
 
     @Override
@@ -399,6 +542,14 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                 .attachmentCount(rs.getInt("attachment_count")).createdAt(rs.getObject("created_at", OffsetDateTime.class)).updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build();
     }
 
+    private FinanceCreditInstallmentBO installmentRow(ResultSet rs) throws SQLException {
+        return FinanceCreditInstallmentBO.builder().id(rs.getLong("id")).planId(rs.getLong("plan_id"))
+                .installmentNo(rs.getInt("installment_no")).dueDate(rs.getObject("due_date", LocalDate.class))
+                .principalAmount(rs.getBigDecimal("principal_amount")).feeAmount(rs.getBigDecimal("fee_amount"))
+                .amount(rs.getBigDecimal("amount")).status(rs.getString("status"))
+                .paidAt(rs.getObject("paid_at", OffsetDateTime.class)).paymentTransactionId((Long) rs.getObject("payment_transaction_id")).build();
+    }
+
     private FinanceCreditInstallmentPlanBO installmentPlanRow(ResultSet rs, int rowNum) throws SQLException {
         return FinanceCreditInstallmentPlanBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
                 .accountId(rs.getLong("account_id")).accountName(rs.getString("account_name")).accountType(rs.getString("account_type"))
@@ -428,7 +579,26 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                 .categoryId((Long) rs.getObject("category_id")).categoryName(rs.getString("category_name")).accountId((Long) rs.getObject("account_id"))
                 .accountName(rs.getString("account_name")).installmentCount((Integer) rs.getObject("installment_count")).installmentFee(rs.getBigDecimal("installment_fee"))
                 .note(rs.getString("note")).confidence(rs.getBigDecimal("confidence")).rawText(rs.getString("raw_text"))
-                .status(rs.getString("status")).transactionId((Long) rs.getObject("transaction_id")).build();
+                  .status(rs.getString("status")).transactionId((Long) rs.getObject("transaction_id")).build();
+    }
+
+    private FinanceAiCaptureBO captureRow(ResultSet rs) throws SQLException {
+        return FinanceAiCaptureBO.builder().id(rs.getLong("id")).ownerKey(rs.getString("owner_key"))
+                .status(rs.getString("status")).processingMode(rs.getString("processing_mode"))
+                .sourceCount(rs.getInt("source_count")).modelCode(rs.getString("model_code"))
+                .rawResponse(rs.getString("raw_response")).errorMessage(rs.getString("error_message"))
+                .idempotencyKey(rs.getString("idempotency_key"))
+                .createdAt(rs.getObject("created_at", OffsetDateTime.class)).updatedAt(rs.getObject("updated_at", OffsetDateTime.class)).build();
+    }
+
+    private List<FinanceAiCaptureBO.Item> captureItems(Long captureId) {
+        return jdbcTemplate.query("""
+                SELECT i.*, c.name category_name, a.name account_name
+                  FROM finance_ai_capture_items i
+                  LEFT JOIN finance_categories c ON c.id = i.category_id
+                  LEFT JOIN finance_accounts a ON a.id = i.account_id
+                 WHERE i.capture_id = ? AND i.deleted_at IS NULL ORDER BY i.item_index, i.id
+                """, (rs, rowNum) -> itemRow(rs), captureId);
     }
 
     private OffsetDateTime atStart(LocalDate date) { return date.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime(); }

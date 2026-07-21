@@ -1349,7 +1349,7 @@ Status: complete
 
 ## Phase 59 - ETF Many-to-Many Mapping Registry
 
-Status: in_progress
+Status: complete
 
 - Add a normalized many-to-many ETF mapping table keyed by ETF code, mapping group, and mapping value.
 - Define reusable mapping analysis for universe, asset class, region, index scope, style, and industry/theme tags.
@@ -1389,7 +1389,7 @@ Status: complete
 
 ## Phase 58 - Official ETF Classification Mapping
 
-Status: in_progress
+Status: complete
 
 - Replace name-only ETF classification with a code-keyed classification registry and explicit provenance.
 - Use official or authoritative index/fund metadata when available, with controlled manual overrides for unresolved products.
@@ -1437,3 +1437,616 @@ Status: complete
 - Corrected overview totals to use SQL aggregation instead of the recent-transaction limit and fixed daily-stat SQL aliasing.
 - Scoped UI ESLint passed. Maven core/AI compilation passed. Full UI build remains blocked only by pre-existing TypeScript errors outside the finance files.
 - Synchronized all Maven modules and UI to `1.1.44-SNAPSHOT`, restarted the documented Dev stack, and verified the live finance category/accounts/overview APIs plus manual account and transaction posting. Smoke data was removed afterward.
+
+## Phase 62 - Finance Ledger Management And Category Coverage
+
+Status: complete
+
+- Add a dedicated finance transaction list with filters and bounded pagination/loading.
+- Add single-transaction detail, edit, and delete operations with balance recalculation and installment safeguards.
+- Expand the category set and expose category management so missing categories can be added without database edits.
+- Add the corresponding Core API, domain/application/infra persistence changes, UI route/components, service-layer API client, and migration.
+- Synchronize Maven/UI versions and verify focused Java/UI checks plus the Release runtime.
+
+### Phase 62 Verification Results
+
+- Added `/finance/transactions` with date, type, account, category, search filters, client pagination, detail/edit dialog, archive, and soft-delete actions.
+- Added Core single-transaction GET/PUT, soft-delete, category archive/update support, and installment-reference protection for transaction mutation.
+- Expanded live categories from 13 to 56 through `20260719_expand_finance_categories.sql`; custom categories can be created and archived from Accounts.
+- Scoped Finance ESLint passed; Vite production bundle passed. Full `npm run build` remains blocked by pre-existing errors in Market, industry application, market sentiment, easy-tdx POC, and stock overview files.
+- Core Maven package passed at `1.1.58-SNAPSHOT`; Release rebuilt and restarted as `1.1.58-260719-RELEASE`.
+- Live smoke passed: 56 categories, transaction list, temporary transaction create/update/delete, deleted-row invisibility, and deletion rejection for an installment-linked purchase.
+
+### Phase 62 Errors
+
+- First post-restart API smoke received transient 502 responses while Gateway/Nacos registrations were warming; waited and reran successfully.
+
+## Phase 63 - Cascade Delete Unpaid And Paid Installment Purchases
+
+Status: complete
+
+- Allow explicit deletion of a purchase transaction together with its installment plan and linked repayment transactions.
+- Keep ordinary repayment transactions protected from direct deletion and keep edit protection for installment-linked entries.
+- Update the confirmation copy, synchronize versions, rebuild, and verify against the existing installment plan without deleting it during the test.
+
+### Phase 63 Verification Results
+
+- Purchase deletion now soft-deletes the purchase transaction, its installment plan, all installment rows, and linked repayment transactions in one transaction.
+- Direct repayment deletion and edits of installment-linked entries remain protected.
+- Temporary purchase plus two-installment plan smoke test passed; all related rows became inactive and the temporary credit balance was reversed.
+- Core Maven package, Finance ESLint, and Vite production build passed; Release rebuilt and restarted as `1.1.59-260719-RELEASE`.
+
+## Phase 64 - Revoke Installment Repayment
+
+Status: complete
+
+- Allow deleting a repayment transaction as a reversal of that repayment.
+- Restore the installment to `pending`, clear its payment link, and reopen the plan when needed.
+- Keep purchase cascade deletion and direct mutation protections consistent, then verify the balance and installment state transitions.
+- Release runtime smoke passed: a temporary two-installment credit purchase was paid, the repayment was deleted, the installment returned to `pending`, its payment link was cleared, the plan returned to `active`, and the purchase cascade cleanup completed successfully.
+
+## Phase 65 - Finance Transactions Table Alignment
+
+Status: complete
+
+- Align the Transactions table with the existing Finance table vocabulary and density.
+- Add consistent transaction direction icons, row hover/separators, and icon-only archive actions with accessible labels.
+- Increment Maven/UI versions together, rebuild the UI and Release artifacts, and verify the Release route.
+
+### Phase 65 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+
+## Phase 91 - Workspace AI Chat bubble and composer correction
+
+Status: complete
+
+- Render user messages with the official muted gray Bubble variant and assistant messages with the transparent ghost variant.
+- Remove avatars from ordinary chat rows while keeping the Message row composition.
+- Keep the multiline composer width-stable, bounded, internally scrollable, and visually scrollbar-free.
+- Synchronize Maven/UI versions to `1.1.100-SNAPSHOT` and verify the Release UI image.
+
+### Phase 91 Verification Results
+
+- Targeted UI ESLint passed for the chat and InputGroup files.
+- Direct Vite production build passed; full UI TypeScript remains blocked by unrelated existing Market/easy-tdx/industry errors.
+- Full Maven `-DskipTests package` passed across 41 reactor projects at `1.1.100-SNAPSHOT`.
+- Release UI image `1.1.100-260721-RELEASE` is running at `http://localhost:5173`.
+- Served bundle contains `muted`, `ghost`, and `scrollbar-none`; `workspace_chat` returned HTTP 200 / `SUCCEEDED` through the Release Gateway.
+
+## Phase 92 - Workspace AI Chat response normalization
+
+Status: complete
+
+- Decode the provider's `{ "response": "..." }` envelope at the workspace chat service boundary so the transcript renders the assistant text only.
+- Preserve plain-text provider responses unchanged.
+- Synchronize Maven/UI versions and verify the Release UI plus AI execution smoke path.
+
+### Phase 92 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Full Maven `-DskipTests package` passed across 41 reactor projects at `1.1.101-SNAPSHOT`.
+- Release UI `1.1.101-260721-RELEASE` is running at `http://localhost:5173`; the served bundle contains the response normalizer.
+- The AI execution smoke request returned HTTP 200 / `SUCCEEDED`.
+
+## Phase 93 - Workspace AI Chat structured fallback handling
+
+Status: complete
+
+- Treat JSON objects without a user-facing text field as empty responses instead of rendering raw `{}` or other transport data.
+- Synchronize Maven/UI versions to `1.1.102-SNAPSHOT`.
+- Rebuild and restart the versioned Release UI image.
+
+### Phase 93 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.102-260721-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 91 - Workspace AI Chat composer width and overflow correction
+
+Status: complete
+
+- Keep the block-end InputGroup stretched across the available width.
+- Bound the textarea height and scroll its content internally when prompts exceed the field.
+
+### Phase 91 Verification Results
+
+- Targeted ESLint passed.
+- Full UI TypeScript and Vite production build passed.
+- Release UI `1.1.98-260721-RELEASE` was rebuilt and recreated on `http://localhost:5173`.
+- Full Maven package passed at `1.1.61-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.61-260719-RELEASE`; UI route returned HTTP 200.
+
+## Phase 66 - Finance Transaction Pagination And Detail Drawer
+
+Status: complete
+
+- Keep the transaction list paginated and make each row an accessible selectable item.
+- Show transaction details in a bottom Drawer with scrolling content and contextual edit, archive, and delete actions.
+- Synchronize Maven/UI versions, rebuild the Release images, and verify the route.
+
+### Phase 66 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+- Full Maven package passed at `1.1.62-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.62-260719-RELEASE`; UI route returned HTTP 200.
+
+## Phase 67 - Finance Table Style Convergence
+
+Status: complete
+
+- Match Transactions table dimensions and spacing to the existing Finance transaction table.
+- Keep pagination and bottom-detail Drawer behavior unchanged while removing page-specific table width and spacing differences.
+- Synchronize Maven/UI versions, rebuild Release artifacts, and verify the route.
+
+### Phase 67 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+- Full Maven package passed at `1.1.63-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.63-260719-RELEASE`.
+
+## Phase 68 - Settings Table And Inline Drawer Editing
+
+Status: complete
+
+- Replace the hand-written Transactions table with the shared Settings `Table` components and table vocabulary.
+- Make single-click open detail, double-click enter edit mode, and keep editing inline in the bottom Drawer without a second Modal.
+- Synchronize Maven/UI versions, rebuild Release artifacts, and verify the Release runtime.
+
+### Phase 68 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+- Full Maven package passed at `1.1.64-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.64-260719-RELEASE`.
+
+## Phase 69 - Transaction Interaction Correction
+
+Status: complete
+
+- Make the Settings table pagination visibly match the standard first/previous/next/last controls.
+- Distinguish single-click detail from double-click edit without the first click stealing the second click into the Drawer.
+- Remove the Drawer Edit action; double-clicking the row or detail content enters inline edit mode directly.
+- Synchronize Maven/UI versions and deploy the final Release image.
+
+### Phase 69 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+- Full Maven package passed at `1.1.65-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.65-260719-RELEASE`.
+
+## Phase 70 - Transaction Filter Layout
+
+Status: complete
+
+- Replace the compressed flex filter bar with a stable responsive grid.
+- Keep labels above controls and give date, select, and search fields predictable widths across desktop and mobile.
+- Synchronize Maven/UI versions, rebuild Release artifacts, and verify the final UI route.
+
+### Phase 70 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+- Full Maven package passed at `1.1.66-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.66-260719-RELEASE`.
+
+## Phase 71 - Full-Height Transactions Workspace And Page Size
+
+Status: complete
+
+- Make the transaction list consume the remaining page height with an independently scrollable table area.
+- Add a Settings/DataTable-style page-size selector with 10, 20, 30, and 50 row options.
+- Keep pagination controls fixed below the table, synchronize versions, and deploy the Release runtime.
+
+### Phase 71 Verification Results
+
+- Finance Transactions ESLint passed.
+- Vite production build passed.
+- Full Maven package passed at `1.1.67-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.67-260719-RELEASE`.
+
+## Phase 72 - Finance Overview Workspace
+
+Status: complete
+
+- Add a dedicated `/finance/overview` surface while preserving the existing Ledger, Transactions, Accounts, and AI Capture workflows.
+- Extend finance daily statistics with an activity count so the Overview can render a trustworthy GitHub-style daily activity heatmap.
+- Add period controls, net-flow trend, income/expense comparison, category mix, account allocation, and decision-oriented summary insights using the existing finance overview API.
+- Match the existing Finance shell, shared chart primitives, semantic red/green accounting colors, skeleton/empty/error states, and mobile layout behavior.
+- Increment Maven/UI versions together, rebuild Release artifacts, and verify the new route.
+
+### Phase 72 Verification Results
+
+- Added activityCount to the Core finance daily overview contract and SQL aggregation.
+- Added /finance/overview with a rolling 12-month GitHub-style activity heatmap, period selector, summary metrics, cash-flow trend, expense structure, finance signals, and account allocation.
+- Added the Overview tab to Finance navigation while keeping Ledger, Transactions, Accounts, and AI Capture routes intact.
+- Finance Overview ESLint passed; Vite production build passed; full Maven package passed at 1.1.69-SNAPSHOT.
+- Release rebuilt and restarted as 1.1.69-260719-RELEASE; UI route returned HTTP 200 and the gateway overview API returned daily rows with activityCount.
+
+## Phase 73 - Finance Overview Signal And Account Panel Polish
+
+Status: complete
+
+- Reorganize the Finance Overview signal and account panels so they have clear hierarchy, compact density, and useful visual grouping.
+- Preserve the existing signal calculations, account balances, credit semantics, and shared Finance component vocabulary.
+- Verify the focused Finance UI, rebuild the versioned UI image, and confirm the Overview route.
+
+### Phase 73 Verification Results
+
+- Reworked the signal panel into a primary cash-health conclusion plus a compact supporting-signal grid.
+- Reworked account balances into asset/credit groups with separate totals and clearer credit semantics.
+- Added items-start to the Overview lower grid so panels keep their content height instead of stretching into empty space.
+- Focused Finance ESLint and Vite build passed; Release UI image rebuilt and the Overview route returned HTTP 200.
+
+## Phase 74 - Finance Overview Chart Composition Polish
+
+Status: complete
+
+- Redesign the cash-flow and expense-structure modules based on screenshot review.
+- Make sparse financial data read as intentional summaries instead of empty chart canvases.
+- Add rank, amount, share, and period totals to the expense structure, and prevent the chart row from equal-height stretching.
+- Verify focused Finance UI checks and redeploy the versioned UI image.
+
+### Phase 74 Verification Results
+
+- Reworked Cash Flow into a compact period summary plus a shorter chart based only on actual active dates.
+- Reworked Expense Structure into ranked category rows with amount, percentage, total, and top-category share.
+- Added items-start to the chart row to prevent sparse panels from stretching into empty space.
+- Focused Finance ESLint and Vite build passed; Release UI image rebuilt as 1.1.69-260719-RELEASE and the Overview route returned HTTP 200.
+
+## Phase 75 - Finance Expense Treemap
+
+Status: complete
+
+- Replace the ranked expense bars with the existing POC ECharts Treemap pattern.
+- Use tile area for expense amount and red intensity for concentration, with tooltip details for amount and share.
+- Keep Finance card structure, empty/loading behavior, responsive resize, and existing accounting data unchanged.
+- Verify focused UI checks and redeploy the versioned UI image.
+
+### Phase 75 Verification Results
+
+- Replaced the ranked expense list with an ECharts Treemap modeled on the existing POC sample.
+- Treemap area represents expense amount, red intensity represents concentration, and hover tooltip shows amount and percentage.
+- Added ResizeObserver cleanup and empty-state handling for the Finance card.
+- Focused Finance ESLint and Vite build passed; Release UI image rebuilt as 1.1.69-260719-RELEASE and the Overview route returned HTTP 200.
+
+## Phase 76 - Finance Overview Period Controls
+
+Status: complete
+
+- Set the Finance Overview statistics period to the current month by default.
+- Add shortcut periods and start/end date pickers for custom analysis ranges.
+- Keep cash flow and expense structure in equal 5:5 columns at desktop widths.
+- Synchronize Maven/UI versions, verify the focused UI build, and redeploy the versioned Release runtime.
+
+### Phase 76 Verification Results
+
+- Finance Overview defaults to `本月`, supports `过去 12 个月` / `过去 6 个月` / `过去 3 个月`, and switches to `自定义` for date-picked ranges.
+- Start/end date pickers are connected to the overview API range and allow weekend finance dates.
+- Cash Flow and Expense Structure use equal desktop columns; the loading skeleton uses the same 5:5 composition.
+- Finance Overview and DatePicker ESLint passed; direct Vite production build passed; full Maven package passed at `1.1.70-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.70-260719-RELEASE`; `/finance/overview` and the overview API returned HTTP 200.
+
+## Phase 77 - Finance Account Card Workspace
+
+Status: complete
+
+- Replace the compact account rows in Finance Overview with responsive asset and credit account cards.
+- Add click-to-detail Drawer behavior with a right-side desktop layout and bottom mobile layout.
+- Add double-click inline Drawer editing through the existing account save API.
+- Synchronize Maven/UI versions, verify the focused UI build, and redeploy the versioned Release runtime.
+
+### Phase 77 Verification Results
+
+- Replaced the account list rows with responsive asset and credit account cards; credit cards include a usage bar when a limit is configured.
+- Single click opens account details in a Drawer; desktop uses the right side and mobile uses the bottom. Double click enters edit mode in the same Drawer.
+- Account edits persist through the existing Core `POST /api/core/finance/accounts` update contract with the account id.
+- Account Snapshot ESLint and direct Vite production build passed; full Maven package passed at `1.1.71-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.71-260719-RELEASE`; Overview, accounts API, and UI smoke checks returned HTTP 200.
+
+## Phase 78 - Finance Activity Pulse Range Rendering
+
+Status: complete
+
+- Fix Daily Activity Pulse rendering for the current-month default and short custom ranges.
+- Size the calendar grid to the selected range and render month labels from calendar dates instead of only active data rows.
+- Synchronize Maven/UI versions, verify the focused UI build, and redeploy the versioned Release runtime.
+
+### Phase 78 Verification Results
+
+- Daily Activity Pulse now allocates only the weeks covered by the selected range; the current-month view no longer renders a fixed blank 53-week canvas.
+- Month labels are derived from the calendar range, so sparse activity does not remove the month label.
+- Daily Activity Heatmap ESLint and direct Vite production build passed; full Maven package passed at `1.1.72-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.72-260719-RELEASE`; Overview UI and API smoke checks returned HTTP 200.
+
+## Phase 79 - Finance Activity Pulse Independent Range
+
+Status: complete
+
+- Keep Daily Activity Pulse on a fixed trailing 12-month range regardless of the Overview statistics period.
+- Load the pulse data independently from the selected cash-flow and expense analysis range.
+- Add an independent loading state, synchronize Maven/UI versions, verify the focused UI build, and redeploy Release.
+
+### Phase 79 Verification Results
+
+- Daily Activity Pulse now fetches a fixed trailing 365-day range independently of the selected Overview statistics range.
+- Changing the date shortcut or custom dates no longer changes the pulse data; the panel explicitly labels its 12-month scope and has an independent skeleton state.
+- Overview and Daily Activity ESLint passed; direct Vite production build passed; full Maven package passed at `1.1.73-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.73-260719-RELEASE`; UI and Overview API returned HTTP 200 after service warm-up.
+
+## Phase 80 - Finance Activity Pulse Full Width
+
+Status: complete
+
+- Make the fixed 12-month Daily Activity Pulse grid consume the available card width instead of stopping at its minimum width.
+- Preserve horizontal overflow only for narrow viewports, synchronize versions, and redeploy Release.
+
+### Phase 80 Verification Results
+
+- Daily Activity Pulse now uses `w-full` for its inner calendar surface, filling the desktop card width while retaining a mobile minimum width and horizontal scrolling.
+- Daily Activity Heatmap ESLint and direct Vite production build passed; full Maven package passed at `1.1.74-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.74-260719-RELEASE`; Overview UI and API smoke checks returned HTTP 200.
+
+## Phase 81 - Finance Account Three Column Grid
+
+Status: complete
+
+- Render three account cards per row on large screens while preserving two columns on smaller screens.
+- Synchronize Maven/UI versions, verify the focused UI build, and redeploy Release.
+
+### Phase 81 Verification Results
+
+- Account cards now render three per row at the large desktop breakpoint and two per row on smaller screens.
+- Account Snapshot ESLint and direct Vite production build passed; full Maven package passed at `1.1.75-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.75-260719-RELEASE`; Overview UI and API smoke checks returned HTTP 200.
+
+## Phase 82 - Finance Signal Expansion
+
+Status: complete
+
+- Expand Finance Signals with credit-limit usage, bookkeeping coverage, and asset concentration indicators using the existing overview data.
+- Keep the signal panel compact and responsive, synchronize versions, verify the focused UI build, and redeploy Release.
+
+### Phase 82 Verification Results
+
+- Added credit-limit usage, bookkeeping coverage, and asset-concentration signals alongside the existing cash-flow, busiest-day, expense-concentration, and credit-debt signals.
+- Added explicit unavailable states for missing income, credit limits, activity, or asset data and kept the signal grid responsive.
+- Finance Signal ESLint and direct Vite production build passed; full Maven package passed at `1.1.76-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.76-260719-RELEASE`; Overview UI and API smoke checks returned HTTP 200.
+
+## Phase 84 - Finance Dual-Platform Adaptation
+
+Status: complete
+
+- Adapt Finance Overview, Ledger, Accounts, Transactions, and AI Capture for desktop and mobile widths.
+- Use mobile transaction cards and touch-sized controls while retaining dense desktop tables and analysis layouts.
+- Make account and transaction detail drawers use the right side on desktop and the bottom on mobile.
+- Synchronize Maven/UI versions and verify Finance lint, TypeScript, and diff checks.
+
+### Phase 84 Verification Results
+
+- Finance navigation scrolls horizontally on narrow screens; period controls and analysis panels reflow for mobile.
+- Accounts and AI Capture use responsive grids; Transactions render compact mobile cards and responsive detail drawers.
+- Finance ESLint, scoped TypeScript checks, and diff check passed; full UI build remains blocked by existing Market/easy-tdx/industry TypeScript errors.
+- Synchronized project versions to 1.1.78-SNAPSHOT; Release deployment is pending the versioned image build.
+
+## Phase 83 - Finance Signal Detail Expansion
+
+Status: complete
+
+- Add average daily expense, single-day expense peak, and asset spending-buffer signals using the existing overview data.
+- Keep unavailable states explicit, synchronize Maven/UI versions, verify the focused UI build, and redeploy Release.
+
+### Phase 83 Verification Results
+
+- Added average daily expense, single-day expense peak, and asset spending-buffer estimates to Finance Signals.
+- Estimates are calculated from the selected period and explicitly explain their calculation basis or unavailable state.
+- Finance Signal ESLint and direct Vite production build passed; full Maven package passed at `1.1.77-SNAPSHOT`.
+- Release rebuilt and restarted as `1.1.77-260719-RELEASE`; Overview UI and API returned HTTP 200 after service warm-up.
+
+## Phase 85 - AI Capture History And Recovery Workflow
+
+Status: complete
+
+- Persist a capture history record for every AI image upload attempt, including validation and parser failures.
+- Add paginated history retrieval and stored-image retry support in the Core finance API.
+- Allow review, failed, and already-posted captures to be edited and posted without duplicate transactions.
+- Add a responsive AI Capture history list and bottom/right detail drawer in the Finance UI.
+- Increment Maven/UI versions together and verify focused Java/UI builds plus the Release runtime.
+
+### Phase 85 Verification Results
+
+- Added Core API history pagination, original-image retry, editable confirmation, and early validation failure persistence.
+- Added responsive Finance history cards and a right-side/bottom detail Drawer with edit, post, retry, and archive actions.
+- Applied `20260720_add_finance_ai_capture_history.sql` to the current PostgreSQL database.
+- Finance ESLint, scoped TypeScript, Core compile, full Maven package, Vite production build, and Release smoke checks passed.
+- Release is running as `1.1.81-260720-RELEASE`; Core health is `UP`, history API returned HTTP 200, and the served UI bundle contains the history and retry workflow.
+
+## Phase 86 - AI Capture Drawer Full Height
+
+Status: complete
+
+- Remove the desktop right-side Drawer max-height constraint so it reaches the viewport bottom.
+- Keep a bounded max-height only for the mobile bottom Drawer.
+- Synchronize versions, rebuild the UI image, and verify the Release page.
+
+### Phase 86 Verification Results
+
+- Desktop right-side Drawer now has full viewport height with no max-height constraint.
+- Mobile bottom Drawer keeps a bounded `92dvh` max-height for usable scrolling.
+- Finance ESLint, TypeScript check, Vite production build, Release rebuild, Core health, and served UI checks passed.
+- Release is running as `1.1.82-260720-RELEASE`.
+
+### Phase 62 Decisions
+
+- Keep the existing `finance_ai_captures` and child tables; no duplicate history table is needed.
+- Archived captures remain queryable in history; the optional status filter narrows the list.
+- Retry reuses the original stored image and creates no new capture, preserving one history row per upload.
+
+## Phase 87 - Shortcut Media Processing Workflow
+
+Status: complete
+
+- Add a Core API that accepts only a video URL plus an idempotency key and returns a persistent process record immediately.
+- Persist process status, phase, progress, worker task id, AI outputs, errors, and the linked MP4 history id in `cynexus_appl_core`.
+- Run download, transcription, polish, summary, metadata, and history persistence asynchronously with restart recovery for queued/stale work.
+- Add `/mp4-to-word/process-history` with responsive process status, detail drawer, retry, and refresh behavior.
+- Synchronize Maven/UI versions and verify Java, UI, migration, and DEV runtime behavior.
+
+### Phase 87 Verification Results
+
+- Added `POST /api/core/media-transcription/processes` with `Idempotency-Key`, URL validation, persistent queueing, status/progress phases, retry, list, and detail APIs.
+- Added Downloader link resolution in Core; successful resolutions prefer the audio direct URL, then video direct URL, with direct URL fallback when the resolver is unavailable.
+- Added automatic worker polling, AI polish/summary/metadata execution, existing MP4 History persistence, and a persistent process-to-history link.
+- Added and applied `20260720_create_media_transcription_process_history.sql` to the shared local PostgreSQL database.
+- Added `/mp4-to-word/process-history` with responsive list/cards, progress, error detail, responsive right/bottom drawer, polling refresh, and retry.
+- Synchronized Maven and UI versions to `1.1.83-SNAPSHOT`.
+- Full Maven package passed; Core/UI focused checks passed; full UI TypeScript remains blocked by pre-existing Market/easy-tdx/industry errors.
+- DEV runtime is running on UI `5174`, Gateway `28000`, Core `28080`, AI `28081`, and Market `28082`.
+
+## Phase 88 - Workspace AI Chat Entry
+
+Status: complete
+
+- Add a shadcn-style `MessageScroller` primitive that supports a bounded transcript, follow-latest behavior, stable message rows, and a jump-to-latest control.
+- Add a global chat icon beside the existing search trigger and open a responsive right-side Popover with Message composition, input, loading, error, and empty states.
+- Route chat sends through the existing AI execution API using a dedicated `workspace_chat` capability and register its runtime, prompt key, group, and description in the AI Provider capability list.
+- Synchronize Maven/UI versions and verify focused UI checks plus the relevant AI Maven modules.
+
+### Phase 88 Verification Results
+
+- Added a responsive right-side Cynexus AI Popover beside the global search trigger, with Message rows, avatars, timestamps, loading state, error state, input, and send action.
+- Added the official `@shadcn/react/message-scroller` wrapper, viewport, content, item, latest-message control, and scroll state hooks under `src/components/ui/message-scroller.tsx`.
+- Added the `workspace_chat` backend domain policy and execution route, plus the AI Provider routing row with synchronized runtime, prompt key, group, description, and aliases.
+- Targeted UI ESLint, Vite production build, AI module compile, and full `mvn -DskipTests package` passed at `1.1.96-SNAPSHOT`.
+- Full UI TypeScript remains blocked by pre-existing errors in Market/easy-tdx/industry files; the new chat files are not among the reported failures.
+- Rebuilt and restarted the documented Release stack as `1.1.96-260721-RELEASE`; UI bundle contains the chat trigger and the Gateway workspace chat smoke request returned HTTP 200.
+
+## Phase 89 - Workspace AI Chat shadcn base-rhea alignment
+
+Status: complete
+
+- Replace the approximate local scroller state with the official `@shadcn/react/message-scroller` behavior primitive and registry wrapper class composition.
+- Align `Bubble` variants and supporting composition with the official `base-rhea` source.
+- Add the missing `scroll-fade-b` utility and keep transcript padding at the consuming chat boundary.
+- Synchronize Maven/UI versions to `1.1.97-SNAPSHOT`.
+
+### Phase 89 Verification Results
+
+- Targeted UI ESLint passed for the updated MessageScroller, Bubble, and WorkspaceChat files.
+- Vite production build passed with the official wrapper and variants.
+- Full UI TypeScript passed.
+- Full Maven package passed at `1.1.97-SNAPSHOT` across 41 reactor projects.
+- Release UI image `1.1.97-260721-RELEASE` is running on `http://localhost:5173`; the existing Release backend returned HTTP 200 / `SUCCEEDED` for `workspace_chat`.
+
+## Phase 90 - Workspace AI Chat official demo composition correction
+
+Status: complete
+
+- Use the official `Empty` state for a new conversation.
+- Use `Message` + `Marker role="status"` for thinking state outside Bubble.
+- Match the official header and `InputGroup` composer structure.
+- Synchronize Maven/UI versions to `1.1.98-SNAPSHOT`.
+
+### Phase 90 Verification Results
+
+- Targeted ESLint passed with no errors.
+- Full UI TypeScript passed.
+- Vite production build passed.
+
+## Phase 91 - Workspace AI Chat bubble and composer correction
+
+Status: complete
+
+- Use `muted` for user bubbles, `ghost` for assistant bubbles, and no avatars for ordinary rows.
+- Keep the composer full-width, bounded, internally scrollable, and scrollbar-free.
+- Synchronize Maven/UI versions to `1.1.100-SNAPSHOT`.
+
+## Phase 92 - Workspace AI Chat response normalization
+
+Status: complete
+
+- Extract provider response envelopes before rendering workspace chat content.
+- Keep plain-text responses unchanged and suppress raw JSON transport objects.
+- Synchronize Maven/UI versions to `1.1.102-SNAPSHOT`.
+
+## Phase 93 - Workspace AI Chat bottom-right sizing
+
+Status: complete
+
+- Move the chat Popover to a fixed bottom-right viewport position.
+- Increase the surface to a maximum width of 560px and height of 760px while retaining viewport-relative limits.
+- Synchronize Maven/UI versions to `1.1.103-SNAPSHOT`.
+
+### Phase 93 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.103-260722-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 94 - Workspace AI Chat positioning enforcement
+
+Status: complete
+
+- Add an explicit CSS positioning rule so Radix Popover inline coordinates cannot move the chat surface back to the header.
+- Keep the fixed bottom-right placement and mobile edge insets.
+- Synchronize Maven/UI versions to `1.1.104-SNAPSHOT`.
+
+### Phase 94 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.104-260722-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 95 - Workspace AI Chat anchored bottom-right Popover
+
+Status: complete
+
+- Anchor the Popover to a fixed 1px viewport point at the bottom-right instead of overriding Radix runtime coordinates.
+- Open the chat above that anchor so the surface remains in the bottom-right corner.
+- Synchronize Maven/UI versions to `1.1.105-SNAPSHOT`.
+
+### Phase 95 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.105-260722-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 96 - Workspace AI Chat viewport panel
+
+Status: complete
+
+- Render the chat panel as a fixed child inside a full-viewport Popover shell so Radix's trigger coordinates cannot affect the visual panel.
+- Keep the visual panel fixed to the bottom-right with responsive size limits.
+- Synchronize Maven/UI versions to `1.1.106-SNAPSHOT`.
+
+### Phase 96 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.106-260722-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 97 - Workspace AI Chat flex viewport alignment
+
+Status: complete
+
+- Align the Popover shell to the viewport bottom-right with flex layout and keep the visual panel out of Radix coordinate calculations.
+- Synchronize Maven/UI versions to `1.1.107-SNAPSHOT`.
+
+### Phase 97 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.107-260722-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 98 - Workspace AI Chat direct viewport portal
+
+Status: complete
+
+- Remove Radix Popover content positioning from the visual panel entirely.
+- Keep the Popover trigger for open state, and render the chat panel through a body portal with direct fixed right/bottom coordinates.
+- Synchronize Maven/UI versions to `1.1.108-SNAPSHOT`.
+
+### Phase 98 Verification Results
+
+- Targeted ESLint and direct Vite production build passed.
+- Release UI `1.1.108-260722-RELEASE` is running at `http://localhost:5173`.

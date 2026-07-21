@@ -20,6 +20,13 @@ export function monthBounds() {
   return { start: localDate(start), end: localDate(end) }
 }
 
+export function trailingDaysBounds(days = 365) {
+  const end = new Date()
+  const start = new Date(end)
+  start.setDate(start.getDate() - Math.max(1, days - 1))
+  return { start: localDate(start), end: localDate(end) }
+}
+
 function localDate(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
 }

@@ -96,7 +96,7 @@ export interface FinanceOverview {
   netAssets: number
   accounts: FinanceAccount[]
   categories: Array<{ categoryId: number; categoryName: string; direction: "expense" | "income"; amount: number; percentage: number }>
-  daily: Array<{ date: string; income: number; expense: number }>
+  daily: Array<{ date: string; income: number; expense: number; activityCount: number }>
   recentTransactions: FinanceTransaction[]
 }
 
@@ -135,6 +135,14 @@ export interface FinanceAiCapture {
   createdAt: string
   updatedAt: string
   items: FinanceAiCaptureItem[]
+}
+
+export interface FinanceAiCapturePage {
+  items: FinanceAiCapture[]
+  total: number
+  limit: number
+  offset: number
+  status: string
 }
 
 async function data<T>(response: Response, fallback: string): Promise<T> {
@@ -191,12 +199,24 @@ export async function saveFinanceCategory(payload: Partial<FinanceCategory>) {
   return data<FinanceCategory>(await fetchWithRetry(`${FINANCE_API}/categories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }), "分类保存失败")
 }
 
+export async function archiveFinanceCategory(id: number) {
+  return data<boolean>(await fetchWithRetry(`${FINANCE_API}/categories/${id}`, { method: "DELETE" }), "分类归档失败")
+}
+
 export async function fetchFinanceTransactions(params: { start?: string; end?: string; limit?: number } = {}) {
   return data<FinanceTransaction[]>(await fetchWithRetry(`${FINANCE_API}/transactions?${query(params)}`, { cache: "no-store" }), "账目加载失败")
 }
 
 export async function saveFinanceTransaction(payload: Partial<FinanceTransaction>) {
   return data<FinanceTransaction>(await fetchWithRetry(`${FINANCE_API}/transactions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }), "账目保存失败")
+}
+
+export async function updateFinanceTransaction(id: number, payload: Partial<FinanceTransaction>) {
+  return data<FinanceTransaction>(await fetchWithRetry(`${FINANCE_API}/transactions/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }), "账目更新失败")
+}
+
+export async function deleteFinanceTransaction(id: number) {
+  return data<boolean>(await fetchWithRetry(`${FINANCE_API}/transactions/${id}/delete`, { method: "POST" }), "账目删除失败")
 }
 
 export async function archiveFinanceTransaction(id: number) {
@@ -216,6 +236,14 @@ export async function confirmFinanceAiCapture(id: number, items: Array<Partial<F
   return data<FinanceAiCapture>(await fetchWithRetry(`${FINANCE_API}/ai-captures/${id}/confirm`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }),
   }), "AI 草稿入账失败")
+}
+
+export async function fetchFinanceAiCaptureHistory(params: { limit?: number; offset?: number; status?: string } = {}) {
+  return data<FinanceAiCapturePage>(await fetchWithRetry(`${FINANCE_API}/ai-captures?${query(params)}`, { cache: "no-store" }), "AI 入账历史加载失败")
+}
+
+export async function retryFinanceAiCapture(id: number) {
+  return data<FinanceAiCapture>(await fetchWithRetry(`${FINANCE_API}/ai-captures/${id}/retry`, { method: "POST" }), "AI 图片重新识别失败")
 }
 
 export async function archiveFinanceAiCapture(id: number) {

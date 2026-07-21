@@ -104,9 +104,10 @@ CREATE INDEX IF NOT EXISTS ix_finance_transactions_owner_account
 
 CREATE TABLE IF NOT EXISTS cynexus_appl_core.finance_ai_captures (
     id bigint PRIMARY KEY,
-    owner_key varchar(128) NOT NULL DEFAULT 'default',
-    status varchar(24) NOT NULL DEFAULT 'uploaded',
-    source_count integer NOT NULL DEFAULT 0,
+      owner_key varchar(128) NOT NULL DEFAULT 'default',
+      status varchar(24) NOT NULL DEFAULT 'uploaded',
+      processing_mode varchar(16) NOT NULL DEFAULT 'auto',
+      source_count integer NOT NULL DEFAULT 0,
     model_code varchar(128),
     raw_response jsonb NOT NULL DEFAULT '{}'::jsonb,
     error_message text,

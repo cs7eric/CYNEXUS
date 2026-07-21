@@ -4,6 +4,10 @@ cynexus:
       enabled: true
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
   datasource:
     url: "jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB_CORE:${POSTGRES_DB:cynexus}}?currentSchema=${POSTGRES_SCHEMA:cynexus_appl_core}"
     username: ${POSTGRES_USER:postgres}

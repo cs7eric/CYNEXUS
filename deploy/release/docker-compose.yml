@@ -23,6 +23,8 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: C020611.
       CYNEXUS_DATA_JOB_EXECUTOR_BASE_URL: http://cynexus-data-job-executor:18083
+      CYNEXUS_MEDIA_TRANSCRIPTION_WORKER_BASE_URL: http://cynexus-data-job-executor:18083/internal/media-transcription
+      CYNEXUS_MEDIA_TRANSCRIPTION_AI_BASE_URL: http://ai:18081/api/ai/media-transcription
       CYNEXUS_MARKET_AUTOMATION_BASE_URL: http://market:18082
       CYNEXUS_FINANCE_AI_BASE_URL: http://ai:18081
     ports:

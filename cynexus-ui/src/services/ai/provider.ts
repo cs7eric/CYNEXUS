@@ -218,6 +218,17 @@ const AI_CAPABILITIES: AiCapability[] = [
     runtime: "KnowledgeBaseDocumentGenerationAppService",
     prompt_key: "knowledge_base_document_generate",
   },
+  {
+    code: "workspace_chat",
+    label: "Workspace chat",
+    group: "Workspace AI",
+    description: "Conversational AI entry available from the global workspace header.",
+    entry: "Workspace / Global AI Chat",
+    reads_binding: true,
+    runtime: "ScenarioExecutionAppService.execute",
+    prompt_key: "workspace_chat",
+    aliases: ["Cynexus AI", "Workspace assistant"],
+  },
 ]
 
 const AI_PROVIDER_TYPES: AiProviderType[] = [
