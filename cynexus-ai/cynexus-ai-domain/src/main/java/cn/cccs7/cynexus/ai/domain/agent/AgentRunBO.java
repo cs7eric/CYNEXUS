@@ -20,6 +20,7 @@ public class AgentRunBO {
     private String planJson;
     private String contextJson;
     private String assumptionsJson;
+    private String clarificationJson;
     private String evidenceJson;
     private String warningsJson;
     private String errorMessage;

@@ -1619,7 +1619,7 @@
 - Replaced synthetic stock daily and intraday feature values with ClickHouse-backed bars, calculated change/volume/amplitude metrics, and explicit no-data behavior.
 - Kept stock-level main net inflow unavailable when the existing persisted sources cannot support it; no fabricated value is returned.
 - Added focused Market application tests for persisted daily bars, missing intraday data, and persisted sector ranking delegation; all 3 tests passed after correcting Lombok accessor names.
-- Synchronized Maven/UI versions to `1.1.129-SNAPSHOT`.
+- Synchronized Maven/UI versions to `1.1.130-SNAPSHOT`.
 
 ## 2026-07-22 - Agent Release and real-provider verification
 
@@ -1629,3 +1629,12 @@
 - Real Gateway Agent smoke reached `xtyooo / gpt-5.4-mini`, completed `SUCCEEDED`, dynamically selected four read-only Market tools, and persisted the plan, tool traces, evidence, warning, and answer.
 - The persisted trace reported `toolCallCount=4`, `turnCount=2`, `modelCode=gpt-5.4-mini`, and `OUTPUT_TRUNCATED` for the bounded information-feed result.
 - Phase 105 is not complete yet; the remaining reliability, authorization, governance, product workflow, reconnect, and final audit gates are recorded in `task_plan.md`.
+
+## 2026-07-22 - Structured clarification workflow
+
+- Added model-directed clarification JSON handling with bounded questions and missing fields.
+- Persisted `clarification_json`, `NEEDS_CLARIFICATION` run status, and a dedicated `CLARIFICATION` trace step through migration `20260722_add_ai_agent_clarification.sql`.
+- Updated the Agent prompt to forbid guessing when required inputs are missing; ordinary plain-text model responses remain final answers.
+- Updated the Agent UI to render clarification questions and retain the same conversation for the user's follow-up.
+- Focused `AutonomousAgentWorkflowTest` passed 2/2.
+- Synchronized Maven/UI versions to `1.1.130-SNAPSHOT`.

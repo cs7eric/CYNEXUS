@@ -384,3 +384,17 @@
 - A real Gateway Agent request reached `xtyooo / gpt-5.4-mini`, completed with `SUCCEEDED`, selected four read-only tools dynamically, and persisted model provenance, plan, tool inputs/outputs, answer, evidence, and warnings.
 - The persisted run reported `toolCallCount=4`, `turnCount=2`, and an explicit `OUTPUT_TRUNCATED` warning for the bounded market-information payload. The result is therefore truthful about unavailable/truncated source content.
 - Remaining Phase 105 gates are intentionally still open: SSE reconnect/checkpoints, cancellation/resume/follow-up failure paths, HTTP-level authorization/recovery tests, retention/redaction policy, source navigation/export, mobile visual checks, and final capability-routing audit.
+
+## Agent product workflow audit (2026-07-22)
+
+- The Agent backend currently treats every model response without tool calls as a final answer; it has no structured `NEEDS_CLARIFICATION` result or persisted clarification payload.
+- Agent evidence and run steps store a display source string but no navigable source URL. The UI therefore cannot provide trustworthy source navigation.
+- The Agent page can reopen a last run and search conversations, but it does not render the persisted conversation message stream as a transcript and has no export action.
+- Clarification must be model-directed and represented as a bounded JSON envelope, with a plain-text fallback remaining a final answer; no deterministic keyword router should be introduced.
+
+## Structured clarification implementation (2026-07-22)
+
+- Added `AgentClarificationBO` and a strict `type=clarification` envelope parser. Invalid JSON, missing questions, and ordinary text remain final answers.
+- Clarification questions and missing fields are bounded before persistence to prevent an upstream model from expanding the stored response without limit.
+- A clarification run is persisted as `NEEDS_CLARIFICATION`, with a `CLARIFICATION` trace step and `clarification_json`; it is not reported as `SUCCEEDED`.
+- The UI preserves `conversationNo`, so the next user message is sent as a real follow-up in the same persisted conversation.

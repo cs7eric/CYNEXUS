@@ -23,6 +23,7 @@ export interface AgentRun {
   answer?: string | null
   modelCode?: string | null
   planJson?: string | null
+  clarificationJson?: string | null
   evidenceJson?: string | null
   warningsJson?: string | null
   turnCount?: number | null

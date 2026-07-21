@@ -2222,7 +2222,7 @@ Status: complete
 - Sector ranking now delegates to `SectorRankRepository`, implemented by the Market infra snapshot repository.
 - Stock daily/intraday features now use the existing `StockChartQueryRepository` and ClickHouse daily/minute bars.
 - Focused Market tests passed: 3 tests, 0 failures.
-- Versions synchronized to `1.1.129-SNAPSHOT`; versioned Release verification remains part of Phase 105.9.
+- Versions synchronized to `1.1.130-SNAPSHOT`; versioned Release verification remains part of Phase 105.9.
 
 ### 105.9 Final Audit and Release Gate
 
@@ -2231,3 +2231,20 @@ Status: complete
 - Double-check every Phase 99-105 item against code and runtime evidence, remove placeholders, commit all functional changes, and record the final evidence.
 
 Current verification: Release `1.1.129-260722-RELEASE` was built only through `deploy/release/start-release.ps1 -Version 1.1.129-260722-RELEASE -Build`; Maven 41/41 modules passed, five versioned images built, and Core/Market/AI/Gateway/UI health checks returned HTTP 200. Phase 105 remains open for the listed security, recovery, product workflow, streaming reconnect, and final audit gates.
+
+### 105.11 Structured Clarification Workflow
+
+Status: complete
+
+- Add a model-directed clarification envelope for requests missing required scope, object, date, or other inputs.
+- Persist clarification state and questions as `NEEDS_CLARIFICATION` instead of marking the run successful.
+- Allow the user to answer in the same conversation and continue the Agent workflow.
+- Render clarification questions explicitly in the Agent UI and keep ordinary text responses as final answers.
+
+### 105.11 Verification Results
+
+- Added bounded `clarification` JSON parsing with a five-question and eight-field limit.
+- Added persisted `clarification_json`, `CLARIFICATION` trace steps, `NEEDS_CLARIFICATION` run status, and migration `20260722_add_ai_agent_clarification.sql`.
+- Added Agent UI clarification rendering; the existing conversation number is retained for follow-up input.
+- Focused workflow tests passed: 2 tests, 0 failures.
+- Versions synchronized to `1.1.130-SNAPSHOT`; Release migration/runtime verification remains pending.
