@@ -1594,8 +1594,8 @@
 - All three tools are read-only, schema-validated, and assembled dynamically by `AgentToolRegistry`; provider routing remains centralized on `autonomous_agent` so tool capabilities do not introduce fake independent model routes.
 - AI starter reactor compile and 7 focused registry/adapter tests passed.
 
-## 2026-07-22 - Release provider proxy and 1.1.125 alignment
+## 2026-07-22 - Release provider proxy and 1.1.126 alignment
 
 - Release `1.1.124` health checks passed, but the first real Agent smoke reached `xtyooo/gpt-5.4-mini` and failed with an SSL handshake because the container did not receive the host proxy environment.
 - Fixed Release proxy environment propagation and configured the OpenAI-compatible Java `HttpClient` to use `HTTPS_PROXY`/`HTTP_PROXY` when present.
-- Synchronized Maven/UI versions to `1.1.125-SNAPSHOT`; a new versioned Release build and real-provider smoke are required before claiming the provider path complete.
+- Synchronized Maven/UI versions to `1.1.126-SNAPSHOT`; a new versioned Release build and real-provider smoke are required before claiming the provider path complete.

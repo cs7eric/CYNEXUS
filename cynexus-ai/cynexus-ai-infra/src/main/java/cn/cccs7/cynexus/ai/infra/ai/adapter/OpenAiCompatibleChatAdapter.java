@@ -577,11 +577,17 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         HttpClient.Builder builder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10));
         String proxyValue = environment.getProperty("HTTPS_PROXY");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = environment.getProperty("HTTP_PROXY");
+        if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("HTTPS_PROXY");
+        if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("HTTP_PROXY");
+        if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("https_proxy");
+        if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("http_proxy");
         if (proxyValue == null || proxyValue.isBlank()) return builder.build();
         try {
             URI proxy = URI.create(proxyValue.trim());
             if (proxy.getHost() == null || proxy.getPort() <= 0) return builder.build();
-            return builder.proxy(ProxySelector.of(new InetSocketAddress(proxy.getHost(), proxy.getPort()))).build();
+            LOGGER.info("AI provider outbound proxy configured at {}:{}", proxy.getHost(), proxy.getPort());
+            return builder.proxy(ProxySelector.of(new InetSocketAddress(proxy.getHost(), proxy.getPort())))
+                    .version(HttpClient.Version.HTTP_2).build();
         } catch (IllegalArgumentException exception) {
             LOGGER.warn("Ignoring invalid AI provider proxy configuration");
             return builder.build();
