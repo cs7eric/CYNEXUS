@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.net.URI;
+import java.net.InetSocketAddress;
+import java.net.ProxySelector;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -48,9 +50,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         this.objectMapper = new ObjectMapper();
         this.secretResolver = secretResolver;
         this.environment = environment;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        this.httpClient = buildHttpClient(environment);
     }
 
     @Override
@@ -571,6 +571,21 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private Duration resolveRequestTimeout(AiModelBO model) {
         int seconds = extraInt(model, "request_timeout_seconds", (int) DEFAULT_REQUEST_TIMEOUT.toSeconds());
         return Duration.ofSeconds(Math.max(10, Math.min(seconds, 600)));
+    }
+
+    private HttpClient buildHttpClient(Environment environment) {
+        HttpClient.Builder builder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10));
+        String proxyValue = environment.getProperty("HTTPS_PROXY");
+        if (proxyValue == null || proxyValue.isBlank()) proxyValue = environment.getProperty("HTTP_PROXY");
+        if (proxyValue == null || proxyValue.isBlank()) return builder.build();
+        try {
+            URI proxy = URI.create(proxyValue.trim());
+            if (proxy.getHost() == null || proxy.getPort() <= 0) return builder.build();
+            return builder.proxy(ProxySelector.of(new InetSocketAddress(proxy.getHost(), proxy.getPort()))).build();
+        } catch (IllegalArgumentException exception) {
+            LOGGER.warn("Ignoring invalid AI provider proxy configuration");
+            return builder.build();
+        }
     }
 
     private String extractChatContent(String responseBody) throws IOException {

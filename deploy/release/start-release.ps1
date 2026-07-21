@@ -61,7 +61,9 @@ foreach ($proxyName in @("HTTP_PROXY", "HTTPS_PROXY")) {
     $sourceValue = [Environment]::GetEnvironmentVariable($proxyName)
     if (-not [string]::IsNullOrWhiteSpace($sourceValue)) {
         $containerValue = $sourceValue -replace "127\.0\.0\.1", "host.docker.internal" -replace "localhost", "host.docker.internal"
-        [Environment]::SetEnvironmentVariable("CYNEXUS_$proxyName", $containerValue, "Process")
+        $envName = "CYNEXUS_$proxyName"
+        [Environment]::SetEnvironmentVariable($envName, $containerValue, "Process")
+        Set-Item -Path "Env:$envName" -Value $containerValue
     }
 }
 if ([string]::IsNullOrWhiteSpace($env:CYNEXUS_NO_PROXY)) {

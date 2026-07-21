@@ -2136,6 +2136,8 @@ Status: in_progress
 - Full UI TypeScript check and production Vite build now pass after fixing existing Market/POC typing blockers; the build still reports only non-fatal font/chunk warnings.
 - Versioned Release image rebuild and end-to-end verification against the new AI image are still pending.
 
+Latest evidence: Release `1.1.124` built and all health endpoints returned HTTP 200, but the first real Agent request failed at the outbound TLS/proxy boundary. Do not count real-provider E2E as complete until the `1.1.125` image passes the provider call and persisted trace checks.
+
 ## Phase 105 - Agent Production Completion Backlog
 
 Status: in_progress
