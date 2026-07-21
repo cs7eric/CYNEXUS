@@ -2071,3 +2071,43 @@ Status: in_progress
 - Fixed runtime ObjectMapper wiring and verified the versioned AI container in commit `1cbd469`.
 - Preserved Responses API assistant function-call items in commit `6b446c8`.
 - Remaining Phase 99 work: full Agent model-provider integration test, conversation history UI, and a clean full UI production build.
+
+## Phase 100 - Agent provider binding and integration contract
+
+Status: in_progress
+
+- Bind `autonomous_agent` to the live `xtyooo` provider (`custom`) and model `gpt-5.4-mini` through an idempotent migration.
+- Add a provider-independent HTTP integration harness covering native Chat Completions tool calls, Responses function calls, and strict JSON fallback without using a real credential in tests.
+- Run one controlled live smoke through the configured `xtyooo` provider and verify provider/model provenance and persisted trace.
+
+## Phase 101 - Persistent conversations and resumable Agent workflow
+
+Status: pending
+
+- Persist transcript messages and conversation metadata with owner isolation.
+- Add conversation/history APIs, resume/continue/retry/regenerate actions, and UI history/recovery.
+- Add cancellation and event-stream workflow with truthful status transitions and no fake token streaming.
+
+## Phase 102 - Capability packs and dynamic catalog
+
+Status: pending
+
+- Add read-only Finance overview/transactions, Knowledge Base document retrieval, and typed ClickHouse market detail tools through service/infra ports.
+- Keep tool schemas, source/freshness, capability routing metadata, and UI catalog synchronized from a single backend contract.
+- Reject unsupported data access instead of fabricating a tool result.
+
+## Phase 103 - Production policy, evidence, and evaluation
+
+Status: pending
+
+- Add schema validation, prompt-injection boundaries, timeouts/retries/rate limits/cache policy, audit redaction, and write-confirmation policy.
+- Persist structured plan, assumptions, evidence/citations, warnings, and evaluation outcomes.
+- Add mock-provider end-to-end tests and a versioned evaluation dataset for the acceptance scenarios.
+
+## Phase 104 - Release and completion audit
+
+Status: pending
+
+- Fix the existing full UI TypeScript build blockers without masking errors.
+- Build versioned UI/AI release images, run the complete workflow through Gateway using `xtyooo/gpt-5.4-mini`, and verify health, API, persistence, UI, and failure paths.
+- Double-check every requirement for real implementation versus placeholder behavior, record evidence, and close Phase 99-104 only when all gates pass.

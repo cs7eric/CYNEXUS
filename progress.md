@@ -1476,3 +1476,11 @@
 - Validated fallback shape, call count, and object arguments before execution; arbitrary JSON answers remain final answers.
 - Synchronized Maven and UI versions to `1.1.114-SNAPSHOT`.
 - Targeted AI compile passed.
+
+## 2026-07-22 - Agent provider binding audit
+
+- Audited live PostgreSQL routing: provider `custom` is the enabled `xtyooo` row at `https://am.xtyooo.top`, with default/model override `gpt-5.4-mini`; `workspace_chat` already used it, while `autonomous_agent` was missing a dedicated binding.
+- Added `20260722_bind_autonomous_agent_to_xtyooo.sql`, preserving provider-managed credentials and registering the Agent runtime with bounded tool-call parameters.
+- Applied the migration to local `cynexus`; verified `autonomous_agent -> provider 910001000000000005 -> gpt-5.4-mini`.
+- Synchronized Maven/UI versions to `1.1.115-SNAPSHOT`.
+- AI starter reactor compile passed.
