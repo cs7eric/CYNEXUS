@@ -1553,3 +1553,5 @@
 - Added identity authorization tests for valid signatures, cross-principal/tenant tampering, and explicit anonymous mode.
 - Synchronized Maven/UI versions to `1.1.123-SNAPSHOT`; targeted compilation is currently passing, with full runtime verification pending the Release rebuild.
 - Release identity bootstrap initially failed because the installed PowerShell/.NET runtime lacks static `RandomNumberGenerator.Fill`; changed both Dev and Release scripts to the compatible instance API.
+- The first Mock Agent workflow test compile exposed a missing Mockito test dependency in the application-controller module; added `spring-boot-starter-test` with test scope before rerunning.
+- The first Mock Agent workflow assertion expected one step; the actual contract persists one tool step plus one answer step. Updated the test to assert both.

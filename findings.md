@@ -29,6 +29,8 @@
 - Phase 105 was added to `task_plan.md` so these gaps remain explicit and cannot be mistaken for completed MVP behavior.
 - The Release script incorrectly derived `1.1.122-260722-SNAPSHOT` from an explicit `1.1.122-260722-RELEASE` argument; Maven artifacts use `1.1.122-SNAPSHOT`. The parser must strip the six-digit release date before adding `-SNAPSHOT`.
 - The first trusted-identity bootstrap attempt used the newer static `RandomNumberGenerator.Fill` API, which is unavailable in the installed PowerShell/.NET runtime. Use `RandomNumberGenerator.Create().GetBytes(...)` for the supported runtime.
+- The first Mock Agent workflow test compile lacked Mockito on the application-controller test classpath; the module previously declared JUnit only. Added the standard Spring Boot test starter as a test-scoped dependency.
+- The first Mock Agent workflow assertion expected one persisted step, but the runtime correctly persists both the tool step and final answer step. The assertion was corrected to require two persisted steps.
 
 ## Market Information Refresh Error
 
