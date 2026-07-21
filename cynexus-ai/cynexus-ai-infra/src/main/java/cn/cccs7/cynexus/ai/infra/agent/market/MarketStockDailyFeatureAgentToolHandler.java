@@ -22,6 +22,7 @@ public class MarketStockDailyFeatureAgentToolHandler extends AbstractMarketAgent
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
+            .sourceUrl("/stock-overview")
             .build();
 
     public MarketStockDailyFeatureAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {

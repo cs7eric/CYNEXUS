@@ -56,7 +56,8 @@ class AutonomousAgentWorkflowTest {
 
         AgentToolDefinition definition = AgentToolDefinition.builder().code("market.overview").name("Market overview")
                 .module("market").description("Read market overview").inputSchemaJson("{\"type\":\"object\"}")
-                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).freshness("daily").source("Market API").build();
+                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).freshness("daily").source("Market API")
+                .sourceUrl("/stock-overview").build();
         when(catalog.enabledTools()).thenReturn(List.of(definition));
         when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
         when(repository.findMessages(any(), any())).thenReturn(List.of());
@@ -98,6 +99,7 @@ class AutonomousAgentWorkflowTest {
         assertTrue(stepCaptor.getAllValues().get(0).getOutputJson().contains("[REDACTED]"));
         assertTrue(!stepCaptor.getAllValues().get(0).getOutputJson().contains("secret-value"));
         assertTrue(!stepCaptor.getAllValues().get(0).getOutputJson().contains("person@example.com"));
+        assertEquals("/stock-overview", stepCaptor.getAllValues().get(0).getSourceUrl());
         verify(repository).findRunByIdempotencyKey("tenant-1::user-1", "idem-1");
         verify(lease).release(eq("tenant-1::user-1"), any());
         ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);

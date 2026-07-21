@@ -27,7 +27,7 @@ public class ClickHouseDailyBarsAgentToolHandler implements AgentToolHandler {
             .description("Read bounded historical daily OHLCV bars from the approved ClickHouse market dataset.")
             .inputSchemaJson("{\"type\":\"object\",\"required\":[\"symbol\"],\"properties\":{\"market\":{\"type\":\"string\",\"enum\":[\"SH\",\"SZ\",\"BJ\"]},\"symbol\":{\"type\":\"string\"},\"start\":{\"type\":\"string\",\"format\":\"date\"},\"end\":{\"type\":\"string\",\"format\":\"date\"},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":300}}}")
             .outputSchemaJson("{\"type\":\"array\"}").readOnly(true).requiresConfirmation(false)
-            .freshness("historical daily data").source(SOURCE).build();
+            .freshness("historical daily data").source(SOURCE).sourceUrl("/stock-overview").build();
 
     private final HttpClient httpClient = HttpClient.newBuilder().build();
     private final ObjectMapper objectMapper;

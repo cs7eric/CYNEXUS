@@ -19,6 +19,7 @@ public class AgentRunStepBO {
     private String status;
     private String summary;
     private String source;
+    private String sourceUrl;
     private String dataDate;
     private String errorMessage;
     private String failureCategory;

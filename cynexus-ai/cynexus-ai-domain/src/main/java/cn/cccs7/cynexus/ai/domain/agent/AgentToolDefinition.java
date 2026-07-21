@@ -18,4 +18,5 @@ public class AgentToolDefinition {
     boolean requiresConfirmation;
     String freshness;
     String source;
+    String sourceUrl;
 }

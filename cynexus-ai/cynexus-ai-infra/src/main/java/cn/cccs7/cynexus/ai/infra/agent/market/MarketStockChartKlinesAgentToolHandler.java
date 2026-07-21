@@ -22,6 +22,7 @@ public class MarketStockChartKlinesAgentToolHandler extends AbstractMarketAgentT
             .requiresConfirmation(false)
             .freshness("historical chart data")
             .source(SOURCE)
+            .sourceUrl("/stock-overview")
             .build();
 
     public MarketStockChartKlinesAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {

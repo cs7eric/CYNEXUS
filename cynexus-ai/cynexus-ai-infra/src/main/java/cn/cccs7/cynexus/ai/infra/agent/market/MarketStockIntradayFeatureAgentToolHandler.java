@@ -22,6 +22,7 @@ public class MarketStockIntradayFeatureAgentToolHandler extends AbstractMarketAg
             .requiresConfirmation(false)
             .freshness("intraday snapshot")
             .source(SOURCE)
+            .sourceUrl("/stock-overview")
             .build();
 
     public MarketStockIntradayFeatureAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {

@@ -22,6 +22,7 @@ public class MarketOverviewHistoryAgentToolHandler extends AbstractMarketAgentTo
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
+            .sourceUrl("/stock-overview")
             .build();
 
     public MarketOverviewHistoryAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {

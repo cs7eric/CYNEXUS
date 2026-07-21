@@ -22,6 +22,7 @@ public class AgentRunStepPO extends BasePO {
     private String status;
     private String summary;
     private String source;
+    @TableField("source_url") private String sourceUrl;
     @TableField("data_date") private String dataDate;
     @TableField("error_message") private String errorMessage;
     @TableField("failure_category") private String failureCategory;

@@ -20,7 +20,8 @@ public class FinanceOverviewAgentToolHandler implements AgentToolHandler {
             .name("Finance overview").module("finance")
             .description("Read income, expense, net assets, account balances and recent finance summary for a date range.")
             .inputSchemaJson(FinanceAgentToolSchemas.DATE_RANGE).outputSchemaJson("{\"type\":\"object\"}")
-            .readOnly(true).requiresConfirmation(false).freshness("ledger snapshot").source("Core Finance API").build();
+            .readOnly(true).requiresConfirmation(false).freshness("ledger snapshot").source("Core Finance API")
+            .sourceUrl("/finance/overview").build();
 
     private final FinanceDataFeignClient client;
     private final ObjectMapper objectMapper;

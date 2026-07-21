@@ -18,7 +18,8 @@ public class ApplicationAnalysisRecent30AgentToolHandler implements AgentToolHan
             .description("Read persisted daily snapshots for an application-analysis target.")
             .inputSchemaJson("{\"type\":\"object\",\"required\":[\"targetId\"],\"properties\":{\"targetId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":60}},\"additionalProperties\":false}")
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
-            .freshness("daily snapshots").source("Application Analysis").build();
+            .freshness("daily snapshots").source("Application Analysis")
+            .sourceUrl("/stock-overview/application-analysis").build();
     private final ApplicationAnalysisGateway gateway;
     private final ObjectMapper objectMapper;
 

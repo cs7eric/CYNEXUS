@@ -9,6 +9,7 @@ export interface AgentRunStep {
   status?: string | null
   summary?: string | null
   source?: string | null
+  sourceUrl?: string | null
   dataDate?: string | null
   inputJson?: string | null
   outputJson?: string | null
@@ -29,6 +30,8 @@ export interface AgentRun {
   turnCount?: number | null
   toolCallCount?: number | null
   errorMessage?: string | null
+  startedAt?: string | null
+  finishedAt?: string | null
   steps?: AgentRunStep[] | null
 }
 
@@ -76,6 +79,7 @@ export interface AgentToolDefinition {
   requiresConfirmation: boolean
   freshness: string
   source: string
+  sourceUrl?: string | null
 }
 
 export async function runAgent(input: {
@@ -119,6 +123,19 @@ export async function searchAgentConversations(query: string, limit = 30): Promi
 export async function fetchAgentMessages(conversationNo: string): Promise<AgentMessage[]> {
   return cynexusResult<AgentMessage[]>(await fetchWithRetry(
     `${SERVICE_PREFIX.ai}/agent/conversations/${encodeURIComponent(conversationNo)}/messages`,
+  ))
+}
+
+export interface AgentRunExport {
+  format: string
+  filename: string
+  contentType: string
+  content: string
+}
+
+export async function exportAgentRun(runNo: string, format: "markdown" | "json" = "markdown"): Promise<AgentRunExport> {
+  return cynexusResult<AgentRunExport>(await fetchWithRetry(
+    `${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/export?format=${format}`,
   ))
 }
 

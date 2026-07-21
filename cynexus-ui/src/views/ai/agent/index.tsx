@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircle, ArrowUpRight, Check, CircleDashed, History, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
+import { AlertCircle, ArrowUpRight, Check, CircleDashed, Download, ExternalLink, History, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { cancelAgent, fetchAgentConversations, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentConversation, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 import { Input } from "@/components/ui/input"
 
 function stepLabel(step: AgentRunStep) {
@@ -30,10 +30,10 @@ function outputPreview(step: AgentRunStep) {
 }
 
 function evidence(run: AgentRun) {
-  if (!run.evidenceJson) return [] as Array<{ toolCode?: string; source?: string; dataDate?: string; summary?: string }>
+  if (!run.evidenceJson) return [] as Array<{ toolCode?: string; source?: string; sourceUrl?: string; dataDate?: string; summary?: string }>
   try {
     const value = JSON.parse(run.evidenceJson) as unknown
-    return Array.isArray(value) ? value as Array<{ toolCode?: string; source?: string; dataDate?: string; summary?: string }> : []
+    return Array.isArray(value) ? value as Array<{ toolCode?: string; source?: string; sourceUrl?: string; dataDate?: string; summary?: string }> : []
   } catch {
     return []
   }
@@ -52,6 +52,7 @@ function clarification(run: AgentRun) {
 export default function AutonomousAgentPage() {
   const [input, setInput] = useState("")
   const [run, setRun] = useState<AgentRun | null>(null)
+  const [conversationMessages, setConversationMessages] = useState<AgentMessage[]>([])
   const [tools, setTools] = useState<AgentToolDefinition[]>([])
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -89,6 +90,7 @@ export default function AutonomousAgentPage() {
         }
       }, controller.signal)
       setRun(nextRun)
+      if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
       setInput("")
     } catch (reason: unknown) {
@@ -117,7 +119,9 @@ export default function AutonomousAgentPage() {
     setHistoryLoading(true)
     setError(null)
     try {
-      setRun(await getAgentRun(conversation.lastRunNo))
+      const nextRun = await getAgentRun(conversation.lastRunNo)
+      setRun(nextRun)
+      setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Unable to reopen conversation")
     } finally {
@@ -130,12 +134,29 @@ export default function AutonomousAgentPage() {
     setLoading(true)
     setError(null)
     try {
-      setRun(action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo))
+      const nextRun = action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo)
+      setRun(nextRun)
+      if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Unable to rerun Agent")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function exportResult() {
+    if (!run?.runNo) return
+    try {
+      const result = await exportAgentRun(run.runNo)
+      const url = URL.createObjectURL(new Blob([result.content], { type: result.contentType }))
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = result.filename
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Unable to export Agent result")
     }
   }
 
@@ -150,7 +171,7 @@ export default function AutonomousAgentPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">Ask Cynexus to investigate</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">The Agent chooses relevant read-only data modules, records each call, and returns an evidence-backed answer.</p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Wrench className="size-3.5" /> {tools.length} data tools available</div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground"><Wrench className="size-3.5" /> {tools.length} data tools available {run?.runNo ? <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => void exportResult()}><Download className="size-3.5" />Export</Button> : null}</div>
         </header>
 
         {error ? <Alert variant="destructive"><AlertTitle>Agent unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
@@ -158,7 +179,8 @@ export default function AutonomousAgentPage() {
         <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card">
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
-              {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div>{clarification(run) ? <div className="mb-4 rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"><div className="font-medium">需要补充信息</div><div className="mt-1 leading-6">{clarification(run)?.summary}</div><ul className="mt-2 list-disc space-y-1 pl-5">{clarification(run)?.questions?.map((question) => <li key={question}>{question}</li>)}</ul></div> : null}<div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}</div></div>)}</div></div> : null}<div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></div></div></div>}
+              {conversationMessages.length ? <div className="mb-6 space-y-3 border-b border-border/70 pb-5"><div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Conversation transcript</div>{conversationMessages.map((message, index) => <div key={`${message.sequenceNo ?? index}-${message.role}`} className={message.role === "user" ? "ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6" : "max-w-3xl whitespace-pre-wrap text-sm leading-7 text-foreground"}>{message.content}</div>)}</div> : null}
+              {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div>{clarification(run) ? <div className="mb-4 rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"><div className="font-medium">需要补充信息</div><div className="mt-1 leading-6">{clarification(run)?.summary}</div><ul className="mt-2 list-disc space-y-1 pl-5">{clarification(run)?.questions?.map((question) => <li key={question}>{question}</li>)}</ul></div> : null}<div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}{item.sourceUrl ? <> · <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-700 hover:underline"><ExternalLink className="size-3" />Source</a></> : null}</div></div>)}</div></div> : null}<div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></div></div></div>}
             </div>
             <div className="border-t border-border/70 p-4"><div className="rounded-xl border border-border bg-background p-2 shadow-sm"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 text-sm shadow-none focus-visible:ring-0" /><div className="flex items-center justify-between px-2 pt-2"><span className="text-xs text-muted-foreground">Read-only research tools · Ctrl/Cmd + Enter to run</span>{loading ? <Button size="sm" variant="outline" onClick={() => void stopAgent()}><Square className="size-3.5" /> Stop</Button> : <Button size="sm" onClick={() => void submit()} disabled={!input.trim()}><ArrowUpRight className="size-4" /> Run Agent</Button>}</div></div></div>
           </section>

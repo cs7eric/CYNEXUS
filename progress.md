@@ -1654,3 +1654,10 @@
 - Redacted bearer tokens, email addresses, mobile numbers, transcript fields, errors, evidence, and replayable stream fields before persistence or model follow-up.
 - Extended the workflow test with secret and PII assertions after output truncation.
 - Synchronized Maven/UI versions to `1.1.132-SNAPSHOT`.
+
+## 2026-07-22 - Agent source metadata, transcript, and export
+
+- Added source URL metadata to the capability catalog and carried it into persisted Agent steps, evidence, DTOs, and the UI.
+- Added owner-scoped run export in Markdown/JSON formats using the redacted persisted run contract.
+- Agent history now loads and renders the persisted conversation transcript when reopened, and the workspace exposes source navigation and export.
+- Maven/UI versions are synchronized to `1.1.133-SNAPSHOT`; focused tests and UI build passed before the final version bump.

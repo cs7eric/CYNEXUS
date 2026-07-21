@@ -14,6 +14,7 @@ public class AgentToolResult {
     String summary;
     String dataDate;
     String source;
+    String sourceUrl;
     List<String> warnings;
 
     public static AgentToolResult success(String toolCode, String outputJson, String summary,
@@ -25,6 +26,7 @@ public class AgentToolResult {
                 .summary(summary)
                 .dataDate(dataDate)
                 .source(source)
+                .sourceUrl(null)
                 .warnings(warnings == null ? List.of() : List.copyOf(warnings))
                 .build();
     }
@@ -36,6 +38,7 @@ public class AgentToolResult {
                 .outputJson("{}")
                 .summary(summary)
                 .source(source)
+                .sourceUrl(null)
                 .warnings(warning == null || warning.isBlank() ? List.of() : List.of(warning))
                 .build();
     }

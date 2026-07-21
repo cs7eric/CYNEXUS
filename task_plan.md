@@ -2283,6 +2283,15 @@ Status: complete
 - Focused Agent workflow tests passed with secret, email, and mobile-number regression assertions; Maven/UI versions are synchronized at `1.1.132-SNAPSHOT`.
 - Release runtime verification remains pending.
 
+### 105.14 Product evidence, transcript, and export workflow
+
+Status: in_progress
+
+- Add explicit source URL metadata to every registered capability and carry it through tool steps, evidence, API DTOs, and the UI.
+- Render the persisted conversation transcript when reopening a conversation, with the same owner/tenant boundary.
+- Add a server-side Markdown/JSON export of a run using only redacted persisted data.
+- Add source navigation and export UI actions, then verify the response and download behavior through the Release Gateway.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |

@@ -21,7 +21,8 @@ public class FinanceTransactionsAgentToolHandler implements AgentToolHandler {
             .name("Finance transactions").module("finance")
             .description("Read a bounded list of ledger transactions for a date range; use for spending details and audit context.")
             .inputSchemaJson(FinanceAgentToolSchemas.TRANSACTIONS).outputSchemaJson("{\"type\":\"array\"}")
-            .readOnly(true).requiresConfirmation(false).freshness("ledger transactions").source("Core Finance API").build();
+            .readOnly(true).requiresConfirmation(false).freshness("ledger transactions").source("Core Finance API")
+            .sourceUrl("/finance/transactions").build();
 
     private final FinanceDataFeignClient client;
     private final ObjectMapper objectMapper;

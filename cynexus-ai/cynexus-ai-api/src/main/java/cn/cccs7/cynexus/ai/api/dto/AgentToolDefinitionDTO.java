@@ -16,4 +16,5 @@ public class AgentToolDefinitionDTO {
     private boolean requiresConfirmation;
     private String freshness;
     private String source;
+    private String sourceUrl;
 }

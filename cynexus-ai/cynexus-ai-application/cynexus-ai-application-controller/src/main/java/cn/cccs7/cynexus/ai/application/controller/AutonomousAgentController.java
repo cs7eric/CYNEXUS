@@ -5,6 +5,7 @@ import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentStreamEventDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
@@ -104,6 +105,13 @@ public class AutonomousAgentController {
     @GetMapping("/runs/{runNo}")
     public Result<AgentRunDTO> getRun(@PathVariable String runNo, HttpServletRequest httpRequest) {
         return Result.success(agentAppService.getRun(identity(httpRequest), runNo));
+    }
+
+    @GetMapping("/runs/{runNo}/export")
+    public Result<AgentRunExportDTO> export(@PathVariable String runNo,
+                                            @RequestParam(defaultValue = "markdown") String format,
+                                            HttpServletRequest httpRequest) {
+        return Result.success(agentAppService.export(identity(httpRequest), runNo, format));
     }
 
     @GetMapping("/tools")

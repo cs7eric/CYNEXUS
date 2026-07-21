@@ -20,7 +20,7 @@ public class KnowledgeDocumentAgentToolHandler implements AgentToolHandler {
             .description("Read one approved Cynexus knowledge-base document by id for grounded analysis.")
             .inputSchemaJson("{\"type\":\"object\",\"required\":[\"documentId\"],\"properties\":{\"documentId\":{\"type\":\"integer\",\"minimum\":1}}}")
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
-            .freshness("stored document").source("Knowledge Base API").build();
+            .freshness("stored document").source("Knowledge Base API").sourceUrl("/knowledge-base/view").build();
 
     private final KnowledgeBaseFeignClient client;
     private final ObjectMapper objectMapper;

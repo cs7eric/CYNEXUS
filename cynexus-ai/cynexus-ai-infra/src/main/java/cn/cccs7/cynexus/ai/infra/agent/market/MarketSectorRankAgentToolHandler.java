@@ -22,6 +22,7 @@ public class MarketSectorRankAgentToolHandler extends AbstractMarketAgentToolHan
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
+            .sourceUrl("/stock-overview/market")
             .build();
 
     public MarketSectorRankAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {

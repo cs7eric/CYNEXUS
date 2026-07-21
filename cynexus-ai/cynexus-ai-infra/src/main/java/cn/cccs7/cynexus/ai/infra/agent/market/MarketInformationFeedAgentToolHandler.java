@@ -17,7 +17,7 @@ public class MarketInformationFeedAgentToolHandler implements cn.cccs7.cynexus.a
             .description("Read the persisted market information feed, event impact mappings, and analysis status.")
             .inputSchemaJson("{\"type\":\"object\",\"properties\":{\"page\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":20},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"impactIndustryCode\":{\"type\":\"string\"},\"analysisStatus\":{\"type\":\"string\"}},\"additionalProperties\":false}")
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
-            .freshness("persisted feed").source("Market Information API").build();
+            .freshness("persisted feed").source("Market Information API").sourceUrl("/market/pulse").build();
 
     private final MarketDataGateway marketDataGateway;
     private final ObjectMapper objectMapper;

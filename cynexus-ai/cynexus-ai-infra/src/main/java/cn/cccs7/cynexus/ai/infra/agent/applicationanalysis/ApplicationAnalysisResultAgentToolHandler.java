@@ -18,7 +18,8 @@ public class ApplicationAnalysisResultAgentToolHandler implements AgentToolHandl
             .description("Read the persisted application-analysis result for a configured target.")
             .inputSchemaJson("{\"type\":\"object\",\"required\":[\"targetId\"],\"properties\":{\"targetId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128}},\"additionalProperties\":false}")
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
-            .freshness("persisted result").source("Application Analysis").build();
+            .freshness("persisted result").source("Application Analysis")
+            .sourceUrl("/stock-overview/application-analysis").build();
     private final ApplicationAnalysisGateway gateway;
     private final ObjectMapper objectMapper;
 
