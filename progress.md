@@ -1433,3 +1433,12 @@
 - Started Phase 99 for a model-directed Agent workflow inside `cynexus-ai`.
 - Confirmed the current gap: `AgentExecutor` returns mock JSON when tool codes are present; `AiToolCatalog` exposes only strings; `MarketDataTools` has API gateways but no callable tool schemas/handlers; the provider adapter has no tool-call protocol; and no Agent run/step persistence exists.
 - Added `docs/ai-agent-architecture.md` with the product workflow, competitor-informed UX, tool/input/output contracts, safety limits, persistence schema, API surface, delivery phases, and acceptance scenarios.
+
+## 2026-07-22 - Autonomous AI Agent market tool foundation
+
+- Added provider-neutral Agent tool contracts under `cynexus-ai-domain` for execution context, tool definitions, calls, results, catalog, executor, and handler boundaries.
+- Added Spring-managed `AgentToolRegistry` with duplicate detection, unknown-tool rejection, and read-only/confirmation enforcement.
+- Registered six model-callable Market data tools: overview, overview history, sector ranking, stock daily feature, stock intraday feature, and stock K-lines.
+- Added required-argument and numeric-range validation at the Market tool boundary.
+- Synchronized Maven and UI versions to `1.1.110-SNAPSHOT`.
+- Targeted AI compile and four Agent registry/Market handler tests passed.
