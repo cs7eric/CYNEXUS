@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
@@ -64,7 +66,7 @@ class AutonomousAgentWorkflowTest {
         when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
                 .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
         when(executor.execute(any(AgentToolCall.class), any(AgentExecutionContext.class)))
-                .thenReturn(AgentToolResult.success("market.overview", "{\"turnover\":123}", "Market data", "2026-07-22", "Market API", List.of()));
+                .thenReturn(AgentToolResult.success("market.overview", "{broken" + "x".repeat(25_000), "Market data", "2026-07-22", "Market API", List.of()));
         when(completion.completeAgent(any(), any(), eq("autonomous_agent")))
                 .thenReturn(AgentModelTurnResponse.builder().type("TOOL_CALLS").toolCalls(List.of(
                         AgentModelToolCall.builder().callId("call-1").toolCode("market.overview").arguments(Map.of()).build())).build())
@@ -79,7 +81,16 @@ class AutonomousAgentWorkflowTest {
         assertEquals("gpt-5.4-mini", result.getModelCode());
         assertEquals(1, result.getToolCallCount());
         assertNotNull(result.getEvidenceJson());
-        verify(repository, times(2)).saveStep(any());
+        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO> stepCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO.class);
+        verify(repository, times(2)).saveStep(stepCaptor.capture());
+        stepCaptor.getAllValues().forEach(step -> {
+            try {
+                new ObjectMapper().readTree(step.getOutputJson());
+            } catch (Exception exception) {
+                throw new AssertionError("Agent step output must remain valid JSON", exception);
+            }
+        });
+        assertTrue(stepCaptor.getAllValues().get(0).getOutputJson().contains("truncated"));
         verify(repository).findRunByIdempotencyKey("tenant-1::user-1", "idem-1");
         verify(lease).release(eq("tenant-1::user-1"), any());
     }

@@ -295,13 +295,28 @@ public class AutonomousAgentAppService {
 
     private AgentToolResult bounded(AgentToolResult result) {
         if (result == null) return AgentToolResult.failure("unknown", "The tool returned no result.", "cynexus-ai", "EMPTY_RESULT");
-        String output = valueOr(result.getOutputJson(), "{}");
-        if (output.length() <= MAX_TOOL_OUTPUT_CHARS) return result;
+        String output = normalizeToolOutput(valueOr(result.getOutputJson(), "{}"));
         List<String> warnings = result.getWarnings() == null ? List.of() : result.getWarnings();
+        if (output.length() <= MAX_TOOL_OUTPUT_CHARS) return copyResult(result, output, valueOr(result.getSummary(), ""), warnings);
+        String preview = output.substring(0, Math.min(output.length(), 8_000));
+        String compactOutput = json(Map.of("truncated", true, "originalChars", output.length(), "preview", preview));
+        return copyResult(result, compactOutput, valueOr(result.getSummary(), "") + " Output truncated.",
+                java.util.stream.Stream.concat(warnings.stream(), java.util.stream.Stream.of("OUTPUT_TRUNCATED")).toList());
+    }
+
+    private AgentToolResult copyResult(AgentToolResult result, String output, String summary, List<String> warnings) {
         return AgentToolResult.builder().toolCode(result.getToolCode()).status(result.getStatus())
-                .outputJson(output.substring(0, MAX_TOOL_OUTPUT_CHARS)).summary(valueOr(result.getSummary(), "") + " Output truncated.")
-                .dataDate(result.getDataDate()).source(result.getSource())
-                .warnings(java.util.stream.Stream.concat(warnings.stream(), java.util.stream.Stream.of("OUTPUT_TRUNCATED")).toList()).build();
+                .outputJson(output).summary(summary).dataDate(result.getDataDate()).source(result.getSource())
+                .warnings(warnings == null ? List.of() : List.copyOf(warnings)).build();
+    }
+
+    private String normalizeToolOutput(String output) {
+        try {
+            var node = objectMapper.readTree(output);
+            return objectMapper.writeValueAsString(node == null ? objectMapper.createObjectNode() : node);
+        } catch (Exception ignored) {
+            return json(Map.of("invalidJson", true, "raw", output));
+        }
     }
 
     public AgentRunDTO getRun(String ownerKey, String runNo) {

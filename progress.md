@@ -1599,3 +1599,10 @@
 - Release `1.1.124` health checks passed, but the first real Agent smoke reached `xtyooo/gpt-5.4-mini` and failed with an SSL handshake because the container did not receive the host proxy environment.
 - Fixed Release proxy environment propagation and configured the OpenAI-compatible Java `HttpClient` to use `HTTPS_PROXY`/`HTTP_PROXY` when present.
 - Synchronized Maven/UI versions to `1.1.126-SNAPSHOT`; a new versioned Release build and real-provider smoke are required before claiming the provider path complete.
+
+## 2026-07-22 - Agent JSON persistence boundary correction
+
+- Rebuilt Release as `1.1.126-260722-RELEASE` through `deploy/release/start-release.ps1`; Core, Market, AI, Gateway, and UI health endpoints returned `UP`/HTTP 200 and AI logged the configured proxy.
+- Real `xtyooo/gpt-5.4-mini` smoke proved provider routing and model-directed multi-turn tool selection, but exposed invalid `jsonb` from raw character truncation of oversized tool output.
+- Normalized every tool output to valid JSON before persistence/model follow-up and replaced truncation with a valid `{truncated, originalChars, preview}` envelope.
+- Added a workflow regression assertion that oversized/invalid tool output still persists valid JSON; targeted Maven test passed.
