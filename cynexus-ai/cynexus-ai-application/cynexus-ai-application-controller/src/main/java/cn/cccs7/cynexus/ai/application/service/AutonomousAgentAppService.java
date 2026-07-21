@@ -45,7 +45,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -197,9 +202,11 @@ public class AutonomousAgentAppService {
                 run.setTurnCount(turn);
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
                         .systemPrompt(systemPrompt()).messages(List.copyOf(messages)).tools(definitions).build();
-                AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest,
+                AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest, runNo,
                         streamTokens ? delta -> publisher.accept(AgentRunEventBO.builder().type("TOKEN_DELTA")
-                                .runNo(runNo).status("STREAMING").delta(delta).build()) : null);
+                                .runNo(runNo).status("STREAMING").delta(delta).build()) : null,
+                        attempt -> publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo)
+                                .status("RETRYING").summary("Retrying the AI provider request (attempt " + attempt + ").").build()));
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
                 if (!response.hasToolCalls()) {
                     List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
@@ -255,12 +262,15 @@ public class AutonomousAgentAppService {
                     if (!circuitBreaker.allow(toolCircuitKey)) {
                         throw new IllegalStateException("Agent tool circuit is open: " + call.getToolCode());
                     }
-                    AgentToolResult result = bounded(toolExecutor.execute(call, context));
+                    AgentToolResult result = bounded(executeToolWithCancellation(call, context, runNo));
                     while (attempts < MAX_RETRY_ATTEMPTS && isTransientToolFailure(result)) {
                         circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                         attempts++;
+                        publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo)
+                                .status("RETRYING").toolCode(call.getToolCode())
+                                .summary("Retrying the data tool (attempt " + attempts + ").").build());
                         pauseBeforeRetry(attempts);
-                        result = bounded(toolExecutor.execute(call, context));
+                        result = bounded(executeToolWithCancellation(call, context, runNo));
                     }
                     if (isTransientToolFailure(result)) circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                     else if ("SUCCEEDED".equals(result.getStatus())) circuitBreaker.recordSuccess(toolCircuitKey);
@@ -725,12 +735,9 @@ public class AutonomousAgentAppService {
         return value;
     }
 
-    private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request) {
-        return completeAgentWithRetry(model, request, null);
-    }
-
-    private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request,
-                                                          java.util.function.Consumer<String> textDeltaConsumer) {
+    private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request, String runNo,
+                                                          java.util.function.Consumer<String> textDeltaConsumer,
+                                                          java.util.function.Consumer<Integer> retryConsumer) {
         RuntimeException last = null;
         String circuitKey = "provider:" + valueOr(model == null ? null : model.getProviderCode(), "unknown");
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
@@ -738,9 +745,9 @@ public class AutonomousAgentAppService {
                 if (!circuitBreaker.allow(circuitKey)) {
                     throw new IllegalStateException("Agent provider circuit is open");
                 }
-                AgentModelTurnResponse response = textDeltaConsumer == null
+                AgentModelTurnResponse response = awaitCancellable(() -> textDeltaConsumer == null
                         ? completionGateway.completeAgent(model, request, "autonomous_agent")
-                        : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer);
+                        : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer), runNo);
                 circuitBreaker.recordSuccess(circuitKey);
                 return response;
             } catch (RuntimeException exception) {
@@ -748,10 +755,41 @@ public class AutonomousAgentAppService {
                 if (!isTransientProviderFailure(exception)) throw exception;
                 circuitBreaker.recordFailure(circuitKey, 3, 30);
                 if (attempt >= MAX_RETRY_ATTEMPTS) throw exception;
+                if (retryConsumer != null) retryConsumer.accept(attempt + 1);
                 pauseBeforeRetry(attempt + 1);
             }
         }
         throw last == null ? new IllegalStateException("Agent provider retry failed") : last;
+    }
+
+    private AgentToolResult executeToolWithCancellation(AgentToolCall call, AgentExecutionContext context, String runNo) {
+        return awaitCancellable(() -> toolExecutor.execute(call, context), runNo);
+    }
+
+    private <T> T awaitCancellable(Supplier<T> supplier, String runNo) {
+        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier);
+        try {
+            while (true) {
+                checkCancelled(runNo);
+                try {
+                    T value = future.get(200, TimeUnit.MILLISECONDS);
+                    checkCancelled(runNo);
+                    return value;
+                } catch (TimeoutException ignored) {
+                    // Poll the distributed cancellation token while the provider/tool is running.
+                }
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            future.cancel(true);
+            throw new IllegalStateException("Agent execution interrupted", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) throw runtimeException;
+            throw new IllegalStateException("Agent execution failed", cause);
+        } finally {
+            if (runtimeLease.isCancellationRequested(runNo)) future.cancel(true);
+        }
     }
 
     private boolean isTransientProviderFailure(RuntimeException exception) {

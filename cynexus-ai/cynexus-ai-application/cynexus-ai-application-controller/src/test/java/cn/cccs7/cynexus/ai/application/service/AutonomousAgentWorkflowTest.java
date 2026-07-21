@@ -18,6 +18,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
@@ -37,6 +38,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class AutonomousAgentWorkflowTest {
@@ -150,5 +155,55 @@ class AutonomousAgentWorkflowTest {
         verify(repository).saveStep(stepCaptor.capture());
         assertEquals("CLARIFICATION", stepCaptor.getValue().getKind());
         assertEquals("NEEDS_CLARIFICATION", stepCaptor.getValue().getStatus());
+    }
+
+    @Test
+    void cancellationInterruptsAnInFlightProviderWaitAndPersistsCancelledStatus() throws Exception {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        CountDownLatch providerStarted = new CountDownLatch(1);
+        CountDownLatch releaseProvider = new CountDownLatch(1);
+        when(catalog.enabledTools()).thenReturn(List.of());
+        when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
+        when(repository.findMessages(any(), any())).thenReturn(List.of());
+        when(repository.findRun(any(), any())).thenReturn(Optional.of(AgentRunBO.builder().status("RUNNING").build()));
+        when(lease.tryAcquire(any(), any(), anyInt(), anyInt())).thenReturn(true);
+        when(rateLimiter.allow(any(), anyInt(), anyInt())).thenReturn(true);
+        when(lease.isCancellationRequested(any())).thenAnswer(invocation -> cancelled.get());
+        when(lease.requestCancellation(any(), any(), anyInt())).thenAnswer(invocation -> {
+            cancelled.set(true);
+            return true;
+        });
+        when(bindings.listAll()).thenReturn(List.of(AiUsageBindingBO.builder().capability("autonomous_agent")
+                .providerId(1L).modelOverride("gpt-5.4-mini").enabled(true).build()));
+        when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
+                .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
+        when(circuitBreaker.allow(any())).thenReturn(true);
+        when(completion.completeAgent(any(), any(), eq("autonomous_agent"))).thenAnswer(invocation -> {
+            providerStarted.countDown();
+            releaseProvider.await(5, TimeUnit.SECONDS);
+            return AgentModelTurnResponse.builder().type("FINAL").content("late answer").build();
+        });
+
+        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        CompletableFuture<cn.cccs7.cynexus.ai.api.dto.AgentRunDTO> execution = CompletableFuture.supplyAsync(() ->
+                service.execute(AgentRunRequest.builder().userInput("cancel this request").build(),
+                        AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { }));
+        assertTrue(providerStarted.await(2, TimeUnit.SECONDS));
+        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.agent.AgentRunBO> runCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.agent.AgentRunBO.class);
+        verify(repository).saveRun(runCaptor.capture());
+        String runNo = runCaptor.getValue().getRunNo();
+        assertTrue(service.cancel(AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), runNo));
+        releaseProvider.countDown();
+        assertEquals("CANCELLED", execution.get(5, TimeUnit.SECONDS).getStatus());
     }
 }

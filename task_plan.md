@@ -2292,6 +2292,21 @@ Status: in_progress
 - Add a server-side Markdown/JSON export of a run using only redacted persisted data.
 - Add source navigation and export UI actions, then verify the response and download behavior through the Release Gateway.
 
+### 105.15 Cooperative cancellation and truthful retries
+
+Status: complete
+
+- Execute Provider and data-tool calls through cancellable waits that poll the distributed cancellation token.
+- Interrupt the in-flight future on cancellation and persist `CANCELLED` rather than allowing a late successful response to win.
+- Emit auditable `RETRYING` events for transient Provider and tool retries, preserving bounded retry behavior.
+- Add a blocked-provider regression test and synchronize versions.
+
+### 105.15 Verification Results
+
+- Provider and tool execution now use cooperative cancellation polling with interrupt propagation; terminal status is checked after a late future completion.
+- Provider/tool retry events are persisted in the durable Agent event log.
+- Focused Agent workflow tests passed: 19 tests, 0 failures, including in-flight Provider cancellation.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |

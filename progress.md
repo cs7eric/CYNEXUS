@@ -1661,3 +1661,10 @@
 - Added owner-scoped run export in Markdown/JSON formats using the redacted persisted run contract.
 - Agent history now loads and renders the persisted conversation transcript when reopened, and the workspace exposes source navigation and export.
 - Maven/UI versions are synchronized to `1.1.133-SNAPSHOT`; focused tests and UI build passed before the final version bump.
+
+## 2026-07-22 - Agent cooperative cancellation and retry events
+
+- Provider and data-tool waits now poll the distributed cancellation token and interrupt the in-flight future when cancellation is requested.
+- A late Provider completion cannot overwrite cancellation; the run persists `CANCELLED` and emits the terminal event.
+- Transient Provider/tool retry attempts emit persisted `RETRYING` events with attempt context.
+- Added an in-flight Provider cancellation regression test; focused Agent tests passed 19/19.
