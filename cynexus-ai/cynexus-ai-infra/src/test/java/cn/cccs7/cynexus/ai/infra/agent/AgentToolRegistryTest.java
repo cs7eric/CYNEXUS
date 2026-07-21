@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
 
 class AgentToolRegistryTest {
 
@@ -38,6 +41,23 @@ class AgentToolRegistryTest {
         AgentToolResult result = registry.execute(AgentToolCall.builder().toolCode("market.write").build(), null);
         assertThat(result.getStatus()).isEqualTo("FAILED");
         assertThat(result.getWarnings()).contains("TOOL_REQUIRES_CONFIRMATION");
+    }
+
+    @Test
+    void validatesRequiredAndUnknownArgumentsBeforeExecution() {
+        AgentToolHandler handler = handler("market.required", true, false);
+        org.mockito.Mockito.when(handler.definition()).thenReturn(AgentToolDefinition.builder()
+                .code("market.required").name("required").module("market").description("required")
+                .inputSchemaJson("{\"type\":\"object\",\"required\":[\"symbol\"],\"properties\":{\"symbol\":{\"type\":\"string\"}}}")
+                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).build());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler));
+
+        AgentToolResult result = registry.execute(AgentToolCall.builder().toolCode("market.required")
+                .arguments(java.util.Map.of("other", "value")).build(), null);
+
+        assertThat(result.getStatus()).isEqualTo("FAILED");
+        assertThat(result.getWarnings()).contains("ARGUMENT_REQUIRED:symbol");
+        verify(handler, never()).execute(any(), any());
     }
 
     private AgentToolHandler handler(String code, boolean readOnly, boolean requiresConfirmation) {

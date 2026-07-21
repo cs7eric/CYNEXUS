@@ -7,6 +7,8 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor;
 import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolHandler;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Component;
 public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
 
     private final Map<String, AgentToolHandler> handlers;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AgentToolRegistry(List<AgentToolHandler> handlers) {
         Map<String, AgentToolHandler> registered = new LinkedHashMap<>();
@@ -60,9 +63,53 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
             return AgentToolResult.failure(call.getToolCode(), "The requested tool is not enabled for autonomous read-only execution.", "cynexus-ai", "TOOL_REQUIRES_CONFIRMATION");
         }
         try {
+            String validationError = validateArguments(handler.definition(), call.getArguments());
+            if (validationError != null) {
+                return AgentToolResult.failure(call.getToolCode(), "The tool arguments are invalid.", handler.definition().getSource(), validationError);
+            }
             return handler.execute(call, context);
         } catch (RuntimeException exception) {
             return AgentToolResult.failure(call.getToolCode(), "The tool failed before returning data.", handler.definition().getSource(), exception.getMessage());
+        }
+    }
+
+    private String validateArguments(AgentToolDefinition definition, Map<String, Object> arguments) {
+        try {
+            JsonNode schema = objectMapper.readTree(definition.getInputSchemaJson());
+            Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+            JsonNode required = schema.get("required");
+            if (required != null && required.isArray()) {
+                for (JsonNode item : required) {
+                    String key = item.asText();
+                    if (!safeArguments.containsKey(key) || safeArguments.get(key) == null
+                            || String.valueOf(safeArguments.get(key)).isBlank()) return "ARGUMENT_REQUIRED:" + key;
+                }
+            }
+            JsonNode properties = schema.get("properties");
+            if (properties == null || !properties.isObject()) return null;
+            for (Map.Entry<String, Object> entry : safeArguments.entrySet()) {
+                JsonNode property = properties.get(entry.getKey());
+                if (property == null) return "ARGUMENT_UNKNOWN:" + entry.getKey();
+                String type = property.path("type").asText("");
+                if ("integer".equals(type)) {
+                    long value;
+                    try { value = Long.parseLong(String.valueOf(entry.getValue())); }
+                    catch (NumberFormatException exception) { return "ARGUMENT_TYPE:" + entry.getKey(); }
+                    if (property.has("minimum") && value < property.get("minimum").asLong()) return "ARGUMENT_MINIMUM:" + entry.getKey();
+                    if (property.has("maximum") && value > property.get("maximum").asLong()) return "ARGUMENT_MAXIMUM:" + entry.getKey();
+                } else if ("string".equals(type) && !(entry.getValue() instanceof String)) {
+                    return "ARGUMENT_TYPE:" + entry.getKey();
+                }
+                JsonNode enumValues = property.get("enum");
+                if (enumValues != null && enumValues.isArray()) {
+                    boolean allowed = false;
+                    for (JsonNode enumValue : enumValues) allowed |= enumValue.asText().equals(String.valueOf(entry.getValue()));
+                    if (!allowed) return "ARGUMENT_ENUM:" + entry.getKey();
+                }
+            }
+            return null;
+        } catch (Exception exception) {
+            return "ARGUMENT_SCHEMA_INVALID";
         }
     }
 }

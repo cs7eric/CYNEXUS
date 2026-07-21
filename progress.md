@@ -1502,6 +1502,16 @@
 - Full token-level provider streaming remains intentionally out of scope for the current Responses/Chat adapter; the API exposes truthful workflow events rather than pretending a completed response is token-streamed.
 - Synchronized Maven/UI versions to `1.1.119-SNAPSHOT`.
 
+## 2026-07-22 - Agent capability packs and argument policy
+
+- Added read-only Finance overview/transactions tools through a new Core Finance Feign contract.
+- Added read-only Knowledge Base document retrieval through the existing Knowledge Base Feign contract.
+- Added a typed `market.clickhouse_daily_bars` tool using an allow-listed `daily_raw` query with market/symbol/date/limit bounds; arbitrary SQL is not exposed.
+- Extended `AgentToolRegistry` with schema-driven required/type/range/enum validation before handler execution.
+- Added focused tests for capability handlers and invalid arguments. Initial Java-time serialization test failed with a bare mapper, was corrected with `JavaTimeModule`, and the final focused suite passed 7 tests.
+- Updated the architecture document and capability-pack plan evidence.
+- Synchronized Maven/UI versions to `1.1.120-SNAPSHOT`.
+
 ## 2026-07-22 - Strict JSON Agent fallback
 
 - Added a strict `{"type":"tool_calls","calls":[...]}` fallback for providers that return structured JSON instead of native function calls.

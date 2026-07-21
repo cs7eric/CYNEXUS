@@ -2096,11 +2096,18 @@ Status: in_progress
 
 ## Phase 102 - Capability packs and dynamic catalog
 
-Status: pending
+Status: complete
 
 - Add read-only Finance overview/transactions, Knowledge Base document retrieval, and typed ClickHouse market detail tools through service/infra ports.
 - Keep tool schemas, source/freshness, capability routing metadata, and UI catalog synchronized from a single backend contract.
 - Reject unsupported data access instead of fabricating a tool result.
+
+### Phase 102 Verification Results
+
+- Added read-only `finance.overview`, `finance.transactions`, `knowledge.document`, and typed `market.clickhouse_daily_bars` handlers under `cynexus-ai-infra`.
+- Added Core Finance Feign API contract and reused the existing Knowledge Base Feign contract; ClickHouse uses an allow-listed query template with bounded inputs.
+- Registry catalog is assembled from Spring handlers and API/UI expose the runtime snapshot; unsupported tools and invalid schemas are rejected before handler execution.
+- Seven focused Agent/adapter/tool tests passed; AI starter reactor compile passed.
 
 ## Phase 103 - Production policy, evidence, and evaluation
 

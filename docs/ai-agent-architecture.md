@@ -148,6 +148,17 @@ The registry metadata will also link each capability to the existing provider/da
 
 Subsequent tool packs will add read-only finance, knowledge-base, application-analysis, and market-information tools through service APIs. They must be added through the same registry contract, not by growing a central conditional method.
 
+The first extension now follows that contract:
+
+| Capability | Inputs | Output | Source |
+| --- | --- | --- | --- |
+| `finance.overview` | `start?`, `end?` | income, expense, net assets, accounts, category and daily summary | Core Finance API |
+| `finance.transactions` | `start?`, `end?`, bounded `limit?` | ledger transaction rows | Core Finance API |
+| `knowledge.document` | `documentId` | approved stored document and metadata | Knowledge Base API |
+| `market.clickhouse_daily_bars` | `market?`, `symbol`, `start?`, `end?`, bounded `limit?` | historical OHLCV bars | ClickHouse `daily_raw` |
+
+ClickHouse access is a typed, allow-listed query template. The Agent does not receive arbitrary SQL or a database credential, and unavailable downstream services produce an explicit failed tool step.
+
 ## 6. Agent Loop
 
 ```text
@@ -241,4 +252,3 @@ Each phase records changed files, test commands, known limitations and the commi
 5. A provider failure leaves a failed step with a useful warning and does not claim the data was read.
 6. A run can be reopened from the UI with the same plan, tool steps and final answer.
 7. A model-generated unknown tool or invalid argument is rejected and recorded without executing arbitrary code.
-
