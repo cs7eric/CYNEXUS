@@ -13,5 +13,6 @@ public class AgentStreamEventDTO {
     private String toolCode;
     private String summary;
     private String answer;
+    private String delta;
     private String errorMessage;
 }

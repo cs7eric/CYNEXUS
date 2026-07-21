@@ -12,6 +12,7 @@ import cn.cccs7.cynexus.ai.infra.ai.factory.DynamicChatClientFactory;
 import cn.cccs7.cynexus.ai.infra.observability.LangfuseGenerationReporter;
 import java.time.Instant;
 import org.springframework.stereotype.Component;
+import java.util.function.Consumer;
 
 @Component
 public class AiCompletionGatewayImpl implements AiCompletionGateway {
@@ -77,5 +78,15 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
             reporter.report(model, capability, request == null ? "" : request.getSystemPrompt(), null, startedAt, exception);
             throw exception;
         }
+    }
+
+    @Override
+    public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request, String capability,
+                                              Consumer<String> textDeltaConsumer) {
+        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()
+                ? "mock" : model.getProviderCode();
+        AiModelAdapter adapter = factory.resolve(providerCode);
+        if (adapter == null) throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
+        return adapter.streamAgent(model, request, textDeltaConsumer);
     }
 }

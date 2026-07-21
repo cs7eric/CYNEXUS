@@ -362,3 +362,4 @@
 - A Redis active-run counter must only be decremented when the corresponding lease key still exists; unconditional release could undercount concurrent runs after TTL expiry.
 - Circuit state is shared by provider/tool dependency key. Failures open the circuit after three transient upstream failures, one probe is admitted after the open window, and success resets the state.
 - Stale recovery must check the Redis lease before marking a database `RUNNING` row failed; otherwise a slow but healthy run could be incorrectly terminated.
+- Provider streaming must preserve tool-call fragments until the final JSON arguments are complete. Text deltas are emitted immediately, while the normal Agent loop still waits for the complete turn before executing tools.

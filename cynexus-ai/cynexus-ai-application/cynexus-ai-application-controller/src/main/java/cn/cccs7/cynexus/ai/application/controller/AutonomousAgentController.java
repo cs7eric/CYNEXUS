@@ -47,7 +47,7 @@ public class AutonomousAgentController {
         SseEmitter emitter = new SseEmitter(10 * 60 * 1000L);
         CompletableFuture.runAsync(() -> {
             try {
-                agentAppService.execute(request, agentIdentity, event -> send(emitter, event));
+                agentAppService.stream(request, agentIdentity, event -> send(emitter, event));
                 emitter.complete();
             } catch (RuntimeException exception) {
                 emitter.completeWithError(exception);
@@ -86,6 +86,7 @@ public class AutonomousAgentController {
             emitter.send(SseEmitter.event().name(event.getType()).data(AgentStreamEventDTO.builder()
                     .type(event.getType()).runNo(event.getRunNo()).status(event.getStatus()).stepNo(event.getStepNo())
                     .toolCode(event.getToolCode()).summary(event.getSummary()).answer(event.getAnswer())
+                    .delta(event.getDelta())
                     .errorMessage(event.getErrorMessage()).build()));
         } catch (Exception exception) {
             throw new IllegalStateException("Agent stream disconnected", exception);

@@ -90,14 +90,23 @@ public class AutonomousAgentAppService {
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
-        return execute(request, AgentIdentity.singleUser(), ignored -> { });
+        return executeInternal(request, AgentIdentity.singleUser(), ignored -> { }, false);
     }
 
     public AgentRunDTO execute(AgentRunRequest request, Consumer<AgentRunEventBO> eventConsumer) {
-        return execute(request, AgentIdentity.singleUser(), eventConsumer);
+        return executeInternal(request, AgentIdentity.singleUser(), eventConsumer, false);
     }
 
     public AgentRunDTO execute(AgentRunRequest request, AgentIdentity identity, Consumer<AgentRunEventBO> eventConsumer) {
+        return executeInternal(request, identity, eventConsumer, false);
+    }
+
+    public AgentRunDTO stream(AgentRunRequest request, AgentIdentity identity, Consumer<AgentRunEventBO> eventConsumer) {
+        return executeInternal(request, identity, eventConsumer, true);
+    }
+
+    private AgentRunDTO executeInternal(AgentRunRequest request, AgentIdentity identity,
+                                        Consumer<AgentRunEventBO> eventConsumer, boolean streamTokens) {
         AgentRunRequest safeRequest = request == null ? new AgentRunRequest() : request;
         AgentIdentity safeIdentity = identity == null ? AgentIdentity.singleUser() : identity;
         String ownerKey = safeIdentity.storageOwnerKey();
@@ -170,7 +179,9 @@ public class AutonomousAgentAppService {
                 run.setTurnCount(turn);
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
                         .systemPrompt(systemPrompt()).messages(List.copyOf(messages)).tools(definitions).build();
-                AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest);
+                AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest,
+                        streamTokens ? delta -> emit(eventConsumer, AgentRunEventBO.builder().type("TOKEN_DELTA")
+                                .runNo(runNo).status("STREAMING").delta(delta).build()) : null);
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
                 if (!response.hasToolCalls()) {
                     List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
@@ -479,6 +490,11 @@ public class AutonomousAgentAppService {
     }
 
     private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request) {
+        return completeAgentWithRetry(model, request, null);
+    }
+
+    private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request,
+                                                          java.util.function.Consumer<String> textDeltaConsumer) {
         RuntimeException last = null;
         String circuitKey = "provider:" + valueOr(model == null ? null : model.getProviderCode(), "unknown");
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
@@ -486,7 +502,9 @@ public class AutonomousAgentAppService {
                 if (!circuitBreaker.allow(circuitKey)) {
                     throw new IllegalStateException("Agent provider circuit is open");
                 }
-                AgentModelTurnResponse response = completionGateway.completeAgent(model, request, "autonomous_agent");
+                AgentModelTurnResponse response = textDeltaConsumer == null
+                        ? completionGateway.completeAgent(model, request, "autonomous_agent")
+                        : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer);
                 circuitBreaker.recordSuccess(circuitKey);
                 return response;
             } catch (RuntimeException exception) {

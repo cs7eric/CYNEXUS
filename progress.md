@@ -1572,3 +1572,10 @@
 - Hardened lease release so an expired/already-released lease cannot decrement the active-run counter below its true value.
 - Added migration `20260722_add_ai_agent_failure_categories.sql` and synchronized Maven/UI versions remain at `1.1.124-SNAPSHOT`.
 - Focused Agent workflow test and full Maven package/UI build passed; live migration and Release verification remain pending.
+
+## 2026-07-22 - Provider token streaming
+
+- Added a provider-neutral streaming port with a truthful complete-response fallback for adapters without streaming support.
+- Added OpenAI-compatible Chat Completions SSE parsing for text and tool-call deltas, plus Responses API text/function-call delta parsing.
+- Added `TOKEN_DELTA` Agent SSE events and incremental UI answer rendering while the persisted run remains the source of truth after completion.
+- Added adapter contract coverage for streamed text and tool deltas; 3 focused adapter tests passed.

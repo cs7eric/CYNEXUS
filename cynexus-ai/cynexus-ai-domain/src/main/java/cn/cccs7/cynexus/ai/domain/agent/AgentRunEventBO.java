@@ -13,5 +13,6 @@ public class AgentRunEventBO {
     String toolCode;
     String summary;
     String answer;
+    String delta;
     String errorMessage;
 }

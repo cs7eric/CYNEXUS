@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.ArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.env.Environment;
@@ -65,6 +66,31 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getInputTokens()).isEqualTo(10);
         assertThat(response.getOutputTokens()).isEqualTo(6);
         assertThat(response.getTotalTokens()).isEqualTo(16);
+    }
+
+    @Test
+    void parsesChatStreamingTextAndToolDeltas() throws Exception {
+        server = server(new AtomicReference<>(), """
+                data: {"choices":[{"delta":{"content":"实时"}}]}
+
+                data: {"choices":[{"delta":{"content":"答案"}}]}
+
+                data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"stream-call","function":{"name":"market.overview","arguments":"{}"}}]}}]}
+
+                data: [DONE]
+
+                """);
+        List<String> deltas = new ArrayList<>();
+
+        AgentModelTurnResponse response = adapter().streamAgent(model(""), request(List.of(toolDefinition())), deltas::add);
+
+        assertThat(deltas).containsExactly("实时", "答案");
+        assertThat(response.getContent()).isEqualTo("实时答案");
+        assertThat(response.getToolCalls()).singleElement().satisfies(call -> {
+            assertThat(call.getCallId()).isEqualTo("stream-call");
+            assertThat(call.getToolCode()).isEqualTo("market.overview");
+            assertThat(call.getArguments()).isEmpty();
+        });
     }
 
     private HttpServer server(AtomicReference<String> requestBody, String responseBody) throws Exception {

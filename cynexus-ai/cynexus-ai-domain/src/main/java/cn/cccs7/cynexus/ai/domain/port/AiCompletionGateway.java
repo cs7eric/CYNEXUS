@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
 import java.util.List;
+import java.util.function.Consumer;
 
 public interface AiCompletionGateway {
 
@@ -14,4 +15,9 @@ public interface AiCompletionGateway {
     AiCompletionResultBO completeVision(AiModelBO model, String prompt, List<AiImageInputBO> images, String capability);
 
     AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request, String capability);
+
+    default AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
+                                               String capability, Consumer<String> textDeltaConsumer) {
+        return completeAgent(model, request, capability);
+    }
 }

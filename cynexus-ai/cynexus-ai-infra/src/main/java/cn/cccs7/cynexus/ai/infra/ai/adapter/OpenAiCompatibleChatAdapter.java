@@ -22,6 +22,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.springframework.core.env.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,6 +123,34 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     @Override
+    public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
+                                              Consumer<String> textDeltaConsumer) {
+        String apiKey = resolveApiKey(model);
+        if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
+        boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
+        try {
+            String payload = responsesApi ? buildAgentResponsesPayload(model, request, true)
+                    : buildAgentChatPayload(model, request, true);
+            HttpRequest httpRequest = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
+                    .timeout(resolveRequestTimeout(model)).header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(payload)).build();
+            HttpResponse<Stream<String>> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofLines());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                try (Stream<String> lines = response.body()) {
+                    throw providerHttpFailure(response.statusCode(), lines.reduce("", (left, right) -> left + right));
+                }
+            }
+            return responsesApi ? readResponsesStream(response.body(), request, textDeltaConsumer)
+                    : readChatStream(response.body(), request, textDeltaConsumer);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
+        }
+    }
+
+    @Override
     public AiCompletionResultBO completeVision(AiModelBO model, String prompt, List<AiImageInputBO> images) {
         String apiKey = resolveApiKey(model);
         if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
@@ -195,22 +225,150 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request) throws IOException {
+        return buildAgentChatPayload(model, request, false);
+    }
+
+    private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request, boolean stream) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("temperature", 0);
         payload.put("messages", buildChatMessages(request));
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools()));
         payload.put("tool_choice", "auto");
+        if (stream) payload.put("stream", true);
         return objectMapper.writeValueAsString(payload);
     }
 
     private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request) throws IOException {
+        return buildAgentResponsesPayload(model, request, false);
+    }
+
+    private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request, boolean stream) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("input", buildResponsesInput(request));
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools()));
         payload.put("store", !extraBoolean(model, "disable_response_storage", true));
+        if (stream) payload.put("stream", true);
         return objectMapper.writeValueAsString(payload);
+    }
+
+    private AgentModelTurnResponse readChatStream(Stream<String> lines, AgentModelTurnRequest request,
+                                                   Consumer<String> textDeltaConsumer) {
+        StringBuilder content = new StringBuilder();
+        StringBuilder raw = new StringBuilder();
+        Map<String, StreamToolAccumulator> tools = new LinkedHashMap<>();
+        try (lines) {
+            var iterator = lines.iterator();
+            while (iterator.hasNext()) {
+                String line = iterator.next();
+                if (line == null || !line.startsWith("data:")) continue;
+                String data = line.substring(5).trim();
+                if (data.isBlank() || "[DONE]".equals(data)) continue;
+                raw.append(data).append('\n');
+                try {
+                    JsonNode delta = objectMapper.readTree(data).at("/choices/0/delta");
+                    String text = textValue(delta.get("content"), "");
+                    if (!text.isBlank()) {
+                        content.append(text);
+                        if (textDeltaConsumer != null) textDeltaConsumer.accept(text);
+                    }
+                    JsonNode toolCalls = delta.get("tool_calls");
+                    if (toolCalls != null && toolCalls.isArray()) {
+                        for (JsonNode item : toolCalls) {
+                            String key = textValue(item.get("index"), String.valueOf(tools.size()));
+                            StreamToolAccumulator accumulator = tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator());
+                            accumulator.id = nonBlank(textValue(item.get("id"), ""), accumulator.id);
+                            JsonNode function = item.get("function");
+                            if (function != null) {
+                                accumulator.name = nonBlank(textValue(function.get("name"), ""), accumulator.name);
+                                accumulator.arguments.append(textValue(function.get("arguments"), ""));
+                            }
+                        }
+                    }
+                } catch (IOException ignored) {
+                    throw new IllegalStateException("AI provider emitted invalid streaming JSON");
+                }
+            }
+        }
+        return streamResponse(content.toString(), tools, raw.toString(), request);
+    }
+
+    private AgentModelTurnResponse readResponsesStream(Stream<String> lines, AgentModelTurnRequest request,
+                                                        Consumer<String> textDeltaConsumer) {
+        StringBuilder content = new StringBuilder();
+        StringBuilder raw = new StringBuilder();
+        Map<String, StreamToolAccumulator> tools = new LinkedHashMap<>();
+        try (lines) {
+            var iterator = lines.iterator();
+            while (iterator.hasNext()) {
+                String line = iterator.next();
+                if (line == null || !line.startsWith("data:")) continue;
+                String data = line.substring(5).trim();
+                if (data.isBlank() || "[DONE]".equals(data)) continue;
+                raw.append(data).append('\n');
+                try {
+                    JsonNode root = objectMapper.readTree(data);
+                    String type = textValue(root.get("type"), "");
+                    if ("response.output_text.delta".equals(type)) {
+                        String text = textValue(root.get("delta"), "");
+                        content.append(text);
+                        if (!text.isBlank() && textDeltaConsumer != null) textDeltaConsumer.accept(text);
+                    } else if ("response.output_item.added".equals(type)) {
+                        JsonNode item = root.get("item");
+                        if (item != null && "function_call".equals(textValue(item.get("type"), ""))) {
+                            String key = nonBlank(textValue(item.get("call_id"), ""), textValue(item.get("id"), String.valueOf(tools.size())));
+                            StreamToolAccumulator accumulator = tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator());
+                            accumulator.id = key;
+                            accumulator.name = textValue(item.get("name"), "");
+                            accumulator.arguments.append(textValue(item.get("arguments"), ""));
+                        }
+                    } else if ("response.function_call_arguments.delta".equals(type)) {
+                        String key = nonBlank(textValue(root.get("call_id"), ""), textValue(root.get("item_id"), String.valueOf(tools.size())));
+                        tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator()).arguments
+                                .append(textValue(root.get("delta"), ""));
+                    } else if ("response.function_call_arguments.done".equals(type)) {
+                        String key = nonBlank(textValue(root.get("call_id"), ""), textValue(root.get("item_id"), String.valueOf(tools.size())));
+                        StreamToolAccumulator accumulator = tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator());
+                        if (accumulator.arguments.isEmpty()) accumulator.arguments.append(textValue(root.get("arguments"), ""));
+                    }
+                } catch (IOException ignored) {
+                    throw new IllegalStateException("AI provider emitted invalid streaming JSON");
+                }
+            }
+        }
+        return streamResponse(content.toString(), tools, raw.toString(), request);
+    }
+
+    private AgentModelTurnResponse streamResponse(String content, Map<String, StreamToolAccumulator> tools,
+                                                  String raw, AgentModelTurnRequest request) {
+        List<AgentModelToolCall> calls = new ArrayList<>();
+        for (StreamToolAccumulator accumulator : tools.values()) {
+            if (accumulator.name == null || accumulator.name.isBlank()) continue;
+            try {
+                JsonNode arguments = accumulator.arguments.isEmpty() ? objectMapper.createObjectNode()
+                        : objectMapper.readTree(accumulator.arguments.toString());
+                if (!arguments.isObject()) throw new IllegalStateException("AI tool arguments must be a JSON object");
+                calls.add(AgentModelToolCall.builder().callId(nonBlank(accumulator.id, "stream-call-" + calls.size()))
+                        .toolCode(accumulator.name).arguments(objectMapper.convertValue(arguments, Map.class)).build());
+            } catch (IOException exception) {
+                throw new IllegalStateException("AI provider emitted invalid tool arguments", exception);
+            }
+        }
+        return AgentModelTurnResponse.builder().type(calls.isEmpty() ? "FINAL" : "TOOL_CALLS")
+                .content(content).toolCalls(calls).inputTokens(estimateTokens(requestPrompt(request)))
+                .outputTokens(estimateTokens(content)).totalTokens(estimateTokens(requestPrompt(request)) + estimateTokens(content))
+                .rawResponse(raw).build();
+    }
+
+    private String nonBlank(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private static final class StreamToolAccumulator {
+        private String id;
+        private String name;
+        private final StringBuilder arguments = new StringBuilder();
     }
 
     private List<Map<String, Object>> buildChatMessages(AgentModelTurnRequest request) {

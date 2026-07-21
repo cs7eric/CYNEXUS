@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
 import java.util.List;
+import java.util.function.Consumer;
 
 public interface AiModelAdapter {
 
@@ -32,5 +33,10 @@ public interface AiModelAdapter {
                 .totalTokens(completion.getTotalTokens())
                 .rawResponse(completion.getRawResponse())
                 .build();
+    }
+
+    default AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
+                                               Consumer<String> textDeltaConsumer) {
+        return completeAgent(model, request);
     }
 }

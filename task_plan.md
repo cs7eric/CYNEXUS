@@ -2192,6 +2192,8 @@ Current implementation: an executable Mock Agent workflow test now verifies mode
 - Persist resumable stream checkpoints and reconnect behavior; keep event ordering and cancellation correct.
 - Verify providers without streaming support continue to use truthful workflow events rather than fabricated token output.
 
+Current implementation: the OpenAI-compatible adapter now sends `stream: true`, parses Chat Completions text/tool deltas and Responses API text/function-call deltas, and the Agent SSE exposes `TOKEN_DELTA`; adapters without streaming support retain the truthful non-token fallback. Release verification and reconnect/checkpoint tests remain pending.
+
 ### 105.8 Capability Expansion
 
 - Add application-analysis, market-information, deeper finance, and knowledge-base citation capabilities through the same registry and service-layer ports.

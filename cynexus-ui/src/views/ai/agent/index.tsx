@@ -72,6 +72,9 @@ export default function AutonomousAgentPage() {
       abortController.current = controller
       const nextRun = await runAgentStream({ conversationNo: run?.conversationNo ?? undefined, userInput, workspace: "agent", locale: "zh-CN" }, (event) => {
         if (event.runNo) setActiveRunNo(event.runNo)
+        if (event.type === "TOKEN_DELTA" && event.delta) {
+          setRun((current) => ({ ...(current ?? {}), runNo: event.runNo, conversationNo: run?.conversationNo, userInput, status: "RUNNING", answer: `${current?.answer ?? ""}${event.delta}` }))
+        }
       }, controller.signal)
       setRun(nextRun)
       setConversations(await fetchAgentConversations())

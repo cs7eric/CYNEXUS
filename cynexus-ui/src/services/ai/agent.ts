@@ -21,6 +21,7 @@ export interface AgentRun {
   status?: string | null
   userInput?: string | null
   answer?: string | null
+  delta?: string | null
   modelCode?: string | null
   planJson?: string | null
   evidenceJson?: string | null
