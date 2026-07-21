@@ -1463,3 +1463,9 @@
 - Rebuilt the versioned AI image `cynexus-ai:1.1.112-260722-RELEASE` and recreated the Release AI container.
 - Verified AI startup, actuator health, Agent tool catalog response, and all three Agent persistence tables in `cynexus_appl_ai`.
 - The full Release UI image was not rebuilt because the existing repository-wide TypeScript build still has unrelated Market/POC errors.
+
+## 2026-07-22 - Responses API tool transcript compatibility
+
+- Preserved assistant function-call items when building Responses API follow-up turns, so tool outputs can be submitted with their original call IDs.
+- Synchronized Maven and UI versions to `1.1.113-SNAPSHOT`.
+- Targeted AI compile passed.

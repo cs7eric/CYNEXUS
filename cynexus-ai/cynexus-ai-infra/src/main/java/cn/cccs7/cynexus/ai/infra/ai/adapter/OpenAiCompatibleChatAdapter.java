@@ -241,12 +241,26 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 if ("tool".equals(message.getRole())) {
                     input.add(Map.of("type", "function_call_output", "call_id", message.getToolCallId(),
                             "output", message.getContent() == null ? "" : message.getContent()));
+                } else if ("assistant".equals(message.getRole()) && message.getToolCalls() != null
+                        && !message.getToolCalls().isEmpty()) {
+                    for (AgentModelToolCall call : message.getToolCalls()) {
+                        input.add(toResponsesFunctionCall(call));
+                    }
                 } else {
                     input.add(Map.of("role", message.getRole(), "content", message.getContent() == null ? "" : message.getContent()));
                 }
             }
         }
         return input;
+    }
+
+    private Map<String, Object> toResponsesFunctionCall(AgentModelToolCall call) {
+        try {
+            return Map.of("type", "function_call", "call_id", call.getCallId(), "name", call.getToolCode(),
+                    "arguments", objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments()));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to serialize Agent tool arguments", exception);
+        }
     }
 
     private List<Map<String, Object>> buildToolDefinitions(List<AgentToolDefinition> definitions) throws IOException {
