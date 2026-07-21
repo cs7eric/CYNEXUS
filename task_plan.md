@@ -2066,3 +2066,8 @@ Status: in_progress
 - Prefer native OpenAI-compatible tool calls, with a strict JSON action fallback for providers without native function calling.
 - First end-to-end tool pack is the existing MarketDataGateway capability set; future finance/knowledge-base packs use the same registry contract.
 - First release is read-only. Write capabilities require a separate confirmation policy and UI before they can be exposed.
+- Completed domain/tool contracts and six Market tool handlers in commit `4a5cb88`.
+- Completed provider protocol, bounded loop, persistence/API, and UI workflow in commit `1f5e589`.
+- Fixed runtime ObjectMapper wiring and verified the versioned AI container in commit `1cbd469`.
+- Preserved Responses API assistant function-call items in commit `6b446c8`.
+- Remaining Phase 99 work: strict JSON action fallback tests, full Agent model-provider integration test, conversation history UI, and a clean full UI production build.
