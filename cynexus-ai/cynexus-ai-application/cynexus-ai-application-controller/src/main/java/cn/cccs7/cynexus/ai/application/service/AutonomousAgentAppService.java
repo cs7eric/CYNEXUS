@@ -12,6 +12,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.agent.AgentMessageBO;
+import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
@@ -34,6 +35,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -50,6 +54,7 @@ public class AutonomousAgentAppService {
     private final AiProviderRepository providerRepository;
     private final AiUsageBindingRepository usageBindingRepository;
     private final ObjectMapper objectMapper;
+    private final ConcurrentHashMap<String, AtomicBoolean> cancellations = new ConcurrentHashMap<>();
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
@@ -68,6 +73,10 @@ public class AutonomousAgentAppService {
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
+        return execute(request, ignored -> { });
+    }
+
+    public AgentRunDTO execute(AgentRunRequest request, Consumer<AgentRunEventBO> eventConsumer) {
         AgentRunRequest safeRequest = request == null ? new AgentRunRequest() : request;
         String ownerKey = valueOr(safeRequest.getOwnerKey(), "anonymous");
         String conversationNo = valueOr(safeRequest.getConversationNo(), "AGC-" + shortId());
@@ -82,6 +91,8 @@ public class AutonomousAgentAppService {
                 .userInput(userInput).turnCount(0).toolCallCount(0).startedAt(startedAt).build();
         if (conversation.getId() == null) agentRunRepository.saveConversation(conversation);
         agentRunRepository.saveRun(run);
+        cancellations.put(runNo, new AtomicBoolean(false));
+        emit(eventConsumer, AgentRunEventBO.builder().type("RUN_STARTED").runNo(runNo).status("RUNNING").build());
 
         List<AgentRunStepBO> steps = new ArrayList<>();
         try {
@@ -100,6 +111,7 @@ public class AutonomousAgentAppService {
 
             String answer = null;
             for (int turn = 1; turn <= MAX_TURNS; turn++) {
+                checkCancelled(runNo);
                 run.setTurnCount(turn);
                 AgentModelTurnResponse response = completionGateway.completeAgent(model,
                         AgentModelTurnRequest.builder()
@@ -121,7 +133,10 @@ public class AutonomousAgentAppService {
                     AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer).build();
                     messages.add(finalMessage);
                     saveMessage(conversationNo, runNo, messages.size(), finalMessage);
-                    steps.add(saveAnswerStep(runNo, steps.size() + 1, answer));
+                    AgentRunStepBO answerStep = saveAnswerStep(runNo, steps.size() + 1, answer);
+                    steps.add(answerStep);
+                    emit(eventConsumer, AgentRunEventBO.builder().type("ANSWER").runNo(runNo).status("SUCCEEDED")
+                            .stepNo(answerStep.getStepNo()).answer(answer).build());
                     break;
                 }
                 if (response.getToolCalls().size() > MAX_PARALLEL_READ_CALLS) {
@@ -132,6 +147,7 @@ public class AutonomousAgentAppService {
                 messages.add(assistantMessage);
                 saveMessage(conversationNo, runNo, messages.size(), assistantMessage);
                 for (var modelCall : response.getToolCalls()) {
+                    checkCancelled(runNo);
                     if (intValue(run, "toolCallCount") > MAX_TOOL_CALLS) {
                         throw new IllegalStateException("The Agent exceeded the tool call limit");
                     }
@@ -140,6 +156,8 @@ public class AutonomousAgentAppService {
                     AgentToolResult result = toolExecutor.execute(call, context);
                     AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result);
                     steps.add(step);
+                    emit(eventConsumer, AgentRunEventBO.builder().type("TOOL_STEP").runNo(runNo).status(result.getStatus())
+                            .stepNo(step.getStepNo()).toolCode(step.getToolCode()).summary(step.getSummary()).build());
                     AgentModelMessage toolMessage = AgentModelMessage.builder().role("tool").toolCallId(call.getCallId())
                             .toolName(call.getToolCode()).content(result.getOutputJson()).build();
                     messages.add(toolMessage);
@@ -156,13 +174,34 @@ public class AutonomousAgentAppService {
             conversation.setLastMessage(answer);
             conversation.setUpdatedAt(OffsetDateTime.now());
             agentRunRepository.updateConversation(conversation);
+            emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
+                    .answer(answer).build());
         } catch (RuntimeException exception) {
-            run.setStatus("FAILED");
+            run.setStatus(cancellations.getOrDefault(runNo, new AtomicBoolean(false)).get() ? "CANCELLED" : "FAILED");
             run.setErrorMessage(exception.getMessage());
             run.setFinishedAt(OffsetDateTime.now());
             agentRunRepository.updateRun(run);
+            emit(eventConsumer, AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
+                    .errorMessage(exception.getMessage()).build());
+        } finally {
+            cancellations.remove(runNo);
         }
         return toDTO(run, steps);
+    }
+
+    public boolean cancel(String ownerKey, String runNo) {
+        if (agentRunRepository.findRun(valueOr(ownerKey, "anonymous"), runNo).isEmpty()) return false;
+        AtomicBoolean token = cancellations.get(runNo);
+        return token != null && token.compareAndSet(false, true);
+    }
+
+    private void checkCancelled(String runNo) {
+        AtomicBoolean token = cancellations.get(runNo);
+        if (token != null && token.get()) throw new IllegalStateException("Agent run cancelled by user");
+    }
+
+    private void emit(Consumer<AgentRunEventBO> consumer, AgentRunEventBO event) {
+        if (consumer != null) consumer.accept(event);
     }
 
     public AgentRunDTO getRun(String ownerKey, String runNo) {

@@ -1493,6 +1493,15 @@
 - Applied the message migration locally. Maven AI application compile passed.
 - Synchronized Maven/UI versions to `1.1.118-SNAPSHOT`.
 
+## 2026-07-22 - Agent stream, stop, and live status events
+
+- Added a real SSE workflow at `POST /api/ai/agent/runs/stream`; events are emitted at run start, tool completion, answer, and terminal status boundaries.
+- Added cancellation tokens and `POST /api/ai/agent/runs/{runNo}/cancel`; cancellation persists `CANCELLED` instead of being mislabeled as a provider failure.
+- The Agent UI now consumes the stream, shows a stop action, and reloads the persisted final run after stream completion.
+- Targeted AI compile and targeted Agent UI ESLint passed.
+- Full token-level provider streaming remains intentionally out of scope for the current Responses/Chat adapter; the API exposes truthful workflow events rather than pretending a completed response is token-streamed.
+- Synchronized Maven/UI versions to `1.1.119-SNAPSHOT`.
+
 ## 2026-07-22 - Strict JSON Agent fallback
 
 - Added a strict `{"type":"tool_calls","calls":[...]}` fallback for providers that return structured JSON instead of native function calls.

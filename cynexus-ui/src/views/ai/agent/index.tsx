@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react"
-import { AlertCircle, ArrowUpRight, Check, CircleDashed, History, Loader2, RefreshCw, Sparkles, Wrench } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { AlertCircle, ArrowUpRight, Check, CircleDashed, History, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { fetchAgentConversations, fetchAgentTools, getAgentRun, runAgent, type AgentConversation, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { cancelAgent, fetchAgentConversations, fetchAgentTools, getAgentRun, runAgentStream, type AgentConversation, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 
 function stepLabel(step: AgentRunStep) {
   if (step.kind === "ANSWER") return "Answer"
@@ -34,6 +34,8 @@ export default function AutonomousAgentPage() {
   const [tools, setTools] = useState<AgentToolDefinition[]>([])
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [activeRunNo, setActiveRunNo] = useState<string | null>(null)
+  const abortController = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,15 +58,33 @@ export default function AutonomousAgentPage() {
     setLoading(true)
     setError(null)
     try {
-      const nextRun = await runAgent({ conversationNo: run?.conversationNo ?? undefined, userInput, workspace: "agent", locale: "zh-CN" })
+      const controller = new AbortController()
+      abortController.current = controller
+      const nextRun = await runAgentStream({ conversationNo: run?.conversationNo ?? undefined, userInput, workspace: "agent", locale: "zh-CN" }, (event) => {
+        if (event.runNo) setActiveRunNo(event.runNo)
+      }, controller.signal)
       setRun(nextRun)
       setConversations(await fetchAgentConversations())
       setInput("")
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Agent run failed")
     } finally {
+      abortController.current = null
+      setActiveRunNo(null)
       setLoading(false)
     }
+  }
+
+  async function stopAgent() {
+    if (activeRunNo) {
+      try {
+        await cancelAgent(activeRunNo)
+      } catch (reason: unknown) {
+        setError(reason instanceof Error ? reason.message : "Unable to stop Agent")
+      }
+      return
+    }
+    abortController.current?.abort()
   }
 
   async function openConversation(conversation: AgentConversation) {
@@ -101,7 +121,7 @@ export default function AutonomousAgentPage() {
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
               {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div><div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div></div></div>}
             </div>
-            <div className="border-t border-border/70 p-4"><div className="rounded-xl border border-border bg-background p-2 shadow-sm"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 text-sm shadow-none focus-visible:ring-0" /><div className="flex items-center justify-between px-2 pt-2"><span className="text-xs text-muted-foreground">Read-only research tools · Ctrl/Cmd + Enter to run</span><Button size="sm" onClick={() => void submit()} disabled={loading || !input.trim()}>{loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUpRight className="size-4" />} Run Agent</Button></div></div></div>
+            <div className="border-t border-border/70 p-4"><div className="rounded-xl border border-border bg-background p-2 shadow-sm"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 text-sm shadow-none focus-visible:ring-0" /><div className="flex items-center justify-between px-2 pt-2"><span className="text-xs text-muted-foreground">Read-only research tools · Ctrl/Cmd + Enter to run</span>{loading ? <Button size="sm" variant="outline" onClick={() => void stopAgent()}><Square className="size-3.5" /> Stop</Button> : <Button size="sm" onClick={() => void submit()} disabled={!input.trim()}><ArrowUpRight className="size-4" /> Run Agent</Button>}</div></div></div>
           </section>
 
           <aside className="min-h-0 space-y-4 overflow-y-auto">
