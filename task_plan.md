@@ -2050,3 +2050,19 @@ Status: complete
 
 - Targeted ESLint and direct Vite production build passed.
 - Release UI `1.1.108-260722-RELEASE` is running at `http://localhost:5173`.
+
+## Phase 99 - Autonomous AI Agent architecture and delivery
+
+Status: in_progress
+
+- Analyze the current AI execution chain, tool registry, provider adapters, database schema, and UI routing.
+- Define a provider-neutral bounded Agent loop that lets the model select registered read capabilities, validates calls, executes existing data APIs, persists a replayable plan/trace, and returns an answer with evidence.
+- Deliver the architecture and product/competitor analysis in `docs/ai-agent-architecture.md` before implementation.
+- Implement in independently committed phases: domain/tool contracts, model protocol/loop, persistence/API, UI workflow, and release verification.
+
+### Phase 99 Decisions
+
+- Reuse the existing Spring AI/LangChain4j dependencies and dynamic provider routing; no new orchestration framework is required for the first release.
+- Prefer native OpenAI-compatible tool calls, with a strict JSON action fallback for providers without native function calling.
+- First end-to-end tool pack is the existing MarketDataGateway capability set; future finance/knowledge-base packs use the same registry contract.
+- First release is read-only. Write capabilities require a separate confirmation policy and UI before they can be exposed.

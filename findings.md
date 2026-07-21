@@ -323,3 +323,14 @@
 
 - Radix Popover content was still able to place the visual panel according to the header trigger in the running UI.
 - The visual panel is now rendered with `createPortal(..., document.body)` and its own fixed right/bottom coordinates; Radix remains responsible only for trigger open state.
+
+## 2026-07-22 Autonomous AI Agent discovery
+
+- Existing dependencies already include Spring AI 2.0.0 and LangChain4j 1.12.1, so the first Agent release should extend the current runtime instead of adding another orchestration framework.
+- `AgentExecutor` is currently a placeholder: no-tool requests call the model, but any non-empty tool list returns a mock JSON response without executing a capability.
+- `AiToolCatalog` only returns four hard-coded market tool codes; it does not expose schemas, permissions, freshness, source, or handlers.
+- `MarketDataTools` already wraps six Market Feign operations behind `MarketDataGateway`; these are the safest first read-only Agent tool pack.
+- `OpenAiCompatibleChatAdapter` parses ordinary chat/responses output but does not send `tools` or parse `tool_calls`; native provider tool calling must be added behind the infra adapter.
+- `workspace_chat` currently bypasses tools by forcing an empty tool-code list, so the new Agent endpoint should be a separate scenario/runtime path and the existing chat can later delegate to it.
+- Existing `cynexus_appl_ai` conventions use BIGINT IDs, JSONB payloads, soft deletion, timestamps, and schema-local tables; Agent conversations, runs, and steps fit this pattern.
+- The provider capability catalog is in `cynexus_appl_core`, while runtime tool definitions belong to `cynexus-ai`; the Agent UI should show runtime tool availability and link source metadata without treating every catalog row as executable.

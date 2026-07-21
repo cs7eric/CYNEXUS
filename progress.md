@@ -1427,3 +1427,9 @@
 
 - Removed Radix Popover content positioning from the visual panel; the trigger now controls Popover state while the chat panel renders via a body portal with direct fixed right/bottom coordinates.
 - Synchronized Maven and UI versions to `1.1.108-SNAPSHOT` and rebuilt Release UI as `1.1.108-260722-RELEASE`.
+
+## 2026-07-22 - Autonomous AI Agent architecture
+
+- Started Phase 99 for a model-directed Agent workflow inside `cynexus-ai`.
+- Confirmed the current gap: `AgentExecutor` returns mock JSON when tool codes are present; `AiToolCatalog` exposes only strings; `MarketDataTools` has API gateways but no callable tool schemas/handlers; the provider adapter has no tool-call protocol; and no Agent run/step persistence exists.
+- Added `docs/ai-agent-architecture.md` with the product workflow, competitor-informed UX, tool/input/output contracts, safety limits, persistence schema, API surface, delivery phases, and acceptance scenarios.
