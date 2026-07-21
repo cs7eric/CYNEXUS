@@ -739,19 +739,19 @@ function yiToYuan(value: number | null | undefined): number | undefined {
 }
 
 function rowIndustry(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow): string {
-  return "sectorName" in row ? row.sectorName ?? "" : (row["行业"] ?? "")
+  return "sectorName" in row ? row.sectorName ?? "" : ((row as IndustryFundFlowRow)["行业"] ?? "")
 }
 
 function rowChangePct(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow): number | null {
-  return "changePct" in row ? toNumber(row.changePct) : toNumber(row["行业指数涨跌幅"])
+  return "changePct" in row ? toNumber(row.changePct) : toNumber((row as IndustryFundFlowRow)["行业指数涨跌幅"])
 }
 
 function rowNet(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow): number {
-  return "mainNet" in row ? (toNumber(row.mainNet) ?? 0) : (toNumber(row["净额(亿)"]) ?? 0)
+  return "mainNet" in row ? (toNumber(row.mainNet) ?? 0) : (toNumber((row as IndustryFundFlowRow)["净额(亿)"]) ?? 0)
 }
 
 function rowRank(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow, fallback: number): number {
-  return "rankByChange" in row ? (toNumber(row.rankByChange) ?? fallback) : (toNumber(row["序号"]) ?? fallback)
+  return "rankByChange" in row ? (toNumber(row.rankByChange) ?? fallback) : (toNumber((row as IndustryFundFlowRow)["序号"]) ?? fallback)
 }
 
 function toFlowRow(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow): FlowRow {
@@ -759,12 +759,12 @@ function toFlowRow(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow): Flo
     name: rowIndustry(row),
     changePct: rowChangePct(row) ?? undefined,
     mainNet: rowNet(row),
-    inflow: "inflow" in row ? (toNumber(row.inflow) ?? undefined) : (toNumber(row["流入资金(亿)"]) ?? undefined),
-    outflow: "outflow" in row ? (toNumber(row.outflow) ?? undefined) : (toNumber(row["流出资金(亿)"]) ?? undefined),
-    stockCount: "stockCount" in row ? (toNumber(row.stockCount) ?? undefined) : (toNumber(row["公司家数"]) ?? undefined),
-    leadingStock: "leadingStock" in row ? (row.leadingStock ?? null) : (row["领涨股"] ?? null),
-    leadingChangePct: "leadingChangePct" in row ? (toNumber(row.leadingChangePct) ?? undefined) : (toNumber(row["领涨股涨跌幅"]) ?? undefined),
-    leadingPrice: "leadingPrice" in row ? (toNumber(row.leadingPrice) ?? undefined) : (toNumber(row["当前价(元)"]) ?? undefined),
+    inflow: "inflow" in row ? (toNumber(row.inflow) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["流入资金(亿)"]) ?? undefined),
+    outflow: "outflow" in row ? (toNumber(row.outflow) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["流出资金(亿)"]) ?? undefined),
+    stockCount: "stockCount" in row ? (toNumber(row.stockCount) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["公司家数"]) ?? undefined),
+    leadingStock: "leadingStock" in row ? (row.leadingStock ?? null) : ((row as IndustryFundFlowRow)["领涨股"] ?? null),
+    leadingChangePct: "leadingChangePct" in row ? (toNumber(row.leadingChangePct) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["领涨股涨跌幅"]) ?? undefined),
+    leadingPrice: "leadingPrice" in row ? (toNumber(row.leadingPrice) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["当前价(元)"]) ?? undefined),
   }
 }
 
@@ -775,9 +775,9 @@ function toStrongRow(row: IndustryFundFlowRow | MarketPulseSectorSnapshotRow): S
     changePct,
     changePercent: changePct,
     amount: yiToYuan(rowNet(row)),
-    leadingStock: "leadingStock" in row ? (row.leadingStock ?? null) : (row["领涨股"] ?? null),
-    leadingChangePct: "leadingChangePct" in row ? (toNumber(row.leadingChangePct) ?? undefined) : (toNumber(row["领涨股涨跌幅"]) ?? undefined),
-    stockCount: "stockCount" in row ? (toNumber(row.stockCount) ?? undefined) : (toNumber(row["公司家数"]) ?? undefined),
+    leadingStock: "leadingStock" in row ? (row.leadingStock ?? null) : ((row as IndustryFundFlowRow)["领涨股"] ?? null),
+    leadingChangePct: "leadingChangePct" in row ? (toNumber(row.leadingChangePct) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["领涨股涨跌幅"]) ?? undefined),
+    stockCount: "stockCount" in row ? (toNumber(row.stockCount) ?? undefined) : (toNumber((row as IndustryFundFlowRow)["公司家数"]) ?? undefined),
   }
 }
 

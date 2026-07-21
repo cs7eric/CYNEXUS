@@ -36,17 +36,17 @@ export function fetchEasyTdxKline(params: { code: string; period: string; adjust
     adjust: params.adjust,
     limit: String(params.limit),
   })
-  return get(`${"/internal/a-stock/tdx/kline"}?${query.toString()}`)
+  return get<EasyTdxRow>(`${"/internal/a-stock/tdx/kline"}?${query.toString()}`)
 }
 
 export function fetchEasyTdxTimeshare(params: { code: string; tradeDate: string }) {
   const query = new URLSearchParams({ code: params.code, trade_date: params.tradeDate })
-  return get(`${"/internal/a-stock/tdx/timeshare"}?${query.toString()}`)
+  return get<EasyTdxRow>(`${"/internal/a-stock/tdx/timeshare"}?${query.toString()}`)
 }
 
 export function fetchEasyTdxFundFlow(params: { code: string; history: boolean; count: number }) {
   const query = new URLSearchParams({ code: params.code, history: String(params.history), count: String(params.count) })
-  return getWithEmptyRetry(`${"/internal/a-stock/tdx/fund-flow"}?${query.toString()}`)
+  return getWithEmptyRetry<EasyTdxRow>(`${"/internal/a-stock/tdx/fund-flow"}?${query.toString()}`)
 }
 
 async function getWithEmptyRetry<T>(path: string): Promise<EasyTdxResponse<T>> {
@@ -58,12 +58,12 @@ async function getWithEmptyRetry<T>(path: string): Promise<EasyTdxResponse<T>> {
 
 export function fetchEasyTdxBoards(params: { boardType: string; count: number }) {
   const query = new URLSearchParams({ board_type: params.boardType, count: String(params.count) })
-  return get(`${"/internal/a-stock/tdx/boards"}?${query.toString()}`)
+  return get<EasyTdxRow>(`${"/internal/a-stock/tdx/boards"}?${query.toString()}`)
 }
 
 export function fetchEasyTdxBoardMembers(params: { boardSymbol: string; count: number }) {
   const query = new URLSearchParams({ board_symbol: params.boardSymbol, count: String(params.count) })
-  return get(`${"/internal/a-stock/tdx/board-members"}?${query.toString()}`)
+  return get<EasyTdxRow>(`${"/internal/a-stock/tdx/board-members"}?${query.toString()}`)
 }
 
 export function fetchEasyTdxBelongBoard(code: string) {
@@ -71,7 +71,7 @@ export function fetchEasyTdxBelongBoard(code: string) {
 }
 
 export function fetchEasyTdxBoardSummary(boardSymbol: string) {
-  return get(`${"/internal/a-stock/tdx/board-summary"}?board_symbol=${encodeURIComponent(boardSymbol)}`)
+  return get<EasyTdxRow>(`${"/internal/a-stock/tdx/board-summary"}?board_symbol=${encodeURIComponent(boardSymbol)}`)
 }
 
 export function fetchEasyTdxBoardRanking(params: { boardType: string; topN: number; change: boolean }) {
@@ -80,5 +80,5 @@ export function fetchEasyTdxBoardRanking(params: { boardType: string; topN: numb
     top_n: String(params.topN),
     ...(params.change ? { days: "20" } : {}),
   })
-  return get(`${params.change ? "/internal/a-stock/tdx/board-change-ranking" : "/internal/a-stock/tdx/board-ranking"}?${query.toString()}`)
+  return get<EasyTdxRow>(`${params.change ? "/internal/a-stock/tdx/board-change-ranking" : "/internal/a-stock/tdx/board-ranking"}?${query.toString()}`)
 }

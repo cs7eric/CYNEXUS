@@ -15,6 +15,10 @@ public class AgentRunDTO {
     private String answer;
     private String modelCode;
     private String planJson;
+    private String contextJson;
+    private String assumptionsJson;
+    private String evidenceJson;
+    private String warningsJson;
     private Integer turnCount;
     private Integer toolCallCount;
     private String errorMessage;

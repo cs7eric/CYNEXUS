@@ -17,6 +17,10 @@ public class AgentRunBO {
     private String answer;
     private String modelCode;
     private String planJson;
+    private String contextJson;
+    private String assumptionsJson;
+    private String evidenceJson;
+    private String warningsJson;
     private String errorMessage;
     private Integer turnCount;
     private Integer toolCallCount;

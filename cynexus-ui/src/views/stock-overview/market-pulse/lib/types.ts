@@ -51,6 +51,7 @@ export type MarketPulse = {
     isFallbackTradeDate?: boolean
     source?: string
     sourceKind?: string | null
+    servingMode?: string | null
   }
   flow: {
     ok: boolean
@@ -62,6 +63,7 @@ export type MarketPulse = {
     kind?: string
     source?: string
     sourceKind?: string | null
+    servingMode?: string | null
     unit?: string
     tradeDate?: string | null
     requestedTradeDate?: string | null
@@ -77,6 +79,7 @@ export type MarketPulse = {
     isFallbackTradeDate?: boolean
     source?: string
     sourceKind?: string | null
+    servingMode?: string | null
   }
 }
 

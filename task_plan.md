@@ -2111,16 +2111,27 @@ Status: complete
 
 ## Phase 103 - Production policy, evidence, and evaluation
 
-Status: pending
+Status: in_progress
 
 - Add schema validation, prompt-injection boundaries, timeouts/retries/rate limits/cache policy, audit redaction, and write-confirmation policy.
 - Persist structured plan, assumptions, evidence/citations, warnings, and evaluation outcomes.
 - Add mock-provider end-to-end tests and a versioned evaluation dataset for the acceptance scenarios.
 
+### Phase 103 Current Verification
+
+- Added input/output bounds, active-run guard, total run timeout, duplicate call-id rejection, schema validation, read-only policy, prompt-injection boundary wording, structured evidence/warnings persistence, and an explicit write-confirmation contract.
+- Added `docs/ai-agent-evaluation.json` with market, stock, finance, and prompt-injection acceptance cases.
+- Remaining before completion: distributed rate limiting/retry policy, owner identity integration, and executable mock-provider workflow assertions.
+
 ## Phase 104 - Release and completion audit
 
-Status: pending
+Status: in_progress
 
 - Fix the existing full UI TypeScript build blockers without masking errors.
 - Build versioned UI/AI release images, run the complete workflow through Gateway using `xtyooo/gpt-5.4-mini`, and verify health, API, persistence, UI, and failure paths.
 - Double-check every requirement for real implementation versus placeholder behavior, record evidence, and close Phase 99-104 only when all gates pass.
+
+### Phase 104 Current Verification
+
+- Full UI TypeScript check and production Vite build now pass after fixing existing Market/POC typing blockers; the build still reports only non-fatal font/chunk warnings.
+- Versioned Release image rebuild and end-to-end verification against the new AI image are still pending.

@@ -530,8 +530,8 @@ export function IndustryTdxFundOverlayChart({ history, klineRows = [], fundOnly 
           yAxisIndex: 1,
           data: chartData.map((item) =>
             item.open == null || item.high == null || item.low == null || item.close == null
-              ? null
-              : [item.open, item.close, item.low, item.high],
+              ? [Number.NaN, Number.NaN, Number.NaN, Number.NaN] as [number, number, number, number]
+              : [item.open, item.close, item.low, item.high] as [number, number, number, number],
           ),
           itemStyle: {
             color: "#ef4444",

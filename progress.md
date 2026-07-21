@@ -1512,6 +1512,15 @@
 - Updated the architecture document and capability-pack plan evidence.
 - Synchronized Maven/UI versions to `1.1.120-SNAPSHOT`.
 
+## 2026-07-22 - Agent evidence, runtime policy, and clean UI build
+
+- Added structured Agent run context, assumptions, evidence, and warnings fields with PostgreSQL migration and PO/BO/DTO mapping.
+- Successful tool steps now persist source/date/summary evidence; failed steps remain warnings and are not presented as facts.
+- Added input/output bounds, duplicate tool-call rejection, a 600-second run limit, and a two-active-run owner guard. Prompt text now explicitly treats user/tool data as untrusted and prohibits secret disclosure or unregistered actions.
+- Added versioned evaluation cases and a security contract documenting the remaining Redis requirement for multi-instance rate limiting.
+- Fixed the repository-wide UI TypeScript blockers in Market Pulse, Easy TDX, industry chart, sparkline, and market-pulse type contracts. `npx tsc -b --pretty false` and `npm run build` now pass; Vite reports only existing font/chunk warnings.
+- Synchronized Maven/UI versions to `1.1.121-SNAPSHOT`.
+
 ## 2026-07-22 - Strict JSON Agent fallback
 
 - Added a strict `{"type":"tool_calls","calls":[...]}` fallback for providers that return structured JSON instead of native function calls.

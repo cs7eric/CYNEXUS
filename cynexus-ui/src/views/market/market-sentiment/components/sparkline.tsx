@@ -151,7 +151,9 @@ function SparklineTooltip({
   tooltipValueClassName,
   tooltipExtras,
   onHoverPointChange,
-}: TooltipContentProps<number, string> & {
+}: {
+  active?: boolean
+  payload?: ReadonlyArray<{ payload?: unknown }>
   formatter?: (v: number) => string
   tooltipLabel?: string
   tooltipValueClassName?: (point: SparkPoint) => string
