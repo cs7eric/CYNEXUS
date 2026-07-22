@@ -2,9 +2,9 @@
 
 ## 2026-07-22 - Streaming provider TLS transport hardening
 
-- Isolated streaming requests on a dedicated HTTP/1.1 client with TLS 1.2 parameters, while preserving the existing non-streaming client.
+- Isolated streaming requests on an Apache HttpClient 5 classic client with TLS 1.2 and the configured HTTP proxy, while preserving the existing non-streaming client.
 - Streaming transport retries only nested `SSLHandshakeException` failures once; provider HTTP errors, parsing failures, and interruptions remain fail-fast.
-- Focused `OpenAiCompatibleChatAdapterAgentTest` passed 7/7, including proxy, TLS protocol, retry classification, and streaming tool-delta parsing coverage.
+- Focused `OpenAiCompatibleChatAdapterAgentTest` passed 6/6, including proxy, retry classification, and streaming tool-delta parsing coverage.
 - Maven and UI versions are synchronized at `1.1.167-SNAPSHOT`; Release rebuild and real SSE verification remain pending.
 
 ## 2026-07-22 - Capability governance authorization boundary

@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import javax.net.ssl.SSLHandshakeException;
 import java.net.URI;
 import java.net.InetSocketAddress;
@@ -23,13 +25,20 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.nio.charset.StandardCharsets;
-import javax.net.ssl.SSLParameters;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.springframework.core.env.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +59,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private final SecretResolver secretResolver;
     private final Environment environment;
     private final HttpClient httpClient;
-    private final HttpClient streamHttpClient;
+    private final CloseableHttpClient streamingHttpClient;
 
     protected OpenAiCompatibleChatAdapter(SecretResolver secretResolver,
                                           Environment environment) {
@@ -58,7 +67,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         this.secretResolver = secretResolver;
         this.environment = environment;
         this.httpClient = buildHttpClient(environment);
-        this.streamHttpClient = buildStreamingHttpClient(environment);
+        this.streamingHttpClient = buildStreamingHttpClient(environment);
     }
 
     @Override
@@ -146,18 +155,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
         for (int attempt = 1; attempt <= STREAM_TRANSPORT_ATTEMPTS; attempt++) {
             try {
-                HttpRequest httpRequest = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
-                        .timeout(resolveRequestTimeout(model)).header("Authorization", "Bearer " + apiKey)
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(payload)).build();
-                HttpResponse<Stream<String>> response = streamHttpClient.send(httpRequest, HttpResponse.BodyHandlers.ofLines());
-                if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                    try (Stream<String> lines = response.body()) {
-                        throw providerHttpFailure(response.statusCode(), lines.reduce("", (left, right) -> left + right));
-                    }
-                }
-                return responsesApi ? readResponsesStream(response.body(), request, textDeltaConsumer)
-                        : readChatStream(response.body(), request, textDeltaConsumer);
+                return streamWithApacheHttpClient(resolveEndpoint(model, responsesApi), apiKey, payload,
+                        responsesApi, request, textDeltaConsumer);
             } catch (IOException exception) {
                 if (attempt < STREAM_TRANSPORT_ATTEMPTS && isTlsHandshakeFailure(exception)) {
                     LOGGER.warn("Retrying AI provider stream after TLS handshake failure (attempt {}/{})",
@@ -169,9 +168,6 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             } catch (UncheckedIOException exception) {
                 logProviderFailure("agent stream", model, exception);
                 throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
             } catch (RuntimeException exception) {
                 logProviderFailure("agent stream", model, exception);
                 throw exception;
@@ -642,37 +638,71 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .build();
     }
 
-    static HttpClient buildStreamingHttpClient(Environment environment) {
-        SSLParameters sslParameters = new SSLParameters();
-        sslParameters.setProtocols(new String[]{"TLSv1.2"});
-        return baseHttpClientBuilder(environment)
-                .version(HttpClient.Version.HTTP_1_1)
-                .sslParameters(sslParameters)
-                .build();
+    private static CloseableHttpClient buildStreamingHttpClient(Environment environment) {
+        var tlsStrategy = ClientTlsStrategyBuilder.create().setTlsVersions("TLSv1.2").buildClassic();
+        var connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setTlsSocketStrategy(tlsStrategy).build();
+        var builder = HttpClients.custom().setConnectionManager(connectionManager).disableAutomaticRetries();
+        String proxyValue = firstProxyValue(environment);
+        if (proxyValue != null && !proxyValue.isBlank()) {
+            try {
+                URI proxy = URI.create(proxyValue.trim());
+                if (proxy.getHost() != null && proxy.getPort() > 0) {
+                    builder.setProxy(new org.apache.hc.core5.http.HttpHost(proxy.getScheme(), proxy.getHost(), proxy.getPort()));
+                }
+            } catch (IllegalArgumentException exception) {
+                LOGGER.warn("Ignoring invalid AI provider proxy configuration for stream client");
+            }
+        }
+        return builder.build();
+    }
+
+    private AgentModelTurnResponse streamWithApacheHttpClient(URI endpoint, String apiKey, String payload,
+                                                               boolean responsesApi, AgentModelTurnRequest request,
+                                                               Consumer<String> textDeltaConsumer) throws IOException {
+        HttpPost post = new HttpPost(endpoint);
+        post.setHeader("Authorization", "Bearer " + apiKey);
+        post.setHeader("Content-Type", "application/json");
+        post.setEntity(new StringEntity(payload, ContentType.APPLICATION_JSON));
+        try (CloseableHttpResponse response = streamingHttpClient.execute(post)) {
+            int statusCode = response.getCode();
+            if (statusCode < 200 || statusCode >= 300) {
+                String responseBody = new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+                throw providerHttpFailure(statusCode, responseBody);
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    response.getEntity().getContent(), StandardCharsets.UTF_8));
+                 Stream<String> lines = reader.lines()) {
+                return responsesApi ? readResponsesStream(lines, request, textDeltaConsumer)
+                        : readChatStream(lines, request, textDeltaConsumer);
+            }
+        }
     }
 
     private static HttpClient.Builder baseHttpClientBuilder(Environment environment) {
         HttpClient.Builder builder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10));
+        String proxyValue = firstProxyValue(environment);
+        if (proxyValue == null || proxyValue.isBlank()) return builder.version(HttpClient.Version.HTTP_1_1);
+        try {
+            URI proxy = URI.create(proxyValue.trim());
+            if (proxy.getHost() == null || proxy.getPort() <= 0) return builder.version(HttpClient.Version.HTTP_1_1);
+            LOGGER.info("AI provider outbound proxy configured at {}:{} using HTTP/1.1", proxy.getHost(), proxy.getPort());
+            return builder.proxy(ProxySelector.of(new InetSocketAddress(proxy.getHost(), proxy.getPort())))
+                    .version(HttpClient.Version.HTTP_1_1);
+        } catch (IllegalArgumentException exception) {
+            LOGGER.warn("Ignoring invalid AI provider proxy configuration");
+            return builder.version(HttpClient.Version.HTTP_1_1);
+        }
+    }
+
+    private static String firstProxyValue(Environment environment) {
         String proxyValue = environment.getProperty("HTTPS_PROXY");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = environment.getProperty("HTTP_PROXY");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("HTTPS_PROXY");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("HTTP_PROXY");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("https_proxy");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("http_proxy");
-        if (proxyValue == null || proxyValue.isBlank()) return builder;
-        try {
-            URI proxy = URI.create(proxyValue.trim());
-            if (proxy.getHost() == null || proxy.getPort() <= 0) return builder;
-            LOGGER.info("AI provider outbound proxy configured at {}:{} using HTTP/1.1", proxy.getHost(), proxy.getPort());
-            return builder.proxy(ProxySelector.of(new InetSocketAddress(proxy.getHost(), proxy.getPort())))
-                    // Keep the proxy tunnel on HTTP/1.1. The configured proxy path is
-                    // validated by curl with HTTP/1.1, while Java HTTP/2 proxy negotiation
-                    // can fail before the provider's TLS handshake completes.
-                    .version(HttpClient.Version.HTTP_1_1);
-        } catch (IllegalArgumentException exception) {
-            LOGGER.warn("Ignoring invalid AI provider proxy configuration");
-            return builder;
-        }
+        return proxyValue;
     }
 
     private String extractChatContent(String responseBody) throws IOException {

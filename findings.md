@@ -492,5 +492,5 @@
 ## 2026-07-22 - Streaming TLS investigation
 
 - Host curl succeeds through the configured HTTP proxy with HTTP/1.1, but a container-side curl using the same proxy fails during TLS negotiation when it offers HTTP/2/TLS 1.3.
-- The streaming adapter now uses an isolated HTTP/1.1 client constrained to TLS 1.2 and retries only handshake termination before reporting failure. Certificate verification remains enabled.
-- Focused adapter coverage passed 7/7. Versioned Release evidence is required before calling SSE streaming fixed.
+- The streaming adapter now uses Apache HttpClient 5 classic with TLS 1.2 and the configured proxy; certificate verification remains enabled. It retries only handshake termination before reporting failure.
+- Focused adapter coverage passed 6/6. Versioned Release evidence is required before calling SSE streaming fixed.

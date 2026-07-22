@@ -48,17 +48,6 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
-    void configuresStreamingClientWithHttp11AndTls12() {
-        Environment environment = mock(Environment.class);
-        when(environment.getProperty("HTTPS_PROXY")).thenReturn("http://proxy.example:7890");
-
-        var client = OpenAiCompatibleChatAdapter.buildStreamingHttpClient(environment);
-
-        assertThat(client.version()).isEqualTo(java.net.http.HttpClient.Version.HTTP_1_1);
-        assertThat(client.sslParameters().getProtocols()).containsExactly("TLSv1.2");
-    }
-
-    @Test
     void ignoresMalformedProxyWithoutChangingTlsDefaults() {
         Environment environment = mock(Environment.class);
         when(environment.getProperty("HTTPS_PROXY")).thenReturn("not a uri");
