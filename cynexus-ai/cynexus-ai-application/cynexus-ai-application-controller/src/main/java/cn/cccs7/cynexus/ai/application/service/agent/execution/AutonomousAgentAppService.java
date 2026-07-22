@@ -69,7 +69,6 @@ public class AutonomousAgentAppService {
 
     private static final int MAX_TURNS = 8;
     private static final int MAX_TOOL_CALLS = 12;
-    private static final int MAX_PARALLEL_READ_CALLS = 4;
     private static final int MAX_USER_INPUT_CHARS = 12_000;
     private static final int MAX_TOOL_OUTPUT_CHARS = 24_000;
     private static final int MAX_RUN_SECONDS = 600;
@@ -285,8 +284,9 @@ public class AutonomousAgentAppService {
                             .stepNo(answerStep.getStepNo()).answer(answer).build());
                     break;
                 }
-                if (response.getToolCalls().size() > MAX_PARALLEL_READ_CALLS) {
-                    throw new IllegalStateException("The Agent requested too many tools in one turn");
+                int persistedToolCalls = run.getToolCallCount() == null ? 0 : run.getToolCallCount();
+                if (response.getToolCalls().size() > MAX_TOOL_CALLS - persistedToolCalls) {
+                    throw new IllegalStateException("The Agent exceeded the total tool call limit");
                 }
                 Set<String> callIds = new HashSet<>();
                 for (var modelCall : response.getToolCalls()) {
@@ -922,7 +922,7 @@ public class AutonomousAgentAppService {
             String type = root.path("type").asText("");
             if (!"tool_calls".equals(type) && !"action".equals(type)) return List.of();
             var calls = root.get("calls");
-            if (calls == null || !calls.isArray() || calls.isEmpty() || calls.size() > MAX_PARALLEL_READ_CALLS) return List.of();
+            if (calls == null || !calls.isArray() || calls.isEmpty() || calls.size() > MAX_TOOL_CALLS) return List.of();
             List<cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall> parsed = new ArrayList<>();
             for (var item : calls) {
                 String toolCode = item.path("toolCode").asText(item.path("tool").asText(""));
