@@ -75,7 +75,7 @@ public class AutonomousAgentController {
                                 @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
                                 HttpServletRequest httpRequest) {
         AgentIdentity agentIdentity = identity(httpRequest);
-        int cursor = afterEventNo == null ? parseEventSequence(lastEventId) : Math.max(0, afterEventNo);
+        int cursor = resolveEventCursor(afterEventNo, lastEventId);
         SseEmitter emitter = new SseEmitter(10 * 60 * 1000L);
         CompletableFuture.runAsync(() -> {
             try {
@@ -202,12 +202,22 @@ public class AutonomousAgentController {
                 .staleAt(item.getStaleAt() == null ? null : item.getStaleAt().toString()).build();
     }
 
-    private int parseEventSequence(String value) {
+    static int resolveEventCursor(Integer afterEventNo, String lastEventId) {
+        if (afterEventNo != null) return Math.max(0, afterEventNo);
+        return parseEventSequence(lastEventId);
+    }
+
+    static int parseEventSequence(String value) {
         if (value == null || value.isBlank()) return 0;
         try {
-            return Math.max(0, Integer.parseInt(value));
+            int sequenceNo = Integer.parseInt(value.trim());
+            if (sequenceNo < 0) {
+                throw new NumberFormatException("negative sequence");
+            }
+            return sequenceNo;
         } catch (NumberFormatException ignored) {
-            return 0;
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Last-Event-ID must be a non-negative integer");
         }
     }
 

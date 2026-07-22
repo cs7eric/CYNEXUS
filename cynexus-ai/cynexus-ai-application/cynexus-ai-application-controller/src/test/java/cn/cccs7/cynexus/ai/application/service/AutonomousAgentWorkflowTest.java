@@ -347,7 +347,9 @@ class AutonomousAgentWorkflowTest {
         AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
         AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
         AtomicBoolean cancelled = new AtomicBoolean(false);
+        AtomicBoolean providerInterrupted = new AtomicBoolean(false);
         CountDownLatch providerStarted = new CountDownLatch(1);
+        CountDownLatch providerStopped = new CountDownLatch(1);
         CountDownLatch releaseProvider = new CountDownLatch(1);
         when(catalog.enabledTools()).thenReturn(List.of());
         when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
@@ -367,8 +369,15 @@ class AutonomousAgentWorkflowTest {
         when(circuitBreaker.allow(any())).thenReturn(true);
         when(completion.completeAgent(any(), any(), eq("autonomous_agent"))).thenAnswer(invocation -> {
             providerStarted.countDown();
-            releaseProvider.await(5, TimeUnit.SECONDS);
-            return AgentModelTurnResponse.builder().type("FINAL").content("late answer").build();
+            try {
+                releaseProvider.await(5, TimeUnit.SECONDS);
+                return AgentModelTurnResponse.builder().type("FINAL").content("late answer").build();
+            } catch (InterruptedException exception) {
+                providerInterrupted.set(true);
+                throw new IllegalStateException("provider worker interrupted", exception);
+            } finally {
+                providerStopped.countDown();
+            }
         });
 
         AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
@@ -384,8 +393,73 @@ class AutonomousAgentWorkflowTest {
                 .thenReturn(Optional.of(AgentRunBO.builder().runNo(runNo).status("RUNNING").build()));
         var cancellation = service.cancel(AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), runNo);
         assertEquals("CANCEL_REQUESTED", cancellation.getStatus());
-        releaseProvider.countDown();
         assertEquals("CANCELLED", execution.get(5, TimeUnit.SECONDS).getStatus());
+        assertTrue(providerStopped.await(2, TimeUnit.SECONDS));
+        assertTrue(providerInterrupted.get());
+    }
+
+    @Test
+    void replayStreamStartsStrictlyAfterLastEventIdAndStopsAfterTerminalEvent() {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        AgentIdentity identity = AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build();
+        AgentRunEventBO second = AgentRunEventBO.builder().runNo("AGR-1").sequenceNo(2).type("TOKEN_DELTA")
+                .delta("answer").build();
+        AgentRunEventBO completed = AgentRunEventBO.builder().runNo("AGR-1").sequenceNo(3).type("RUN_COMPLETED")
+                .status("SUCCEEDED").build();
+        when(repository.findEvents("tenant-1::user-1", "AGR-1", 1, 200)).thenReturn(List.of(second, completed));
+        when(repository.findRun("tenant-1::user-1", "AGR-1"))
+                .thenReturn(Optional.of(AgentRunBO.builder().runNo("AGR-1").status("SUCCEEDED").build()));
+
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        List<AgentRunEventBO> replayed = new ArrayList<>();
+        service.replayStream(identity, "AGR-1", 1, replayed::add);
+
+        assertEquals(List.of(2, 3), replayed.stream().map(AgentRunEventBO::getSequenceNo).toList());
+        verify(repository).findEvents("tenant-1::user-1", "AGR-1", 1, 200);
+    }
+
+    @Test
+    void replayStreamReturnsOnThreadInterruptionWithoutConvertingItToAProviderFailure() throws Exception {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        AgentIdentity identity = AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build();
+        CountDownLatch replayStarted = new CountDownLatch(1);
+        when(repository.findEvents(any(), eq("AGR-1"), anyInt(), anyInt())).thenAnswer(invocation -> {
+            replayStarted.countDown();
+            return List.of();
+        });
+        when(repository.findRun(any(), eq("AGR-1")))
+                .thenReturn(Optional.of(AgentRunBO.builder().runNo("AGR-1").status("RUNNING").build()));
+
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        AtomicBoolean interrupted = new AtomicBoolean(false);
+        Thread replayThread = new Thread(() -> {
+            service.replayStream(identity, "AGR-1", 0, ignored -> { });
+            interrupted.set(Thread.currentThread().isInterrupted());
+        });
+        replayThread.start();
+        assertTrue(replayStarted.await(2, TimeUnit.SECONDS));
+        replayThread.interrupt();
+        replayThread.join(2_000);
+
+        assertTrue(interrupted.get());
     }
 
     @Test

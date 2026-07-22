@@ -2,11 +2,15 @@ package cn.cccs7.cynexus.ai.application.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
 import cn.cccs7.cynexus.ai.application.controller.agent.AutonomousAgentController;
@@ -14,6 +18,9 @@ import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResol
 import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.common.security.identity.TrustedPrincipalSigner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -82,6 +89,59 @@ class AutonomousAgentControllerAuthorizationTest {
                         .header("X-Cynexus-Principal", principal).header("X-Cynexus-Tenant", tenant)
                         .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign(principal, tenant, SECRET)))
                 .andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void reconnectUsesLastEventIdAsExclusiveReplayCursor() throws Exception {
+        CountDownLatch replayCalled = new CountDownLatch(1);
+        AtomicInteger cursor = new AtomicInteger(-1);
+        doAnswer(invocation -> {
+            cursor.set(invocation.getArgument(2, Integer.class));
+            replayCalled.countDown();
+            return null;
+        }).when(service).replayStream(any(AgentIdentity.class), eq("AGR-1"), anyInt(), any());
+
+        mockMvc.perform(get("/api/ai/agent/runs/AGR-1/stream")
+                        .header("Last-Event-ID", "41")
+                        .header("X-Cynexus-Principal", "user-a")
+                        .header("X-Cynexus-Tenant", "tenant-a")
+                        .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign("user-a", "tenant-a", SECRET)))
+                .andExpect(status().isOk());
+
+        assertTrue(replayCalled.await(2, TimeUnit.SECONDS));
+        assertEquals(41, cursor.get());
+    }
+
+    @Test
+    void explicitQueryCursorTakesPrecedenceOverLastEventId() throws Exception {
+        CountDownLatch replayCalled = new CountDownLatch(1);
+        AtomicInteger cursor = new AtomicInteger(-1);
+        doAnswer(invocation -> {
+            cursor.set(invocation.getArgument(2, Integer.class));
+            replayCalled.countDown();
+            return null;
+        }).when(service).replayStream(any(AgentIdentity.class), eq("AGR-1"), anyInt(), any());
+
+        mockMvc.perform(get("/api/ai/agent/runs/AGR-1/stream?afterEventNo=7")
+                        .header("Last-Event-ID", "41")
+                        .header("X-Cynexus-Principal", "user-a")
+                        .header("X-Cynexus-Tenant", "tenant-a")
+                        .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign("user-a", "tenant-a", SECRET)))
+                .andExpect(status().isOk());
+
+        assertTrue(replayCalled.await(2, TimeUnit.SECONDS));
+        assertEquals(7, cursor.get());
+    }
+
+    @Test
+    void malformedLastEventIdIsRejectedInsteadOfReplayingFromTheBeginning() throws Exception {
+        mockMvc.perform(get("/api/ai/agent/runs/AGR-1/stream")
+                        .header("Last-Event-ID", "not-a-sequence")
+                        .header("X-Cynexus-Principal", "user-a")
+                        .header("X-Cynexus-Tenant", "tenant-a")
+                        .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign("user-a", "tenant-a", SECRET)))
+                .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
 }

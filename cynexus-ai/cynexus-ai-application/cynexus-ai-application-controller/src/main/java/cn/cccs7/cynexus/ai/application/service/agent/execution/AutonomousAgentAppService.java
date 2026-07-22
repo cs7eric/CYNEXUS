@@ -56,8 +56,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -1005,12 +1005,17 @@ public class AutonomousAgentAppService {
     }
 
     private <T> T awaitCancellable(Supplier<T> supplier, String ownerKey, String runNo) {
-        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier);
+        // FutureTask.cancel(true) interrupts the worker that owns the blocking provider
+        // socket. CompletableFuture.cancel(true) does not provide that guarantee.
+        FutureTask<T> task = new FutureTask<>(supplier::get);
+        Thread worker = new Thread(task, "cynexus-agent-call-" + shortId());
+        worker.setDaemon(true);
+        worker.start();
         try {
             while (true) {
                 checkCancelled(ownerKey, runNo);
                 try {
-                    T value = future.get(200, TimeUnit.MILLISECONDS);
+                    T value = task.get(200, TimeUnit.MILLISECONDS);
                     checkCancelled(ownerKey, runNo);
                     return value;
                 } catch (TimeoutException ignored) {
@@ -1019,15 +1024,20 @@ public class AutonomousAgentAppService {
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            future.cancel(true);
+            cancelWorker(task, worker);
             throw new IllegalStateException("Agent execution interrupted", exception);
         } catch (ExecutionException exception) {
             Throwable cause = exception.getCause();
             if (cause instanceof RuntimeException runtimeException) throw runtimeException;
             throw new IllegalStateException("Agent execution failed", cause);
         } finally {
-            if (runtimeLease.isCancellationRequested(runNo)) future.cancel(true);
+            if (isCancellationRequested(ownerKey, runNo)) cancelWorker(task, worker);
         }
+    }
+
+    private void cancelWorker(FutureTask<?> task, Thread worker) {
+        task.cancel(true);
+        worker.interrupt();
     }
 
     private boolean isTransientProviderFailure(RuntimeException exception) {
