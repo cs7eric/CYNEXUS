@@ -1,10 +1,10 @@
-package cn.cccs7.cynexus.ai.application.controller;
+package cn.cccs7.cynexus.ai.application.controller.agent;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentTaskDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentTaskRequest;
-import cn.cccs7.cynexus.ai.application.service.AgentIdentityResolver;
-import cn.cccs7.cynexus.ai.application.service.AgentTaskAppService;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
+import cn.cccs7.cynexus.ai.application.service.agent.task.AgentTaskAppService;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.common.core.result.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;

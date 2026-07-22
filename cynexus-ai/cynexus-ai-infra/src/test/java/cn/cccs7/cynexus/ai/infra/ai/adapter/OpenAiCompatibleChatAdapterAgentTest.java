@@ -5,10 +5,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.sun.net.httpserver.HttpServer;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import java.net.InetSocketAddress;

@@ -1,9 +1,10 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.service.agent.task;
 
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentTaskBO;
-import cn.cccs7.cynexus.ai.domain.repository.AgentTaskRepository;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentTaskRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;

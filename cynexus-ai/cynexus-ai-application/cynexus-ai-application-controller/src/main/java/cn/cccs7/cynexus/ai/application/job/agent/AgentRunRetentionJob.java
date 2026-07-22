@@ -1,7 +1,7 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.job.agent;
 
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AgentFeedbackRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentFeedbackRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.springframework.beans.factory.annotation.Value;

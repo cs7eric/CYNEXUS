@@ -1,15 +1,15 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.service.agent.write;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentWritePreviewDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentWriteResultDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentWriteConfirmRequest;
 import cn.cccs7.cynexus.ai.api.request.AgentWritePreviewRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteCommandBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteExecutorPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentWritePolicy;
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteResult;
-import cn.cccs7.cynexus.ai.domain.repository.AgentWriteCommandRepository;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentWriteCommandBO;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentWriteExecutorPort;
+import cn.cccs7.cynexus.ai.domain.policy.capability.AgentWritePolicy;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentWriteResult;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentWriteCommandRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;

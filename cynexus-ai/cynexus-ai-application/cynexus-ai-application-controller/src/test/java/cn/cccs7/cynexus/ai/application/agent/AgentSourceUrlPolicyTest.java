@@ -1,6 +1,6 @@
 package cn.cccs7.cynexus.ai.application.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentSourceUrlPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 

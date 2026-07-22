@@ -16,7 +16,7 @@ public final class WorkspaceChatDomainPolicy {
     }
 
     public static AiScenarioBO scenario() {
-        return new AiScenarioBO(CAPABILITY, "Workspace Chat", "mock-model", null,
+        return new AiScenarioBO(CAPABILITY, "Workspace Chat", null, null,
                 0, false, false, true);
     }
 

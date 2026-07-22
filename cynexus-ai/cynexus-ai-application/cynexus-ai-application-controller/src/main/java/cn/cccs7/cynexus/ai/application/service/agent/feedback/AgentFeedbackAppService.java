@@ -1,14 +1,14 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.service.agent.feedback;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentFeedbackDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentFeedbackSummaryDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentFeedbackRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentFeedbackBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentFeedbackPolicy;
-import cn.cccs7.cynexus.ai.domain.agent.AgentFeedbackSummaryBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.repository.AgentFeedbackRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackBO;
+import cn.cccs7.cynexus.ai.domain.policy.feedback.AgentFeedbackPolicy;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackSummaryBO;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentFeedbackRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import org.springframework.stereotype.Service;
 
 @Service

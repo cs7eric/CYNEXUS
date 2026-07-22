@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
+
 import cn.cccs7.cynexus.ai.api.dto.AiExecuteDTO;
 import cn.cccs7.cynexus.ai.api.request.AiExecuteRequest;
 import cn.cccs7.cynexus.ai.api.request.AiVisionExecuteRequest;
@@ -7,6 +9,7 @@ import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.workspacechat.WorkspaceChatDomainPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.application.assembler.AiExecutionAssembler;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
@@ -70,7 +73,7 @@ public class ScenarioExecutionAppService {
                 ? AiConstants.DEFAULT_SCENARIO : safeRequest.getScenarioCode();
         boolean workspaceChat = WorkspaceChatDomainPolicy.supports(scenarioCode);
         AiScenarioBO scenario = workspaceChat ? WorkspaceChatDomainPolicy.scenario() : new AiScenarioBO(
-                scenarioCode, "Market Daily Review", "mock-model", null, 6, true, true, true);
+                scenarioCode, "Market Daily Review", null, null, 6, true, true, true);
         AiModelBO model = "stock_information_analysis".equals(scenarioCode) || workspaceChat
                 ? routeInformationModel(safeRequest.getPreferredModelCode(), workspaceChat)
                 : modelRouteAppService.route(scenario, safeRequest.getPreferredModelCode());
@@ -98,7 +101,7 @@ public class ScenarioExecutionAppService {
                 ? "accounting_receipt_parse" : request.getScenarioCode();
         String capability = "accounting_receipt_parse";
         AiScenarioBO scenario = AiScenarioBO.builder().scenarioCode(scenarioCode).scenarioName("Accounting Receipt Recognition")
-                .defaultModelCode("mock-model").maxToolCalls(0).toolCallRequired(false).jsonOutputRequired(true).enabled(true).build();
+                .defaultModelCode(null).maxToolCalls(0).toolCallRequired(false).jsonOutputRequired(true).enabled(true).build();
         AiModelBO model = applicationAnalysisModelRouter.routeModels(capability, request == null ? null : request.getPreferredModelCode()).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("No AI model available for accounting receipt recognition"));
         String prompt = resolveVisionPrompt(capability, request == null ? "" : request.getUserInput());

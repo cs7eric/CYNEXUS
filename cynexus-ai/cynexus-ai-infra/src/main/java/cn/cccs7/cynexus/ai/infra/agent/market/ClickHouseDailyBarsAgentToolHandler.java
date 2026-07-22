@@ -1,10 +1,10 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolHandler;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;

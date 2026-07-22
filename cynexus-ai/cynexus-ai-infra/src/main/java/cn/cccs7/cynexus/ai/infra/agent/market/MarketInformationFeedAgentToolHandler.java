@@ -1,16 +1,16 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
-import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MarketInformationFeedAgentToolHandler implements cn.cccs7.cynexus.ai.domain.agent.AgentToolHandler {
+public class MarketInformationFeedAgentToolHandler implements cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler {
 
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder()
             .code("market.information_feed").name("Market information feed").module("market-information")

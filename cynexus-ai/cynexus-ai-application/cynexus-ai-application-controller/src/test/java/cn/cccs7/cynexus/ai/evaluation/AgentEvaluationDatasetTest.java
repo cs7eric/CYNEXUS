@@ -8,24 +8,27 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
-import cn.cccs7.cynexus.ai.application.service.AutonomousAgentAppService;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
+import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolCatalog;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.port.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -110,7 +113,8 @@ class AgentEvaluationDatasetTest {
                 });
 
         var result = new AutonomousAgentAppService(repository, catalog, executor, completion, providers, bindings,
-                lease, limiter, circuit, new ObjectMapper()).execute(AgentRunRequest.builder().userInput(input).build(),
+                lease, limiter, circuit, new ObjectMapper(), mock(AgentQuotaPort.class),
+                mock(AgentObservabilityPort.class), mock(AgentCapabilityRepository.class)).execute(AgentRunRequest.builder().userInput(input).build(),
                 AgentIdentity.builder().principalKey("evaluation").tenantKey("evaluation").build(), ignored -> { });
 
         assertEquals("SUCCEEDED", result.getStatus(), evaluationCase.path("id").asText());

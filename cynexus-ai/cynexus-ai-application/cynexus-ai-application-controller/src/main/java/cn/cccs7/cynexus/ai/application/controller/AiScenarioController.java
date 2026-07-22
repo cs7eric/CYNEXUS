@@ -15,7 +15,7 @@ public class AiScenarioController {
     @GetMapping
     public Result<List<AiScenarioDTO>> listScenarios() {
         return Result.success(List.of(
-                new AiScenarioDTO("market_daily_review", "Market Daily Review", "mock-model", null, true, true, true),
-                new AiScenarioDTO(AiConstants.WORKSPACE_CHAT_CAPABILITY, "Workspace Chat", "mock-model", null, false, false, true)));
+                new AiScenarioDTO("market_daily_review", "Market Daily Review", null, null, true, true, true),
+                new AiScenarioDTO(AiConstants.WORKSPACE_CHAT_CAPABILITY, "Workspace Chat", null, null, false, false, true)));
     }
 }

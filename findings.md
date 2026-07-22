@@ -34,6 +34,19 @@
 - Idempotency belongs on the persisted run with a partial unique index scoped by the tenant-qualified owner key; a Redis-only key would not survive a Redis flush or support history replay.
 - Active-run leases and rate limits are separate policies: the former limits concurrent work and owns cancellation tokens, while the latter uses a rolling request window and should not block a legitimate retry lookup.
 
+## Enterprise Agent Completion Contract - 2026-07-22
+
+- The user's required outcome is the complete Agent product, not only the first autonomous read-only loop.
+- Existing Phase 106 entries contain substantial implementation slices, but their statuses remain `in_progress` until focused tests, versioned Release runtime checks against `xtyoo / gpt-5.4-mini`, and anti-fabrication audits all pass.
+- The authoritative acceptance areas are: grounded citations; finance/knowledge/application-analysis capabilities; feedback/evaluation; usage/cost/quota/routing; confirmed writes; background tasks; durable cancellation/resume/replay; dynamic governed discovery; security/observability; and desktop/mobile UI workflow verification.
+- Long-term invariants are recorded in `docs/ai-agent-long-term-memory.md`; future work must preserve DDD layering, `cynexus_appl_ai` schema ownership, service-folder API placement, truthful no-data/failure semantics, and individual feature commits.
+- Production audit found hard-coded `mock-model` defaults in ordinary scenario routing, Workspace Chat, receipt processing, knowledge generation, application-analysis routing, and the scenario listing. These are now removed; only the profile-scoped `MockAiModelAdapter` remains.
+- Knowledge Base document generation previously returned a locally generated draft after every configured Provider failed. That path now throws an explicit internal error after recording failed attempts, so a downstream caller cannot mistake it for AI success.
+
+- PowerShell parses an unquoted Maven `-Dtest=A,B` value as an expression; focused Maven property arguments must be quoted on Windows.
+- With `-am`, Surefire applies the selected test pattern to every upstream module; `-Dsurefire.failIfNoSpecifiedTests=false` is required so dependency modules without those test classes do not fail the focused run.
+- The Surefire property must also be quoted in PowerShell; otherwise Maven receives `.failIfNoSpecifiedTests=false` as a lifecycle phase.
+
 ## Market Information Refresh Error
 
 - `market_information_media_refresh` and `market_information_official_refresh` both dispatch to `sync_a_stock_dataset`.

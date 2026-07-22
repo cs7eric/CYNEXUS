@@ -21,8 +21,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationAnalysisRoutingDomainService {
 
-    private static final String FALLBACK_MODEL = "mock-model";
-
     private final AiModelRepository modelRepository;
     private final AiUsageBindingRepository bindingRepository;
     private final AiProviderRepository providerRepository;
@@ -54,15 +52,11 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
         if (!models.isEmpty()) {
             return models;
         }
-        try {
-            AiScenarioBO scenario = AiScenarioBO.builder()
-                    .scenarioCode(capability).scenarioName("Application Analysis " + capability)
-                    .defaultModelCode(FALLBACK_MODEL).maxToolCalls(0).toolCallRequired(false)
-                    .jsonOutputRequired(true).enabled(true).build();
-            return List.of(routingService.route(scenario, modelRepository.findEnabledModels(), preferredModelCode));
-        } catch (RuntimeException ignored) {
-            return List.of(mockModel());
-        }
+        AiScenarioBO scenario = AiScenarioBO.builder()
+                .scenarioCode(capability).scenarioName("Application Analysis " + capability)
+                .defaultModelCode(null).maxToolCalls(0).toolCallRequired(false)
+                .jsonOutputRequired(true).enabled(true).build();
+        return List.of(routingService.route(scenario, modelRepository.findEnabledModels(), preferredModelCode));
     }
 
     @Override
@@ -97,11 +91,6 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
                 .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
                 .extra(provider.getExtra()).inputPricePerMillion(provider.getInputPricePerMillion())
                 .outputPricePerMillion(provider.getOutputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
-                .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
-    }
-
-    private AiModelBO mockModel() {
-        return AiModelBO.builder().modelCode(FALLBACK_MODEL).providerCode("mock").modelName("Mock Model")
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
     }
 

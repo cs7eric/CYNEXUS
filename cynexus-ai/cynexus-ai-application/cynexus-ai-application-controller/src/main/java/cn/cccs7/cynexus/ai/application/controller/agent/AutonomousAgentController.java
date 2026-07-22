@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.ai.application.controller;
+package cn.cccs7.cynexus.ai.application.controller.agent;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
@@ -7,15 +7,15 @@ import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentStreamEventDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCapabilityDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentCapabilityGovernanceRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentQuotaExceededException;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunEventBO;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.exception.quota.AgentQuotaExceededException;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
-import cn.cccs7.cynexus.ai.application.service.AutonomousAgentAppService;
-import cn.cccs7.cynexus.ai.application.service.AgentIdentityResolver;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
+import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.common.core.constant.TraceId;
 import jakarta.servlet.http.HttpServletRequest;

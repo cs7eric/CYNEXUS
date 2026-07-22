@@ -1,8 +1,8 @@
 package cn.cccs7.cynexus.ai.infra.agent.knowledge;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteCommandBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteExecutorPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteResult;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentWriteCommandBO;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentWriteExecutorPort;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentWriteResult;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.knowledgebase.api.dto.KnowledgeDocumentDTO;
 import cn.cccs7.cynexus.knowledgebase.api.feign.KnowledgeBaseFeignClient;

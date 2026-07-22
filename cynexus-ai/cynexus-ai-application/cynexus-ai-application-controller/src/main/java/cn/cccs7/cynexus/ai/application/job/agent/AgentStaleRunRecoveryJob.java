@@ -1,8 +1,8 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.job.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.scheduling.annotation.Scheduled;

@@ -16,23 +16,27 @@ import static org.mockito.Mockito.when;
 import org.mockito.ArgumentCaptor;
 
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
-import cn.cccs7.cynexus.ai.domain.agent.AgentSourceUrlPolicy;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunEventBO;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolCatalog;
+import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.port.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
@@ -87,7 +91,7 @@ class AutonomousAgentWorkflowTest {
                         AgentModelToolCall.builder().callId("call-1").toolCode("market.overview").arguments(Map.of()).build())).build())
                 .thenReturn(AgentModelTurnResponse.builder().type("FINAL").content("市场成交额为 123。").build());
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.execute(AgentRunRequest.builder().userInput("今天市场怎么样？").idempotencyKey("idem-1").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
@@ -96,7 +100,7 @@ class AutonomousAgentWorkflowTest {
         assertEquals("gpt-5.4-mini", result.getModelCode());
         assertEquals(1, result.getToolCallCount());
         assertNotNull(result.getEvidenceJson());
-        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO> stepCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO.class);
+        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO> stepCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO.class);
         verify(repository, times(2)).saveStep(stepCaptor.capture());
         stepCaptor.getAllValues().forEach(step -> {
             try {
@@ -151,7 +155,7 @@ class AutonomousAgentWorkflowTest {
                         "{\"type\":\"clarification\",\"summary\":\"需要明确分析范围。\","
                                 + "\"questions\":[\"请提供股票代码。\"],\"missingFields\":[\"symbol\"]}").build());
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.execute(AgentRunRequest.builder().userInput("分析这只股票").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
@@ -159,7 +163,7 @@ class AutonomousAgentWorkflowTest {
         assertEquals("NEEDS_CLARIFICATION", result.getStatus());
         assertTrue(result.getAnswer().contains("请提供股票代码"));
         assertTrue(result.getClarificationJson().contains("symbol"));
-        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO> stepCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO.class);
+        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO> stepCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO.class);
         verify(repository).saveStep(stepCaptor.capture());
         assertEquals("CLARIFICATION", stepCaptor.getValue().getKind());
         assertEquals("NEEDS_CLARIFICATION", stepCaptor.getValue().getStatus());
@@ -192,7 +196,7 @@ class AutonomousAgentWorkflowTest {
                         "需要补充参数，下面是结构化结果： {\"type\":\"clarification\",\"summary\":\"请明确分析范围。\","
                                 + "\"questions\":[\"请提供股票代码。\"],\"missingFields\":[\"symbol\"]}").build());
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.execute(AgentRunRequest.builder().userInput("分析这只股票").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
@@ -232,7 +236,7 @@ class AutonomousAgentWorkflowTest {
                 .thenThrow(new IllegalStateException("HTTP 503 from AI provider"))
                 .thenReturn(AgentModelTurnResponse.builder().type("FINAL").content("重试后完成").build());
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.execute(AgentRunRequest.builder().userInput("验证 Provider 重试").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
@@ -277,7 +281,7 @@ class AutonomousAgentWorkflowTest {
         when(completion.streamAgent(any(), any(), eq("autonomous_agent"), any()))
                 .thenThrow(new IllegalStateException("Failed to stream AI provider: custom"));
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.stream(AgentRunRequest.builder().userInput("stream failure").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
@@ -319,7 +323,7 @@ class AutonomousAgentWorkflowTest {
                                 + "\"conclusion\":\"市场保持稳定\",\"usedModules\":[\"market.overview\"],"
                                 + "\"limitations\":[\"部分数据缺失\"]}").build());
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         var result = service.execute(AgentRunRequest.builder().userInput("输出结构化分析").build(),
                 AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
@@ -367,13 +371,13 @@ class AutonomousAgentWorkflowTest {
             return AgentModelTurnResponse.builder().type("FINAL").content("late answer").build();
         });
 
-        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
                 providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
         CompletableFuture<cn.cccs7.cynexus.ai.api.dto.AgentRunDTO> execution = CompletableFuture.supplyAsync(() ->
                 service.execute(AgentRunRequest.builder().userInput("cancel this request").build(),
                         AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { }));
         assertTrue(providerStarted.await(2, TimeUnit.SECONDS));
-        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.agent.AgentRunBO> runCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.agent.AgentRunBO.class);
+        ArgumentCaptor<cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO> runCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO.class);
         verify(repository).saveRun(runCaptor.capture());
         String runNo = runCaptor.getValue().getRunNo();
         when(repository.requestCancellation(any(), eq(runNo), any()))
@@ -391,5 +395,22 @@ class AutonomousAgentWorkflowTest {
         assertNull(AgentSourceUrlPolicy.sanitize("https://untrusted.example/report", Set.of("https://trusted.example")));
         assertEquals("https://trusted.example/report", AgentSourceUrlPolicy.sanitize(
                 "https://trusted.example/report", Set.of("https://trusted.example")));
+    }
+
+    private AutonomousAgentAppService newService(AgentRunRepository repository,
+                                                   AgentToolCatalog catalog,
+                                                   AgentToolExecutor executor,
+                                                   AiCompletionGateway completion,
+                                                   AiProviderRepository providers,
+                                                   AiUsageBindingRepository bindings,
+                                                   AgentRuntimeLeasePort lease,
+                                                   AgentRateLimitPort rateLimiter,
+                                                   AgentCircuitBreakerPort circuitBreaker,
+                                                   ObjectMapper objectMapper) {
+        AgentQuotaPort quota = mock(AgentQuotaPort.class);
+        when(quota.reserveRequest(any(), any(), any(), anyInt())).thenReturn(true);
+        return new AutonomousAgentAppService(repository, catalog, executor, completion, providers, bindings,
+                lease, rateLimiter, circuitBreaker, objectMapper, quota,
+                mock(AgentObservabilityPort.class), mock(AgentCapabilityRepository.class));
     }
 }

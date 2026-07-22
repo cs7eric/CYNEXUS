@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.service.agent.execution;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunStepDTO;
@@ -8,37 +8,37 @@ import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentClarificationBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelMessage;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
-import cn.cccs7.cynexus.ai.domain.agent.AgentMessageBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentQuotaPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentQuotaExceededException;
-import cn.cccs7.cynexus.ai.domain.agent.AgentSensitiveDataPolicy;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCitation;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCitationFactory;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentConversationBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentClarificationBO;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentMessageBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunEventBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
+import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
+import cn.cccs7.cynexus.ai.domain.exception.quota.AgentQuotaExceededException;
+import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSensitiveDataPolicy;
+import cn.cccs7.cynexus.ai.domain.valueobject.citation.AgentCitation;
+import cn.cccs7.cynexus.ai.domain.factory.citation.AgentCitationFactory;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.port.AgentObservabilityPort;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptor;
-import cn.cccs7.cynexus.ai.domain.repository.AgentCapabilityRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
@@ -89,52 +89,10 @@ public class AutonomousAgentAppService {
     private final AgentObservabilityPort observability;
     private final AgentCapabilityRepository capabilityRepository;
 
-    public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
-                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
-                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
-                                     AiCompletionGateway completionGateway,
-                                     AiProviderRepository providerRepository,
-                                     AiUsageBindingRepository usageBindingRepository,
-                                     AgentRuntimeLeasePort runtimeLease,
-                                     AgentRateLimitPort rateLimiter,
-                                     AgentCircuitBreakerPort circuitBreaker,
-                                     ObjectMapper objectMapper) {
-        this(agentRunRepository, toolCatalog, toolExecutor, completionGateway, providerRepository,
-                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, new AgentQuotaPort() { },
-                new AgentObservabilityPort() { },
-                new AgentCapabilityRepository() {
-                    public void synchronize(List<AgentCapabilityDescriptor> ignored) { }
-                    public List<AgentCapabilityDescriptor> listAll() { return List.of(); }
-                    public List<AgentCapabilityDescriptor> listRuntimeCapabilities() { return List.of(); }
-                    public boolean updateGovernance(String code, boolean enabled, String availability, int priority) { return false; }
-                });
-    }
-
-    public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
-                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
-                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
-                                     AiCompletionGateway completionGateway,
-                                     AiProviderRepository providerRepository,
-                                     AiUsageBindingRepository usageBindingRepository,
-                                     AgentRuntimeLeasePort runtimeLease,
-                                     AgentRateLimitPort rateLimiter,
-                                     AgentCircuitBreakerPort circuitBreaker,
-                                     ObjectMapper objectMapper,
-                                     AgentQuotaPort quota) {
-        this(agentRunRepository, toolCatalog, toolExecutor, completionGateway, providerRepository,
-                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, quota, new AgentObservabilityPort() { },
-                new AgentCapabilityRepository() {
-                    public void synchronize(List<AgentCapabilityDescriptor> ignored) { }
-                    public List<AgentCapabilityDescriptor> listAll() { return List.of(); }
-                    public List<AgentCapabilityDescriptor> listRuntimeCapabilities() { return List.of(); }
-                    public boolean updateGovernance(String code, boolean enabled, String availability, int priority) { return false; }
-                });
-    }
-
     @org.springframework.beans.factory.annotation.Autowired
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
-                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
-                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
+                                     cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolCatalog toolCatalog,
+                                     cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor toolExecutor,
                                      AiCompletionGateway completionGateway,
                                      AiProviderRepository providerRepository,
                                      AiUsageBindingRepository usageBindingRepository,
@@ -300,7 +258,7 @@ public class AutonomousAgentAppService {
                 run.setUsageSource(estimatedUsage ? "ESTIMATED" : "REPORTED");
                 run.setEstimatedCost(estimatedCost(usageModel, inputTokens, outputTokens));
                 if (!response.hasToolCalls()) {
-                    List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
+                    List<cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
                     if (!fallbackCalls.isEmpty()) {
                         response = AgentModelTurnResponse.builder().type("TOOL_CALLS").content("")
                                 .toolCalls(fallbackCalls).inputTokens(response.getInputTokens())
@@ -934,11 +892,11 @@ public class AutonomousAgentAppService {
     }
 
     private AgentModelMessage toModelMessage(AgentMessageBO message) {
-        List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> calls = List.of();
+        List<cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall> calls = List.of();
         if (message.getToolCallsJson() != null && !message.getToolCallsJson().isBlank()) {
             try {
                 calls = objectMapper.readValue(message.getToolCallsJson(), objectMapper.getTypeFactory()
-                        .constructCollectionType(List.class, cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall.class));
+                        .constructCollectionType(List.class, cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall.class));
             } catch (Exception ignored) {
                 calls = List.of();
             }
@@ -947,7 +905,7 @@ public class AutonomousAgentAppService {
                 .toolCallId(message.getToolCallId()).toolName(message.getToolName()).toolCalls(calls).build();
     }
 
-    private List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> parseFallbackToolCalls(String content) {
+    private List<cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall> parseFallbackToolCalls(String content) {
         if (content == null || content.isBlank()) return List.of();
         try {
             var root = objectMapper.readTree(content);
@@ -955,11 +913,11 @@ public class AutonomousAgentAppService {
             if (!"tool_calls".equals(type) && !"action".equals(type)) return List.of();
             var calls = root.get("calls");
             if (calls == null || !calls.isArray() || calls.isEmpty() || calls.size() > MAX_PARALLEL_READ_CALLS) return List.of();
-            List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> parsed = new ArrayList<>();
+            List<cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall> parsed = new ArrayList<>();
             for (var item : calls) {
                 String toolCode = item.path("toolCode").asText(item.path("tool").asText(""));
                 if (toolCode.isBlank() || !item.has("arguments") || !item.get("arguments").isObject()) return List.of();
-                parsed.add(cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall.builder()
+                parsed.add(cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall.builder()
                         .callId(item.path("callId").asText("fallback-" + parsed.size()))
                         .toolCode(toolCode).arguments(objectMapper.convertValue(item.get("arguments"), Map.class)).build());
             }
@@ -1124,11 +1082,11 @@ public class AutonomousAgentAppService {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 24);
     }
 
-    private record AgentToolCatalogFacade(cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog delegate) {
+    private record AgentToolCatalogFacade(cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolCatalog delegate) {
         List<AgentToolDefinition> enabledTools() { return delegate.enabledTools(); }
     }
 
-    private record AgentToolExecutorFacade(cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor delegate) {
+    private record AgentToolExecutorFacade(cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor delegate) {
         AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) { return delegate.execute(call, context); }
     }
 }

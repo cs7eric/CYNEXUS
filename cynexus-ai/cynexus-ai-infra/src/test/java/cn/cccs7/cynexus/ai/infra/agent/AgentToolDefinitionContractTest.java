@@ -3,10 +3,10 @@ package cn.cccs7.cynexus.ai.infra.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolHandler;
-import cn.cccs7.cynexus.ai.infra.agent.applicationanalysis.ApplicationAnalysisRecent30AgentToolHandler;
-import cn.cccs7.cynexus.ai.infra.agent.applicationanalysis.ApplicationAnalysisResultAgentToolHandler;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.application.analysis.ApplicationAnalysisRecent30AgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.application.analysis.ApplicationAnalysisResultAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.finance.FinanceOverviewAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.finance.FinanceTransactionsAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeDocumentAgentToolHandler;

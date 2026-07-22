@@ -1,11 +1,11 @@
-package cn.cccs7.cynexus.ai.application.controller;
+package cn.cccs7.cynexus.ai.application.controller.agent;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentFeedbackDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentFeedbackSummaryDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentFeedbackRequest;
-import cn.cccs7.cynexus.ai.application.service.AgentFeedbackAppService;
-import cn.cccs7.cynexus.ai.application.service.AgentIdentityResolver;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.application.service.agent.feedback.AgentFeedbackAppService;
+import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.common.core.result.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;

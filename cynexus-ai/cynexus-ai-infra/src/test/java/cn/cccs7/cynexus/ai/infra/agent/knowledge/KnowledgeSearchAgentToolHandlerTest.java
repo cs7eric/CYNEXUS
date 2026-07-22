@@ -6,8 +6,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.knowledgebase.api.dto.KnowledgeDocumentDTO;
 import cn.cccs7.cynexus.knowledgebase.api.feign.KnowledgeBaseFeignClient;

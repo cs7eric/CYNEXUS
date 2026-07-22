@@ -1,6 +1,6 @@
-package cn.cccs7.cynexus.ai.application.service;
+package cn.cccs7.cynexus.ai.application.service.agent.identity;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.common.security.identity.TrustedPrincipalSigner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

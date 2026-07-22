@@ -3,8 +3,8 @@ package cn.cccs7.cynexus.ai.infra.ai.adapter;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import java.util.List;
 import java.util.function.Consumer;
 

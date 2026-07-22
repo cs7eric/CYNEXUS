@@ -9,9 +9,10 @@ import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import cn.cccs7.cynexus.ai.api.dto.AgentRunDTO;
-import cn.cccs7.cynexus.ai.application.service.AgentIdentityResolver;
-import cn.cccs7.cynexus.ai.application.service.AutonomousAgentAppService;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.application.controller.agent.AutonomousAgentController;
+import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.common.security.identity.TrustedPrincipalSigner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

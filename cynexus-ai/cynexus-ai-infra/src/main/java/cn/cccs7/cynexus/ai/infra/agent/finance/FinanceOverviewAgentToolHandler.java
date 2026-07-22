@@ -1,10 +1,10 @@
 package cn.cccs7.cynexus.ai.infra.agent.finance;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentExecutionContext;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolHandler;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceOverviewDTO;
 import cn.cccs7.cynexus.core.api.feign.FinanceDataFeignClient;
 import cn.cccs7.cynexus.common.core.result.Result;

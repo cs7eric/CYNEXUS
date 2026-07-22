@@ -7,8 +7,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentConversationBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.infra.basic.entity.AgentConversationPO;
 import cn.cccs7.cynexus.ai.infra.basic.entity.AgentRunPO;
 import cn.cccs7.cynexus.ai.infra.basic.service.AgentConversationBasicService;

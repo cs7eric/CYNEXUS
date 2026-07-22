@@ -2389,7 +2389,7 @@ Status: in_progress
 
 ## Phase 106 - Agent product expansion backlog
 
-Status: pending
+Status: in_progress
 
 The following items are explicitly added to the long-running backlog. Each item requires real implementation, focused tests, a Release/runtime check where applicable, synchronized Maven/UI versions, and an individual commit. No item may be closed from a mock-only or UI-only placeholder.
 
@@ -2482,6 +2482,34 @@ Status: in_progress
 
 Current implementation: handlers publish typed capability descriptors; AI persists versioned capability metadata and governance state under `cynexus_appl_ai.ai_agent_capability`; runtime catalog filtering now requires enabled, available, non-stale persisted descriptors; stale/disappeared handlers and older versions are disabled transactionally; descriptor/source/governance validation is domain-owned; lifecycle and governance changes are audit-persisted; Provider UI now renders governed metadata and enable/disable controls. The implementation slice is ready for independent commit; real newly-registered capability Release evidence remains open.
 
+## Phase 107 - Enterprise Agent completion contract
+
+Status: in_progress
+
+This phase makes the entire Phase 106 backlog a delivery contract rather than a list of partial implementations. Every item below must pass all four gates before it is marked complete:
+
+1. **Implementation gate** — real domain/application/infra/API/UI code follows the project DDD and folder conventions.
+2. **Focused verification gate** — targeted unit, integration, contract, migration, and authorization tests pass.
+3. **Runtime gate** — versioned Release Docker images run the workflow against the real `xtyoo / gpt-5.4-mini` provider and persisted PostgreSQL state.
+4. **Anti-fabrication gate** — audit code and runtime evidence for `mock`, `synthetic`, `placeholder`, `fallback`, and fabricated success paths; production success must include Provider and capability evidence.
+
+Required acceptance matrix:
+
+| Capability area | Required evidence |
+| --- | --- |
+| Citations/source navigation | Tool-backed citation metadata persists and UI source navigation works; model-only claims never become citations. |
+| Finance/Knowledge/Application Analysis | Registry-discovered typed capabilities execute against persisted service data and return explicit no-data/unavailable states. |
+| Feedback/evaluation | Owner-scoped redacted feedback persists, summary is authorized, and the evaluation dataset runs with a report. |
+| Usage/cost/quota/routing | Provider-reported usage is persisted, estimated values are labeled, quota rejection is truthful, and routing metadata matches runtime provenance. |
+| Confirmed writes | Preview/confirm/reject, expiry, digest binding, authorization, audit, and downstream persistence are all exercised; unconfirmed writes cannot execute. |
+| Background tasks | Queue, lease recovery, retry/backoff, pause/resume/cancel, dead-letter, notification, and Agent-run cancellation are exercised in Release. |
+| Cancellation/resume/replay | Durable cancel intent survives lease/process boundaries; conversation follow-up, SSE reconnect, event replay, and idempotent retry are verified. |
+| Dynamic capability discovery | A newly registered non-Market capability is discovered and selected by the real model without keyword routing or executor branching. |
+| Security/observability | Prompt-injection corpus, schema fuzzing, rate-abuse, secret scan, tenant isolation, SSRF policy, trace correlation, latency/retry/circuit metrics, and retention are verified. |
+| UI product workflow | Desktop/mobile browser checks cover empty state, thinking, streaming, source links, export, retry, regenerate, follow-up, stop, errors, history, and long-input scrolling with hidden scrollbar. |
+
+The long-term product and engineering decisions are recorded in `docs/ai-agent-long-term-memory.md`. Do not mark this phase complete from a source inspection or mock-only test; each row needs the evidence named above.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
@@ -2489,3 +2517,7 @@ Current implementation: handlers publish typed capability descriptors; AI persis
 | Event converter package was not imported | First event-log compile | Added the converter import and explicit MapStruct field mappings. |
 | Stream DTO lacked `sequenceNo` | First controller compile | Added the sequence field to the API DTO and frontend event contract. |
 | Maven `-D` argument was parsed as a lifecycle phase in PowerShell | First focused persistence test command | Quoted the complete `-D...` arguments before rerunning; the focused infra suite passed 2/2. |
+| PowerShell parsed comma-separated `-Dtest=A,B` as an expression | First focused Agent test command | Quote the entire Maven property argument on Windows before rerunning. |
+| Surefire applied the focused test pattern to upstream modules with no matching tests | Second focused Agent test command | Add `-Dsurefire.failIfNoSpecifiedTests=false` when using `-am`. |
+| PowerShell split the Surefire property at `-D` | Third focused Agent test command | Quote the Surefire property argument as well. |
+| Removing the synthetic application-analysis model left an empty `try` block | Agent anti-fabrication compile | Removed the obsolete catch/fallback block and let domain routing fail truthfully. |

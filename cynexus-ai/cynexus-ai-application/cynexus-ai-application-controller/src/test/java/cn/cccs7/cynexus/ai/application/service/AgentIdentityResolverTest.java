@@ -1,9 +1,10 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.common.security.identity.TrustedPrincipalSigner;
 import org.junit.jupiter.api.Test;
 

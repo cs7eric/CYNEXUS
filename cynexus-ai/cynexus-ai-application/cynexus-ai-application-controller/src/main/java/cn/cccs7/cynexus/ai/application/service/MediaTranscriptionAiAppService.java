@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
+
 import cn.cccs7.cynexus.ai.api.dto.MediaTranscriptionAskDTO;
 import cn.cccs7.cynexus.ai.api.dto.MediaTranscriptionMetadataDTO;
 import cn.cccs7.cynexus.ai.api.dto.MediaTranscriptionTextDTO;
@@ -8,6 +10,7 @@ import cn.cccs7.cynexus.ai.api.request.MediaTranscriptionMetadataRequest;
 import cn.cccs7.cynexus.ai.api.request.MediaTranscriptionPolishRequest;
 import cn.cccs7.cynexus.ai.api.request.MediaTranscriptionSummaryRequest;
 import cn.cccs7.cynexus.ai.application.prompt.StructuredJsonExtractor;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -190,7 +193,7 @@ public class MediaTranscriptionAiAppService {
         return AiScenarioBO.builder()
                 .scenarioCode(capability)
                 .scenarioName("Media Transcription " + capability)
-                .defaultModelCode("mock-model")
+                .defaultModelCode(null)
                 .maxToolCalls(0)
                 .toolCallRequired(false)
                 .jsonOutputRequired(jsonRequired)

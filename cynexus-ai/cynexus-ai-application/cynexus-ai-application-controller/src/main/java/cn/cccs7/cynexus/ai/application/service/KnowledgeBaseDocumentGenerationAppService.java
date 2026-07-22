@@ -1,9 +1,12 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
+
 import cn.cccs7.cynexus.ai.api.dto.KnowledgeBaseGenerateDTO;
 import cn.cccs7.cynexus.ai.api.request.KnowledgeBaseGenerateRequest;
 import cn.cccs7.cynexus.ai.application.prompt.KnowledgeBaseStructuredOutputParser;
 import cn.cccs7.cynexus.ai.application.prompt.StructuredJsonExtractor;
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -121,7 +124,9 @@ public class KnowledgeBaseDocumentGenerationAppService {
             }
         }
 
-        return fallbackResult(sourceText, lastException);
+        throw new BizException(ErrorCode.INTERNAL_ERROR,
+                "Knowledge Base document generation failed after all configured AI routes: "
+                        + (lastException == null ? "no available route" : truncate(lastException.getMessage(), 500)));
     }
 
     private KnowledgeBaseGenerateDTO parseOrRepair(AiModelBO model,
@@ -141,7 +146,7 @@ public class KnowledgeBaseDocumentGenerationAppService {
         return AiScenarioBO.builder()
                 .scenarioCode(CAPABILITY)
                 .scenarioName("Knowledge Base Document Generation")
-                .defaultModelCode("mock-model")
+                .defaultModelCode(null)
                 .maxToolCalls(0)
                 .toolCallRequired(false)
                 .jsonOutputRequired(true)
@@ -225,11 +230,7 @@ public class KnowledgeBaseDocumentGenerationAppService {
         if (!bindingModels.isEmpty()) {
             return bindingModels;
         }
-        try {
-            return List.of(modelRouteAppService.route(scenario, request == null ? null : request.getPreferredModelCode()));
-        } catch (Exception ignored) {
-            return List.of(mockModel());
-        }
+        return List.of(modelRouteAppService.route(scenario, request == null ? null : request.getPreferredModelCode()));
     }
 
     private List<AiModelBO> routeByUsageBinding(AiUsageBindingBO binding, KnowledgeBaseGenerateRequest request) {
@@ -282,16 +283,6 @@ public class KnowledgeBaseDocumentGenerationAppService {
                 .inputPricePerMillion(provider.getInputPricePerMillion())
                 .outputPricePerMillion(provider.getOutputPricePerMillion())
                 .pricingCurrency(provider.getPricingCurrency())
-                .capability(ModelCapability.builder().structuredOutputSupported(true).build())
-                .enabled(true)
-                .build();
-    }
-
-    private AiModelBO mockModel() {
-        return AiModelBO.builder()
-                .modelCode("mock-model")
-                .providerCode("mock")
-                .modelName("Mock Model")
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build())
                 .enabled(true)
                 .build();
@@ -379,15 +370,6 @@ public class KnowledgeBaseDocumentGenerationAppService {
         return KnowledgeBaseGenerateDTO.builder()
                 .title(draft.title()).description(draft.description()).tags(draft.tags())
                 .categories(draft.categories()).content(draft.content()).build();
-    }
-
-    private KnowledgeBaseGenerateDTO fallbackResult(String sourceText, Exception error) {
-        KnowledgeBaseDocumentDraftPolicy.Draft draft = draftPolicy.normalize(null, null, null, null, null,
-                sourceText, error == null ? null : error.getMessage());
-        return KnowledgeBaseGenerateDTO.builder()
-                .title(draft.title()).description(draft.description()).tags(draft.tags())
-                .categories(draft.categories()).content(draft.content())
-                .build();
     }
 
     private void addIfPresent(Set<String> values, String value) {

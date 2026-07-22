@@ -1,9 +1,9 @@
 package cn.cccs7.cynexus.ai.infra.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolHandler;
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -63,8 +63,8 @@ class AgentToolRegistryTest {
     @Test
     void disablesPersistedCapabilityWhenGovernanceRemovesIt() {
         AgentToolHandler handler = handler("finance.synthetic", true, false);
-        cn.cccs7.cynexus.ai.domain.repository.AgentCapabilityRepository repository = mock(
-                cn.cccs7.cynexus.ai.domain.repository.AgentCapabilityRepository.class);
+        cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository repository = mock(
+                cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository.class);
         org.mockito.Mockito.when(repository.listRuntimeCapabilities()).thenReturn(List.of());
         AgentToolRegistry registry = new AgentToolRegistry(List.of(handler), repository);
 

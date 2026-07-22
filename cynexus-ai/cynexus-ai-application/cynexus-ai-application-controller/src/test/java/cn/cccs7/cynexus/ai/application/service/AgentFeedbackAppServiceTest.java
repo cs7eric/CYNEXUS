@@ -7,11 +7,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import cn.cccs7.cynexus.ai.api.request.AgentFeedbackRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentFeedbackBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
-import cn.cccs7.cynexus.ai.domain.repository.AgentFeedbackRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
+import cn.cccs7.cynexus.ai.application.service.agent.feedback.AgentFeedbackAppService;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackBO;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentFeedbackRepository;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 

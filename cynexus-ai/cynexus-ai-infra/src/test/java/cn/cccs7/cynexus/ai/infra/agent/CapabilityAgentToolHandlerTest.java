@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.infra.agent.finance.FinanceOverviewAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.finance.FinanceTransactionsAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeDocumentAgentToolHandler;

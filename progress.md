@@ -1870,3 +1870,19 @@
 - Core, Market, AI, Gateway, Knowledge Base, and UI health checks returned HTTP 200 after startup warm-up.
 - Real trusted-identity run `AGR-release160-grounded` reached `xtyoo / gpt-5.4-mini`, autonomously selected `knowledge.search` and `knowledge.document`, and persisted `SUCCEEDED`, two tool calls, `REPORTED` usage, citations, and source metadata.
 - Release Agent tools and governed capabilities each expose 14 rows; AI logs contain no MockAiModelAdapter or mock-model execution record.
+
+## 2026-07-22 - Enterprise Agent completion contract
+
+- Reopened Phase 106 as `in_progress` because several implementation slices still lack versioned Release evidence, real-provider workflow checks, or anti-fabrication audits.
+- Added Phase 107 as the enterprise completion contract. Every capability area now requires implementation, focused verification, real `xtyoo / gpt-5.4-mini` Release evidence, and an explicit audit against fabricated success paths.
+- Added `docs/ai-agent-long-term-memory.md` to preserve the Agent product contract, DDD boundaries, safety rules, capability-routing invariants, and delivery discipline across future sessions.
+- Current worktree still contains the uncommitted DDD/package refactor; it must be audited and split into functional commits before the remaining Agent features are closed.
+
+## 2026-07-22 - DDD refactor and anti-fabrication audit continuation
+
+- Repaired remaining application/test imports after moving Agent execution, task, feedback, identity, write, controller, job, capability, repository, and persistence classes into feature-oriented packages.
+- Focused Agent application workflow verification passed: 8 workflow tests, 3 authorization tests, 2 feedback tests, 2 task tests, and 1 write-boundary test; the initial quota-mock defect was corrected explicitly.
+- Removed production `mock-model` defaults from scenario listing, Workspace Chat, receipt processing, application analysis, and knowledge document generation. Only the `dev/test` profile mock adapter retains mock behavior.
+- Knowledge document generation now records failed Provider attempts and throws an explicit error when no configured route succeeds; it no longer returns a fabricated local success draft.
+- Synchronized Maven and UI development versions to `1.1.161-SNAPSHOT`.
+- `mvn -pl cynexus-ai/cynexus-ai-application/cynexus-ai-application-controller,cynexus-ai/cynexus-ai-domain -am -DskipTests compile` passed at `1.1.161-SNAPSHOT`; existing duplicate Lombok dependency warnings remain and are tracked separately.

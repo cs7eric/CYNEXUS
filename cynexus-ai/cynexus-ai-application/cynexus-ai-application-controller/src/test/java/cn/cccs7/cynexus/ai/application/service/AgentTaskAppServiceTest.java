@@ -1,14 +1,16 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
+import cn.cccs7.cynexus.ai.application.service.agent.task.AgentTaskAppService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import cn.cccs7.cynexus.ai.api.request.AgentTaskRequest;
-import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
-import cn.cccs7.cynexus.ai.domain.agent.AgentTaskBO;
-import cn.cccs7.cynexus.ai.domain.repository.AgentTaskRepository;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
+import cn.cccs7.cynexus.ai.domain.repository.agent.AgentTaskRepository;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 
