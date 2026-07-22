@@ -144,6 +144,7 @@ Verification: synthetic tool-enabled success is rejected, the mock adapter is li
 | Error | Attempt | Resolution |
 | --- | --- | --- |
 | Release `1.1.160` compile failed after the DDD package refactor because moved domain types lacked explicit imports | First `start-release.ps1 -Build` | Added explicit domain imports to Agent gateway/handler/policy/factory contracts; focused AI domain compile now passes. Release rebuild remains required. |
+| Release `1.1.160` test compile found one stale policy import after the DDD package move | Second `start-release.ps1 -Build` | Updated the focused policy test import; full Release rebuild is being retried. |
 
 | Error | Attempt | Resolution |
 | --- | --- | --- |

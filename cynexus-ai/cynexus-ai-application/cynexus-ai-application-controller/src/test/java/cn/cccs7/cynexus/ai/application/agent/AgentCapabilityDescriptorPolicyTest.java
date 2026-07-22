@@ -1,7 +1,7 @@
 package cn.cccs7.cynexus.ai.application.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptor;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptorPolicy;
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.policy.capability.AgentCapabilityDescriptorPolicy;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
