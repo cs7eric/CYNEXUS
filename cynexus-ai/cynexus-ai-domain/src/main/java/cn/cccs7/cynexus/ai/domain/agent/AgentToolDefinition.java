@@ -19,4 +19,11 @@ public class AgentToolDefinition {
     String freshness;
     String source;
     String sourceUrl;
+    String version;
+    String tenantScope;
+    String availability;
+    int priority;
+    String promptKey;
+    String runtimeEntry;
+    String routeGroup;
 }

@@ -2439,7 +2439,7 @@ Status: pending
 
 ### 106.9 Dynamic capability discovery and governed registration
 
-Status: pending
+Status: in_progress
 
 - Replace the remaining manually curated Agent-only tool list with a contract-driven capability registry.
 - Define a domain-owned capability contract containing version, input/output schemas, permissions, tenant scope, read/write policy, confirmation policy, source, freshness, and availability metadata.
@@ -2449,6 +2449,8 @@ Status: pending
 - Generate the runtime Agent tool catalog from authorized, enabled, healthy capabilities and keep the AI Provider page routing list, runtime entry, prompt key, group, description, schemas, source, and freshness synchronized.
 - Validate capability arguments and authorization before execution, return structured evidence and provenance, and make capability registration, version changes, disablement, expiration, and execution auditable.
 - Verify with a newly registered non-Market capability and a real `xtyooo / gpt-5.4-mini` run that the Agent discovers and selects it without a fixed keyword route or hard-coded executor branch.
+
+Current implementation: handlers publish typed capability descriptors; AI persists versioned capability metadata and governance state under `cynexus_appl_ai.ai_agent_capability`; runtime catalog filtering now requires enabled, available, non-stale persisted descriptors; stale/disappeared handlers and older versions are disabled transactionally; descriptor/source/governance validation is domain-owned; lifecycle and governance changes are audit-persisted; Provider UI now renders governed metadata and enable/disable controls. The implementation slice is ready for independent commit; real newly-registered capability Release evidence remains open.
 
 ## Errors Encountered
 

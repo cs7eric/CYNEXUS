@@ -36,6 +36,8 @@ import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.port.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.repository.AgentCapabilityRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
@@ -85,6 +87,7 @@ public class AutonomousAgentAppService {
     private final AgentCircuitBreakerPort circuitBreaker;
     private final AgentQuotaPort quota;
     private final AgentObservabilityPort observability;
+    private final AgentCapabilityRepository capabilityRepository;
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
@@ -97,7 +100,14 @@ public class AutonomousAgentAppService {
                                      AgentCircuitBreakerPort circuitBreaker,
                                      ObjectMapper objectMapper) {
         this(agentRunRepository, toolCatalog, toolExecutor, completionGateway, providerRepository,
-                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, new AgentQuotaPort() { });
+                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, new AgentQuotaPort() { },
+                new AgentObservabilityPort() { },
+                new AgentCapabilityRepository() {
+                    public void synchronize(List<AgentCapabilityDescriptor> ignored) { }
+                    public List<AgentCapabilityDescriptor> listAll() { return List.of(); }
+                    public List<AgentCapabilityDescriptor> listRuntimeCapabilities() { return List.of(); }
+                    public boolean updateGovernance(String code, boolean enabled, String availability, int priority) { return false; }
+                });
     }
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
@@ -112,7 +122,13 @@ public class AutonomousAgentAppService {
                                      ObjectMapper objectMapper,
                                      AgentQuotaPort quota) {
         this(agentRunRepository, toolCatalog, toolExecutor, completionGateway, providerRepository,
-                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, quota, new AgentObservabilityPort() { });
+                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, quota, new AgentObservabilityPort() { },
+                new AgentCapabilityRepository() {
+                    public void synchronize(List<AgentCapabilityDescriptor> ignored) { }
+                    public List<AgentCapabilityDescriptor> listAll() { return List.of(); }
+                    public List<AgentCapabilityDescriptor> listRuntimeCapabilities() { return List.of(); }
+                    public boolean updateGovernance(String code, boolean enabled, String availability, int priority) { return false; }
+                });
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -127,7 +143,8 @@ public class AutonomousAgentAppService {
                                      AgentCircuitBreakerPort circuitBreaker,
                                      ObjectMapper objectMapper,
                                      AgentQuotaPort quota,
-                                     AgentObservabilityPort observability) {
+                                     AgentObservabilityPort observability,
+                                     AgentCapabilityRepository capabilityRepository) {
         this.agentRunRepository = agentRunRepository;
         this.toolCatalog = new AgentToolCatalogFacade(toolCatalog);
         this.toolExecutor = new AgentToolExecutorFacade(toolExecutor);
@@ -140,6 +157,7 @@ public class AutonomousAgentAppService {
         this.objectMapper = objectMapper;
         this.quota = quota;
         this.observability = observability;
+        this.capabilityRepository = capabilityRepository;
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
@@ -548,7 +566,18 @@ public class AutonomousAgentAppService {
                 .description(definition.getDescription()).inputSchemaJson(definition.getInputSchemaJson())
                 .outputSchemaJson(definition.getOutputSchemaJson()).readOnly(definition.isReadOnly())
                 .requiresConfirmation(definition.isRequiresConfirmation()).freshness(definition.getFreshness())
-                .source(definition.getSource()).sourceUrl(definition.getSourceUrl()).build()).toList();
+                .source(definition.getSource()).sourceUrl(definition.getSourceUrl()).version(definition.getVersion())
+                .tenantScope(definition.getTenantScope()).availability(definition.getAvailability())
+                .priority(definition.getPriority()).promptKey(definition.getPromptKey())
+                .runtimeEntry(definition.getRuntimeEntry()).routeGroup(definition.getRouteGroup()).build()).toList();
+    }
+
+    public List<AgentCapabilityDescriptor> capabilities() {
+        return capabilityRepository.listAll();
+    }
+
+    public boolean updateCapability(String code, boolean enabled, String availability, int priority) {
+        return capabilityRepository.updateGovernance(code, enabled, availability, priority);
     }
 
     public List<AgentConversationDTO> conversations(String ownerKey, int limit) {

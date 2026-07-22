@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.AgentCapabilityMapper">
+    <update id="updateGovernance">
+        UPDATE cynexus_appl_ai.ai_agent_capability
+        SET is_enabled = #{enabled}, governance_availability = #{availability}, priority = #{priority}, updated_at = now()
+        WHERE capability_code = #{capabilityCode} AND deleted_at IS NULL
+    </update>
+    <update id="markUnseenUnavailable">
+        UPDATE cynexus_appl_ai.ai_agent_capability
+        SET availability = 'STALE', is_enabled = false, updated_at = now()
+        WHERE deleted_at IS NULL AND last_seen_at &lt; #{seenAt}
+    </update>
+    <update id="markOlderVersionsUnavailable">
+        UPDATE cynexus_appl_ai.ai_agent_capability
+        SET availability = 'STALE', is_enabled = false, updated_at = now()
+        WHERE capability_code = #{capabilityCode} AND version &lt;&gt; #{version} AND deleted_at IS NULL
+    </update>
+</mapper>

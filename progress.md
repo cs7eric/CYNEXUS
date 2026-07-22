@@ -1812,3 +1812,19 @@
 - Added real provider latency measurement per retry attempt; tool and run duration metrics remain wired through the domain observability port.
 - Focused Agent application test passed 1/1; AI infrastructure suite passed 17/17.
 - 106.7 remains in progress pending security corpus/fuzz/abuse checks and Release metric evidence.
+
+## 2026-07-22 - Governed Agent capability registry foundation
+
+- Added domain-owned `AgentCapabilityDescriptor` and repository port with version, schemas, read/write and confirmation policy, tenant scope, source/freshness, availability, priority, prompt key, route group, runtime entry, and staleness metadata.
+- Agent handlers now publish descriptors; AI persists and synchronizes them in `cynexus_appl_ai.ai_agent_capability`.
+- Runtime tool exposure and execution require a persisted enabled/available/non-stale capability; added catalog and governance endpoints.
+- Added idempotent migration `20260722_add_ai_agent_capabilities.sql` and Release migration registration.
+- Focused compilation/tests and Provider UI synchronization plus real newly-registered capability verification remain pending.
+
+## 2026-07-22 - Governed capability registry hardening
+
+- Added domain validation for descriptor fields, app-relative source URLs, availability states, and bounded governance priority.
+- Added transactional stale/disappeared-provider handling and older-version retirement; runtime filtering now separates provider health from governance availability.
+- Added Provider capability metadata/status/version/freshness and enable/disable controls; updated AI Provider design documentation.
+- Focused registry tests passed 6/6 and UI production build passed. Maven/UI versions were synchronized to `1.1.154-SNAPSHOT`. Real non-Market capability Release discovery evidence remains open.
+- Added capability lifecycle audit persistence under `cynexus_appl_ai.ai_agent_capability_audit`; AI application tests passed 34/34 and AI infra compile passed.

@@ -413,3 +413,11 @@
 - Cancellation is now persisted in `cynexus_appl_ai.ai_agent_run.cancellation_requested_at` and `cancellation_requested_by`, while Redis remains a fast interrupt token.
 - Ordinary non-terminal updates are conditionally rejected after a cancellation request; the terminal cancellation path remains allowed so a late Provider result cannot overwrite `CANCELLED`.
 - The API now returns explicit `CANCEL_REQUESTED`, `ALREADY_TERMINAL`, and `NOT_FOUND` states. Migration and Release verification remain open until the new image is deployed.
+
+## 2026-07-22 - Capability governance audit
+
+- The initial registry used one `availability` field for both provider health and administrator governance. Those states must be separate so a provider heartbeat cannot silently re-enable a capability that an administrator disabled.
+- Registry synchronization now marks rows not seen in the current Spring handler snapshot as `STALE` and disabled, and retires older versions when a newer descriptor is published.
+- Governance input is validated in the domain policy, while MyBatis remains limited to persistence updates.
+- Provider routing now consumes backend Agent descriptors for dynamic rows and exposes version, source, freshness, health, priority, and governance state; the remaining proof is a real Release run selecting a newly registered non-Market capability.
+- Capability registration, stale/version retirement, and governance changes now write auditable lifecycle rows under `ai_agent_capability_audit`.

@@ -60,6 +60,19 @@ class AgentToolRegistryTest {
         verify(handler, never()).execute(any(), any());
     }
 
+    @Test
+    void disablesPersistedCapabilityWhenGovernanceRemovesIt() {
+        AgentToolHandler handler = handler("finance.synthetic", true, false);
+        cn.cccs7.cynexus.ai.domain.repository.AgentCapabilityRepository repository = mock(
+                cn.cccs7.cynexus.ai.domain.repository.AgentCapabilityRepository.class);
+        org.mockito.Mockito.when(repository.listRuntimeCapabilities()).thenReturn(List.of());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler), repository);
+
+        assertThat(registry.enabledTools()).isEmpty();
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("finance.synthetic").build(), null)
+                .getWarnings()).contains("CAPABILITY_NOT_AVAILABLE");
+    }
+
     private AgentToolHandler handler(String code, boolean readOnly, boolean requiresConfirmation) {
         AgentToolHandler handler = mock(AgentToolHandler.class);
         AgentToolDefinition definition = AgentToolDefinition.builder()

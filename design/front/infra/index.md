@@ -27,8 +27,8 @@
 - Module: `cynexus-ui/src/views/ai/provider/index.tsx`
 - Detail: `./ai-provider.detail.md`
 - Data Source: AI provider and capability configuration APIs
-- APIs: `fetchAiProviders`, `fetchAiBindings`, provider CRUD, binding upsert
-- Components: Provider editor, capability binding panels
+- APIs: `fetchAiProviders`, `fetchAiBindings`, `fetchAiCapabilities`, provider CRUD, binding upsert, Agent capability governance
+- Components: Provider editor, capability binding panels, governed Agent capability catalog
 
 ## AI Usage
 

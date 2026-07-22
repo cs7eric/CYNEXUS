@@ -25,6 +25,7 @@ $migrationFiles = @(
     "20260722_add_ai_agent_write_commands.sql",
     "20260722_bind_autonomous_agent_to_xtyooo.sql",
     "20260722_add_ai_agent_tasks.sql"
+    ,"20260722_add_ai_agent_capabilities.sql"
 )
 
 foreach ($file in $migrationFiles) {

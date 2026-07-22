@@ -17,4 +17,11 @@ public class AgentToolDefinitionDTO {
     private String freshness;
     private String source;
     private String sourceUrl;
+    private String version;
+    private String tenantScope;
+    private String availability;
+    private int priority;
+    private String promptKey;
+    private String runtimeEntry;
+    private String routeGroup;
 }

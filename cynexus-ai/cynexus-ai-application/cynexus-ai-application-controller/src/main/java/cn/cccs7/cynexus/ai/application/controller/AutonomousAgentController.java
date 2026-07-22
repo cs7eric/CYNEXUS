@@ -5,6 +5,9 @@ import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentStreamEventDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentCapabilityDTO;
+import cn.cccs7.cynexus.ai.api.request.AgentCapabilityGovernanceRequest;
+import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptor;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
@@ -126,6 +129,26 @@ public class AutonomousAgentController {
         return Result.success(agentAppService.enabledTools());
     }
 
+    @GetMapping("/capabilities")
+    public Result<List<AgentCapabilityDTO>> capabilities() {
+        return Result.success(agentAppService.capabilities().stream().map(this::toCapabilityDTO).toList());
+    }
+
+    @PostMapping("/capabilities/{capabilityCode}/governance")
+    public Result<Boolean> governCapability(@PathVariable String capabilityCode,
+                                            @RequestBody AgentCapabilityGovernanceRequest request) {
+        if (request == null || request.getEnabled() == null || request.getAvailability() == null
+                || request.getPriority() == null || request.getPriority() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Capability governance fields are invalid");
+        }
+        try {
+            return Result.success(agentAppService.updateCapability(capabilityCode, request.getEnabled(),
+                    request.getAvailability(), request.getPriority()));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+    }
+
     @GetMapping("/conversations")
     public Result<List<AgentConversationDTO>> conversations(@RequestParam(required = false) String query,
                                                             HttpServletRequest httpRequest) {
@@ -155,6 +178,19 @@ public class AutonomousAgentController {
                 .toolCode(event.getToolCode()).summary(event.getSummary()).answer(event.getAnswer())
                 .delta(event.getDelta()).errorMessage(event.getErrorMessage())
                 .occurredAt(event.getOccurredAt()).build();
+    }
+
+    private AgentCapabilityDTO toCapabilityDTO(AgentCapabilityDescriptor item) {
+        return AgentCapabilityDTO.builder().id(item.getId()).capabilityCode(item.getCapabilityCode())
+                .version(item.getVersion()).name(item.getName()).module(item.getModule()).description(item.getDescription())
+                .inputSchemaJson(item.getInputSchemaJson()).outputSchemaJson(item.getOutputSchemaJson())
+                .readOnly(item.isReadOnly()).requiresConfirmation(item.isRequiresConfirmation())
+                .tenantScope(item.getTenantScope()).source(item.getSource()).sourceUrl(item.getSourceUrl())
+                .freshness(item.getFreshness()).availability(item.getAvailability()).enabled(item.isEnabled())
+                .governanceAvailability(item.getGovernanceAvailability())
+                .priority(item.getPriority()).promptKey(item.getPromptKey()).runtimeEntry(item.getRuntimeEntry())
+                .routeGroup(item.getRouteGroup()).lastSeenAt(item.getLastSeenAt() == null ? null : item.getLastSeenAt().toString())
+                .staleAt(item.getStaleAt() == null ? null : item.getStaleAt().toString()).build();
     }
 
     private int parseEventSequence(String value) {
