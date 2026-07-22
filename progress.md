@@ -1980,3 +1980,12 @@
 - A first application-analysis Release request hit a transient upstream `SSLHandshakeException` and persisted `FAILED` with `failureCategory=PROVIDER`; a retry reached the real provider, selected `application_analysis.result` and `application_analysis.recent30`, read persisted target `stock-600396`, and returned `SUCCEEDED` with explicit two-record/30-day data insufficiency rather than overstating coverage.
 - Release follow-up checks persisted owner-scoped feedback for `AGR-release174-broad` (`rating=5`, `CORRECT`), executed a confirmed `knowledge.document.create` preview/confirm into a downstream `DRAFT` document, and exercised task control `QUEUED -> PAUSED -> QUEUED -> CANCELLED`. Lease recovery, dead-letter, metrics, and full UI revalidation remain open in the Phase 107 acceptance matrix.
 - Rebuilt the UI production artifact at `1.1.174-SNAPSHOT` and explicitly rebuilt/recreated `cynexus-ui:1.1.174-260722-RELEASE`; all six Release health endpoints stayed at HTTP 200.
+
+## 2026-07-22 - Phase 107 completion follow-up
+
+- Added Prometheus registry to the AI Release starter; versioned Release `1.1.175-260722-RELEASE` now exposes `/actuator/prometheus` and reports `cynexus_ai_agent_runs_started_total`.
+- Added owner-qualified FK/index/check repair migration `20260722_harden_ai_agent_owner_constraints.sql` and registered it in the Release migration gate.
+- Added the task notification application port and safe lifecycle adapter for completed, retry-scheduled, and dead-letter tasks.
+- Focused verification passed: Agent task 3/3, persistence contract 4/4, Provider adapter 7/7; full Maven package 41/41; UI `pnpm build` passed; Release 1.1.175 six application/UI health checks returned HTTP 200.
+- Playwright Chromium screenshots were generated for Agent desktop `1440x900` and mobile `390x844`; desktop empty state, fixed-height composer, hidden scrollbar, shadcn scroller layout, and right-side conversation list rendered successfully.
+- Release restart initially hit a stale Docker knowledgebase container-name conflict; stopping the Release stack and rerunning the versioned build/start completed successfully. Current Release containers are all running.

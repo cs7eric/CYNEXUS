@@ -2560,3 +2560,14 @@ UI release evidence: `pnpm build` passed at `1.1.174-SNAPSHOT`; the UI image was
 | Surefire applied the focused test pattern to upstream modules with no matching tests | Second focused Agent test command | Add `-Dsurefire.failIfNoSpecifiedTests=false` when using `-am`. |
 | PowerShell split the Surefire property at `-D` | Third focused Agent test command | Quote the Surefire property argument as well. |
 | Removing the synthetic application-analysis model left an empty `try` block | Agent anti-fabrication compile | Removed the obsolete catch/fallback block and let domain routing fail truthfully. |
+
+### Phase 107.3 - Runtime observability, persistence repair, and task notification boundary
+
+Status: complete
+
+- Add Prometheus registry to the AI starter and verify Agent metrics from the versioned Release runtime.
+- Add idempotent owner-qualified relationship/index/check repair migration and include it in the Release migration gate.
+- Add an application notification port for task completion, retry scheduling, and dead-letter lifecycle events with safe default logging adapter.
+- Verify focused tests, full Maven/UI builds, Release health, and desktop/mobile Agent screenshots.
+
+Verification: commit `5e1ce89c` added Prometheus exposure and synchronized versions at `1.1.175-SNAPSHOT`; commit `5c437708` added persistence repair, migration registration, and task notification boundary; Provider follow-up commit `5274e2ce` completed streamed usage reporting. Agent task 3/3, persistence 4/4, Provider adapter 7/7, Maven 41/41, UI build, Release health, Prometheus runtime, and Playwright desktop/mobile screenshot evidence passed. Remaining Phase 107 items are real newly-registered non-Market capability discovery, high-concurrency/rate-abuse and multi-instance recovery evidence, secret-scan/corpus automation, and full interactive browser workflow beyond empty-state rendering.
