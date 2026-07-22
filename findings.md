@@ -42,6 +42,7 @@
 - Long-term invariants are recorded in `docs/ai-agent-long-term-memory.md`; future work must preserve DDD layering, `cynexus_appl_ai` schema ownership, service-folder API placement, truthful no-data/failure semantics, and individual feature commits.
 - Production audit found hard-coded `mock-model` defaults in ordinary scenario routing, Workspace Chat, receipt processing, knowledge generation, application-analysis routing, and the scenario listing. These are now removed; only the profile-scoped `MockAiModelAdapter` remains.
 - Knowledge Base document generation previously returned a locally generated draft after every configured Provider failed. That path now throws an explicit internal error after recording failed attempts, so a downstream caller cannot mistake it for AI success.
+- A post-commit status check found three repository files still carrying pre-refactor converter imports. They compile only when stale classes happen to remain in `target`; the imports were corrected explicitly and will be committed separately.
 
 - PowerShell parses an unquoted Maven `-Dtest=A,B` value as an expression; focused Maven property arguments must be quoted on Windows.
 - With `-am`, Surefire applies the selected test pattern to every upstream module; `-Dsurefire.failIfNoSpecifiedTests=false` is required so dependency modules without those test classes do not fail the focused run.

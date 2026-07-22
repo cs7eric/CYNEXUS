@@ -5,9 +5,9 @@ import cn.cccs7.cynexus.ai.domain.policy.capability.AgentCapabilityDescriptorPol
 import cn.cccs7.cynexus.ai.domain.event.capabilityaudit.AgentCapabilityAuditEvent;
 import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
 import cn.cccs7.cynexus.ai.infra.basic.entity.capability.AgentCapabilityAuditPO;
-import cn.cccs7.cynexus.ai.infra.basic.service.impl.AgentCapabilityAuditBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.impl.capability.AgentCapabilityAuditBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.capability.AgentCapabilityBasicService;
-import cn.cccs7.cynexus.ai.infra.convert.AgentCapabilityPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.capability.AgentCapabilityPOConverter;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.stereotype.Repository;

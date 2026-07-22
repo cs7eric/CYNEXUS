@@ -4,7 +4,7 @@ import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackSummaryBO;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentFeedbackRepository;
 import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentFeedbackBasicService;
-import cn.cccs7.cynexus.ai.infra.convert.AgentFeedbackPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentFeedbackPOConverter;
 import java.util.Optional;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Repository;

@@ -1886,3 +1886,8 @@
 - Knowledge document generation now records failed Provider attempts and throws an explicit error when no configured route succeeds; it no longer returns a fabricated local success draft.
 - Synchronized Maven and UI development versions to `1.1.161-SNAPSHOT`.
 - `mvn -pl cynexus-ai/cynexus-ai-application/cynexus-ai-application-controller,cynexus-ai/cynexus-ai-domain -am -DskipTests compile` passed at `1.1.161-SNAPSHOT`; existing duplicate Lombok dependency warnings remain and are tracked separately.
+
+## 2026-07-22 - Repository package import closure
+
+- Corrected three repository implementations that still imported converters from the pre-refactor package after the DDD move.
+- Synchronized Maven/UI versions to `1.1.162-SNAPSHOT`; the change is queued as an independent repository-import fix commit.

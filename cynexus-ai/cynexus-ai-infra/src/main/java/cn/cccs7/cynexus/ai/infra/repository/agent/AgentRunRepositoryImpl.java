@@ -11,11 +11,11 @@ import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentMessageBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentRunBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentRunEventBasicService;
 import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentRunRetentionBasicService;
-import cn.cccs7.cynexus.ai.infra.convert.AgentConversationPOConverter;
-import cn.cccs7.cynexus.ai.infra.convert.AgentMessagePOConverter;
-import cn.cccs7.cynexus.ai.infra.convert.AgentRunPOConverter;
-import cn.cccs7.cynexus.ai.infra.convert.AgentRunEventPOConverter;
-import cn.cccs7.cynexus.ai.infra.convert.AgentRunStepPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentConversationPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentMessagePOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentRunPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentRunEventPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentRunStepPOConverter;
 import java.util.List;
 import java.util.Optional;
 import java.time.OffsetDateTime;
@@ -98,7 +98,7 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
 
     @Override
     public void saveStep(AgentRunStepBO step) {
-        runService.createStep(cn.cccs7.cynexus.ai.infra.convert.AgentRunStepPOConverter.INSTANCE.toSource(step));
+        runService.createStep(cn.cccs7.cynexus.ai.infra.convert.agent.AgentRunStepPOConverter.INSTANCE.toSource(step));
     }
 
     @Override

@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.ai.infra.repository.task;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentTaskRepository;
 import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentTaskBasicService;
-import cn.cccs7.cynexus.ai.infra.convert.AgentTaskPOConverter;
+import cn.cccs7.cynexus.ai.infra.convert.agent.AgentTaskPOConverter;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
