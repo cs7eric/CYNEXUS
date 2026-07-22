@@ -71,3 +71,10 @@
 - Input: Optional UTC `from`, `to`, and `limit` query parameters
 - Output: `AiUsagePage`
 - Reuse Scope: Same domain pages
+
+#### Agent quota policy CRUD
+- Path: `cynexus-ui/src/services/ai/usage.ts`
+- Purpose: Fetch, create, update, and delete the persisted Agent quota policies used by runtime quota matching.
+- Input: Global, tenant, or user scope plus daily request and Token limits.
+- Output: Policy records or a confirmed mutation result; failed update/delete results are surfaced as errors.
+- Reuse Scope: AI configuration pages

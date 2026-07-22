@@ -4,11 +4,18 @@ import {
   AlertTriangle,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Building2,
   CheckCircle2,
   Clock3,
   DollarSign,
   Gauge,
+  Globe2,
+  Loader2,
+  Plus,
   RefreshCw,
+  Save,
+  Trash2,
+  UserRound,
   XCircle,
 } from "lucide-react"
 
@@ -16,8 +23,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { notification } from "@/components/ui/notification"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { cn } from "@/lib/utils"
@@ -36,6 +49,42 @@ import { createAgentQuotaPolicy, deleteAgentQuotaPolicy, fetchAgentQuotaPolicies
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const RECENT_CALLS_PAGE_SIZE = 50
+
+type QuotaPolicyScope = "global" | "tenant" | "principal"
+
+type QuotaPolicyForm = {
+  id?: string
+  scope: QuotaPolicyScope
+  tenantKey: string
+  principalKey: string
+  dailyRequestLimit: string
+  dailyTokenLimit: string
+  enabled: boolean
+}
+
+const quotaScopeCopy: Record<QuotaPolicyScope, { label: string; description: string }> = {
+  global: { label: "全局默认", description: "未命中更具体策略时，对所有调用生效" },
+  tenant: { label: "租户策略", description: "仅对指定租户内的调用生效" },
+  principal: { label: "用户策略", description: "仅对指定租户内的指定用户生效" },
+}
+
+function quotaScopeOf(policy: Pick<AgentQuotaPolicy, "tenantKey" | "principalKey">): QuotaPolicyScope {
+  if (policy.principalKey) return "principal"
+  if (policy.tenantKey) return "tenant"
+  return "global"
+}
+
+function quotaFormFromPolicy(policy?: AgentQuotaPolicy): QuotaPolicyForm {
+  return {
+    id: policy?.id,
+    scope: policy ? quotaScopeOf(policy) : "tenant",
+    tenantKey: policy?.tenantKey || "",
+    principalKey: policy?.principalKey || "",
+    dailyRequestLimit: String(policy?.dailyRequestLimit ?? 200),
+    dailyTokenLimit: String(policy?.dailyTokenLimit ?? 100000),
+    enabled: policy?.enabled ?? true,
+  }
+}
 
 function isoDate(value: Date) {
   return value.toISOString().slice(0, 10)
@@ -149,6 +198,9 @@ export default function AiUsageSettingsPage() {
   const [quotaLoading, setQuotaLoading] = useState(true)
   const [quotaSaving, setQuotaSaving] = useState(false)
   const [quotaError, setQuotaError] = useState<string | null>(null)
+  const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const [quotaForm, setQuotaForm] = useState<QuotaPolicyForm>(() => quotaFormFromPolicy())
+  const [quotaDeletingId, setQuotaDeletingId] = useState("")
 
   const refresh = useCallback(async (initial = false) => {
     if (initial) setLoading(true); else setRefreshing(true)
@@ -172,16 +224,74 @@ export default function AiUsageSettingsPage() {
 
   useEffect(() => { void refreshQuotaPolicies() }, [refreshQuotaPolicies])
 
-  const saveQuota = useCallback(async (policy: AgentQuotaPolicy) => {
+  const openQuotaCreate = useCallback(() => {
+    setQuotaError(null)
+    setQuotaForm(quotaFormFromPolicy())
+    setQuotaDialogOpen(true)
+  }, [])
+
+  const openQuotaEdit = useCallback((policy: AgentQuotaPolicy) => {
+    setQuotaError(null)
+    setQuotaForm(quotaFormFromPolicy(policy))
+    setQuotaDialogOpen(true)
+  }, [])
+
+  const saveQuota = useCallback(async () => {
+    const tenantKey = quotaForm.scope === "global" ? null : quotaForm.tenantKey.trim() || null
+    const principalKey = quotaForm.scope === "principal" ? quotaForm.principalKey.trim() || null : null
+    const dailyRequestLimit = Number(quotaForm.dailyRequestLimit)
+    const dailyTokenLimit = Number(quotaForm.dailyTokenLimit)
+    const scopeLabel = quotaScopeCopy[quotaForm.scope].label
+
+    if ((quotaForm.scope === "tenant" || quotaForm.scope === "principal") && !tenantKey) {
+      notification.danger({ title: "策略未保存", description: "请填写租户标识" })
+      return
+    }
+    if (quotaForm.scope === "principal" && !principalKey) {
+      notification.danger({ title: "策略未保存", description: "请填写用户标识" })
+      return
+    }
+    if (!Number.isInteger(dailyRequestLimit) || dailyRequestLimit < 1) {
+      notification.danger({ title: "策略未保存", description: "每日请求上限必须是大于 0 的整数" })
+      return
+    }
+    if (!Number.isInteger(dailyTokenLimit) || dailyTokenLimit < 1024) {
+      notification.danger({ title: "策略未保存", description: "每日 Token 上限至少为 1024" })
+      return
+    }
+
     setQuotaSaving(true); setQuotaError(null)
     try {
-      if (policy.id.startsWith("draft-")) {
-        await createAgentQuotaPolicy({ tenantKey: policy.tenantKey, principalKey: policy.principalKey,
-          dailyRequestLimit: policy.dailyRequestLimit, dailyTokenLimit: policy.dailyTokenLimit, enabled: policy.enabled })
-      } else await updateAgentQuotaPolicy(policy)
+      const duplicate = quotaPolicies.some((policy) => !quotaForm.id
+        && (policy.tenantKey || null) === tenantKey
+        && (policy.principalKey || null) === principalKey)
+      if (duplicate) throw new Error(`该${scopeLabel}已存在，请直接编辑现有策略`)
+
+      const payload = { tenantKey, principalKey, dailyRequestLimit, dailyTokenLimit, enabled: quotaForm.enabled }
+      if (quotaForm.id) await updateAgentQuotaPolicy({ id: quotaForm.id, ...payload })
+      else await createAgentQuotaPolicy(payload)
       await refreshQuotaPolicies()
-    } catch (cause) { setQuotaError(cause instanceof Error ? cause.message : "Unable to save quota policy") }
-    finally { setQuotaSaving(false) }
+      notification.success({ title: quotaForm.id ? "配额策略已保存" : "配额策略已创建", description: scopeLabel })
+      setQuotaDialogOpen(false)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "配额策略保存失败"
+      setQuotaError(message)
+      notification.danger({ title: "配额策略保存失败", description: message })
+    } finally { setQuotaSaving(false) }
+  }, [quotaForm, quotaPolicies, refreshQuotaPolicies])
+
+  const deleteQuota = useCallback(async (policy: AgentQuotaPolicy) => {
+    if (quotaScopeOf(policy) === "global") return
+    setQuotaDeletingId(policy.id); setQuotaError(null)
+    try {
+      await deleteAgentQuotaPolicy(policy.id)
+      await refreshQuotaPolicies()
+      notification.success({ title: "配额策略已删除", description: quotaScopeCopy[quotaScopeOf(policy)].label })
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "配额策略删除失败"
+      setQuotaError(message)
+      notification.danger({ title: "配额策略删除失败", description: message })
+    } finally { setQuotaDeletingId("") }
   }, [refreshQuotaPolicies])
 
   const metrics = useMemo(() => {
@@ -207,6 +317,12 @@ export default function AiUsageSettingsPage() {
     }
     return [...values.values()].sort((left, right) => right.failed - left.failed || right.requests - left.requests)
   }, [breakdown])
+  const sortedQuotaPolicies = useMemo(() => [...quotaPolicies].sort((left, right) => {
+    const scopeRank = { principal: 0, tenant: 1, global: 2 }
+    return scopeRank[quotaScopeOf(left)] - scopeRank[quotaScopeOf(right)]
+      || (left.tenantKey || "").localeCompare(right.tenantKey || "")
+      || (left.principalKey || "").localeCompare(right.principalKey || "")
+  }), [quotaPolicies])
   const visibleObservations = useMemo(() => (data?.observations || []).filter((item) => item.name !== "dev.smoke"), [data])
   const recentPageCount = Math.max(1, Math.ceil(visibleObservations.length / recentPageSize))
   const recentPageItems = useMemo(() => {
@@ -236,19 +352,70 @@ export default function AiUsageSettingsPage() {
         {!error && data && !data.available ? <Alert><AlertTriangle className="h-4 w-4" /><AlertTitle>Langfuse has no data</AlertTitle><AlertDescription>{data.message || "Enable the shared Langfuse stack and AI reporter to see usage."}</AlertDescription></Alert> : null}
 
         <Card className="shadow-none">
-          <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="text-sm">Agent quota policies</CardTitle><p className="mt-1 text-xs text-muted-foreground">Limits are stored in PostgreSQL and applied by tenant/user scope.</p></div><Button size="sm" variant="secondary" disabled={quotaSaving} onClick={() => setQuotaPolicies((items) => [...items, { id: `draft-${Date.now()}`, tenantKey: "", principalKey: "", dailyRequestLimit: 200, dailyTokenLimit: 100000, enabled: true }])}>Add policy</Button></CardHeader>
-          <CardContent className="space-y-2">
-            {quotaError ? <p className="text-sm text-rose-600">{quotaError}</p> : null}
-            {quotaLoading ? <p className="text-sm text-muted-foreground">Loading quota policies...</p> : null}
-            {quotaPolicies.map((policy) => <div key={policy.id} className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_1fr_140px_160px_auto] md:items-end">
-              <label className="grid gap-1 text-xs text-muted-foreground">Tenant<input value={policy.tenantKey || ""} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, tenantKey: event.target.value || null } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
-              <label className="grid gap-1 text-xs text-muted-foreground">Principal<input value={policy.principalKey || ""} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, principalKey: event.target.value || null } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
-              <label className="grid gap-1 text-xs text-muted-foreground">Daily requests<input type="number" min={1} value={policy.dailyRequestLimit} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, dailyRequestLimit: Number(event.target.value) } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
-              <label className="grid gap-1 text-xs text-muted-foreground">Daily tokens<input type="number" min={1024} value={policy.dailyTokenLimit} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, dailyTokenLimit: Number(event.target.value) } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
-              <div className="flex gap-1"><Button size="sm" disabled={quotaSaving} onClick={() => void saveQuota(policy)}>Save</Button><Button size="sm" variant="ghost" disabled={quotaSaving} onClick={async () => { if (policy.id.startsWith("draft-")) setQuotaPolicies((items) => items.filter((item) => item.id !== policy.id)); else { await deleteAgentQuotaPolicy(policy.id); await refreshQuotaPolicies() } }}>Delete</Button></div>
-            </div>)}
+          <CardHeader className="flex flex-col gap-4 border-b border-border/60 py-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="text-base">Agent 配额策略</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">限制每天 UTC 00:00 重置。系统按用户策略、租户策略、全局默认的顺序匹配。</p>
+            </div>
+            <Button size="sm" onClick={openQuotaCreate} disabled={quotaSaving}>
+              <Plus className="size-4" />
+              新增策略
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4 px-4 py-4">
+            {quotaError ? <Alert variant="destructive"><AlertTriangle className="size-4" /><AlertTitle>配额策略操作失败</AlertTitle><AlertDescription>{quotaError}</AlertDescription></Alert> : null}
+
+            <div className="grid gap-2 rounded-lg bg-muted/45 p-3 text-xs text-muted-foreground md:grid-cols-3">
+              <div className="flex min-w-0 gap-2"><UserRound className="mt-0.5 size-4 shrink-0 text-foreground" /><div><p className="font-medium text-foreground">用户策略</p><p className="mt-0.5 leading-5">租户内指定用户，优先级最高。</p></div></div>
+              <div className="flex min-w-0 gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-foreground" /><div><p className="font-medium text-foreground">租户策略</p><p className="mt-0.5 leading-5">覆盖该租户内未单独配置的用户。</p></div></div>
+              <div className="flex min-w-0 gap-2"><Globe2 className="mt-0.5 size-4 shrink-0 text-foreground" /><div><p className="font-medium text-foreground">全局默认</p><p className="mt-0.5 leading-5">作为最终兜底，请始终保留一条。</p></div></div>
+            </div>
+
+            <section className="overflow-hidden rounded-lg border border-border/60" aria-label="Agent 配额策略列表">
+              <div className="hidden grid-cols-[minmax(220px,1.4fr)_minmax(120px,0.7fr)_minmax(140px,0.8fr)_auto] gap-4 border-b border-border/60 bg-muted/35 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
+                <span>适用范围</span><span className="text-right">每日请求上限</span><span className="text-right">每日 Token 上限</span><span className="text-right">操作</span>
+              </div>
+              {quotaLoading ? (
+                <div className="space-y-3 p-4"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+              ) : null}
+              {!quotaLoading && sortedQuotaPolicies.map((policy) => {
+                const scope = quotaScopeOf(policy)
+                const scopeCopy = quotaScopeCopy[scope]
+                const ScopeIcon = scope === "principal" ? UserRound : scope === "tenant" ? Building2 : Globe2
+                const deleting = quotaDeletingId === policy.id
+                return (
+                  <div key={policy.id} className="grid gap-3 border-b border-border/60 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(220px,1.4fr)_minmax(120px,0.7fr)_minmax(140px,0.8fr)_auto] md:items-center md:gap-4">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><ScopeIcon className="size-3.5" /></span>
+                      <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-medium">{scopeCopy.label}</p><Badge variant={policy.enabled ? "outline" : "secondary"} className="h-5 px-1.5 text-[10px] font-medium">{policy.enabled ? "已启用" : "已停用"}</Badge></div><p className="mt-0.5 truncate text-xs text-muted-foreground" title={scope === "global" ? scopeCopy.description : scope === "tenant" ? `租户：${policy.tenantKey}` : `租户：${policy.tenantKey} / 用户：${policy.principalKey}`}>{scope === "global" ? scopeCopy.description : scope === "tenant" ? `租户：${policy.tenantKey}` : `租户：${policy.tenantKey} / 用户：${policy.principalKey}`}</p></div>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3 md:block md:text-right"><span className="text-xs text-muted-foreground md:hidden">每日请求上限</span><span className="font-mono text-sm tabular-nums">{number(policy.dailyRequestLimit)}</span></div>
+                    <div className="flex items-baseline justify-between gap-3 md:block md:text-right"><span className="text-xs text-muted-foreground md:hidden">每日 Token 上限</span><span className="font-mono text-sm tabular-nums">{number(policy.dailyTokenLimit)}</span></div>
+                    <div className="flex items-center justify-end gap-1"><Button size="sm" variant="outline" onClick={() => openQuotaEdit(policy)} disabled={quotaSaving || deleting}>编辑</Button>{scope === "global" ? <Button size="icon-sm" variant="ghost" disabled title="全局默认用于兜底，不能在此删除" aria-label="不能删除全局默认"><Trash2 className="size-4" /></Button> : <Button size="icon-sm" variant="ghost" disabled={quotaSaving || deleting} title="删除策略" aria-label={`删除${scopeCopy.label}`} onClick={() => void deleteQuota(policy)}>{deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}</Button>}</div>
+                  </div>
+                )
+              })}
+              {!quotaLoading && !sortedQuotaPolicies.length ? <div className="p-5 text-center text-sm text-muted-foreground">暂无配额策略。先创建全局默认，确保所有 Agent 请求都有可用上限。</div> : null}
+            </section>
           </CardContent>
         </Card>
+
+        <Dialog open={quotaDialogOpen} onOpenChange={(open) => !quotaSaving && setQuotaDialogOpen(open)}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{quotaForm.id ? "编辑配额策略" : "新增配额策略"}</DialogTitle>
+              <DialogDescription>配置与调用身份对应的每日额度。更具体的范围会覆盖更宽泛的范围。</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-1">
+              <div className="space-y-2"><Label htmlFor="quota-policy-scope">适用范围</Label><Select value={quotaForm.scope} disabled={Boolean(quotaForm.id)} onValueChange={(value) => setQuotaForm((current) => ({ ...current, scope: value as QuotaPolicyScope, tenantKey: value === "global" ? "" : current.tenantKey, principalKey: value === "principal" ? current.principalKey : "" }))}><SelectTrigger id="quota-policy-scope"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="global">全局默认</SelectItem><SelectItem value="tenant">租户策略</SelectItem><SelectItem value="principal">用户策略</SelectItem></SelectContent></Select><p className="text-xs leading-5 text-muted-foreground">{quotaScopeCopy[quotaForm.scope].description}{quotaForm.id ? " 编辑时范围不可变更；如需调整范围，请新建策略。" : ""}</p></div>
+              {quotaForm.scope !== "global" ? <div className="space-y-2"><Label htmlFor="quota-policy-tenant">租户标识</Label><Input id="quota-policy-tenant" value={quotaForm.tenantKey} maxLength={128} onChange={(event) => setQuotaForm((current) => ({ ...current, tenantKey: event.target.value }))} placeholder="例如：default" autoComplete="off" /><p className="text-xs text-muted-foreground">必须与 Agent 调用时传入的 tenantKey 完全一致。</p></div> : null}
+              {quotaForm.scope === "principal" ? <div className="space-y-2"><Label htmlFor="quota-policy-principal">用户标识</Label><Input id="quota-policy-principal" value={quotaForm.principalKey} maxLength={128} onChange={(event) => setQuotaForm((current) => ({ ...current, principalKey: event.target.value }))} placeholder="例如：user-10001" autoComplete="off" /><p className="text-xs text-muted-foreground">必须与 Agent 调用时传入的 principalKey 完全一致。</p></div> : null}
+              <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="quota-policy-requests">每日请求上限</Label><Input id="quota-policy-requests" type="number" min={1} step={1} value={quotaForm.dailyRequestLimit} onChange={(event) => setQuotaForm((current) => ({ ...current, dailyRequestLimit: event.target.value }))} /><p className="text-xs text-muted-foreground">一个 UTC 自然日内可发起的 Agent 请求数。</p></div><div className="space-y-2"><Label htmlFor="quota-policy-tokens">每日 Token 上限</Label><Input id="quota-policy-tokens" type="number" min={1024} step={1} value={quotaForm.dailyTokenLimit} onChange={(event) => setQuotaForm((current) => ({ ...current, dailyTokenLimit: event.target.value }))} /><p className="text-xs text-muted-foreground">一个 UTC 自然日内累计使用的 Token 数。</p></div></div>
+              <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3"><Checkbox id="quota-policy-enabled" checked={quotaForm.enabled} onCheckedChange={(checked) => setQuotaForm((current) => ({ ...current, enabled: checked === true }))} /><div className="grid gap-1 leading-none"><Label htmlFor="quota-policy-enabled">启用此策略</Label><p className="text-xs leading-5 text-muted-foreground">停用后该范围不会命中此策略，将继续匹配更宽泛的有效策略。</p></div></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setQuotaDialogOpen(false)} disabled={quotaSaving}>取消</Button><Button onClick={() => void saveQuota()} disabled={quotaSaving}>{quotaSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}{quotaSaving ? "正在保存" : "保存策略"}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Card className="gap-0 overflow-hidden py-0 shadow-none">
           <CardContent className="grid gap-0 border-b border-border/60 px-4 py-0 sm:grid-cols-2 xl:grid-cols-5">

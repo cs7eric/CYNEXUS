@@ -98,11 +98,15 @@ export async function createAgentQuotaPolicy(policy: Omit<AgentQuotaPolicy, "id"
 }
 
 export async function updateAgentQuotaPolicy(policy: AgentQuotaPolicy) {
-  return cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/quota-policies`, {
+  const updated = await cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/quota-policies`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(policy),
   }))
+  if (!updated) throw new Error("配额策略未保存，请刷新后重试")
+  return updated
 }
 
 export async function deleteAgentQuotaPolicy(id: string) {
-  return cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/quota-policies/${encodeURIComponent(id)}`, { method: "DELETE" }))
+  const deleted = await cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/quota-policies/${encodeURIComponent(id)}`, { method: "DELETE" }))
+  if (!deleted) throw new Error("配额策略未删除，请刷新后重试")
+  return deleted
 }

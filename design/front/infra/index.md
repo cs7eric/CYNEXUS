@@ -30,14 +30,14 @@
 - APIs: `fetchAiProviders`, `fetchAiBindings`, `fetchAiCapabilities`, provider CRUD, binding upsert, Agent capability governance
 - Components: Provider editor, capability binding panels, governed Agent capability catalog
 
-## AI Usage
+## AI Usage and Agent Quotas
 
 - Route: `/ai/usage`
 - Module: `cynexus-ui/src/views/ai/usage/index.tsx`
 - Detail: `./ai-usage.detail.md`
-- Data Source: Langfuse observations through the AI usage API
-- APIs: `fetchAiUsage`
-- Components: `SummaryMetric`, `CapabilityRow`, `ProviderHealthRow`, recent calls table
+- Data Source: Langfuse observations through the AI usage API and persisted Agent quota policies
+- APIs: `fetchAiUsage`, `fetchAgentQuotaPolicies`, Agent quota policy CRUD
+- Components: `SummaryMetric`, `CapabilityRow`, `ProviderHealthRow`, quota policy list/editor, recent calls table
 
 ## AI Prompt
 
