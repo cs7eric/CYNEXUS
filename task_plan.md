@@ -2523,6 +2523,16 @@ Required acceptance matrix:
 
 The long-term product and engineering decisions are recorded in `docs/ai-agent-long-term-memory.md`. Do not mark this phase complete from a source inspection or mock-only test; each row needs the evidence named above.
 
+### Phase 107.1 - Agent persistence owner scope and retention hardening
+
+Status: complete
+
+- Apply owner-qualified foreign keys, indexes, uniqueness constraints, bounded key widths, lease/attempt checks, and retention policies for Agent conversations, runs, messages, steps, events, tasks, feedback, usage, and write audit records.
+- Bind `AgentRunStepBO.ownerKey` through the application and MapStruct persistence boundary so the owner-qualified database contract cannot be satisfied by an ownerless in-memory step.
+- Verify focused workflow/schema tests, the idempotent Release migration, live PostgreSQL orphan checks, owner-qualified persisted rows, event replay, idempotency, and cancellation.
+
+Verification: commit `5150fe2a` synchronized Maven/UI development versions at `1.1.173-SNAPSHOT`. Provider workflow and persistence tests passed (10/10 workflow tests and 3/3 schema contract tests); Release `1.1.173-260722-RELEASE` built all 41 Maven modules and six versioned images, and all six health checks returned HTTP 200. The Release capability API returned 14 enabled/available rows with runtime entry, prompt key, route group, source, and freshness metadata. Real `gpt-5.4-mini` run `AGR-release173-simple` selected `market.overview` and `market.sector_rank`, persisted owner-qualified steps/events and `SUCCEEDED`; the same idempotency key returned the existing run, event replay resumed at sequence 3 after cursor 2, and Last-Event-ID replay returned ids 3-6. A separate real stream cancellation returned `CANCEL_REQUESTED` and persisted `CANCELLED`. PostgreSQL owner/orphan checks returned zero orphan rows. A deliberately broad request was truthfully rejected by the four-tool-per-turn safety limit; no fabricated success was returned.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
