@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.exception.quota;
 
 public class AgentQuotaExceededException extends RuntimeException {
     public AgentQuotaExceededException() {

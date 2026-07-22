@@ -1,5 +1,6 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.gateway.capability;
 
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import java.util.List;
 import java.util.Optional;
 

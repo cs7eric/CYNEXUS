@@ -1,6 +1,6 @@
-package cn.cccs7.cynexus.ai.domain.repository;
+package cn.cccs7.cynexus.ai.domain.repository.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentTaskBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

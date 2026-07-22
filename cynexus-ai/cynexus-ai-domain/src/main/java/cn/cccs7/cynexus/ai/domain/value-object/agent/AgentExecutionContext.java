@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.valueobject.agent;
 
 import java.time.LocalDate;
 import lombok.Builder;

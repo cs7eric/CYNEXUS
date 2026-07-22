@@ -1860,3 +1860,5 @@
 - Release AI startup logs contain no `MockAiModelAdapter` startup or execution record. Synthetic fallback removal is release-verified.
 
 - Audited the Release starter configuration and removed the production default-provider value `mock`; missing production routing now fails explicitly, while MockAiModelAdapter remains profile-scoped to `dev/test`.
+
+- The first `1.1.160` Release rebuild exposed missing imports caused by the in-progress DDD package move; corrected the domain contracts and verified `cynexus-ai-domain` compilation succeeds. The full Release rebuild is still pending.

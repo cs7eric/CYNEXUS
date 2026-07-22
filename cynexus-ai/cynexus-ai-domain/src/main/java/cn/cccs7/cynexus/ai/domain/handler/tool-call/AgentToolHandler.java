@@ -1,4 +1,11 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.handler.toolcall;
+
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 
 public interface AgentToolHandler {
 

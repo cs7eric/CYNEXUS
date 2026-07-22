@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.policy.sensitivedata;
 
 import java.net.URI;
 import java.util.Set;

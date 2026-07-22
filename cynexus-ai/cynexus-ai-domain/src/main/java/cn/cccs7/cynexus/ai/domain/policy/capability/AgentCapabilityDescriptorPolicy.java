@@ -1,5 +1,7 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.policy.capability;
 
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import java.util.Set;
 
 /** Domain validation for capability metadata before it crosses the persistence/runtime boundary. */

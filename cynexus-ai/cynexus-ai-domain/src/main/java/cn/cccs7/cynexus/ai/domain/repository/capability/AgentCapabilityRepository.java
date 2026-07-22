@@ -1,7 +1,7 @@
-package cn.cccs7.cynexus.ai.domain.repository;
+package cn.cccs7.cynexus.ai.domain.repository.capability;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityDescriptor;
-import cn.cccs7.cynexus.ai.domain.agent.AgentCapabilityAuditEvent;
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.event.capabilityaudit.AgentCapabilityAuditEvent;
 import java.util.List;
 
 public interface AgentCapabilityRepository {

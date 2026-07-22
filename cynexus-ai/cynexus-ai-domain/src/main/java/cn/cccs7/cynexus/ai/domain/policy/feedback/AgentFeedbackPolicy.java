@@ -1,5 +1,8 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.policy.feedback;
 
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackBO;
+
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackBO;
 import java.util.Locale;
 import java.util.Set;
 

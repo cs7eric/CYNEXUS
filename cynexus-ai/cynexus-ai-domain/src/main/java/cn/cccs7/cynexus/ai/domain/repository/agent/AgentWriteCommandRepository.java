@@ -1,6 +1,6 @@
-package cn.cccs7.cynexus.ai.domain.repository;
+package cn.cccs7.cynexus.ai.domain.repository.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentWriteCommandBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentWriteCommandBO;
 import java.util.Optional;
 
 public interface AgentWriteCommandRepository {

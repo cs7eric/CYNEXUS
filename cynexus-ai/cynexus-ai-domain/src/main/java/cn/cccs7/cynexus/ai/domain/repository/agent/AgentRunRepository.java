@@ -1,10 +1,10 @@
-package cn.cccs7.cynexus.ai.domain.repository;
+package cn.cccs7.cynexus.ai.domain.repository.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentMessageBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentRunStepBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentConversationBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentMessageBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunEventBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO;
 import java.util.List;
 import java.util.Optional;
 import java.time.OffsetDateTime;

@@ -1,7 +1,7 @@
-package cn.cccs7.cynexus.ai.domain.repository;
+package cn.cccs7.cynexus.ai.domain.repository.agent;
 
-import cn.cccs7.cynexus.ai.domain.agent.AgentFeedbackBO;
-import cn.cccs7.cynexus.ai.domain.agent.AgentFeedbackSummaryBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentFeedbackSummaryBO;
 import java.util.Optional;
 import java.time.OffsetDateTime;
 

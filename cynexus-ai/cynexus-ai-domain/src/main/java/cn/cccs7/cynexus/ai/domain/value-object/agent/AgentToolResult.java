@@ -1,5 +1,6 @@
-package cn.cccs7.cynexus.ai.domain.agent;
+package cn.cccs7.cynexus.ai.domain.valueobject.agent;
 
+import cn.cccs7.cynexus.ai.domain.valueobject.citation.AgentCitation;
 import java.util.List;
 import lombok.Builder;
 import lombok.Value;

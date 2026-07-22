@@ -143,6 +143,10 @@ Verification: synthetic tool-enabled success is rejected, the mock adapter is li
 
 | Error | Attempt | Resolution |
 | --- | --- | --- |
+| Release `1.1.160` compile failed after the DDD package refactor because moved domain types lacked explicit imports | First `start-release.ps1 -Build` | Added explicit domain imports to Agent gateway/handler/policy/factory contracts; focused AI domain compile now passes. Release rebuild remains required. |
+
+| Error | Attempt | Resolution |
+| --- | --- | --- |
 | `guide/PROJECT_BRIEF .md` not found | Read exact user-provided path | Real file is `guide/PROJECT_BRIEF.md`; read that file. |
 | `rg --files` access denied from bundled rg.exe | Initial file listing | Use PowerShell `Get-ChildItem` fallback for local inspection. |
 | `spring-ai-tools` dependency version missing | First Maven build | Removed unused artifact; Spring AI BOM remains in dependency management for later provider-specific starters. |
