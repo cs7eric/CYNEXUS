@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.ai.domain.port;
+package cn.cccs7.cynexus.ai.domain.gateway.modelturn;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;

@@ -1,5 +1,13 @@
 # Cynexus Setup Progress
 
+## 2026-07-22 - Agent source-date normalization and Release evidence audit
+
+- Ran the versioned Release `1.1.162-260722-RELEASE` against the direct AI runtime with a signed validation identity; `xtyoo / gpt-5.4-mini` selected and executed `market.overview`, `market.overview_history`, and `market.information_feed`.
+- Verified persisted provider model, plan, tool arguments/results, citations, evidence, usage source `REPORTED`, and terminal `SUCCEEDED` state; no mock or synthetic execution appeared in the request path.
+- Found a real provenance defect: Java `LocalDate` values serialize as Jackson arrays, so market tool steps persisted an empty `dataDate` even when the tool output contained `tradeDate`.
+- Added bounded normalization for textual, numeric, Jackson `LocalDate` array, and first-history-item date values; focused market handler tests passed 3/3.
+- The Release image still requires a rebuild before this source-date fix can be counted as runtime-complete. Maven/UI versions are being advanced together from `1.1.162-SNAPSHOT`.
+
 ## 2026-07-22 - Grounded Agent citations and safe source navigation
 
 - Added domain-owned `AgentCitation`, deterministic citation ids, freshness, retrieval time, publication/data dates, excerpts, availability, and conflict metadata.

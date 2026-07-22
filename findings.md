@@ -34,6 +34,13 @@
 - Idempotency belongs on the persisted run with a partial unique index scoped by the tenant-qualified owner key; a Redis-only key would not survive a Redis flush or support history replay.
 - Active-run leases and rate limits are separate policies: the former limits concurrent work and owns cancellation tokens, while the latter uses a rolling request window and should not block a legitimate retry lookup.
 
+## Agent Source Provenance Audit - 2026-07-22
+
+- Real Release request `AGR-180448cdf58d44beb8b4bebd` used `xtyoo / gpt-5.4-mini` and selected three registered Market capabilities. The persisted run included tool evidence and reported usage, proving the provider path is live for this identity.
+- Market DTO `LocalDate` values are serialized by the Spring/Jackson mapper as arrays such as `[2026,7,22]`. The previous `JsonNode.asText()` extractor ignored these arrays, leaving tool-step `data_date`, citation `dataDate`, and evidence dates blank.
+- The correction belongs in the Market infra handler base because it is an adapter serialization concern. It normalizes ISO text/number dates, Jackson date arrays, and the first item in history envelopes without inventing dates.
+- A real Release rebuild and repeat request are required before the defect can be marked closed; unit tests alone are insufficient for the completion contract.
+
 ## Enterprise Agent Completion Contract - 2026-07-22
 
 - The user's required outcome is the complete Agent product, not only the first autonomous read-only loop.

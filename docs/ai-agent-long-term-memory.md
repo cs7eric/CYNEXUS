@@ -32,6 +32,8 @@ The Agent must never claim that a data source was consulted unless a registered 
 
 Each feature is complete only after implementation, focused tests, Release runtime evidence, anti-fabrication audit, synchronized Maven/UI version bump, and an individual commit. Update `task_plan.md`, `progress.md`, and `findings.md` after each feature. Keep unresolved evidence visible as `in_progress` or `pending`.
 
+The standing delivery request is to implement every listed Agent capability and acceptance item, double-check each one for missing or fake behavior, and retain the decisions in this document. A passing mock test, source inspection, or UI-only placeholder never closes a feature. Real `xtyoo / gpt-5.4-mini` evidence, persisted capability evidence, and the anti-fabrication audit are required for production completion.
+
 ## Product Completion Areas
 
 The first usable Agent loop is complete. Product completion still requires grounded citations, broader finance/knowledge/application-analysis capabilities, feedback and evaluation, usage/cost/quota routing, confirmed writes, background tasks, durable cancellation/resume/replay, governed dynamic discovery, enterprise security/observability, and browser-verified responsive UI workflows.

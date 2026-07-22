@@ -5,7 +5,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
-import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import java.util.List;
 import cn.cccs7.cynexus.ai.infra.ai.adapter.AiModelAdapter;
 import cn.cccs7.cynexus.ai.infra.ai.factory.DynamicChatClientFactory;

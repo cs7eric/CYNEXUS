@@ -1,6 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.observability;
 
-import cn.cccs7.cynexus.ai.domain.port.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;

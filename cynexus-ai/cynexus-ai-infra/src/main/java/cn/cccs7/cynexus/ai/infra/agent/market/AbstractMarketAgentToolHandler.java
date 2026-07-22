@@ -9,6 +9,8 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
@@ -91,10 +93,34 @@ abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
     }
 
     private String firstText(JsonNode root, String... names) {
-        if (root == null || !root.isObject()) return null;
+        if (root == null) return null;
         for (String name : names) {
-            JsonNode value = root.get(name);
-            if (value != null && !value.isNull() && !value.asText("").isBlank()) return value.asText();
+            String value = textValue(root.get(name));
+            if (value != null) return value;
+        }
+        if (root.isObject()) {
+            JsonNode items = root.get("items");
+            if (items != null && items.isArray() && !items.isEmpty()) {
+                return firstText(items.get(0), names);
+            }
+        }
+        return null;
+    }
+
+    private String textValue(JsonNode value) {
+        if (value == null || value.isNull()) return null;
+        if (value.isTextual() || value.isNumber()) {
+            String text = value.asText("").trim();
+            return text.isBlank() ? null : text;
+        }
+        if (value.isArray() && value.size() == 3 && value.get(0).canConvertToInt()
+                && value.get(1).canConvertToInt() && value.get(2).canConvertToInt()) {
+            try {
+                return LocalDate.of(value.get(0).intValue(), value.get(1).intValue(), value.get(2).intValue())
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE);
+            } catch (RuntimeException ignored) {
+                return null;
+            }
         }
         return null;
     }

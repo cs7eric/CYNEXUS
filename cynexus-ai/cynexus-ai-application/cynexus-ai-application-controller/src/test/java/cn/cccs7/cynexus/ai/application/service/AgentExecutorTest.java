@@ -6,7 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

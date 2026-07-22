@@ -6,7 +6,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
-import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

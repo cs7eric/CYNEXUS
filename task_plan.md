@@ -2401,6 +2401,7 @@ Status: in_progress
 - Render citations in the Message/MessageScroller transcript and make source links safe, tenant-independent, and auditable.
 - Add source freshness and conflict indicators; never imply that a source was consulted when only a model claim exists.
 - Implemented the first persistence/API/UI slice: stable tool-backed citation ids, redacted citation JSON on tool steps, evidence embedding, safe relative/trusted-origin URL policy, and Agent source navigation.
+- Release audit found that Market `LocalDate` fields were persisted as empty citation/evidence dates because Jackson date arrays were not normalized; the infra extractor is corrected and focused tests pass, with Release rebuild/retest still required.
 
 ### 106.2 Finance and knowledge-base capability expansion
 
