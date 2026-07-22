@@ -43,7 +43,7 @@ public class KnowledgeSearchAgentToolHandler implements AgentToolHandler {
             return AgentToolResult.failure(CODE, "query must contain between 2 and 240 characters.", DEFINITION.getSource(), "ARGUMENT_INVALID");
         }
         int limit = Math.min(MAX_RESULTS, Math.max(1, integer(call.getArguments() == null ? null : call.getArguments().get("limit"), MAX_RESULTS)));
-        Result<List<KnowledgeDocumentDTO>> result = client.listDocuments(query, "PUBLISHED", null, null);
+        Result<List<KnowledgeDocumentDTO>> result = client.listDocuments(query, "published", null, null);
         if (result == null || result.isFailed() || result.getData() == null || result.getData().isEmpty()) {
             return AgentToolResult.failure(CODE, "No published knowledge documents matched the query.", DEFINITION.getSource(), "NO_DATA");
         }

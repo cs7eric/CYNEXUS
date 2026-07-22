@@ -116,6 +116,19 @@ Status: complete
 - Maven repackage initially hit a locked Market starter JAR because Dev was still running; stopped Dev and reran the Market reactor successfully.
 - Vite logged transient proxy connection errors while the restarted Gateway was still booting; subsequent UI, Gateway, Core, AI, and Market health checks returned `200`.
 
+### 106.10 Grounded Knowledge Search and Truthful Clarification Recovery
+
+Status: in_progress
+
+- Normalize Knowledge Base status values at the domain boundary and keep search behavior independent of Agent handlers.
+- Tokenize bounded natural-language queries, including Chinese multi-term input, and rank bounded database candidates without hard-coded document names.
+- Keep infrastructure responsible only for compiling the domain query into an allow-listed MyBatis condition and bounded result set.
+- Detect a complete clarification JSON envelope after a provider preamble, while preserving plain text as a final answer.
+- Add domain, Agent handler, and Agent workflow regression coverage.
+- Apply the synchronized Release build and verify real `xtyoo / gpt-5.4-mini` knowledge search plus clarification behavior against persisted run state.
+
+Current implementation: domain search normalization/tokenization/ranking and provider-preamble clarification parsing are implemented with focused tests. Release and real-provider verification remain open.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |

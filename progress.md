@@ -1821,6 +1821,15 @@
 - Added idempotent migration `20260722_add_ai_agent_capabilities.sql` and Release migration registration.
 - Focused compilation/tests and Provider UI synchronization plus real newly-registered capability verification remain pending.
 
+## 2026-07-22 - Grounded Knowledge Search and Truthful Clarification Recovery
+
+- Audited the real Agent smoke failure: Knowledge Base status was queried as uppercase `PUBLISHED`, while persisted documents use lowercase `published`; the entire natural-language query was also sent as one SQL `LIKE` value.
+- Added `KnowledgeDocumentSearchQuery` under the Knowledge Base domain with bounded NFKC normalization, status normalization, Chinese/Latin tokenization, candidate limits, and deterministic title/description/content relevance ranking.
+- Changed Knowledge Base infra to compile the domain query into bounded token search conditions; the Agent handler now uses canonical lowercase status.
+- Updated Agent clarification parsing to find a complete `type=clarification` JSON object after a provider preamble without treating arbitrary text as structured state.
+- Added regression tests for Chinese multi-term search, bounded input, canonical status, Agent handler routing, and provider-preamble clarification; focused test suites passed: Knowledge Base domain `2/2`, Agent workflow `8/8`, Agent infra registry `6/6`.
+- Version bump and Release/real-provider verification remain open for this change.
+
 ## 2026-07-22 - Governed capability registry hardening
 
 - Added domain validation for descriptor fields, app-relative source URLs, availability states, and bounded governance priority.

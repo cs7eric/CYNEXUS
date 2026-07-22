@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.knowledgebase.infra.repository;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeCategoryBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeTagBO;
+import cn.cccs7.cynexus.knowledgebase.domain.content.KnowledgeDocumentSearchQuery;
 import cn.cccs7.cynexus.knowledgebase.domain.repository.KnowledgeBaseRepository;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.DocumentCategoryMappingPO;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.DocumentTagMappingPO;
@@ -28,9 +29,9 @@ public class KnowledgeBaseRepositoryImpl implements KnowledgeBaseRepository {
     }
 
     @Override
-    public List<KnowledgeDocumentBO> listDocuments(String keyword, String status, Long tagId, Long categoryId) {
+    public List<KnowledgeDocumentBO> listDocuments(KnowledgeDocumentSearchQuery query) {
         List<KnowledgeDocumentBO> documents = DocumentPOConverter.INSTANCE.toTargetList(
-                basicService.listDocuments(keyword, status, tagId, categoryId));
+                basicService.listDocuments(query));
         enrichDocuments(documents);
         return documents;
     }

@@ -54,7 +54,9 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
                 update.setId(existing.getId());
                 update.setCreatedAt(existing.getCreatedAt());
                 update.setEnabled(existing.getEnabled());
-                update.setAvailability(existing.getAvailability());
+                // Runtime availability belongs to the live handler snapshot. Keep only
+                // governance decisions from the persisted row.
+                update.setAvailability(seen.getAvailability());
                 update.setGovernanceAvailability(existing.getGovernanceAvailability());
                 update.setPriority(existing.getPriority());
                 service.update(update);

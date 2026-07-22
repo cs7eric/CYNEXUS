@@ -12,6 +12,7 @@ import cn.cccs7.cynexus.knowledgebase.infra.basic.mapper.DocumentMapper;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.mapper.DocumentTagMappingMapper;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.mapper.TagMapper;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.service.KnowledgeBaseBasicService;
+import cn.cccs7.cynexus.knowledgebase.domain.content.KnowledgeDocumentSearchQuery;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.time.OffsetDateTime;
@@ -48,25 +49,29 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
     }
 
     @Override
-    public List<DocumentPO> listDocuments(String keyword, String status, Long tagId, Long categoryId) {
-        Set<Long> filteredIds = resolveFilteredDocumentIds(tagId, categoryId);
+    public List<DocumentPO> listDocuments(KnowledgeDocumentSearchQuery query) {
+        Set<Long> filteredIds = resolveFilteredDocumentIds(query.getTagId(), query.getCategoryId());
         if (filteredIds != null && filteredIds.isEmpty()) {
             return List.of();
         }
         LambdaQueryWrapper<DocumentPO> wrapper = new LambdaQueryWrapper<DocumentPO>()
                 .isNull(DocumentPO::getDeletedAt)
-                .eq(hasText(status), DocumentPO::getStatus, trimToNull(status))
+                .eq(query.getStatus() != null, DocumentPO::getStatus, query.getStatus())
                 .in(filteredIds != null, DocumentPO::getId, filteredIds);
-        if (hasText(keyword)) {
-            String like = trimToNull(keyword);
-            wrapper.and(query -> query
-                    .like(DocumentPO::getTitle, like)
-                    .or()
-                    .like(DocumentPO::getDescription, like)
-                    .or()
-                    .like(DocumentPO::getContent, like));
+        if (query.hasText()) {
+            wrapper.and(search -> {
+                boolean first = true;
+                for (String token : query.getTokens()) {
+                    if (!first) search.or();
+                    search.like(DocumentPO::getTitle, token)
+                            .or().like(DocumentPO::getDescription, token)
+                            .or().like(DocumentPO::getContent, token);
+                    first = false;
+                }
+            });
         }
-        wrapper.orderByDesc(DocumentPO::getUpdatedAt, DocumentPO::getCreatedAt);
+        wrapper.orderByDesc(DocumentPO::getUpdatedAt, DocumentPO::getCreatedAt)
+                .last("LIMIT " + KnowledgeDocumentSearchQuery.MAX_CANDIDATES);
         return documentMapper.selectList(wrapper);
     }
 

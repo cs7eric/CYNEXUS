@@ -797,8 +797,8 @@ public class AutonomousAgentAppService {
     private AgentClarificationBO parseClarification(String content) {
         if (content == null || content.isBlank()) return null;
         try {
-            var root = objectMapper.readTree(content);
-            if (!"clarification".equals(root.path("type").asText(""))) return null;
+            var root = findClarificationNode(content);
+            if (root == null) return null;
             List<String> questions = boundedStrings(root.get("questions"), 5, 500);
             List<String> missingFields = boundedStrings(root.get("missingFields"), 8, 120);
             if (questions.isEmpty()) return null;
@@ -808,6 +808,35 @@ public class AutonomousAgentAppService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    /** Accepts a provider's short preamble while still requiring a complete JSON envelope. */
+    private com.fasterxml.jackson.databind.JsonNode findClarificationNode(String content) throws Exception {
+        for (int start = 0; start < content.length(); start++) {
+            if (content.charAt(start) != '{') continue;
+            int depth = 0;
+            boolean quoted = false;
+            boolean escaped = false;
+            for (int index = start; index < content.length(); index++) {
+                char current = content.charAt(index);
+                if (quoted) {
+                    if (escaped) escaped = false;
+                    else if (current == '\\') escaped = true;
+                    else if (current == '"') quoted = false;
+                    continue;
+                }
+                if (current == '"') quoted = true;
+                else if (current == '{') depth++;
+                else if (current == '}' && --depth == 0) {
+                    var candidate = objectMapper.readTree(content.substring(start, index + 1));
+                    if (candidate != null && "clarification".equals(candidate.path("type").asText(""))) {
+                        return candidate;
+                    }
+                    break;
+                }
+            }
+        }
+        return null;
     }
 
     private List<String> boundedStrings(com.fasterxml.jackson.databind.JsonNode node, int maxItems, int maxChars) {

@@ -3,11 +3,12 @@ package cn.cccs7.cynexus.knowledgebase.domain.repository;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeCategoryBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeTagBO;
+import cn.cccs7.cynexus.knowledgebase.domain.content.KnowledgeDocumentSearchQuery;
 import java.util.List;
 
 public interface KnowledgeBaseRepository {
 
-    List<KnowledgeDocumentBO> listDocuments(String keyword, String status, Long tagId, Long categoryId);
+    List<KnowledgeDocumentBO> listDocuments(KnowledgeDocumentSearchQuery query);
 
     KnowledgeDocumentBO findDocumentById(Long id);
 

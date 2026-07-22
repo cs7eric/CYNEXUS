@@ -21,7 +21,7 @@ class KnowledgeSearchAgentToolHandlerTest {
     @Test
     void searchesPublishedDocumentsWithBoundedResultsAndTypedSchema() throws Exception {
         KnowledgeBaseFeignClient client = mock(KnowledgeBaseFeignClient.class);
-        when(client.listDocuments("cash flow", "PUBLISHED", null, null)).thenReturn(Result.success(List.of(
+        when(client.listDocuments("cash flow", "published", null, null)).thenReturn(Result.success(List.of(
                 KnowledgeDocumentDTO.builder().id(9L).title("Cash flow policy").description("Approved policy").status("PUBLISHED").build())));
         KnowledgeSearchAgentToolHandler handler = new KnowledgeSearchAgentToolHandler(client, new ObjectMapper());
 
@@ -31,7 +31,7 @@ class KnowledgeSearchAgentToolHandlerTest {
         assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
         assertThat(new ObjectMapper().readTree(result.getOutputJson())).hasSize(1);
         assertThat(handler.definition().getOutputSchemaJson()).contains("updatedAt").contains("required");
-        verify(client).listDocuments("cash flow", "PUBLISHED", null, null);
+        verify(client).listDocuments("cash flow", "published", null, null);
     }
 
     @Test

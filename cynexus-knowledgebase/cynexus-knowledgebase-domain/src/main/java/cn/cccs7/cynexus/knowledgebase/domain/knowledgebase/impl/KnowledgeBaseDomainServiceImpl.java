@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.knowledgebase.domain.knowledgebase.impl;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeCategoryBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeTagBO;
+import cn.cccs7.cynexus.knowledgebase.domain.content.KnowledgeDocumentSearchQuery;
 import cn.cccs7.cynexus.knowledgebase.domain.repository.KnowledgeBaseRepository;
 import cn.cccs7.cynexus.knowledgebase.domain.content.KnowledgeBaseContentPolicy;
 import cn.cccs7.cynexus.knowledgebase.domain.knowledgebase.KnowledgeBaseDomainService;
@@ -20,9 +21,10 @@ public class KnowledgeBaseDomainServiceImpl implements KnowledgeBaseDomainServic
 
     @Override
     public List<KnowledgeDocumentBO> listDocuments(String keyword, String status, Long tagId, Long categoryId) {
-        return repository.listDocuments(
+        KnowledgeDocumentSearchQuery query = KnowledgeDocumentSearchQuery.of(
                 KnowledgeBaseContentPolicy.normalizeFilter(keyword),
                 KnowledgeBaseContentPolicy.normalizeFilter(status), tagId, categoryId);
+        return query.rank(repository.listDocuments(query));
     }
 
     @Override

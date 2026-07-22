@@ -414,6 +414,13 @@
 - Ordinary non-terminal updates are conditionally rejected after a cancellation request; the terminal cancellation path remains allowed so a late Provider result cannot overwrite `CANCELLED`.
 - The API now returns explicit `CANCEL_REQUESTED`, `ALREADY_TERMINAL`, and `NOT_FOUND` states. Migration and Release verification remain open until the new image is deployed.
 
+## 2026-07-22 Knowledge search and clarification follow-up
+
+- Knowledge Base persistence stores document status as lowercase values enforced by the schema. Agent capability calls must use the canonical domain value `published`; endpoint inputs are normalized at the Knowledge Base domain boundary.
+- A full natural-language query is not a reliable SQL substring. The Knowledge Base now tokenizes bounded input and retrieves a bounded OR candidate set, then ranks exact/term matches in the domain. This keeps relevance policy out of the Agent handler and avoids title-specific shortcuts.
+- Clarification parsing must not require the provider response to be pure JSON. The parser now scans balanced JSON objects, validates `type=clarification` and a non-empty bounded question list, and otherwise falls back to ordinary final text.
+- Focused tests pass, but the changes are not production-proven until a new versioned Release image is built and a real `xtyoo / gpt-5.4-mini` run is inspected in `ai_agent_run`, `ai_agent_run_step`, and citation/evidence fields.
+
 ## 2026-07-22 - Capability governance audit
 
 - The initial registry used one `availability` field for both provider health and administrator governance. Those states must be separate so a provider heartbeat cannot silently re-enable a capability that an administrator disabled.

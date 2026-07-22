@@ -5,11 +5,12 @@ import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.DocumentCategoryMapping
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.DocumentPO;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.DocumentTagMappingPO;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.TagPO;
+import cn.cccs7.cynexus.knowledgebase.domain.content.KnowledgeDocumentSearchQuery;
 import java.util.List;
 
 public interface KnowledgeBaseBasicService {
 
-    List<DocumentPO> listDocuments(String keyword, String status, Long tagId, Long categoryId);
+    List<DocumentPO> listDocuments(KnowledgeDocumentSearchQuery query);
 
     DocumentPO getDocumentById(Long id);
 
