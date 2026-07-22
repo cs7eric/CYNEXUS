@@ -32,4 +32,6 @@ public class AgentRunPO extends BasePO {
     @TableField("tool_call_count") private Integer toolCallCount;
     @TableField("started_at") private OffsetDateTime startedAt;
     @TableField("finished_at") private OffsetDateTime finishedAt;
+    @TableField("cancellation_requested_at") private OffsetDateTime cancellationRequestedAt;
+    @TableField("cancellation_requested_by") private String cancellationRequestedBy;
 }

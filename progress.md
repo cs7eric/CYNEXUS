@@ -1,5 +1,14 @@
 # Cynexus Setup Progress
 
+## 2026-07-22 - Durable Agent cancellation intent
+
+- Reproduced the Release defect where `POST /api/ai/agent/runs/{runNo}/cancel` returned `false` and the database row remained `RUNNING` after the Redis lease was unavailable.
+- Added a durable cancellation intent to the AI run aggregate and migration `20260722_add_ai_agent_cancellation_intent.sql`.
+- Added owner-scoped, conditional persistence for cancellation requests and guarded ordinary updates against overwriting cancellation intent.
+- Changed the application/API contract to return `CANCEL_REQUESTED`, `ALREADY_TERMINAL`, or `NOT_FOUND`.
+- Updated Maven and UI versions together to `1.1.144-SNAPSHOT`.
+- Focused AI application tests passed: 25 tests, 0 failures. Release migration/runtime verification and independent commit remain pending.
+
 ## 2026-07-15 - Market Information decision dashboard
 
 - User approved a seven-layer information architecture for the Market Information page.

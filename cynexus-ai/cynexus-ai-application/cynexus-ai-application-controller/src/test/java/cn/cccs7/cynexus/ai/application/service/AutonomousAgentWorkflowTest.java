@@ -334,7 +334,10 @@ class AutonomousAgentWorkflowTest {
         ArgumentCaptor<cn.cccs7.cynexus.ai.domain.agent.AgentRunBO> runCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.agent.AgentRunBO.class);
         verify(repository).saveRun(runCaptor.capture());
         String runNo = runCaptor.getValue().getRunNo();
-        assertTrue(service.cancel(AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), runNo));
+        when(repository.requestCancellation(any(), eq(runNo), any()))
+                .thenReturn(Optional.of(AgentRunBO.builder().runNo(runNo).status("RUNNING").build()));
+        var cancellation = service.cancel(AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), runNo);
+        assertEquals("CANCEL_REQUESTED", cancellation.getStatus());
         releaseProvider.countDown();
         assertEquals("CANCELLED", execution.get(5, TimeUnit.SECONDS).getStatus());
     }

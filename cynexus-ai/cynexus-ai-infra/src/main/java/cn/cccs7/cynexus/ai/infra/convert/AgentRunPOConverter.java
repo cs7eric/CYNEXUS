@@ -19,6 +19,8 @@ public final class AgentRunPOConverter {
         target.setErrorMessage(source.getErrorMessage()); target.setFailureCategory(source.getFailureCategory()); target.setTurnCount(source.getTurnCount());
         target.setToolCallCount(source.getToolCallCount()); target.setStartedAt(source.getStartedAt());
         target.setFinishedAt(source.getFinishedAt()); target.setCreatedAt(source.getCreatedAt());
+        target.setCancellationRequestedAt(source.getCancellationRequestedAt());
+        target.setCancellationRequestedBy(source.getCancellationRequestedBy());
         target.setUpdatedAt(source.getUpdatedAt()); target.setDeletedAt(source.getDeletedAt());
         return target;
     }
@@ -32,6 +34,8 @@ public final class AgentRunPOConverter {
                 .evidenceJson(source.getEvidenceJson()).warningsJson(source.getWarningsJson())
                 .errorMessage(source.getErrorMessage()).failureCategory(source.getFailureCategory()).turnCount(source.getTurnCount()).toolCallCount(source.getToolCallCount())
                 .startedAt(source.getStartedAt()).finishedAt(source.getFinishedAt()).createdAt(source.getCreatedAt())
+                .cancellationRequestedAt(source.getCancellationRequestedAt())
+                .cancellationRequestedBy(source.getCancellationRequestedBy())
                 .updatedAt(source.getUpdatedAt()).deletedAt(source.getDeletedAt()).build();
     }
 }

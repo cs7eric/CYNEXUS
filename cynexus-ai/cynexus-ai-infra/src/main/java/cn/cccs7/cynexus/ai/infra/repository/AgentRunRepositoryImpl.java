@@ -113,6 +113,17 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     }
 
     @Override
+    public Optional<AgentRunBO> requestCancellation(String ownerKey, String runNo, String requestedBy) {
+        return Optional.ofNullable(runService.requestCancellation(ownerKey, runNo, requestedBy))
+                .map(AgentRunPOConverter.INSTANCE::toTarget);
+    }
+
+    @Override
+    public boolean isCancellationRequested(String ownerKey, String runNo) {
+        return runService.isCancellationRequested(ownerKey, runNo);
+    }
+
+    @Override
     public List<AgentRunStepBO> findSteps(String ownerKey, String runNo) {
         return runService.findSteps(ownerKey, runNo).stream()
                 .map(AgentRunStepPOConverter.INSTANCE::toTarget).toList();

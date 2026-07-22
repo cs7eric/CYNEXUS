@@ -405,3 +405,11 @@
 - JSON and Markdown exports, conversation transcript, JSON event polling, and `Last-Event-ID` SSE replay were verified through Gateway without re-executing the provider.
 - A real initial SSE request failed inside the provider stream path. The public terminal event was emitted, but the run row remained `RUNNING`, proving that the stream failure path was not covered by the previous persistence evidence.
 - The provider stream adapter now logs safe diagnostic context for `IOException`, `UncheckedIOException`, and runtime parsing failures. Repository updates resolve the persisted run/conversation row by owner plus business number when a domain id is absent before calling `updateById`.
+
+## Durable Agent cancellation audit (2026-07-22)
+
+- The previous cancellation contract returned HTTP success with `false` when the Redis lease key was already absent. This was not a truthful indication of cancellation and left the database run in `RUNNING`.
+- Release Redis uses database 4, shared with other infrastructure. Agent runtime keys must not be inferred from database 0; the Redis client configuration and actual keyspace must be checked in the running image.
+- Cancellation is now persisted in `cynexus_appl_ai.ai_agent_run.cancellation_requested_at` and `cancellation_requested_by`, while Redis remains a fast interrupt token.
+- Ordinary non-terminal updates are conditionally rejected after a cancellation request; the terminal cancellation path remains allowed so a late Provider result cannot overwrite `CANCELLED`.
+- The API now returns explicit `CANCEL_REQUESTED`, `ALREADY_TERMINAL`, and `NOT_FOUND` states. Migration and Release verification remain open until the new image is deployed.

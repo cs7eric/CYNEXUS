@@ -29,6 +29,8 @@ public class AgentRunBO {
     private Integer toolCallCount;
     private OffsetDateTime startedAt;
     private OffsetDateTime finishedAt;
+    private OffsetDateTime cancellationRequestedAt;
+    private String cancellationRequestedBy;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private OffsetDateTime deletedAt;

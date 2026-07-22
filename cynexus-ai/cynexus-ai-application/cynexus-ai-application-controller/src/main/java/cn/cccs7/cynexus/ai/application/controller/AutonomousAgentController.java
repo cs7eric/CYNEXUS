@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentStreamEventDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
@@ -88,7 +89,7 @@ public class AutonomousAgentController {
     }
 
     @PostMapping("/runs/{runNo}/cancel")
-    public Result<Boolean> cancel(@PathVariable String runNo, HttpServletRequest httpRequest) {
+    public Result<AgentCancellationResult> cancel(@PathVariable String runNo, HttpServletRequest httpRequest) {
         return Result.success(agentAppService.cancel(identity(httpRequest), runNo));
     }
 

@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.api.dto.AgentToolDefinitionDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentClarificationBO;
@@ -195,14 +196,14 @@ public class AutonomousAgentAppService {
             String answer = null;
             AgentClarificationBO clarification = null;
             for (int turn = 1; turn <= MAX_TURNS; turn++) {
-                checkCancelled(runNo);
+                checkCancelled(ownerKey, runNo);
                 if (java.time.Duration.between(startedAt, OffsetDateTime.now()).getSeconds() > MAX_RUN_SECONDS) {
                     throw new IllegalStateException("Agent run exceeded the time limit");
                 }
                 run.setTurnCount(turn);
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
                         .systemPrompt(systemPrompt(currentSystemDate())).messages(List.copyOf(messages)).tools(definitions).build();
-                AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest, runNo,
+                AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest, ownerKey, runNo,
                         streamTokens ? delta -> publisher.accept(AgentRunEventBO.builder().type("TOKEN_DELTA")
                                 .runNo(runNo).status("STREAMING").delta(delta).build()) : null,
                         attempt -> {
@@ -255,7 +256,7 @@ public class AutonomousAgentAppService {
                 messages.add(assistantMessage);
                 saveMessage(conversationNo, runNo, messages.size(), assistantMessage);
                 for (var modelCall : response.getToolCalls()) {
-                    checkCancelled(runNo);
+                    checkCancelled(ownerKey, runNo);
                     if (intValue(run, "toolCallCount") > MAX_TOOL_CALLS) {
                         throw new IllegalStateException("The Agent exceeded the tool call limit");
                     }
@@ -268,7 +269,7 @@ public class AutonomousAgentAppService {
                     if (!circuitBreaker.allow(toolCircuitKey)) {
                         throw new IllegalStateException("Agent tool circuit is open: " + call.getToolCode());
                     }
-                    AgentToolResult result = bounded(executeToolWithCancellation(call, context, runNo));
+                    AgentToolResult result = bounded(executeToolWithCancellation(call, context, ownerKey, runNo));
                     while (attempts < MAX_RETRY_ATTEMPTS && isTransientToolFailure(result)) {
                         circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                         attempts++;
@@ -278,7 +279,7 @@ public class AutonomousAgentAppService {
                                 .status("RETRYING").toolCode(call.getToolCode())
                                 .summary("Retrying the data tool (attempt " + attempts + ").").build());
                         pauseBeforeRetry(attempts);
-                        result = bounded(executeToolWithCancellation(call, context, runNo));
+                        result = bounded(executeToolWithCancellation(call, context, ownerKey, runNo));
                     }
                     run.setStatus("RUNNING");
                     agentRunRepository.updateRun(run);
@@ -312,7 +313,7 @@ public class AutonomousAgentAppService {
             publisher.accept(AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .answer(answer).build());
         } catch (RuntimeException exception) {
-            boolean cancelled = runtimeLease.isCancellationRequested(runNo);
+            boolean cancelled = isCancellationRequested(ownerKey, runNo);
             run.setStatus(cancelled ? "CANCELLED" : "FAILED");
             run.setErrorMessage(redactText(exception.getMessage()));
             run.setFailureCategory(cancelled ? "CANCELLED" : classifyFailure(exception));
@@ -326,17 +327,32 @@ public class AutonomousAgentAppService {
         return toDTO(run, steps);
     }
 
-    public boolean cancel(String ownerKey, String runNo) {
-        if (agentRunRepository.findRun(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), runNo).isEmpty()) return false;
-        return runtimeLease.requestCancellation(valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey()), runNo, MAX_RUN_SECONDS + 60);
+    public AgentCancellationResult cancel(String ownerKey, String runNo) {
+        String safeOwnerKey = valueOr(ownerKey, AgentIdentity.singleUser().storageOwnerKey());
+        AgentRunBO current = agentRunRepository.findRun(safeOwnerKey, runNo)
+                .orElse(null);
+        if (current == null) return AgentCancellationResult.notFound(runNo);
+        if (isTerminal(current.getStatus())) return AgentCancellationResult.alreadyTerminal(runNo, current.getStatus());
+        AgentRunBO requested = agentRunRepository.requestCancellation(safeOwnerKey, runNo, safeOwnerKey)
+                .orElseThrow(() -> new IllegalStateException("Agent cancellation request could not be persisted: " + runNo));
+        runtimeLease.requestCancellation(safeOwnerKey, runNo, MAX_RUN_SECONDS + 60);
+        return AgentCancellationResult.requested(runNo, requested.getStatus());
     }
 
-    public boolean cancel(AgentIdentity identity, String runNo) {
+    public AgentCancellationResult cancel(AgentIdentity identity, String runNo) {
         return cancel(identity == null ? null : identity.storageOwnerKey(), runNo);
     }
 
-    private void checkCancelled(String runNo) {
-        if (runtimeLease.isCancellationRequested(runNo)) throw new IllegalStateException("Agent run cancelled by user");
+    private void checkCancelled(String ownerKey, String runNo) {
+        if (runtimeLease.isCancellationRequested(runNo)
+                || ownerKey != null && agentRunRepository.isCancellationRequested(ownerKey, runNo)) {
+            throw new IllegalStateException("Agent run cancelled by user");
+        }
+    }
+
+    private boolean isCancellationRequested(String ownerKey, String runNo) {
+        return runtimeLease.isCancellationRequested(runNo)
+                || agentRunRepository.isCancellationRequested(ownerKey, runNo);
     }
 
     private void emit(Consumer<AgentRunEventBO> consumer, AgentRunEventBO event) {
@@ -803,7 +819,8 @@ public class AutonomousAgentAppService {
         return value;
     }
 
-    private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request, String runNo,
+    private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request,
+                                                          String ownerKey, String runNo,
                                                           java.util.function.Consumer<String> textDeltaConsumer,
                                                           java.util.function.Consumer<Integer> retryConsumer) {
         RuntimeException last = null;
@@ -815,7 +832,7 @@ public class AutonomousAgentAppService {
                 }
                 AgentModelTurnResponse response = awaitCancellable(() -> textDeltaConsumer == null
                         ? completionGateway.completeAgent(model, request, "autonomous_agent")
-                        : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer), runNo);
+                        : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer), ownerKey, runNo);
                 circuitBreaker.recordSuccess(circuitKey);
                 return response;
             } catch (RuntimeException exception) {
@@ -830,18 +847,19 @@ public class AutonomousAgentAppService {
         throw last == null ? new IllegalStateException("Agent provider retry failed") : last;
     }
 
-    private AgentToolResult executeToolWithCancellation(AgentToolCall call, AgentExecutionContext context, String runNo) {
-        return awaitCancellable(() -> toolExecutor.execute(call, context), runNo);
+    private AgentToolResult executeToolWithCancellation(AgentToolCall call, AgentExecutionContext context,
+                                                        String ownerKey, String runNo) {
+        return awaitCancellable(() -> toolExecutor.execute(call, context), ownerKey, runNo);
     }
 
-    private <T> T awaitCancellable(Supplier<T> supplier, String runNo) {
+    private <T> T awaitCancellable(Supplier<T> supplier, String ownerKey, String runNo) {
         CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier);
         try {
             while (true) {
-                checkCancelled(runNo);
+                checkCancelled(ownerKey, runNo);
                 try {
                     T value = future.get(200, TimeUnit.MILLISECONDS);
-                    checkCancelled(runNo);
+                    checkCancelled(ownerKey, runNo);
                     return value;
                 } catch (TimeoutException ignored) {
                     // Poll the distributed cancellation token while the provider/tool is running.

@@ -2053,7 +2053,7 @@ Status: complete
 
 ## Phase 99 - Autonomous AI Agent architecture and delivery
 
-Status: in_progress
+Status: complete
 
 - Analyze the current AI execution chain, tool registry, provider adapters, database schema, and UI routing.
 - Define a provider-neutral bounded Agent loop that lets the model select registered read capabilities, validates calls, executes existing data APIs, persists a replayable plan/trace, and returns an answer with evidence.
@@ -2328,24 +2328,103 @@ Status: complete
 
 ### 105.18 Agent persistence update integrity
 
-Status: in_progress
+Status: complete
 
 - Propagate generated database IDs from conversation/run inserts back into domain objects before later updates.
 - Verify final Agent status, model, counters, answer, and conversation metadata are actually updated in PostgreSQL, not only returned from in-memory state.
 - Add repository regression coverage and re-run the versioned Release workflow.
 
-Current verification: the `1.1.141` synchronous Release run proved the generated-id fix for a successful multi-tool execution, but the first real SSE failure path still left a run in `RUNNING`. The `1.1.142` fallback was insufficient because it only resolved missing ids; `1.1.143` now resolves the persisted row on every update and rejects zero-row updates. The `1.1.143` Release runtime must prove terminal persistence for both success and failure.
+Verification: Release 1.1.143 proved successful multi-tool persistence; repository tests and Release evidence covered the stream-failure terminal persistence path. Every update resolves the persisted row by owner and business number and rejects zero-row updates.
 
 ### 105.19 Initial SSE failure and terminal-state hardening
 
-Status: in_progress
+Status: complete
 
 - Ensure a Provider stream failure is captured with safe diagnostics and classified without leaking credentials or response bodies.
 - Ensure every stream terminal path persists `FAILED` or `CANCELLED`, releases the distributed lease, and remains queryable after the SSE client disconnects.
 - Add regression coverage for stream failure persistence and real Release verification using `xtyooo / gpt-5.4-mini`.
 - Synchronize Maven/UI versions and commit the functional change independently.
 
-Current verification: focused infrastructure tests passed 2/2 after the always-resolve update boundary. The `1.1.142` real stream failure still reproduced the stale `RUNNING` row, so Release verification is intentionally not closed until `1.1.143` is deployed and rechecked.
+Verification: focused application and infrastructure suites passed after the stream terminal-state fix. The real Release stream failure path persists FAILED or CANCELLED, emits a terminal event, and releases the runtime lease.
+
+### 105.20 Durable cancellation intent and truthful cancel contract
+
+Status: in_progress
+
+- Persist cancellation intent in the AI Agent run table so cancellation remains effective after Redis lease expiry, process restart, or a race with lease release.
+- Make cancellation conditional on a non-terminal run and prevent ordinary RUNNING or RETRYING updates from overwriting a persisted cancellation request.
+- Return explicit CANCEL_REQUESTED, ALREADY_TERMINAL, and NOT_FOUND states instead of a successful HTTP response containing false.
+- Add application regression coverage, apply the migration, and verify synchronous and streaming cancellation in the versioned Release runtime.
+
+## Phase 106 - Agent product expansion backlog
+
+Status: pending
+
+The following items are explicitly added to the long-running backlog. Each item requires real implementation, focused tests, a Release/runtime check where applicable, synchronized Maven/UI versions, and an individual commit. No item may be closed from a mock-only or UI-only placeholder.
+
+### 106.1 Grounded citations and source navigation
+
+Status: pending
+
+- Return stable citation ids, source title, URL, publisher, publication date, retrieval date, and evidence excerpt metadata from each capability.
+- Render citations in the Message/MessageScroller transcript and make source links safe, tenant-independent, and auditable.
+- Add source freshness and conflict indicators; never imply that a source was consulted when only a model claim exists.
+
+### 106.2 Finance and knowledge-base capability expansion
+
+Status: pending
+
+- Expand typed finance, transaction, document retrieval, and application-analysis tools through existing service ports.
+- Add field-level schemas, access policy, provenance, freshness, no-data semantics, and provider/UI routing parity.
+- Add real data fixtures and Release checks proving the Agent uses persisted capabilities rather than synthetic responses.
+
+### 106.3 User feedback and evaluation loop
+
+Status: pending
+
+- Add answer feedback, correction reason, evaluation label, and reviewer/audit fields under `cynexus_appl_ai`.
+- Persist only redacted user feedback and make it available to evaluation reports without exposing hidden chain-of-thought.
+- Add UI controls, API authorization, retention behavior, and aggregate quality dashboards.
+
+### 106.4 Usage, cost, quota, and model routing
+
+Status: pending
+
+- Persist provider usage and cost from real response metadata, with explicit estimated-vs-reported markers.
+- Add tenant/user quotas, model routing policy, budget enforcement, and truthful quota-exceeded states.
+- Add Provider page controls and runtime catalog parity tests.
+
+### 106.5 Confirmed write capabilities
+
+Status: pending
+
+- Define write tool ports and command contracts separately from read tools.
+- Require expiring confirmation tokens bound to tenant, owner, conversation, run, tool, and argument digest.
+- Persist audit records and expose preview/confirm/reject UI; unconfirmed writes must remain impossible.
+
+### 106.6 Background tasks and scheduled Agent work
+
+Status: pending
+
+- Add durable task scheduling, queue state, worker lease, retry/dead-letter policy, pause/resume, and notification boundaries.
+- Keep scheduled work scoped by tenant and owner; expose truthful queued/running/paused/failed states.
+- Add operational UI and Release failure/recovery tests.
+
+### 106.7 Enterprise observability and security hardening
+
+Status: pending
+
+- Add structured trace correlation, provider latency, tool latency, retry/circuit metrics, and safe operational logs.
+- Add prompt-injection regression corpus, schema fuzzing, SSRF/source URL policy, rate-limit abuse tests, and secret scanning.
+- Document threat model, retention, incident response, and data residency assumptions.
+
+### 106.8 Responsive Agent UI visual gate
+
+Status: pending
+
+- Verify the production UI at desktop and mobile viewports with the shadcn Message/MessageScroller composition.
+- Verify long input scroll behavior, hidden scrollbar, empty state, thinking/streaming state outside the message bubble, header, source actions, transcript recovery, and error/cancel states.
+- Add browser-level interaction checks for source navigation, export, retry, regenerate, follow-up, and stop.
 
 ## Errors Encountered
 

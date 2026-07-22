@@ -11,6 +11,8 @@ public interface AgentRunBasicService {
     void createStep(AgentRunStepPO step);
     AgentRunPO find(String ownerKey, String runNo);
     AgentRunPO findByIdempotencyKey(String ownerKey, String idempotencyKey);
+    AgentRunPO requestCancellation(String ownerKey, String runNo, String requestedBy);
+    boolean isCancellationRequested(String ownerKey, String runNo);
     List<AgentRunStepPO> findSteps(String ownerKey, String runNo);
     List<AgentRunPO> findStaleRunning(OffsetDateTime cutoff);
 }

@@ -33,6 +33,10 @@ public interface AgentRunRepository {
 
     Optional<AgentRunBO> findRunByIdempotencyKey(String ownerKey, String idempotencyKey);
 
+    Optional<AgentRunBO> requestCancellation(String ownerKey, String runNo, String requestedBy);
+
+    boolean isCancellationRequested(String ownerKey, String runNo);
+
     List<AgentRunStepBO> findSteps(String ownerKey, String runNo);
 
     void saveMessage(AgentMessageBO message);
