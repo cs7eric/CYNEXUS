@@ -2228,7 +2228,7 @@ Current implementation: retry/regenerate actions, owner-scoped conversation sear
 - Persist resumable stream checkpoints and reconnect behavior; keep event ordering and cancellation correct.
 - Verify providers without streaming support continue to use truthful workflow events rather than fabricated token output.
 
-Current implementation: the OpenAI-compatible adapter now sends `stream: true`, parses Chat Completions text/tool deltas and Responses API text/function-call deltas, and the Agent SSE exposes `TOKEN_DELTA`; adapters without streaming support retain the truthful non-token fallback. Release verification and reconnect/checkpoint tests remain pending.
+Current implementation: the OpenAI-compatible adapter now sends `stream: true`, parses Chat Completions text/tool deltas and Responses API text/function-call deltas, and the Agent SSE exposes `TOKEN_DELTA`; adapters without streaming support retain the truthful non-token fallback. Apache streaming requests now preserve configured response timeout and interruption semantics. Release verification passed for token deltas; reconnect/checkpoint tests remain pending.
 
 ### 105.8 Capability Expansion
 
@@ -2464,11 +2464,13 @@ Current implementation: trace ids are persisted on public Agent events, Micromet
 
 ### 106.8 Responsive Agent UI visual gate
 
-Status: pending
+Status: in_progress
 
 - Verify the production UI at desktop and mobile viewports with the shadcn Message/MessageScroller composition.
 - Verify long input scroll behavior, hidden scrollbar, empty state, thinking/streaming state outside the message bubble, header, source actions, transcript recovery, and error/cancel states.
 - Add browser-level interaction checks for source navigation, export, retry, regenerate, follow-up, and stop.
+
+Current verification: Agent UI TypeScript build passed after applying pending/token rendering, independent Thinking marker, message bubble, fixed-height input, hidden scrollbar, and scroller-control positioning fixes. Full lint is still blocked by pre-existing project errors, and desktop/mobile browser screenshot/workflow evidence is still required.
 
 ### 106.9 Dynamic capability discovery and governed registration
 

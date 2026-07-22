@@ -116,17 +116,32 @@ export default function AutonomousAgentPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [historyQuery, setHistoryQuery] = useState("")
+  const historyRequestId = useRef(0)
 
   const displayedConversationMessages = useMemo(
     () => removeCurrentRunFromTranscript(conversationMessages, run),
     [conversationMessages, run],
   )
 
+  async function refreshConversations(query = "") {
+    const requestId = ++historyRequestId.current
+    try {
+      const nextConversations = query.trim()
+        ? await searchAgentConversations(query.trim())
+        : await fetchAgentConversations()
+      if (requestId === historyRequestId.current) setConversations(nextConversations)
+    } catch (reason: unknown) {
+      if (requestId === historyRequestId.current) {
+        setError(reason instanceof Error ? reason.message : "Unable to load conversation history")
+      }
+    }
+  }
+
   useEffect(() => {
-    void Promise.all([fetchAgentTools(), fetchAgentConversations()]).then(([nextTools, nextConversations]) => {
-      setTools(nextTools)
-      setConversations(nextConversations)
-    }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load Agent workspace"))
+    void fetchAgentTools().then(setTools).catch((reason: unknown) => {
+      setError(reason instanceof Error ? reason.message : "Unable to load Agent tools")
+    })
+    void refreshConversations()
   }, [])
 
   const toolGroups = useMemo(() => {
@@ -140,13 +155,23 @@ export default function AutonomousAgentPage() {
     if (!userInput || loading) return
     setLoading(true)
     setError(null)
+    const conversationNo = run?.conversationNo ?? undefined
+    setActiveRunNo(null)
+    setRun({ conversationNo, userInput, status: "RUNNING", answer: "" })
     try {
       const controller = new AbortController()
       abortController.current = controller
-      const nextRun = await runAgentStream({ conversationNo: run?.conversationNo ?? undefined, userInput, workspace: "agent", locale: "zh-CN" }, (event) => {
+      const nextRun = await runAgentStream({ conversationNo, userInput, workspace: "agent", locale: "zh-CN" }, (event) => {
         if (event.runNo) setActiveRunNo(event.runNo)
-        if (event.type === "TOKEN_DELTA" && event.delta) {
-          setRun((current) => ({ ...(current ?? {}), runNo: event.runNo, conversationNo: run?.conversationNo, userInput, status: "RUNNING", answer: `${current?.answer ?? ""}${event.delta}` }))
+        if (event.type === "TOKEN_DELTA" || event.answer) {
+          setRun((current) => ({
+            ...(current ?? {}),
+            runNo: event.runNo ?? current?.runNo,
+            conversationNo,
+            userInput,
+            status: event.type === "RUN_COMPLETED" ? event.status ?? current?.status : "RUNNING",
+            answer: event.delta ? `${current?.answer ?? ""}${event.delta}` : event.answer ?? current?.answer,
+          }))
         }
       }, controller.signal)
       setRun(nextRun)
@@ -154,7 +179,9 @@ export default function AutonomousAgentPage() {
       setConversations(await fetchAgentConversations())
       setInput("")
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Agent run failed")
+      const message = reason instanceof Error ? reason.message : "Agent run failed"
+      setError(message)
+      setRun((current) => current?.userInput === userInput ? { ...current, status: "FAILED", errorMessage: message } : current)
     } finally {
       abortController.current = null
       setActiveRunNo(null)
@@ -209,7 +236,9 @@ export default function AutonomousAgentPage() {
       if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Unable to rerun Agent")
+      const message = reason instanceof Error ? reason.message : "Unable to rerun Agent"
+      setError(message)
+      setRun((current) => current ? { ...current, status: "FAILED", errorMessage: message } : current)
     } finally {
       setLoading(false)
     }
@@ -258,10 +287,11 @@ export default function AutonomousAgentPage() {
                           <AgentMessageBubble align={message.role === "user" ? "end" : "start"}>{message.content}</AgentMessageBubble>
                         </MessageScrollerItem>
                       ))}
-                      {!run ? <MessageScrollerItem messageId="agent-empty"><div className="flex min-h-[18rem] items-center justify-center"><div className="max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div></div></MessageScrollerItem> : <>
-                        <MessageScrollerItem messageId={`run-user-${run.runNo}`} scrollAnchor><AgentMessageBubble align="end">{run.userInput}</AgentMessageBubble></MessageScrollerItem>
-                        <MessageScrollerItem messageId={`run-assistant-${run.runNo}`}><Message><MessageContent><MessageHeader><Sparkles className="mr-1.5 size-3.5 text-sky-600" />Cynexus Agent</MessageHeader>{clarification(run) ? <div className="rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"><div className="font-medium">需要补充信息</div><div className="mt-1 leading-6">{clarification(run)?.summary}</div><ul className="mt-2 list-disc space-y-1 pl-5">{clarification(run)?.questions?.map((question) => <li key={question}>{question}</li>)}</ul></div> : null}<div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{run.runNo ? <AgentFeedbackPanel runNo={run.runNo} /> : null}{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}{item.sourceUrl ? <> · <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-700 hover:underline"><ExternalLink className="size-3" />Source</a></> : null}</div>{item.citations?.length ? <CitationList citations={item.citations} /> : null}</div>)}</div></div> : null}<div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></div></MessageContent></Message></MessageScrollerItem>
-                      </>}
+                      {!run && !loading && !displayedConversationMessages.length ? <MessageScrollerItem messageId="agent-empty"><div className="flex min-h-[18rem] items-center justify-center"><div className="max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div></div></MessageScrollerItem> : null}
+                      {run ? <>
+                        <MessageScrollerItem messageId={`run-user-${run.runNo ?? activeRunNo ?? "pending"}`} scrollAnchor><AgentMessageBubble align="end">{run.userInput}</AgentMessageBubble></MessageScrollerItem>
+                        {run.answer || run.errorMessage || clarification(run) || !loading ? <MessageScrollerItem messageId={`run-assistant-${run.runNo ?? activeRunNo ?? "pending"}`}><Message><MessageContent><MessageHeader><Sparkles className="mr-1.5 size-3.5 text-sky-600" />Cynexus Agent</MessageHeader><Bubble variant="ghost"><BubbleContent>{clarification(run) ? <div className="rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"><div className="font-medium">需要补充信息</div><div className="mt-1 leading-6">{clarification(run)?.summary}</div><ul className="mt-2 list-disc space-y-1 pl-5">{clarification(run)?.questions?.map((question) => <li key={question}>{question}</li>)}</ul></div> : null}<div aria-live={loading ? "polite" : undefined} className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{run.runNo ? <AgentFeedbackPanel runNo={run.runNo} /> : null}{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}{item.sourceUrl ? <> · <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-700 hover:underline"><ExternalLink className="size-3" />Source</a></> : null}</div>{item.citations?.length ? <CitationList citations={item.citations} /> : null}</div>)}</div></div> : null}</BubbleContent></Bubble><MessageFooter><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></MessageFooter></MessageContent></Message></MessageScrollerItem> : null}
+                      </> : null}
                       {loading ? <MessageScrollerItem messageId="agent-thinking"><ThinkingMarker /></MessageScrollerItem> : null}
                     </MessageScrollerContent>
                   </MessageScrollerViewport>
@@ -269,18 +299,18 @@ export default function AutonomousAgentPage() {
                 </MessageScroller>
               </MessageScrollerProvider>
             </div>
-            <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-40 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => void stopAgent()} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
+            <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void submit() } }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => { void stopAgent() }} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
           </section>
 
           <aside className="min-h-0 space-y-4 overflow-y-auto">
             <section className="rounded-xl border border-border/70 bg-card p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-sm font-semibold"><History className="size-3.5 text-sky-600" /> Recent conversations</h2>
-                <Button variant="ghost" size="icon" className="size-7" aria-label="Refresh conversations" onClick={() => void fetchAgentConversations().then(setConversations)} disabled={historyLoading}>
+                <Button variant="ghost" size="icon" className="size-7" aria-label="Refresh conversations" onClick={() => void refreshConversations(historyQuery)} disabled={historyLoading}>
                   <RefreshCw className={historyLoading ? "size-3.5 animate-spin" : "size-3.5"} />
                 </Button>
               </div>
-              <Input value={historyQuery} onChange={(event) => { const value = event.target.value; setHistoryQuery(value); void (value.trim() ? searchAgentConversations(value.trim()) : fetchAgentConversations()).then(setConversations) }} placeholder="Search history" className="mb-3 h-8 text-xs" />
+              <Input value={historyQuery} onChange={(event) => { const value = event.target.value; setHistoryQuery(value); void refreshConversations(value) }} placeholder="Search history" className="mb-3 h-8 text-xs" />
               {conversations.length ? <div className="space-y-1.5">{conversations.map((conversation) => <button key={conversation.conversationNo} type="button" className="w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/50" onClick={() => void openConversation(conversation)}>
                 <div className="truncate text-xs font-medium">{conversation.lastMessage?.slice(0, 72) || conversation.title || conversation.conversationNo}</div>
                 <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span className="truncate">{conversation.conversationNo}</span><span>{conversation.updatedAt ? new Date(conversation.updatedAt).toLocaleDateString() : ""}</span></div>

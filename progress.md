@@ -1,5 +1,12 @@
 # Cynexus Setup Progress
 
+## 2026-07-22 - Agent streaming/UI verification follow-up
+
+- Integrated the bounded Provider streaming timeout/interruption fix from commit `9d71938`; focused Maven coverage passed 7/7 and the AI infra reactor build passed.
+- Applied the Agent UI pending/token/error/history race fixes from the isolated UI verification worktree: live pending rows, independent Thinking marker, muted user/ghost assistant bubbles, fixed-height hidden-scrollbar input, and right-aligned scroller control.
+- UI TypeScript build passed with `pnpm exec tsc -b`; full lint and browser screenshot validation remain open because the sub-agent found existing project lint failures and did not complete browser verification.
+- No database or security audit code was merged. The audit identified owner-qualified FK and varchar-width migration gaps that remain open for Phase 107.
+
 ## 2026-07-22 - Streaming provider TLS transport hardening
 
 - Isolated streaming requests on an Apache HttpClient 5 classic client with TLS 1.2 and the configured HTTP proxy, while preserving the existing non-streaming client.
