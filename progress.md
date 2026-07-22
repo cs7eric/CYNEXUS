@@ -1686,3 +1686,9 @@
 - Provider and tool retry transitions now persist `RETRYING` and restore `RUNNING` before the workflow continues.
 - Added a regression test for transient Provider recovery, persisted retry event status, and state transitions.
 - Focused Agent tests passed 23/23; Maven/UI versions are synchronized to `1.1.137-SNAPSHOT`.
+
+## 2026-07-22 - Agent capability contracts and source migration
+
+- Applied `20260722_add_ai_agent_source_urls.sql` to the project PostgreSQL database and verified `ai_agent_run_step.source_url` exists.
+- Added a contract test that instantiates all 13 registered Agent handlers and validates schema JSON, read-only policy, source URL, freshness, metadata, and registry parity.
+- AI infrastructure tests passed 12/12; Maven/UI versions are synchronized to `1.1.138-SNAPSHOT`.
