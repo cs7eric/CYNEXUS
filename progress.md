@@ -2003,3 +2003,5 @@
 - Changed Usage page quota administration so `Add policy` creates an editable draft, persistence starts only on `Save`, and deleting an unsaved draft never calls the backend.
 - Synchronized Maven and UI development versions to `1.1.177-SNAPSHOT`.
 - Verification: `pnpm build` passed with TypeScript compilation and Vite production output.
+- After a serialized retry, the full Maven package completed all 41 modules and Docker Release `1.1.177-260722-RELEASE` rebuilt and started all six versioned images successfully. Ports `18080`, `18081`, `18082`, `18000`, `18084`, and `5173` returned HTTP 200 after application startup.
+- Release `GET /api/ai/config/quota-policies` returned the persisted global policy (`200 requests`, `100000 tokens`), confirming the quota migration and API path are live.
