@@ -43,6 +43,12 @@
 - Added task scheduling/control APIs and an operational Agent UI panel for queueing, pausing, resuming, cancelling, and reviewing failures.
 - Added focused task scheduling coverage. Maven/UI versions are synchronized at `1.1.151-SNAPSHOT`; migration and Release worker recovery verification remain pending.
 
+## 2026-07-22 - Agent task operations UI
+
+- Added the Agent task panel for scheduling, refreshing, pausing, resuming, and cancelling owner-scoped tasks.
+- Added task status, retry count, run linkage, and failure rendering without exposing internal lease details to ordinary users.
+- UI and Maven versions are synchronized at `1.1.152-SNAPSHOT`; production Release worker verification remains pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

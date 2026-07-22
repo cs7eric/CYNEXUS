@@ -334,3 +334,34 @@ export async function rejectAgentWrite(commandNo: string): Promise<AgentWriteRes
     method: "POST",
   }))
 }
+
+export interface AgentTask {
+  taskNo: string
+  conversationNo?: string | null
+  userInput: string
+  preferredModelCode?: string | null
+  scheduleAt: string
+  status: string
+  attemptCount?: number | null
+  maxAttempts?: number | null
+  runNo?: string | null
+  lastError?: string | null
+  nextAttemptAt?: string | null
+  completedAt?: string | null
+}
+
+export async function fetchAgentTasks(): Promise<AgentTask[]> {
+  return cynexusResult<AgentTask[]>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/tasks?limit=30`))
+}
+
+export async function scheduleAgentTask(input: { userInput: string; scheduleAt: string; maxAttempts?: number }): Promise<AgentTask> {
+  return cynexusResult<AgentTask>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }))
+}
+
+export async function controlAgentTask(taskNo: string, action: "pause" | "resume" | "cancel"): Promise<boolean> {
+  return cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/tasks/${encodeURIComponent(taskNo)}/${action}`, { method: "POST" }))
+}
