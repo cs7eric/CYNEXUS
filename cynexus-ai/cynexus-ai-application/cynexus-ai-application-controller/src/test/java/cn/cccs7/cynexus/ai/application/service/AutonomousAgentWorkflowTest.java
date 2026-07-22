@@ -206,6 +206,50 @@ class AutonomousAgentWorkflowTest {
     }
 
     @Test
+    void streamingProviderFailurePersistsFailedTerminalStateAndReleasesLease() {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        List<String> statuses = new ArrayList<>();
+        when(catalog.enabledTools()).thenReturn(List.of());
+        when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
+        when(repository.findMessages(any(), any())).thenReturn(List.of());
+        when(lease.tryAcquire(any(), any(), anyInt(), anyInt())).thenReturn(true);
+        when(rateLimiter.allow(any(), anyInt(), anyInt())).thenReturn(true);
+        when(lease.isCancellationRequested(any())).thenReturn(false);
+        when(circuitBreaker.allow(any())).thenReturn(true);
+        doAnswer(invocation -> {
+            statuses.add(invocation.getArgument(0, AgentRunBO.class).getStatus());
+            return null;
+        }).when(repository).updateRun(any(AgentRunBO.class));
+        when(bindings.listAll()).thenReturn(List.of(AiUsageBindingBO.builder().capability("autonomous_agent")
+                .providerId(1L).modelOverride("gpt-5.4-mini").enabled(true).build()));
+        when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
+                .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
+        when(completion.streamAgent(any(), any(), eq("autonomous_agent"), any()))
+                .thenThrow(new IllegalStateException("Failed to stream AI provider: custom"));
+
+        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        var result = service.stream(AgentRunRequest.builder().userInput("stream failure").build(),
+                AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
+
+        assertEquals("FAILED", result.getStatus());
+        assertTrue(statuses.contains("FAILED"));
+        verify(lease).release(eq("tenant-1::user-1"), any());
+        ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);
+        verify(repository, atLeast(2)).saveEvent(eq("tenant-1::user-1"), eventCaptor.capture());
+        assertEquals("RUN_COMPLETED", eventCaptor.getAllValues().get(eventCaptor.getAllValues().size() - 1).getType());
+        assertEquals("FAILED", eventCaptor.getAllValues().get(eventCaptor.getAllValues().size() - 1).getStatus());
+    }
+
+    @Test
     void structuredProviderAnswerIsRenderedWithoutLeakingRawJsonEnvelope() {
         AgentRunRepository repository = mock(AgentRunRepository.class);
         AgentToolCatalog catalog = mock(AgentToolCatalog.class);
