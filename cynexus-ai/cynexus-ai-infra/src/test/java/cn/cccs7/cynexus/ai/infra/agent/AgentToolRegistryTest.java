@@ -62,6 +62,48 @@ class AgentToolRegistryTest {
     }
 
     @Test
+    void rejectsMalformedSchemaBeforeCallingTheHandler() {
+        AgentToolHandler handler = handler("market.malformed", true, false);
+        org.mockito.Mockito.when(handler.definition()).thenReturn(AgentToolDefinition.builder()
+                .code("market.malformed").name("malformed").module("market").description("malformed")
+                .inputSchemaJson("{not-json").outputSchemaJson("{\"type\":\"object\"}").readOnly(true).build());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler));
+
+        AgentToolResult result = registry.execute(AgentToolCall.builder().toolCode("market.malformed")
+                .arguments(java.util.Map.of("value", "anything")).build(), null);
+
+        assertThat(result.getStatus()).isEqualTo("FAILED");
+        assertThat(result.getWarnings()).contains("ARGUMENT_SCHEMA_INVALID");
+        verify(handler, never()).execute(any(), any());
+    }
+
+    @Test
+    void enforcesIntegerBoundsEnumAndTypeForFuzzedArguments() {
+        AgentToolHandler handler = handler("market.fuzz", true, false);
+        org.mockito.Mockito.when(handler.definition()).thenReturn(AgentToolDefinition.builder()
+                .code("market.fuzz").name("fuzz").module("market").description("fuzz")
+                .inputSchemaJson("{\"type\":\"object\",\"properties\":{"
+                        + "\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":10},"
+                        + "\"mode\":{\"type\":\"string\",\"enum\":[\"safe\",\"full\"]}}}")
+                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).build());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler));
+
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.fuzz")
+                .arguments(java.util.Map.of("limit", "not-an-integer", "mode", "safe")).build(), null)
+                .getWarnings()).contains("ARGUMENT_TYPE:limit");
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.fuzz")
+                .arguments(java.util.Map.of("limit", 0, "mode", "safe")).build(), null)
+                .getWarnings()).contains("ARGUMENT_MINIMUM:limit");
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.fuzz")
+                .arguments(java.util.Map.of("limit", 11, "mode", "safe")).build(), null)
+                .getWarnings()).contains("ARGUMENT_MAXIMUM:limit");
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.fuzz")
+                .arguments(java.util.Map.of("limit", 1, "mode", "unsafe")).build(), null)
+                .getWarnings()).contains("ARGUMENT_ENUM:mode");
+        verify(handler, never()).execute(any(), any());
+    }
+
+    @Test
     void disablesPersistedCapabilityWhenGovernanceRemovesIt() {
         AgentToolHandler handler = handler("finance.synthetic", true, false);
         cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository repository = mock(

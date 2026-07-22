@@ -427,6 +427,12 @@
 - The same idempotency key returned the existing run with unchanged token/tool counts, proving the request did not re-execute the provider.
 - This closes the current Provider transport/runtime slice only; SSE reconnect, cancellation, background recovery, confirmed writes, newly registered capability selection, security corpus, and browser workflow gates remain open.
 
+## Agent persistence contract hardening (2026-07-22)
+
+- Historical Agent tables had mixed owner-key widths and relied on business-number uniqueness without owner-qualified foreign-key contracts. The repair migration now normalizes owner-bearing workflow tables to `varchar(128)` and adds owner-qualified identities/references where the schema supports them.
+- The migration was applied twice to the running Release PostgreSQL database. No duplicate constraint/index errors occurred, existing rows remained valid, and the read-only contract script reported no missing tables, owner-width mismatch, or orphan steps/messages/events.
+- The contract intentionally does not replace the remaining single-column transcript foreign keys until all repository queries and legacy data models carry owner columns; this remains a follow-up risk for cross-tenant database-level enforcement.
+
 ## Agent product workflow audit (2026-07-22)
 
 - The Agent backend currently treats every model response without tool calls as a final answer; it has no structured `NEEDS_CLARIFICATION` result or persisted clarification payload.

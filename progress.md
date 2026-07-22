@@ -1924,3 +1924,10 @@
 - Built and started Release `1.1.165-260722-RELEASE` through the documented Docker entrypoint; Agent migrations were idempotent, Maven built all 41 modules, six versioned images were built, and all six application/UI health checks returned HTTP 200.
 - A signed direct AI request reached real `xtyoo / gpt-5.4-mini`, completed `SUCCEEDED`, autonomously selected `market.overview`, and persisted `planJson`, tool input/output, `dataDate=2026-07-22`, source URL, citation metadata, `REPORTED` usage, and final answer for run `AGR-b36c65505040435e98aa6a69`.
 - Repeating the same idempotency key returned the same terminal run without a second execution. Release logs show the configured proxied HTTP/1.1 transport, no TLS handshake error, and no MockAiModelAdapter/synthetic/fabricated execution markers.
+
+## 2026-07-22 - Agent persistence and security contract hardening
+
+- Added idempotent persistence hardening for `cynexus_appl_ai`: owner-key width normalization, owner-scoped unique identities, owner-aware foreign keys, non-negative counters, lease/usage indexes, and audit table comments.
+- Added `db/agent-persistence-contract-check.sql` for read-only schema, owner-boundary, foreign-key, and orphan-record checks.
+- Added focused schema, malformed-schema/fuzz argument, and bounded observability tests; the focused infra suite passed 10/10.
+- Applied the migration twice against the current Release PostgreSQL database with `ON_ERROR_STOP=1`; both applications succeeded and the contract check returned `Agent persistence contract checks passed`.

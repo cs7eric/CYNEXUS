@@ -2489,6 +2489,8 @@ Release 1.1.164 exposed an application-context startup defect in `AgentIdentityR
 
 Release `1.1.165-260722-RELEASE` now passes the health gate and real-provider/idempotency evidence for `market.overview`; the remaining Phase 107 acceptance matrix is still open.
 
+The persistence/security slice now also has focused 10/10 infra evidence plus live PostgreSQL first/second migration and contract-check evidence. It does not close tenant isolation or retention runtime gates by itself.
+
 ## Phase 107 - Enterprise Agent completion contract
 
 Status: in_progress
