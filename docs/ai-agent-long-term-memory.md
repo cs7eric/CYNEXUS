@@ -17,6 +17,7 @@ The Agent must never claim that a data source was consulted unless a registered 
 - Java-to-service APIs belong under the relevant frontend `src/services/<business-area>` folder, never in `lib/api.ts`.
 - AI capability routing must stay synchronized across the capability registry, runtime entry, prompt key, provider route, group, description, input/output schema, source, freshness, and availability.
 - All Agent-owned persistence belongs in PostgreSQL schema `cynexus_appl_ai` and follows BIGINT IDs, owner/tenant scope, soft deletion/retention, JSONB bounds, timestamps, and indexed business identifiers.
+- Capability catalog reads may be exposed to authenticated workspace users, but capability enablement, availability, priority, and routing changes require a signed identity whose principal is in the configured governance administrator allow-list. Never treat a client-controlled owner or ordinary user identity as an administrator.
 
 ## Runtime Safety Rules
 

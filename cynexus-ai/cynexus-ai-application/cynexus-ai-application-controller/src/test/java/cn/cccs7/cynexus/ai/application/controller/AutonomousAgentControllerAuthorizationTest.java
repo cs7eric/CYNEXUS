@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class AutonomousAgentControllerAuthorizationTest {
@@ -68,6 +69,18 @@ class AutonomousAgentControllerAuthorizationTest {
                         .header("X-Cynexus-Principal", principal)
                         .header("X-Cynexus-Tenant", "tenant-b")
                         .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign(principal, signedTenant, SECRET)))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void capabilityGovernanceRequiresAdministratorPrincipal() throws Exception {
+        String principal = "user-a";
+        String tenant = "tenant-a";
+        mockMvc.perform(post("/api/ai/agent/capabilities/market.overview/governance")
+                        .contentType("application/json").content("{\"enabled\":false,\"availability\":\"AVAILABLE\",\"priority\":1}")
+                        .header("X-Cynexus-Principal", principal).header("X-Cynexus-Tenant", tenant)
+                        .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign(principal, tenant, SECRET)))
                 .andExpect(status().isUnauthorized());
         verifyNoInteractions(service);
     }

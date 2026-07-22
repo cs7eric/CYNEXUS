@@ -41,6 +41,13 @@
 - The correction belongs in the Market infra handler base because it is an adapter serialization concern. It normalizes ISO text/number dates, Jackson date arrays, and the first item in history envelopes without inventing dates.
 - A real Release rebuild and repeat request are required before the defect can be marked closed; unit tests alone are insufficient for the completion contract.
 
+## Agent Capability Governance Audit - 2026-07-22
+
+- The capability catalog and governance controller were previously callable without an identity check, even though run execution used signed gateway identity.
+- Governance is an administrative operation, not an ordinary Agent read. It now requires a valid HMAC identity and a configured principal allow-list; the policy is domain-owned and the controller only orchestrates/authenticates.
+- Release defaults allow the gateway workspace principal so the existing Provider page remains usable; production deployments can replace the allow-list through `CYNEXUS_AI_AGENT_GOVERNANCE_PRINCIPALS`.
+- The focused HTTP and resolver tests prove ordinary users cannot govern capabilities. Release container verification is still open until the next versioned image.
+
 ## Enterprise Agent Completion Contract - 2026-07-22
 
 - The user's required outcome is the complete Agent product, not only the first autonomous read-only loop.

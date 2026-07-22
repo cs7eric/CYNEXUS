@@ -1,5 +1,12 @@
 # Cynexus Setup Progress
 
+## 2026-07-22 - Capability governance authorization boundary
+
+- Added a domain-owned governance policy requiring a trusted Agent identity whose principal is in the configured administrator allow-list.
+- Protected Agent tools/capabilities reads and capability governance writes with signed identity validation; ordinary signed users and anonymous requests cannot manage runtime routing.
+- Added `CYNEXUS_AI_AGENT_GOVERNANCE_PRINCIPALS` to the Release compose contract, defaulting to the gateway workspace principal and allowing deployment-specific administrators.
+- Focused authorization tests passed 7/7. Maven/UI versions are synchronized at `1.1.163-SNAPSHOT`; a new versioned Release image is required for runtime verification.
+
 ## 2026-07-22 - Agent source-date normalization and Release evidence audit
 
 - Ran the versioned Release `1.1.162-260722-RELEASE` against the direct AI runtime with a signed validation identity; `xtyoo / gpt-5.4-mini` selected and executed `market.overview`, `market.overview_history`, and `market.information_feed`.

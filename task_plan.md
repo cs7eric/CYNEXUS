@@ -2460,6 +2460,8 @@ Status: in_progress
 
 Current implementation: trace ids are persisted on public Agent events, Micrometer run/provider/tool counters and latency timers are wired through a domain port, Release startup applies the complete Agent migration bundle, source URL policy regression coverage is present, and the enterprise security document is added. Prompt-injection corpus, schema fuzzing, rate-abuse, secret scanning, and Release metric/runtime checks remain open.
 
+- Capability catalog and governance HTTP authorization now require signed identity; governance additionally requires a configured administrator principal allow-list. Focused tests pass; Release runtime verification remains open.
+
 ### 106.8 Responsive Agent UI visual gate
 
 Status: pending

@@ -33,4 +33,15 @@ class AgentIdentityResolverTest {
         assertThrows(IllegalStateException.class,
                 () -> new AgentIdentityResolver("", false).resolve(null, null, null));
     }
+
+    @Test
+    void governanceRequiresConfiguredAdministratorPrincipal() {
+        AgentIdentityResolver resolver = new AgentIdentityResolver(SECRET, false, "admin,workspace-user");
+        String adminSignature = TrustedPrincipalSigner.sign("admin", "tenant-1", SECRET);
+        assertEquals("tenant-1::admin", resolver.resolveGovernance("admin", "tenant-1", adminSignature).storageOwnerKey());
+
+        String userSignature = TrustedPrincipalSigner.sign("user-1", "tenant-1", SECRET);
+        assertThrows(IllegalStateException.class,
+                () -> resolver.resolveGovernance("user-1", "tenant-1", userSignature));
+    }
 }

@@ -125,18 +125,27 @@ public class AutonomousAgentController {
     }
 
     @GetMapping("/tools")
-    public Result<List<AgentToolDefinitionDTO>> tools() {
+    public Result<List<AgentToolDefinitionDTO>> tools(HttpServletRequest httpRequest) {
+        identity(httpRequest);
         return Result.success(agentAppService.enabledTools());
     }
 
     @GetMapping("/capabilities")
-    public Result<List<AgentCapabilityDTO>> capabilities() {
+    public Result<List<AgentCapabilityDTO>> capabilities(HttpServletRequest httpRequest) {
+        identity(httpRequest);
         return Result.success(agentAppService.capabilities().stream().map(this::toCapabilityDTO).toList());
     }
 
     @PostMapping("/capabilities/{capabilityCode}/governance")
     public Result<Boolean> governCapability(@PathVariable String capabilityCode,
-                                            @RequestBody AgentCapabilityGovernanceRequest request) {
+                                            @RequestBody AgentCapabilityGovernanceRequest request,
+                                            HttpServletRequest httpRequest) {
+        try {
+            identityResolver.resolveGovernance(httpRequest.getHeader("X-Cynexus-Principal"),
+                    httpRequest.getHeader("X-Cynexus-Tenant"), httpRequest.getHeader("X-Cynexus-Identity-Signature"));
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, exception.getMessage(), exception);
+        }
         if (request == null || request.getEnabled() == null || request.getAvailability() == null
                 || request.getPriority() == null || request.getPriority() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Capability governance fields are invalid");
