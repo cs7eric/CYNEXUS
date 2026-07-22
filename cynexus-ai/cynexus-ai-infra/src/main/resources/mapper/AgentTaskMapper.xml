@@ -32,21 +32,37 @@
     <update id="linkRun">
         UPDATE cynexus_appl_ai.ai_agent_task
         SET run_no = #{runNo}, updated_at = now()
-        WHERE task_no = #{taskNo}
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
           AND lease_owner = #{leaseOwner}
           AND status = 'RUNNING'
           AND deleted_at IS NULL
     </update>
 
     <select id="claimDue" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.agent.AgentTaskPO">
-        WITH candidate AS (
+        WITH exhausted AS (
+            UPDATE cynexus_appl_ai.ai_agent_task
+            SET status = 'DEAD_LETTER',
+                last_error = COALESCE(last_error, 'LEASE_EXPIRED_MAX_ATTEMPTS'),
+                completed_at = COALESCE(completed_at, #{now}),
+                lease_owner = NULL,
+                lease_until = NULL,
+                updated_at = now()
+            WHERE deleted_at IS NULL
+              AND status = 'RUNNING'
+              AND lease_until &lt; #{now}
+              AND attempt_count &gt;= max_attempts
+            RETURNING id
+        ), candidate AS (
             SELECT id
             FROM cynexus_appl_ai.ai_agent_task
             WHERE deleted_at IS NULL
               AND ((status = 'QUEUED'
                     AND schedule_at &lt;= #{now}
-                    AND COALESCE(next_attempt_at, schedule_at) &lt;= #{now})
-                   OR (status = 'RUNNING' AND lease_until &lt; #{now}))
+                    AND COALESCE(next_attempt_at, schedule_at) &lt;= #{now}
+                    AND attempt_count &lt; max_attempts)
+                   OR (status = 'RUNNING' AND lease_until &lt; #{now}
+                       AND attempt_count &lt; max_attempts))
             ORDER BY COALESCE(next_attempt_at, schedule_at), created_at
             FOR UPDATE SKIP LOCKED
             LIMIT #{limit}
@@ -63,7 +79,8 @@
         UPDATE cynexus_appl_ai.ai_agent_task
         SET status = 'COMPLETED', run_no = #{runNo}, completed_at = now(),
             lease_owner = NULL, lease_until = NULL, updated_at = now()
-        WHERE task_no = #{taskNo}
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
           AND lease_owner = #{leaseOwner}
           AND status = 'RUNNING'
           AND deleted_at IS NULL
@@ -73,7 +90,8 @@
         UPDATE cynexus_appl_ai.ai_agent_task
         SET status = 'QUEUED', next_attempt_at = #{nextAttemptAt}, last_error = #{lastError},
             lease_owner = NULL, lease_until = NULL, updated_at = now()
-        WHERE task_no = #{taskNo}
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
           AND lease_owner = #{leaseOwner}
           AND status = 'RUNNING'
           AND deleted_at IS NULL
@@ -83,7 +101,8 @@
         UPDATE cynexus_appl_ai.ai_agent_task
         SET status = 'DEAD_LETTER', last_error = #{lastError}, lease_owner = NULL,
             lease_until = NULL, completed_at = now(), updated_at = now()
-        WHERE task_no = #{taskNo}
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
           AND lease_owner = #{leaseOwner}
           AND status = 'RUNNING'
           AND deleted_at IS NULL

@@ -27,4 +27,12 @@ public interface AgentWriteCommandMapper extends BaseMapperX<AgentWriteCommandPO
     @Update("UPDATE cynexus_appl_ai.ai_agent_write_command SET status='REJECTED', updated_at=now() "
             + "WHERE owner_key=#{ownerKey} AND command_no=#{commandNo} AND status='PENDING_CONFIRMATION'")
     int markRejected(AgentWriteCommandPO command);
+
+    @Update("UPDATE cynexus_appl_ai.ai_agent_write_command "
+            + "SET status='ARCHIVED', arguments_json=CAST('{}' AS jsonb), result_json=NULL, "
+            + "confirmation_token_hash='[ARCHIVED_BY_RETENTION_POLICY]', error_message=NULL, updated_at=now() "
+            + "WHERE created_at < #{cutoff} AND deleted_at IS NULL "
+            + "AND (status IN ('EXECUTED','FAILED','REJECTED','EXPIRED') "
+            + "OR (status='PENDING_CONFIRMATION' AND expires_at < now()))")
+    int archiveBefore(@Param("cutoff") OffsetDateTime cutoff);
 }

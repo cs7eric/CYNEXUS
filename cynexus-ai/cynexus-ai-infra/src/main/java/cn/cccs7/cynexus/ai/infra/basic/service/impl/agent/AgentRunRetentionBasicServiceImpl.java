@@ -10,6 +10,9 @@ import cn.cccs7.cynexus.ai.infra.basic.mapper.agent.AgentMessageMapper;
 import cn.cccs7.cynexus.ai.infra.basic.mapper.agent.AgentRunEventMapper;
 import cn.cccs7.cynexus.ai.infra.basic.mapper.agent.AgentRunMapper;
 import cn.cccs7.cynexus.ai.infra.basic.mapper.agent.AgentRunStepMapper;
+import cn.cccs7.cynexus.ai.infra.basic.mapper.agent.AgentTaskMapper;
+import cn.cccs7.cynexus.ai.infra.basic.mapper.write.AgentWriteAuditMapper;
+import cn.cccs7.cynexus.ai.infra.basic.mapper.write.AgentWriteCommandMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -23,15 +26,22 @@ public class AgentRunRetentionBasicServiceImpl implements cn.cccs7.cynexus.ai.in
     private final AgentMessageMapper messageMapper;
     private final AgentRunEventMapper eventMapper;
     private final AgentConversationMapper conversationMapper;
+    private final AgentTaskMapper taskMapper;
+    private final AgentWriteCommandMapper writeCommandMapper;
+    private final AgentWriteAuditMapper writeAuditMapper;
 
     public AgentRunRetentionBasicServiceImpl(AgentRunMapper runMapper, AgentRunStepMapper stepMapper,
                                              AgentMessageMapper messageMapper, AgentRunEventMapper eventMapper,
-                                             AgentConversationMapper conversationMapper) {
+                                             AgentConversationMapper conversationMapper, AgentTaskMapper taskMapper,
+                                             AgentWriteCommandMapper writeCommandMapper, AgentWriteAuditMapper writeAuditMapper) {
         this.runMapper = runMapper;
         this.stepMapper = stepMapper;
         this.messageMapper = messageMapper;
         this.eventMapper = eventMapper;
         this.conversationMapper = conversationMapper;
+        this.taskMapper = taskMapper;
+        this.writeCommandMapper = writeCommandMapper;
+        this.writeAuditMapper = writeAuditMapper;
     }
 
     @Override
@@ -44,6 +54,9 @@ public class AgentRunRetentionBasicServiceImpl implements cn.cccs7.cynexus.ai.in
             archiveRun(run);
             archived++;
         }
+        taskMapper.archiveBefore(cutoff);
+        writeCommandMapper.archiveBefore(cutoff);
+        writeAuditMapper.redactBefore(cutoff);
         return archived;
     }
 
@@ -62,7 +75,7 @@ public class AgentRunRetentionBasicServiceImpl implements cn.cccs7.cynexus.ai.in
         runMapper.updateById(run);
 
         List<AgentRunStepPO> steps = stepMapper.selectList(new QueryWrapper<AgentRunStepPO>()
-                .eq("run_no", run.getRunNo()).isNull("deleted_at"));
+                .eq("owner_key", run.getOwnerKey()).eq("run_no", run.getRunNo()).isNull("deleted_at"));
         for (AgentRunStepPO step : steps) {
             step.setInputJson("{}");
             step.setOutputJson("{}");
@@ -73,7 +86,8 @@ public class AgentRunRetentionBasicServiceImpl implements cn.cccs7.cynexus.ai.in
         }
 
         List<AgentMessagePO> messages = messageMapper.selectList(new QueryWrapper<AgentMessagePO>()
-                .eq("conversation_no", run.getConversationNo()).isNull("deleted_at"));
+                .eq("owner_key", run.getOwnerKey()).eq("conversation_no", run.getConversationNo())
+                .isNull("deleted_at"));
         for (AgentMessagePO message : messages) {
             message.setContent(ARCHIVED);
             message.setToolCalls("[]");
@@ -82,7 +96,7 @@ public class AgentRunRetentionBasicServiceImpl implements cn.cccs7.cynexus.ai.in
         }
 
         List<AgentRunEventPO> events = eventMapper.selectList(new QueryWrapper<AgentRunEventPO>()
-                .eq("run_no", run.getRunNo()).isNull("deleted_at"));
+                .eq("owner_key", run.getOwnerKey()).eq("run_no", run.getRunNo()).isNull("deleted_at"));
         for (AgentRunEventPO event : events) {
             event.setAnswer(null);
             event.setDelta(null);

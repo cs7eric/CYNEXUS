@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface AgentWriteAuditMapper {
@@ -12,4 +13,9 @@ public interface AgentWriteAuditMapper {
     int insert(@Param("commandNo") String commandNo, @Param("ownerKey") String ownerKey, @Param("action") String action,
                @Param("status") String status, @Param("toolCode") String toolCode, @Param("argumentDigest") String argumentDigest,
                @Param("resultJson") String resultJson, @Param("errorMessage") String errorMessage, @Param("occurredAt") OffsetDateTime occurredAt);
+
+    @Update("UPDATE cynexus_appl_ai.ai_agent_write_audit "
+            + "SET result_json=NULL, error_message=NULL "
+            + "WHERE occurred_at < #{cutoff} AND (result_json IS NOT NULL OR error_message IS NOT NULL)")
+    int redactBefore(@Param("cutoff") OffsetDateTime cutoff);
 }

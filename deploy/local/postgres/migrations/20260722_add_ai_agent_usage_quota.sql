@@ -6,7 +6,7 @@ ALTER TABLE cynexus_appl_ai.ai_agent_run
     ADD COLUMN IF NOT EXISTS usage_source varchar(16) NOT NULL DEFAULT 'ESTIMATED';
 
 CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_usage_daily (
-    owner_key varchar(255) NOT NULL,
+    owner_key varchar(128) NOT NULL,
     usage_date date NOT NULL,
     tenant_key varchar(128) NOT NULL,
     principal_key varchar(128) NOT NULL,

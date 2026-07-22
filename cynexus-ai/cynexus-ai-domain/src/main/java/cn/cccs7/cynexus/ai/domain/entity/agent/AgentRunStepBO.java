@@ -10,6 +10,7 @@ public class AgentRunStepBO {
 
     private Long id;
     private String runNo;
+    private String ownerKey;
     private Integer stepNo;
     private Integer attemptCount;
     private String kind;

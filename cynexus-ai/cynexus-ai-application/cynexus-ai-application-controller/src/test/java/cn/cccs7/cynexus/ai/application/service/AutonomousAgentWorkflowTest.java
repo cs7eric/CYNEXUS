@@ -102,6 +102,8 @@ class AutonomousAgentWorkflowTest {
         assertNotNull(result.getEvidenceJson());
         ArgumentCaptor<cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO> stepCaptor = ArgumentCaptor.forClass(cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO.class);
         verify(repository, times(2)).saveStep(stepCaptor.capture());
+        assertEquals("tenant-1::user-1", stepCaptor.getAllValues().get(0).getOwnerKey());
+        assertEquals("tenant-1::user-1", stepCaptor.getAllValues().get(1).getOwnerKey());
         stepCaptor.getAllValues().forEach(step -> {
             try {
                 new ObjectMapper().readTree(step.getOutputJson());
@@ -167,6 +169,7 @@ class AutonomousAgentWorkflowTest {
         verify(repository).saveStep(stepCaptor.capture());
         assertEquals("CLARIFICATION", stepCaptor.getValue().getKind());
         assertEquals("NEEDS_CLARIFICATION", stepCaptor.getValue().getStatus());
+        assertEquals("tenant-1::user-1", stepCaptor.getValue().getOwnerKey());
     }
 
     @Test

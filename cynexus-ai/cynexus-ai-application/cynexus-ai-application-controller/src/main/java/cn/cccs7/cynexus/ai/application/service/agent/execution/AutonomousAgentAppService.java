@@ -277,8 +277,8 @@ public class AutonomousAgentAppService {
                     messages.add(finalMessage);
                     saveMessage(conversationNo, runNo, messages.size(), finalMessage);
                     AgentRunStepBO answerStep = clarification == null
-                            ? saveAnswerStep(runNo, steps.size() + 1, answer)
-                            : saveClarificationStep(runNo, steps.size() + 1, clarification);
+                            ? saveAnswerStep(ownerKey, runNo, steps.size() + 1, answer)
+                            : saveClarificationStep(ownerKey, runNo, steps.size() + 1, clarification);
                     steps.add(answerStep);
                     publisher.accept(AgentRunEventBO.builder().type(clarification == null ? "ANSWER" : "CLARIFICATION")
                             .runNo(runNo).status(clarification == null ? "SUCCEEDED" : "NEEDS_CLARIFICATION")
@@ -330,7 +330,7 @@ public class AutonomousAgentAppService {
                     agentRunRepository.updateRun(run);
                     if (isTransientToolFailure(result)) circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                     else if ("SUCCEEDED".equals(result.getStatus())) circuitBreaker.recordSuccess(toolCircuitKey);
-                    AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result, attempts,
+                    AgentRunStepBO step = saveToolStep(ownerKey, runNo, steps.size() + 1, call, result, attempts,
                             definition == null ? null : definition.getSourceUrl());
                     steps.add(step);
                     publisher.accept(AgentRunEventBO.builder().type("TOOL_STEP").runNo(runNo).status(result.getStatus())
@@ -714,7 +714,7 @@ public class AutonomousAgentAppService {
         }
     }
 
-    private AgentRunStepBO saveToolStep(String runNo, int stepNo, AgentToolCall call, AgentToolResult result,
+    private AgentRunStepBO saveToolStep(String ownerKey, String runNo, int stepNo, AgentToolCall call, AgentToolResult result,
                                         int attemptCount, String sourceUrl) {
         String resolvedSourceUrl = result.getSourceUrl() == null ? sourceUrl : result.getSourceUrl();
         resolvedSourceUrl = AgentSourceUrlPolicy.sanitize(resolvedSourceUrl, Set.of());
@@ -722,7 +722,7 @@ public class AutonomousAgentAppService {
                 ? AgentCitationFactory.fromTool(call.getToolCode(), result.getSource(), resolvedSourceUrl,
                 result.getDataDate(), result.getSummary(), toolFreshness(call.getToolCode()))
                 : result.getCitations().stream().map(this::sanitizeCitation).toList();
-        AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("TOOL")
+        AgentRunStepBO step = AgentRunStepBO.builder().ownerKey(ownerKey).runNo(runNo).stepNo(stepNo).kind("TOOL")
                 .attemptCount(attemptCount)
                 .toolCode(call.getToolCode()).inputJson(redactJson(json(call.getArguments()))).outputJson(redactJson(result.getOutputJson()))
                 .status(result.getStatus()).summary(redactText(result.getSummary())).source(result.getSource()).sourceUrl(resolvedSourceUrl)
@@ -746,16 +746,16 @@ public class AutonomousAgentAppService {
                 .conflict(citation.isConflict()).build();
     }
 
-    private AgentRunStepBO saveAnswerStep(String runNo, int stepNo, String answer) {
-        AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("ANSWER")
+    private AgentRunStepBO saveAnswerStep(String ownerKey, String runNo, int stepNo, String answer) {
+        AgentRunStepBO step = AgentRunStepBO.builder().ownerKey(ownerKey).runNo(runNo).stepNo(stepNo).kind("ANSWER")
                 .status("SUCCEEDED").summary("Generated the final Agent answer.").outputJson(json(Map.of("content", answer)))
                 .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
         agentRunRepository.saveStep(step);
         return step;
     }
 
-    private AgentRunStepBO saveClarificationStep(String runNo, int stepNo, AgentClarificationBO clarification) {
-        AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("CLARIFICATION")
+    private AgentRunStepBO saveClarificationStep(String ownerKey, String runNo, int stepNo, AgentClarificationBO clarification) {
+        AgentRunStepBO step = AgentRunStepBO.builder().ownerKey(ownerKey).runNo(runNo).stepNo(stepNo).kind("CLARIFICATION")
                 .status("NEEDS_CLARIFICATION").summary(clarification.getSummary())
                 .outputJson(json(clarification)).startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
         agentRunRepository.saveStep(step);

@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_task (
     id bigint PRIMARY KEY,
     task_no varchar(64) NOT NULL UNIQUE,
-    owner_key varchar(255) NOT NULL,
+    owner_key varchar(128) NOT NULL,
     tenant_key varchar(128) NOT NULL,
     principal_key varchar(128) NOT NULL,
     conversation_no varchar(64),

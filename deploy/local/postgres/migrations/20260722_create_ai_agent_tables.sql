@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS ix_ai_agent_run_conversation_created
 CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_run_step (
     id bigint PRIMARY KEY,
     run_no varchar(64) NOT NULL,
+    owner_key varchar(128) NOT NULL,
     step_no integer NOT NULL,
     kind varchar(32) NOT NULL,
     tool_code varchar(128),
@@ -59,9 +60,10 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_run_step (
     finished_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at timestamptz
+    deleted_at timestamptz,
+    CONSTRAINT uk_ai_agent_run_step_owner_order UNIQUE (owner_key, run_no, step_no)
 );
 
 CREATE INDEX IF NOT EXISTS ix_ai_agent_run_step_run_order
-    ON cynexus_appl_ai.ai_agent_run_step (run_no, step_no)
+    ON cynexus_appl_ai.ai_agent_run_step (owner_key, run_no, step_no)
     WHERE deleted_at IS NULL;

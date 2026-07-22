@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_feedback (
     id bigint PRIMARY KEY,
-    owner_key varchar(255) NOT NULL,
+    owner_key varchar(128) NOT NULL,
     tenant_key varchar(128) NOT NULL,
     principal_key varchar(128) NOT NULL,
     run_no varchar(64) NOT NULL,
