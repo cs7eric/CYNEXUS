@@ -1705,3 +1705,10 @@
 - Structured-answer regression test passed; focused AI workflow tests passed 24/24.
 - Built Release `1.1.139-260722-RELEASE` through the documented Docker entrypoint and verified Core, Market, AI, Gateway, and UI health.
 - Completed one real `xtyooo / gpt-5.4-mini` request through Gateway; the model selected multiple market tools, returned explicit no-data warnings where appropriate, and persisted provider/model provenance, trace, evidence, plan, and final answer.
+
+## 2026-07-22 - Agent persistence update integrity
+
+- Release database inspection found a real persistence defect: generated run/conversation IDs were assigned only to PO objects, so later `updateById` calls could silently update zero rows while the HTTP response still looked successful.
+- Propagated generated IDs and timestamps back to `AgentRunBO` and `AgentConversationBO` after insert.
+- Added an infra repository regression test proving subsequent run/conversation updates carry the generated IDs; AI infrastructure tests passed 13/13.
+- Version synchronized to `1.1.141-SNAPSHOT`; Release re-verification is pending.

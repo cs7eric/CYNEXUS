@@ -41,7 +41,11 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
 
     @Override
     public void saveConversation(AgentConversationBO conversation) {
-        conversationService.create(AgentConversationPOConverter.INSTANCE.toSource(conversation));
+        var source = AgentConversationPOConverter.INSTANCE.toSource(conversation);
+        conversationService.create(source);
+        conversation.setId(source.getId());
+        conversation.setCreatedAt(source.getCreatedAt());
+        conversation.setUpdatedAt(source.getUpdatedAt());
     }
 
     @Override
@@ -62,7 +66,11 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
 
     @Override
     public void saveRun(AgentRunBO run) {
-        runService.create(AgentRunPOConverter.INSTANCE.toSource(run));
+        var source = AgentRunPOConverter.INSTANCE.toSource(run);
+        runService.create(source);
+        run.setId(source.getId());
+        run.setCreatedAt(source.getCreatedAt());
+        run.setUpdatedAt(source.getUpdatedAt());
     }
 
     @Override

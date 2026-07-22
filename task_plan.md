@@ -2326,6 +2326,14 @@ Status: complete
 - Prove query/body owner values cannot override the tenant-qualified owner derived from the trusted gateway assertion.
 - Keep cross-tenant run access behind repository owner scope and verify the controller never accepts client-controlled identity.
 
+### 105.18 Agent persistence update integrity
+
+Status: in_progress
+
+- Propagate generated database IDs from conversation/run inserts back into domain objects before later updates.
+- Verify final Agent status, model, counters, answer, and conversation metadata are actually updated in PostgreSQL, not only returned from in-memory state.
+- Add repository regression coverage and re-run the versioned Release workflow.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
