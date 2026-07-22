@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircle, ArrowUpRight, Check, CircleDashed, Download, ExternalLink, History, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { AlertCircle, ArrowUp, Check, CircleDashed, Download, ExternalLink, History, LoaderCircle, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentCancellationResult, type AgentCitation, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
+import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
+import { Bubble, BubbleContent } from "@/components/ui/bubble"
+import { Message, MessageContent, MessageFooter, MessageHeader } from "@/components/ui/message"
+import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller"
 import { AgentFeedbackPanel } from "./components/agent-feedback-panel"
 import { AgentWritePanel } from "./components/agent-write-panel"
 import { AgentTaskPanel } from "./components/agent-task-panel"
@@ -54,6 +58,32 @@ function clarification(run: AgentRun) {
 
 function CitationList({ citations }: { citations: AgentCitation[] }) {
   return <div className="mt-2 space-y-1.5 border-t border-border/60 pt-2">{citations.map((citation) => <div key={citation.citationId} className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-medium text-foreground">{citation.title ?? citation.publisher ?? "Verified source"}</div><div className="mt-0.5 line-clamp-2 text-muted-foreground">{citation.excerpt}</div></div>{citation.url && citation.availability === "AVAILABLE" ? <a href={citation.url} target="_blank" rel="noreferrer" aria-label={`Open ${citation.title ?? "source"}`} className="shrink-0 text-sky-700 hover:text-sky-900"><ExternalLink className="size-3.5" /></a> : <span className="shrink-0 text-[10px] text-muted-foreground">Unlinked</span>}</div>)}</div>
+}
+
+function AgentMessageBubble({ align, children, footer }: { align: "start" | "end"; children: ReactNode; footer?: ReactNode }) {
+  return (
+    <Message align={align}>
+      <MessageContent>
+        <Bubble variant={align === "end" ? "muted" : "ghost"}>
+          <BubbleContent>{children}</BubbleContent>
+        </Bubble>
+        {footer ? <MessageFooter>{footer}</MessageFooter> : null}
+      </MessageContent>
+    </Message>
+  )
+}
+
+function ThinkingMarker() {
+  return (
+    <Message>
+      <MessageContent>
+        <Marker role="status">
+          <MarkerIcon><LoaderCircle className="animate-spin" /></MarkerIcon>
+          <MarkerContent>Thinking</MarkerContent>
+        </Marker>
+      </MessageContent>
+    </Message>
+  )
 }
 
 export default function AutonomousAgentPage() {
@@ -195,11 +225,28 @@ export default function AutonomousAgentPage() {
 
         <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card">
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
-              {conversationMessages.length ? <div className="mb-6 space-y-3 border-b border-border/70 pb-5"><div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Conversation transcript</div>{conversationMessages.map((message, index) => <div key={`${message.sequenceNo ?? index}-${message.role}`} className={message.role === "user" ? "ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6" : "max-w-3xl whitespace-pre-wrap text-sm leading-7 text-foreground"}>{message.content}</div>)}</div> : null}
-              {!run ? <div className="m-auto max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div> : <div className="space-y-6"><div className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-3 text-sm leading-6">{run.userInput}</div><div className="max-w-3xl"><div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-3.5 text-sky-600" /> Cynexus Agent</div>{clarification(run) ? <div className="mb-4 rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"><div className="font-medium">需要补充信息</div><div className="mt-1 leading-6">{clarification(run)?.summary}</div><ul className="mt-2 list-disc space-y-1 pl-5">{clarification(run)?.questions?.map((question) => <li key={question}>{question}</li>)}</ul></div> : null}<div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{run.runNo ? <AgentFeedbackPanel runNo={run.runNo} /> : null}{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}{item.sourceUrl ? <> · <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-700 hover:underline"><ExternalLink className="size-3" />Source</a></> : null}</div>{item.citations?.length ? <CitationList citations={item.citations} /> : null}</div>)}</div></div> : null}<div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></div></div></div>}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-5">
+              <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={48}>
+                <MessageScroller className="min-h-0 flex-1">
+                  <MessageScrollerViewport aria-label="Agent messages">
+                    <MessageScrollerContent className="gap-6 px-1 py-2" aria-busy={loading}>
+                      {conversationMessages.map((message, index) => (
+                        <MessageScrollerItem key={`${message.sequenceNo ?? index}-${message.role}`} messageId={`transcript-${message.sequenceNo ?? index}`}>
+                          <AgentMessageBubble align={message.role === "user" ? "end" : "start"}>{message.content}</AgentMessageBubble>
+                        </MessageScrollerItem>
+                      ))}
+                      {!run ? <MessageScrollerItem messageId="agent-empty"><div className="flex min-h-[18rem] items-center justify-center"><div className="max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div></div></MessageScrollerItem> : <>
+                        <MessageScrollerItem messageId={`run-user-${run.runNo}`} scrollAnchor><AgentMessageBubble align="end">{run.userInput}</AgentMessageBubble></MessageScrollerItem>
+                        <MessageScrollerItem messageId={`run-assistant-${run.runNo}`}><Message><MessageContent><MessageHeader><Sparkles className="mr-1.5 size-3.5 text-sky-600" />Cynexus Agent</MessageHeader>{clarification(run) ? <div className="rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"><div className="font-medium">需要补充信息</div><div className="mt-1 leading-6">{clarification(run)?.summary}</div><ul className="mt-2 list-disc space-y-1 pl-5">{clarification(run)?.questions?.map((question) => <li key={question}>{question}</li>)}</ul></div> : null}<div className="whitespace-pre-wrap text-sm leading-7 text-foreground">{run.answer ?? run.errorMessage ?? "The Agent did not return an answer."}</div>{run.runNo ? <AgentFeedbackPanel runNo={run.runNo} /> : null}{evidence(run).length ? <div className="mt-5 border-t border-border/70 pt-4"><div className="mb-2 text-xs font-medium text-muted-foreground">Evidence</div><div className="space-y-2">{evidence(run).map((item, index) => <div key={`${item.toolCode ?? "evidence"}-${index}`} className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="font-medium">{item.toolCode}</span><span className="text-muted-foreground">{item.dataDate || "Date unavailable"}</span></div><div className="mt-1 text-muted-foreground">{item.summary} · {item.source}{item.sourceUrl ? <> · <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-700 hover:underline"><ExternalLink className="size-3" />Source</a></> : null}</div>{item.citations?.length ? <CitationList citations={item.citations} /> : null}</div>)}</div></div> : null}<div className="mt-4 flex gap-2"><Button size="sm" variant="outline" onClick={() => void rerun("retry")} disabled={loading}><RefreshCw className="size-3.5" /> Retry</Button><Button size="sm" variant="ghost" onClick={() => void rerun("regenerate")} disabled={loading}><Sparkles className="size-3.5" /> Regenerate</Button></div></MessageContent></Message></MessageScrollerItem>
+                      </>}
+                      {loading ? <MessageScrollerItem messageId="agent-thinking"><ThinkingMarker /></MessageScrollerItem> : null}
+                    </MessageScrollerContent>
+                  </MessageScrollerViewport>
+                  <MessageScrollerButton />
+                </MessageScroller>
+              </MessageScrollerProvider>
             </div>
-            <div className="border-t border-border/70 p-4"><div className="rounded-xl border border-border bg-background p-2 shadow-sm"><Textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 text-sm shadow-none focus-visible:ring-0" /><div className="flex items-center justify-between px-2 pt-2"><span className="text-xs text-muted-foreground">Read-only research tools · Ctrl/Cmd + Enter to run</span>{loading ? <Button size="sm" variant="outline" onClick={() => void stopAgent()}><Square className="size-3.5" /> Stop</Button> : <Button size="sm" onClick={() => void submit()} disabled={!input.trim()}><ArrowUpRight className="size-4" /> Run Agent</Button>}</div></div></div>
+            <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="max-h-40 min-h-20 resize-none overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => void stopAgent()} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
           </section>
 
           <aside className="min-h-0 space-y-4 overflow-y-auto">

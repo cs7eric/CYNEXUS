@@ -1851,3 +1851,10 @@
 - Replaced that branch with an explicit failure directing callers to the autonomous Agent workflow, and added a regression test proving the Provider gateway is not touched.
 - Limited `MockAiModelAdapter` to `dev/test` profiles and removed implicit `mock` provider fallback from `AiCompletionGatewayImpl`; production routing now fails truthfully when provider metadata is missing.
 - Focused Agent tests passed `9/9`; versions are synchronized to `1.1.158-SNAPSHOT`; Release verification remains open.
+
+## 2026-07-22 - Release 1.1.158 synthetic fallback verification
+
+- Built and started Release `1.1.158-260722-RELEASE` only through `deploy/release/start-release.ps1 -Build`; the Agent migration bundle applied successfully and Maven built all 41 modules.
+- Core, Market, AI, Gateway, Knowledge Base, and UI versioned containers are running and health checks return HTTP 200.
+- A real trusted-identity run `AGR-release158-grounded` reached `xtyoo / gpt-5.4-mini`, autonomously selected `knowledge.search` and `knowledge.document`, and persisted `SUCCEEDED` with citations, source URLs, data dates, usage, plan, and provider/model provenance.
+- Release AI startup logs contain no `MockAiModelAdapter` startup or execution record. Synthetic fallback removal is release-verified.
