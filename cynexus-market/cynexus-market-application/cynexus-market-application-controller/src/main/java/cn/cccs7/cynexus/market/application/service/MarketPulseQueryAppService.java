@@ -31,6 +31,7 @@ import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
 import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
 import cn.cccs7.cynexus.market.domain.pulse.MarketPulseDomainService;
 import cn.cccs7.cynexus.market.domain.pulse.MarketPulsePayloadDomainPolicy;
+import cn.cccs7.cynexus.market.domain.service.pulse.MarketPulseQueryDomainService;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -54,6 +55,7 @@ public class MarketPulseQueryAppService {
     private final MarketPulseQueryRepository marketPulseQueryRepository;
     private final ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository;
     private final MarketPulseDomainService domainService;
+    private final MarketPulseQueryDomainService queryDomainService;
     private final MarketPulsePayloadDomainPolicy payloadPolicy = new MarketPulsePayloadDomainPolicy();
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
@@ -62,9 +64,18 @@ public class MarketPulseQueryAppService {
     public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository,
                                       ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
                                       MarketPulseDomainService domainService) {
+        this(marketPulseQueryRepository, thsIndustryConstituentSnapshotRepository, domainService,
+                new MarketPulseQueryDomainService(marketPulseQueryRepository));
+    }
+
+    public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository,
+                                      ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
+                                      MarketPulseDomainService domainService,
+                                      MarketPulseQueryDomainService queryDomainService) {
         this.marketPulseQueryRepository = marketPulseQueryRepository;
         this.thsIndustryConstituentSnapshotRepository = thsIndustryConstituentSnapshotRepository;
         this.domainService = domainService;
+        this.queryDomainService = queryDomainService;
     }
 
     public MarketPulseOverviewDTO getOverviewAkshare() {
@@ -130,35 +141,30 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseSectorSnapshotDTO getLatestSectorSnapshot() {
-        LocalDate requestedTradeDate = LocalDate.now();
-        LocalDate tradeDate = marketPulseQueryRepository.findLatestPulseTradeDate(requestedTradeDate)
-                .or(() -> marketPulseQueryRepository.findLatestPulseTradeDate(null))
-                .orElse(null);
-        if (tradeDate == null) {
+        MarketPulseQueryDomainService.SectorSnapshotResult result = queryDomainService.latestSectorSnapshot(LocalDate.now());
+        if (result.tradeDate() == null) {
             return MarketPulseSectorSnapshotDTO.builder()
                     .ok(false)
-                    .requestedTradeDate(requestedTradeDate)
+                    .requestedTradeDate(result.requestedTradeDate())
                     .fallbackTradeDate(false)
                     .servingMode("close")
                     .rowCount(0)
                     .rows(List.of())
-                    .error("market pulse snapshot is empty")
+                    .error(result.error())
                     .build();
         }
-        MarketPulseCaptureBatchBO batch = marketPulseQueryRepository.findLatestPulseBatch(tradeDate).orElse(null);
-        List<MarketPulseSectorDailySnapshotBO> rows = marketPulseQueryRepository.listPulseRowsByTradeDate(tradeDate);
         return MarketPulseSectorSnapshotDTO.builder()
                 .ok(true)
-                .tradeDate(tradeDate)
-                .requestedTradeDate(requestedTradeDate)
-                .fallbackTradeDate(!tradeDate.equals(requestedTradeDate))
-                .servingMode(domainService.resolveServingMode(tradeDate, batch == null ? null : batch.getSourceKind()))
-                .sourceKind(batch == null ? null : batch.getSourceKind())
-                .sourceName(batch == null ? null : batch.getSourceName())
-                .status(batch == null ? null : batch.getStatus())
-                .fetchedAt(batch == null ? null : batch.getFetchedAt())
-                .rowCount(rows.size())
-                .rows(MarketPulseSectorDailySnapshotDTOConverter.INSTANCE.toSourceList(rows))
+                .tradeDate(result.tradeDate())
+                .requestedTradeDate(result.requestedTradeDate())
+                .fallbackTradeDate(result.fallbackTradeDate())
+                .servingMode(result.servingMode())
+                .sourceKind(result.sourceKind())
+                .sourceName(result.sourceName())
+                .status(result.status())
+                .fetchedAt(result.fetchedAt())
+                .rowCount(result.rows().size())
+                .rows(MarketPulseSectorDailySnapshotDTOConverter.INSTANCE.toSourceList(result.rows()))
                 .build();
     }
 
@@ -190,7 +196,7 @@ public class MarketPulseQueryAppService {
     }
 
     public Optional<MarketPulseManualFundFlowDTO> getManualFundFlow(LocalDate tradeDate) {
-        return marketPulseQueryRepository.findManualFundFlow(tradeDate).map(row -> manualPayload(row, true));
+        return queryDomainService.manualFundFlow(tradeDate).map(row -> manualPayload(row, true));
     }
 
     public MarketPulseManualFundFlowDTO saveManualFundFlow(MarketPulseManualFundFlowRequest request) {
@@ -206,8 +212,10 @@ public class MarketPulseQueryAppService {
                 .smallNetInflow(request.getSmallNetInflow())
                 .smallNetRatio(request.getSmallNetInflowRatio())
                 .build();
-        marketPulseQueryRepository.upsertManualFundFlow(request.getTradingDate(), value);
-        return getManualFundFlow(request.getTradingDate())
+        MarketPulseQueryDomainService.ManualFundFlowSaveResult result = queryDomainService
+                .saveManualFundFlow(request.getTradingDate(), value);
+        return Optional.ofNullable(result.value())
+                .map(row -> manualPayload(row, true))
                 .orElseGet(() -> MarketPulseManualFundFlowDTO.builder()
                         .ok(false)
                         .error("manual fund flow not found after save")
@@ -341,17 +349,17 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseHeatmapDTO getHeatmap(String kind) {
-        if ("styles".equals(kind)) {
-            return styleHeatmap();
+        MarketPulseQueryDomainService.HeatmapQuery query = queryDomainService.queryHeatmap(kind);
+        if (query.isStyles()) {
+            return styleHeatmap(query.styleRows());
         }
-        return marketPulseQueryRepository.findLatestHeatmap(kind)
-                .map(row -> toDto(payloadPolicy.normalizeHeatmap(row.getPayload(), kind, row.getSource()),
+        return Optional.ofNullable(query.snapshot())
+                .map(row -> toDto(payloadPolicy.normalizeHeatmap(row.getPayload(), query.kind(), row.getSource()),
                         MarketPulseHeatmapDTO.class))
-                .orElseGet(() -> emptyHeatmap(kind));
+                .orElseGet(() -> emptyHeatmap(query.kind()));
     }
 
-    private MarketPulseHeatmapDTO styleHeatmap() {
-        List<StyleSectorSnapshotBO> rows = marketPulseQueryRepository.listLatestStyleSectors();
+    private MarketPulseHeatmapDTO styleHeatmap(List<StyleSectorSnapshotBO> rows) {
         List<MarketPulseHeatmapDTO.ItemDTO> items = rows.stream()
                 .map(row -> {
                     BigDecimal sizeValue = BigDecimal.valueOf(row.getValidSize() == null ? 0 : row.getValidSize());
