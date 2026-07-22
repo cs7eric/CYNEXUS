@@ -1,16 +1,16 @@
-# DevSphere DDD 项目规范与落地指南
+# DDD 项目规范与 AI 落地指南
 
 > 版本：1.0  
 > 适用：基于 Spring Boot + Maven 的新业务模块或微服务  
 > 目标：统一业务边界、代码位置、依赖方向、数据流和交付检查标准
 
-## 1. 先说明：本项目采用的 DDD 形态
+## 1. DDD 项目基本形态
 
-DevSphere 不是严格意义上的纯六边形架构，而是“按限界上下文拆分的分层 DDD”实现：
+本指南采用“按限界上下文拆分的分层 DDD”实现。每个业务上下文独立组织自己的应用、领域、基础设施和运行时入口：
 
 ```text
-dev-sphere-{context}
-├── {context}-api                 # 对外契约模块，当前多数为空
+{project}-{context}
+├── {context}-api                 # 对外契约模块，无公开契约时可省略
 ├── {context}-application         # 入口与用例编排
 │   ├── ...-controller             # HTTP 接口
 │   ├── ...-job                    # 定时任务
@@ -21,29 +21,29 @@ dev-sphere-{context}
 └── {context}-starter              # 启动类、环境配置、模块装配
 ```
 
-在现有代码中可以观察到以下稳定约定：
+各层的职责和代码位置约定如下：
 
 | 责任 | 典型位置 | 典型类型 |
 |---|---|---|
-| 接口入参和出参 | `*-application-*-controller/.../application/dto` | `SubjectInfoDTO`、`AuthUserDTO` |
-| DTO 转换 | `.../application/convert` | `SubjectInfoDTOConverter` |
-| 领域对象 | `*-domain/.../domain/entity` 或 `.../bo` | `SubjectInfoBO`、`ShareArticleBO` |
-| 领域服务 | `*-domain/.../domain/service` | `SubjectInfoDomainService` |
-| 领域策略/分派 | `*-domain/.../domain/handler` | `SubjectTypeHandlerFactory` |
-| 持久化对象 | `*-infra/.../infra/basic/entity` | `SubjectInfo`、`AuthUser` |
-| DAO 和 SQL | `*-infra/.../infra/basic/mapper`、`src/main/resources/mapper` | `SubjectInfoDao`、`AuthUserDao.xml` |
-| 基础设施服务 | `*-infra/.../infra/basic/service` | `SubjectInfoService` |
-| Redis、ES、第三方 | `*-infra/.../infra/basic/redis`、`.../es`、`.../adapter` | `RedisUtil`、`SubjectEsService` |
+| 接口入参和出参 | `*-application-*-controller/.../application/dto` | `CreateItemRequest`、`ItemResponse` |
+| DTO 转换 | `.../application/convert` | `ItemDtoConverter` |
+| 领域对象 | `*-domain/.../domain/entity` | `Item`、`ItemId` |
+| 领域服务 | `*-domain/.../domain/service` | `ItemDomainService` |
+| 领域策略/分派 | `.../domain/handler` | `ItemTypeHandlerFactory` |
+| 持久化对象 | `*-infra/.../infra/basic/entity` | `ItemPO`、`ItemDocument` |
+| DAO 和 SQL | `*-infra/.../infra/basic/mapper`、`src/main/resources/mapper` | `ItemMapper`、`ItemMapper.xml` |
+| 基础设施服务 | `*-infra/.../infra/basic/service` | `ItemPersistenceService` |
+| 缓存、搜索、第三方 | `.../redis`、`.../search`、`.../adapter` | `CacheAdapter`、`SearchGatewayAdapter` |
 | 通用响应、分页、枚举 | `*-common/.../common/entity`、`common/enums` | `Result`、`PageResult` |
-| 启动与环境 | `*-starter/src/main` | `SubjectApplication`、`application-dev.yml` |
+| 启动与环境 | `*-starter/src/main` | `{Context}Application`、`application-{env}.yml` |
 
-新项目应继承这套“按业务上下文拆分、按职责放置代码”的思想，但要采用下文的依赖倒置规则，避免把现有的层间耦合继续扩大。
+新项目应遵循“按业务上下文拆分、按职责放置代码、按端口倒置依赖”的规则。
 
 ## 2. 核心规则
 
 ### 2.1 先按业务边界拆分，不按技术表拆分
 
-一个顶层业务模块对应一个限界上下文，例如 `auth`、`subject`、`practice`、`circle`。上下文内部再按 application/domain/infra 分层。
+一个顶层业务模块对应一个限界上下文。上下文内部再按 application/domain/infra 分层，不能把多个上下文的 Controller、Service、Entity、Mapper 放在全局公共目录中。
 
 不要建立一个全局的 `controller`、`service`、`entity`、`mapper` 大目录，把所有业务揉在一起。这样会让同名概念、事务边界和团队责任边界逐渐失控。
 
@@ -89,7 +89,7 @@ infra.repository.mybatis.MyBatisUserRepository
         └── UserMapper / UserPO / UserMapper.xml
 ```
 
-现有 `auth`、`subject` 的 domain POM 直接依赖 infra，controller 也直接依赖 infra。这是当前项目的事实，不应作为新项目的目标规范。若暂时无法改造旧模块，至少禁止新增 application 对 PO/DAO 的直接调用。
+Domain 必须定义 Repository/Gateway Port，Infra 提供实现。Application 通过 DomainService 使用领域能力，不得直接访问 PO、DAO 或第三方客户端。
 
 ### 2.3 每层只使用自己的模型
 
@@ -121,13 +121,13 @@ infra.repository.mybatis.MyBatisUserRepository
 
 ```text
 domain/
-└── agent/
-    ├── AgentRunBO.java
-    ├── AgentQuotaPort.java
-    ├── AgentCitationFactory.java
-    ├── AgentFeedbackPolicy.java
-    ├── AgentRuntimeLeasePort.java
-    ├── AgentCapabilityAuditEvent.java
+└── capability/
+    ├── CapabilityBO.java
+    ├── CapabilityQuotaPort.java
+    ├── CapabilityFactory.java
+    ├── CapabilityPolicy.java
+    ├── CapabilityRuntimePort.java
+    ├── CapabilityCreatedEvent.java
     └── ...
 ```
 
@@ -138,41 +138,41 @@ domain/
 ```text
 domain/
 ├── entity/
-│   ├── agent/
-│   ├── conversation/
-│   ├── execution/
+│   ├── capability/
+│   ├── interaction/
+│   ├── operation/
 │   └── market-information/
 ├── value-object/
-│   ├── citation/
-│   ├── execution-context/
-│   └── runtime-lease/
+│   ├── reference/
+│   ├── operation-context/
+│   └── runtime-contract/
 ├── service/
-│   ├── agent/
-│   ├── conversation/
-│   └── execution/
+│   ├── capability/
+│   ├── interaction/
+│   └── operation/
 ├── repository/
-│   ├── agent/
-│   └── execution/
+│   ├── capability/
+│   └── operation/
 ├── gateway/
 │   ├── quota/
 │   ├── rate-limit/
-│   └── runtime/
+│   └── external-system/
 ├── handler/
-│   ├── model-turn/
-│   └── tool-call/
+│   ├── operation-type/
+│   └── execution-mode/
 ├── policy/
-│   ├── capability/
-│   ├── feedback/
+│   ├── operation/
+│   ├── access-control/
 │   └── sensitive-data/
 ├── factory/
 ├── event/
-│   ├── capability-audit/
-│   └── execution/
+│   ├── capability-created/
+│   └── operation-completed/
 ├── exception/
 └── convert/
 ```
 
-这里的 `agent`、`conversation`、`execution`、`market-information` 只是业务概念示例，不是固定目录。任何业务都必须套用同一规则，例如：
+这里的业务目录只是示例，不是固定目录。任何业务都必须套用同一规则，例如：
 
 ```text
 订单领域：domain/entity/order、domain/service/order、domain/repository/order
@@ -183,7 +183,7 @@ domain/
 判断一个文件放在哪里，只问两个问题：
 
 1. 它是什么职责：实体、值对象、领域服务、仓储端口、网关端口、策略、事件、异常还是转换器？
-2. 它服务于哪个业务概念：订单、库存、市场信息、Agent、会话还是执行？
+2. 它服务于哪个业务概念：订单、库存、市场信息、能力、交互还是操作？
 
 第一问决定第一层目录，第二问决定第二层目录。不能反过来先创建 `domain/{business}`，再把所有类型塞进去。
 
@@ -209,11 +209,11 @@ domain/
 以下模板是推荐的完整形态；没有定时任务或消息能力时，可以删除对应模块，但不要创建空壳目录。
 
 ```text
-dev-sphere-{context}/
+{project}-{context}/
 ├── pom.xml
 ├── {context}-api/
 │   ├── pom.xml
-│   └── src/main/java/com/cccs7/{context}/api/
+│   └── src/main/java/com/example/{context}/api/
 │       ├── command/
 │       ├── query/
 │       ├── dto/
@@ -221,7 +221,7 @@ dev-sphere-{context}/
 ├── {context}-application/
 │   ├── pom.xml
 │   ├── {context}-application-controller/
-│   │   └── src/main/java/com/cccs7/{context}/application/
+│   │   └── src/main/java/com/example/{context}/application/
 │   │       ├── controller/
 │   │       ├── dto/
 │   │       ├── convert/
@@ -229,11 +229,11 @@ dev-sphere-{context}/
 │   │       ├── interceptor/
 │   │       └── exception/
 │   ├── {context}-application-job/
-│   │   └── src/main/java/com/cccs7/{context}/application/job/
+│   │   └── src/main/java/com/example/{context}/application/job/
 │   └── {context}-application-mq/
-│       └── src/main/java/com/cccs7/{context}/application/mq/
+│       └── src/main/java/com/example/{context}/application/mq/
 ├── {context}-domain/
-│   └── src/main/java/com/cccs7/{context}/domain/
+│   └── src/main/java/com/example/{context}/domain/
 │       ├── entity/                  # 聚合根、实体、值对象、BO
 │       ├── service/                 # 用例无法归属单一实体时的领域服务
 │       ├── repository/              # 仓储端口
@@ -245,7 +245,7 @@ dev-sphere-{context}/
 │       ├── convert/                 # 领域内部转换
 │       └── exception/
 ├── {context}-infra/
-│   ├── src/main/java/com/cccs7/{context}/infra/
+│   ├── src/main/java/com/example/{context}/infra/
 │   │   ├── repository/              # 仓储端口的实现
 │   │   ├── basic/entity/            # PO/DO/ES Document
 │   │   ├── basic/mapper/            # DAO/Mapper 接口
@@ -259,13 +259,13 @@ dev-sphere-{context}/
 │       ├── mapper/
 │       └── application-infra.yml
 ├── {context}-common/
-│   └── src/main/java/com/cccs7/{context}/common/
+│   └── src/main/java/com/example/{context}/common/
 │       ├── entity/                  # PageInfo 等基础协议
 │       ├── enums/                   # 稳定且跨层使用的枚举
 │       ├── context/                 # 当前用户、租户等上下文
 │       └── util/                    # 无业务副作用的工具
 └── {context}-starter/
-    ├── src/main/java/com/cccs7/{context}/{Context}Application.java
+    ├── src/main/java/com/example/{context}/{Context}Application.java
     ├── src/main/resources/application.yml
     └── src/main/resources-env/{dev,prod}/
         ├── application-{dev,prod}.yml
@@ -276,14 +276,14 @@ dev-sphere-{context}/
 包名必须和目录一一对应。新项目统一使用：
 
 ```text
-com.cccs7.{context}.application
-com.cccs7.{context}.domain
-com.cccs7.{context}.infra
-com.cccs7.{context}.common
-com.cccs7.{context}.api
+com.example.{context}.application
+com.example.{context}.domain
+com.example.{context}.infra
+com.example.{context}.common
+com.example.{context}.api
 ```
 
-现有项目同时存在 `com.cccs7.auth.service`、`com.cccs7.circle.service` 与 `com.cccs7.subject.domain.service` 两种风格。新项目统一使用 `domain.service`、`domain.entity`、`domain.convert`，避免按模块出现不同包约定。
+同一上下文内统一使用 `domain.service`、`domain.entity`、`domain.convert`，避免出现根级 `service`、`bo` 与分层包混用的情况。
 
 ## 4. 组件放置规则
 
@@ -309,11 +309,11 @@ Controller 不得：
 推荐的控制器调用形态：
 
 ```java
-@PostMapping("/subjects")
-public Result<SubjectDTO> create(@RequestBody CreateSubjectRequest request) {
-    CreateSubjectCommand command = converter.toCommand(request);
-    SubjectView view = createSubjectUseCase.execute(command);
-    return Result.ok(assembler.toDTO(view));
+@PostMapping("/items")
+public Result<ItemResponse> create(@RequestBody CreateItemRequest request) {
+    CreateItemCommand command = converter.toCommand(request);
+    ItemView view = createItemUseCase.execute(command);
+    return Result.ok(assembler.toResponse(view));
 }
 ```
 
@@ -331,13 +331,13 @@ public Result<SubjectDTO> create(@RequestBody CreateSubjectRequest request) {
 把必须始终一起满足的规则放进同一个聚合边界。实体状态通过业务方法改变，不鼓励在 application 中直接 set 一组字段。
 
 ```java
-public class Subject {
+public class BusinessItem {
     public void publish(Publisher publisher) {
         if (options.isEmpty()) {
             throw new DomainException("题目至少需要一个选项");
         }
-        this.status = SubjectStatus.PUBLISHED;
-        this.events.add(new SubjectPublishedEvent(id));
+        this.status = ItemStatus.ACTIVE;
+        this.events.add(new ItemActivatedEvent(id));
     }
 }
 ```
@@ -346,6 +346,39 @@ public class Subject {
 
 #### Domain Service
 
+在本指南的 DDD 约定中，`DomainService` 是领域层的统一业务编排入口。一个业务用例进入领域层后，应由对应的 `DomainService` 负责组织和调配聚合、实体、值对象、Policy、Handler、Repository Port、Gateway Port 以及领域事件；Controller、Job、MQ Consumer 不得绕过 `DomainService` 直接拼装多个领域组件。
+
+```text
+Controller / Job / MQ Consumer
+              |
+              v
+      Application Adapter
+              |
+              v
+       XxxDomainService          <- 领域用例统一编排入口
+        /    |       \
+       v     v        v
+  Aggregate Policy  Handler
+       |      |        |
+       v      v        v
+ Repository  Rule   Gateway Port
+       |
+       v
+   Infra Adapter
+```
+
+统一编排规则：
+
+- 每个可执行的业务用例必须有明确的 `XxxDomainService` 方法作为入口，例如 `create`、`publish`、`execute`、`changeStatus`。
+- `DomainService` 负责调用顺序、跨实体/聚合协作、端口调用、事务边界配合、领域事件发布和结果组装。
+- Entity/Aggregate 只负责自身状态、不变量和业务行为；不能把跨聚合流程散落在 Controller、Handler 或 Converter 中。
+- Policy 只负责可复用的单一规则判断；Handler 只负责某一种策略/类型的处理；Repository/Gateway 只负责通过端口访问资源。它们由 `DomainService` 按用例统一调用。
+- Domain 内部组件之间不得形成任意网状调用。默认调用路径是 `DomainService → Aggregate/Policy/Handler/Port`；需要跨组件协作时回到 `DomainService`。
+- 查询用例也必须经过 `DomainService`，不能由 Controller 直接调用 Repository、Infra Service、DAO 或 ES。
+- `DomainService` 不应成为万能类。应按业务子域、聚合或用例拆分，例如 `BusinessLifecycleDomainService`、`BusinessOperationDomainService`、`BusinessSettlementDomainService`；一个 DomainService 过大时继续拆分，而不是把所有能力合并到 `DomainService`。
+
+这里的“统一组织调配”指统一业务用例入口和跨组件协作，不代表所有业务代码都必须写在 DomainService 内。具体规则仍应放在最接近其业务语义的位置：实体不变量放 Entity，值语义放 Value Object，单一判断放 Policy，类型分派放 Handler，资源访问放 Repository/Gateway Port。
+
 领域服务用于：
 
 - 一个业务动作横跨多个实体/聚合。
@@ -353,7 +386,7 @@ public class Subject {
 - 业务规则不适合放入单一实体。
 - 需要用策略、工厂、处理器分派复杂类型。
 
-`SubjectInfoDomainServiceImpl` 中“保存题目、按题型选择 handler、保存标签映射、同步搜索和排行”的编排方式体现了本项目的领域服务风格。新项目应进一步把外部系统抽象成 domain port，并将最终一致性处理为领域事件或 outbox，而不是让 domain 直接依赖 ES/Redis 实现。
+领域服务应负责“保存聚合、按类型选择 Handler、调用其他领域端口、发布领域事件”的业务编排。外部系统必须抽象成 domain port，并将最终一致性处理为领域事件或 outbox，而不是让 domain 直接依赖外部客户端实现。
 
 #### Handler / Factory
 
@@ -363,24 +396,24 @@ public class Subject {
 - `XxxHandlerFactory`：根据枚举、类型或业务键选择策略。
 - `XxxPolicy`：无状态规则或校验策略。
 
-`SubjectTypeHandlerFactory` 是可复用的实现样例。handler 不应包含 SQL；需要持久化时调用 domain 定义的端口。
+`XxxHandlerFactory` 是可复用的结构样例。Handler 不应包含 SQL；需要持久化时调用 domain 定义的端口，并由对应的 `DomainService` 统一调度 Handler。
 
 #### Repository / Gateway
 
 接口属于 domain：
 
 ```java
-public interface SubjectRepository {
-    Subject findById(SubjectId id);
-    void save(Subject subject);
+public interface BusinessRepository {
+    BusinessItem findById(BusinessItemId id);
+    void save(BusinessItem item);
 }
 
-public interface SubjectSearchGateway {
-    Page<SubjectSummary> search(SubjectSearchQuery query);
+public interface BusinessSearchGateway {
+    Page<BusinessSummary> search(BusinessQuery query);
 }
 ```
 
-接口命名使用业务语言，不要把 `selectByCondition`、`RedisUtil`、`SubjectInfoDao` 直接暴露给领域层。
+接口命名使用业务语言，不要把 `selectByCondition`、`CacheClient`、`ItemMapper` 等技术实现细节直接暴露给领域层。
 
 ### 4.3 Infra 层
 
@@ -394,7 +427,7 @@ public interface SubjectSearchGateway {
 - `UserDocument`：搜索文档。
 - `UserCacheValue`：缓存结构。
 
-现有代码使用 `AuthUser`、`SubjectInfo` 等不带 `PO` 后缀的生成实体。新项目建议补充后缀，防止和 domain entity 混淆；迁移旧模块时可以保持旧命名以降低改动范围。
+持久化实体建议使用 `PO`、`DO` 或 `Document` 后缀，防止和 domain entity 混淆。
 
 #### Mapper/DAO 和 XML
 
@@ -408,7 +441,7 @@ public interface SubjectSearchGateway {
 
 Infra service 是 DAO 的薄封装，负责存储技术细节、结果转换和基础设施异常映射。它不应取代 domain service，也不应放业务规则。
 
-现有 `AuthUserServiceImpl`、`SubjectInfoServiceImpl` 的“调用 DAO 并返回结果”属于这一类。
+“调用 Mapper 并返回持久化结果”的实现属于这一类。
 
 #### Redis / ES / 外部系统
 
@@ -419,7 +452,7 @@ Redis、ES、对象存储、远程 RPC、消息客户端全部属于 infra：
 - `adapter`：第三方 API、对象存储、远程服务。
 - `config`：客户端和 Spring Bean 装配。
 
-对 domain 暴露业务端口，例如 `RankingGateway`、`SubjectSearchGateway`，不要暴露 `RedisUtil` 或 ES SDK 类型。
+对 domain 暴露业务端口，例如 `BusinessSearchGateway`、`ExternalSystemGateway`，不要暴露缓存客户端或搜索 SDK 类型。
 
 ### 4.4 Common、API、Starter
 
@@ -441,7 +474,7 @@ Redis、ES、对象存储、远程 RPC、消息客户端全部属于 infra：
 
 HTTP Controller 的内部 DTO 可以留在 application-controller。`api` 不能包含 PO、DAO、domain service 实现或 Spring 启动逻辑。
 
-现有 `*-api` 模块多数只有 POM，没有实际类。新项目如果保留该模块，必须放入真实契约；没有契约时可以不创建，避免空模块误导依赖关系。
+`*-api` 模块只有在确实存在跨服务或跨模块契约时才保留，并且必须放入真实契约；没有契约时可以不创建，避免空模块误导依赖关系。
 
 #### Starter
 
@@ -464,7 +497,9 @@ HTTP/RPC Request
 Controller DTO 校验
     ↓ DTO → Command/BO
 Application Use Case
-    ↓ 调用 domain service / aggregate
+    ↓ 只能调用 DomainService 作为领域统一编排入口
+DomainService
+    ↓ 组织 aggregate / policy / handler / ports
 Domain 规则校验、状态变化、产生事件
     ↓ 调用 repository/gateway port
 Infra Adapter
@@ -489,7 +524,7 @@ Response
 3. 消费者更新 ES/Redis/第三方系统。
 4. 失败重试、幂等、死信和人工补偿。
 
-现有 `auth` 注册流程在一个 domain service 中同时写数据库和 Redis，`subject` 创建流程同时写数据库、ES 和 Redis。它们体现了业务编排，但新项目必须补充一致性策略和失败处理。
+当一个用例同时写数据库、缓存、搜索或消息系统时，必须补充一致性策略、重试、幂等和失败处理，不能仅依赖单个数据库事务注解。
 
 ### 5.2 查询流程
 
@@ -520,22 +555,22 @@ Request DTO
 
 | 类型 | 命名示例 |
 |---|---|
-| HTTP 入参 | `CreateSubjectRequest`、`UpdateUserRequest` |
-| HTTP 出参 | `SubjectDTO`、`SubjectView` |
-| 用例 | `CreateSubjectUseCase`、`CreateSubjectService` |
-| 领域对象 | `Subject`、`SubjectBO`、`SubjectId` |
-| 仓储端口 | `SubjectRepository` |
-| 数据库对象 | `SubjectPO` |
-| Mapper | `SubjectMapper` 或 `SubjectDao`，一个上下文内只能选一种 |
-| 仓储实现 | `MyBatisSubjectRepository` |
-| 外部端口 | `SubjectSearchGateway` |
-| 外部实现 | `ElasticsearchSubjectSearchGateway` |
-| 领域事件 | `SubjectCreatedEvent` |
-| 集成事件 | `SubjectCreatedIntegrationEvent` |
+| HTTP 入参 | `CreateItemRequest`、`UpdateItemRequest` |
+| HTTP 出参 | `ItemResponse`、`ItemView` |
+| 用例 | `CreateItemUseCase`、`CreateItemDomainService` |
+| 领域对象 | `BusinessItem`、`BusinessItemId` |
+| 仓储端口 | `BusinessRepository` |
+| 数据库对象 | `BusinessItemPO` |
+| Mapper | `ItemMapper` 或 `ItemDao`，一个上下文内只能选一种 |
+| 仓储实现 | `MyBatisBusinessRepository` |
+| 外部端口 | `BusinessSearchGateway` |
+| 外部实现 | `SearchBusinessGatewayAdapter` |
+| 领域事件 | `ItemCreatedEvent` |
+| 集成事件 | `ItemCreatedIntegrationEvent` |
 
 ### 6.2 包命名
 
-统一使用 `com.cccs7.{context}.{layer}`。同一上下文内不要混用：
+统一使用 `com.example.{context}.{layer}`。同一上下文内不要混用：
 
 - `domain.service` 与根级 `service`。
 - `domain.entity` 与根级 `bo`，除非迁移旧模块。
@@ -568,14 +603,14 @@ mi                  # 无明确约定的缩写
 
 - 多个英文单词必须用 `-` 分隔，例如 `market-information`，不能写成 `marketInformation` 或 `marketinformation`。
 - 业务目录使用完整单词，不能用 `ab`、`mi`、`rt` 等无法从目录名直接理解的缩写。
-- `api`、`mq`、`es`、`dto`、`bo`、`po` 等已经在本项目模块结构中固定存在的技术术语属于兼容例外；新建业务目录不得仿照这些缩写。
+- `api`、`mq`、`es`、`dto`、`bo`、`po` 等技术术语可以作为固定技术目录名；新建业务目录不得仿照这些缩写。
 - 同一业务概念在所有层中保持同一拼写：`entity/market-information`、`service/market-information`、`repository/market-information`。
-- 模块目录也使用 kebab-case，例如 `dev-sphere-market-information`、`market-information-domain`。
+- 模块目录也使用 kebab-case，例如 `{project}-market-information`、`market-information-domain`。
 
 Java 有一个必须遵守的语言限制：`src/main/java` 下的 package 名称不能包含 `-`。因此：
 
 - Maven 模块、项目目录、`resources` 目录和 Java 包外的业务目录使用 `market-information`。
-- Java package 必须是合法的 Java 标识符，例如 `com.cccs7.marketinformation.domain`，或使用层级 package `com.cccs7.market.information.domain`。
+- Java package 必须是合法的 Java 标识符，例如 `com.example.marketinformation.domain`，或使用层级 package `com.example.market.information.domain`。
 - 不要为了强行显示 kebab-case 而创建与 package 声明不一致的 Java 源码路径；目录规则不能破坏编译规则。
 
 代码生成器和 AI 生成代码必须先读取这个命名规则，再生成目录。生成前应先输出“文件 → 职责目录”的映射；如果出现 `domain/{business}` 平铺目录、camelCase 目录、单词粘连或无意义缩写，应视为结构校验失败。
@@ -636,8 +671,9 @@ AI 或脚手架生成一个业务能力时，必须按照“生成前分析 → 
 3. 业务上下文、聚合/子域、核心用例和业务不变量。
 4. 请求、领域、持久化、外部系统之间的数据流。
 5. 事务边界、幂等策略、缓存/搜索一致性、消息重试和失败补偿方案。
-6. 目录树和“类名 → 职责 → 目标目录”映射。
-7. 验收标准、测试范围和需要执行的验证命令。
+6. 每个业务用例对应的 `XxxDomainService` 入口和编排职责。
+7. 目录树和“类名 → 职责 → 目标目录”映射。
+8. 验收标准、测试范围和需要执行的验证命令。
 
 如果现有实现、业务规则或数据结构不足以支持决定，AI 必须列出假设和风险，不能自行编造接口、表字段、配置或第三方行为。
 
@@ -646,14 +682,17 @@ AI 或脚手架生成一个业务能力时，必须按照“生成前分析 → 
 1. 不得直接创建 `domain/{business}`，`domain` 第一层必须是职责目录。
 2. 目录树必须使用固定职责目录：`entity`、`value-object`、`service`、`repository`、`gateway`、`handler`、`policy`、`factory`、`event`、`exception`、`convert`。
 3. 每个类只能归属一个主要职责，不能因为类名有同一个业务前缀就放在同一个目录。
-4. Domain 只承载业务规则；Controller 不写业务编排；Infra 不决定业务流程。
-5. DTO、BO、PO、VO、Command、Event 必须明确区分，禁止为了少写转换而跨层直接复用。
-6. Domain 不得依赖 Infra、MyBatis、Spring Web、Redis、ES 或第三方 SDK；Application 不得直接调用 DAO/Mapper。
-7. 优先复用已有组件；只有在已有组件不满足需求时才新增抽象，禁止创建没有调用方的空接口、空工厂和万能工具类。
-8. 一个类过大或同时承担多个变化原因时，必须拆分为实体、策略、Policy、Handler、Port 或 UseCase。
-9. 只修改任务范围内的文件，禁止顺手升级依赖、重命名公共接口或重构无关模块。
-10. 禁止生成假实现、硬编码返回值、无依据的默认数据或用 TODO 冒充完整功能。
-11. 密码、Token、隐私数据不得写入日志；异常不得被静默吞掉。
+4. 每个业务用例必须有明确的 `XxxDomainService` 作为领域统一编排入口。
+5. Controller、Job、MQ Consumer 只能调用 Application Use Case；Application Use Case 只能调用 DomainService，不得绕过 DomainService 直接拼装多个领域组件。
+6. DomainService 负责组织 Aggregate、Policy、Handler、Repository Port、Gateway Port 和领域事件；这些组件保持单一职责。
+7. Domain 只承载业务规则；Controller 不写业务编排；Infra 不决定业务流程。
+8. DTO、BO、PO、VO、Command、Event 必须明确区分，禁止为了少写转换而跨层直接复用。
+9. Domain 不得依赖 Infra、MyBatis、Spring Web、Redis、ES 或第三方 SDK；Application 不得直接调用 DAO/Mapper。
+10. 优先复用已有组件；只有在已有组件不满足需求时才新增抽象，禁止创建没有调用方的空接口、空工厂和万能工具类。
+11. 一个类过大或同时承担多个变化原因时，必须拆分为实体、策略、Policy、Handler、Port 或 UseCase；DomainService 也不得膨胀成万能类。
+12. 只修改任务范围内的文件，禁止顺手升级依赖、重命名公共接口或重构无关模块。
+13. 禁止生成假实现、硬编码返回值、无依据的默认数据或用 TODO 冒充完整功能。
+14. 密码、Token、隐私数据不得写入日志；异常不得被静默吞掉。
 
 ### 9.3 生成后验收
 
@@ -672,17 +711,17 @@ AI 不得声称“已验证”或“测试通过”，除非确实执行了对�
 
 | 类别 | 示例 | 目标目录 |
 |---|---|---|
-| 聚合/实体 | `AgentRun`、`MarketInformation` | `domain/entity/{business}` |
-| 值对象 | `ExecutionContext`、`RuntimeLease` | `domain/value-object/{business}` |
-| 领域服务 | `AgentExecutionDomainService` | `domain/service/execution` |
-| 仓储端口 | `AgentRunRepository` | `domain/repository/execution` |
-| 外部能力端口 | `AgentQuotaPort`、`WarehouseGateway` | `domain/gateway/quota`、`domain/gateway/warehouse` |
-| 策略/规则 | `FeedbackPolicy`、`SensitiveDataPolicy` | `domain/policy/feedback`、`domain/policy/sensitive-data` |
-| 处理器/工厂 | `CitationFactory`、`ModelTurnHandler` | `domain/factory`、`domain/handler/model-turn` |
-| 领域事件 | `CapabilityAuditEvent` | `domain/event/capability-audit` |
-| 领域异常 | `QuotaExceededException` | `domain/exception/quota` |
+| 聚合/实体 | `BusinessItem`、`BusinessEntity` | `domain/entity/{business}` |
+| 值对象 | `BusinessId`、`BusinessContext` | `domain/value-object/{business}` |
+| 领域服务 | `BusinessOperationDomainService` | `domain/service/{business}` |
+| 仓储端口 | `BusinessRepository` | `domain/repository/{business}` |
+| 外部能力端口 | `BusinessQuotaPort`、`ExternalSystemGateway` | `domain/gateway/quota`、`domain/gateway/external-system` |
+| 策略/规则 | `BusinessPolicy`、`AccessControlPolicy` | `domain/policy/{business}`、`domain/policy/access-control` |
+| 处理器/工厂 | `BusinessFactory`、`OperationTypeHandler` | `domain/factory`、`domain/handler/operation-type` |
+| 领域事件 | `BusinessCreatedEvent` | `domain/event/{business}-created` |
+| 领域异常 | `BusinessRuleViolationException` | `domain/exception/{business}` |
 
-这张表中的 Agent 仅用于说明映射方式。订单、库存、内容、市场信息、支付、通知等任何业务都必须遵循同样的“职责优先”规则。
+这张表中的业务名称仅用于说明映射方式，任何业务都必须遵循同样的“职责优先”规则。
 
 ## 10. Code Review 检查清单
 
@@ -690,6 +729,8 @@ AI 不得声称“已验证”或“测试通过”，除非确实执行了对�
 
 - [ ] 新代码归属明确的业务上下文。
 - [ ] Controller、domain、infra、starter 放置正确。
+- [ ] 每个业务用例都有明确的 DomainService 统一编排入口。
+- [ ] Controller、Job、MQ Consumer 没有绕过 DomainService 直接调用领域组件或 Infra。
 - [ ] 已说明本次任务范围，没有夹带无关重构或依赖升级。
 - [ ] `domain` 第一层是职责目录，没有把多个职责堆进 `domain/{business}`。
 - [ ] 同一职责下按业务概念建立第二层目录，目录内没有混放不同职责的类型。
@@ -709,6 +750,8 @@ AI 不得声称“已验证”或“测试通过”，除非确实执行了对�
 ### 业务与数据
 
 - [ ] 业务不变量在聚合或 domain service 中，而不是 Controller/Mapper 中。
+- [ ] Entity、Policy、Handler、Repository/Gateway Port 职责单一，并由 DomainService 按用例统一调配。
+- [ ] DomainService 没有膨胀成承载所有规则的万能类。
 - [ ] 事务覆盖完整的业务用例。
 - [ ] Redis/ES/消息等外部写入有一致性、重试和幂等策略。
 - [ ] SQL 没有承担跨聚合业务编排。
@@ -724,20 +767,16 @@ AI 不得声称“已验证”或“测试通过”，除非确实执行了对�
 - [ ] 测试覆盖正常、边界、失败、幂等和重复消息场景。
 - [ ] AI 报告的测试结果与实际执行结果一致。
 
-## 11. DevSphere 现状与新项目取舍
+## 11. 落地执行与治理
 
-| 现状 | 新项目规则 |
-|---|---|
-| `auth`、`subject`、`practice`、`circle` 使用业务模块独立 Maven 聚合 | 保留这种上下文拆分方式 |
-| application-controller 直接依赖 domain、infra、common | application 只依赖 domain/api/common；infra 通过端口接入 |
-| domain POM 直接依赖 infra | 新项目改为 domain 定义 repository/gateway port |
-| domain service 中直接操作 infra PO、Redis、ES | 新项目使用聚合和 port；外部同步用事件/outbox |
-| `basic/entity`、`basic/mapper`、`basic/service` 由生成代码批量创建 | 可以继续生成基础设施代码，但生成代码不能替代领域建模 |
-| DTO → BO、BO → PO 使用 MapStruct converter | 保留显式转换，并增加返回方向转换 |
-| `Result`、`PageResult` 在 common | 保留稳定通用协议，避免把业务模型放进去 |
-| `api` 模块多数为空 | 有真实契约才创建或保留，不创建空壳依赖 |
-| Controller 逐个捕获异常 | 新项目使用全局异常处理器 |
-| 包名有根级 `service/bo` 和 `domain/*` 两种风格 | 新项目统一 `domain.service/entity/convert` |
+新项目应将本指南转化为模板、架构测试和 Pull Request 检查项，而不是只作为阅读材料：
+
+1. 项目初始化时固定模块、职责目录、命名规则和依赖方向。
+2. 使用 ArchUnit、Maven Enforcer 或静态检查约束跨层依赖。
+3. 使用脚本检查业务目录是否采用 kebab-case，以及 `domain` 是否出现职责混放。
+4. AI 生成代码必须提交目录映射、DomainService 编排说明和测试结果。
+5. 每次新增业务能力都要补充数据流、事务边界、异常策略和一致性策略。
+6. 架构规则变更必须同步更新模板、检查脚本和本指南。
 
 ## 12. 最小可执行验收标准
 
@@ -752,16 +791,13 @@ AI 不得声称“已验证”或“测试通过”，除非确实执行了对�
 7. `api`、`common` 没有变成业务代码的逃生舱。
 8. Maven 依赖、数据库脚本、环境配置和启动方式可以由新成员独立运行。
 
-## 13. 参考实现位置
+## 13. 新项目交付物
 
-以下代码是本指南的现状依据：
+每个新业务上下文至少应交付：
 
-- `dev-sphere-auth/.../application/controller/UserController.java`：DTO 校验、DTO → BO、调用领域服务。
-- `dev-sphere-auth/.../domain/service/impl/AuthUserDomainServiceImpl.java`：注册用例的事务和跨资源编排。
-- `dev-sphere-auth/.../infra/basic/service/impl/AuthUserServiceImpl.java`：infra service 到 DAO 的薄封装。
-- `dev-sphere-auth/.../infra/basic/mapper/AuthUserDao.java` 与 `src/main/resources/mapper/AuthUserDao.xml`：DAO 和 SQL 映射。
-- `dev-sphere-subject/.../domain/service/impl/SubjectInfoDomainServiceImpl.java`：类型 handler、标签映射、ES、Redis 的组合用例。
-- `dev-sphere-subject/.../domain/handler/subject/SubjectTypeHandlerFactory.java`：按业务类型分派策略。
-- `dev-sphere-subject/.../application/controller/SubjectController.java`：完整的 DTO → BO → domain → DTO 查询/写入路径。
-
-这份指南描述的是 DevSphere 已有实践的抽象总结，并对新项目增加了依赖倒置、模型隔离、外部一致性和测试门禁要求。旧模块不需要一次性重构；新功能按新规则逐步收敛即可。
+- 上下文边界和主要用例说明。
+- 模块目录树和依赖关系图。
+- DomainService 用例编排说明。
+- 聚合、领域事件、Repository/Gateway Port 设计。
+- 数据库脚本、外部系统一致性和失败补偿说明。
+- 测试清单、验证命令和已知风险。

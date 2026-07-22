@@ -499,3 +499,10 @@
 
 - Release `1.1.168-260722-RELEASE` successfully streamed a real Provider response through the configured container proxy using Apache HttpClient 5 and TLS 1.2.
 - The stream persisted ordered token/event records and a terminal `SUCCEEDED` run. The Provider reported no fabricated token output; usage was honestly marked `ESTIMATED` for this provider response.
+
+## 2026-07-23 - Agent security and observability follow-up
+
+- Provider and Langfuse outbound destinations now share an exact-origin allowlist policy. HTTP is accepted only when the explicit configured origin is HTTP, which keeps local Langfuse/development endpoints possible without enabling arbitrary HTTP destinations.
+- Langfuse allowlist rejection is fail-open for observability: the Agent request does not fail because reporting or usage querying is unavailable.
+- The Redis rate limiter is atomic under concurrent calls. A runtime gate with 32 workers and 256 calls allowed exactly the configured 30 requests for one owner.
+- Prometheus Agent counters previously appeared only after a run registered a meter. Startup registration now exposes the zero-valued metric family; a rebuilt versioned Release is still needed to confirm the new image endpoint.

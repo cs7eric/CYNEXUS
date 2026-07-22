@@ -2014,3 +2014,10 @@
 - UI Release workflow verification is recorded truthfully in `docs/agent-ui-release-workflow-20260722.md`: real Provider timeout/TLS failure blocked streaming, export, retry, regenerate, follow-up, and cancel acceptance, so these are not claimed as passed.
 - Reliability verification passed focused tests 12/12, shared two-instance quota reservation under 20 concurrent requests, and stale lease recovery. Dead-letter verification remains blocked by `last_error` exceeding its `varchar(1000)` column; task notification adapter verification is blocked because the backend adapter is not implemented. Evidence is recorded in `docs/agent-reliability-release-20260722.md`.
 - Security verification is recorded in `docs/agent-security-evaluation-20260722.md`: adversarial corpus 4/4, infra 13/13, application 25/25, and high-confidence secret scan 0 hits. Provider/Langfuse outbound endpoint policy remains incomplete.
+
+## 2026-07-23 - Agent Security / Observability follow-up
+
+- Added exact-origin outbound allowlisting for Provider and Langfuse endpoints, with deployment variables `CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS` and `CYNEXUS_AI_LANGFUSE_ALLOWED_ORIGINS`.
+- Added fail-open Langfuse rejection behavior, startup registration for zero-valued Agent Prometheus series, and an opt-in Redis high-concurrency rate-limit gate.
+- Focused domain/infra security tests passed; the Redis gate passed with 32 workers, 256 calls, and exactly 30 allowed requests.
+- The existing pre-change Release endpoint was reachable but lacked the custom Agent counter after restart. A new versioned Release rebuild is still required before runtime metric registration is marked complete; no real Provider success is claimed.
