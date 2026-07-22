@@ -18,6 +18,14 @@ class AgentCapabilityDescriptorPolicyTest {
         assertThatIllegalArgumentException().isThrownBy(() -> AgentCapabilityDescriptorPolicy.validateGovernance("AVAILABLE", 10_001));
     }
 
+    @Test
+    void dynamicRegistrationRequiresAnActiveReadOnlyAdminDescriptor() {
+        assertThatIllegalArgumentException().isThrownBy(() -> AgentCapabilityDescriptorPolicy.validateRegistration(
+                descriptor("/agent").toBuilder().registrationMode("HANDLER").build()));
+        assertThatIllegalArgumentException().isThrownBy(() -> AgentCapabilityDescriptorPolicy.validateRegistration(
+                descriptor("/agent").toBuilder().registrationMode("ADMIN").enabled(false).build()));
+    }
+
     private AgentCapabilityDescriptor descriptor(String sourceUrl) {
         return AgentCapabilityDescriptor.builder().capabilityCode("knowledge.search").version("1.0.0")
                 .name("Knowledge Search").module("knowledge").description("Search")

@@ -12,4 +12,6 @@ public interface AgentCapabilityRepository {
 
     boolean updateGovernance(String capabilityCode, boolean enabled, String availability, int priority);
 
+    AgentCapabilityDescriptor register(AgentCapabilityDescriptor descriptor);
+
 }

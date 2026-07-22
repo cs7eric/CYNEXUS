@@ -39,6 +39,8 @@ import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
 import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
 import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentCapabilityRuntimeCatalog;
+import cn.cccs7.cynexus.ai.domain.policy.capability.AgentCapabilityDescriptorPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
@@ -88,6 +90,7 @@ public class AutonomousAgentAppService {
     private final AgentQuotaPort quota;
     private final AgentObservabilityPort observability;
     private final AgentCapabilityRepository capabilityRepository;
+    private final AgentCapabilityRuntimeCatalog runtimeCatalog;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
@@ -116,6 +119,8 @@ public class AutonomousAgentAppService {
         this.quota = quota;
         this.observability = observability;
         this.capabilityRepository = capabilityRepository;
+        this.runtimeCatalog = toolCatalog instanceof AgentCapabilityRuntimeCatalog runtime
+                ? runtime : descriptor -> { throw new IllegalStateException("Dynamic capability runtime catalog is unavailable"); };
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
@@ -533,6 +538,12 @@ public class AutonomousAgentAppService {
 
     public boolean updateCapability(String code, boolean enabled, String availability, int priority) {
         return capabilityRepository.updateGovernance(code, enabled, availability, priority);
+    }
+
+    public AgentCapabilityDescriptor registerCapability(AgentCapabilityDescriptor descriptor) {
+        AgentCapabilityDescriptorPolicy.validateRegistration(descriptor);
+        runtimeCatalog.register(descriptor);
+        return capabilityRepository.register(descriptor);
     }
 
     public List<AgentConversationDTO> conversations(String ownerKey, int limit) {

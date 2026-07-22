@@ -34,12 +34,15 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
                 .filter(java.util.Objects::nonNull)
                 .map(item -> item.getCapabilityCode() + "@" + item.getVersion())
                 .collect(java.util.stream.Collectors.toSet());
-        previous.stream().filter(item -> !currentVersions.contains(item.getCapabilityCode() + "@" + item.getVersion()))
+        previous.stream().filter(item -> AgentCapabilityDescriptorPolicy.HANDLER_REGISTRATION.equals(
+                        AgentCapabilityDescriptorPolicy.normalizeRegistrationMode(item.getRegistrationMode())))
+                .filter(item -> !currentVersions.contains(item.getCapabilityCode() + "@" + item.getVersion()))
                 .forEach(item -> record(item.toBuilder().enabled(false).availability("STALE").governanceAvailability(item.getGovernanceAvailability() == null ? "AVAILABLE" : item.getGovernanceAvailability()).build(),
                         "STALE", "Handler descriptor was not present during synchronization"));
         for (AgentCapabilityDescriptor descriptor : descriptors) {
             AgentCapabilityDescriptorPolicy.validate(descriptor);
-            AgentCapabilityDescriptor seen = descriptor.toBuilder().lastSeenAt(now).staleAt(now.plusHours(2)).build();
+            AgentCapabilityDescriptor seen = descriptor.toBuilder().registrationMode(AgentCapabilityDescriptorPolicy.HANDLER_REGISTRATION)
+                    .lastSeenAt(now).staleAt(now.plusHours(2)).build();
             service.markOlderVersionsUnavailable(seen.getCapabilityCode(), seen.getVersion());
             previous.stream().filter(item -> seen.getCapabilityCode().equals(item.getCapabilityCode())
                     && !seen.getVersion().equals(item.getVersion()))
@@ -81,6 +84,32 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
                     .availability("AVAILABLE").priority(priority).build(), "GOVERNANCE_UPDATED", "Provider page governance update");
         }
         return updated;
+    }
+
+    @Override
+    @Transactional
+    public AgentCapabilityDescriptor register(AgentCapabilityDescriptor descriptor) {
+        AgentCapabilityDescriptorPolicy.validateRegistration(descriptor);
+        AgentCapabilityDescriptor source = descriptor.toBuilder()
+                .registrationMode(AgentCapabilityDescriptorPolicy.ADMIN_REGISTRATION)
+                .lastSeenAt(OffsetDateTime.now()).staleAt(null).build();
+        var existing = service.find(source.getCapabilityCode(), source.getVersion());
+        if (existing != null && !AgentCapabilityDescriptorPolicy.ADMIN_REGISTRATION.equals(
+                AgentCapabilityDescriptorPolicy.normalizeRegistrationMode(existing.getRegistrationMode()))) {
+            throw new IllegalArgumentException("Capability code/version is owned by a built-in handler");
+        }
+        var target = AgentCapabilityPOConverter.INSTANCE.toSource(source);
+        String action = "REGISTERED";
+        if (existing == null) {
+            service.save(target);
+        } else {
+            target.setId(existing.getId());
+            target.setCreatedAt(existing.getCreatedAt());
+            service.update(target);
+            action = "UPDATED";
+        }
+        record(source, action, "Administrator hot-add registration");
+        return AgentCapabilityPOConverter.INSTANCE.toTarget(target);
     }
 
     private void record(AgentCapabilityDescriptor descriptor, String action, String reason) {

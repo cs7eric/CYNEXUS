@@ -7,6 +7,7 @@ import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentStreamEventDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCapabilityDTO;
 import cn.cccs7.cynexus.ai.api.request.AgentCapabilityGovernanceRequest;
+import cn.cccs7.cynexus.ai.api.request.AgentCapabilityRegistrationRequest;
 import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
 import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
@@ -25,6 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -136,6 +138,29 @@ public class AutonomousAgentController {
         return Result.success(agentAppService.capabilities().stream().map(this::toCapabilityDTO).toList());
     }
 
+    @PostMapping("/capabilities")
+    public Result<AgentCapabilityDTO> registerCapability(@RequestBody AgentCapabilityRegistrationRequest request,
+                                                         HttpServletRequest httpRequest) {
+        requireGovernance(httpRequest);
+        try {
+            return Result.success(toCapabilityDTO(agentAppService.registerCapability(toDescriptor(request, null))));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+    }
+
+    @PutMapping("/capabilities/{capabilityCode}")
+    public Result<AgentCapabilityDTO> updateRegisteredCapability(@PathVariable String capabilityCode,
+                                                                 @RequestBody AgentCapabilityRegistrationRequest request,
+                                                                 HttpServletRequest httpRequest) {
+        requireGovernance(httpRequest);
+        try {
+            return Result.success(toCapabilityDTO(agentAppService.registerCapability(toDescriptor(request, capabilityCode))));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+    }
+
     @PostMapping("/capabilities/{capabilityCode}/governance")
     public Result<Boolean> governCapability(@PathVariable String capabilityCode,
                                             @RequestBody AgentCapabilityGovernanceRequest request,
@@ -198,8 +223,39 @@ public class AutonomousAgentController {
                 .freshness(item.getFreshness()).availability(item.getAvailability()).enabled(item.isEnabled())
                 .governanceAvailability(item.getGovernanceAvailability())
                 .priority(item.getPriority()).promptKey(item.getPromptKey()).runtimeEntry(item.getRuntimeEntry())
-                .routeGroup(item.getRouteGroup()).lastSeenAt(item.getLastSeenAt() == null ? null : item.getLastSeenAt().toString())
+                .routeGroup(item.getRouteGroup()).registrationMode(item.getRegistrationMode())
+                .lastSeenAt(item.getLastSeenAt() == null ? null : item.getLastSeenAt().toString())
                 .staleAt(item.getStaleAt() == null ? null : item.getStaleAt().toString()).build();
+    }
+
+    private void requireGovernance(HttpServletRequest request) {
+        try {
+            identityResolver.resolveGovernance(request.getHeader("X-Cynexus-Principal"),
+                    request.getHeader("X-Cynexus-Tenant"), request.getHeader("X-Cynexus-Identity-Signature"));
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, exception.getMessage(), exception);
+        }
+    }
+
+    private AgentCapabilityDescriptor toDescriptor(AgentCapabilityRegistrationRequest request, String pathCode) {
+        if (request == null) throw new IllegalArgumentException("Capability registration body is required");
+        String code = pathCode == null ? request.getCapabilityCode() : pathCode;
+        if (pathCode != null && request.getCapabilityCode() != null && !pathCode.equals(request.getCapabilityCode())) {
+            throw new IllegalArgumentException("Capability path and body codes must match");
+        }
+        if (request.getReadOnly() == null || request.getRequiresConfirmation() == null
+                || request.getEnabled() == null || request.getPriority() == null) {
+            throw new IllegalArgumentException("Capability registration flags are required");
+        }
+        return AgentCapabilityDescriptor.builder().capabilityCode(code).version(request.getVersion())
+                .name(request.getName()).module(request.getModule()).description(request.getDescription())
+                .inputSchemaJson(request.getInputSchemaJson()).outputSchemaJson(request.getOutputSchemaJson())
+                .readOnly(request.getReadOnly()).requiresConfirmation(request.getRequiresConfirmation())
+                .tenantScope(request.getTenantScope()).source(request.getSource()).sourceUrl(request.getSourceUrl())
+                .freshness(request.getFreshness()).availability(request.getAvailability())
+                .governanceAvailability(request.getGovernanceAvailability()).enabled(request.getEnabled())
+                .priority(request.getPriority()).promptKey(request.getPromptKey()).runtimeEntry(request.getRuntimeEntry())
+                .routeGroup(request.getRouteGroup()).registrationMode("ADMIN").build();
     }
 
     static int resolveEventCursor(Integer afterEventNo, String lastEventId) {

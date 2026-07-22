@@ -28,6 +28,7 @@ $migrationFiles = @(
     "20260722_add_ai_agent_tasks.sql",
     "20260722_add_ai_agent_task_notifications.sql",
     "20260722_add_ai_agent_capabilities.sql",
+    "20260723_add_ai_agent_dynamic_capabilities.sql",
     "20260722_repair_ai_agent_capability_runtime_state.sql",
     "20260722_harden_ai_agent_owner_constraints.sql"
 )

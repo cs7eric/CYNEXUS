@@ -29,6 +29,7 @@ public class AgentCapabilityDescriptor {
     String promptKey;
     String runtimeEntry;
     String routeGroup;
+    String registrationMode;
     OffsetDateTime lastSeenAt;
     OffsetDateTime staleAt;
 }

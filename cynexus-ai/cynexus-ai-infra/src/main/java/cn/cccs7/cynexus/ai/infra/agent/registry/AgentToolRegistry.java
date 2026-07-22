@@ -2,12 +2,14 @@ package cn.cccs7.cynexus.ai.infra.agent.registry;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolCatalog;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentCapabilityRuntimeCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
+import cn.cccs7.cynexus.ai.domain.policy.capability.AgentCapabilityDescriptorPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.regex.Pattern;
@@ -24,15 +28,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /** Spring assembles the tool pack; the model only sees the resulting metadata snapshot. */
 @Component
-public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
+public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor, AgentCapabilityRuntimeCatalog {
 
     private static final int MAX_ARGUMENT_CHARS = 16_000;
     private static final int MAX_SCHEMA_DEPTH = 8;
 
     private final Map<String, AgentToolHandler> handlers;
+    private final Map<String, AgentToolHandler> runtimeEntryAllowList;
     private final AgentCapabilityRepository capabilityRepository;
     private final boolean governed;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AtomicReference<Map<String, RegisteredBinding>> runtimeBindings = new AtomicReference<>(Map.of());
+
+    private record RegisteredBinding(AgentCapabilityDescriptor descriptor, AgentToolHandler handler) {
+    }
 
     public AgentToolRegistry(List<AgentToolHandler> handlers) {
         this(handlers, new AgentCapabilityRepository() {
@@ -40,6 +49,7 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
             @Override public List<AgentCapabilityDescriptor> listAll() { return handlers.stream().map(AgentToolHandler::capabilityDescriptor).toList(); }
             @Override public List<AgentCapabilityDescriptor> listRuntimeCapabilities() { return listAll(); }
             @Override public boolean updateGovernance(String code, boolean enabled, String availability, int priority) { return false; }
+            @Override public AgentCapabilityDescriptor register(AgentCapabilityDescriptor descriptor) { return descriptor; }
         }, false);
     }
 
@@ -64,28 +74,28 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
             }
         }
         this.handlers = Map.copyOf(registered);
+        Map<String, AgentToolHandler> allowList = new HashMap<>();
+        for (AgentToolHandler handler : registered.values()) {
+            allowList.put(handler.getClass().getName(), handler);
+            allowList.put(handler.definition().getCode(), handler);
+        }
+        this.runtimeEntryAllowList = Map.copyOf(allowList);
         capabilityRepository.synchronize(handlers.stream().map(AgentToolHandler::capabilityDescriptor).toList());
+        refreshRuntimeBindings();
     }
 
     @Override
     public List<AgentToolDefinition> enabledTools() {
-        Map<String, AgentCapabilityDescriptor> runtimeCapabilities = capabilityRepository.listRuntimeCapabilities().stream()
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toMap(AgentCapabilityDescriptor::getCapabilityCode, value -> value,
-                        (left, right) -> left, LinkedHashMap::new));
-        return handlers.values().stream()
-                .filter(handler -> {
-                    AgentCapabilityDescriptor descriptor = handler.capabilityDescriptor();
-                    return (!this.governed && descriptor == null) || (descriptor != null && runtimeCapabilities.containsKey(descriptor.getCapabilityCode()));
-                })
-                .map(AgentToolHandler::definition)
+        return runtimeBindings.get().values().stream()
+                .map(binding -> toDefinition(binding.descriptor(), binding.handler()))
                 .sorted(Comparator.comparing(AgentToolDefinition::getCode))
                 .toList();
     }
 
     @Override
     public Optional<AgentToolDefinition> find(String toolCode) {
-        return Optional.ofNullable(handlers.get(toolCode)).map(AgentToolHandler::definition);
+        return Optional.ofNullable(runtimeBindings.get().get(toolCode))
+                .map(binding -> toDefinition(binding.descriptor(), binding.handler()));
     }
 
     @Override
@@ -93,27 +103,127 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
         if (call == null || call.getToolCode() == null || call.getToolCode().isBlank()) {
             return AgentToolResult.failure("unknown", "Agent tool code is missing.", "cynexus-ai", "TOOL_CODE_MISSING");
         }
-        AgentToolHandler handler = handlers.get(call.getToolCode());
-        if (handler == null) {
+        RegisteredBinding binding = runtimeBindings.get().get(call.getToolCode());
+        if (binding == null) {
+            AgentToolHandler knownHandler = handlers.get(call.getToolCode());
+            if (governed && knownHandler != null) {
+                return AgentToolResult.failure(call.getToolCode(), "The requested capability is disabled or unavailable.",
+                        knownHandler.definition().getSource(), "CAPABILITY_NOT_AVAILABLE");
+            }
             return AgentToolResult.failure(call.getToolCode(), "The requested Agent tool is not registered.", "cynexus-ai", "TOOL_NOT_REGISTERED");
         }
-        if (!handler.definition().isReadOnly() || handler.definition().isRequiresConfirmation()) {
+        AgentToolHandler handler = binding.handler();
+        AgentToolDefinition definition = toDefinition(binding.descriptor(), handler);
+        if (!definition.isReadOnly() || definition.isRequiresConfirmation()) {
             return AgentToolResult.failure(call.getToolCode(), "The requested tool is not enabled for autonomous read-only execution.", "cynexus-ai", "TOOL_REQUIRES_CONFIRMATION");
         }
-        if (governed && !capabilityRepository.listRuntimeCapabilities().stream().filter(java.util.Objects::nonNull)
-                .anyMatch(item -> item.getCapabilityCode().equals(call.getToolCode()))) {
-            return AgentToolResult.failure(call.getToolCode(), "The requested capability is disabled or unavailable.",
-                    handler.definition().getSource(), "CAPABILITY_NOT_AVAILABLE");
-        }
         try {
-            String validationError = validateArguments(handler.definition(), call.getArguments());
+            String validationError = validateArguments(definition, call.getArguments());
             if (validationError != null) {
-                return AgentToolResult.failure(call.getToolCode(), "The tool arguments are invalid.", handler.definition().getSource(), validationError);
+                return AgentToolResult.failure(call.getToolCode(), "The tool arguments are invalid.", definition.getSource(), validationError);
             }
-            return handler.execute(call, context);
+            String canonicalCode = handler.definition().getCode();
+            AgentToolCall handlerCall = canonicalCode.equals(call.getToolCode()) ? call
+                    : AgentToolCall.builder().callId(call.getCallId()).toolCode(canonicalCode).arguments(call.getArguments()).build();
+            AgentToolResult result = handler.execute(handlerCall, context);
+            return result == null || canonicalCode.equals(call.getToolCode()) ? result
+                    : AgentToolResult.builder().toolCode(call.getToolCode()).status(result.getStatus())
+                    .outputJson(result.getOutputJson()).summary(result.getSummary()).dataDate(result.getDataDate())
+                    .source(result.getSource()).warnings(result.getWarnings()).build();
         } catch (RuntimeException exception) {
-            return AgentToolResult.failure(call.getToolCode(), "The tool failed before returning data.", handler.definition().getSource(), exception.getMessage());
+            return AgentToolResult.failure(call.getToolCode(), "The tool failed before returning data.", definition.getSource(), exception.getMessage());
         }
+    }
+
+    @Override
+    public void register(AgentCapabilityDescriptor descriptor) {
+        AgentCapabilityDescriptorPolicy.validateRegistration(descriptor);
+        AgentToolHandler handler = runtimeEntryAllowList.get(descriptor.getRuntimeEntry());
+        if (handler == null) {
+            throw new IllegalArgumentException("Capability runtimeEntry is not registered in the runtime allow-list");
+        }
+        validateRuntimeBinding(descriptor, handler);
+        runtimeBindings.updateAndGet(current -> {
+            Map<String, RegisteredBinding> next = new LinkedHashMap<>(current);
+            next.put(descriptor.getCapabilityCode(), new RegisteredBinding(descriptor, handler));
+            return Map.copyOf(next);
+        });
+    }
+
+    private void refreshRuntimeBindings() {
+        Map<String, RegisteredBinding> next = new LinkedHashMap<>();
+        for (AgentCapabilityDescriptor descriptor : capabilityRepository.listRuntimeCapabilities()) {
+            if (descriptor == null) continue;
+            AgentToolHandler handler = runtimeEntryAllowList.get(descriptor.getRuntimeEntry());
+            if (handler == null) continue;
+            try {
+                validateRuntimeBinding(descriptor, handler);
+                next.put(descriptor.getCapabilityCode(), new RegisteredBinding(descriptor, handler));
+            } catch (IllegalArgumentException ignored) {
+                // A persisted descriptor must never make the runtime unavailable.
+            }
+        }
+        if (!governed && next.isEmpty()) {
+            for (AgentToolHandler handler : handlers.values()) {
+                AgentCapabilityDescriptor descriptor = descriptorForHandler(handler);
+                next.put(descriptor.getCapabilityCode(), new RegisteredBinding(descriptor, handler));
+            }
+        }
+        runtimeBindings.set(Map.copyOf(next));
+    }
+
+    private AgentCapabilityDescriptor descriptorForHandler(AgentToolHandler handler) {
+        AgentCapabilityDescriptor descriptor = handler.capabilityDescriptor();
+        if (descriptor != null) return descriptor;
+        AgentToolDefinition definition = handler.definition();
+        return AgentCapabilityDescriptor.builder().capabilityCode(definition.getCode()).version(valueOr(definition.getVersion(), "1.0.0"))
+                .name(definition.getName()).module(definition.getModule()).description(definition.getDescription())
+                .inputSchemaJson(definition.getInputSchemaJson()).outputSchemaJson(definition.getOutputSchemaJson())
+                .readOnly(definition.isReadOnly()).requiresConfirmation(definition.isRequiresConfirmation())
+                .tenantScope(valueOr(definition.getTenantScope(), "TENANT")).source(definition.getSource())
+                .sourceUrl(definition.getSourceUrl()).freshness(definition.getFreshness())
+                .availability(valueOr(definition.getAvailability(), "AVAILABLE")).governanceAvailability("AVAILABLE")
+                .enabled(true).priority(definition.getPriority()).promptKey(valueOr(definition.getPromptKey(), "autonomous_agent"))
+                .runtimeEntry(valueOr(definition.getRuntimeEntry(), handler.getClass().getName()))
+                .routeGroup(valueOr(definition.getRouteGroup(), "Agent / " + definition.getModule()))
+                .registrationMode(AgentCapabilityDescriptorPolicy.HANDLER_REGISTRATION).build();
+    }
+
+    private String valueOr(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private void validateRuntimeBinding(AgentCapabilityDescriptor descriptor, AgentToolHandler handler) {
+        AgentToolDefinition definition = handler.definition();
+        if (!definition.isReadOnly() || definition.isRequiresConfirmation()) {
+            throw new IllegalArgumentException("The runtime handler is not eligible for autonomous execution");
+        }
+        if (!sameJsonSchema(descriptor.getInputSchemaJson(), definition.getInputSchemaJson())
+                || !sameJsonSchema(descriptor.getOutputSchemaJson(), definition.getOutputSchemaJson())) {
+            throw new IllegalArgumentException("Capability schemas must match the allow-listed runtime handler");
+        }
+    }
+
+    private boolean sameJsonSchema(String left, String right) {
+        try {
+            JsonNode leftNode = objectMapper.readTree(left);
+            JsonNode rightNode = objectMapper.readTree(right);
+            return leftNode != null && rightNode != null && leftNode.isObject() && rightNode.isObject()
+                    && leftNode.equals(rightNode);
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private AgentToolDefinition toDefinition(AgentCapabilityDescriptor descriptor, AgentToolHandler handler) {
+        return AgentToolDefinition.builder().code(descriptor.getCapabilityCode()).name(descriptor.getName())
+                .module(descriptor.getModule()).description(descriptor.getDescription())
+                .inputSchemaJson(descriptor.getInputSchemaJson()).outputSchemaJson(descriptor.getOutputSchemaJson())
+                .readOnly(descriptor.isReadOnly()).requiresConfirmation(descriptor.isRequiresConfirmation())
+                .freshness(descriptor.getFreshness()).source(descriptor.getSource()).sourceUrl(descriptor.getSourceUrl())
+                .version(descriptor.getVersion()).tenantScope(descriptor.getTenantScope()).availability(descriptor.getAvailability())
+                .priority(descriptor.getPriority()).promptKey(descriptor.getPromptKey())
+                .runtimeEntry(descriptor.getRuntimeEntry()).routeGroup(descriptor.getRouteGroup()).build();
     }
 
     private String validateArguments(AgentToolDefinition definition, Map<String, Object> arguments) {

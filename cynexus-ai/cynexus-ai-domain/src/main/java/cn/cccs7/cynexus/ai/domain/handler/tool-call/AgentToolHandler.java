@@ -36,6 +36,7 @@ public interface AgentToolHandler {
                 .promptKey(definition.getPromptKey() == null ? "autonomous_agent" : definition.getPromptKey())
                 .runtimeEntry(definition.getRuntimeEntry() == null ? getClass().getName() : definition.getRuntimeEntry())
                 .routeGroup(definition.getRouteGroup() == null ? "Agent / " + definition.getModule() : definition.getRouteGroup())
+                .registrationMode("HANDLER")
                 .build();
     }
 }

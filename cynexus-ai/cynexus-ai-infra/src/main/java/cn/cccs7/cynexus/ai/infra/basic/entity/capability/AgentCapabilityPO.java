@@ -32,6 +32,7 @@ public class AgentCapabilityPO extends BasePO {
     @TableField("prompt_key") private String promptKey;
     @TableField("runtime_entry") private String runtimeEntry;
     @TableField("route_group") private String routeGroup;
+    @TableField("registration_mode") private String registrationMode;
     @TableField("last_seen_at") private OffsetDateTime lastSeenAt;
     @TableField("stale_at") private OffsetDateTime staleAt;
 }

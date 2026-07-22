@@ -5,11 +5,13 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -154,6 +156,46 @@ class AgentToolRegistryTest {
         assertThat(registry.enabledTools()).isEmpty();
         assertThat(registry.execute(AgentToolCall.builder().toolCode("finance.synthetic").build(), null)
                 .getWarnings()).contains("CAPABILITY_NOT_AVAILABLE");
+    }
+
+    @Test
+    void hotAddsAnAliasOnlyThroughTheRuntimeHandlerAllowList() {
+        AgentToolHandler handler = handler("market.canonical", true, false);
+        var repository = mock(cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository.class);
+        org.mockito.Mockito.when(repository.listRuntimeCapabilities()).thenReturn(List.of());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler), repository);
+        AgentCapabilityDescriptor descriptor = AgentCapabilityDescriptor.builder()
+                .capabilityCode("market.dynamic_alias").version("1.0.0").name("Dynamic market alias")
+                .module("market").description("Dynamic alias").inputSchemaJson(handler.definition().getInputSchemaJson())
+                .outputSchemaJson(handler.definition().getOutputSchemaJson()).readOnly(true).requiresConfirmation(false)
+                .tenantScope("TENANT").source("test").availability("AVAILABLE").governanceAvailability("AVAILABLE")
+                .enabled(true).priority(10).promptKey("autonomous_agent").runtimeEntry(handler.getClass().getName())
+                .routeGroup("Agent / market").registrationMode("ADMIN").build();
+
+        registry.register(descriptor);
+
+        assertThat(registry.enabledTools()).extracting(AgentToolDefinition::getCode)
+                .containsExactly("market.dynamic_alias");
+        org.mockito.Mockito.when(handler.execute(any(), any()))
+                .thenReturn(AgentToolResult.success("market.canonical", "{}", "ok", "2026-07-23", "test", List.of()));
+        assertThat(registry.execute(AgentToolCall.builder().callId("call-1").toolCode("market.dynamic_alias")
+                .arguments(java.util.Map.of()).build(), null).getStatus()).isEqualTo("SUCCEEDED");
+        org.mockito.Mockito.verify(handler).execute(org.mockito.ArgumentMatchers.argThat(call ->
+                "market.canonical".equals(call.getToolCode())), any());
+    }
+
+    @Test
+    void rejectsDynamicCapabilityOutsideTheRuntimeHandlerAllowList() {
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler("market.canonical", true, false)));
+        AgentCapabilityDescriptor descriptor = AgentCapabilityDescriptor.builder()
+                .capabilityCode("market.remote").version("1.0.0").name("Remote").module("market")
+                .description("Remote").inputSchemaJson("{\"type\":\"object\"}")
+                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
+                .tenantScope("TENANT").availability("AVAILABLE").governanceAvailability("AVAILABLE")
+                .enabled(true).priority(10).promptKey("autonomous_agent").runtimeEntry("https://example.invalid")
+                .routeGroup("Agent / market").registrationMode("ADMIN").build();
+
+        assertThatIllegalArgumentException().isThrownBy(() -> registry.register(descriptor));
     }
 
     private AgentToolHandler handler(String code, boolean readOnly, boolean requiresConfirmation) {

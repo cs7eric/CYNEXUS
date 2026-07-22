@@ -27,6 +27,7 @@ public class AgentCapabilityDTO {
     private String promptKey;
     private String runtimeEntry;
     private String routeGroup;
+    private String registrationMode;
     private String lastSeenAt;
     private String staleAt;
 }
