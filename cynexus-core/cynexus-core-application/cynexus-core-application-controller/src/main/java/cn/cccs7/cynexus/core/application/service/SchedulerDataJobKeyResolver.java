@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-final class SchedulerDataJobKeyResolver {
+public final class SchedulerDataJobKeyResolver {
 
     private static final Map<String, ResolvedDataJob> LEGACY_TO_DATA_JOB = Map.ofEntries(
             entry("test_scheduler_demo", "trigger_probe"),
@@ -298,7 +298,7 @@ final class SchedulerDataJobKeyResolver {
     private SchedulerDataJobKeyResolver() {
     }
 
-    static Optional<ResolvedDataJob> resolve(String schedulerJobCode) {
+    public static Optional<ResolvedDataJob> resolve(String schedulerJobCode) {
         if (schedulerJobCode == null || schedulerJobCode.isBlank()) {
             return Optional.empty();
         }
@@ -318,6 +318,6 @@ final class SchedulerDataJobKeyResolver {
         return Map.entry(schedulerJobCode, new ResolvedDataJob(dataJobKey, defaultParams));
     }
 
-    record ResolvedDataJob(String jobKey, Map<String, Object> defaultParams) {
+    public record ResolvedDataJob(String jobKey, Map<String, Object> defaultParams) {
     }
 }

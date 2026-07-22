@@ -34,6 +34,8 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerTodayCountersBO;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerDomainService;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerManagementPolicy;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerRunResultDomainPolicy;
+import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerExecutionDomainService;
+import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerManagementDomainService;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -75,11 +77,17 @@ public class SchedulerAppService {
     private static final int MARKET_SENTIMENT_CHAIN_STEP_COUNT = 17;
 
     private final SchedulerDomainService schedulerDomainService;
+    private final SchedulerManagementDomainService schedulerManagementDomainService;
+    private final SchedulerExecutionDomainService schedulerExecutionDomainService;
     private final ObjectMapper objectMapper;
     private final SchedulerRunResultDomainPolicy runResultPolicy = new SchedulerRunResultDomainPolicy();
 
-    public SchedulerAppService(SchedulerDomainService schedulerDomainService) {
+    public SchedulerAppService(SchedulerDomainService schedulerDomainService,
+                               SchedulerManagementDomainService schedulerManagementDomainService,
+                               SchedulerExecutionDomainService schedulerExecutionDomainService) {
         this.schedulerDomainService = schedulerDomainService;
+        this.schedulerManagementDomainService = schedulerManagementDomainService;
+        this.schedulerExecutionDomainService = schedulerExecutionDomainService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -451,52 +459,10 @@ public class SchedulerAppService {
             SchedulerManagementJobCategoriesRequest request) {
         SchedulerJobBO job = requireJobByCode(jobCode);
         LinkedHashSet<Long> requestedCategoryIds = parseCategoryIds(request);
-        Map<Long, SchedulerJobCategoryBO> categoryById = schedulerDomainService.listCategories().stream()
-                .filter(category -> category.getDeletedAt() == null)
-                .collect(Collectors.toMap(SchedulerJobCategoryBO::getId, Function.identity(), this::pickCategory));
-        for (Long categoryId : requestedCategoryIds) {
-            if (!categoryById.containsKey(categoryId)) {
-                throw new IllegalArgumentException("Scheduler category not found: " + categoryId);
-            }
-        }
+        List<SchedulerJobCategoryMappingBO> mappings = schedulerManagementDomainService
+                .replaceCategoryMappings(job, requestedCategoryIds);
 
-        List<SchedulerJobCategoryMappingBO> allMappings = schedulerDomainService.listCategoryMappings().stream()
-                .filter(mapping -> mapping.getDeletedAt() == null)
-                .toList();
-        Map<Long, Integer> maxSortOrderByCategoryId = allMappings.stream()
-                .filter(mapping -> mapping.getCategoryId() != null)
-                .collect(Collectors.toMap(
-                        SchedulerJobCategoryMappingBO::getCategoryId,
-                        mapping -> mapping.getSortOrder() == null ? 0 : mapping.getSortOrder(),
-                        Math::max));
-        Map<Long, SchedulerJobCategoryMappingBO> keptByCategoryId = new HashMap<>();
-        for (SchedulerJobCategoryMappingBO mapping : schedulerDomainService.listCategoryMappingsByJobId(job.getId())) {
-            Long categoryId = mapping.getCategoryId();
-            boolean keep = categoryId != null
-                    && requestedCategoryIds.contains(categoryId)
-                    && !keptByCategoryId.containsKey(categoryId);
-            if (keep) {
-                keptByCategoryId.put(categoryId, mapping);
-            } else {
-                schedulerDomainService.deleteCategoryMapping(mapping.getId());
-            }
-        }
-        for (Long categoryId : requestedCategoryIds) {
-            if (keptByCategoryId.containsKey(categoryId)) {
-                continue;
-            }
-            int sortOrder = maxSortOrderByCategoryId.getOrDefault(categoryId, 0) + 10;
-            maxSortOrderByCategoryId.put(categoryId, sortOrder);
-            schedulerDomainService.createCategoryMapping(SchedulerJobCategoryMappingBO.builder()
-                    .jobId(job.getId())
-                    .categoryId(categoryId)
-                    .sortOrder(sortOrder)
-                    .remark("scheduler-management")
-                    .build());
-        }
-
-        SchedulerJobStatusBO status = ensureStatus(job);
-        List<SchedulerJobCategoryMappingBO> mappings = schedulerDomainService.listCategoryMappingsByJobId(job.getId());
+        SchedulerJobStatusBO status = schedulerManagementDomainService.ensureStatus(job);
         return SchedulerManagementJobActionResponseDTO.builder()
                 .ok(true)
                 .jobId(job.getCode())
@@ -520,15 +486,7 @@ public class SchedulerAppService {
 
     public SchedulerManagementJobActionResponseDTO deleteManagementJob(String jobCode) {
         SchedulerJobBO job = requireJobByCode(jobCode);
-        schedulerDomainService.listCategoryMappings().stream()
-                .filter(mapping -> Objects.equals(mapping.getJobId(), job.getId()))
-                .filter(mapping -> mapping.getDeletedAt() == null)
-                .forEach(mapping -> schedulerDomainService.deleteCategoryMapping(mapping.getId()));
-        SchedulerJobStatusBO status = schedulerDomainService.findStatusByJobId(job.getId());
-        if (status != null) {
-            schedulerDomainService.deleteStatus(status.getId());
-        }
-        boolean deleted = schedulerDomainService.deleteJob(job.getId());
+        boolean deleted = schedulerManagementDomainService.deleteJob(job);
         return SchedulerManagementJobActionResponseDTO.builder()
                 .ok(deleted)
                 .jobId(job.getCode())
@@ -551,6 +509,8 @@ public class SchedulerAppService {
     }
 
     public void reconcileRunningDataJobRuns() {
+        schedulerExecutionDomainService.recoverExpiredRunningStates(
+                OffsetDateTime.now(CHINA_ZONE), Duration.ofHours(8));
         Map<Long, SchedulerJobBO> jobsById = schedulerDomainService.listJobs().stream()
                 .filter(job -> job.getDeletedAt() == null)
                 .collect(Collectors.toMap(SchedulerJobBO::getId, Function.identity(), this::pickLatestJob));
@@ -560,25 +520,6 @@ public class SchedulerAppService {
         statuses.stream()
                 .filter(this::shouldReconcileDataJobStatus)
                 .forEach(status -> reconcileRunningDataJobRun(jobsById.get(status.getJobId()), status));
-        // Force-clear stale running states that have no Python data job run to reconcile against.
-        // Guards against JVM crashes that leave is_running=true indefinitely.
-        OffsetDateTime staleCutoff = OffsetDateTime.now(CHINA_ZONE).minusHours(8);
-        statuses.stream()
-                .filter(status -> Boolean.TRUE.equals(status.getRunning()))
-                .filter(status -> {
-                    String runId = extractDataJobRunId(status);
-                    return runId == null || runId.isBlank();
-                })
-                .filter(status -> status.getSchedulerStartedAt() != null
-                        && status.getSchedulerStartedAt().isBefore(staleCutoff))
-                .forEach(status -> {
-                    SchedulerJobBO job = jobsById.get(status.getJobId());
-                    log.warn("Clearing stale running state: jobCode={}, startedAt={}",
-                            job != null ? job.getCode() : status.getJobId(),
-                            status.getSchedulerStartedAt());
-                    schedulerDomainService.updateStatusRunning(
-                            status.getId(), false, status.getSchedulerStartedAt(), OffsetDateTime.now(CHINA_ZONE));
-                });
     }
 
     private void reconcileRunningDataJobRun(SchedulerJobBO job) {
@@ -1058,11 +999,7 @@ public class SchedulerAppService {
 
     private SchedulerManagementJobActionResponseDTO updateManagementJobEnabled(String jobCode, boolean enabled) {
         SchedulerJobBO job = requireJobByCode(jobCode);
-        schedulerDomainService.updateJobEnabled(job.getId(), enabled);
-        job.setEnabled(enabled);
-        SchedulerJobStatusBO status = ensureStatus(job);
-        schedulerDomainService.updateStatusEnabled(status.getId(), enabled);
-        status.setEnabled(enabled);
+        SchedulerJobStatusBO status = schedulerManagementDomainService.setEnabled(job, enabled);
         return actionResponse(job, status, enabled ? "enabled" : "disabled");
     }
 
@@ -1119,26 +1056,11 @@ public class SchedulerAppService {
     }
 
     private SchedulerJobBO requireJobByCode(String jobCode) {
-        SchedulerJobBO job = schedulerDomainService.findJobByCode(jobCode);
-        if (job == null) {
-            throw new IllegalArgumentException("Scheduler job not found: " + jobCode);
-        }
-        return job;
+        return schedulerManagementDomainService.requireJobByCode(jobCode);
     }
 
     private SchedulerJobStatusBO ensureStatus(SchedulerJobBO job) {
-        SchedulerJobStatusBO status = schedulerDomainService.findStatusByJobId(job.getId());
-        if (status != null) {
-            return status;
-        }
-        SchedulerJobStatusBO created = SchedulerJobStatusBO.builder()
-                .jobId(job.getId())
-                .enabled(Boolean.TRUE.equals(job.getEnabled()))
-                .running(false)
-                .build();
-        Long id = schedulerDomainService.createStatus(created);
-        created.setId(id);
-        return created;
+        return schedulerManagementDomainService.ensureStatus(job);
     }
 
     private SchedulerManagementJobsResponseDTO.Item toManagementJobItem(SchedulerJobBO job,
