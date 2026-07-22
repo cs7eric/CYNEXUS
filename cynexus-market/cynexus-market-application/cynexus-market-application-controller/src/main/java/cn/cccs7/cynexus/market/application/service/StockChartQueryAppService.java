@@ -2,14 +2,10 @@ package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
-import cn.cccs7.cynexus.market.domain.repository.StockChartQueryRepository;
-import cn.cccs7.cynexus.market.domain.stock.StockChartDomainService;
+import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import cn.cccs7.cynexus.market.domain.stock.StockAuctionDomainPolicy;
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -19,60 +15,35 @@ public class StockChartQueryAppService {
 
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
 
-    private final StockChartQueryRepository stockChartQueryRepository;
-    private final StockChartDomainService domainService;
-    private final StockAuctionDomainPolicy auctionPolicy = new StockAuctionDomainPolicy();
+    private final StockChartQueryDomainService queryDomainService;
 
-    public StockChartQueryAppService(StockChartQueryRepository stockChartQueryRepository,
-                                     StockChartDomainService domainService) {
-        this.stockChartQueryRepository = stockChartQueryRepository;
-        this.domainService = domainService;
+    public StockChartQueryAppService(StockChartQueryDomainService queryDomainService) {
+        this.queryDomainService = queryDomainService;
     }
 
     public StockChartDTO.SearchResponseDTO search(String keyword) {
         return StockChartDTO.SearchResponseDTO.builder()
-                .items(stockChartQueryRepository.search(keyword, 20).stream()
+                .items(queryDomainService.search(keyword).stream()
                         .map(this::searchItem)
                         .toList())
                 .build();
     }
 
     public StockChartDTO.KlineResponseDTO klines(String targetType, String symbol, String period, String adjust) {
-        String normalizedPeriod = domainService.normalizePeriod(period);
-        List<StockChartBO.Bar> rows;
-        String source;
-        if ("1d".equals(normalizedPeriod)) {
-            String normalizedTargetType = domainService.defaultValue(targetType, "stock");
-            String normalizedAdjust = domainService.defaultValue(adjust, "qfq");
-            rows = stockChartQueryRepository.listDailyBars(normalizedTargetType, symbol, domainService.defaultKlineCount(), normalizedAdjust);
-            if ("stock".equalsIgnoreCase(normalizedTargetType) && "qfq".equalsIgnoreCase(normalizedAdjust)) {
-                source = rows.isEmpty() ? "clickhouse.daily_qfq-empty" : "clickhouse.daily_qfq";
-            } else {
-                source = rows.isEmpty() ? "java-tdx-local-empty" : "java-tdx-local";
-            }
-        } else {
-            int periodMinutes = domainService.periodMinutes(normalizedPeriod);
-            LocalDate effectiveDate = stockChartQueryRepository
-                    .findLatestMinuteDate(targetType, symbol, LocalDate.now(SHANGHAI))
-                    .orElse(null);
-            rows = effectiveDate == null
-                    ? List.of()
-                    : stockChartQueryRepository.listMinuteBars(targetType, symbol, effectiveDate, periodMinutes);
-            source = rows.isEmpty() ? "clickhouse.ch_dwd_kline_1m-empty" : "clickhouse.ch_dwd_kline_1m";
-        }
+        StockChartQueryDomainService.KlineResult result = queryDomainService.klines(targetType, symbol, period, adjust);
         return StockChartDTO.KlineResponseDTO.builder()
                 .symbol(symbol)
-                .targetType(domainService.defaultValue(targetType, "stock"))
-                .period(normalizedPeriod)
-                .adjust(domainService.defaultValue(adjust, "qfq"))
+                .targetType(result.targetType())
+                .period(result.period())
+                .adjust(result.adjust())
                 .updatedAt(OffsetDateTime.now(SHANGHAI))
-                .source(source)
-                .items(rows.stream().map(this::bar).toList())
+                .source(result.source())
+                .items(result.items().stream().map(this::bar).toList())
                 .build();
     }
 
     public StockChartDTO.StockMetaDTO stockMeta(String symbol) {
-        StockChartBO.StockMeta value = stockChartQueryRepository.stockMeta(symbol);
+        StockChartBO.StockMeta value = queryDomainService.stockMeta(symbol);
         return StockChartDTO.StockMetaDTO.builder()
                 .symbol(value.getSymbol())
                 .name(value.getName())
@@ -86,7 +57,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.StockSectorsResponseDTO stockSectors(String symbol) {
-        StockChartBO.StockSectors value = stockChartQueryRepository.stockSectors(symbol);
+        StockChartBO.StockSectors value = queryDomainService.stockSectors(symbol);
         List<StockChartDTO.StockSectorEntryDTO> industries = value.getIndustries() == null
                 ? List.of()
                 : value.getIndustries().stream().map(this::stockSectorEntry).toList();
@@ -107,7 +78,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.FundFlowSnapshotDTO fundFlow(String symbol) {
-        StockChartBO.FundFlowSnapshot value = stockChartQueryRepository.fundFlow(symbol);
+        StockChartBO.FundFlowSnapshot value = queryDomainService.fundFlow(symbol);
         return StockChartDTO.FundFlowSnapshotDTO.builder()
                 .ok(value.getOk())
                 .symbol(value.getSymbol())
@@ -147,7 +118,7 @@ public class StockChartQueryAppService {
 
     public StockChartDTO.SectorStocksResponseDTO sectorStocks(String sectorId, Integer categoryRaw,
                                                               String topicId, String name, int limit) {
-        StockChartBO.SectorStocks value = stockChartQueryRepository.sectorStocks(sectorId, categoryRaw, topicId, name, limit);
+        StockChartBO.SectorStocks value = queryDomainService.sectorStocks(sectorId, categoryRaw, topicId, name, limit);
         List<StockChartDTO.SectorStockDTO> stocks = value.getStocks() == null
                 ? List.of()
                 : value.getStocks().stream().map(this::sectorStock).toList();
@@ -161,63 +132,34 @@ public class StockChartQueryAppService {
 
     public StockChartDTO.IntradayDTO intraday(String targetType, String symbol, String name, String adjust,
                                               String tradeDate, List<String> periods) {
-        LocalDate requested = domainService.parseDateOrToday(tradeDate);
-        LocalDate effectiveDate = stockChartQueryRepository.findLatestMinuteDate(targetType, symbol, requested).orElse(null);
-        if (effectiveDate == null) {
-            return StockChartDTO.IntradayDTO.builder()
-                    .ok(true)
-                    .symbol(symbol)
-                    .targetType(domainService.defaultValue(targetType, "stock"))
-                    .name(domainService.defaultValue(name, symbol))
-                    .adjust(domainService.defaultValue(adjust, "qfq"))
-                    .effectiveAdjust("none")
-                    .requestedAdjust(domainService.defaultValue(adjust, "qfq"))
-                    .source("clickhouse.ch_dwd_kline_1m-empty")
-                    .requestedTradeDate(requested)
-                    .timeshare(List.of())
-                    .minuteBars(emptyMinuteBars())
-                    .error("minute kline / timeshare data not found")
-                    .build();
-        }
-
-        Map<String, List<StockChartDTO.KlineBarDTO>> minuteBars = new HashMap<>();
-        for (String period : periods) {
-            int minutes = domainService.periodMinutes(period);
-            minuteBars.put(period, stockChartQueryRepository.listMinuteBars(targetType, symbol, effectiveDate, minutes).stream()
-                    .map(this::bar)
-                    .toList());
-        }
-        List<StockChartDTO.IntradayPointDTO> timeshare = stockChartQueryRepository.listTimeshare(targetType, symbol, effectiveDate).stream()
-                .map(this::intradayPoint)
-                .toList();
-        boolean empty = timeshare.isEmpty() && minuteBars.values().stream().allMatch(List::isEmpty);
+        StockChartQueryDomainService.IntradayResult result = queryDomainService.intraday(
+                targetType, symbol, name, adjust, tradeDate, periods);
         return StockChartDTO.IntradayDTO.builder()
                 .ok(true)
-                .symbol(symbol)
-                .targetType(domainService.defaultValue(targetType, "stock"))
-                .name(domainService.defaultValue(name, symbol))
-                .adjust(domainService.defaultValue(adjust, "qfq"))
-                .effectiveAdjust("none")
-                .requestedAdjust(domainService.defaultValue(adjust, "qfq"))
-                .source(empty ? "clickhouse.ch_dwd_kline_1m-empty" : "clickhouse.ch_dwd_kline_1m")
-                .tradeDate(effectiveDate)
-                .requestedTradeDate(requested)
-                .timeshare(timeshare)
-                .minuteBars(minuteBars(minuteBars))
-                .error(empty ? "minute kline / timeshare data not found" : null)
+                .symbol(result.symbol())
+                .targetType(result.targetType())
+                .name(result.name())
+                .adjust(result.adjust())
+                .effectiveAdjust(result.effectiveAdjust())
+                .requestedAdjust(result.requestedAdjust())
+                .source(result.source())
+                .tradeDate(result.tradeDate())
+                .requestedTradeDate(result.requestedTradeDate())
+                .timeshare(result.timeshare().stream().map(this::intradayPoint).toList())
+                .minuteBars(minuteBars(result.minuteBars().entrySet().stream()
+                        .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey,
+                                entry -> entry.getValue().stream().map(this::bar).toList()))))
+                .error(result.error())
                 .build();
     }
 
     public StockChartDTO.AuctionDTO auction(String symbol, String tradeDate) {
-        LocalDate requested = domainService.parseDateOrToday(tradeDate);
-        LocalDate effectiveDate = stockChartQueryRepository.findLatestAuctionDate("stock", symbol, requested).orElse(null);
-        return auctionForDate(symbol, requested, effectiveDate);
+        return auction(queryDomainService.auction(symbol, tradeDate));
     }
 
     public StockChartDTO.AuctionHistoryResponseDTO auctionHistory(String symbol, int limit) {
-        int resolvedLimit = domainService.auctionHistoryLimit(limit);
-        List<StockChartDTO.AuctionDTO> items = stockChartQueryRepository.listAuctionDates("stock", symbol, resolvedLimit).stream()
-                .map(date -> auctionForDate(symbol, date, date))
+        List<StockChartDTO.AuctionDTO> items = queryDomainService.auctionHistory(symbol, limit).stream()
+                .map(this::auction)
                 .toList();
         return StockChartDTO.AuctionHistoryResponseDTO.builder()
                 .symbol(symbol)
@@ -226,45 +168,25 @@ public class StockChartQueryAppService {
                 .build();
     }
 
-    private StockChartDTO.AuctionDTO auctionForDate(String symbol, LocalDate requested, LocalDate effectiveDate) {
-        if (effectiveDate == null) {
-            return StockChartDTO.AuctionDTO.builder()
-                    .symbol(symbol)
-                    .tradeDate(requested)
-                    .source("clickhouse.ch_ods_stock_auction_point-empty")
-                    .error("auction detail data not found")
-                    .opening(auctionPhase(List.of(), "09:25:00", "openingPoints"))
-                    .closing(auctionPhase(List.of(), "15:00:00", "closingPoints"))
-                    .details(StockChartDTO.AuctionDetailsDTO.builder()
-                            .auction0925(Map.of("has_auction_0925", false))
-                            .openingPoints(List.of())
-                            .closingPoints(List.of())
-                            .allPoints(List.of())
-                            .build())
-                    .build();
-        }
-        List<StockChartBO.AuctionPoint> rows = stockChartQueryRepository.listAuctionPoints("stock", symbol, effectiveDate);
-        StockAuctionDomainPolicy.AuctionGroups groups = auctionPolicy.group(rows);
-        List<StockChartBO.AuctionPoint> openingRows = groups.opening();
-        List<StockChartBO.AuctionPoint> closingRows = groups.closing();
+    private StockChartDTO.AuctionDTO auction(StockChartQueryDomainService.AuctionResult result) {
         return StockChartDTO.AuctionDTO.builder()
-                .symbol(symbol)
-                .tradeDate(effectiveDate)
-                .source(rows.isEmpty() ? "clickhouse.ch_ods_stock_auction_point-empty" : "clickhouse.ch_ods_stock_auction_point")
-                .error(rows.isEmpty() ? "auction detail data not found" : null)
-                .opening(auctionPhase(openingRows, "09:25:00", "openingPoints"))
-                .closing(auctionPhase(closingRows, "15:00:00", "closingPoints"))
+                .symbol(result.symbol())
+                .tradeDate(result.tradeDate())
+                .source(result.source())
+                .error(result.error())
+                .opening(auctionPhase(result.opening()))
+                .closing(auctionPhase(result.closing()))
                 .details(StockChartDTO.AuctionDetailsDTO.builder()
-                        .auction0925(auctionPolicy.auction0925(groups.auction0925()))
-                        .openingPoints(openingRows.stream().map(this::auctionPoint).toList())
-                        .closingPoints(closingRows.stream().map(this::auctionPoint).toList())
-                        .allPoints(rows.stream().map(this::auctionPoint).toList())
+                        .auction0925(result.auction0925())
+                        .openingPoints(result.openingPoints().stream().map(this::auctionPoint).toList())
+                        .closingPoints(result.closingPoints().stream().map(this::auctionPoint).toList())
+                        .allPoints(result.allPoints().stream().map(this::auctionPoint).toList())
                         .build())
                 .build();
     }
 
     public StockChartDTO.F10ValuationDTO valuation(String symbol, String reqId) {
-        StockChartBO.F10Valuation value = stockChartQueryRepository.valuation(symbol, reqId);
+        StockChartBO.F10Valuation value = queryDomainService.valuation(symbol, reqId);
         return StockChartDTO.F10ValuationDTO.builder()
                 .symbol(value.getSymbol())
                 .reqId(value.getReqId())
@@ -275,7 +197,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10FinanceReportDTO financeReport(String symbol, String reportType) {
-        StockChartBO.F10FinanceReport value = stockChartQueryRepository.financeReport(symbol, reportType);
+        StockChartBO.F10FinanceReport value = queryDomainService.financeReport(symbol, reportType);
         return StockChartDTO.F10FinanceReportDTO.builder()
                 .symbol(value.getSymbol())
                 .reportType(value.getReportType())
@@ -286,7 +208,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10BusinessCompositionDTO businessComposition(String symbol, String reportDate) {
-        StockChartBO.F10BusinessComposition value = stockChartQueryRepository.businessComposition(symbol, reportDate);
+        StockChartBO.F10BusinessComposition value = queryDomainService.businessComposition(symbol, reportDate);
         return StockChartDTO.F10BusinessCompositionDTO.builder()
                 .symbol(value.getSymbol())
                 .reportDate(value.getReportDate())
@@ -297,7 +219,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10ProfitForecastDTO profitForecast(String symbol) {
-        StockChartBO.F10ProfitForecast value = stockChartQueryRepository.profitForecast(symbol);
+        StockChartBO.F10ProfitForecast value = queryDomainService.profitForecast(symbol);
         return StockChartDTO.F10ProfitForecastDTO.builder()
                 .symbol(value.getSymbol())
                 .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::profitForecastItem).toList())
@@ -307,7 +229,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10AnnouncementsDTO announcements(String symbol) {
-        StockChartBO.F10Announcements value = stockChartQueryRepository.announcements(symbol);
+        StockChartBO.F10Announcements value = queryDomainService.announcements(symbol);
         return StockChartDTO.F10AnnouncementsDTO.builder()
                 .symbol(value.getSymbol())
                 .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::announcementItem).toList())
@@ -318,7 +240,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10NewsDTO news(String symbol) {
-        StockChartBO.F10News value = stockChartQueryRepository.news(symbol);
+        StockChartBO.F10News value = queryDomainService.news(symbol);
         return StockChartDTO.F10NewsDTO.builder()
                 .symbol(value.getSymbol())
                 .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::newsItem).toList())
@@ -329,7 +251,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10RoadshowsDTO roadshows(String symbol) {
-        StockChartBO.F10Roadshows value = stockChartQueryRepository.roadshows(symbol);
+        StockChartBO.F10Roadshows value = queryDomainService.roadshows(symbol);
         return StockChartDTO.F10RoadshowsDTO.builder()
                 .symbol(value.getSymbol())
                 .items(value.getItems() == null ? List.of() : value.getItems().stream().map(this::roadshowItem).toList())
@@ -340,7 +262,7 @@ public class StockChartQueryAppService {
     }
 
     public StockChartDTO.F10CompanyNewsDTO companyNews(String symbol, String section) {
-        StockChartBO.F10CompanyNews value = stockChartQueryRepository.companyNews(symbol, section);
+        StockChartBO.F10CompanyNews value = queryDomainService.companyNews(symbol, section);
         return StockChartDTO.F10CompanyNewsDTO.builder()
                 .symbol(value.getSymbol())
                 .section(value.getSection())
@@ -456,8 +378,7 @@ public class StockChartQueryAppService {
                 .build();
     }
 
-    private StockChartDTO.AuctionPointDTO auctionPoint(StockChartBO.AuctionPoint value) {
-        StockAuctionDomainPolicy.AuctionPointFacts facts = auctionPolicy.point(value);
+    private StockChartDTO.AuctionPointDTO auctionPoint(StockAuctionDomainPolicy.AuctionPointFacts facts) {
         return StockChartDTO.AuctionPointDTO.builder()
                 .timeLabel(facts.timeLabel())
                 .price(facts.price())
@@ -563,10 +484,7 @@ public class StockChartQueryAppService {
                 .build();
     }
 
-    private StockChartDTO.AuctionPhaseDTO auctionPhase(List<StockChartBO.AuctionPoint> rows,
-                                                       String anchorTargetTime,
-                                                       String anchorSourcePrefix) {
-        StockAuctionDomainPolicy.AuctionPhaseFacts facts = auctionPolicy.phase(rows, anchorTargetTime, anchorSourcePrefix);
+    private StockChartDTO.AuctionPhaseDTO auctionPhase(StockAuctionDomainPolicy.AuctionPhaseFacts facts) {
         return StockChartDTO.AuctionPhaseDTO.builder()
                 .price(facts.price()).matchPrice(facts.matchPrice()).volume(facts.volume()).amount(facts.amount())
                 .unmatchedBuyVolume(facts.unmatchedBuyVolume()).unmatchedSellVolume(facts.unmatchedSellVolume())
@@ -596,16 +514,6 @@ public class StockChartQueryAppService {
                 .fifteenMinute(bars.getOrDefault("15m", List.of()))
                 .thirtyMinute(bars.getOrDefault("30m", List.of()))
                 .sixtyMinute(bars.getOrDefault("60m", List.of()))
-                .build();
-    }
-
-    private StockChartDTO.MinuteBarsDTO emptyMinuteBars() {
-        return StockChartDTO.MinuteBarsDTO.builder()
-                .oneMinute(List.of())
-                .fiveMinute(List.of())
-                .fifteenMinute(List.of())
-                .thirtyMinute(List.of())
-                .sixtyMinute(List.of())
                 .build();
     }
 
