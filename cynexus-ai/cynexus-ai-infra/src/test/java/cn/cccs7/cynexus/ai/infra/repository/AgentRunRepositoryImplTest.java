@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import cn.cccs7.cynexus.ai.domain.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunBO;
@@ -48,5 +49,34 @@ class AgentRunRepositoryImplTest {
         repository.updateRun(run);
         verify(conversations).update(any(AgentConversationPO.class));
         verify(runs).update(any(AgentRunPO.class));
+    }
+
+    @Test
+    void resolvesPersistedIdentityWhenAnUpdateReceivesAnUnassignedDomainObject() {
+        AgentConversationBasicService conversations = mock(AgentConversationBasicService.class);
+        AgentRunBasicService runs = mock(AgentRunBasicService.class);
+        AgentMessageBasicService messages = mock(AgentMessageBasicService.class);
+        AgentRunEventBasicService events = mock(AgentRunEventBasicService.class);
+        AgentRunRetentionBasicService retention = mock(AgentRunRetentionBasicService.class);
+        AgentConversationPO persistedConversation = new AgentConversationPO();
+        persistedConversation.setId(303L);
+        AgentRunPO persistedRun = new AgentRunPO();
+        persistedRun.setId(404L);
+        when(conversations.find("owner", "AGC-fallback"))
+                .thenReturn(java.util.Optional.of(persistedConversation));
+        when(runs.find("owner", "AGR-fallback")).thenReturn(persistedRun);
+
+        AgentRunRepositoryImpl repository = new AgentRunRepositoryImpl(conversations, runs, messages, events, retention);
+        AgentConversationBO conversation = AgentConversationBO.builder()
+                .conversationNo("AGC-fallback").ownerKey("owner").build();
+        AgentRunBO run = AgentRunBO.builder().runNo("AGR-fallback").ownerKey("owner").status("FAILED").build();
+
+        repository.updateConversation(conversation);
+        repository.updateRun(run);
+
+        assertThat(conversation.getId()).isEqualTo(303L);
+        assertThat(run.getId()).isEqualTo(404L);
+        verify(conversations).find("owner", "AGC-fallback");
+        verify(runs).find("owner", "AGR-fallback");
     }
 }

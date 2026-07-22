@@ -398,3 +398,10 @@
 - Clarification questions and missing fields are bounded before persistence to prevent an upstream model from expanding the stored response without limit.
 - A clarification run is persisted as `NEEDS_CLARIFICATION`, with a `CLARIFICATION` trace step and `clarification_json`; it is not reported as `SUCCEEDED`.
 - The UI preserves `conversationNo`, so the next user message is sent as a real follow-up in the same persisted conversation.
+
+## Release 1.1.141 streaming audit (2026-07-22)
+
+- Synchronous real-provider execution is persisted correctly after the generated run/conversation id fix: `AGR-82b130d23a4849fa9ea386d8` is `SUCCEEDED`, model `gpt-5.4-mini`, 3 turns, 7 tool calls, answer present, and has 10 ordered public events.
+- JSON and Markdown exports, conversation transcript, JSON event polling, and `Last-Event-ID` SSE replay were verified through Gateway without re-executing the provider.
+- A real initial SSE request failed inside the provider stream path. The public terminal event was emitted, but the run row remained `RUNNING`, proving that the stream failure path was not covered by the previous persistence evidence.
+- The provider stream adapter now logs safe diagnostic context for `IOException`, `UncheckedIOException`, and runtime parsing failures. Repository updates resolve the persisted run/conversation row by owner plus business number when a domain id is absent before calling `updateById`.

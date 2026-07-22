@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
@@ -145,10 +146,17 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             return responsesApi ? readResponsesStream(response.body(), request, textDeltaConsumer)
                     : readChatStream(response.body(), request, textDeltaConsumer);
         } catch (IOException exception) {
+            logProviderFailure("agent stream", model, exception);
+            throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
+        } catch (UncheckedIOException exception) {
+            logProviderFailure("agent stream", model, exception);
             throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
+        } catch (RuntimeException exception) {
+            logProviderFailure("agent stream", model, exception);
+            throw exception;
         }
     }
 

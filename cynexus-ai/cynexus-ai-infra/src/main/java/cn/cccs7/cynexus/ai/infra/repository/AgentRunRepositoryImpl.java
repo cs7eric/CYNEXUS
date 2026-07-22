@@ -75,12 +75,29 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
 
     @Override
     public void updateRun(AgentRunBO run) {
-        runService.update(AgentRunPOConverter.INSTANCE.toSource(run));
+        var source = AgentRunPOConverter.INSTANCE.toSource(run);
+        if (source.getId() == null) {
+            var persisted = runService.find(run.getOwnerKey(), run.getRunNo());
+            if (persisted == null || persisted.getId() == null) {
+                throw new IllegalStateException("Cannot update Agent run without a persisted id: " + run.getRunNo());
+            }
+            source.setId(persisted.getId());
+            run.setId(persisted.getId());
+        }
+        runService.update(source);
     }
 
     @Override
     public void updateConversation(AgentConversationBO conversation) {
-        conversationService.update(AgentConversationPOConverter.INSTANCE.toSource(conversation));
+        var source = AgentConversationPOConverter.INSTANCE.toSource(conversation);
+        if (source.getId() == null) {
+            var persisted = conversationService.find(conversation.getOwnerKey(), conversation.getConversationNo())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Cannot update Agent conversation without a persisted id: " + conversation.getConversationNo()));
+            source.setId(persisted.getId());
+            conversation.setId(persisted.getId());
+        }
+        conversationService.update(source);
     }
 
     @Override

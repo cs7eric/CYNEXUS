@@ -1711,4 +1711,13 @@
 - Release database inspection found a real persistence defect: generated run/conversation IDs were assigned only to PO objects, so later `updateById` calls could silently update zero rows while the HTTP response still looked successful.
 - Propagated generated IDs and timestamps back to `AgentRunBO` and `AgentConversationBO` after insert.
 - Added an infra repository regression test proving subsequent run/conversation updates carry the generated IDs; AI infrastructure tests passed 13/13.
-- Version synchronized to `1.1.141-SNAPSHOT`; Release re-verification is pending.
+- Version synchronized to `1.1.142-SNAPSHOT`; Release re-verification is pending.
+
+## 2026-07-22 - Release streaming and terminal persistence audit
+
+- Built and started Release `1.1.141-260722-RELEASE` through the documented Docker entrypoint; all five service/UI health checks returned HTTP 200.
+- Real synchronous Agent request reached `xtyooo / gpt-5.4-mini`, selected seven market tools, persisted `SUCCEEDED`, model provenance, counters, answer, evidence, warnings, and ordered events through `RUN_COMPLETED`.
+- Verified JSON/Markdown export, conversation list/messages, JSON event polling, and `Last-Event-ID: 5` SSE replay returned only sequences 6-10 without re-executing the run.
+- Initial real SSE request exposed a production defect: provider streaming failure emitted a terminal SSE event but the database run remained `RUNNING`; the adapter also discarded the underlying stream exception from logs.
+- Added repository identity fallback for updates with an unassigned domain id, safe stream exception logging, and a regression test; focused infra tests passed 2/2.
+- Maven/UI versions are synchronized to `1.1.142-SNAPSHOT`; Release `1.1.142-260722-RELEASE` rebuild and streaming retry verification remain pending.

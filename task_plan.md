@@ -2334,9 +2334,21 @@ Status: in_progress
 - Verify final Agent status, model, counters, answer, and conversation metadata are actually updated in PostgreSQL, not only returned from in-memory state.
 - Add repository regression coverage and re-run the versioned Release workflow.
 
+Current verification: the `1.1.141` synchronous Release run proved the generated-id fix for a successful multi-tool execution, but the first real SSE failure path still left a run in `RUNNING`. Repository update fallback by owner plus business number and stream failure diagnostics were added in `1.1.142`; the new Release runtime must prove terminal persistence for both success and failure.
+
+### 105.19 Initial SSE failure and terminal-state hardening
+
+Status: in_progress
+
+- Ensure a Provider stream failure is captured with safe diagnostics and classified without leaking credentials or response bodies.
+- Ensure every stream terminal path persists `FAILED` or `CANCELLED`, releases the distributed lease, and remains queryable after the SSE client disconnects.
+- Add regression coverage for stream failure persistence and real Release verification using `xtyooo / gpt-5.4-mini`.
+- Synchronize Maven/UI versions and commit the functional change independently.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
 | --- | --- | --- |
 | Event converter package was not imported | First event-log compile | Added the converter import and explicit MapStruct field mappings. |
 | Stream DTO lacked `sequenceNo` | First controller compile | Added the sequence field to the API DTO and frontend event contract. |
+| Maven `-D` argument was parsed as a lifecycle phase in PowerShell | First focused persistence test command | Quoted the complete `-D...` arguments before rerunning; the focused infra suite passed 2/2. |
