@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -35,6 +36,7 @@ import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -155,6 +157,52 @@ class AutonomousAgentWorkflowTest {
         verify(repository).saveStep(stepCaptor.capture());
         assertEquals("CLARIFICATION", stepCaptor.getValue().getKind());
         assertEquals("NEEDS_CLARIFICATION", stepCaptor.getValue().getStatus());
+    }
+
+    @Test
+    void transientProviderRetryPersistsRetryingStateAndEventBeforeRecovery() {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        List<String> persistedStatuses = new ArrayList<>();
+        when(catalog.enabledTools()).thenReturn(List.of());
+        when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
+        when(repository.findMessages(any(), any())).thenReturn(List.of());
+        when(lease.tryAcquire(any(), any(), anyInt(), anyInt())).thenReturn(true);
+        when(rateLimiter.allow(any(), anyInt(), anyInt())).thenReturn(true);
+        when(lease.isCancellationRequested(any())).thenReturn(false);
+        when(circuitBreaker.allow(any())).thenReturn(true);
+        doAnswer(invocation -> {
+            persistedStatuses.add(invocation.getArgument(0, AgentRunBO.class).getStatus());
+            return null;
+        }).when(repository).updateRun(any(AgentRunBO.class));
+        when(bindings.listAll()).thenReturn(List.of(AiUsageBindingBO.builder().capability("autonomous_agent")
+                .providerId(1L).modelOverride("gpt-5.4-mini").enabled(true).build()));
+        when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
+                .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
+        when(completion.completeAgent(any(), any(), eq("autonomous_agent")))
+                .thenThrow(new IllegalStateException("HTTP 503 from AI provider"))
+                .thenReturn(AgentModelTurnResponse.builder().type("FINAL").content("重试后完成").build());
+
+        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        var result = service.execute(AgentRunRequest.builder().userInput("验证 Provider 重试").build(),
+                AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
+
+        assertEquals("SUCCEEDED", result.getStatus());
+        verify(repository, atLeast(3)).updateRun(any(AgentRunBO.class));
+        assertTrue(persistedStatuses.contains("RETRYING"));
+        assertTrue(persistedStatuses.contains("RUNNING"));
+        ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);
+        verify(repository, atLeast(3)).saveEvent(eq("tenant-1::user-1"), eventCaptor.capture());
+        assertTrue(eventCaptor.getAllValues().stream().anyMatch(event -> "RETRYING".equals(event.getType())
+                && "RETRYING".equals(event.getStatus())));
     }
 
     @Test

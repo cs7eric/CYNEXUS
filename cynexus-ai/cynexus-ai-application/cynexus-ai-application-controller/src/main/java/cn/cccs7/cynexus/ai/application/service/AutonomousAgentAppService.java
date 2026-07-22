@@ -205,8 +205,14 @@ public class AutonomousAgentAppService {
                 AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest, runNo,
                         streamTokens ? delta -> publisher.accept(AgentRunEventBO.builder().type("TOKEN_DELTA")
                                 .runNo(runNo).status("STREAMING").delta(delta).build()) : null,
-                        attempt -> publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo)
-                                .status("RETRYING").summary("Retrying the AI provider request (attempt " + attempt + ").").build()));
+                        attempt -> {
+                            run.setStatus("RETRYING");
+                            agentRunRepository.updateRun(run);
+                            publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo)
+                                    .status("RETRYING").summary("Retrying the AI provider request (attempt " + attempt + ").").build());
+                        });
+                run.setStatus("RUNNING");
+                agentRunRepository.updateRun(run);
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
                 if (!response.hasToolCalls()) {
                     List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
@@ -266,12 +272,16 @@ public class AutonomousAgentAppService {
                     while (attempts < MAX_RETRY_ATTEMPTS && isTransientToolFailure(result)) {
                         circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                         attempts++;
+                        run.setStatus("RETRYING");
+                        agentRunRepository.updateRun(run);
                         publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo)
                                 .status("RETRYING").toolCode(call.getToolCode())
                                 .summary("Retrying the data tool (attempt " + attempts + ").").build());
                         pauseBeforeRetry(attempts);
                         result = bounded(executeToolWithCancellation(call, context, runNo));
                     }
+                    run.setStatus("RUNNING");
+                    agentRunRepository.updateRun(run);
                     if (isTransientToolFailure(result)) circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                     else if ("SUCCEEDED".equals(result.getStatus())) circuitBreaker.recordSuccess(toolCircuitKey);
                     AgentRunStepBO step = saveToolStep(runNo, steps.size() + 1, call, result, attempts,

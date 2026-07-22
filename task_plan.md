@@ -2306,6 +2306,8 @@ Status: complete
 - Provider and tool execution now use cooperative cancellation polling with interrupt propagation; terminal status is checked after a late future completion.
 - Provider/tool retry events are persisted in the durable Agent event log.
 - Focused Agent workflow tests passed: 19 tests, 0 failures, including in-flight Provider cancellation.
+- Added a regression test proving transient Provider recovery persists `RETRYING`, resumes `RUNNING`, and emits the retry event; focused Agent tests passed 23/23.
+- Maven/UI versions are synchronized at `1.1.137-SNAPSHOT`.
 
 ### 105.16 Transcript/tool-output retention and archive policy
 

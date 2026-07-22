@@ -1680,3 +1680,9 @@
 
 - Added MockMvc tests for valid signed identity, missing signature rejection, tenant-signature replay rejection, and ignored client owner parameters.
 - The HTTP contract suite and Agent workflow suite passed 22/22 tests.
+
+## 2026-07-22 - Agent truthful retry state
+
+- Provider and tool retry transitions now persist `RETRYING` and restore `RUNNING` before the workflow continues.
+- Added a regression test for transient Provider recovery, persisted retry event status, and state transitions.
+- Focused Agent tests passed 23/23; Maven/UI versions are synchronized to `1.1.137-SNAPSHOT`.
