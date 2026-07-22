@@ -129,6 +129,16 @@ Status: complete
 
 Verification: domain search/Agent regression suites passed; Release `1.1.157-260722-RELEASE` built 41/41 modules and all health checks passed; a real `xtyoo / gpt-5.4-mini` run selected `knowledge.search` and `knowledge.document`, persisted `SUCCEEDED` with citations and source metadata; a separate real missing-symbol request persisted `NEEDS_CLARIFICATION` with a `CLARIFICATION` step. The capability registry reported 14 enabled/available rows, 0 stale rows, and 0 governance-blocked rows.
 
+### 106.11 Synthetic Agent fallback removal
+
+Status: in_progress
+
+- Remove generic tool-enabled execution that returned a fabricated structured success without invoking a Provider or capability.
+- Restrict the mock model adapter to development/test profiles and fail explicitly when production routing has no provider code.
+- Add focused regression coverage and verify the behavior in a new versioned Release image.
+
+Current implementation: synthetic tool-enabled success is rejected, the mock adapter is limited to `dev/test`, and focused Agent tests pass. Release verification remains open.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |

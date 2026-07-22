@@ -27,8 +27,7 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
 
     @Override
     public AiCompletionResultBO complete(AiModelBO model, String prompt, String capability) {
-        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()
-                ? "mock" : model.getProviderCode();
+        String providerCode = providerCode(model);
         AiModelAdapter adapter = factory.resolve(providerCode);
         if (adapter == null) {
             throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
@@ -46,7 +45,7 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
 
     @Override
     public AiCompletionResultBO completeVision(AiModelBO model, String prompt, List<AiImageInputBO> images, String capability) {
-        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank() ? "mock" : model.getProviderCode();
+        String providerCode = providerCode(model);
         AiModelAdapter adapter = factory.resolve(providerCode);
         if (adapter == null) throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
         Instant startedAt = Instant.now();
@@ -62,8 +61,7 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
 
     @Override
     public AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request, String capability) {
-        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()
-                ? "mock" : model.getProviderCode();
+        String providerCode = providerCode(model);
         AiModelAdapter adapter = factory.resolve(providerCode);
         if (adapter == null) {
             throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
@@ -83,10 +81,16 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
     @Override
     public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request, String capability,
                                               Consumer<String> textDeltaConsumer) {
-        String providerCode = model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()
-                ? "mock" : model.getProviderCode();
+        String providerCode = providerCode(model);
         AiModelAdapter adapter = factory.resolve(providerCode);
         if (adapter == null) throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
         return adapter.streamAgent(model, request, textDeltaConsumer);
+    }
+
+    private String providerCode(AiModelBO model) {
+        if (model == null || model.getProviderCode() == null || model.getProviderCode().isBlank()) {
+            throw new IllegalStateException("AI provider routing is missing; refusing synthetic fallback.");
+        }
+        return model.getProviderCode().trim();
     }
 }

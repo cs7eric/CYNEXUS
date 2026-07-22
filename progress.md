@@ -1844,3 +1844,10 @@
 - A real direct AI request signed with the Release trusted identity reached `xtyoo / gpt-5.4-mini`; the model autonomously selected `knowledge.search` and `knowledge.document`, returned the published `A Stock 数据落库表设计` document, and persisted provider/model provenance, tool steps, citations, source URLs, data dates, and final answer.
 - A real missing-stock-symbol request from the same provider persisted `NEEDS_CLARIFICATION`, `clarification_json`, and a `CLARIFICATION` step rather than `SUCCEEDED`.
 - PostgreSQL verification: both runs have terminal truth in `cynexus_appl_ai.ai_agent_run`; capability registry has 14 enabled/available rows, 0 stale rows, and 0 governance-blocked rows.
+
+## 2026-07-22 - Synthetic Agent fallback removal
+
+- Audit found `AgentExecutor.execute` returned a fabricated mock structured response whenever a generic execution received tool codes; it never called a Provider or tool and could report a successful-looking result.
+- Replaced that branch with an explicit failure directing callers to the autonomous Agent workflow, and added a regression test proving the Provider gateway is not touched.
+- Limited `MockAiModelAdapter` to `dev/test` profiles and removed implicit `mock` provider fallback from `AiCompletionGatewayImpl`; production routing now fails truthfully when provider metadata is missing.
+- Focused Agent tests passed `9/9`; versions are synchronized to `1.1.158-SNAPSHOT`; Release verification remains open.

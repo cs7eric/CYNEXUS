@@ -23,9 +23,7 @@ public class AgentExecutor {
         if (toolCodes == null || toolCodes.isEmpty()) {
             return complete(model, prompt);
         }
-        return """
-                {"scenario":"%s","model":"%s","toolCodes":"%s","content":"mock structured AI response"}
-                """.formatted(scenario.getScenarioCode(), model.getModelCode(), toolCodes);
+        throw new IllegalStateException("Tool-enabled generic execution is unsupported; use the autonomous Agent workflow.");
     }
 
     public String complete(AiModelBO model, String prompt) {

@@ -435,3 +435,9 @@
 - Real persisted run `AGR-a0d046f1e1934b028e02c96b` is `SUCCEEDED`, `gpt-5.4-mini`, two successful tool steps, source URLs, data dates, citations, and reported token usage.
 - Real persisted run `AGR-410ce058a4d448a594bbeb92` is `NEEDS_CLARIFICATION` with a `CLARIFICATION` step and non-null clarification JSON, proving structured state is not masked by a normal answer.
 - The release capability registry currently has 14 rows, all enabled and available, with no stale or governance-blocked rows.
+
+## 2026-07-22 Synthetic fallback audit
+
+- The legacy generic scenario path contained a real fake-success branch: `AgentExecutor` serialized a mock structured response whenever a tool list was non-empty. It is now an explicit unsupported-operation failure, so a run cannot claim Provider/tool execution that did not occur.
+- `MockAiModelAdapter` is now available only under `dev`/`test`; `AiCompletionGatewayImpl` no longer silently changes missing provider routing to `mock`.
+- This change must be verified in a new Release image because the existing `1.1.157` image predates the fix.
