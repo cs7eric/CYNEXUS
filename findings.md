@@ -420,6 +420,13 @@
 - This was a real runtime wiring defect, not a Provider failure. Adding `@Autowired` to the configuration constructor preserves direct test construction and makes the production bean deterministic.
 - Focused authorization and identity tests pass 7/7. The next versioned image must prove AI health before any Provider/TLS result is counted.
 
+## Release 1.1.165 real-provider gate (2026-07-22)
+
+- Release `1.1.165-260722-RELEASE` is healthy on Gateway, AI, Market, Core, Knowledge Base, and UI ports.
+- Run `AGR-b36c65505040435e98aa6a69` is real-provider evidence: model `gpt-5.4-mini`, status `SUCCEEDED`, one dynamically selected `market.overview` tool, persisted tool result and citation, market date `2026-07-22`, and usage source `REPORTED`.
+- The same idempotency key returned the existing run with unchanged token/tool counts, proving the request did not re-execute the provider.
+- This closes the current Provider transport/runtime slice only; SSE reconnect, cancellation, background recovery, confirmed writes, newly registered capability selection, security corpus, and browser workflow gates remain open.
+
 ## Agent product workflow audit (2026-07-22)
 
 - The Agent backend currently treats every model response without tool calls as a final answer; it has no structured `NEEDS_CLARIFICATION` result or persisted clarification payload.

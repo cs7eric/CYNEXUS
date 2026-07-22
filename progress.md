@@ -1918,3 +1918,9 @@
 - Release startup exposed a real application-context defect: `AgentIdentityResolver` had a Spring configuration constructor plus a test convenience constructor without an explicit `@Autowired`, so the AI container repeatedly restarted with `No default constructor found`.
 - Added explicit constructor selection and verified the controller authorization/identity focused suite passes 7/7.
 - The Provider adapter now logs the proxied HTTP/1.1 transport in the versioned image; a new `1.1.165-260722-RELEASE` build is required for the runtime TLS and Agent workflow gate.
+
+## 2026-07-22 - Release 1.1.165 real Agent workflow
+
+- Built and started Release `1.1.165-260722-RELEASE` through the documented Docker entrypoint; Agent migrations were idempotent, Maven built all 41 modules, six versioned images were built, and all six application/UI health checks returned HTTP 200.
+- A signed direct AI request reached real `xtyoo / gpt-5.4-mini`, completed `SUCCEEDED`, autonomously selected `market.overview`, and persisted `planJson`, tool input/output, `dataDate=2026-07-22`, source URL, citation metadata, `REPORTED` usage, and final answer for run `AGR-b36c65505040435e98aa6a69`.
+- Repeating the same idempotency key returned the same terminal run without a second execution. Release logs show the configured proxied HTTP/1.1 transport, no TLS handshake error, and no MockAiModelAdapter/synthetic/fabricated execution markers.

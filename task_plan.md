@@ -2487,6 +2487,8 @@ Current implementation: handlers publish typed capability descriptors; AI persis
 
 Release 1.1.164 exposed an application-context startup defect in `AgentIdentityResolver`; the explicit Spring constructor selection is fixed and must be included in the next Release image before runtime gates resume.
 
+Release `1.1.165-260722-RELEASE` now passes the health gate and real-provider/idempotency evidence for `market.overview`; the remaining Phase 107 acceptance matrix is still open.
+
 ## Phase 107 - Enterprise Agent completion contract
 
 Status: in_progress
