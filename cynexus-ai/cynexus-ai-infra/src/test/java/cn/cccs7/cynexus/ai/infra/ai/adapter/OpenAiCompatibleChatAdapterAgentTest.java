@@ -12,6 +12,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,6 +22,31 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.env.Environment;
 
 class OpenAiCompatibleChatAdapterAgentTest {
+
+    @Test
+    void configuresHttpProxyWithHttp11ForProviderTlsCompatibility() {
+        Environment environment = mock(Environment.class);
+        when(environment.getProperty("HTTPS_PROXY")).thenReturn("http://proxy.example:7890");
+
+        var client = OpenAiCompatibleChatAdapter.buildHttpClient(environment);
+
+        assertThat(client.version()).isEqualTo(java.net.http.HttpClient.Version.HTTP_1_1);
+        assertThat(client.proxy()).isPresent().get().satisfies(proxy -> {
+            assertThat(proxy.select(URI.create("https://am.xtyooo.top/v1/chat/completions")))
+                    .containsExactly(new java.net.Proxy(java.net.Proxy.Type.HTTP,
+                            new InetSocketAddress("proxy.example", 7890)));
+        });
+    }
+
+    @Test
+    void ignoresMalformedProxyWithoutChangingTlsDefaults() {
+        Environment environment = mock(Environment.class);
+        when(environment.getProperty("HTTPS_PROXY")).thenReturn("not a uri");
+
+        var client = OpenAiCompatibleChatAdapter.buildHttpClient(environment);
+
+        assertThat(client.proxy()).isEmpty();
+    }
 
     private HttpServer server;
 

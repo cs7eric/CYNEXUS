@@ -607,7 +607,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         return Duration.ofSeconds(Math.max(10, Math.min(seconds, 600)));
     }
 
-    private HttpClient buildHttpClient(Environment environment) {
+    static HttpClient buildHttpClient(Environment environment) {
         HttpClient.Builder builder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10));
         String proxyValue = environment.getProperty("HTTPS_PROXY");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = environment.getProperty("HTTP_PROXY");
@@ -619,9 +619,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         try {
             URI proxy = URI.create(proxyValue.trim());
             if (proxy.getHost() == null || proxy.getPort() <= 0) return builder.build();
-            LOGGER.info("AI provider outbound proxy configured at {}:{}", proxy.getHost(), proxy.getPort());
+            LOGGER.info("AI provider outbound proxy configured at {}:{} using HTTP/1.1", proxy.getHost(), proxy.getPort());
             return builder.proxy(ProxySelector.of(new InetSocketAddress(proxy.getHost(), proxy.getPort())))
-                    .version(HttpClient.Version.HTTP_2).build();
+                    // Keep the proxy tunnel on HTTP/1.1. The configured proxy path is
+                    // validated by curl with HTTP/1.1, while Java HTTP/2 proxy negotiation
+                    // can fail before the provider's TLS handshake completes.
+                    .version(HttpClient.Version.HTTP_1_1).build();
         } catch (IllegalArgumentException exception) {
             LOGGER.warn("Ignoring invalid AI provider proxy configuration");
             return builder.build();
