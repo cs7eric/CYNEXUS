@@ -1969,3 +1969,11 @@
 - Real run `AGR-release173-simple` reached `gpt-5.4-mini`, autonomously selected `market.overview` and `market.sector_rank`, persisted `SUCCEEDED`, citations, data dates, usage source `REPORTED`, owner-qualified steps, and ordered events. Repeating the idempotency key returned the same run; event API replay resumed after sequence 2, and SSE `Last-Event-ID: 2` returned event ids 3-6.
 - A separate real streaming run returned `CANCEL_REQUESTED` and persisted `CANCELLED`. PostgreSQL checks showed zero owner-qualified run-step or message orphans and 14 enabled/available capability rows.
 - A deliberately broad real request was truthfully rejected by the four-tool-per-turn safety limit (`FAILED`, `failureCategory=TOOL`) rather than producing fabricated output; this remains an explicit product behavior to address if multi-capability requests need progressive scheduling.
+
+## 2026-07-22 - Bounded multi-capability scheduling and Release 1.1.174
+
+- Replaced the four-tool-per-turn rejection with a bounded model-directed batch: each response may execute up to the existing total twelve-tool run budget, while duplicate call ids, schema validation, cancellation, output limits, redaction, and ordered persistence remain enforced.
+- Synchronized Maven/UI versions to `1.1.174-SNAPSHOT`; focused Agent workflow tests passed 10/10.
+- Built Release `1.1.174-260722-RELEASE` through the Docker Release entrypoint; all 41 Maven modules, six versioned images, and all six health checks passed.
+- Real run `AGR-release174-broad` autonomously selected seven capabilities across market, finance, and knowledge-base modules, persisted seven ordered tool steps and citations, used reported provider tokens, returned `SUCCEEDED`, and explicitly reported missing fundamental-data coverage without fabrication.
+- Idempotency returned the existing broad run; event replay after cursor 4 returned sequence ids 5-10; a separate real streaming run returned `CANCEL_REQUESTED` and persisted `CANCELLED`. PostgreSQL owner-qualified orphan checks returned zero rows and the capability registry returned 14 enabled/available rows.
