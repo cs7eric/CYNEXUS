@@ -1952,3 +1952,10 @@
 - Added `db/agent-persistence-contract-check.sql` for read-only schema, owner-boundary, foreign-key, and orphan-record checks.
 - Added focused schema, malformed-schema/fuzz argument, and bounded observability tests; the focused infra suite passed 10/10.
 - Applied the migration twice against the current Release PostgreSQL database with `ON_ERROR_STOP=1`; both applications succeeded and the contract check returned `Agent persistence contract checks passed`.
+
+## 2026-07-22 - Agent UI desktop/mobile browser acceptance
+
+- In the independent `codex/agent-ui-acceptance` worktree, fixed the Agent transcript state machine so the empty state is removed as soon as a run starts, the user turn is visible during thinking, streamed answer deltas render incrementally, and failed/retry states remain actionable.
+- Fixed conversation-history request races, bounded the multiline composer to 80px with native scrolling and hidden scrollbar, and anchored the MessageScroller control to the lower-right edge.
+- Release UI `1.1.168-260722-RELEASE` was rebuilt from the production Vite artifact and exercised with Playwright at 1440x900 and 390x844: empty state, no horizontal overflow, long-input metrics (`clientHeight=80`, `scrollHeight=2896`, `scrollbarWidth=0`), history reopen, citation/source navigation, Markdown export, and retry quota rejection were verified without browser console errors on the successful history flow.
+- `pnpm exec tsc -b`, scoped Agent UI ESLint, `pnpm build`, `git diff --check`, and the Nginx UI image build passed. A live new stream was blocked by the existing Release backend response (`500`, `input_tokens` schema lookup) and later truthful owner quota rejection; no backend/schema changes were made in this UI worktree.
