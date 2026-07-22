@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.application.service;
 
 import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
 import cn.cccs7.cynexus.ai.application.service.agent.task.AgentTaskAppService;
+import cn.cccs7.cynexus.ai.application.service.agent.task.AgentTaskNotificationPort;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -47,5 +48,11 @@ class AgentTaskAppServiceTest {
         assertThat(cancelled).isTrue();
         org.mockito.Mockito.verify(agentService).cancel(identity, "AGR-1");
         org.mockito.Mockito.verify(repository).cancel(identity.storageOwnerKey(), "ATK-1");
+    }
+
+    @Test
+    void keepsNotificationDeliveryAtAnApplicationPort() {
+        assertThat(AgentTaskNotificationPort.class.isInterface()).isTrue();
+        assertThat(AgentTaskNotificationPort.class.getDeclaredMethods()).hasSize(3);
     }
 }

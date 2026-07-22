@@ -27,12 +27,23 @@ class AgentPersistenceSchemaContractTest {
                 "20260722_add_ai_agent_feedback.sql", "20260722_add_ai_agent_write_commands.sql")) {
             assertThat(readMigration(migration)).contains("owner_key varchar(128) NOT NULL");
         }
+        assertThat(readMigration("20260722_harden_ai_agent_owner_constraints.sql"))
+                .contains("cynexus_appl_ai.ai_agent_");
         assertThat(readMigration("20260722_add_ai_agent_event_log.sql"))
                 .contains("owner_key varchar(128) NOT NULL", "(owner_key, run_no, sequence_no)");
         assertThat(readMigration("20260722_create_ai_agent_messages.sql"))
                 .contains("owner_key varchar(128) NOT NULL", "uk_ai_agent_message_owner_sequence");
         assertThat(readMigration("20260722_create_ai_agent_tables.sql"))
                 .contains("owner_key varchar(128) NOT NULL", "uk_ai_agent_run_step_owner_order");
+    }
+
+    @Test
+    void ownerConstraintRepairMigrationIsRegisteredForRelease() throws IOException {
+        assertThat(readMigration("20260722_harden_ai_agent_owner_constraints.sql"))
+                .contains("fk_ai_agent_run_step_owner_run", "fk_ai_agent_message_owner_conversation",
+                        "uk_ai_agent_run_owner_idempotency", "ck_ai_agent_task_lease_shape");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260722_harden_ai_agent_owner_constraints.sql");
     }
 
     @Test
