@@ -2365,11 +2365,12 @@ The following items are explicitly added to the long-running backlog. Each item 
 
 ### 106.1 Grounded citations and source navigation
 
-Status: pending
+Status: in_progress
 
 - Return stable citation ids, source title, URL, publisher, publication date, retrieval date, and evidence excerpt metadata from each capability.
 - Render citations in the Message/MessageScroller transcript and make source links safe, tenant-independent, and auditable.
 - Add source freshness and conflict indicators; never imply that a source was consulted when only a model claim exists.
+- Implemented the first persistence/API/UI slice: stable tool-backed citation ids, redacted citation JSON on tool steps, evidence embedding, safe relative/trusted-origin URL policy, and Agent source navigation.
 
 ### 106.2 Finance and knowledge-base capability expansion
 

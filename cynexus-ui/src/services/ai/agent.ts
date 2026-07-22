@@ -10,10 +10,26 @@ export interface AgentRunStep {
   summary?: string | null
   source?: string | null
   sourceUrl?: string | null
+  citationJson?: string | null
   dataDate?: string | null
   inputJson?: string | null
   outputJson?: string | null
   errorMessage?: string | null
+}
+
+export interface AgentCitation {
+  citationId?: string | null
+  title?: string | null
+  url?: string | null
+  publisher?: string | null
+  publicationDate?: string | null
+  retrievedAt?: string | null
+  dataDate?: string | null
+  excerpt?: string | null
+  freshness?: string | null
+  sourceType?: string | null
+  availability?: string | null
+  conflict?: boolean | null
 }
 
 export interface AgentRun {

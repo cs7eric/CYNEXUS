@@ -26,6 +26,8 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentSensitiveDataPolicy;
+import cn.cccs7.cynexus.ai.domain.agent.AgentCitation;
+import cn.cccs7.cynexus.ai.domain.agent.AgentCitationFactory;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
@@ -656,10 +658,16 @@ public class AutonomousAgentAppService {
 
     private AgentRunStepBO saveToolStep(String runNo, int stepNo, AgentToolCall call, AgentToolResult result,
                                         int attemptCount, String sourceUrl) {
+        String resolvedSourceUrl = result.getSourceUrl() == null ? sourceUrl : result.getSourceUrl();
+        List<AgentCitation> citations = result.getCitations() == null || result.getCitations().isEmpty()
+                ? AgentCitationFactory.fromTool(call.getToolCode(), result.getSource(), resolvedSourceUrl,
+                result.getDataDate(), result.getSummary(), toolFreshness(call.getToolCode()))
+                : result.getCitations();
         AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("TOOL")
                 .attemptCount(attemptCount)
                 .toolCode(call.getToolCode()).inputJson(redactJson(json(call.getArguments()))).outputJson(redactJson(result.getOutputJson()))
-                .status(result.getStatus()).summary(redactText(result.getSummary())).source(result.getSource()).sourceUrl(sourceUrl)
+                .status(result.getStatus()).summary(redactText(result.getSummary())).source(result.getSource()).sourceUrl(resolvedSourceUrl)
+                .citationJson(redactJson(json(citations)))
                 .dataDate(result.getDataDate()).errorMessage(result.getWarnings().isEmpty() ? null : redactText(String.join(",", result.getWarnings())))
                 .failureCategory("SUCCEEDED".equals(result.getStatus()) ? null : classifyToolFailure(result))
                 .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
@@ -737,7 +745,21 @@ public class AutonomousAgentAppService {
         return json(steps.stream().filter(step -> "TOOL".equals(step.getKind()) && "SUCCEEDED".equals(step.getStatus()))
                 .map(step -> Map.of("toolCode", valueOr(step.getToolCode(), ""), "source", valueOr(step.getSource(), ""),
                         "sourceUrl", valueOr(step.getSourceUrl(), ""), "dataDate", valueOr(step.getDataDate(), ""),
-                        "summary", valueOr(step.getSummary(), ""))).toList());
+                        "summary", valueOr(step.getSummary(), ""), "citations", jsonValue(step.getCitationJson(), List.of()))).toList());
+    }
+
+    private Object jsonValue(String value, Object fallback) {
+        if (value == null || value.isBlank()) return fallback;
+        try {
+            return objectMapper.readTree(value);
+        } catch (JsonProcessingException ignored) {
+            return fallback;
+        }
+    }
+
+    private String toolFreshness(String toolCode) {
+        return toolCatalog.enabledTools().stream().filter(definition -> definition.getCode().equals(toolCode))
+                .map(AgentToolDefinition::getFreshness).findFirst().orElse(null);
     }
 
     private String warningsJson(List<AgentRunStepBO> steps) {
@@ -756,7 +778,7 @@ public class AutonomousAgentAppService {
                 .startedAt(run.getStartedAt()).finishedAt(run.getFinishedAt())
                 .steps(steps == null ? List.of() : steps.stream().map(step -> AgentRunStepDTO.builder()
                         .stepNo(step.getStepNo()).attemptCount(step.getAttemptCount()).kind(step.getKind()).toolCode(step.getToolCode()).status(step.getStatus())
-                        .summary(step.getSummary()).source(step.getSource()).sourceUrl(step.getSourceUrl()).dataDate(step.getDataDate())
+                        .summary(step.getSummary()).source(step.getSource()).sourceUrl(step.getSourceUrl()).citationJson(step.getCitationJson()).dataDate(step.getDataDate())
                         .failureCategory(step.getFailureCategory())
                         .inputJson(step.getInputJson()).outputJson(step.getOutputJson()).errorMessage(step.getErrorMessage())
                         .startedAt(step.getStartedAt()).finishedAt(step.getFinishedAt()).build()).toList()).build();

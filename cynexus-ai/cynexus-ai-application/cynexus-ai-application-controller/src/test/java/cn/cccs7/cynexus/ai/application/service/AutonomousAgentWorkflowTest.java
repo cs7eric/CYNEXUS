@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -29,6 +30,7 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor;
 import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.agent.AgentSourceUrlPolicy;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
@@ -40,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -107,6 +110,9 @@ class AutonomousAgentWorkflowTest {
         assertTrue(!stepCaptor.getAllValues().get(0).getOutputJson().contains("secret-value"));
         assertTrue(!stepCaptor.getAllValues().get(0).getOutputJson().contains("person@example.com"));
         assertEquals("/stock-overview", stepCaptor.getAllValues().get(0).getSourceUrl());
+        assertTrue(stepCaptor.getAllValues().get(0).getCitationJson().contains("cit-"));
+        assertTrue(stepCaptor.getAllValues().get(0).getCitationJson().contains("AVAILABLE"));
+        assertTrue(result.getEvidenceJson().contains("citations"));
         verify(repository).findRunByIdempotencyKey("tenant-1::user-1", "idem-1");
         verify(lease).release(eq("tenant-1::user-1"), any());
         ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);
@@ -340,5 +346,14 @@ class AutonomousAgentWorkflowTest {
         assertEquals("CANCEL_REQUESTED", cancellation.getStatus());
         releaseProvider.countDown();
         assertEquals("CANCELLED", execution.get(5, TimeUnit.SECONDS).getStatus());
+    }
+
+    @Test
+    void sourceLinksRejectUnsafeOriginsAndAllowOnlyConfiguredHttpsOrigins() {
+        assertEquals("/stock-overview", AgentSourceUrlPolicy.sanitize("/stock-overview", Set.of()));
+        assertNull(AgentSourceUrlPolicy.sanitize("javascript:alert(1)", Set.of()));
+        assertNull(AgentSourceUrlPolicy.sanitize("https://untrusted.example/report", Set.of("https://trusted.example")));
+        assertEquals("https://trusted.example/report", AgentSourceUrlPolicy.sanitize(
+                "https://trusted.example/report", Set.of("https://trusted.example")));
     }
 }

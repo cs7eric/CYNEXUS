@@ -1,5 +1,13 @@
 # Cynexus Setup Progress
 
+## 2026-07-22 - Grounded Agent citations and safe source navigation
+
+- Added domain-owned `AgentCitation`, deterministic citation ids, freshness, retrieval time, publication/data dates, excerpts, availability, and conflict metadata.
+- Added `citation_json` to persisted Agent tool steps and included only tool-backed citations in run evidence; model-only claims do not create citations.
+- Added source URL policy that permits internal relative routes and explicitly configured HTTPS origins while rejecting unsafe schemes and untrusted origins.
+- Added Agent UI citation cards and source navigation using the persisted safe URL contract.
+- Focused Agent workflow tests passed: 7 tests, 0 failures. Maven/UI versions are synchronized at `1.1.146-SNAPSHOT`; Release migration/provider verification remains pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

@@ -16,6 +16,7 @@ public class AgentToolResult {
     String source;
     String sourceUrl;
     List<String> warnings;
+    List<AgentCitation> citations;
 
     public static AgentToolResult success(String toolCode, String outputJson, String summary,
                                           String dataDate, String source, List<String> warnings) {
@@ -28,6 +29,7 @@ public class AgentToolResult {
                 .source(source)
                 .sourceUrl(null)
                 .warnings(warnings == null ? List.of() : List.copyOf(warnings))
+                .citations(List.of())
                 .build();
     }
 
@@ -40,6 +42,7 @@ public class AgentToolResult {
                 .source(source)
                 .sourceUrl(null)
                 .warnings(warning == null || warning.isBlank() ? List.of() : List.of(warning))
+                .citations(List.of())
                 .build();
     }
 }

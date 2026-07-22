@@ -15,6 +15,7 @@ public class AgentRunStepDTO {
     private String summary;
     private String source;
     private String sourceUrl;
+    private String citationJson;
     private String dataDate;
     private String inputJson;
     private String outputJson;
