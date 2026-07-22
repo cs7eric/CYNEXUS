@@ -2543,6 +2543,8 @@ Status: complete
 
 Verification: commit `e558daf7` synchronized Maven/UI development versions at `1.1.174-SNAPSHOT`; focused Agent workflow tests passed 10/10. Release `1.1.174-260722-RELEASE` built all 41 Maven modules and six versioned images, and all six health checks returned HTTP 200. Real run `AGR-release174-broad` selected and executed 7 capabilities across market, finance, and knowledge-base modules, persisted 7 ordered tool steps, citations, `REPORTED` usage, and `SUCCEEDED`; the broad request returned explicit data gaps instead of inventing missing fundamentals. Idempotency returned the same run, event replay after cursor 4 returned sequence 5-10, and a separate streaming run returned `CANCEL_REQUESTED` then persisted `CANCELLED`. PostgreSQL owner/orphan checks returned zero orphan rows and the registry contained 14 enabled/available capabilities.
 
+Additional Release evidence: after one transient upstream TLS handshake failure, retry run `AGR-release174-appanalysis-b` reached `gpt-5.4-mini`, autonomously selected `application_analysis.result` and `application_analysis.recent30`, read persisted target `stock-600396`, and returned `SUCCEEDED` with explicit two-record/30-day data insufficiency and source metadata. The first failure remained persisted as `FAILED` with `failureCategory=PROVIDER`; it was not converted into a fabricated answer.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
