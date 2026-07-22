@@ -175,8 +175,10 @@ export default function AiUsageSettingsPage() {
   const saveQuota = useCallback(async (policy: AgentQuotaPolicy) => {
     setQuotaSaving(true); setQuotaError(null)
     try {
-      if (policy.id) await updateAgentQuotaPolicy(policy)
-      else await createAgentQuotaPolicy({ ...policy, id: undefined } as Omit<AgentQuotaPolicy, "id">)
+      if (policy.id.startsWith("draft-")) {
+        await createAgentQuotaPolicy({ tenantKey: policy.tenantKey, principalKey: policy.principalKey,
+          dailyRequestLimit: policy.dailyRequestLimit, dailyTokenLimit: policy.dailyTokenLimit, enabled: policy.enabled })
+      } else await updateAgentQuotaPolicy(policy)
       await refreshQuotaPolicies()
     } catch (cause) { setQuotaError(cause instanceof Error ? cause.message : "Unable to save quota policy") }
     finally { setQuotaSaving(false) }
@@ -234,7 +236,7 @@ export default function AiUsageSettingsPage() {
         {!error && data && !data.available ? <Alert><AlertTriangle className="h-4 w-4" /><AlertTitle>Langfuse has no data</AlertTitle><AlertDescription>{data.message || "Enable the shared Langfuse stack and AI reporter to see usage."}</AlertDescription></Alert> : null}
 
         <Card className="shadow-none">
-          <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="text-sm">Agent quota policies</CardTitle><p className="mt-1 text-xs text-muted-foreground">Limits are stored in PostgreSQL and applied by tenant/user scope.</p></div><Button size="sm" variant="secondary" disabled={quotaSaving} onClick={() => void saveQuota({ id: "", tenantKey: null, principalKey: null, dailyRequestLimit: 200, dailyTokenLimit: 100000, enabled: true })}>Add policy</Button></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="text-sm">Agent quota policies</CardTitle><p className="mt-1 text-xs text-muted-foreground">Limits are stored in PostgreSQL and applied by tenant/user scope.</p></div><Button size="sm" variant="secondary" disabled={quotaSaving} onClick={() => setQuotaPolicies((items) => [...items, { id: `draft-${Date.now()}`, tenantKey: "", principalKey: "", dailyRequestLimit: 200, dailyTokenLimit: 100000, enabled: true }])}>Add policy</Button></CardHeader>
           <CardContent className="space-y-2">
             {quotaError ? <p className="text-sm text-rose-600">{quotaError}</p> : null}
             {quotaLoading ? <p className="text-sm text-muted-foreground">Loading quota policies...</p> : null}
@@ -243,7 +245,7 @@ export default function AiUsageSettingsPage() {
               <label className="grid gap-1 text-xs text-muted-foreground">Principal<input value={policy.principalKey || ""} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, principalKey: event.target.value || null } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
               <label className="grid gap-1 text-xs text-muted-foreground">Daily requests<input type="number" min={1} value={policy.dailyRequestLimit} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, dailyRequestLimit: Number(event.target.value) } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
               <label className="grid gap-1 text-xs text-muted-foreground">Daily tokens<input type="number" min={1024} value={policy.dailyTokenLimit} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, dailyTokenLimit: Number(event.target.value) } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
-              <div className="flex gap-1"><Button size="sm" disabled={quotaSaving} onClick={() => void saveQuota(policy)}>Save</Button><Button size="sm" variant="ghost" disabled={quotaSaving} onClick={async () => { await deleteAgentQuotaPolicy(policy.id); await refreshQuotaPolicies() }}>Delete</Button></div>
+              <div className="flex gap-1"><Button size="sm" disabled={quotaSaving} onClick={() => void saveQuota(policy)}>Save</Button><Button size="sm" variant="ghost" disabled={quotaSaving} onClick={async () => { if (policy.id.startsWith("draft-")) setQuotaPolicies((items) => items.filter((item) => item.id !== policy.id)); else { await deleteAgentQuotaPolicy(policy.id); await refreshQuotaPolicies() } }}>Delete</Button></div>
             </div>)}
           </CardContent>
         </Card>

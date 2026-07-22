@@ -1997,3 +1997,9 @@
 - Verification: AI application/infra compile passed, `RedisBackedAgentQuotaPortTest` passed 2/2, and `pnpm build` passed.
 - Release `1.1.176-260722-RELEASE` was built and started through the Docker Release entrypoint; all six versioned images were created, Agent migrations including the quota-policy migration completed idempotently, and ports `18080`, `18081`, `18082`, `18000`, `18084`, and `5173` returned HTTP 200 after startup.
 - The AI Prometheus endpoint is reachable in Release. The expected Agent custom counter was not present after this restart and remains a metrics-registration follow-up; no success evidence is claimed for that metric.
+
+## 2026-07-22 - Quota policy draft workflow and version 1.1.177
+
+- Changed Usage page quota administration so `Add policy` creates an editable draft, persistence starts only on `Save`, and deleting an unsaved draft never calls the backend.
+- Synchronized Maven and UI development versions to `1.1.177-SNAPSHOT`.
+- Verification: `pnpm build` passed with TypeScript compilation and Vite production output.
