@@ -1988,3 +1988,10 @@
 - Focused verification passed: Agent task 3/3, persistence contract 4/4, Provider adapter 7/7; full Maven package 41/41; UI `pnpm build` passed; Release 1.1.175 six application/UI health checks returned HTTP 200.
 - Playwright Chromium screenshots were generated for Agent desktop `1440x900` and mobile `390x844`; desktop empty state, fixed-height composer, hidden scrollbar, shadcn scroller layout, and right-side conversation list rendered successfully.
 - Release restart initially hit a stale Docker knowledgebase container-name conflict; stopping the Release stack and rerunning the versioned build/start completed successfully. Current Release containers are all running.
+
+## 2026-07-22 - Agent quota policy administration and version 1.1.176
+
+- Replaced the static Agent request/token quota defaults with tenant/principal/global policies persisted in `cynexus_appl_ai.ai_agent_quota_policy`, including scope and limit constraints, precedence ordering, soft deletion fields, and an idempotent migration.
+- Added domain validation, repository/infra mappings, configuration CRUD endpoints, and Usage page controls for listing, creating, updating, and deleting quota policies.
+- Synchronized Maven and UI development versions to `1.1.176-SNAPSHOT`.
+- Verification: AI application/infra compile passed, `RedisBackedAgentQuotaPortTest` passed 2/2, and `pnpm build` passed.
