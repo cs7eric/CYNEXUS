@@ -1697,3 +1697,11 @@
 
 - Added a repeatable PowerShell evaluation entrypoint that runs Agent workflow and capability contract tests and rejects incomplete evaluation reports.
 - Added a GitHub Actions workflow that runs on Agent-related changes and publishes `agent-evaluation-results.json` as a build artifact.
+
+## 2026-07-22 - Agent structured answer and Release smoke
+
+- Added provider-boundary normalization for structured `analysis`/`answer` envelopes so persisted answers render readable sections instead of raw JSON.
+- Added the Shanghai system date to the Agent prompt so relative requests such as “today” do not drift to an invented date.
+- Structured-answer regression test passed; focused AI workflow tests passed 24/24.
+- Built Release `1.1.139-260722-RELEASE` through the documented Docker entrypoint and verified Core, Market, AI, Gateway, and UI health.
+- Completed one real `xtyooo / gpt-5.4-mini` request through Gateway; the model selected multiple market tools, returned explicit no-data warnings where appropriate, and persisted provider/model provenance, trace, evidence, plan, and final answer.

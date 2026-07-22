@@ -206,6 +206,46 @@ class AutonomousAgentWorkflowTest {
     }
 
     @Test
+    void structuredProviderAnswerIsRenderedWithoutLeakingRawJsonEnvelope() {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        when(catalog.enabledTools()).thenReturn(List.of());
+        when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
+        when(repository.findMessages(any(), any())).thenReturn(List.of());
+        when(lease.tryAcquire(any(), any(), anyInt(), anyInt())).thenReturn(true);
+        when(rateLimiter.allow(any(), anyInt(), anyInt())).thenReturn(true);
+        when(lease.isCancellationRequested(any())).thenReturn(false);
+        when(circuitBreaker.allow(any())).thenReturn(true);
+        when(bindings.listAll()).thenReturn(List.of(AiUsageBindingBO.builder().capability("autonomous_agent")
+                .providerId(1L).modelOverride("gpt-5.4-mini").enabled(true).build()));
+        when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
+                .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
+        when(completion.completeAgent(any(), any(), eq("autonomous_agent"))).thenReturn(
+                AgentModelTurnResponse.builder().type("FINAL").content(
+                        "{\"type\":\"analysis\",\"summary\":\"数据已核验\",\"dataDate\":\"2026-07-22\","
+                                + "\"conclusion\":\"市场保持稳定\",\"usedModules\":[\"market.overview\"],"
+                                + "\"limitations\":[\"部分数据缺失\"]}").build());
+
+        AutonomousAgentAppService service = new AutonomousAgentAppService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        var result = service.execute(AgentRunRequest.builder().userInput("输出结构化分析").build(),
+                AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
+
+        assertEquals("SUCCEEDED", result.getStatus());
+        assertTrue(result.getAnswer().contains("## 结论"));
+        assertTrue(result.getAnswer().contains("市场保持稳定"));
+        assertTrue(result.getAnswer().contains("## 使用的数据模块"));
+        assertTrue(!result.getAnswer().startsWith("{\"type\""));
+    }
+
+    @Test
     void cancellationInterruptsAnInFlightProviderWaitAndPersistsCancelledStatus() throws Exception {
         AgentRunRepository repository = mock(AgentRunRepository.class);
         AgentToolCatalog catalog = mock(AgentToolCatalog.class);
