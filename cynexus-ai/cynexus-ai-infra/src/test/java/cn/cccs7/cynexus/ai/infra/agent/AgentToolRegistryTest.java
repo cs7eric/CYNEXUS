@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.agent;
 
+import cn.cccs7.cynexus.ai.infra.agent.registry.AgentToolRegistry;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;

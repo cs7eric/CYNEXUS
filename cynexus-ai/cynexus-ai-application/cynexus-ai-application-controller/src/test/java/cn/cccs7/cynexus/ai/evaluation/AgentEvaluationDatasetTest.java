@@ -83,6 +83,7 @@ class AgentEvaluationDatasetTest {
         AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
         AgentRateLimitPort limiter = mock(AgentRateLimitPort.class);
         AgentCircuitBreakerPort circuit = mock(AgentCircuitBreakerPort.class);
+        AgentQuotaPort quota = mock(AgentQuotaPort.class);
         List<String> actualTools = new ArrayList<>();
         AtomicInteger turns = new AtomicInteger();
         when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
@@ -90,6 +91,7 @@ class AgentEvaluationDatasetTest {
         when(lease.tryAcquire(any(), any(), anyInt(), anyInt())).thenReturn(true);
         when(limiter.allow(any(), anyInt(), anyInt())).thenReturn(true);
         when(circuit.allow(any())).thenReturn(true);
+        when(quota.reserveRequest(any(), any(), any(), anyInt())).thenReturn(true);
         when(bindings.listAll()).thenReturn(List.of(AiUsageBindingBO.builder().capability("autonomous_agent")
                 .providerId(1L).modelOverride("gpt-5.4-mini").enabled(true).build()));
         when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
@@ -113,7 +115,7 @@ class AgentEvaluationDatasetTest {
                 });
 
         var result = new AutonomousAgentAppService(repository, catalog, executor, completion, providers, bindings,
-                lease, limiter, circuit, new ObjectMapper(), mock(AgentQuotaPort.class),
+                lease, limiter, circuit, new ObjectMapper(), quota,
                 mock(AgentObservabilityPort.class), mock(AgentCapabilityRepository.class)).execute(AgentRunRequest.builder().userInput(input).build(),
                 AgentIdentity.builder().principalKey("evaluation").tenantKey("evaluation").build(), ignored -> { });
 

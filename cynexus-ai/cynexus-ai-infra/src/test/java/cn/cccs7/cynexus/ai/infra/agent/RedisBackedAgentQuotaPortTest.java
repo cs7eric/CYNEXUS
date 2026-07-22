@@ -8,7 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cn.cccs7.cynexus.ai.infra.basic.mapper.AgentUsageDailyMapper;
+import cn.cccs7.cynexus.ai.infra.basic.mapper.usage.AgentUsageDailyMapper;
+import cn.cccs7.cynexus.ai.infra.agent.quota.DatabaseAgentQuotaPort;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 

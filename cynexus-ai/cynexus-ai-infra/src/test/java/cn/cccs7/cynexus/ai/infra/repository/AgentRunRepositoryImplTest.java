@@ -9,13 +9,14 @@ import static org.mockito.Mockito.when;
 
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentConversationBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
-import cn.cccs7.cynexus.ai.infra.basic.entity.AgentConversationPO;
-import cn.cccs7.cynexus.ai.infra.basic.entity.AgentRunPO;
-import cn.cccs7.cynexus.ai.infra.basic.service.AgentConversationBasicService;
-import cn.cccs7.cynexus.ai.infra.basic.service.AgentMessageBasicService;
-import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunBasicService;
-import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunEventBasicService;
-import cn.cccs7.cynexus.ai.infra.basic.service.AgentRunRetentionBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.entity.agent.AgentConversationPO;
+import cn.cccs7.cynexus.ai.infra.basic.entity.agent.AgentRunPO;
+import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentConversationBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentMessageBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentRunBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentRunEventBasicService;
+import cn.cccs7.cynexus.ai.infra.basic.service.agent.AgentRunRetentionBasicService;
+import cn.cccs7.cynexus.ai.infra.repository.agent.AgentRunRepositoryImpl;
 import org.junit.jupiter.api.Test;
 
 class AgentRunRepositoryImplTest {

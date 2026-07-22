@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.AgentTaskMapper">
+<mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.agent.AgentTaskMapper">
     <update id="pause">
         UPDATE cynexus_appl_ai.ai_agent_task
         SET status = 'PAUSED', paused_at = now(), updated_at = now()
@@ -38,7 +38,7 @@
           AND deleted_at IS NULL
     </update>
 
-    <select id="claimDue" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.AgentTaskPO">
+    <select id="claimDue" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.agent.AgentTaskPO">
         WITH candidate AS (
             SELECT id
             FROM cynexus_appl_ai.ai_agent_task

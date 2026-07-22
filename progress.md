@@ -1891,3 +1891,8 @@
 
 - Corrected three repository implementations that still imported converters from the pre-refactor package after the DDD move.
 - Synchronized Maven/UI versions to `1.1.162-SNAPSHOT`; the change is queued as an independent repository-import fix commit.
+
+## 2026-07-22 - Agent infra test package closure
+
+- Restored test imports for the moved quota mapper, Agent persistence objects/services, and capability registry.
+- AI infra test compilation passed, and the focused Agent infrastructure contract suite passed 18/18.
