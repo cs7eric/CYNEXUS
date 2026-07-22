@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import jakarta.annotation.PreDestroy;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
@@ -292,7 +293,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         payload.put("messages", buildChatMessages(request));
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), false));
         payload.put("tool_choice", "auto");
-        if (stream) payload.put("stream", true);
+        if (stream) {
+            payload.put("stream", true);
+            payload.put("stream_options", Map.of("include_usage", true));
+        }
         return objectMapper.writeValueAsString(payload);
     }
 
@@ -811,6 +815,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("https_proxy");
         if (proxyValue == null || proxyValue.isBlank()) proxyValue = System.getenv("http_proxy");
         return proxyValue;
+    }
+
+    @PreDestroy
+    void closeStreamingHttpClient() throws IOException {
+        streamingHttpClient.close();
     }
 
     private String extractChatContent(String responseBody) throws IOException {

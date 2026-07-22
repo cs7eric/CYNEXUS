@@ -130,7 +130,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
 
     @Test
     void parsesChatStreamingTextAndToolDeltas() throws Exception {
-        server = server(new AtomicReference<>(), """
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
                 data: {"choices":[{"delta":{"content":"实时"}}]}
 
                 data: {"choices":[{"delta":{"content":"答案"}}]}
@@ -158,6 +159,10 @@ class OpenAiCompatibleChatAdapterAgentTest {
             assertThat(call.getToolCode()).isEqualTo("market.overview");
             assertThat(call.getArguments()).isEmpty();
         });
+
+        var requestPayload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                requestBody.get());
+        assertThat(requestPayload.path("stream_options").path("include_usage").asBoolean()).isTrue();
     }
 
     private HttpServer server(AtomicReference<String> requestBody, String responseBody) throws Exception {
