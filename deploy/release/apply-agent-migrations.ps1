@@ -21,6 +21,7 @@ $migrationFiles = @(
     "20260722_add_ai_agent_citations.sql",
     "20260722_add_ai_agent_source_urls.sql",
     "20260722_add_ai_agent_usage_quota.sql",
+    "20260722_add_ai_agent_quota_policy.sql",
     "20260722_add_ai_agent_feedback.sql",
     "20260722_add_ai_agent_write_commands.sql",
     "20260722_bind_autonomous_agent_to_xtyooo.sql",

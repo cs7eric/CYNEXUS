@@ -1,31 +1,30 @@
 package cn.cccs7.cynexus.ai.infra.agent.quota;
 
 import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
+import cn.cccs7.cynexus.ai.domain.entity.AgentQuotaPolicyBO;
+import cn.cccs7.cynexus.ai.domain.repository.AgentQuotaPolicyRepository;
 import cn.cccs7.cynexus.ai.infra.basic.mapper.usage.AgentUsageDailyMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DatabaseAgentQuotaPort implements AgentQuotaPort {
     private final AgentUsageDailyMapper mapper;
-    private final int maxRequests;
-    private final int maxTokens;
+    private final AgentQuotaPolicyRepository policyRepository;
 
-    public DatabaseAgentQuotaPort(AgentUsageDailyMapper mapper,
-                                  @Value("${cynexus.ai.agent.quota.daily-requests:200}") int maxRequests,
-                                  @Value("${cynexus.ai.agent.quota.daily-tokens:100000}") int maxTokens) {
+    public DatabaseAgentQuotaPort(AgentUsageDailyMapper mapper, AgentQuotaPolicyRepository policyRepository) {
         this.mapper = mapper;
-        this.maxRequests = Math.max(1, maxRequests);
-        this.maxTokens = Math.max(1_024, maxTokens);
+        this.policyRepository = policyRepository;
     }
 
     @Override
     public boolean reserveRequest(String ownerKey, String tenantKey, String principalKey, int estimatedTokens) {
+        AgentQuotaPolicyBO policy = policyRepository.findApplicable(value(tenantKey), value(principalKey));
+        if (policy == null) return false;
         return mapper.reserve(ownerKey, LocalDate.now(ZoneOffset.UTC), value(tenantKey), value(principalKey),
-                Math.max(1, estimatedTokens), maxRequests, maxTokens) > 0;
+                Math.max(1, estimatedTokens), policy.getDailyRequestLimit(), Math.toIntExact(policy.getDailyTokenLimit())) > 0;
     }
 
     @Override

@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { cn } from "@/lib/utils"
-import { fetchAiUsage, type AiUsageBreakdown, type AiUsageObservation, type AiUsagePage } from "@/services/ai/usage"
+import { createAgentQuotaPolicy, deleteAgentQuotaPolicy, fetchAgentQuotaPolicies, fetchAiUsage, updateAgentQuotaPolicy, type AgentQuotaPolicy, type AiUsageBreakdown, type AiUsageObservation, type AiUsagePage } from "@/services/ai/usage"
 
 /**
  * Maintenance Notice:
@@ -145,6 +145,10 @@ export default function AiUsageSettingsPage() {
   const [from, setFrom] = useState(() => isoDate(new Date(Date.now() - 7 * DAY_MS)))
   const [recentPage, setRecentPage] = useState(1)
   const [recentPageSize, setRecentPageSize] = useState(RECENT_CALLS_PAGE_SIZE)
+  const [quotaPolicies, setQuotaPolicies] = useState<AgentQuotaPolicy[]>([])
+  const [quotaLoading, setQuotaLoading] = useState(true)
+  const [quotaSaving, setQuotaSaving] = useState(false)
+  const [quotaError, setQuotaError] = useState<string | null>(null)
 
   const refresh = useCallback(async (initial = false) => {
     if (initial) setLoading(true); else setRefreshing(true)
@@ -158,6 +162,25 @@ export default function AiUsageSettingsPage() {
     const timer = window.setTimeout(() => void refresh(true), 0)
     return () => window.clearTimeout(timer)
   }, [refresh])
+
+  const refreshQuotaPolicies = useCallback(async () => {
+    setQuotaLoading(true); setQuotaError(null)
+    try { setQuotaPolicies(await fetchAgentQuotaPolicies()) }
+    catch (cause) { setQuotaError(cause instanceof Error ? cause.message : "Unable to load quota policies") }
+    finally { setQuotaLoading(false) }
+  }, [])
+
+  useEffect(() => { void refreshQuotaPolicies() }, [refreshQuotaPolicies])
+
+  const saveQuota = useCallback(async (policy: AgentQuotaPolicy) => {
+    setQuotaSaving(true); setQuotaError(null)
+    try {
+      if (policy.id) await updateAgentQuotaPolicy(policy)
+      else await createAgentQuotaPolicy({ ...policy, id: undefined } as Omit<AgentQuotaPolicy, "id">)
+      await refreshQuotaPolicies()
+    } catch (cause) { setQuotaError(cause instanceof Error ? cause.message : "Unable to save quota policy") }
+    finally { setQuotaSaving(false) }
+  }, [refreshQuotaPolicies])
 
   const metrics = useMemo(() => {
     const requests = data?.requests || 0
@@ -209,6 +232,21 @@ export default function AiUsageSettingsPage() {
 
         {error ? <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Usage unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
         {!error && data && !data.available ? <Alert><AlertTriangle className="h-4 w-4" /><AlertTitle>Langfuse has no data</AlertTitle><AlertDescription>{data.message || "Enable the shared Langfuse stack and AI reporter to see usage."}</AlertDescription></Alert> : null}
+
+        <Card className="shadow-none">
+          <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="text-sm">Agent quota policies</CardTitle><p className="mt-1 text-xs text-muted-foreground">Limits are stored in PostgreSQL and applied by tenant/user scope.</p></div><Button size="sm" variant="secondary" disabled={quotaSaving} onClick={() => void saveQuota({ id: "", tenantKey: null, principalKey: null, dailyRequestLimit: 200, dailyTokenLimit: 100000, enabled: true })}>Add policy</Button></CardHeader>
+          <CardContent className="space-y-2">
+            {quotaError ? <p className="text-sm text-rose-600">{quotaError}</p> : null}
+            {quotaLoading ? <p className="text-sm text-muted-foreground">Loading quota policies...</p> : null}
+            {quotaPolicies.map((policy) => <div key={policy.id} className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_1fr_140px_160px_auto] md:items-end">
+              <label className="grid gap-1 text-xs text-muted-foreground">Tenant<input value={policy.tenantKey || ""} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, tenantKey: event.target.value || null } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
+              <label className="grid gap-1 text-xs text-muted-foreground">Principal<input value={policy.principalKey || ""} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, principalKey: event.target.value || null } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
+              <label className="grid gap-1 text-xs text-muted-foreground">Daily requests<input type="number" min={1} value={policy.dailyRequestLimit} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, dailyRequestLimit: Number(event.target.value) } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
+              <label className="grid gap-1 text-xs text-muted-foreground">Daily tokens<input type="number" min={1024} value={policy.dailyTokenLimit} onChange={(event) => setQuotaPolicies((items) => items.map((item) => item.id === policy.id ? { ...item, dailyTokenLimit: Number(event.target.value) } : item))} className="h-8 rounded-md border bg-background px-2 text-sm text-foreground" /></label>
+              <div className="flex gap-1"><Button size="sm" disabled={quotaSaving} onClick={() => void saveQuota(policy)}>Save</Button><Button size="sm" variant="ghost" disabled={quotaSaving} onClick={async () => { await deleteAgentQuotaPolicy(policy.id); await refreshQuotaPolicies() }}>Delete</Button></div>
+            </div>)}
+          </CardContent>
+        </Card>
 
         <Card className="gap-0 overflow-hidden py-0 shadow-none">
           <CardContent className="grid gap-0 border-b border-border/60 px-4 py-0 sm:grid-cols-2 xl:grid-cols-5">

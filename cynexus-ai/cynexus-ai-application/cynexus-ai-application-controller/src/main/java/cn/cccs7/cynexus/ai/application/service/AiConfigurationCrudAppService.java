@@ -16,6 +16,9 @@ import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisDailySnapshotRep
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultCurrentRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultHistoryRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisTargetRepository;
+import cn.cccs7.cynexus.ai.domain.entity.AgentQuotaPolicyBO;
+import cn.cccs7.cynexus.ai.domain.repository.AgentQuotaPolicyRepository;
+import cn.cccs7.cynexus.ai.domain.policy.quota.AgentQuotaPolicy;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +33,7 @@ public class AiConfigurationCrudAppService {
     private final ApplicationAnalysisResultCurrentRepository applicationAnalysisResultCurrentRepository;
     private final ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository;
     private final ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository;
+    private final AgentQuotaPolicyRepository agentQuotaPolicyRepository;
 
     public AiConfigurationCrudAppService(
             AiProviderRepository aiProviderRepository,
@@ -39,7 +43,8 @@ public class AiConfigurationCrudAppService {
             ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository,
             ApplicationAnalysisResultCurrentRepository applicationAnalysisResultCurrentRepository,
             ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository,
-            ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository) {
+            ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository,
+            AgentQuotaPolicyRepository agentQuotaPolicyRepository) {
         this.aiProviderRepository = aiProviderRepository;
         this.aiPromptRepository = aiPromptRepository;
         this.aiUsageBindingRepository = aiUsageBindingRepository;
@@ -48,7 +53,14 @@ public class AiConfigurationCrudAppService {
         this.applicationAnalysisResultCurrentRepository = applicationAnalysisResultCurrentRepository;
         this.applicationAnalysisResultHistoryRepository = applicationAnalysisResultHistoryRepository;
         this.applicationAnalysisTargetRepository = applicationAnalysisTargetRepository;
+        this.agentQuotaPolicyRepository = agentQuotaPolicyRepository;
     }
+
+    public List<AgentQuotaPolicyBO> listAgentQuotaPolicies() { return agentQuotaPolicyRepository.listAll(); }
+    public AgentQuotaPolicyBO findAgentQuotaPolicy(Long id) { return agentQuotaPolicyRepository.findById(id); }
+    public Long createAgentQuotaPolicy(AgentQuotaPolicyBO policy) { AgentQuotaPolicy.validate(policy); return agentQuotaPolicyRepository.create(policy); }
+    public boolean updateAgentQuotaPolicy(AgentQuotaPolicyBO policy) { AgentQuotaPolicy.validate(policy); return agentQuotaPolicyRepository.update(policy); }
+    public boolean deleteAgentQuotaPolicy(Long id) { return agentQuotaPolicyRepository.delete(id); }
 
     public List<AiProviderBO> listProviders() {
         return aiProviderRepository.listAll();

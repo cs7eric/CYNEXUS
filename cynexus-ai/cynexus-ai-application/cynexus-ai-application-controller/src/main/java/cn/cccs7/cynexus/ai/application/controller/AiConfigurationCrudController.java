@@ -7,6 +7,7 @@ import cn.cccs7.cynexus.ai.api.dto.ApplicationAnalysisDailySnapshotDTO;
 import cn.cccs7.cynexus.ai.api.dto.ApplicationAnalysisResultCurrentDTO;
 import cn.cccs7.cynexus.ai.api.dto.ApplicationAnalysisResultHistoryDTO;
 import cn.cccs7.cynexus.ai.api.dto.ApplicationAnalysisTargetDTO;
+import cn.cccs7.cynexus.ai.api.dto.AgentQuotaPolicyDTO;
 import cn.cccs7.cynexus.ai.application.convert.AiProviderDTOConverter;
 import cn.cccs7.cynexus.ai.application.convert.AiUsageBindingDTOConverter;
 import cn.cccs7.cynexus.ai.application.convert.ApplicationAnalysisConfigDTOConverter;
@@ -14,6 +15,7 @@ import cn.cccs7.cynexus.ai.application.convert.ApplicationAnalysisDailySnapshotD
 import cn.cccs7.cynexus.ai.application.convert.ApplicationAnalysisResultCurrentDTOConverter;
 import cn.cccs7.cynexus.ai.application.convert.ApplicationAnalysisResultHistoryDTOConverter;
 import cn.cccs7.cynexus.ai.application.convert.ApplicationAnalysisTargetDTOConverter;
+import cn.cccs7.cynexus.ai.application.convert.AgentQuotaPolicyDTOConverter;
 import cn.cccs7.cynexus.ai.application.service.AiConfigurationCrudAppService;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
@@ -112,6 +114,32 @@ public class AiConfigurationCrudController {
     @DeleteMapping("/usage-bindings/{id}")
     public Result<Boolean> deleteUsageBinding(@PathVariable("id") Long id) {
         return Result.success(appService.deleteUsageBinding(id));
+    }
+
+    @GetMapping("/quota-policies")
+    public Result<List<AgentQuotaPolicyDTO>> listQuotaPolicies() {
+        return Result.success(appService.listAgentQuotaPolicies().stream().map(AgentQuotaPolicyDTOConverter.INSTANCE::toSource).toList());
+    }
+
+    @GetMapping("/quota-policies/{id}")
+    public Result<AgentQuotaPolicyDTO> getQuotaPolicy(@PathVariable("id") Long id) {
+        var policy = appService.findAgentQuotaPolicy(id);
+        return Result.success(policy == null ? null : AgentQuotaPolicyDTOConverter.INSTANCE.toSource(policy));
+    }
+
+    @PostMapping("/quota-policies")
+    public Result<Long> createQuotaPolicy(@RequestBody AgentQuotaPolicyDTO dto) {
+        return Result.success(appService.createAgentQuotaPolicy(AgentQuotaPolicyDTOConverter.INSTANCE.toTarget(dto)));
+    }
+
+    @PutMapping("/quota-policies")
+    public Result<Boolean> updateQuotaPolicy(@RequestBody AgentQuotaPolicyDTO dto) {
+        return Result.success(appService.updateAgentQuotaPolicy(AgentQuotaPolicyDTOConverter.INSTANCE.toTarget(dto)));
+    }
+
+    @DeleteMapping("/quota-policies/{id}")
+    public Result<Boolean> deleteQuotaPolicy(@PathVariable("id") Long id) {
+        return Result.success(appService.deleteAgentQuotaPolicy(id));
     }
 
     @GetMapping("/analysis-configs")
