@@ -118,7 +118,7 @@ Status: complete
 
 ### 106.10 Grounded Knowledge Search and Truthful Clarification Recovery
 
-Status: in_progress
+Status: complete
 
 - Normalize Knowledge Base status values at the domain boundary and keep search behavior independent of Agent handlers.
 - Tokenize bounded natural-language queries, including Chinese multi-term input, and rank bounded database candidates without hard-coded document names.
@@ -127,7 +127,7 @@ Status: in_progress
 - Add domain, Agent handler, and Agent workflow regression coverage.
 - Apply the synchronized Release build and verify real `xtyoo / gpt-5.4-mini` knowledge search plus clarification behavior against persisted run state.
 
-Current implementation: domain search normalization/tokenization/ranking and provider-preamble clarification parsing are implemented with focused tests. Release and real-provider verification remain open.
+Verification: domain search/Agent regression suites passed; Release `1.1.157-260722-RELEASE` built 41/41 modules and all health checks passed; a real `xtyoo / gpt-5.4-mini` run selected `knowledge.search` and `knowledge.document`, persisted `SUCCEEDED` with citations and source metadata; a separate real missing-symbol request persisted `NEEDS_CLARIFICATION` with a `CLARIFICATION` step. The capability registry reported 14 enabled/available rows, 0 stale rows, and 0 governance-blocked rows.
 
 ## Errors Encountered
 

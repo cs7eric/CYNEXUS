@@ -428,3 +428,10 @@
 - Governance input is validated in the domain policy, while MyBatis remains limited to persistence updates.
 - Provider routing now consumes backend Agent descriptors for dynamic rows and exposes version, source, freshness, health, priority, and governance state; the remaining proof is a real Release run selecting a newly registered non-Market capability.
 - Capability registration, stale/version retirement, and governance changes now write auditable lifecycle rows under `ai_agent_capability_audit`.
+
+## 2026-07-22 Release 1.1.157 evidence
+
+- The Knowledge Base defect is fixed in a real versioned runtime: the Agent selected `knowledge.search` with `published` status and received a valid result for `A Stock 数据落库表设计`; it then selected `knowledge.document` to ground the answer.
+- Real persisted run `AGR-a0d046f1e1934b028e02c96b` is `SUCCEEDED`, `gpt-5.4-mini`, two successful tool steps, source URLs, data dates, citations, and reported token usage.
+- Real persisted run `AGR-410ce058a4d448a594bbeb92` is `NEEDS_CLARIFICATION` with a `CLARIFICATION` step and non-null clarification JSON, proving structured state is not masked by a normal answer.
+- The release capability registry currently has 14 rows, all enabled and available, with no stale or governance-blocked rows.

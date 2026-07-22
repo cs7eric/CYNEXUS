@@ -1837,3 +1837,10 @@
 - Added Provider capability metadata/status/version/freshness and enable/disable controls; updated AI Provider design documentation.
 - Focused registry tests passed 6/6 and UI production build passed. Maven/UI versions were synchronized to `1.1.154-SNAPSHOT`. Real non-Market capability Release discovery evidence remains open.
 - Added capability lifecycle audit persistence under `cynexus_appl_ai.ai_agent_capability_audit`; AI application tests passed 34/34 and AI infra compile passed.
+
+## 2026-07-22 - Release 1.1.157 grounded Agent verification
+
+- Built Release `1.1.157-260722-RELEASE` through `deploy/release/start-release.ps1 -Build`; Maven reactor passed all 41 modules and Core, Market, AI, Gateway, Knowledge Base, and UI started from versioned Docker images.
+- A real direct AI request signed with the Release trusted identity reached `xtyoo / gpt-5.4-mini`; the model autonomously selected `knowledge.search` and `knowledge.document`, returned the published `A Stock 数据落库表设计` document, and persisted provider/model provenance, tool steps, citations, source URLs, data dates, and final answer.
+- A real missing-stock-symbol request from the same provider persisted `NEEDS_CLARIFICATION`, `clarification_json`, and a `CLARIFICATION` step rather than `SUCCEEDED`.
+- PostgreSQL verification: both runs have terminal truth in `cynexus_appl_ai.ai_agent_run`; capability registry has 14 enabled/available rows, 0 stale rows, and 0 governance-blocked rows.
