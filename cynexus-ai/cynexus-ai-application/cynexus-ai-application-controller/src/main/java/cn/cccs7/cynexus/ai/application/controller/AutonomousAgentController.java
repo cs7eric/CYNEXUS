@@ -14,6 +14,7 @@ import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.application.service.AutonomousAgentAppService;
 import cn.cccs7.cynexus.ai.application.service.AgentIdentityResolver;
 import cn.cccs7.cynexus.common.core.result.Result;
+import cn.cccs7.cynexus.common.core.constant.TraceId;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -149,6 +150,7 @@ public class AutonomousAgentController {
 
     private AgentStreamEventDTO toEventDTO(AgentRunEventBO event) {
         return AgentStreamEventDTO.builder().sequenceNo(event.getSequenceNo()).type(event.getType())
+                .traceId(event.getTraceId())
                 .runNo(event.getRunNo()).status(event.getStatus()).stepNo(event.getStepNo())
                 .toolCode(event.getToolCode()).summary(event.getSummary()).answer(event.getAnswer())
                 .delta(event.getDelta()).errorMessage(event.getErrorMessage())

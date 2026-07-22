@@ -55,6 +55,12 @@
 - Added lease-owner guarded run linkage and cancellation regression coverage.
 - Maven/UI versions are synchronized at `1.1.153-SNAPSHOT`; Release verification is pending.
 
+## 2026-07-22 - Release Agent migration gate
+
+- Added the supported Release migration entrypoint for the complete Agent schema/binding bundle.
+- Release startup now applies the idempotent Agent migrations before recreating versioned containers and aborts on migration failure.
+- This closes the database-drift failure found during the `1.1.152` worker validation.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.
@@ -1799,3 +1805,10 @@
 - Agent run and conversation repository updates now resolve by owner plus business number before `updateById`; basic services throw when an update affects zero rows instead of silently continuing.
 - Repository regression coverage remains 2/2; Maven/UI versions are synchronized to `1.1.143-SNAPSHOT`.
 - Release `1.1.143-260722-RELEASE` is required for the final recheck of real streaming failure persistence.
+
+## 2026-07-22 - Agent observability and security foundation
+
+- Moved source URL policy coverage into the test-enabled application-controller module; the domain module remains free of test framework dependencies.
+- Added real provider latency measurement per retry attempt; tool and run duration metrics remain wired through the domain observability port.
+- Focused Agent application test passed 1/1; AI infrastructure suite passed 17/17.
+- 106.7 remains in progress pending security corpus/fuzz/abuse checks and Release metric evidence.

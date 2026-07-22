@@ -35,10 +35,12 @@ import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.port.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.port.AgentObservabilityPort;
 import cn.cccs7.cynexus.ai.domain.repository.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
+import cn.cccs7.cynexus.common.core.constant.TraceId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
@@ -82,6 +84,7 @@ public class AutonomousAgentAppService {
     private final AgentRateLimitPort rateLimiter;
     private final AgentCircuitBreakerPort circuitBreaker;
     private final AgentQuotaPort quota;
+    private final AgentObservabilityPort observability;
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
@@ -97,7 +100,6 @@ public class AutonomousAgentAppService {
                 usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, new AgentQuotaPort() { });
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
@@ -109,6 +111,23 @@ public class AutonomousAgentAppService {
                                      AgentCircuitBreakerPort circuitBreaker,
                                      ObjectMapper objectMapper,
                                      AgentQuotaPort quota) {
+        this(agentRunRepository, toolCatalog, toolExecutor, completionGateway, providerRepository,
+                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, quota, new AgentObservabilityPort() { });
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
+                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
+                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
+                                     AiCompletionGateway completionGateway,
+                                     AiProviderRepository providerRepository,
+                                     AiUsageBindingRepository usageBindingRepository,
+                                     AgentRuntimeLeasePort runtimeLease,
+                                     AgentRateLimitPort rateLimiter,
+                                     AgentCircuitBreakerPort circuitBreaker,
+                                     ObjectMapper objectMapper,
+                                     AgentQuotaPort quota,
+                                     AgentObservabilityPort observability) {
         this.agentRunRepository = agentRunRepository;
         this.toolCatalog = new AgentToolCatalogFacade(toolCatalog);
         this.toolExecutor = new AgentToolExecutorFacade(toolExecutor);
@@ -120,6 +139,7 @@ public class AutonomousAgentAppService {
         this.circuitBreaker = circuitBreaker;
         this.objectMapper = objectMapper;
         this.quota = quota;
+        this.observability = observability;
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
@@ -192,8 +212,12 @@ public class AutonomousAgentAppService {
             throw exception;
         }
         AtomicInteger eventSequence = new AtomicInteger(0);
+        String traceId = TraceId.current();
+        long runStartedNanos = System.nanoTime();
+        observability.runStarted(traceId);
         Consumer<AgentRunEventBO> publisher = event -> {
             AgentRunEventBO sequenced = event.toBuilder()
+                    .traceId(traceId)
                     .summary(redactText(event.getSummary()))
                     .answer(redactText(event.getAnswer()))
                     .delta(redactText(event.getDelta()))
@@ -311,7 +335,9 @@ public class AutonomousAgentAppService {
                     if (!circuitBreaker.allow(toolCircuitKey)) {
                         throw new IllegalStateException("Agent tool circuit is open: " + call.getToolCode());
                     }
+                    long toolStartedNanos = System.nanoTime();
                     AgentToolResult result = bounded(executeToolWithCancellation(call, context, ownerKey, runNo));
+                    observability.toolCompleted(call.getToolCode(), "SUCCEEDED".equals(result.getStatus()), elapsedMs(toolStartedNanos));
                     while (attempts < MAX_RETRY_ATTEMPTS && isTransientToolFailure(result)) {
                         circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
                         attempts++;
@@ -372,6 +398,7 @@ public class AutonomousAgentAppService {
                 // Usage accounting must not turn a completed Agent answer into a false failure.
             }
             runtimeLease.release(ownerKey, runNo);
+            observability.runCompleted(run.getStatus(), elapsedMs(runStartedNanos));
         }
         return toDTO(run, steps);
     }
@@ -920,6 +947,7 @@ public class AutonomousAgentAppService {
         RuntimeException last = null;
         String circuitKey = "provider:" + valueOr(model == null ? null : model.getProviderCode(), "unknown");
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+            long providerStartedNanos = System.nanoTime();
             try {
                 if (!circuitBreaker.allow(circuitKey)) {
                     throw new IllegalStateException("Agent provider circuit is open");
@@ -927,9 +955,13 @@ public class AutonomousAgentAppService {
                 AgentModelTurnResponse response = awaitCancellable(() -> textDeltaConsumer == null
                         ? completionGateway.completeAgent(model, request, "autonomous_agent")
                         : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer), ownerKey, runNo);
+                observability.providerCompleted(model == null ? null : model.getProviderCode(), model == null ? null : model.getModelCode(), true,
+                        elapsedMs(providerStartedNanos));
                 circuitBreaker.recordSuccess(circuitKey);
                 return response;
             } catch (RuntimeException exception) {
+                observability.providerCompleted(model == null ? null : model.getProviderCode(), model == null ? null : model.getModelCode(), false,
+                        elapsedMs(providerStartedNanos));
                 last = exception;
                 if (!isTransientProviderFailure(exception)) throw exception;
                 circuitBreaker.recordFailure(circuitKey, 3, 30);
@@ -1013,6 +1045,10 @@ public class AutonomousAgentAppService {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Agent retry interrupted", exception);
         }
+    }
+
+    private long elapsedMs(long startedNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(Math.max(0, System.nanoTime() - startedNanos));
     }
 
     private String normalizeIdempotencyKey(String value) {

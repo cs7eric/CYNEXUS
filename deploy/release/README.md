@@ -4,6 +4,8 @@ Release is Docker-managed and uses the default `application.yml` from each start
 
 Starting Release automatically stops the Dev application processes first. Shared PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor containers remain running.
 
+Release startup applies the versioned Agent migration bundle through the shared PostgreSQL container before recreating the application images. The migrations are idempotent; a failed migration stops startup.
+
 - Gateway: `18000`
 - Core: `18080`
 - AI: `18081`

@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 @Builder
 public class AgentStreamEventDTO {
     private Integer sequenceNo;
+    private String traceId;
     private String type;
     private String runNo;
     private String status;

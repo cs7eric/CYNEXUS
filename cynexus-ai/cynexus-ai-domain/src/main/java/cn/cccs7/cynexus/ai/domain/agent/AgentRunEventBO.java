@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 @Builder(toBuilder = true)
 public class AgentRunEventBO {
     Integer sequenceNo;
+    String traceId;
     String type;
     String runNo;
     String status;

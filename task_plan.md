@@ -2417,14 +2417,17 @@ Status: in_progress
 - Add operational UI and Release failure/recovery tests.
 - Added durable owner-scoped Agent task scheduling with queued/running/paused/completed/cancelled/dead-letter states, SKIP LOCKED worker claims, lease recovery, bounded retries/backoff, pause/resume/cancel APIs, and operational UI.
 - Bound running tasks to their Agent run before Provider execution so task cancellation can interrupt the underlying run; focused cancellation coverage passes.
+- Added a Release migration gate that applies the full Agent schema bundle before versioned containers start; migration failure aborts Release startup.
 
 ### 106.7 Enterprise observability and security hardening
 
-Status: pending
+Status: in_progress
 
 - Add structured trace correlation, provider latency, tool latency, retry/circuit metrics, and safe operational logs.
 - Add prompt-injection regression corpus, schema fuzzing, SSRF/source URL policy, rate-limit abuse tests, and secret scanning.
 - Document threat model, retention, incident response, and data residency assumptions.
+
+Current implementation: trace ids are persisted on public Agent events, Micrometer run/provider/tool counters and latency timers are wired through a domain port, Release startup applies the complete Agent migration bundle, source URL policy regression coverage is present, and the enterprise security document is added. Prompt-injection corpus, schema fuzzing, rate-abuse, secret scanning, and Release metric/runtime checks remain open.
 
 ### 106.8 Responsive Agent UI visual gate
 

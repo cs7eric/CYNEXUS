@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_run_event (
     run_no varchar(64) NOT NULL,
     owner_key varchar(128) NOT NULL,
     sequence_no integer NOT NULL,
+    trace_id varchar(128),
     event_type varchar(64) NOT NULL,
     status varchar(32),
     step_no integer,
@@ -21,3 +22,6 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_run_event (
 CREATE INDEX IF NOT EXISTS ix_ai_agent_run_event_owner_run_sequence
     ON cynexus_appl_ai.ai_agent_run_event (owner_key, run_no, sequence_no)
     WHERE deleted_at IS NULL;
+
+ALTER TABLE cynexus_appl_ai.ai_agent_run_event
+    ADD COLUMN IF NOT EXISTS trace_id varchar(128);

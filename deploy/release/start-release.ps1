@@ -13,6 +13,10 @@ Set-Location $repoRoot
 # Stop the local Dev application before claiming the shared data stores.
 & (Join-Path $repoRoot "deploy\dev\stop-dev.ps1")
 
+# Release application code and the AI schema must advance together. The Agent
+# migration bundle is idempotent and runs before the new containers start.
+& (Join-Path $repoRoot "deploy\release\apply-agent-migrations.ps1")
+
 $pom = [xml](Get-Content (Join-Path $repoRoot "pom.xml") -Raw)
 $currentMavenVersion = [string]$pom.project.version
 $todaySuffix = Get-Date -Format "yyMMdd"

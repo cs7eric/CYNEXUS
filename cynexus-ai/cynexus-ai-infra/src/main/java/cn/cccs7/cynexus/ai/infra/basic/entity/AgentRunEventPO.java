@@ -14,6 +14,7 @@ public class AgentRunEventPO extends BasePO {
     @TableField("run_no") private String runNo;
     @TableField("owner_key") private String ownerKey;
     @TableField("sequence_no") private Integer sequenceNo;
+    @TableField("trace_id") private String traceId;
     @TableField("event_type") private String eventType;
     private String status;
     @TableField("step_no") private Integer stepNo;

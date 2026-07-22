@@ -65,6 +65,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
 
         <!-- Spring AI model/runtime foundations. Provider starters stay optional until adapters are wired. -->
         <dependency>
