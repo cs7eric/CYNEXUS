@@ -1,7 +1,5 @@
 package cn.cccs7.cynexus.core.application.service;
 
-import cn.cccs7.cynexus.common.core.exception.BizException;
-import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceAccountDTO;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceCategoryDTO;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceOverviewDTO;
@@ -13,8 +11,7 @@ import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAccountBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCategoryBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceOverviewBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceTransactionBO;
-import cn.cccs7.cynexus.core.domain.finance.policy.FinanceLedgerDomainPolicy;
-import cn.cccs7.cynexus.core.domain.finance.port.FinanceRepository;
+import cn.cccs7.cynexus.core.domain.service.finance.FinanceLedgerDomainService;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,16 +22,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class FinanceLedgerAppService {
     public static final String DEFAULT_OWNER = "default";
 
-    private final FinanceRepository repository;
-    private final FinanceLedgerDomainPolicy policy;
+    private final FinanceLedgerDomainService domainService;
 
-    public FinanceLedgerAppService(FinanceRepository repository, FinanceLedgerDomainPolicy policy) {
-        this.repository = repository;
-        this.policy = policy;
+    public FinanceLedgerAppService(FinanceLedgerDomainService domainService) {
+        this.domainService = domainService;
     }
 
     public List<FinanceAccountDTO> listAccounts(boolean includeArchived) {
-        return repository.listAccounts(DEFAULT_OWNER, includeArchived).stream().map(this::account).toList();
+        return domainService.listAccounts(DEFAULT_OWNER, includeArchived).stream().map(this::account).toList();
     }
 
     @Transactional
@@ -43,23 +38,17 @@ public class FinanceLedgerAppService {
                 .accountType(request.getAccountType()).nature(request.getNature()).currency(request.getCurrency())
                 .openingBalance(request.getOpeningBalance()).creditLimit(request.getCreditLimit()).billingDay(request.getBillingDay())
                 .dueDay(request.getDueDay()).color(request.getColor()).notes(request.getNotes()).build();
-        policy.validateAccount(value);
-        Long id = value.getId() == null ? repository.saveAccount(value) : updateAccount(value);
-        return account(repository.findAccount(DEFAULT_OWNER, id));
+        return account(domainService.saveAccount(DEFAULT_OWNER, value));
     }
 
     @Transactional
-    public boolean archiveAccount(Long id) {
-        return repository.archiveAccount(DEFAULT_OWNER, id);
-    }
+    public boolean archiveAccount(Long id) { return domainService.archiveAccount(DEFAULT_OWNER, id); }
 
     @Transactional
-    public boolean restoreAccount(Long id) {
-        return repository.restoreAccount(DEFAULT_OWNER, id);
-    }
+    public boolean restoreAccount(Long id) { return domainService.restoreAccount(DEFAULT_OWNER, id); }
 
     public List<FinanceCategoryDTO> listCategories(boolean includeArchived) {
-        return repository.listCategories(DEFAULT_OWNER, includeArchived).stream().map(this::category).toList();
+        return domainService.listCategories(DEFAULT_OWNER, includeArchived).stream().map(this::category).toList();
     }
 
     @Transactional
@@ -67,46 +56,22 @@ public class FinanceLedgerAppService {
         FinanceCategoryBO value = FinanceCategoryBO.builder().id(request.getId()).ownerKey(DEFAULT_OWNER).parentId(request.getParentId())
                 .name(request.getName()).direction(request.getDirection()).icon(request.getIcon()).color(request.getColor())
                 .sortOrder(request.getSortOrder()).build();
-        policy.validateCategory(value);
-        if (value.getId() != null) {
-            FinanceCategoryBO existing = repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(value.getId())).findFirst().orElse(null);
-            if (existing == null) throw new BizException(ErrorCode.NOT_FOUND, "分类不存在");
-            policy.validateCustomCategory(existing);
-            policy.validateCustomCategory(value);
-            if (!repository.updateCategory(value)) throw new BizException(ErrorCode.NOT_FOUND, "分类不存在");
-            return category(repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(value.getId())).findFirst().orElse(null));
-        }
-        return category(repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getName().equals(value.getName())).findFirst().orElseGet(() -> {
-            Long id = repository.saveCategory(value);
-            return repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(id)).findFirst().orElse(null);
-        }));
+        return category(domainService.saveCategory(DEFAULT_OWNER, value));
     }
 
     @Transactional
-    public boolean archiveCategory(Long id) {
-        FinanceCategoryBO category = repository.listCategories(DEFAULT_OWNER, true).stream().filter(item -> item.getId().equals(id)).findFirst().orElse(null);
-        if (category == null) throw new BizException(ErrorCode.NOT_FOUND, "分类不存在");
-        policy.validateCustomCategory(category);
-        return repository.archiveCategory(DEFAULT_OWNER, id);
-    }
+    public boolean archiveCategory(Long id) { return domainService.archiveCategory(DEFAULT_OWNER, id); }
 
     public FinanceOverviewDTO overview(LocalDate start, LocalDate end) {
-        LocalDate normalizedStart = start == null ? LocalDate.now().withDayOfMonth(1) : start;
-        LocalDate normalizedEnd = end == null ? normalizedStart.withDayOfMonth(normalizedStart.lengthOfMonth()) : end;
-        if (normalizedEnd.isBefore(normalizedStart)) throw new BizException(ErrorCode.BAD_REQUEST, "统计结束日期不能早于开始日期");
-        return overview(repository.overview(DEFAULT_OWNER, normalizedStart, normalizedEnd));
+        return overview(domainService.overview(DEFAULT_OWNER, start, end));
     }
 
     public List<FinanceTransactionDTO> listTransactions(LocalDate start, LocalDate end, Integer limit) {
-        LocalDate normalizedStart = start == null ? LocalDate.now().withDayOfMonth(1) : start;
-        LocalDate normalizedEnd = end == null ? normalizedStart.withDayOfMonth(normalizedStart.lengthOfMonth()) : end;
-        return repository.listTransactions(DEFAULT_OWNER, normalizedStart, normalizedEnd, limit == null ? 100 : limit).stream().map(this::transaction).toList();
+        return domainService.listTransactions(DEFAULT_OWNER, start, end, limit).stream().map(this::transaction).toList();
     }
 
     public FinanceTransactionDTO findTransaction(Long id) {
-        FinanceTransactionBO value = repository.findTransaction(DEFAULT_OWNER, id);
-        if (value == null) throw new BizException(ErrorCode.NOT_FOUND, "账目不存在");
-        return transaction(value);
+        return transaction(domainService.findTransaction(DEFAULT_OWNER, id));
     }
 
     @Transactional
@@ -129,51 +94,15 @@ public class FinanceLedgerAppService {
         FinanceTransactionBO value = FinanceTransactionBO.builder().id(request.getId()).ownerKey(DEFAULT_OWNER)
                 .transactionType(request.getTransactionType()).accountId(request.getAccountId()).toAccountId(request.getToAccountId())
                 .categoryId(request.getCategoryId()).amount(request.getAmount()).currency(request.getCurrency()).occurredAt(occurredAt)
-                .merchant(request.getMerchant()).note(request.getNote()).source(source).sourceRef(sourceRef).build();
-        FinanceAccountBO account = repository.findAccount(DEFAULT_OWNER, value.getAccountId());
-        FinanceAccountBO toAccount = value.getToAccountId() == null ? null : repository.findAccount(DEFAULT_OWNER, value.getToAccountId());
-        policy.validateTransaction(value, account, toAccount);
-        if (!"transfer".equals(value.getTransactionType())) {
-            FinanceCategoryBO category = repository.listCategories(DEFAULT_OWNER, false).stream().filter(item -> item.getId().equals(value.getCategoryId())).findFirst().orElse(null);
-            if (category == null || !("both".equals(category.getDirection()) || category.getDirection().equals(value.getTransactionType()))) {
-                throw new BizException(ErrorCode.BAD_REQUEST, "分类与账目方向不匹配");
-            }
-        }
-        Long id = value.getId() == null ? repository.saveTransaction(value) : updateTransaction(value);
-        return transaction(repository.findTransaction(DEFAULT_OWNER, id));
+                .merchant(request.getMerchant()).note(request.getNote()).build();
+        return transaction(domainService.saveTransaction(DEFAULT_OWNER, value, source, sourceRef));
     }
 
     @Transactional
-    public boolean archiveTransaction(Long id) {
-        policy.validateTransactionMutation(repository.hasInstallmentReference(DEFAULT_OWNER, id));
-        return repository.archiveTransaction(DEFAULT_OWNER, id);
-    }
+    public boolean archiveTransaction(Long id) { return domainService.archiveTransaction(DEFAULT_OWNER, id); }
 
     @Transactional
-    public boolean deleteTransaction(Long id) {
-        if (repository.findInstallmentPlanByPurchaseTransaction(DEFAULT_OWNER, id) != null) {
-            if (!repository.deleteInstallmentPurchase(DEFAULT_OWNER, id)) throw new BizException(ErrorCode.NOT_FOUND, "分期消费不存在");
-            return true;
-        }
-        if (repository.findInstallmentByPaymentTransaction(DEFAULT_OWNER, id) != null) {
-            if (!repository.deleteInstallmentPayment(DEFAULT_OWNER, id)) throw new BizException(ErrorCode.NOT_FOUND, "还款记录不存在");
-            return true;
-        }
-        policy.validateTransactionMutation(repository.hasInstallmentReference(DEFAULT_OWNER, id));
-        if (!repository.deleteTransaction(DEFAULT_OWNER, id)) throw new BizException(ErrorCode.NOT_FOUND, "账目不存在");
-        return true;
-    }
-
-    private Long updateAccount(FinanceAccountBO value) {
-        if (!repository.updateAccount(value)) throw new BizException(ErrorCode.NOT_FOUND, "账户不存在");
-        return value.getId();
-    }
-
-    private Long updateTransaction(FinanceTransactionBO value) {
-        policy.validateTransactionMutation(repository.hasInstallmentReference(DEFAULT_OWNER, value.getId()));
-        if (!repository.updateTransaction(value)) throw new BizException(ErrorCode.NOT_FOUND, "账目不存在");
-        return value.getId();
-    }
+    public boolean deleteTransaction(Long id) { return domainService.deleteTransaction(DEFAULT_OWNER, id); }
 
     private FinanceAccountDTO account(FinanceAccountBO value) {
         if (value == null) return null;
