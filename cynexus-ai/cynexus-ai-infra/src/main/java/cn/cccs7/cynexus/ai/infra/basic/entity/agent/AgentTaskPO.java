@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.OffsetDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.apache.ibatis.type.JdbcType;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -26,7 +27,7 @@ public class AgentTaskPO extends BasePO {
     @TableField("lease_until") private OffsetDateTime leaseUntil;
     @TableField("next_attempt_at") private OffsetDateTime nextAttemptAt;
     @TableField("run_no") private String runNo;
-    @TableField("last_error") private String lastError;
+    @TableField(value = "last_error", jdbcType = JdbcType.LONGVARCHAR) private String lastError;
     @TableField("paused_at") private OffsetDateTime pausedAt;
     @TableField("completed_at") private OffsetDateTime completedAt;
 }

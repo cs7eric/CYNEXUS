@@ -88,7 +88,7 @@
 
     <update id="retry">
         UPDATE cynexus_appl_ai.ai_agent_task
-        SET status = 'QUEUED', next_attempt_at = #{nextAttemptAt}, last_error = #{lastError},
+        SET status = 'QUEUED', next_attempt_at = #{nextAttemptAt}, last_error = #{lastError, jdbcType=LONGVARCHAR},
             lease_owner = NULL, lease_until = NULL, updated_at = now()
         WHERE owner_key = #{ownerKey}
           AND task_no = #{taskNo}
@@ -99,7 +99,7 @@
 
     <update id="deadLetter">
         UPDATE cynexus_appl_ai.ai_agent_task
-        SET status = 'DEAD_LETTER', last_error = #{lastError}, lease_owner = NULL,
+        SET status = 'DEAD_LETTER', last_error = #{lastError, jdbcType=LONGVARCHAR}, lease_owner = NULL,
             lease_until = NULL, completed_at = now(), updated_at = now()
         WHERE owner_key = #{ownerKey}
           AND task_no = #{taskNo}

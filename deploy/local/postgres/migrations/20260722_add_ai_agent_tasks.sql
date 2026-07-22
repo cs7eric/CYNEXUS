@@ -15,13 +15,16 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_ai.ai_agent_task (
     lease_until timestamptz,
     next_attempt_at timestamptz,
     run_no varchar(64),
-    last_error varchar(1000),
+    last_error text,
     paused_at timestamptz,
     completed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     deleted_at timestamptz
 );
+
+ALTER TABLE cynexus_appl_ai.ai_agent_task
+    ALTER COLUMN last_error TYPE text;
 
 CREATE INDEX IF NOT EXISTS idx_ai_agent_task_due
     ON cynexus_appl_ai.ai_agent_task (status, schedule_at, next_attempt_at);
