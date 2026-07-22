@@ -2355,6 +2355,7 @@ Status: in_progress
 - Make cancellation conditional on a non-terminal run and prevent ordinary RUNNING or RETRYING updates from overwriting a persisted cancellation request.
 - Return explicit CANCEL_REQUESTED, ALREADY_TERMINAL, and NOT_FOUND states instead of a successful HTTP response containing false.
 - Add application regression coverage, apply the migration, and verify synchronous and streaming cancellation in the versioned Release runtime.
+- Updated the UI cancel client contract and Stop action to handle all three server states; Release active-cancellation evidence remains open.
 
 ## Phase 106 - Agent product expansion backlog
 

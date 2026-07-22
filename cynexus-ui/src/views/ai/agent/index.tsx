@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentCancellationResult, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 import { Input } from "@/components/ui/input"
 
 function stepLabel(step: AgentRunStep) {
@@ -105,7 +105,17 @@ export default function AutonomousAgentPage() {
   async function stopAgent() {
     if (activeRunNo) {
       try {
-        await cancelAgent(activeRunNo)
+        const result: AgentCancellationResult = await cancelAgent(activeRunNo)
+        if (result.status === "CANCEL_REQUESTED") {
+          setRun((current) => current ? { ...current, status: "CANCEL_REQUESTED" } : current)
+          setError("Cancellation requested. Waiting for the Agent to stop safely…")
+        } else if (result.status === "ALREADY_TERMINAL") {
+          const terminalRun = await getAgentRun(activeRunNo)
+          setRun(terminalRun)
+          setError(`This run has already finished (${terminalRun.status ?? result.runStatus ?? "terminal"}).`)
+        } else {
+          setError("The Agent run was not found for the current workspace.")
+        }
       } catch (reason: unknown) {
         setError(reason instanceof Error ? reason.message : "Unable to stop Agent")
       }

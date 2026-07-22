@@ -1,5 +1,12 @@
 # Cynexus Setup Progress
 
+## 2026-07-22 - Agent cancellation UI contract alignment
+
+- Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.
+- Updated the Agent stop action to distinguish `CANCEL_REQUESTED`, `ALREADY_TERMINAL`, and `NOT_FOUND`, reload terminal state when needed, and keep the active stream alive for server-side cancellation completion.
+- Synchronized Maven and UI versions to `1.1.145-SNAPSHOT`.
+- UI production build and the focused AI application compile passed; active cancellation still requires versioned Release runtime evidence.
+
 ## 2026-07-22 - Durable Agent cancellation intent
 
 - Reproduced the Release defect where `POST /api/ai/agent/runs/{runNo}/cancel` returned `false` and the database row remained `RUNNING` after the Redis lease was unavailable.

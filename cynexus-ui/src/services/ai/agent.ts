@@ -208,8 +208,15 @@ async function consumeAgentStream(
   return { runNo }
 }
 
-export async function cancelAgent(runNo: string): Promise<boolean> {
-  return cynexusResult<boolean>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/cancel`, {
+export interface AgentCancellationResult {
+  runNo?: string | null
+  status: "CANCEL_REQUESTED" | "ALREADY_TERMINAL" | "NOT_FOUND"
+  runStatus?: string | null
+  message?: string | null
+}
+
+export async function cancelAgent(runNo: string): Promise<AgentCancellationResult> {
+  return cynexusResult<AgentCancellationResult>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/cancel`, {
     method: "POST",
   }))
 }
