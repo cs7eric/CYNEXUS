@@ -104,6 +104,46 @@ class AgentToolRegistryTest {
     }
 
     @Test
+    void enforcesStringDateBooleanArrayAndExplicitAdditionalPropertyRules() {
+        AgentToolHandler handler = handler("market.structured", true, false);
+        org.mockito.Mockito.when(handler.definition()).thenReturn(AgentToolDefinition.builder()
+                .code("market.structured").name("structured").module("market").description("structured")
+                .inputSchemaJson("{\"type\":\"object\",\"required\":[\"query\",\"tradeDate\"],\"additionalProperties\":false,\"properties\":{"
+                        + "\"query\":{\"type\":\"string\",\"minLength\":2,\"maxLength\":8},"
+                        + "\"tradeDate\":{\"type\":\"string\",\"format\":\"date\"},"
+                        + "\"includeHistory\":{\"type\":\"boolean\"},"
+                        + "\"symbols\":{\"type\":\"array\",\"maxItems\":2,\"items\":{\"type\":\"string\",\"minLength\":1}}}}")
+                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).build());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler));
+
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.structured").arguments(java.util.Map.of(
+                "query", "x", "tradeDate", "2026-07-22")).build(), null).getWarnings())
+                .contains("ARGUMENT_MINIMUM:query");
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.structured").arguments(java.util.Map.of(
+                "query", "valid", "tradeDate", "not-a-date")).build(), null).getWarnings())
+                .contains("ARGUMENT_FORMAT:tradeDate");
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.structured").arguments(java.util.Map.of(
+                "query", "valid", "tradeDate", "2026-07-22", "includeHistory", "true")).build(), null).getWarnings())
+                .contains("ARGUMENT_TYPE:includeHistory");
+        assertThat(registry.execute(AgentToolCall.builder().toolCode("market.structured").arguments(java.util.Map.of(
+                "query", "valid", "tradeDate", "2026-07-22", "unknown", "value")).build(), null).getWarnings())
+                .contains("ARGUMENT_UNKNOWN:unknown");
+        verify(handler, never()).execute(any(), any());
+    }
+
+    @Test
+    void rejectsOversizedToolArgumentsBeforeHandlerExecution() {
+        AgentToolHandler handler = handler("market.large", true, false);
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler));
+
+        AgentToolResult result = registry.execute(AgentToolCall.builder().toolCode("market.large")
+                .arguments(java.util.Map.of("payload", "x".repeat(16_001))).build(), null);
+
+        assertThat(result.getWarnings()).contains("ARGUMENT_TOO_LARGE");
+        verify(handler, never()).execute(any(), any());
+    }
+
+    @Test
     void disablesPersistedCapabilityWhenGovernanceRemovesIt() {
         AgentToolHandler handler = handler("finance.synthetic", true, false);
         cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository repository = mock(

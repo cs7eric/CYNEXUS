@@ -16,12 +16,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /** Spring assembles the tool pack; the model only sees the resulting metadata snapshot. */
 @Component
 public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
+
+    private static final int MAX_ARGUMENT_CHARS = 16_000;
+    private static final int MAX_SCHEMA_DEPTH = 8;
 
     private final Map<String, AgentToolHandler> handlers;
     private final AgentCapabilityRepository capabilityRepository;
@@ -113,40 +119,119 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor {
     private String validateArguments(AgentToolDefinition definition, Map<String, Object> arguments) {
         try {
             JsonNode schema = objectMapper.readTree(definition.getInputSchemaJson());
+            if (schema == null || !schema.isObject()) return "ARGUMENT_SCHEMA_INVALID";
             Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
-            JsonNode required = schema.get("required");
-            if (required != null && required.isArray()) {
-                for (JsonNode item : required) {
-                    String key = item.asText();
-                    if (!safeArguments.containsKey(key) || safeArguments.get(key) == null
-                            || String.valueOf(safeArguments.get(key)).isBlank()) return "ARGUMENT_REQUIRED:" + key;
-                }
+            JsonNode argumentNode = objectMapper.valueToTree(safeArguments);
+            if (!argumentNode.isObject() || objectMapper.writeValueAsString(argumentNode).length() > MAX_ARGUMENT_CHARS) {
+                return "ARGUMENT_TOO_LARGE";
             }
-            JsonNode properties = schema.get("properties");
-            if (properties == null || !properties.isObject()) return null;
-            for (Map.Entry<String, Object> entry : safeArguments.entrySet()) {
-                JsonNode property = properties.get(entry.getKey());
-                if (property == null) return "ARGUMENT_UNKNOWN:" + entry.getKey();
-                String type = property.path("type").asText("");
-                if ("integer".equals(type)) {
-                    long value;
-                    try { value = Long.parseLong(String.valueOf(entry.getValue())); }
-                    catch (NumberFormatException exception) { return "ARGUMENT_TYPE:" + entry.getKey(); }
-                    if (property.has("minimum") && value < property.get("minimum").asLong()) return "ARGUMENT_MINIMUM:" + entry.getKey();
-                    if (property.has("maximum") && value > property.get("maximum").asLong()) return "ARGUMENT_MAXIMUM:" + entry.getKey();
-                } else if ("string".equals(type) && !(entry.getValue() instanceof String)) {
-                    return "ARGUMENT_TYPE:" + entry.getKey();
-                }
-                JsonNode enumValues = property.get("enum");
-                if (enumValues != null && enumValues.isArray()) {
-                    boolean allowed = false;
-                    for (JsonNode enumValue : enumValues) allowed |= enumValue.asText().equals(String.valueOf(entry.getValue()));
-                    if (!allowed) return "ARGUMENT_ENUM:" + entry.getKey();
-                }
-            }
-            return null;
+            return validateValue(schema, argumentNode, "", 0);
         } catch (Exception exception) {
             return "ARGUMENT_SCHEMA_INVALID";
         }
+    }
+
+    private String validateValue(JsonNode schema, JsonNode value, String path, int depth) {
+        if (depth > MAX_SCHEMA_DEPTH) return "ARGUMENT_SCHEMA_DEPTH";
+        if (schema == null || !schema.isObject()) return "ARGUMENT_SCHEMA_INVALID";
+        JsonNode type = schema.get("type");
+        if (type != null && !matchesType(type, value)) return "ARGUMENT_TYPE:" + displayPath(path);
+        JsonNode enumValues = schema.get("enum");
+        if (enumValues != null) {
+            if (!enumValues.isArray()) return "ARGUMENT_SCHEMA_INVALID";
+            boolean allowed = false;
+            for (JsonNode item : enumValues) allowed |= item.equals(value);
+            if (!allowed) return "ARGUMENT_ENUM:" + displayPath(path);
+        }
+        if (value.isTextual()) {
+            int length = value.textValue().codePointCount(0, value.textValue().length());
+            if (schema.has("minLength") && length < schema.get("minLength").asInt()) return "ARGUMENT_MINIMUM:" + displayPath(path);
+            if (schema.has("maxLength") && length > schema.get("maxLength").asInt()) return "ARGUMENT_MAXIMUM:" + displayPath(path);
+            String format = schema.path("format").asText("");
+            try {
+                if ("date".equals(format)) LocalDate.parse(value.textValue());
+                if ("date-time".equals(format)) OffsetDateTime.parse(value.textValue());
+            } catch (RuntimeException exception) {
+                return "ARGUMENT_FORMAT:" + displayPath(path);
+            }
+            if (schema.has("pattern")) {
+                try {
+                    if (!Pattern.compile(schema.get("pattern").asText()).matcher(value.textValue()).find()) {
+                        return "ARGUMENT_PATTERN:" + displayPath(path);
+                    }
+                } catch (RuntimeException exception) {
+                    return "ARGUMENT_SCHEMA_INVALID";
+                }
+            }
+        }
+        if (value.isNumber()) {
+            if (schema.has("minimum") && value.decimalValue().compareTo(schema.get("minimum").decimalValue()) < 0) return "ARGUMENT_MINIMUM:" + displayPath(path);
+            if (schema.has("maximum") && value.decimalValue().compareTo(schema.get("maximum").decimalValue()) > 0) return "ARGUMENT_MAXIMUM:" + displayPath(path);
+        }
+        if (value.isArray()) {
+            if (schema.has("minItems") && value.size() < schema.get("minItems").asInt()) return "ARGUMENT_MINIMUM:" + displayPath(path);
+            if (schema.has("maxItems") && value.size() > schema.get("maxItems").asInt()) return "ARGUMENT_MAXIMUM:" + displayPath(path);
+            JsonNode items = schema.get("items");
+            if (items != null) {
+                for (int index = 0; index < value.size(); index++) {
+                    String error = validateValue(items, value.get(index), path + "[" + index + "]", depth + 1);
+                    if (error != null) return error;
+                }
+            }
+        }
+        if (value.isObject()) {
+            JsonNode properties = schema.get("properties");
+            if (properties != null && !properties.isObject()) return "ARGUMENT_SCHEMA_INVALID";
+            JsonNode required = schema.get("required");
+            if (required != null) {
+                if (!required.isArray()) return "ARGUMENT_SCHEMA_INVALID";
+                for (JsonNode item : required) {
+                    String key = item.asText();
+                    JsonNode itemValue = value.get(key);
+                    if (itemValue == null || (itemValue.isTextual() && itemValue.textValue().isBlank())) {
+                        return "ARGUMENT_REQUIRED:" + joinPath(path, key);
+                    }
+                }
+            }
+            // Tool schemas are a security boundary: fields must be explicitly allowed.
+            boolean allowAdditional = schema.has("additionalProperties")
+                    && schema.get("additionalProperties").isBoolean()
+                    && schema.get("additionalProperties").asBoolean();
+            for (var field : value.properties()) {
+                JsonNode property = properties == null ? null : properties.get(field.getKey());
+                if (property == null) {
+                    if (!allowAdditional) return "ARGUMENT_UNKNOWN:" + joinPath(path, field.getKey());
+                    continue;
+                }
+                String error = validateValue(property, field.getValue(), joinPath(path, field.getKey()), depth + 1);
+                if (error != null) return error;
+            }
+        }
+        return null;
+    }
+
+    private boolean matchesType(JsonNode type, JsonNode value) {
+        if (type.isArray()) {
+            for (JsonNode option : type) if (matchesType(option, value)) return true;
+            return false;
+        }
+        return switch (type.asText()) {
+            case "object" -> value.isObject();
+            case "array" -> value.isArray();
+            case "string" -> value.isTextual();
+            case "integer" -> value.isIntegralNumber();
+            case "number" -> value.isNumber();
+            case "boolean" -> value.isBoolean();
+            case "null" -> value.isNull();
+            default -> false;
+        };
+    }
+
+    private String joinPath(String path, String key) {
+        return path == null || path.isBlank() ? key : path + "." + key;
+    }
+
+    private String displayPath(String path) {
+        return path == null || path.isBlank() ? "root" : path;
     }
 }

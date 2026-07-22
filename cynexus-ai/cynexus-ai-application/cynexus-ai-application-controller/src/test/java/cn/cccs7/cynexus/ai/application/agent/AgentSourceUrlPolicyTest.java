@@ -14,6 +14,9 @@ class AgentSourceUrlPolicyTest {
                 .isEqualTo("https://trusted.example/source");
         assertThat(AgentSourceUrlPolicy.sanitize("//evil.example/source", Set.of())).isNull();
         assertThat(AgentSourceUrlPolicy.sanitize("javascript:alert(1)", Set.of())).isNull();
+        assertThat(AgentSourceUrlPolicy.sanitize("data:text/html,<script>alert(1)</script>", Set.of())).isNull();
+        assertThat(AgentSourceUrlPolicy.sanitize("https://trusted.example@evil.example/source", Set.of("https://trusted.example"))).isNull();
+        assertThat(AgentSourceUrlPolicy.sanitize("http://trusted.example/source", Set.of("https://trusted.example"))).isNull();
         assertThat(AgentSourceUrlPolicy.sanitize("https://evil.example/source", Set.of("https://trusted.example"))).isNull();
     }
 }

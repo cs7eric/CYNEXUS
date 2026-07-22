@@ -28,6 +28,7 @@ import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
 import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
 import cn.cccs7.cynexus.ai.domain.exception.quota.AgentQuotaExceededException;
 import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSensitiveDataPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import cn.cccs7.cynexus.ai.domain.valueobject.citation.AgentCitation;
 import cn.cccs7.cynexus.ai.domain.factory.citation.AgentCitationFactory;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -501,11 +502,7 @@ public class AutonomousAgentAppService {
     }
 
     private String redactText(String value) {
-        if (value == null || value.isBlank()) return value;
-        return value
-                .replaceAll("(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]+", "$1" + AgentSensitiveDataPolicy.marker())
-                .replaceAll("(?i)([A-Z0-9._%+-]+)@[A-Z0-9.-]+\\.[A-Z]{2,}", AgentSensitiveDataPolicy.marker())
-                .replaceAll("(?<!\\d)(?:\\+?86[- ]?)?1[3-9]\\d{9}(?!\\d)", AgentSensitiveDataPolicy.marker());
+        return AgentSensitiveDataPolicy.redactText(value);
     }
 
     public AgentRunDTO getRun(String ownerKey, String runNo) {
@@ -720,10 +717,11 @@ public class AutonomousAgentAppService {
     private AgentRunStepBO saveToolStep(String runNo, int stepNo, AgentToolCall call, AgentToolResult result,
                                         int attemptCount, String sourceUrl) {
         String resolvedSourceUrl = result.getSourceUrl() == null ? sourceUrl : result.getSourceUrl();
+        resolvedSourceUrl = AgentSourceUrlPolicy.sanitize(resolvedSourceUrl, Set.of());
         List<AgentCitation> citations = result.getCitations() == null || result.getCitations().isEmpty()
                 ? AgentCitationFactory.fromTool(call.getToolCode(), result.getSource(), resolvedSourceUrl,
                 result.getDataDate(), result.getSummary(), toolFreshness(call.getToolCode()))
-                : result.getCitations();
+                : result.getCitations().stream().map(this::sanitizeCitation).toList();
         AgentRunStepBO step = AgentRunStepBO.builder().runNo(runNo).stepNo(stepNo).kind("TOOL")
                 .attemptCount(attemptCount)
                 .toolCode(call.getToolCode()).inputJson(redactJson(json(call.getArguments()))).outputJson(redactJson(result.getOutputJson()))
@@ -734,6 +732,18 @@ public class AutonomousAgentAppService {
                 .startedAt(OffsetDateTime.now()).finishedAt(OffsetDateTime.now()).build();
         agentRunRepository.saveStep(step);
         return step;
+    }
+
+    private AgentCitation sanitizeCitation(AgentCitation citation) {
+        if (citation == null) return null;
+        String safeUrl = AgentSourceUrlPolicy.sanitize(citation.getUrl(), Set.of());
+        return AgentCitation.builder().citationId(citation.getCitationId()).title(redactText(citation.getTitle()))
+                .url(safeUrl)
+                .publisher(redactText(citation.getPublisher())).publicationDate(citation.getPublicationDate())
+                .retrievedAt(citation.getRetrievedAt()).dataDate(citation.getDataDate())
+                .excerpt(redactText(citation.getExcerpt())).freshness(citation.getFreshness())
+                .sourceType(citation.getSourceType()).availability(safeUrl == null ? "UNLINKED" : "AVAILABLE")
+                .conflict(citation.isConflict()).build();
     }
 
     private AgentRunStepBO saveAnswerStep(String runNo, int stepNo, String answer) {

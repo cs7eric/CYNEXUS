@@ -8,13 +8,17 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -29,23 +33,30 @@ public class ClickHouseDailyBarsAgentToolHandler implements AgentToolHandler {
             .outputSchemaJson("{\"type\":\"array\"}").readOnly(true).requiresConfirmation(false)
             .freshness("historical daily data").source(SOURCE).sourceUrl("/stock-overview").build();
 
-    private final HttpClient httpClient = HttpClient.newBuilder().build();
+    private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private final String url;
+    private final URI endpointBase;
     private final String database;
     private final String username;
     private final String password;
 
+    @Autowired
     public ClickHouseDailyBarsAgentToolHandler(ObjectMapper objectMapper,
                                                @Value("${cynexus.market.clickhouse.url:http://127.0.0.1:28123}") String url,
                                                @Value("${cynexus.market.clickhouse.database:cynexus}") String database,
                                                @Value("${cynexus.market.clickhouse.username:cynexus}") String username,
                                                @Value("${cynexus.market.clickhouse.password:}") String password) {
+        this(objectMapper, url, database, username, password, HttpClient.newBuilder().build());
+    }
+
+    ClickHouseDailyBarsAgentToolHandler(ObjectMapper objectMapper, String url, String database,
+                                       String username, String password, HttpClient httpClient) {
         this.objectMapper = objectMapper;
-        this.url = url;
+        this.endpointBase = validateEndpoint(url);
         this.database = database;
         this.username = username;
         this.password = password;
+        this.httpClient = httpClient;
     }
 
     @Override
@@ -79,12 +90,33 @@ public class ClickHouseDailyBarsAgentToolHandler implements AgentToolHandler {
     }
 
     private String query(String sql) throws IOException, InterruptedException {
-        String endpoint = url.replaceAll("/+$", "") + "/?database=" + database + "&user=" + username + "&password=" + password;
-        HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder(URI.create(endpoint))
-                .header("Content-Type", "text/plain; charset=utf-8").POST(HttpRequest.BodyPublishers.ofString(sql)).build(),
+        String endpoint = endpointBase.toString().replaceAll("/+$", "") + "/?database="
+                + URLEncoder.encode(database, StandardCharsets.UTF_8);
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(endpoint))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .header("X-ClickHouse-User", username == null ? "" : username);
+        if (password != null && !password.isBlank()) request.header("X-ClickHouse-Key", password);
+        HttpResponse<String> response = httpClient.send(request.POST(HttpRequest.BodyPublishers.ofString(sql)).build(),
                 HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() < 200 || response.statusCode() >= 300) throw new IOException("ClickHouse HTTP " + response.statusCode());
         return response.body();
+    }
+
+    private URI validateEndpoint(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) throw new IllegalArgumentException("ClickHouse URL cannot be blank");
+        URI candidate;
+        try {
+            candidate = URI.create(rawUrl.trim());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("ClickHouse URL is invalid", exception);
+        }
+        if (!("http".equalsIgnoreCase(candidate.getScheme()) || "https".equalsIgnoreCase(candidate.getScheme()))
+                || candidate.getHost() == null || candidate.getUserInfo() != null
+                || candidate.getQuery() != null || candidate.getFragment() != null) {
+            throw new IllegalArgumentException("ClickHouse URL must be an http(s) origin without credentials or query parameters");
+        }
+        return candidate;
     }
 
     private String text(AgentToolCall call, String key) {
