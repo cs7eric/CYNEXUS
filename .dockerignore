@@ -10,6 +10,8 @@
 !cynexus-ai/cynexus-ai-starter/target/*.jar
 !cynexus-market/cynexus-market-starter/target/
 !cynexus-market/cynexus-market-starter/target/*.jar
+!cynexus-knowledgebase/cynexus-knowledgebase-starter/target/
+!cynexus-knowledgebase/cynexus-knowledgebase-starter/target/*.jar
 deploy/local/nacos/data
 deploy/local/nacos/logs
 deploy/local/postgres/data

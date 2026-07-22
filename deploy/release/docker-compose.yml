@@ -31,6 +31,28 @@ services:
       - "127.0.0.1:18080:18080"
     networks: [cynexus-shared]
 
+  knowledgebase:
+    build:
+      context: ../..
+      dockerfile: deploy/local/Dockerfile.app
+      args:
+        MAVEN_PROJECT: cynexus-knowledgebase/cynexus-knowledgebase-starter
+        JAR_NAME: cynexus-knowledgebase-starter-${CYNEXUS_MAVEN_VERSION:-1.1.1-ALPHA-260716-SNAPSHOT}.jar
+    image: cynexus-knowledgebase:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
+    container_name: cynexus-release-knowledgebase
+    restart: unless-stopped
+    environment:
+      NACOS_SERVER_ADDR: cynexus-nacos:8848
+      POSTGRES_HOST: cynexus-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cynexus
+      POSTGRES_SCHEMA: cynexus_appl_knowledge_base
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: C020611.
+    ports:
+      - "127.0.0.1:18084:18084"
+    networks: [cynexus-shared]
+
   market:
     build:
       context: ../..

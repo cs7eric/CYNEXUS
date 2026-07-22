@@ -83,7 +83,8 @@ $requiredJars = @(
     "cynexus-core\cynexus-core-starter\target\cynexus-core-starter-$mavenVersion.jar",
     "cynexus-market\cynexus-market-starter\target\cynexus-market-starter-$mavenVersion.jar",
     "cynexus-ai\cynexus-ai-starter\target\cynexus-ai-starter-$mavenVersion.jar",
-    "cynexus-gateway\cynexus-gateway-starter\target\cynexus-gateway-starter-$mavenVersion.jar"
+    "cynexus-gateway\cynexus-gateway-starter\target\cynexus-gateway-starter-$mavenVersion.jar",
+    "cynexus-knowledgebase\cynexus-knowledgebase-starter\target\cynexus-knowledgebase-starter-$mavenVersion.jar"
 )
 foreach ($jar in $requiredJars) {
     if (-not (Test-Path (Join-Path $repoRoot $jar))) { throw "Missing release artifact: $jar. Run with -Build or build the requested version first." }
