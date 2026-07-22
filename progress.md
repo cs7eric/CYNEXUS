@@ -1959,7 +1959,6 @@
 - Fixed conversation-history request races, bounded the multiline composer to 80px with native scrolling and hidden scrollbar, and anchored the MessageScroller control to the lower-right edge.
 - Release UI `1.1.168-260722-RELEASE` was rebuilt from the production Vite artifact and exercised with Playwright at 1440x900 and 390x844: empty state, no horizontal overflow, long-input metrics (`clientHeight=80`, `scrollHeight=2896`, `scrollbarWidth=0`), history reopen, citation/source navigation, Markdown export, and retry quota rejection were verified without browser console errors on the successful history flow.
 - `pnpm exec tsc -b`, scoped Agent UI ESLint, `pnpm build`, `git diff --check`, and the Nginx UI image build passed. A live new stream was blocked by the existing Release backend response (`500`, `input_tokens` schema lookup) and later truthful owner quota rejection; no backend/schema changes were made in this UI worktree.
-
 ## 2026-07-22 - Agent persistence owner scope and Release 1.1.173 verification
 
 - Integrated the Agent persistence contract hardening and corrected the missing owner propagation on `AgentRunStepBO`; tool, answer, and clarification steps now carry the tenant-qualified owner through the application and MapStruct converter.
