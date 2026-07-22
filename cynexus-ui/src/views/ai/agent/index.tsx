@@ -138,10 +138,21 @@ export default function AutonomousAgentPage() {
   }
 
   useEffect(() => {
-    void fetchAgentTools().then(setTools).catch((reason: unknown) => {
-      setError(reason instanceof Error ? reason.message : "Unable to load Agent tools")
+    let disposed = false
+    async function loadWorkspace() {
+      const [nextTools] = await Promise.all([
+        fetchAgentTools(),
+        refreshConversations(),
+      ])
+      if (!disposed) setTools(nextTools)
+    }
+
+    void loadWorkspace().catch((reason: unknown) => {
+      if (!disposed) setError(reason instanceof Error ? reason.message : "Unable to load Agent tools")
     })
-    void refreshConversations()
+    return () => {
+      disposed = true
+    }
   }, [])
 
   const toolGroups = useMemo(() => {
@@ -153,9 +164,9 @@ export default function AutonomousAgentPage() {
   async function submit() {
     const userInput = input.trim()
     if (!userInput || loading) return
+    const conversationNo = run?.conversationNo ?? undefined
     setLoading(true)
     setError(null)
-    const conversationNo = run?.conversationNo ?? undefined
     setActiveRunNo(null)
     setRun({ conversationNo, userInput, status: "RUNNING", answer: "" })
     try {
@@ -231,6 +242,7 @@ export default function AutonomousAgentPage() {
     setLoading(true)
     setError(null)
     try {
+      setRun((current) => current ? { ...current, status: "RUNNING" } : current)
       const nextRun = action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo)
       setRun(nextRun)
       if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
@@ -299,6 +311,7 @@ export default function AutonomousAgentPage() {
                 </MessageScroller>
               </MessageScrollerProvider>
             </div>
+            <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void submit() } }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => { void stopAgent() }} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
             <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); void submit() } }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => { void stopAgent() }} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
           </section>
 
