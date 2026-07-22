@@ -51,7 +51,7 @@ cynexus:
   ai:
     platform:
       enabled: ${CYNEXUS_AI_PLATFORM_ENABLED:false}
-      default-provider: ${CYNEXUS_AI_DEFAULT_PROVIDER:mock}
+      default-provider: ${CYNEXUS_AI_DEFAULT_PROVIDER:custom}
       providers:
         openai:
           base-url: ${CYNEXUS_AI_OPENAI_BASE_URL:https://api.openai.com}

@@ -1858,3 +1858,5 @@
 - Core, Market, AI, Gateway, Knowledge Base, and UI versioned containers are running and health checks return HTTP 200.
 - A real trusted-identity run `AGR-release158-grounded` reached `xtyoo / gpt-5.4-mini`, autonomously selected `knowledge.search` and `knowledge.document`, and persisted `SUCCEEDED` with citations, source URLs, data dates, usage, plan, and provider/model provenance.
 - Release AI startup logs contain no `MockAiModelAdapter` startup or execution record. Synthetic fallback removal is release-verified.
+
+- Audited the Release starter configuration and removed the production default-provider value `mock`; missing production routing now fails explicitly, while MockAiModelAdapter remains profile-scoped to `dev/test`.

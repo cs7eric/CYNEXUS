@@ -2103,6 +2103,8 @@ Status: complete
 - Add a provider-independent HTTP integration harness covering native Chat Completions tool calls, Responses function calls, and strict JSON fallback without using a real credential in tests.
 - Run one controlled live smoke through the configured `xtyooo` provider and verify provider/model provenance and persisted trace.
 
+Implementation note: Release defaults now target the configured `custom` provider; `mock` remains development/test-only and is not a Release fallback.
+
 ### Phase 100 Verification Results
 
 - Migration applied locally and verified `autonomous_agent -> xtyooo/custom -> gpt-5.4-mini`.
