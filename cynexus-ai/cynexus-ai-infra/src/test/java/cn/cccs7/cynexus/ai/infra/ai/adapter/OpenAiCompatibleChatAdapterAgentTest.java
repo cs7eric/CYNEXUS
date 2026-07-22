@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
@@ -17,11 +18,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.ArrayList;
+import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.env.Environment;
 
 class OpenAiCompatibleChatAdapterAgentTest {
+
+    @Test
+    void identifiesOnlyTlsHandshakeFailuresForStreamTransportRetry() {
+        assertThat(OpenAiCompatibleChatAdapter.isTlsHandshakeFailure(
+                new IOException("wrapper", new SSLHandshakeException("terminated")))).isTrue();
+        assertThat(OpenAiCompatibleChatAdapter.isTlsHandshakeFailure(new IOException("timeout"))).isFalse();
+    }
 
     @Test
     void configuresHttpProxyWithHttp11ForProviderTlsCompatibility() {
@@ -36,6 +45,17 @@ class OpenAiCompatibleChatAdapterAgentTest {
                     .containsExactly(new java.net.Proxy(java.net.Proxy.Type.HTTP,
                             new InetSocketAddress("proxy.example", 7890)));
         });
+    }
+
+    @Test
+    void configuresStreamingClientWithHttp11AndTls12() {
+        Environment environment = mock(Environment.class);
+        when(environment.getProperty("HTTPS_PROXY")).thenReturn("http://proxy.example:7890");
+
+        var client = OpenAiCompatibleChatAdapter.buildStreamingHttpClient(environment);
+
+        assertThat(client.version()).isEqualTo(java.net.http.HttpClient.Version.HTTP_1_1);
+        assertThat(client.sslParameters().getProtocols()).containsExactly("TLSv1.2");
     }
 
     @Test

@@ -489,3 +489,8 @@
 - The legacy generic scenario path contained a real fake-success branch: `AgentExecutor` serialized a mock structured response whenever a tool list was non-empty. It is now an explicit unsupported-operation failure, so a run cannot claim Provider/tool execution that did not occur.
 - `MockAiModelAdapter` is now available only under `dev`/`test`; `AiCompletionGatewayImpl` no longer silently changes missing provider routing to `mock`.
 - This change must be verified in a new Release image because the existing `1.1.157` image predates the fix.
+## 2026-07-22 - Streaming TLS investigation
+
+- Host curl succeeds through the configured HTTP proxy with HTTP/1.1, but a container-side curl using the same proxy fails during TLS negotiation when it offers HTTP/2/TLS 1.3.
+- The streaming adapter now uses an isolated HTTP/1.1 client constrained to TLS 1.2 and retries only handshake termination before reporting failure. Certificate verification remains enabled.
+- Focused adapter coverage passed 7/7. Versioned Release evidence is required before calling SSE streaming fixed.
