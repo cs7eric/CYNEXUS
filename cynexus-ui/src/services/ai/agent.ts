@@ -244,3 +244,44 @@ export async function retryAgent(runNo: string): Promise<AgentRun> {
 export async function regenerateAgent(runNo: string): Promise<AgentRun> {
   return cynexusResult<AgentRun>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/regenerate`, { method: "POST" }))
 }
+
+export interface AgentFeedback {
+  id?: number | null
+  runNo?: string | null
+  conversationNo?: string | null
+  rating?: number | null
+  feedbackReason?: string | null
+  correctionText?: string | null
+  evaluationLabel?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface AgentFeedbackSummary {
+  total: number
+  positive: number
+  negative: number
+  reviewed: number
+  averageRating: number
+}
+
+export async function submitAgentFeedback(runNo: string, input: {
+  rating: number
+  feedbackReason?: string
+  correctionText?: string
+  evaluationLabel?: string
+}): Promise<AgentFeedback> {
+  return cynexusResult<AgentFeedback>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }))
+}
+
+export async function fetchAgentFeedback(runNo: string): Promise<AgentFeedback | null> {
+  return cynexusResult<AgentFeedback | null>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/runs/${encodeURIComponent(runNo)}/feedback`))
+}
+
+export async function fetchAgentFeedbackSummary(): Promise<AgentFeedbackSummary> {
+  return cynexusResult<AgentFeedbackSummary>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/feedback/summary`))
+}

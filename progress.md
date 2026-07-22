@@ -15,6 +15,13 @@
 - Added focused search-handler coverage for bounded successful retrieval and invalid input rejection.
 - Maven/UI versions are synchronized at `1.1.147-SNAPSHOT`; focused infra compilation/test and Release data verification remain pending.
 
+## 2026-07-22 - Agent feedback and evaluation loop
+
+- Added `ai_agent_feedback` under `cynexus_appl_ai` with tenant/owner scope, rating, correction reason/text, evaluation label, reviewer/audit fields, timestamps, and unique owner/run upsert semantics.
+- Added authenticated submit/read/summary APIs; feedback is accepted only for terminal runs and client owner values are never trusted.
+- Added domain redaction/normalization and retention archiving for feedback, plus Agent UI helpful/unhelpful controls and owner-scoped quality summary.
+- Maven/UI versions are synchronized at `1.1.148-SNAPSHOT`; focused service/infra tests and Release migration verification remain pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

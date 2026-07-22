@@ -2383,11 +2383,12 @@ Status: in_progress
 
 ### 106.3 User feedback and evaluation loop
 
-Status: pending
+Status: in_progress
 
 - Add answer feedback, correction reason, evaluation label, and reviewer/audit fields under `cynexus_appl_ai`.
 - Persist only redacted user feedback and make it available to evaluation reports without exposing hidden chain-of-thought.
 - Add UI controls, API authorization, retention behavior, and aggregate quality dashboards.
+- Added owner-scoped feedback upsert, redacted correction reasons, evaluation labels, reviewer/audit columns, retention archiving, and an authenticated summary endpoint with Agent UI controls.
 
 ### 106.4 Usage, cost, quota, and model routing
 
