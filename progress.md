@@ -1863,3 +1863,10 @@
 
 - The first `1.1.160` Release rebuild exposed missing imports caused by the in-progress DDD package move; corrected the domain contracts and verified `cynexus-ai-domain` compilation succeeds. The full Release rebuild is still pending.
 - The next Release compile found one stale test import for `AgentCapabilityDescriptorPolicy`; corrected it and will rerun the versioned Release build.
+
+## 2026-07-22 - Release 1.1.160 verification after DDD import repair
+
+- Rebuilt Release `1.1.160-260722-RELEASE` through the documented Docker entrypoint; all 41 Maven modules built successfully and six versioned containers started.
+- Core, Market, AI, Gateway, Knowledge Base, and UI health checks returned HTTP 200 after startup warm-up.
+- Real trusted-identity run `AGR-release160-grounded` reached `xtyoo / gpt-5.4-mini`, autonomously selected `knowledge.search` and `knowledge.document`, and persisted `SUCCEEDED`, two tool calls, `REPORTED` usage, citations, and source metadata.
+- Release Agent tools and governed capabilities each expose 14 rows; AI logs contain no MockAiModelAdapter or mock-model execution record.

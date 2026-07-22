@@ -137,7 +137,7 @@ Status: complete
 - Restrict the mock model adapter to development/test profiles and fail explicitly when production routing has no provider code.
 - Add focused regression coverage and verify the behavior in a new versioned Release image.
 
-Verification: synthetic tool-enabled success is rejected, the mock adapter is limited to `dev/test`, and focused Agent tests pass. Release `1.1.158-260722-RELEASE` was built from the versioned Docker entrypoint with Maven 41/41 success; Core, Market, AI, Gateway, Knowledge Base, and UI containers are healthy; a real `xtyoo / gpt-5.4-mini` run selected `knowledge.search` and `knowledge.document` and persisted `SUCCEEDED` with tool evidence, citations, source URLs, data dates, usage, and provider/model provenance. Release AI logs contain no MockAiModelAdapter startup or execution evidence.
+Verification: synthetic tool-enabled success is rejected, the mock adapter is limited to `dev/test`, and focused Agent tests pass. Release `1.1.160-260722-RELEASE` was built from the versioned Docker entrypoint with Maven 41/41 success; Core, Market, AI, Gateway, Knowledge Base, and UI containers are healthy; a real `xtyoo / gpt-5.4-mini` run `AGR-release160-grounded` selected `knowledge.search` and `knowledge.document` and persisted `SUCCEEDED` with tool evidence, citations, source URLs, data dates, reported usage, and provider/model provenance. Release AI logs contain no MockAiModelAdapter startup or execution evidence.
 
 ## Errors Encountered
 
