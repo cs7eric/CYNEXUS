@@ -290,3 +290,47 @@ export async function fetchAgentFeedback(runNo: string): Promise<AgentFeedback |
 export async function fetchAgentFeedbackSummary(): Promise<AgentFeedbackSummary> {
   return cynexusResult<AgentFeedbackSummary>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/feedback/summary`))
 }
+
+export interface AgentWritePreview {
+  commandNo: string
+  toolCode: string
+  argumentDigest: string
+  argumentsJson: string
+  confirmationToken: string
+  expiresAt: string
+  status: string
+}
+
+export interface AgentWriteResult {
+  commandNo: string
+  status: string
+  resultJson?: string | null
+  errorMessage?: string | null
+}
+
+export async function previewAgentWrite(input: {
+  toolCode: string
+  conversationNo?: string
+  runNo?: string
+  argumentsJson: string
+}): Promise<AgentWritePreview> {
+  return cynexusResult<AgentWritePreview>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/write-commands/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }))
+}
+
+export async function confirmAgentWrite(commandNo: string, confirmationToken: string): Promise<AgentWriteResult> {
+  return cynexusResult<AgentWriteResult>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/write-commands/${encodeURIComponent(commandNo)}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmationToken }),
+  }))
+}
+
+export async function rejectAgentWrite(commandNo: string): Promise<AgentWriteResult> {
+  return cynexusResult<AgentWriteResult>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/write-commands/${encodeURIComponent(commandNo)}/reject`, {
+    method: "POST",
+  }))
+}

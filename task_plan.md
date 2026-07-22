@@ -2401,11 +2401,12 @@ Status: in_progress
 
 ### 106.5 Confirmed write capabilities
 
-Status: pending
+Status: in_progress
 
 - Define write tool ports and command contracts separately from read tools.
 - Require expiring confirmation tokens bound to tenant, owner, conversation, run, tool, and argument digest.
 - Persist audit records and expose preview/confirm/reject UI; unconfirmed writes must remain impossible.
+- Added a real confirmed write boundary for `knowledge.document.create`: expiring owner-bound confirmation tokens, argument digest binding, conditional state transitions, durable audit rows, Core/Knowledge Base execution, and Agent UI preview/confirm/reject controls. The tool remains excluded from autonomous read-only tool execution.
 
 ### 106.6 Background tasks and scheduled Agent work
 
@@ -2430,6 +2431,19 @@ Status: pending
 - Verify the production UI at desktop and mobile viewports with the shadcn Message/MessageScroller composition.
 - Verify long input scroll behavior, hidden scrollbar, empty state, thinking/streaming state outside the message bubble, header, source actions, transcript recovery, and error/cancel states.
 - Add browser-level interaction checks for source navigation, export, retry, regenerate, follow-up, and stop.
+
+### 106.9 Dynamic capability discovery and governed registration
+
+Status: pending
+
+- Replace the remaining manually curated Agent-only tool list with a contract-driven capability registry.
+- Define a domain-owned capability contract containing version, input/output schemas, permissions, tenant scope, read/write policy, confirmation policy, source, freshness, and availability metadata.
+- Let Market, Core, Finance, Knowledge Base, and Application Analysis publish typed capability descriptors and execution ports without exposing arbitrary URLs, SQL, persistence, or MVC internals to the Agent.
+- Discover local capability providers through the application/infra assembly boundary and synchronize remote service capability manifests through authenticated internal service contracts and Nacos service discovery.
+- Persist capability definitions and Provider routing state under `cynexus_appl_ai`, including enablement, version, priority, health, last-seen, and stale/unavailable transitions.
+- Generate the runtime Agent tool catalog from authorized, enabled, healthy capabilities and keep the AI Provider page routing list, runtime entry, prompt key, group, description, schemas, source, and freshness synchronized.
+- Validate capability arguments and authorization before execution, return structured evidence and provenance, and make capability registration, version changes, disablement, expiration, and execution auditable.
+- Verify with a newly registered non-Market capability and a real `xtyooo / gpt-5.4-mini` run that the Agent discovers and selects it without a fixed keyword route or hard-coded executor branch.
 
 ## Errors Encountered
 

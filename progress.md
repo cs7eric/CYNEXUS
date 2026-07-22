@@ -29,6 +29,13 @@
 - Pricing is calculated from the configured AI Provider input/output price fields; no fake provider usage is introduced.
 - Added focused quota adapter coverage. Maven/UI versions are synchronized at `1.1.149-SNAPSHOT`; database and real-provider Release verification remain pending.
 
+## 2026-07-22 - Confirmed Agent write boundary
+
+- Added durable `ai_agent_write_command` and `ai_agent_write_audit` tables with owner/tenant scope, argument digest, expiring token hash, state transitions, result, and audit metadata.
+- Added a real `knowledge.document.create` executor through the existing Knowledge Base API; writes are forced to `DRAFT`.
+- Added preview, confirm, and reject APIs plus Agent UI controls. Autonomous Agent tools remain read-only, so an unconfirmed write cannot execute.
+- Added focused preview/confirm application coverage. Maven/UI versions are synchronized at `1.1.150-SNAPSHOT`; migration, UI, and Release execution verification remain pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.
