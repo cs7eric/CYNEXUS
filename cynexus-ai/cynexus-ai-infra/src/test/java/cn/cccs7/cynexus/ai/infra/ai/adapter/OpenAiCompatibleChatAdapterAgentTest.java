@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
@@ -30,6 +32,20 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(OpenAiCompatibleChatAdapter.isTlsHandshakeFailure(
                 new IOException("wrapper", new SSLHandshakeException("terminated")))).isTrue();
         assertThat(OpenAiCompatibleChatAdapter.isTlsHandshakeFailure(new IOException("timeout"))).isFalse();
+    }
+
+    @Test
+    void preservesStreamingTimeoutAndInterruptionClassification() {
+        var config = OpenAiCompatibleChatAdapter.buildStreamingRequestConfig(java.time.Duration.ofSeconds(37));
+
+        assertThat(config.getConnectTimeout().toSeconds()).isEqualTo(10);
+        assertThat(config.getConnectionRequestTimeout().toSeconds()).isEqualTo(10);
+        assertThat(config.getResponseTimeout().toSeconds()).isEqualTo(37);
+        assertThat(OpenAiCompatibleChatAdapter.isInterruptedFailure(
+                new IOException("wrapper", new InterruptedIOException("cancelled")))).isTrue();
+        assertThat(OpenAiCompatibleChatAdapter.isInterruptedFailure(
+                new IOException("wrapper", new SocketTimeoutException("timed out")))).isFalse();
+        assertThat(OpenAiCompatibleChatAdapter.isInterruptedFailure(new IOException("timeout"))).isFalse();
     }
 
     @Test

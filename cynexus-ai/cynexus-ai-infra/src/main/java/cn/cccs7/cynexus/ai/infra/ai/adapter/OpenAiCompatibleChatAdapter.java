@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import javax.net.ssl.SSLHandshakeException;
 import java.net.URI;
 import java.net.InetSocketAddress;
@@ -37,8 +39,10 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.util.Timeout;
 import org.springframework.core.env.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,8 +160,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         for (int attempt = 1; attempt <= STREAM_TRANSPORT_ATTEMPTS; attempt++) {
             try {
                 return streamWithApacheHttpClient(resolveEndpoint(model, responsesApi), apiKey, payload,
-                        responsesApi, request, textDeltaConsumer);
+                        resolveRequestTimeout(model), responsesApi, request, textDeltaConsumer);
             } catch (IOException exception) {
+                if (isInterruptedFailure(exception)) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
+                }
                 if (attempt < STREAM_TRANSPORT_ATTEMPTS && isTlsHandshakeFailure(exception)) {
                     LOGGER.warn("Retrying AI provider stream after TLS handshake failure (attempt {}/{})",
                             attempt + 1, STREAM_TRANSPORT_ATTEMPTS);
@@ -166,6 +174,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 logProviderFailure("agent stream", model, exception);
                 throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
             } catch (UncheckedIOException exception) {
+                if (isInterruptedFailure(exception)) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
+                }
                 logProviderFailure("agent stream", model, exception);
                 throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
             } catch (RuntimeException exception) {
@@ -180,6 +192,15 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         Throwable current = failure;
         while (current != null) {
             if (current instanceof SSLHandshakeException) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    static boolean isInterruptedFailure(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof InterruptedIOException && !(current instanceof SocketTimeoutException)) return true;
             current = current.getCause();
         }
         return false;
@@ -658,9 +679,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private AgentModelTurnResponse streamWithApacheHttpClient(URI endpoint, String apiKey, String payload,
-                                                               boolean responsesApi, AgentModelTurnRequest request,
+                                                               Duration requestTimeout, boolean responsesApi,
+                                                               AgentModelTurnRequest request,
                                                                Consumer<String> textDeltaConsumer) throws IOException {
         HttpPost post = new HttpPost(endpoint);
+        post.setConfig(buildStreamingRequestConfig(requestTimeout));
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
         post.setEntity(new StringEntity(payload, ContentType.APPLICATION_JSON));
@@ -677,6 +700,14 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                         : readChatStream(lines, request, textDeltaConsumer);
             }
         }
+    }
+
+    static RequestConfig buildStreamingRequestConfig(Duration requestTimeout) {
+        return RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(10))
+                .setConnectionRequestTimeout(Timeout.ofSeconds(10))
+                .setResponseTimeout(Timeout.of(requestTimeout))
+                .build();
     }
 
     private static HttpClient.Builder baseHttpClientBuilder(Environment environment) {
