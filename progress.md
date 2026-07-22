@@ -36,6 +36,13 @@
 - Added preview, confirm, and reject APIs plus Agent UI controls. Autonomous Agent tools remain read-only, so an unconfirmed write cannot execute.
 - Added focused preview/confirm application coverage. Maven/UI versions are synchronized at `1.1.150-SNAPSHOT`; migration, UI, and Release execution verification remain pending.
 
+## 2026-07-22 - Durable Agent background tasks
+
+- Added `ai_agent_task` with tenant/owner scope, schedule time, lease owner/expiry, retry count, next attempt, pause/cancel/dead-letter state, and run linkage.
+- Added transactional `FOR UPDATE SKIP LOCKED` worker claims, stale lease recovery, bounded exponential retry, and scheduled execution through the existing Agent application service.
+- Added task scheduling/control APIs and an operational Agent UI panel for queueing, pausing, resuming, cancelling, and reviewing failures.
+- Added focused task scheduling coverage. Maven/UI versions are synchronized at `1.1.151-SNAPSHOT`; migration and Release worker recovery verification remain pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

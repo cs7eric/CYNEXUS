@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.ai.infra.basic.mapper.AgentTaskMapper">
+    <update id="pause">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET status = 'PAUSED', paused_at = now(), updated_at = now()
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
+          AND status = 'QUEUED'
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="resume">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET status = 'QUEUED', paused_at = NULL, next_attempt_at = now(), updated_at = now()
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
+          AND status = 'PAUSED'
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="cancel">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET status = 'CANCELLED', completed_at = now(), lease_owner = NULL, lease_until = NULL, updated_at = now()
+        WHERE owner_key = #{ownerKey}
+          AND task_no = #{taskNo}
+          AND status IN ('QUEUED', 'PAUSED')
+          AND deleted_at IS NULL
+    </update>
+
+    <select id="claimDue" resultType="cn.cccs7.cynexus.ai.infra.basic.entity.AgentTaskPO">
+        WITH candidate AS (
+            SELECT id
+            FROM cynexus_appl_ai.ai_agent_task
+            WHERE deleted_at IS NULL
+              AND ((status = 'QUEUED'
+                    AND schedule_at &lt;= #{now}
+                    AND COALESCE(next_attempt_at, schedule_at) &lt;= #{now})
+                   OR (status = 'RUNNING' AND lease_until &lt; #{now}))
+            ORDER BY COALESCE(next_attempt_at, schedule_at), created_at
+            FOR UPDATE SKIP LOCKED
+            LIMIT #{limit}
+        )
+        UPDATE cynexus_appl_ai.ai_agent_task task
+        SET status = 'RUNNING', lease_owner = #{workerId}, lease_until = #{leaseUntil},
+            attempt_count = task.attempt_count + 1, updated_at = now()
+        FROM candidate
+        WHERE task.id = candidate.id
+        RETURNING task.*
+    </select>
+
+    <update id="complete">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET status = 'COMPLETED', run_no = #{runNo}, completed_at = now(),
+            lease_owner = NULL, lease_until = NULL, updated_at = now()
+        WHERE task_no = #{taskNo}
+          AND lease_owner = #{leaseOwner}
+          AND status = 'RUNNING'
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="retry">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET status = 'QUEUED', next_attempt_at = #{nextAttemptAt}, last_error = #{lastError},
+            lease_owner = NULL, lease_until = NULL, updated_at = now()
+        WHERE task_no = #{taskNo}
+          AND lease_owner = #{leaseOwner}
+          AND status = 'RUNNING'
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="deadLetter">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET status = 'DEAD_LETTER', last_error = #{lastError}, lease_owner = NULL,
+            lease_until = NULL, completed_at = now(), updated_at = now()
+        WHERE task_no = #{taskNo}
+          AND lease_owner = #{leaseOwner}
+          AND status = 'RUNNING'
+          AND deleted_at IS NULL
+    </update>
+</mapper>

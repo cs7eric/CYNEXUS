@@ -2410,11 +2410,12 @@ Status: in_progress
 
 ### 106.6 Background tasks and scheduled Agent work
 
-Status: pending
+Status: in_progress
 
 - Add durable task scheduling, queue state, worker lease, retry/dead-letter policy, pause/resume, and notification boundaries.
 - Keep scheduled work scoped by tenant and owner; expose truthful queued/running/paused/failed states.
 - Add operational UI and Release failure/recovery tests.
+- Added durable owner-scoped Agent task scheduling with queued/running/paused/completed/cancelled/dead-letter states, SKIP LOCKED worker claims, lease recovery, bounded retries/backoff, pause/resume/cancel APIs, and operational UI.
 
 ### 106.7 Enterprise observability and security hardening
 
