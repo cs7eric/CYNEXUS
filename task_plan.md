@@ -2545,6 +2545,8 @@ Verification: commit `e558daf7` synchronized Maven/UI development versions at `1
 
 Additional Release evidence: after one transient upstream TLS handshake failure, retry run `AGR-release174-appanalysis-b` reached `gpt-5.4-mini`, autonomously selected `application_analysis.result` and `application_analysis.recent30`, read persisted target `stock-600396`, and returned `SUCCEEDED` with explicit two-record/30-day data insufficiency and source metadata. The first failure remained persisted as `FAILED` with `failureCategory=PROVIDER`; it was not converted into a fabricated answer.
 
+Release workflow follow-up evidence: owner-scoped feedback for `AGR-release174-broad` persisted `rating=5`, `evaluationLabel=CORRECT`, and the authorized summary returned one positive feedback item. A confirmed write preview/confirm for `knowledge.document.create` returned `PENDING_CONFIRMATION` then `EXECUTED` with a downstream `DRAFT` document id. A scheduled task `ATK-79919902d92841f7b4bd2d63` transitioned `QUEUED -> PAUSED -> QUEUED -> CANCELLED` under the same owner scope. These checks exercise the existing product slices; task lease recovery, dead-letter, metrics, and full UI revalidation remain open in the Phase 107 matrix.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
