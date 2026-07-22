@@ -98,7 +98,7 @@ class AgentToolDefinitionContractTest {
 
     private Object dependency(Class<?> type) {
         if (type == ObjectMapper.class) return new ObjectMapper();
-        if (type == String.class) return "";
+        if (type == String.class) return "http://127.0.0.1:28123";
         return mock(type);
     }
 }
