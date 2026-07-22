@@ -29,7 +29,10 @@ public class AgentTaskWorker {
 
     private void process(AgentTaskBO task) {
         try {
-            var result = agentService.execute(AgentRunRequest.builder().conversationNo(task.getConversationNo())
+            String runNo = "TASK-RUN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+            task.setRunNo(runNo);
+            if (!repository.linkRun(task, runNo)) return;
+            var result = agentService.execute(AgentRunRequest.builder().runNo(runNo).conversationNo(task.getConversationNo())
                     .userInput(task.getUserInput()).preferredModelCode(task.getPreferredModelCode()).idempotencyKey("task:" + task.getTaskNo() + ":" + task.getAttemptCount()).build(),
                     AgentIdentity.builder().tenantKey(task.getTenantKey()).principalKey(task.getPrincipalKey()).build(), ignored -> { });
             task.setRunNo(result.getRunNo());

@@ -144,7 +144,7 @@ public class AutonomousAgentAppService {
         AgentIdentity safeIdentity = identity == null ? AgentIdentity.singleUser() : identity;
         String ownerKey = safeIdentity.storageOwnerKey();
         String conversationNo = valueOr(safeRequest.getConversationNo(), "AGC-" + shortId());
-        String runNo = "AGR-" + shortId();
+        String runNo = valueOr(safeRequest.getRunNo(), "AGR-" + shortId());
         String userInput = valueOr(safeRequest.getUserInput(), "");
         if (userInput.isBlank()) throw new IllegalArgumentException("Agent userInput cannot be blank");
         if (userInput.length() > MAX_USER_INPUT_CHARS) throw new IllegalArgumentException("Agent userInput is too long");

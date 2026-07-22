@@ -14,7 +14,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class AgentTaskAppService {
     private final AgentTaskRepository repository;
-    public AgentTaskAppService(AgentTaskRepository repository) { this.repository = repository; }
+    private final AutonomousAgentAppService agentService;
+    public AgentTaskAppService(AgentTaskRepository repository, AutonomousAgentAppService agentService) {
+        this.repository = repository;
+        this.agentService = agentService;
+    }
 
     public AgentTaskDTO schedule(AgentIdentity identity, AgentTaskRequest request) {
         AgentIdentity safe = identity == null ? AgentIdentity.singleUser() : identity;
@@ -40,7 +44,15 @@ public class AgentTaskAppService {
 
     public boolean pause(AgentIdentity identity, String taskNo) { return repository.pause(owner(identity), taskNo); }
     public boolean resume(AgentIdentity identity, String taskNo) { return repository.resume(owner(identity), taskNo); }
-    public boolean cancel(AgentIdentity identity, String taskNo) { return repository.cancel(owner(identity), taskNo); }
+    public boolean cancel(AgentIdentity identity, String taskNo) {
+        String ownerKey = owner(identity);
+        AgentTaskBO task = repository.find(ownerKey, taskNo).orElse(null);
+        if (task == null) return false;
+        if ("RUNNING".equals(task.getStatus()) && task.getRunNo() != null && !task.getRunNo().isBlank()) {
+            agentService.cancel(identity == null ? AgentIdentity.singleUser() : identity, task.getRunNo());
+        }
+        return repository.cancel(ownerKey, taskNo);
+    }
     private String owner(AgentIdentity identity) { return identity == null ? AgentIdentity.singleUser().storageOwnerKey() : identity.storageOwnerKey(); }
     private AgentTaskDTO toDTO(AgentTaskBO task) { return AgentTaskDTO.builder().taskNo(task.getTaskNo()).conversationNo(task.getConversationNo()).userInput(task.getUserInput()).preferredModelCode(task.getPreferredModelCode()).scheduleAt(task.getScheduleAt()).status(task.getStatus()).attemptCount(task.getAttemptCount()).maxAttempts(task.getMaxAttempts()).runNo(task.getRunNo()).lastError(task.getLastError()).nextAttemptAt(task.getNextAttemptAt()).completedAt(task.getCompletedAt()).build(); }
 }

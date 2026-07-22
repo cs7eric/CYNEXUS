@@ -22,11 +22,28 @@ class AgentTaskAppServiceTest {
         request.setScheduleAt(OffsetDateTime.now().plusMinutes(2));
         request.setMaxAttempts(4);
 
-        var task = new AgentTaskAppService(repository).schedule(AgentIdentity.builder().tenantKey("tenant").principalKey("user").build(), request);
+        var task = new AgentTaskAppService(repository, mock(AutonomousAgentAppService.class)).schedule(AgentIdentity.builder().tenantKey("tenant").principalKey("user").build(), request);
 
         assertThat(task.getTaskNo()).startsWith("ATK-");
         assertThat(task.getStatus()).isEqualTo("QUEUED");
         assertThat(task.getMaxAttempts()).isEqualTo(4);
         assertThat(task.getUserInput()).isEqualTo(request.getUserInput());
+    }
+
+    @Test
+    void cancelsRunningTaskAndItsUnderlyingAgentRun() {
+        AgentTaskRepository repository = mock(AgentTaskRepository.class);
+        AutonomousAgentAppService agentService = mock(AutonomousAgentAppService.class);
+        AgentIdentity identity = AgentIdentity.builder().tenantKey("tenant").principalKey("user").build();
+        AgentTaskBO task = AgentTaskBO.builder().taskNo("ATK-1").ownerKey(identity.storageOwnerKey())
+                .status("RUNNING").runNo("AGR-1").build();
+        when(repository.find(identity.storageOwnerKey(), "ATK-1")).thenReturn(java.util.Optional.of(task));
+        when(repository.cancel(identity.storageOwnerKey(), "ATK-1")).thenReturn(true);
+
+        boolean cancelled = new AgentTaskAppService(repository, agentService).cancel(identity, "ATK-1");
+
+        assertThat(cancelled).isTrue();
+        org.mockito.Mockito.verify(agentService).cancel(identity, "AGR-1");
+        org.mockito.Mockito.verify(repository).cancel(identity.storageOwnerKey(), "ATK-1");
     }
 }

@@ -14,6 +14,7 @@ public interface AgentTaskMapper extends BaseMapperX<AgentTaskPO> {
     int resume(@Param("ownerKey") String ownerKey, @Param("taskNo") String taskNo);
 
     int cancel(@Param("ownerKey") String ownerKey, @Param("taskNo") String taskNo);
+    int linkRun(@Param("taskNo") String taskNo, @Param("leaseOwner") String leaseOwner, @Param("runNo") String runNo);
 
     List<AgentTaskPO> claimDue(@Param("workerId") String workerId, @Param("now") OffsetDateTime now,
                                @Param("leaseUntil") OffsetDateTime leaseUntil, @Param("limit") int limit);

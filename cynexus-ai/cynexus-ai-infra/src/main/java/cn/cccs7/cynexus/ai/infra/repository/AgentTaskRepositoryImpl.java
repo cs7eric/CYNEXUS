@@ -19,6 +19,7 @@ public class AgentTaskRepositoryImpl implements AgentTaskRepository {
     @Override public boolean pause(String ownerKey, String taskNo) { return service.pause(ownerKey, taskNo); }
     @Override public boolean resume(String ownerKey, String taskNo) { return service.resume(ownerKey, taskNo); }
     @Override public boolean cancel(String ownerKey, String taskNo) { return service.cancel(ownerKey, taskNo); }
+    @Override public boolean linkRun(AgentTaskBO task, String runNo) { return service.linkRun(AgentTaskPOConverter.INSTANCE.toSource(task), runNo); }
     @Override public List<AgentTaskBO> claimDue(String workerId, OffsetDateTime now, int limit, int leaseSeconds) { return service.claimDue(workerId, now, limit, leaseSeconds).stream().map(AgentTaskPOConverter.INSTANCE::toTarget).toList(); }
     @Override public void complete(AgentTaskBO task) { service.complete(AgentTaskPOConverter.INSTANCE.toSource(task)); }
     @Override public void retry(AgentTaskBO task, OffsetDateTime nextAttemptAt, String error) { service.retry(AgentTaskPOConverter.INSTANCE.toSource(task), nextAttemptAt, error); }

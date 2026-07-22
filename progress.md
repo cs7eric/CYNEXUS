@@ -49,6 +49,12 @@
 - Added task status, retry count, run linkage, and failure rendering without exposing internal lease details to ordinary users.
 - UI and Maven versions are synchronized at `1.1.152-SNAPSHOT`; production Release worker verification remains pending.
 
+## 2026-07-22 - Durable task cancellation binding
+
+- Bound a claimed task to a preallocated Agent run number before Provider execution, so cancellation can find and interrupt a running task.
+- Added lease-owner guarded run linkage and cancellation regression coverage.
+- Maven/UI versions are synchronized at `1.1.153-SNAPSHOT`; Release verification is pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

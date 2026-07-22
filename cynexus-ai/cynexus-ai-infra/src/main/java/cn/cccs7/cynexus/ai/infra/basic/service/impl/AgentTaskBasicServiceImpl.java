@@ -20,6 +20,7 @@ public class AgentTaskBasicServiceImpl implements AgentTaskBasicService {
     @Override public boolean pause(String ownerKey, String taskNo) { return mapper.pause(ownerKey, taskNo) > 0; }
     @Override public boolean resume(String ownerKey, String taskNo) { return mapper.resume(ownerKey, taskNo) > 0; }
     @Override public boolean cancel(String ownerKey, String taskNo) { return mapper.cancel(ownerKey, taskNo) > 0; }
+    @Override public boolean linkRun(AgentTaskPO task, String runNo) { return mapper.linkRun(task.getTaskNo(), task.getLeaseOwner(), runNo) > 0; }
     @Override public List<AgentTaskPO> claimDue(String workerId, OffsetDateTime now, int limit, int leaseSeconds) { return mapper.claimDue(workerId, now, now.plusSeconds(leaseSeconds), Math.max(1, Math.min(limit, 20))); }
     @Override public void complete(AgentTaskPO task) { mapper.complete(task); }
     @Override public void retry(AgentTaskPO task, OffsetDateTime nextAttemptAt, String error) { task.setNextAttemptAt(nextAttemptAt); task.setLastError(error); mapper.retry(task); }

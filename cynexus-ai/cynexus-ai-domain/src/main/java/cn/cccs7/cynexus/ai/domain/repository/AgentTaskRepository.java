@@ -12,6 +12,7 @@ public interface AgentTaskRepository {
     boolean pause(String ownerKey, String taskNo);
     boolean resume(String ownerKey, String taskNo);
     boolean cancel(String ownerKey, String taskNo);
+    boolean linkRun(AgentTaskBO task, String runNo);
     List<AgentTaskBO> claimDue(String workerId, OffsetDateTime now, int limit, int leaseSeconds);
     void complete(AgentTaskBO task);
     void retry(AgentTaskBO task, OffsetDateTime nextAttemptAt, String error);

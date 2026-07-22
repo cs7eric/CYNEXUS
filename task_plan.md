@@ -2416,6 +2416,7 @@ Status: in_progress
 - Keep scheduled work scoped by tenant and owner; expose truthful queued/running/paused/failed states.
 - Add operational UI and Release failure/recovery tests.
 - Added durable owner-scoped Agent task scheduling with queued/running/paused/completed/cancelled/dead-letter states, SKIP LOCKED worker claims, lease recovery, bounded retries/backoff, pause/resume/cancel APIs, and operational UI.
+- Bound running tasks to their Agent run before Provider execution so task cancellation can interrupt the underlying run; focused cancellation coverage passes.
 
 ### 106.7 Enterprise observability and security hardening
 

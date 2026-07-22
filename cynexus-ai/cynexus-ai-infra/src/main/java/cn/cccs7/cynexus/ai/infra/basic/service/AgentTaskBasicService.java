@@ -11,6 +11,7 @@ public interface AgentTaskBasicService {
     boolean pause(String ownerKey, String taskNo);
     boolean resume(String ownerKey, String taskNo);
     boolean cancel(String ownerKey, String taskNo);
+    boolean linkRun(AgentTaskPO task, String runNo);
     List<AgentTaskPO> claimDue(String workerId, OffsetDateTime now, int limit, int leaseSeconds);
     void complete(AgentTaskPO task);
     void retry(AgentTaskPO task, OffsetDateTime nextAttemptAt, String error);

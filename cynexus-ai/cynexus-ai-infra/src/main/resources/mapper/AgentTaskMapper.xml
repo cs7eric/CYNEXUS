@@ -25,7 +25,16 @@
         SET status = 'CANCELLED', completed_at = now(), lease_owner = NULL, lease_until = NULL, updated_at = now()
         WHERE owner_key = #{ownerKey}
           AND task_no = #{taskNo}
-          AND status IN ('QUEUED', 'PAUSED')
+          AND status IN ('QUEUED', 'PAUSED', 'RUNNING')
+          AND deleted_at IS NULL
+    </update>
+
+    <update id="linkRun">
+        UPDATE cynexus_appl_ai.ai_agent_task
+        SET run_no = #{runNo}, updated_at = now()
+        WHERE task_no = #{taskNo}
+          AND lease_owner = #{leaseOwner}
+          AND status = 'RUNNING'
           AND deleted_at IS NULL
     </update>
 
