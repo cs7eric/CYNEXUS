@@ -25,6 +25,8 @@ import cn.cccs7.cynexus.ai.domain.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.agent.AgentCircuitBreakerPort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentQuotaPort;
+import cn.cccs7.cynexus.ai.domain.agent.AgentQuotaExceededException;
 import cn.cccs7.cynexus.ai.domain.agent.AgentSensitiveDataPolicy;
 import cn.cccs7.cynexus.ai.domain.agent.AgentCitation;
 import cn.cccs7.cynexus.ai.domain.agent.AgentCitationFactory;
@@ -47,6 +49,7 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -78,6 +81,7 @@ public class AutonomousAgentAppService {
     private final AgentRuntimeLeasePort runtimeLease;
     private final AgentRateLimitPort rateLimiter;
     private final AgentCircuitBreakerPort circuitBreaker;
+    private final AgentQuotaPort quota;
 
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
                                      cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
@@ -89,6 +93,22 @@ public class AutonomousAgentAppService {
                                      AgentRateLimitPort rateLimiter,
                                      AgentCircuitBreakerPort circuitBreaker,
                                      ObjectMapper objectMapper) {
+        this(agentRunRepository, toolCatalog, toolExecutor, completionGateway, providerRepository,
+                usageBindingRepository, runtimeLease, rateLimiter, circuitBreaker, objectMapper, new AgentQuotaPort() { });
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
+                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolCatalog toolCatalog,
+                                     cn.cccs7.cynexus.ai.domain.agent.AgentToolExecutor toolExecutor,
+                                     AiCompletionGateway completionGateway,
+                                     AiProviderRepository providerRepository,
+                                     AiUsageBindingRepository usageBindingRepository,
+                                     AgentRuntimeLeasePort runtimeLease,
+                                     AgentRateLimitPort rateLimiter,
+                                     AgentCircuitBreakerPort circuitBreaker,
+                                     ObjectMapper objectMapper,
+                                     AgentQuotaPort quota) {
         this.agentRunRepository = agentRunRepository;
         this.toolCatalog = new AgentToolCatalogFacade(toolCatalog);
         this.toolExecutor = new AgentToolExecutorFacade(toolExecutor);
@@ -99,6 +119,7 @@ public class AutonomousAgentAppService {
         this.rateLimiter = rateLimiter;
         this.circuitBreaker = circuitBreaker;
         this.objectMapper = objectMapper;
+        this.quota = quota;
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
@@ -140,6 +161,11 @@ public class AutonomousAgentAppService {
         }
         if (!runtimeLease.tryAcquire(ownerKey, runNo, 2, MAX_RUN_SECONDS + 60)) {
             throw new IllegalStateException("Too many active Agent runs for this owner");
+        }
+        int quotaReservationTokens = Math.max(1_024, Math.min(16_000, userInput.length() / 4 + 1_024));
+        if (!quota.reserveRequest(ownerKey, safeIdentity.getTenantKey(), safeIdentity.getPrincipalKey(), quotaReservationTokens)) {
+            runtimeLease.release(ownerKey, runNo);
+            throw new AgentQuotaExceededException();
         }
         OffsetDateTime startedAt = OffsetDateTime.now();
         AgentConversationBO conversation = agentRunRepository.findConversation(ownerKey, conversationNo)
@@ -197,6 +223,11 @@ public class AutonomousAgentAppService {
 
             String answer = null;
             AgentClarificationBO clarification = null;
+            int inputTokens = 0;
+            int outputTokens = 0;
+            int totalTokens = 0;
+            boolean estimatedUsage = false;
+            AiModelBO usageModel = model;
             for (int turn = 1; turn <= MAX_TURNS; turn++) {
                 checkCancelled(ownerKey, runNo);
                 if (java.time.Duration.between(startedAt, OffsetDateTime.now()).getSeconds() > MAX_RUN_SECONDS) {
@@ -217,6 +248,15 @@ public class AutonomousAgentAppService {
                 run.setStatus("RUNNING");
                 agentRunRepository.updateRun(run);
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
+                inputTokens += nonNegative(response.getInputTokens());
+                outputTokens += nonNegative(response.getOutputTokens());
+                totalTokens += nonNegative(response.getTotalTokens());
+                estimatedUsage |= !hasReportedUsage(response);
+                run.setInputTokens(inputTokens);
+                run.setOutputTokens(outputTokens);
+                run.setTotalTokens(totalTokens);
+                run.setUsageSource(estimatedUsage ? "ESTIMATED" : "REPORTED");
+                run.setEstimatedCost(estimatedCost(usageModel, inputTokens, outputTokens));
                 if (!response.hasToolCalls()) {
                     List<cn.cccs7.cynexus.ai.domain.agent.AgentModelToolCall> fallbackCalls = parseFallbackToolCalls(response.getContent());
                     if (!fallbackCalls.isEmpty()) {
@@ -324,6 +364,13 @@ public class AutonomousAgentAppService {
             publisher.accept(AgentRunEventBO.builder().type("RUN_COMPLETED").runNo(runNo).status(run.getStatus())
                     .errorMessage(exception.getMessage()).build());
         } finally {
+            try {
+                quota.recordUsage(ownerKey, safeIdentity.getTenantKey(), safeIdentity.getPrincipalKey(), quotaReservationTokens,
+                        nonNegative(run.getInputTokens()), nonNegative(run.getOutputTokens()), nonNegative(run.getTotalTokens()),
+                        run.getEstimatedCost(), valueOr(run.getUsageSource(), "ESTIMATED"));
+            } catch (RuntimeException ignored) {
+                // Usage accounting must not turn a completed Agent answer into a false failure.
+            }
             runtimeLease.release(ownerKey, runNo);
         }
         return toDTO(run, steps);
@@ -773,7 +820,9 @@ public class AutonomousAgentAppService {
                 .contextJson(run.getContextJson()).assumptionsJson(run.getAssumptionsJson()).evidenceJson(run.getEvidenceJson())
                 .clarificationJson(run.getClarificationJson())
                 .warningsJson(run.getWarningsJson())
-                .turnCount(run.getTurnCount()).toolCallCount(run.getToolCallCount()).errorMessage(run.getErrorMessage())
+                .turnCount(run.getTurnCount()).toolCallCount(run.getToolCallCount()).inputTokens(run.getInputTokens())
+                .outputTokens(run.getOutputTokens()).totalTokens(run.getTotalTokens()).estimatedCost(run.getEstimatedCost())
+                .usageSource(run.getUsageSource()).errorMessage(run.getErrorMessage())
                 .failureCategory(run.getFailureCategory())
                 .startedAt(run.getStartedAt()).finishedAt(run.getFinishedAt())
                 .steps(steps == null ? List.of() : steps.stream().map(step -> AgentRunStepDTO.builder()
@@ -839,6 +888,29 @@ public class AutonomousAgentAppService {
         int value = (run.getToolCallCount() == null ? 0 : run.getToolCallCount()) + 1;
         run.setToolCallCount(value);
         return value;
+    }
+
+    private int nonNegative(Integer value) {
+        return value == null ? 0 : Math.max(0, value);
+    }
+
+    private boolean hasReportedUsage(AgentModelTurnResponse response) {
+        String raw = response.getRawResponse();
+        if (raw == null || raw.isBlank()) return false;
+        try {
+            var node = objectMapper.readTree(raw);
+            return node.has("usage") || node.has("usageDetails");
+        } catch (JsonProcessingException ignored) {
+            return false;
+        }
+    }
+
+    private BigDecimal estimatedCost(AiModelBO model, int inputTokens, int outputTokens) {
+        if (model == null) return BigDecimal.ZERO;
+        BigDecimal inputPrice = model.getInputPricePerMillion() == null ? BigDecimal.ZERO : model.getInputPricePerMillion();
+        BigDecimal outputPrice = model.getOutputPricePerMillion() == null ? BigDecimal.ZERO : model.getOutputPricePerMillion();
+        return inputPrice.multiply(BigDecimal.valueOf(inputTokens)).add(outputPrice.multiply(BigDecimal.valueOf(outputTokens)))
+                .divide(BigDecimal.valueOf(1_000_000L), 8, java.math.RoundingMode.HALF_UP);
     }
 
     private AgentModelTurnResponse completeAgentWithRetry(AiModelBO model, AgentModelTurnRequest request,

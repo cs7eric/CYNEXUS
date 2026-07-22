@@ -45,6 +45,11 @@ export interface AgentRun {
   warningsJson?: string | null
   turnCount?: number | null
   toolCallCount?: number | null
+  inputTokens?: number | null
+  outputTokens?: number | null
+  totalTokens?: number | null
+  estimatedCost?: number | null
+  usageSource?: string | null
   errorMessage?: string | null
   startedAt?: string | null
   finishedAt?: string | null

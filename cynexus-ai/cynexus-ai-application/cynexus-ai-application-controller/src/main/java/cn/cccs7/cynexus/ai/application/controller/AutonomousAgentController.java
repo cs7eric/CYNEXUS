@@ -9,6 +9,7 @@ import cn.cccs7.cynexus.ai.api.dto.AgentRunExportDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
 import cn.cccs7.cynexus.ai.domain.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.agent.AgentIdentity;
+import cn.cccs7.cynexus.ai.domain.agent.AgentQuotaExceededException;
 import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.application.service.AutonomousAgentAppService;
 import cn.cccs7.cynexus.ai.application.service.AgentIdentityResolver;
@@ -42,7 +43,11 @@ public class AutonomousAgentController {
 
     @PostMapping("/runs")
     public Result<AgentRunDTO> run(@RequestBody AgentRunRequest request, HttpServletRequest httpRequest) {
-        return Result.success(agentAppService.execute(request, identity(httpRequest), ignored -> { }));
+        try {
+            return Result.success(agentAppService.execute(request, identity(httpRequest), ignored -> { }));
+        } catch (AgentQuotaExceededException exception) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), exception);
+        }
     }
 
     @PostMapping(value = "/runs/stream", produces = "text/event-stream")

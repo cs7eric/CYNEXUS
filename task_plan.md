@@ -2392,11 +2392,12 @@ Status: in_progress
 
 ### 106.4 Usage, cost, quota, and model routing
 
-Status: pending
+Status: in_progress
 
 - Persist provider usage and cost from real response metadata, with explicit estimated-vs-reported markers.
 - Add tenant/user quotas, model routing policy, budget enforcement, and truthful quota-exceeded states.
 - Add Provider page controls and runtime catalog parity tests.
+- Added persisted per-run token/cost metadata, reported-vs-estimated usage classification, durable daily owner quota reservations, truthful HTTP 429 quota rejection, and usage accounting through the existing Provider pricing fields.
 
 ### 106.5 Confirmed write capabilities
 

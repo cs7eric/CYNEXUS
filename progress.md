@@ -22,6 +22,13 @@
 - Added domain redaction/normalization and retention archiving for feedback, plus Agent UI helpful/unhelpful controls and owner-scoped quality summary.
 - Maven/UI versions are synchronized at `1.1.148-SNAPSHOT`; focused service/infra tests and Release migration verification remain pending.
 
+## 2026-07-22 - Agent usage, cost, and quota accounting
+
+- Added per-run input/output/total token counts, estimated cost, and `REPORTED` versus `ESTIMATED` usage source metadata.
+- Added durable daily owner quota reservations with request and token limits, reservation release, actual usage recording, and truthful quota rejection through HTTP 429.
+- Pricing is calculated from the configured AI Provider input/output price fields; no fake provider usage is introduced.
+- Added focused quota adapter coverage. Maven/UI versions are synchronized at `1.1.149-SNAPSHOT`; database and real-provider Release verification remain pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

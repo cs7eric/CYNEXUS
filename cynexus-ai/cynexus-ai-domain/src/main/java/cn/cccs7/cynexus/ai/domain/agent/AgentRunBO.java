@@ -27,6 +27,11 @@ public class AgentRunBO {
     private String failureCategory;
     private Integer turnCount;
     private Integer toolCallCount;
+    private Integer inputTokens;
+    private Integer outputTokens;
+    private Integer totalTokens;
+    private java.math.BigDecimal estimatedCost;
+    private String usageSource;
     private OffsetDateTime startedAt;
     private OffsetDateTime finishedAt;
     private OffsetDateTime cancellationRequestedAt;

@@ -30,6 +30,11 @@ public class AgentRunPO extends BasePO {
     @TableField("failure_category") private String failureCategory;
     @TableField("turn_count") private Integer turnCount;
     @TableField("tool_call_count") private Integer toolCallCount;
+    @TableField("input_tokens") private Integer inputTokens;
+    @TableField("output_tokens") private Integer outputTokens;
+    @TableField("total_tokens") private Integer totalTokens;
+    @TableField("estimated_cost") private java.math.BigDecimal estimatedCost;
+    @TableField("usage_source") private String usageSource;
     @TableField("started_at") private OffsetDateTime startedAt;
     @TableField("finished_at") private OffsetDateTime finishedAt;
     @TableField("cancellation_requested_at") private OffsetDateTime cancellationRequestedAt;

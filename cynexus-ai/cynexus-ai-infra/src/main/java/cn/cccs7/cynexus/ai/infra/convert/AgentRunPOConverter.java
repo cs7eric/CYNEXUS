@@ -18,6 +18,8 @@ public final class AgentRunPOConverter {
         target.setEvidenceJson(source.getEvidenceJson()); target.setWarningsJson(source.getWarningsJson());
         target.setErrorMessage(source.getErrorMessage()); target.setFailureCategory(source.getFailureCategory()); target.setTurnCount(source.getTurnCount());
         target.setToolCallCount(source.getToolCallCount()); target.setStartedAt(source.getStartedAt());
+        target.setInputTokens(source.getInputTokens()); target.setOutputTokens(source.getOutputTokens()); target.setTotalTokens(source.getTotalTokens());
+        target.setEstimatedCost(source.getEstimatedCost()); target.setUsageSource(source.getUsageSource());
         target.setFinishedAt(source.getFinishedAt()); target.setCreatedAt(source.getCreatedAt());
         target.setCancellationRequestedAt(source.getCancellationRequestedAt());
         target.setCancellationRequestedBy(source.getCancellationRequestedBy());
@@ -33,6 +35,8 @@ public final class AgentRunPOConverter {
                 .contextJson(source.getContextJson()).assumptionsJson(source.getAssumptionsJson())
                 .evidenceJson(source.getEvidenceJson()).warningsJson(source.getWarningsJson())
                 .errorMessage(source.getErrorMessage()).failureCategory(source.getFailureCategory()).turnCount(source.getTurnCount()).toolCallCount(source.getToolCallCount())
+                .inputTokens(source.getInputTokens()).outputTokens(source.getOutputTokens()).totalTokens(source.getTotalTokens())
+                .estimatedCost(source.getEstimatedCost()).usageSource(source.getUsageSource())
                 .startedAt(source.getStartedAt()).finishedAt(source.getFinishedAt()).createdAt(source.getCreatedAt())
                 .cancellationRequestedAt(source.getCancellationRequestedAt())
                 .cancellationRequestedBy(source.getCancellationRequestedBy())

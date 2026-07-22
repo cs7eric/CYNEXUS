@@ -22,6 +22,11 @@ public class AgentRunDTO {
     private String warningsJson;
     private Integer turnCount;
     private Integer toolCallCount;
+    private Integer inputTokens;
+    private Integer outputTokens;
+    private Integer totalTokens;
+    private java.math.BigDecimal estimatedCost;
+    private String usageSource;
     private String errorMessage;
     private String failureCategory;
     private OffsetDateTime startedAt;
