@@ -12,6 +12,8 @@ class MicrometerAgentObservabilityTest {
         MicrometerAgentObservability observability = new MicrometerAgentObservability(registry);
         String longToolCode = "tool-" + "x".repeat(200);
 
+        assertThat(registry.counter("cynexus_ai_agent_runs_started").count()).isZero();
+
         observability.runStarted("trace-1");
         observability.runCompleted("SUCCEEDED", 12);
         observability.providerCompleted("xtyoo", "gpt-5.4-mini", true, 25);

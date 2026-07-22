@@ -194,6 +194,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(environment.getProperty("cynexus.ai.platform.providers.custom.api-key-env", "CYNEXUS_AI_CUSTOM_API_KEY"))
                 .thenReturn("CYNEXUS_AI_CUSTOM_API_KEY");
+        when(environment.getProperty("cynexus.ai.security.provider-allowed-origins"))
+                .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         return new CustomModelAdapter(secrets, environment);
     }
 

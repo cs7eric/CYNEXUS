@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.infra.observability;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.policy.security.AgentOutboundEndpointPolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LangfuseGenerationReporter {
     private static final Logger LOGGER = LoggerFactory.getLogger(LangfuseGenerationReporter.class);
+    private static final String DEFAULT_ALLOWED_ORIGINS = "http://127.0.0.1:33000,http://cynexus-langfuse-web:3000";
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -36,9 +38,20 @@ public class LangfuseGenerationReporter {
             @Value("${cynexus.ai.langfuse.enabled:false}") boolean enabled,
             @Value("${cynexus.ai.langfuse.base-url:http://127.0.0.1:33000}") String baseUrl,
             @Value("${cynexus.ai.langfuse.public-key:}") String publicKey,
-            @Value("${cynexus.ai.langfuse.secret-key:}") String secretKey) {
-        this.enabled = enabled && !blank(publicKey) && !blank(secretKey);
-        this.ingestionUri = URI.create(trimUrl(baseUrl) + "/api/public/ingestion");
+            @Value("${cynexus.ai.langfuse.secret-key:}") String secretKey,
+            @Value("${cynexus.ai.security.langfuse-allowed-origins:}") String allowedOrigins) {
+        boolean configured = enabled && !blank(publicKey) && !blank(secretKey);
+        URI validatedBase;
+        try {
+            String origins = blank(allowedOrigins) ? DEFAULT_ALLOWED_ORIGINS : allowedOrigins;
+            validatedBase = AgentOutboundEndpointPolicy.requireAllowed(trimUrl(baseUrl), origins);
+        } catch (IllegalArgumentException exception) {
+            LOGGER.error("Langfuse endpoint rejected by outbound allow-list: {}", exception.getMessage());
+            configured = false;
+            validatedBase = URI.create("http://127.0.0.1:33000");
+        }
+        this.enabled = configured;
+        this.ingestionUri = URI.create(validatedBase + "/api/public/ingestion");
         this.authorization = "Basic " + Base64.getEncoder().encodeToString(
                 (safe(publicKey) + ":" + safe(secretKey)).getBytes(StandardCharsets.UTF_8));
     }

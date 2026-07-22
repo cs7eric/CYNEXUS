@@ -11,6 +11,10 @@ public class MicrometerAgentObservability implements AgentObservabilityPort {
 
     public MicrometerAgentObservability(MeterRegistry registry) {
         this.registry = registry;
+        // Register stable zero-valued series so Prometheus can discover Agent metrics after a restart.
+        registry.counter("cynexus_ai_agent_runs_started");
+        registry.counter("cynexus_ai_agent_provider_calls", "provider", "unknown", "model", "unknown", "outcome", "unknown");
+        registry.counter("cynexus_ai_agent_tool_calls", "tool", "unknown", "outcome", "unknown");
     }
 
     @Override public void runStarted(String traceId) {

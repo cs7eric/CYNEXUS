@@ -9,6 +9,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
+import cn.cccs7.cynexus.ai.domain.policy.security.AgentOutboundEndpointPolicy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -60,6 +61,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private static final String RESPONSES_PATH = "/responses";
     private static final String V1_RESPONSES_PATH = "/v1/responses";
     private static final String PROVIDER_TOOL_PREFIX = "cynexus_tool_";
+    private static final String DEFAULT_ALLOWED_PROVIDER_ORIGINS =
+            "https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://dashscope.aliyuncs.com";
 
     private final ObjectMapper objectMapper;
     private final SecretResolver secretResolver;
@@ -720,7 +723,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         String path = responsesApi
                 ? (baseUrl.endsWith("/v1") ? RESPONSES_PATH : V1_RESPONSES_PATH)
                 : (baseUrl.endsWith("/v1") ? CHAT_COMPLETIONS_PATH : V1_CHAT_COMPLETIONS_PATH);
-        return URI.create(baseUrl + path);
+        String allowedOrigins = environment.getProperty("cynexus.ai.security.provider-allowed-origins");
+        if (allowedOrigins == null || allowedOrigins.isBlank()) allowedOrigins = DEFAULT_ALLOWED_PROVIDER_ORIGINS;
+        URI allowedBase = AgentOutboundEndpointPolicy.requireAllowed(baseUrl, allowedOrigins);
+        return URI.create(allowedBase.toString() + path);
     }
 
     private Duration resolveRequestTimeout(AiModelBO model) {
