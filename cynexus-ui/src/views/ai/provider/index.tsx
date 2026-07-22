@@ -43,6 +43,7 @@ import {
   updateAiProvider,
   upsertAiBinding,
 } from "@/services/ai/provider"
+import { updateAgentCapabilityGovernance } from "@/services/ai/agent"
 import { cn } from "@/lib/utils"
 import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
 
@@ -143,6 +144,7 @@ export default function AiProviderSettingsPage() {
   const [newModelInput, setNewModelInput] = useState("")
   const [bindingDrafts, setBindingDrafts] = useState<Record<string, BindingDraft>>({})
   const [bindingSaveTimers, setBindingSaveTimers] = useState<Record<string, number>>({})
+  const [savingGovernance, setSavingGovernance] = useState("")
 
   const selectedProvider = useMemo(
     () => providers.find((item) => item.id === selectedProviderId) || null,
@@ -369,6 +371,20 @@ export default function AiProviderSettingsPage() {
     }
   }
 
+  async function handleGovernanceChange(capability: AiCapability, enabled: boolean, availability: string, priority: number) {
+    if (!capability.governed) return
+    setSavingGovernance(capability.code)
+    try {
+      await updateAgentCapabilityGovernance(capability.code, { enabled, availability, priority })
+      notification.success({ title: "Capability governance saved", description: capability.code })
+      await reload()
+    } catch (err) {
+      notification.danger({ title: "Capability governance failed", description: err instanceof Error ? err.message : "保存失败" })
+    } finally {
+      setSavingGovernance("")
+    }
+  }
+
   return (
     <WorkspaceShell>
       <div className="flex w-full flex-col gap-6">
@@ -498,22 +514,22 @@ export default function AiProviderSettingsPage() {
               <Badge variant="secondary">{capabilities.length}</Badge>
             </div>
             <div className="overflow-x-auto rounded-lg bg-white/70">
-              <div className="sticky top-0 z-10 grid min-w-[1320px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_108px] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 z-10 grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
                 <div>Capability</div>
                 <div>Group</div>
                 <div>Provider</div>
                 <div>Model</div>
                 <div>Prompt</div>
                 <div>Runtime / entry</div>
-                <div className="text-right">Action</div>
+                <div className="text-right">Governance</div>
               </div>
               <div className="divide-y divide-border/50">
                 {routeRows.map((row) => {
-                  const { capability, binding, providerId, provider, modelOverride, promptId, issues, dirty } = row
+                  const { capability, providerId, provider, modelOverride, promptId, issues, dirty } = row
                   const providerModels = provider?.models || []
                   const availableModels = uniq([provider?.default_model || "", ...providerModels, modelOverride].filter(Boolean))
                   return (
-                    <div key={capability.code} className="grid min-w-[1320px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_108px] items-start gap-3 px-3 py-3">
+                    <div key={capability.code} className="grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] items-start gap-3 px-3 py-3">
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate font-medium">{capability.label}</span>
@@ -606,10 +622,23 @@ export default function AiProviderSettingsPage() {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <Badge variant={binding?.is_enabled ? "outline" : "secondary"}>
-                          {binding?.is_enabled ? "active" : "fallback"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={capability.availability === "AVAILABLE" ? "outline" : "secondary"}>
+                            {capability.governed ? `${capability.availability || "UNKNOWN"} · v${capability.version || "?"}` : "STATIC"}
+                          </Badge>
+                          {capability.governed ? (
+                            <Button
+                              size="sm"
+                              variant={capability.enabled ? "outline" : "secondary"}
+                              disabled={savingGovernance === capability.code}
+                              onClick={() => void handleGovernanceChange(capability, !capability.enabled, capability.governance_availability || "AVAILABLE", capability.priority ?? 100)}
+                            >
+                              {capability.enabled ? "Enabled" : "Disabled"}
+                            </Button>
+                          ) : null}
+                        </div>
                         {savingBinding === capability.code ? <RefreshCw className="size-3.5 animate-spin text-muted-foreground" /> : dirty ? <span className="text-[11px] text-amber-600">Saving on blur…</span> : <span className="text-[11px] text-emerald-600">Saved</span>}
+                        {capability.governed ? <span className="text-[11px] text-muted-foreground">priority {capability.priority ?? 100} · {capability.freshness || "unknown freshness"}</span> : null}
                       </div>
                     </div>
                   )

@@ -2,6 +2,7 @@ import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
+import { fetchAgentCapabilities } from "@/services/ai/agent"
 
 export interface AiCapability {
   code: string
@@ -13,6 +14,19 @@ export interface AiCapability {
   reads_binding: boolean
   runtime: string
   aliases?: string[]
+  governed?: boolean
+  version?: string
+  input_schema_json?: string
+  output_schema_json?: string
+  source?: string | null
+  source_url?: string | null
+  freshness?: string | null
+  availability?: string | null
+  governance_availability?: string | null
+  enabled?: boolean
+  priority?: number
+  last_seen_at?: string | null
+  stale_at?: string | null
 }
 
 export interface AiProviderType {
@@ -399,7 +413,33 @@ async function getAiProvider(id: string): Promise<AiProviderItem> {
 }
 
 export async function fetchAiCapabilities(): Promise<AiCapability[]> {
-  return AI_CAPABILITIES
+  const governed = await fetchAgentCapabilities().catch(() => [])
+  const byCode = new Map(governed.map((item) => [item.capabilityCode, item]))
+  const dynamic = governed.map((item): AiCapability => ({
+    code: item.capabilityCode,
+    label: item.name,
+    group: item.routeGroup || `Agent / ${item.module}`,
+    description: item.description,
+    entry: item.runtimeEntry,
+    prompt_key: item.promptKey,
+    reads_binding: true,
+    runtime: item.runtimeEntry,
+    governed: true,
+    version: item.version,
+    input_schema_json: item.inputSchemaJson,
+    output_schema_json: item.outputSchemaJson,
+    source: item.source,
+    source_url: item.sourceUrl,
+    freshness: item.freshness,
+    availability: item.availability,
+    governance_availability: item.governanceAvailability,
+    enabled: item.enabled,
+    priority: item.priority,
+    last_seen_at: item.lastSeenAt,
+    stale_at: item.staleAt,
+  }))
+  const legacy = AI_CAPABILITIES.filter((item) => !byCode.has(item.code))
+  return [...legacy, ...dynamic]
 }
 
 export async function fetchAiProviderTypes(): Promise<AiProviderType[]> {

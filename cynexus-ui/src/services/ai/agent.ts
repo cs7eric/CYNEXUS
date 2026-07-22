@@ -101,6 +101,39 @@ export interface AgentToolDefinition {
   freshness: string
   source: string
   sourceUrl?: string | null
+  version?: string | null
+  tenantScope?: string | null
+  availability?: string | null
+  priority?: number | null
+  promptKey?: string | null
+  runtimeEntry?: string | null
+  routeGroup?: string | null
+}
+
+export interface AgentCapability {
+  id?: string | number | null
+  capabilityCode: string
+  version: string
+  name: string
+  module: string
+  description: string
+  inputSchemaJson: string
+  outputSchemaJson: string
+  readOnly: boolean
+  requiresConfirmation: boolean
+  tenantScope: string
+  source?: string | null
+  sourceUrl?: string | null
+  freshness?: string | null
+  availability: string
+  governanceAvailability?: string | null
+  enabled: boolean
+  priority: number
+  promptKey: string
+  runtimeEntry: string
+  routeGroup: string
+  lastSeenAt?: string | null
+  staleAt?: string | null
 }
 
 export async function runAgent(input: {
@@ -127,6 +160,20 @@ export async function getAgentRun(runNo: string): Promise<AgentRun> {
 
 export async function fetchAgentTools(): Promise<AgentToolDefinition[]> {
   return cynexusResult<AgentToolDefinition[]>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/tools`))
+}
+
+export async function fetchAgentCapabilities(): Promise<AgentCapability[]> {
+  return cynexusResult<AgentCapability[]>(await fetchWithRetry(`${SERVICE_PREFIX.ai}/agent/capabilities`, { cache: "no-store" }))
+}
+
+export async function updateAgentCapabilityGovernance(
+  capabilityCode: string,
+  input: { enabled: boolean; availability: string; priority: number },
+): Promise<boolean> {
+  return cynexusResult<boolean>(await fetchWithRetry(
+    `${SERVICE_PREFIX.ai}/agent/capabilities/${encodeURIComponent(capabilityCode)}/governance`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+  ))
 }
 
 export async function fetchAgentConversations(limit = 30): Promise<AgentConversation[]> {
