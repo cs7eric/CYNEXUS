@@ -494,3 +494,8 @@
 - Host curl succeeds through the configured HTTP proxy with HTTP/1.1, but a container-side curl using the same proxy fails during TLS negotiation when it offers HTTP/2/TLS 1.3.
 - The streaming adapter now uses Apache HttpClient 5 classic with TLS 1.2 and the configured proxy; certificate verification remains enabled. It retries only handshake termination before reporting failure.
 - Focused adapter coverage passed 6/6. Versioned Release evidence is required before calling SSE streaming fixed.
+
+## 2026-07-22 - Streaming TLS resolved in Release
+
+- Release `1.1.168-260722-RELEASE` successfully streamed a real Provider response through the configured container proxy using Apache HttpClient 5 and TLS 1.2.
+- The stream persisted ordered token/event records and a terminal `SUCCEEDED` run. The Provider reported no fabricated token output; usage was honestly marked `ESTIMATED` for this provider response.

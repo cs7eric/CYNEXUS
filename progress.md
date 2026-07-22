@@ -7,6 +7,13 @@
 - Focused `OpenAiCompatibleChatAdapterAgentTest` passed 6/6, including proxy, retry classification, and streaming tool-delta parsing coverage.
 - Maven and UI versions are synchronized at `1.1.167-SNAPSHOT`; Release rebuild and real SSE verification remain pending.
 
+## 2026-07-22 - Release 1.1.168 streaming verification
+
+- Built all 41 Maven modules and six versioned Docker images through the Release entrypoint; Gateway, Core, AI, Market, Knowledge Base, and UI health checks are healthy.
+- Real SSE request reached `xtyoo / gpt-5.4-mini`, emitted `RUN_STARTED`, `TOOL_STEP`, 357 `TOKEN_DELTA` events, `ANSWER`, and `RUN_COMPLETED` for run `AGR-6667a487d6654131a698a339`.
+- PostgreSQL persisted the run as `SUCCEEDED`, `turn_count=2`, `tool_call_count=1`, and ordered event sequence starting with `RUN_STARTED` and `TOOL_STEP`; no mock/synthetic Provider path was used.
+- Release 1.1.168 is the first runtime evidence that the Apache HttpClient 5 streaming transport resolves the previous TLS handshake failure.
+
 ## 2026-07-22 - Capability governance authorization boundary
 
 - Added a domain-owned governance policy requiring a trusted Agent identity whose principal is in the configured administrator allow-list.
