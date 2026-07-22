@@ -1711,7 +1711,7 @@
 - Release database inspection found a real persistence defect: generated run/conversation IDs were assigned only to PO objects, so later `updateById` calls could silently update zero rows while the HTTP response still looked successful.
 - Propagated generated IDs and timestamps back to `AgentRunBO` and `AgentConversationBO` after insert.
 - Added an infra repository regression test proving subsequent run/conversation updates carry the generated IDs; AI infrastructure tests passed 13/13.
-- Version synchronized to `1.1.142-SNAPSHOT`; Release re-verification is pending.
+- Version synchronized to `1.1.143-SNAPSHOT`; Release re-verification is pending.
 
 ## 2026-07-22 - Release streaming and terminal persistence audit
 
@@ -1720,4 +1720,11 @@
 - Verified JSON/Markdown export, conversation list/messages, JSON event polling, and `Last-Event-ID: 5` SSE replay returned only sequences 6-10 without re-executing the run.
 - Initial real SSE request exposed a production defect: provider streaming failure emitted a terminal SSE event but the database run remained `RUNNING`; the adapter also discarded the underlying stream exception from logs.
 - Added repository identity fallback for updates with an unassigned domain id, safe stream exception logging, and a regression test; focused infra tests passed 2/2.
-- Maven/UI versions are synchronized to `1.1.142-SNAPSHOT`; Release `1.1.142-260722-RELEASE` rebuild and streaming retry verification remain pending.
+- Maven/UI versions are synchronized to `1.1.143-SNAPSHOT`; Release `1.1.142-260722-RELEASE` rebuild and streaming retry verification remain pending.
+
+## 2026-07-22 - Agent update row integrity hardening
+
+- The `1.1.142` Release retry confirmed the stale `RUNNING` state was not limited to a missing domain id; the update boundary must resolve the canonical row on every terminal/status update.
+- Agent run and conversation repository updates now resolve by owner plus business number before `updateById`; basic services throw when an update affects zero rows instead of silently continuing.
+- Repository regression coverage remains 2/2; Maven/UI versions are synchronized to `1.1.143-SNAPSHOT`.
+- Release `1.1.143-260722-RELEASE` is required for the final recheck of real streaming failure persistence.

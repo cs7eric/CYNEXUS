@@ -2334,7 +2334,7 @@ Status: in_progress
 - Verify final Agent status, model, counters, answer, and conversation metadata are actually updated in PostgreSQL, not only returned from in-memory state.
 - Add repository regression coverage and re-run the versioned Release workflow.
 
-Current verification: the `1.1.141` synchronous Release run proved the generated-id fix for a successful multi-tool execution, but the first real SSE failure path still left a run in `RUNNING`. Repository update fallback by owner plus business number and stream failure diagnostics were added in `1.1.142`; the new Release runtime must prove terminal persistence for both success and failure.
+Current verification: the `1.1.141` synchronous Release run proved the generated-id fix for a successful multi-tool execution, but the first real SSE failure path still left a run in `RUNNING`. The `1.1.142` fallback was insufficient because it only resolved missing ids; `1.1.143` now resolves the persisted row on every update and rejects zero-row updates. The `1.1.143` Release runtime must prove terminal persistence for both success and failure.
 
 ### 105.19 Initial SSE failure and terminal-state hardening
 
@@ -2344,6 +2344,8 @@ Status: in_progress
 - Ensure every stream terminal path persists `FAILED` or `CANCELLED`, releases the distributed lease, and remains queryable after the SSE client disconnects.
 - Add regression coverage for stream failure persistence and real Release verification using `xtyooo / gpt-5.4-mini`.
 - Synchronize Maven/UI versions and commit the functional change independently.
+
+Current verification: focused infrastructure tests passed 2/2 after the always-resolve update boundary. The `1.1.142` real stream failure still reproduced the stale `RUNNING` row, so Release verification is intentionally not closed until `1.1.143` is deployed and rechecked.
 
 ## Errors Encountered
 

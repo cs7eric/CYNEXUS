@@ -35,6 +35,12 @@ class AgentRunRepositoryImplTest {
             invocation.getArgument(0, AgentRunPO.class).setId(202L);
             return null;
         }).when(runs).create(any(AgentRunPO.class));
+        AgentRunPO persistedRun = new AgentRunPO();
+        persistedRun.setId(202L);
+        when(runs.find("owner", "AGR-test")).thenReturn(persistedRun);
+        AgentConversationPO persistedConversation = new AgentConversationPO();
+        persistedConversation.setId(101L);
+        when(conversations.find("owner", "AGC-test")).thenReturn(java.util.Optional.of(persistedConversation));
 
         AgentRunRepositoryImpl repository = new AgentRunRepositoryImpl(conversations, runs, messages, events, retention);
         AgentConversationBO conversation = AgentConversationBO.builder().conversationNo("AGC-test").ownerKey("owner").build();

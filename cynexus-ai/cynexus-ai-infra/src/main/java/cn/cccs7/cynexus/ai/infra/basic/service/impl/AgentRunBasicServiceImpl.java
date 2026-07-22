@@ -32,7 +32,9 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
 
     @Override
     public void update(AgentRunPO run) {
-        runMapper.updateById(run);
+        if (runMapper.updateById(run) != 1) {
+            throw new IllegalStateException("Agent run update affected no row: " + run.getRunNo());
+        }
     }
 
     @Override

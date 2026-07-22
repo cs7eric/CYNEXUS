@@ -27,7 +27,9 @@ public class AgentConversationBasicServiceImpl implements AgentConversationBasic
 
     @Override
     public void update(AgentConversationPO conversation) {
-        mapper.updateById(conversation);
+        if (mapper.updateById(conversation) != 1) {
+            throw new IllegalStateException("Agent conversation update affected no row: " + conversation.getConversationNo());
+        }
     }
 
     @Override
