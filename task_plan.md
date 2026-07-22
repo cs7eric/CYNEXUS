@@ -2182,7 +2182,7 @@ Current implementation: Redis-backed active-run leases, cancellation tokens, a p
 - Run the versioned evaluation dataset in CI and persist pass/fail metrics without storing hidden chain-of-thought.
 - Add contract tests for every registered tool schema, capability routing row, source/freshness metadata, and unsupported-service behavior.
 
-Current implementation: an executable Mock Agent workflow test now verifies model-directed tool selection, tool execution, trace persistence, evidence generation, identity scope, and lease release. A registered-handler contract test now validates all 13 runtime tool schemas, read-only policy, source URL, freshness, and catalog parity. Full evaluation-dataset execution and HTTP-level recovery/security assertions remain pending.
+Current implementation: an executable Mock Agent workflow test now verifies model-directed tool selection, tool execution, trace persistence, evidence generation, identity scope, and lease release. A registered-handler contract test now validates all 13 runtime tool schemas, read-only policy, source URL, freshness, and catalog parity. Added `ci/run-ai-agent-evaluation.ps1` and `.github/workflows/ai-agent-evaluation.yml` to execute the dataset and publish the pass/fail report; remote CI execution and HTTP-level recovery/security assertions remain pending.
 
 ### 105.6 Product Workflow Completion
 

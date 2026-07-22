@@ -1692,3 +1692,8 @@
 - Applied `20260722_add_ai_agent_source_urls.sql` to the project PostgreSQL database and verified `ai_agent_run_step.source_url` exists.
 - Added a contract test that instantiates all 13 registered Agent handlers and validates schema JSON, read-only policy, source URL, freshness, metadata, and registry parity.
 - AI infrastructure tests passed 12/12; Maven/UI versions are synchronized to `1.1.138-SNAPSHOT`.
+
+## 2026-07-22 - Agent evaluation CI workflow
+
+- Added a repeatable PowerShell evaluation entrypoint that runs Agent workflow and capability contract tests and rejects incomplete evaluation reports.
+- Added a GitHub Actions workflow that runs on Agent-related changes and publishes `agent-evaluation-results.json` as a build artifact.
