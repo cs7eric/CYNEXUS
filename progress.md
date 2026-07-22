@@ -8,6 +8,13 @@
 - Added Agent UI citation cards and source navigation using the persisted safe URL contract.
 - Focused Agent workflow tests passed: 7 tests, 0 failures. Maven/UI versions are synchronized at `1.1.146-SNAPSHOT`; Release migration/provider verification remains pending.
 
+## 2026-07-22 - Agent finance and knowledge capability expansion
+
+- Added the typed `knowledge.search` read-only tool through the existing Knowledge Base Feign boundary; it searches only `PUBLISHED` documents and caps results at ten.
+- Replaced generic finance overview/transaction output schemas with field-level contracts and made empty transaction results an explicit `NO_DATA` failure.
+- Added focused search-handler coverage for bounded successful retrieval and invalid input rejection.
+- Maven/UI versions are synchronized at `1.1.147-SNAPSHOT`; focused infra compilation/test and Release data verification remain pending.
+
 ## 2026-07-22 - Agent cancellation UI contract alignment
 
 - Updated `cynexus-ui/src/services/ai/agent.ts` to consume the durable cancellation result states instead of the obsolete boolean response.

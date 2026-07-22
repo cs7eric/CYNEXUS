@@ -20,7 +20,7 @@ public class FinanceTransactionsAgentToolHandler implements AgentToolHandler {
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("Finance transactions").module("finance")
             .description("Read a bounded list of ledger transactions for a date range; use for spending details and audit context.")
-            .inputSchemaJson(FinanceAgentToolSchemas.TRANSACTIONS).outputSchemaJson("{\"type\":\"array\"}")
+            .inputSchemaJson(FinanceAgentToolSchemas.TRANSACTIONS).outputSchemaJson(FinanceAgentToolSchemas.TRANSACTIONS_OUTPUT)
             .readOnly(true).requiresConfirmation(false).freshness("ledger transactions").source("Core Finance API")
             .sourceUrl("/finance/transactions").build();
 
@@ -41,7 +41,7 @@ public class FinanceTransactionsAgentToolHandler implements AgentToolHandler {
         LocalDate end = date(call, "end");
         int limit = number(call, "limit", 50);
         Result<List<FinanceTransactionDTO>> result = client.getTransactions(start, end, limit);
-        if (result == null || result.isFailed() || result.getData() == null) {
+        if (result == null || result.isFailed() || result.getData() == null || result.getData().isEmpty()) {
             return AgentToolResult.failure(CODE, "No finance transactions were available for the requested range.", DEFINITION.getSource(), "NO_DATA");
         }
         return AgentToolResult.success(CODE, json(result.getData()), "Read " + result.getData().size() + " finance transactions.",

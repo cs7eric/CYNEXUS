@@ -2374,11 +2374,12 @@ Status: in_progress
 
 ### 106.2 Finance and knowledge-base capability expansion
 
-Status: pending
+Status: in_progress
 
 - Expand typed finance, transaction, document retrieval, and application-analysis tools through existing service ports.
 - Add field-level schemas, access policy, provenance, freshness, no-data semantics, and provider/UI routing parity.
 - Add real data fixtures and Release checks proving the Agent uses persisted capabilities rather than synthetic responses.
+- Added the first expansion slice: bounded `knowledge.search` through the existing Knowledge Base Feign/API boundary, typed finance input/output schemas, typed knowledge-document output schema, and explicit empty-result/no-data handling.
 
 ### 106.3 User feedback and evaluation loop
 
