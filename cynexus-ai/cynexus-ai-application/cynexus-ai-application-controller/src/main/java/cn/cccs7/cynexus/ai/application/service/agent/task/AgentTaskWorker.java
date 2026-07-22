@@ -16,13 +16,13 @@ public class AgentTaskWorker {
     private final AgentTaskRepository repository;
     private final AutonomousAgentAppService agentService;
     private final String workerId = "agent-worker-" + UUID.randomUUID();
-    private final AgentTaskNotificationPort notificationPort;
+    private final AgentTaskLifecycleNotificationService lifecycleNotificationService;
 
     public AgentTaskWorker(AgentTaskRepository repository, AutonomousAgentAppService agentService,
-                           AgentTaskNotificationPort notificationPort) {
+                           AgentTaskLifecycleNotificationService lifecycleNotificationService) {
         this.repository = repository;
         this.agentService = agentService;
-        this.notificationPort = notificationPort;
+        this.lifecycleNotificationService = lifecycleNotificationService;
     }
 
     @Scheduled(initialDelayString = "${cynexus.ai.agent.tasks.initial-delay-ms:15000}", fixedDelayString = "${cynexus.ai.agent.tasks.delay-ms:5000}")
@@ -41,8 +41,7 @@ public class AgentTaskWorker {
                     AgentIdentity.builder().tenantKey(task.getTenantKey()).principalKey(task.getPrincipalKey()).build(), ignored -> { });
             task.setRunNo(result.getRunNo());
             if ("SUCCEEDED".equals(result.getStatus()) || "NEEDS_CLARIFICATION".equals(result.getStatus())) {
-                repository.complete(task);
-                notificationPort.notifyCompleted(task, result.getStatus());
+                lifecycleNotificationService.recordCompleted(task, result.getStatus());
             } else {
                 failOrRetry(task, result.getErrorMessage() == null ? "Agent task run did not succeed" : result.getErrorMessage());
             }
@@ -55,11 +54,10 @@ public class AgentTaskWorker {
         int attempt = task.getAttemptCount() == null ? 1 : task.getAttemptCount();
         if (attempt < (task.getMaxAttempts() == null ? 3 : task.getMaxAttempts())) {
             long backoffSeconds = Math.min(3_600, 30L * (1L << Math.min(6, Math.max(0, attempt - 1))));
-            repository.retry(task, OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(backoffSeconds), error);
-            notificationPort.notifyRetryScheduled(task, attempt + 1, error);
+            lifecycleNotificationService.recordRetryScheduled(task,
+                    OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(backoffSeconds), attempt + 1, error);
         } else {
-            repository.deadLetter(task, error);
-            notificationPort.notifyDeadLetter(task, error);
+            lifecycleNotificationService.recordDeadLetter(task, error);
         }
     }
 }

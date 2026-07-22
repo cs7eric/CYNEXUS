@@ -16,7 +16,8 @@ class AgentPersistenceSchemaContractTest {
             "20260722_add_ai_agent_run_evidence_fields.sql", "20260722_add_ai_agent_idempotency_and_retry_fields.sql",
             "20260722_add_ai_agent_feedback.sql", "20260722_add_ai_agent_write_commands.sql",
             "20260722_add_ai_agent_source_urls.sql", "20260722_add_ai_agent_cancellation_intent.sql",
-            "20260722_add_ai_agent_capabilities.sql", "20260722_repair_ai_agent_capability_runtime_state.sql");
+            "20260722_add_ai_agent_capabilities.sql", "20260722_repair_ai_agent_capability_runtime_state.sql",
+            "20260722_add_ai_agent_task_notifications.sql");
 
     @Test
     void agentMigrationsStayInTheAiSchemaAndExposeOwnerBoundaries() throws IOException {
@@ -44,6 +45,20 @@ class AgentPersistenceSchemaContractTest {
                         "uk_ai_agent_run_owner_idempotency", "ck_ai_agent_task_lease_shape");
         assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
                 .contains("20260722_harden_ai_agent_owner_constraints.sql");
+    }
+
+    @Test
+    void taskNotificationOutboxIsIdempotentAndRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260722_add_ai_agent_task_notifications.sql");
+        assertThat(migration).contains("ai_agent_task_notification", "event_key varchar(256) NOT NULL UNIQUE",
+                "payload_json jsonb NOT NULL", "status varchar(32) NOT NULL DEFAULT 'PENDING'",
+                "last_error text", "idx_ai_agent_task_notification_pending",
+                "ck_ai_agent_task_notification_event_type");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260722_add_ai_agent_task_notifications.sql");
+        String mapper = readResource(
+                "cynexus-ai/cynexus-ai-infra/src/main/java/cn/cccs7/cynexus/ai/infra/basic/mapper/agent/AgentTaskNotificationMapper.java");
+        assertThat(mapper).contains("JsonbTypeHandler", "ON CONFLICT (event_key) DO NOTHING");
     }
 
     @Test
