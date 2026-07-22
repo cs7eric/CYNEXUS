@@ -2547,6 +2547,8 @@ Additional Release evidence: after one transient upstream TLS handshake failure,
 
 Release workflow follow-up evidence: owner-scoped feedback for `AGR-release174-broad` persisted `rating=5`, `evaluationLabel=CORRECT`, and the authorized summary returned one positive feedback item. A confirmed write preview/confirm for `knowledge.document.create` returned `PENDING_CONFIRMATION` then `EXECUTED` with a downstream `DRAFT` document id. A scheduled task `ATK-79919902d92841f7b4bd2d63` transitioned `QUEUED -> PAUSED -> QUEUED -> CANCELLED` under the same owner scope. These checks exercise the existing product slices; task lease recovery, dead-letter, metrics, and full UI revalidation remain open in the Phase 107 matrix.
 
+UI release evidence: `pnpm build` passed at `1.1.174-SNAPSHOT`; the UI image was rebuilt explicitly with `CYNEXUS_RELEASE_VERSION=1.1.174-260722-RELEASE`, recreated as `cynexus-ui:1.1.174-260722-RELEASE`, and the UI plus gateway remained healthy.
+
 ## Errors Encountered
 
 | Error | Attempt | Resolution |
