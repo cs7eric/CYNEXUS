@@ -13,6 +13,7 @@ import lombok.EqualsAndHashCode;
 @TableName(value = "ai_agent_run_step", autoResultMap = true)
 public class AgentRunStepPO extends BasePO {
     @TableField("run_no") private String runNo;
+    @TableField("owner_key") private String ownerKey;
     @TableField("step_no") private Integer stepNo;
     @TableField("attempt_count") private Integer attemptCount;
     private String kind;

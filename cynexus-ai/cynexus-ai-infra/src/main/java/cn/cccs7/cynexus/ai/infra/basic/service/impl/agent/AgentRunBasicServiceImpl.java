@@ -33,7 +33,7 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
     @Override
     public void update(AgentRunPO run) {
         var wrapper = new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentRunPO>()
-                .eq("id", run.getId());
+                .eq("id", run.getId()).eq("owner_key", run.getOwnerKey());
         if (!"CANCELLED".equals(run.getStatus()) && !"FAILED".equals(run.getStatus())) {
             wrapper.isNull("cancellation_requested_at");
         }
@@ -45,6 +45,14 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
     @Override
     public void createStep(AgentRunStepPO step) {
         if (step.getId() == null) step.setId(idGenerator.nextId());
+        if (step.getOwnerKey() == null) {
+            AgentRunPO run = runMapper.selectOne(new QueryWrapper<AgentRunPO>()
+                    .eq("run_no", step.getRunNo()).isNull("deleted_at"));
+            if (run == null) {
+                throw new IllegalStateException("Cannot persist Agent step without its run: " + step.getRunNo());
+            }
+            step.setOwnerKey(run.getOwnerKey());
+        }
         stepMapper.insert(step);
     }
 
@@ -71,7 +79,8 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
         update.setCancellationRequestedAt(OffsetDateTime.now());
         update.setCancellationRequestedBy(requestedBy);
         var wrapper = new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<AgentRunPO>()
-                .eq("id", current.getId()).in("status", "RUNNING", "RETRYING")
+                .eq("id", current.getId()).eq("owner_key", ownerKey)
+                .in("status", "RUNNING", "RETRYING")
                 .isNull("finished_at").isNull("cancellation_requested_at");
         if (runMapper.update(update, wrapper) != 1) {
             AgentRunPO latest = find(ownerKey, runNo);
@@ -90,8 +99,8 @@ public class AgentRunBasicServiceImpl implements AgentRunBasicService {
 
     @Override
     public List<AgentRunStepPO> findSteps(String ownerKey, String runNo) {
-        return stepMapper.selectList(new QueryWrapper<AgentRunStepPO>().eq("run_no", runNo)
-                .exists("SELECT 1 FROM ai_agent_run r WHERE r.run_no = ai_agent_run_step.run_no AND r.owner_key = {0}", ownerKey)
+        return stepMapper.selectList(new QueryWrapper<AgentRunStepPO>().eq("owner_key", ownerKey)
+                .eq("run_no", runNo)
                 .isNull("deleted_at").orderByAsc("step_no"));
     }
 

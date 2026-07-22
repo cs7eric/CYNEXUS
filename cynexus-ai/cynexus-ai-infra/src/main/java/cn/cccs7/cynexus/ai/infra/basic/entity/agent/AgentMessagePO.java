@@ -13,6 +13,7 @@ import lombok.EqualsAndHashCode;
 public class AgentMessagePO extends BasePO {
     @TableField("conversation_no") private String conversationNo;
     @TableField("run_no") private String runNo;
+    @TableField("owner_key") private String ownerKey;
     @TableField("sequence_no") private Integer sequenceNo;
     private String role;
     private String content;

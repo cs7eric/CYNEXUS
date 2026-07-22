@@ -54,8 +54,10 @@ class AgentRunRepositoryImplTest {
         assertThat(run.getId()).isEqualTo(202L);
         repository.updateConversation(conversation);
         repository.updateRun(run);
+        repository.findMessages("owner", "AGC-test");
         verify(conversations).update(any(AgentConversationPO.class));
         verify(runs).update(any(AgentRunPO.class));
+        verify(messages).find("owner", "AGC-test");
     }
 
     @Test

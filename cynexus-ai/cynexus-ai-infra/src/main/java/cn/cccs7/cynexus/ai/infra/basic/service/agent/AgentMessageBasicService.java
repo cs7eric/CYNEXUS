@@ -5,5 +5,5 @@ import java.util.List;
 
 public interface AgentMessageBasicService {
     void create(AgentMessagePO message);
-    List<AgentMessagePO> find(String conversationNo);
+    List<AgentMessagePO> find(String ownerKey, String conversationNo);
 }

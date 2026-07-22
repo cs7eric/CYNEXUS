@@ -137,7 +137,7 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     @Override
     public List<AgentMessageBO> findMessages(String ownerKey, String conversationNo) {
         if (conversationService.find(ownerKey, conversationNo).isEmpty()) return List.of();
-        return messageService.find(conversationNo).stream().map(AgentMessagePOConverter.INSTANCE::toTarget).toList();
+        return messageService.find(ownerKey, conversationNo).stream().map(AgentMessagePOConverter.INSTANCE::toTarget).toList();
     }
 
     @Override
