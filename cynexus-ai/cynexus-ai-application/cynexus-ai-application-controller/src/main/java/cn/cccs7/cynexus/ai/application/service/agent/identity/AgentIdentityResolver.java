@@ -5,6 +5,7 @@ import cn.cccs7.cynexus.ai.domain.policy.capability.AgentGovernancePolicy;
 import cn.cccs7.cynexus.common.security.identity.TrustedPrincipalSigner;
 import java.util.Arrays;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,7 @@ public class AgentIdentityResolver {
     private final boolean allowAnonymous;
     private final Set<String> governancePrincipals;
 
+    @Autowired
     public AgentIdentityResolver(
             @Value("${cynexus.ai.agent.trusted-identity-secret:${CYNEXUS_TRUSTED_IDENTITY_SECRET:}}") String secret,
             @Value("${cynexus.ai.agent.allow-anonymous-owner:${CYNEXUS_AI_AGENT_ALLOW_ANONYMOUS_OWNER:false}}") boolean allowAnonymous,

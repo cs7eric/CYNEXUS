@@ -414,6 +414,12 @@
 - The persisted run reported `toolCallCount=4`, `turnCount=2`, and an explicit `OUTPUT_TRUNCATED` warning for the bounded market-information payload. The result is therefore truthful about unavailable/truncated source content.
 - Remaining Phase 105 gates are intentionally still open: SSE reconnect/checkpoints, cancellation/resume/follow-up failure paths, HTTP-level authorization/recovery tests, retention/redaction policy, source navigation/export, mobile visual checks, and final capability-routing audit.
 
+## Release 1.1.164 startup failure (2026-07-22)
+
+- The first Release image containing capability governance failed to start the AI application because `AgentIdentityResolver` exposed two constructors and Spring could not choose the `@Value` constructor; the container reported `No default constructor found`.
+- This was a real runtime wiring defect, not a Provider failure. Adding `@Autowired` to the configuration constructor preserves direct test construction and makes the production bean deterministic.
+- Focused authorization and identity tests pass 7/7. The next versioned image must prove AI health before any Provider/TLS result is counted.
+
 ## Agent product workflow audit (2026-07-22)
 
 - The Agent backend currently treats every model response without tool calls as a final answer; it has no structured `NEEDS_CLARIFICATION` result or persisted clarification payload.

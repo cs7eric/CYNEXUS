@@ -2485,6 +2485,8 @@ Status: in_progress
 
 Current implementation: handlers publish typed capability descriptors; AI persists versioned capability metadata and governance state under `cynexus_appl_ai.ai_agent_capability`; runtime catalog filtering now requires enabled, available, non-stale persisted descriptors; stale/disappeared handlers and older versions are disabled transactionally; descriptor/source/governance validation is domain-owned; lifecycle and governance changes are audit-persisted; Provider UI now renders governed metadata and enable/disable controls. The implementation slice is ready for independent commit; real newly-registered capability Release evidence remains open.
 
+Release 1.1.164 exposed an application-context startup defect in `AgentIdentityResolver`; the explicit Spring constructor selection is fixed and must be included in the next Release image before runtime gates resume.
+
 ## Phase 107 - Enterprise Agent completion contract
 
 Status: in_progress

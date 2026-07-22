@@ -1911,3 +1911,10 @@
 
 - Restored test imports for the moved quota mapper, Agent persistence objects/services, and capability registry.
 - AI infra test compilation passed, and the focused Agent infrastructure contract suite passed 18/18.
+
+## 2026-07-22 - Release 1.1.164 startup gate and transport repair
+
+- Built the versioned Release `1.1.164-260722-RELEASE`; Agent migrations applied idempotently and all six images built successfully.
+- Release startup exposed a real application-context defect: `AgentIdentityResolver` had a Spring configuration constructor plus a test convenience constructor without an explicit `@Autowired`, so the AI container repeatedly restarted with `No default constructor found`.
+- Added explicit constructor selection and verified the controller authorization/identity focused suite passes 7/7.
+- The Provider adapter now logs the proxied HTTP/1.1 transport in the versioned image; a new `1.1.165-260722-RELEASE` build is required for the runtime TLS and Agent workflow gate.
