@@ -4,7 +4,7 @@ import cn.cccs7.cynexus.ai.api.request.AgentRunRequest;
 import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
-import cn.cccs7.cynexus.ai.domain.repository.agent.AgentTaskRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.task.AgentTaskLifecycleDomainService;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -13,14 +13,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AgentTaskWorker {
-    private final AgentTaskRepository repository;
+    private final AgentTaskLifecycleDomainService lifecycleService;
     private final AutonomousAgentAppService agentService;
     private final String workerId = "agent-worker-" + UUID.randomUUID();
     private final AgentTaskLifecycleNotificationService lifecycleNotificationService;
 
-    public AgentTaskWorker(AgentTaskRepository repository, AutonomousAgentAppService agentService,
+    public AgentTaskWorker(AgentTaskLifecycleDomainService lifecycleService, AutonomousAgentAppService agentService,
                            AgentTaskLifecycleNotificationService lifecycleNotificationService) {
-        this.repository = repository;
+        this.lifecycleService = lifecycleService;
         this.agentService = agentService;
         this.lifecycleNotificationService = lifecycleNotificationService;
     }
@@ -28,14 +28,14 @@ public class AgentTaskWorker {
     @Scheduled(initialDelayString = "${cynexus.ai.agent.tasks.initial-delay-ms:15000}", fixedDelayString = "${cynexus.ai.agent.tasks.delay-ms:5000}")
     public void processDueTasks() {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        for (AgentTaskBO task : repository.claimDue(workerId, now, 5, 900)) process(task);
+        for (AgentTaskBO task : lifecycleService.claimDue(workerId, now, 5, 900)) process(task);
     }
 
     private void process(AgentTaskBO task) {
         try {
-            String runNo = "TASK-RUN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+            String runNo = lifecycleService.linkRun(task).orElse(null);
+            if (runNo == null) return;
             task.setRunNo(runNo);
-            if (!repository.linkRun(task, runNo)) return;
             var result = agentService.execute(AgentRunRequest.builder().runNo(runNo).conversationNo(task.getConversationNo())
                     .userInput(task.getUserInput()).preferredModelCode(task.getPreferredModelCode()).idempotencyKey("task:" + task.getTaskNo() + ":" + task.getAttemptCount()).build(),
                     AgentIdentity.builder().tenantKey(task.getTenantKey()).principalKey(task.getPrincipalKey()).build(), ignored -> { });
@@ -51,11 +51,9 @@ public class AgentTaskWorker {
     }
 
     private void failOrRetry(AgentTaskBO task, String error) {
-        int attempt = task.getAttemptCount() == null ? 1 : task.getAttemptCount();
-        if (attempt < (task.getMaxAttempts() == null ? 3 : task.getMaxAttempts())) {
-            long backoffSeconds = Math.min(3_600, 30L * (1L << Math.min(6, Math.max(0, attempt - 1))));
-            lifecycleNotificationService.recordRetryScheduled(task,
-                    OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(backoffSeconds), attempt + 1, error);
+        var decision = lifecycleService.failureDecision(task, error, OffsetDateTime.now(ZoneOffset.UTC));
+        if (decision.type() == AgentTaskLifecycleDomainService.FailureDecision.Type.RETRY) {
+            lifecycleNotificationService.recordRetryScheduled(task, decision.nextAttemptAt(), decision.nextAttempt(), decision.error());
         } else {
             lifecycleNotificationService.recordDeadLetter(task, error);
         }

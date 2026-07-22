@@ -2,7 +2,7 @@ package cn.cccs7.cynexus.ai.application.service.agent.task;
 
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
 import cn.cccs7.cynexus.ai.domain.port.agent.AgentTaskNotificationPort;
-import cn.cccs7.cynexus.ai.domain.repository.agent.AgentTaskRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.task.AgentTaskLifecycleDomainService;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,31 +14,31 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class AgentTaskLifecycleNotificationService {
-    private final AgentTaskRepository taskRepository;
+    private final AgentTaskLifecycleDomainService lifecycleService;
     private final AgentTaskNotificationPort notificationPort;
 
-    public AgentTaskLifecycleNotificationService(AgentTaskRepository taskRepository,
+    public AgentTaskLifecycleNotificationService(AgentTaskLifecycleDomainService lifecycleService,
                                                  AgentTaskNotificationPort notificationPort) {
-        this.taskRepository = taskRepository;
+        this.lifecycleService = lifecycleService;
         this.notificationPort = notificationPort;
     }
 
     @Transactional
     public void recordCompleted(AgentTaskBO task, String resultStatus) {
-        taskRepository.complete(task);
+        lifecycleService.complete(task);
         notificationPort.notifyCompleted(task, resultStatus);
     }
 
     @Transactional
     public void recordRetryScheduled(AgentTaskBO task, OffsetDateTime nextAttemptAt,
                                      int nextAttempt, String error) {
-        taskRepository.retry(task, nextAttemptAt, error);
+        lifecycleService.retry(task, nextAttemptAt, nextAttempt, error);
         notificationPort.notifyRetryScheduled(task, nextAttempt, error);
     }
 
     @Transactional
     public void recordDeadLetter(AgentTaskBO task, String error) {
-        taskRepository.deadLetter(task, error);
+        lifecycleService.deadLetter(task, error);
         notificationPort.notifyDeadLetter(task, error);
     }
 }

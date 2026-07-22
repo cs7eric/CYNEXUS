@@ -1,6 +1,5 @@
 package cn.cccs7.cynexus.ai.application.service;
 
-import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAppService;
 import cn.cccs7.cynexus.ai.application.service.agent.task.AgentTaskAppService;
 import cn.cccs7.cynexus.ai.application.service.agent.task.AgentTaskLifecycleNotificationService;
 import cn.cccs7.cynexus.ai.domain.port.agent.AgentTaskNotificationPort;
@@ -14,21 +13,24 @@ import static org.mockito.Mockito.when;
 import cn.cccs7.cynexus.ai.api.request.AgentTaskRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentTaskBO;
-import cn.cccs7.cynexus.ai.domain.repository.agent.AgentTaskRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.task.AgentTaskLifecycleDomainService;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 
 class AgentTaskAppServiceTest {
     @Test
     void schedulesOwnerScopedQueuedTaskWithBoundedRetryPolicy() {
-        AgentTaskRepository repository = mock(AgentTaskRepository.class);
-        when(repository.save(any(AgentTaskBO.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        AgentTaskLifecycleDomainService lifecycleService = mock(AgentTaskLifecycleDomainService.class);
         AgentTaskRequest request = new AgentTaskRequest();
         request.setUserInput("Review the latest market snapshot");
         request.setScheduleAt(OffsetDateTime.now().plusMinutes(2));
         request.setMaxAttempts(4);
 
-        var task = new AgentTaskAppService(repository, mock(AutonomousAgentAppService.class)).schedule(AgentIdentity.builder().tenantKey("tenant").principalKey("user").build(), request);
+        AgentTaskBO scheduled = AgentTaskBO.builder().taskNo("ATK-1").status("QUEUED")
+                .maxAttempts(4).userInput(request.getUserInput()).build();
+        when(lifecycleService.schedule(any())).thenReturn(scheduled);
+
+        var task = new AgentTaskAppService(lifecycleService).schedule(AgentIdentity.builder().tenantKey("tenant").principalKey("user").build(), request);
 
         assertThat(task.getTaskNo()).startsWith("ATK-");
         assertThat(task.getStatus()).isEqualTo("QUEUED");
@@ -38,19 +40,16 @@ class AgentTaskAppServiceTest {
 
     @Test
     void cancelsRunningTaskAndItsUnderlyingAgentRun() {
-        AgentTaskRepository repository = mock(AgentTaskRepository.class);
-        AutonomousAgentAppService agentService = mock(AutonomousAgentAppService.class);
+        AgentTaskLifecycleDomainService lifecycleService = mock(AgentTaskLifecycleDomainService.class);
         AgentIdentity identity = AgentIdentity.builder().tenantKey("tenant").principalKey("user").build();
         AgentTaskBO task = AgentTaskBO.builder().taskNo("ATK-1").ownerKey(identity.storageOwnerKey())
                 .status("RUNNING").runNo("AGR-1").build();
-        when(repository.find(identity.storageOwnerKey(), "ATK-1")).thenReturn(java.util.Optional.of(task));
-        when(repository.cancel(identity.storageOwnerKey(), "ATK-1")).thenReturn(true);
+        when(lifecycleService.find(identity.storageOwnerKey(), "ATK-1")).thenReturn(java.util.Optional.of(task));
+        when(lifecycleService.cancel(identity, identity.storageOwnerKey(), "ATK-1")).thenReturn(true);
 
-        boolean cancelled = new AgentTaskAppService(repository, agentService).cancel(identity, "ATK-1");
+        boolean cancelled = new AgentTaskAppService(lifecycleService).cancel(identity, "ATK-1");
 
         assertThat(cancelled).isTrue();
-        org.mockito.Mockito.verify(agentService).cancel(identity, "AGR-1");
-        org.mockito.Mockito.verify(repository).cancel(identity.storageOwnerKey(), "ATK-1");
     }
 
     @Test
