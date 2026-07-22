@@ -53,6 +53,7 @@ export function WorkspaceChat() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [failedInput, setFailedInput] = useState("")
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -88,6 +89,7 @@ export function WorkspaceChat() {
     setMessages([])
     setInput("")
     setError("")
+    setFailedInput("")
     window.setTimeout(() => inputRef.current?.focus(), 0)
   }
 
@@ -98,6 +100,7 @@ export function WorkspaceChat() {
 
     setInput("")
     setError("")
+    setFailedInput("")
     setMessages((current) => [
       ...current,
       { id: `user-${Date.now()}`, role: "user", content, createdAt: "刚刚" },
@@ -111,6 +114,7 @@ export function WorkspaceChat() {
         { id: `assistant-${Date.now()}`, role: "assistant", content: response, createdAt: "刚刚" },
       ])
     } catch (err) {
+      setFailedInput(content)
       setError(err instanceof Error ? err.message : "AI 暂时不可用，请稍后重试。")
     } finally {
       setLoading(false)
@@ -137,7 +141,7 @@ export function WorkspaceChat() {
               ref={panelRef}
               role="dialog"
               aria-label="Cynexus AI chat"
-              className="fixed right-6 bottom-6 z-50 flex h-[min(78vh,760px)] w-[min(calc(100vw-2rem),560px)] flex-col gap-0 overflow-hidden rounded-[min(var(--radius-4xl),24px)] border bg-popover p-0 text-popover-foreground shadow-md max-[640px]:right-4 max-[640px]:bottom-4"
+              className="fixed inset-auto right-6 bottom-6 left-auto top-auto z-50 flex h-[min(78vh,760px)] max-h-[calc(100svh-2rem)] w-[min(calc(100vw-2rem),560px)] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-[min(var(--radius-4xl),24px)] border bg-popover p-0 text-popover-foreground shadow-md max-[640px]:right-4 max-[640px]:bottom-4"
             >
           <div className="grid auto-rows-min items-start gap-1 border-b px-5 py-5">
           <div className="flex items-center justify-between gap-4">
@@ -206,9 +210,28 @@ export function WorkspaceChat() {
           </MessageScrollerProvider>
 
           <div className="flex flex-col gap-2 px-5 py-5">
-          {error ? <p className="text-xs leading-5 text-destructive">{error}</p> : null}
+          {error ? (
+            <div role="alert" className="flex items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive">
+              <p className="min-w-0 flex-1">{error}</p>
+              {failedInput ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="-mr-1 -mt-1 shrink-0 text-destructive hover:text-destructive"
+                  onClick={() => {
+                    setInput(failedInput)
+                    setError("")
+                    window.setTimeout(() => inputRef.current?.focus(), 0)
+                  }}
+                >
+                  Retry
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <form className="w-full" onSubmit={handleSubmit}>
-            <InputGroup className="h-auto flex-col items-stretch">
+            <InputGroup className="h-auto min-h-0 flex-col items-stretch">
               <InputGroupTextarea
                 ref={inputRef}
                 value={input}
@@ -217,7 +240,7 @@ export function WorkspaceChat() {
                 aria-label="Message Cynexus AI"
                 disabled={loading}
                 rows={2}
-                className="scrollbar-none [&::-webkit-scrollbar]:hidden"
+                className="!block h-14 min-h-14 max-h-32 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden"
               />
               <InputGroupAddon align="block-end">
                 <InputGroupButton type="button" aria-label="Add files" disabled>

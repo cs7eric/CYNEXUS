@@ -76,14 +76,32 @@ function AgentMessageBubble({ align, children, footer }: { align: "start" | "end
 function ThinkingMarker() {
   return (
     <Message>
-      <MessageContent>
-        <Marker role="status">
-          <MarkerIcon><LoaderCircle className="animate-spin" /></MarkerIcon>
-          <MarkerContent>Thinking</MarkerContent>
-        </Marker>
-      </MessageContent>
+      <Marker role="status">
+        <MarkerIcon><LoaderCircle className="animate-spin" /></MarkerIcon>
+        <MarkerContent>Thinking</MarkerContent>
+      </Marker>
     </Message>
   )
+}
+
+function removeCurrentRunFromTranscript(messages: AgentMessage[], run: AgentRun | null) {
+  if (!run) return messages
+
+  const duplicateIndexes = new Set<number>()
+  if (run.userInput) {
+    const userIndex = [...messages].reverse().findIndex(
+      (message) => message.role === "user" && message.content === run.userInput,
+    )
+    if (userIndex >= 0) duplicateIndexes.add(messages.length - 1 - userIndex)
+  }
+  if (run.answer) {
+    const answerIndex = [...messages].reverse().findIndex(
+      (message) => message.role === "assistant" && message.content === run.answer,
+    )
+    if (answerIndex >= 0) duplicateIndexes.add(messages.length - 1 - answerIndex)
+  }
+
+  return messages.filter((_, index) => !duplicateIndexes.has(index))
 }
 
 export default function AutonomousAgentPage() {
@@ -98,6 +116,11 @@ export default function AutonomousAgentPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [historyQuery, setHistoryQuery] = useState("")
+
+  const displayedConversationMessages = useMemo(
+    () => removeCurrentRunFromTranscript(conversationMessages, run),
+    [conversationMessages, run],
+  )
 
   useEffect(() => {
     void Promise.all([fetchAgentTools(), fetchAgentConversations()]).then(([nextTools, nextConversations]) => {
@@ -230,7 +253,7 @@ export default function AutonomousAgentPage() {
                 <MessageScroller className="min-h-0 flex-1">
                   <MessageScrollerViewport aria-label="Agent messages">
                     <MessageScrollerContent className="gap-6 px-1 py-2" aria-busy={loading}>
-                      {conversationMessages.map((message, index) => (
+                      {displayedConversationMessages.map((message, index) => (
                         <MessageScrollerItem key={`${message.sequenceNo ?? index}-${message.role}`} messageId={`transcript-${message.sequenceNo ?? index}`}>
                           <AgentMessageBubble align={message.role === "user" ? "end" : "start"}>{message.content}</AgentMessageBubble>
                         </MessageScrollerItem>
@@ -246,7 +269,7 @@ export default function AutonomousAgentPage() {
                 </MessageScroller>
               </MessageScrollerProvider>
             </div>
-            <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="max-h-40 min-h-20 resize-none overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => void stopAgent()} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
+            <div className="border-t border-border/70 p-4"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-40 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Read-only research tools</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => void stopAgent()} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
           </section>
 
           <aside className="min-h-0 space-y-4 overflow-y-auto">
