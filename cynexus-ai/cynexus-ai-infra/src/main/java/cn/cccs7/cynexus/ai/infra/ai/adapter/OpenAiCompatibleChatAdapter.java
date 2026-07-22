@@ -12,6 +12,7 @@ import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.BufferedReader;
@@ -289,7 +290,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         payload.put("model", resolveModelName(model));
         payload.put("temperature", 0);
         payload.put("messages", buildChatMessages(request));
-        payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools()));
+        payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), false));
         payload.put("tool_choice", "auto");
         if (stream) payload.put("stream", true);
         return objectMapper.writeValueAsString(payload);
@@ -303,7 +304,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("input", buildResponsesInput(request));
-        payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools()));
+        payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), true));
         payload.put("store", !extraBoolean(model, "disable_response_storage", true));
         if (stream) payload.put("stream", true);
         return objectMapper.writeValueAsString(payload);
@@ -314,6 +315,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         StringBuilder content = new StringBuilder();
         StringBuilder raw = new StringBuilder();
         Map<String, StreamToolAccumulator> tools = new LinkedHashMap<>();
+        StreamUsageAccumulator usage = new StreamUsageAccumulator();
         try (lines) {
             var iterator = lines.iterator();
             while (iterator.hasNext()) {
@@ -323,7 +325,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 if (data.isBlank() || "[DONE]".equals(data)) continue;
                 raw.append(data).append('\n');
                 try {
-                    JsonNode delta = objectMapper.readTree(data).at("/choices/0/delta");
+                    JsonNode root = objectMapper.readTree(data);
+                    captureStreamUsage(usage, root.get("usage"));
+                    JsonNode delta = root.at("/choices/0/delta");
                     String text = textValue(delta.get("content"), "");
                     if (!text.isBlank()) {
                         content.append(text);
@@ -347,7 +351,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 }
             }
         }
-        return streamResponse(content.toString(), tools, raw.toString(), request);
+        return streamResponse(content.toString(), tools, raw.toString(), usage, request);
     }
 
     private AgentModelTurnResponse readResponsesStream(Stream<String> lines, AgentModelTurnRequest request,
@@ -355,6 +359,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         StringBuilder content = new StringBuilder();
         StringBuilder raw = new StringBuilder();
         Map<String, StreamToolAccumulator> tools = new LinkedHashMap<>();
+        StreamUsageAccumulator usage = new StreamUsageAccumulator();
         try (lines) {
             var iterator = lines.iterator();
             while (iterator.hasNext()) {
@@ -366,6 +371,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 try {
                     JsonNode root = objectMapper.readTree(data);
                     String type = textValue(root.get("type"), "");
+                    JsonNode usageNode = root.get("usage");
+                    if (usageNode == null && "response.completed".equals(type)) {
+                        JsonNode response = root.get("response");
+                        usageNode = response == null ? null : response.get("usage");
+                    }
+                    captureStreamUsage(usage, usageNode);
                     if ("response.output_text.delta".equals(type)) {
                         String text = textValue(root.get("delta"), "");
                         content.append(text);
@@ -393,11 +404,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 }
             }
         }
-        return streamResponse(content.toString(), tools, raw.toString(), request);
+        return streamResponse(content.toString(), tools, raw.toString(), usage, request);
     }
 
     private AgentModelTurnResponse streamResponse(String content, Map<String, StreamToolAccumulator> tools,
-                                                  String raw, AgentModelTurnRequest request) {
+                                                  String raw, StreamUsageAccumulator usage,
+                                                  AgentModelTurnRequest request) {
         List<AgentModelToolCall> calls = new ArrayList<>();
         for (StreamToolAccumulator accumulator : tools.values()) {
             if (accumulator.name == null || accumulator.name.isBlank()) continue;
@@ -411,10 +423,15 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 throw new IllegalStateException("AI provider emitted invalid tool arguments", exception);
             }
         }
+        int estimatedInputTokens = estimateTokens(requestPrompt(request));
+        int estimatedOutputTokens = estimateTokens(content);
+        int inputTokens = usage.inputTokens == null ? estimatedInputTokens : usage.inputTokens;
+        int outputTokens = usage.outputTokens == null ? estimatedOutputTokens : usage.outputTokens;
+        int totalTokens = usage.totalTokens == null ? inputTokens + outputTokens : usage.totalTokens;
         return AgentModelTurnResponse.builder().type(calls.isEmpty() ? "FINAL" : "TOOL_CALLS")
-                .content(content).toolCalls(calls).inputTokens(estimateTokens(requestPrompt(request)))
-                .outputTokens(estimateTokens(content)).totalTokens(estimateTokens(requestPrompt(request)) + estimateTokens(content))
-                .rawResponse(raw).build();
+                .content(content).toolCalls(calls).inputTokens(inputTokens)
+                .outputTokens(outputTokens).totalTokens(totalTokens)
+                .rawResponse(formatStreamingRawResponse(raw, usage)).build();
     }
 
     private String nonBlank(String value, String fallback) {
@@ -425,6 +442,50 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         private String id;
         private String name;
         private final StringBuilder arguments = new StringBuilder();
+    }
+
+    private static final class StreamUsageAccumulator {
+        private Integer inputTokens;
+        private Integer outputTokens;
+        private Integer totalTokens;
+
+        private boolean hasAny() {
+            return inputTokens != null || outputTokens != null || totalTokens != null;
+        }
+    }
+
+    private void captureStreamUsage(StreamUsageAccumulator usage, JsonNode usageNode) {
+        if (usageNode == null || !usageNode.isObject()) return;
+        Integer input = firstInt(usageNode, "input_tokens", "prompt_tokens");
+        Integer output = firstInt(usageNode, "output_tokens", "completion_tokens");
+        Integer total = firstInt(usageNode, "total_tokens");
+        if (input != null) usage.inputTokens = input;
+        if (output != null) usage.outputTokens = output;
+        if (total != null) usage.totalTokens = total;
+    }
+
+    private Integer firstInt(JsonNode node, String... fields) {
+        for (String field : fields) {
+            JsonNode value = node.get(field);
+            if (value != null && value.canConvertToInt()) return value.asInt();
+        }
+        return null;
+    }
+
+    private String formatStreamingRawResponse(String raw, StreamUsageAccumulator usage) {
+        ObjectNode envelope = objectMapper.createObjectNode();
+        envelope.put("events", raw == null ? "" : raw);
+        if (usage != null && usage.hasAny()) {
+            ObjectNode usageNode = envelope.putObject("usage");
+            if (usage.inputTokens != null) usageNode.put("input_tokens", usage.inputTokens);
+            if (usage.outputTokens != null) usageNode.put("output_tokens", usage.outputTokens);
+            if (usage.totalTokens != null) usageNode.put("total_tokens", usage.totalTokens);
+        }
+        try {
+            return objectMapper.writeValueAsString(envelope);
+        } catch (JsonProcessingException exception) {
+            return raw == null ? "" : raw;
+        }
     }
 
     private List<Map<String, Object>> buildChatMessages(AgentModelTurnRequest request) {
@@ -482,7 +543,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
     }
 
-    private List<Map<String, Object>> buildToolDefinitions(List<AgentToolDefinition> definitions) throws IOException {
+    private List<Map<String, Object>> buildToolDefinitions(List<AgentToolDefinition> definitions,
+                                                            boolean responsesApi) throws IOException {
         List<Map<String, Object>> tools = new ArrayList<>();
         if (definitions == null) return tools;
         for (AgentToolDefinition definition : definitions) {
@@ -490,7 +552,16 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             function.put("name", providerToolName(definition.getCode()));
             function.put("description", definition.getDescription());
             function.put("parameters", objectMapper.readTree(definition.getInputSchemaJson()));
-            tools.add(Map.of("type", "function", "function", function));
+            if (responsesApi) {
+                Map<String, Object> responseTool = new LinkedHashMap<>();
+                responseTool.put("type", "function");
+                responseTool.put("name", function.get("name"));
+                responseTool.put("description", function.get("description"));
+                responseTool.put("parameters", function.get("parameters"));
+                tools.add(responseTool);
+            } else {
+                tools.add(Map.of("type", "function", "function", function));
+            }
         }
         return tools;
     }
@@ -660,7 +731,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private static CloseableHttpClient buildStreamingHttpClient(Environment environment) {
-        var tlsStrategy = ClientTlsStrategyBuilder.create().setTlsVersions("TLSv1.2").buildClassic();
+        var tlsStrategy = ClientTlsStrategyBuilder.create().setTlsVersions("TLSv1.2", "TLSv1.3").buildClassic();
         var connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
                 .setTlsSocketStrategy(tlsStrategy).build();
         var builder = HttpClients.custom().setConnectionManager(connectionManager).disableAutomaticRetries();
@@ -686,12 +757,18 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         post.setConfig(buildStreamingRequestConfig(requestTimeout));
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
+        post.setHeader("Accept", "text/event-stream");
         post.setEntity(new StringEntity(payload, ContentType.APPLICATION_JSON));
         try (CloseableHttpResponse response = streamingHttpClient.execute(post)) {
             int statusCode = response.getCode();
             if (statusCode < 200 || statusCode >= 300) {
-                String responseBody = new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
+                String responseBody = response.getEntity() == null
+                        ? ""
+                        : new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
                 throw providerHttpFailure(statusCode, responseBody);
+            }
+            if (response.getEntity() == null) {
+                throw new IllegalStateException("AI provider stream response missing body");
             }
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                     response.getEntity().getContent(), StandardCharsets.UTF_8));

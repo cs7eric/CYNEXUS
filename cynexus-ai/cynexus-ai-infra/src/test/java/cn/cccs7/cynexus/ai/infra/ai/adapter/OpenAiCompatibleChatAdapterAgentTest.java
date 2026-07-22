@@ -103,7 +103,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
 
     @Test
     void parsesResponsesFunctionCallItemsWithUsage() throws Exception {
-        server = server(new AtomicReference<>(), """
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
                 {"output":[{"type":"function_call","call_id":"resp-1","name":"market.overview","arguments":"{}"}],"usage":{"input_tokens":10,"output_tokens":6,"total_tokens":16}}
                 """);
 
@@ -118,6 +119,13 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getInputTokens()).isEqualTo(10);
         assertThat(response.getOutputTokens()).isEqualTo(6);
         assertThat(response.getTotalTokens()).isEqualTo(16);
+
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        var tool = payload.path("tools").get(0);
+        assertThat(tool.path("type").asText()).isEqualTo("function");
+        assertThat(tool.path("name").asText()).isEqualTo("cynexus_tool_6d61726b65742e6f76657276696577");
+        assertThat(tool.path("parameters").path("type").asText()).isEqualTo("object");
+        assertThat(tool.path("function").isMissingNode()).isTrue();
     }
 
     @Test
@@ -129,6 +137,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
 
                 data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"stream-call","function":{"name":"market.overview","arguments":"{}"}}]}}]}
 
+                data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}}
+
                 data: [DONE]
 
                 """);
@@ -138,6 +148,11 @@ class OpenAiCompatibleChatAdapterAgentTest {
 
         assertThat(deltas).containsExactly("实时", "答案");
         assertThat(response.getContent()).isEqualTo("实时答案");
+        assertThat(response.getInputTokens()).isEqualTo(12);
+        assertThat(response.getOutputTokens()).isEqualTo(8);
+        assertThat(response.getTotalTokens()).isEqualTo(20);
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getRawResponse())
+                .path("usage").path("total_tokens").asInt()).isEqualTo(20);
         assertThat(response.getToolCalls()).singleElement().satisfies(call -> {
             assertThat(call.getCallId()).isEqualTo("stream-call");
             assertThat(call.getToolCode()).isEqualTo("market.overview");
