@@ -2458,7 +2458,7 @@ Status: in_progress
 - Add prompt-injection regression corpus, schema fuzzing, SSRF/source URL policy, rate-limit abuse tests, and secret scanning.
 - Document threat model, retention, incident response, and data residency assumptions.
 
-Current implementation: trace ids are persisted on public Agent events, Micrometer run/provider/tool counters and latency timers are wired through a domain port, Release startup applies the complete Agent migration bundle, source URL policy regression coverage is present, and the enterprise security document is added. Prompt-injection corpus, schema fuzzing, rate-abuse, secret scanning, and Release metric/runtime checks remain open.
+Current implementation: trace ids are persisted on public Agent events, Micrometer run/provider/tool counters and latency timers are wired through a domain port, Release startup applies the complete Agent migration bundle, source URL policy regression coverage is present, and the enterprise security document is added. The adversarial corpus, schema/security regressions, and secret scan now have evidence; Provider/Langfuse outbound endpoint policy, rate-abuse evidence, and full Release metric validation remain open.
 
 - Capability catalog and governance HTTP authorization now require signed identity; governance additionally requires a configured administrator principal allow-list. Focused tests pass; Release runtime verification remains open.
 
@@ -2470,7 +2470,7 @@ Status: in_progress
 - Verify long input scroll behavior, hidden scrollbar, empty state, thinking/streaming state outside the message bubble, header, source actions, transcript recovery, and error/cancel states.
 - Add browser-level interaction checks for source navigation, export, retry, regenerate, follow-up, and stop.
 
-Current verification: Agent UI TypeScript build passed after applying pending/token rendering, independent Thinking marker, message bubble, fixed-height input, hidden scrollbar, and scroller-control positioning fixes. Full lint is still blocked by pre-existing project errors, and desktop/mobile browser screenshot/workflow evidence is still required.
+Current verification: Agent UI TypeScript/build and desktop/mobile screenshot evidence passed for the core layout, fixed-height hidden-scrollbar composer, empty state, history, and source navigation. The full Release interaction gate remains open because the real Provider request timed out/TLS failed, blocking truthful acceptance of streaming, export, retry, regenerate, follow-up, and cancel. The result is recorded in `docs/agent-ui-release-workflow-20260722.md`.
 
 ### 106.9 Dynamic capability discovery and governed registration
 
@@ -2485,7 +2485,7 @@ Status: in_progress
 - Validate capability arguments and authorization before execution, return structured evidence and provenance, and make capability registration, version changes, disablement, expiration, and execution auditable.
 - Verify with a newly registered non-Market capability and a real `xtyooo / gpt-5.4-mini` run that the Agent discovers and selects it without a fixed keyword route or hard-coded executor branch.
 
-Current implementation: handlers publish typed capability descriptors; AI persists versioned capability metadata and governance state under `cynexus_appl_ai.ai_agent_capability`; runtime catalog filtering now requires enabled, available, non-stale persisted descriptors; stale/disappeared handlers and older versions are disabled transactionally; descriptor/source/governance validation is domain-owned; lifecycle and governance changes are audit-persisted; Provider UI now renders governed metadata and enable/disable controls. The implementation slice is ready for independent commit; real newly-registered capability Release evidence remains open.
+Current implementation: handlers publish typed capability descriptors; AI persists versioned capability metadata and governance state under `cynexus_appl_ai.ai_agent_capability`; runtime catalog filtering now requires enabled, available, non-stale persisted descriptors; stale/disappeared handlers and older versions are disabled transactionally; descriptor/source/governance validation is domain-owned; lifecycle and governance changes are audit-persisted; Provider UI now renders governed metadata and enable/disable controls. A re-registered non-Market `knowledge.search` capability was selected by real `gpt-5.4-mini` in Release; the evidence and the remaining limitation that this was restart-based registration rather than hot-add are recorded in `docs/agent-dynamic-capability-release-20260722.md`.
 
 Release 1.1.164 exposed an application-context startup defect in `AgentIdentityResolver`; the explicit Spring constructor selection is fixed and must be included in the next Release image before runtime gates resume.
 
@@ -2571,3 +2571,5 @@ Status: complete
 - Verify focused tests, full Maven/UI builds, Release health, and desktop/mobile Agent screenshots.
 
 Verification: commit `5e1ce89c` added Prometheus exposure and synchronized versions at `1.1.175-SNAPSHOT`; commit `5c437708` added persistence repair, migration registration, and task notification boundary; Provider follow-up commit `5274e2ce` completed streamed usage reporting. Agent task 3/3, persistence 4/4, Provider adapter 7/7, Maven 41/41, UI build, Release health, Prometheus runtime, and Playwright desktop/mobile screenshot evidence passed. Remaining Phase 107 items are real newly-registered non-Market capability discovery, high-concurrency/rate-abuse and multi-instance recovery evidence, secret-scan/corpus automation, and full interactive browser workflow beyond empty-state rendering.
+
+Follow-up evidence: focused reliability tests passed 12/12; two-instance quota reservation and stale lease recovery passed. Dead-letter execution is blocked by the existing `last_error varchar(1000)` width, and the notification lifecycle adapter is not implemented. See `docs/agent-reliability-release-20260722.md`.

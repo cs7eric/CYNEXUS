@@ -2005,3 +2005,12 @@
 - Verification: `pnpm build` passed with TypeScript compilation and Vite production output.
 - After a serialized retry, the full Maven package completed all 41 modules and Docker Release `1.1.177-260722-RELEASE` rebuilt and started all six versioned images successfully. Ports `18080`, `18081`, `18082`, `18000`, `18084`, and `5173` returned HTTP 200 after application startup.
 - Release `GET /api/ai/config/quota-policies` returned the persisted global policy (`200 requests`, `100000 tokens`), confirming the quota migration and API path are live.
+
+## 2026-07-22 - Agent completion verification follow-up
+
+- Added quota-policy UI scope guidance, validation, CRUD error handling, and synchronized Maven/UI version `1.1.178-SNAPSHOT`; UI `pnpm build` and Maven `clean package -DskipTests` passed all 41 modules.
+- Built and started the versioned Release image; the final active stack is `1.1.180-260722-RELEASE` after subsequent Agent composer fixes, and Core, AI, Market, Gateway, Knowledge Base, and UI health checks all returned HTTP 200.
+- Dynamic capability verification passed for a re-registered `knowledge.search` capability selected by real `gpt-5.4-mini`; evidence is recorded in `docs/agent-dynamic-capability-release-20260722.md`.
+- UI Release workflow verification is recorded truthfully in `docs/agent-ui-release-workflow-20260722.md`: real Provider timeout/TLS failure blocked streaming, export, retry, regenerate, follow-up, and cancel acceptance, so these are not claimed as passed.
+- Reliability verification passed focused tests 12/12, shared two-instance quota reservation under 20 concurrent requests, and stale lease recovery. Dead-letter verification remains blocked by `last_error` exceeding its `varchar(1000)` column; task notification adapter verification is blocked because the backend adapter is not implemented. Evidence is recorded in `docs/agent-reliability-release-20260722.md`.
+- Security verification is recorded in `docs/agent-security-evaluation-20260722.md`: adversarial corpus 4/4, infra 13/13, application 25/25, and high-confidence secret scan 0 hits. Provider/Langfuse outbound endpoint policy remains incomplete.
