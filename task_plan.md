@@ -2634,3 +2634,4 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Removed the unnecessary `XxxConfiguration` classes introduced for the Stock Chart, ETF, and Market Information slices.
 - Restored the existing Spring `@Service` convention for DomainService implementations. Spring itself is not the prohibited dependency boundary; API DTOs, persistence PO classes, MyBatis, Spring AI, and infrastructure clients remain prohibited in Domain code.
 - Maven/UI development versions are synchronized at `1.1.200-SNAPSHOT`; focused verification and Release rebuild are pending.
+- Focused domain tests passed 9/9, full Maven package passed all 41 modules, and UI build passed. Release `1.1.200-260723-RELEASE` rebuilt through Docker; all six health endpoints and the Market Information feed returned HTTP 200 with no startup failure markers.

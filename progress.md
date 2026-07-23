@@ -31,6 +31,7 @@
 - Removed the unnecessary `XxxConfiguration` classes for the Stock Chart, ETF, and Market Information slices and restored the existing `@Service` convention in their DomainService implementations.
 - The actual boundary remains: Domain code must not depend on API DTOs, persistence PO classes, MyBatis, Spring AI, or infrastructure clients.
 - Maven/UI development versions are synchronized at `1.1.200-SNAPSHOT`; focused verification and Release rebuild are pending.
+- Focused domain tests passed 9/9, full Maven package passed all 41 modules, and UI build passed. Release `1.1.200-260723-RELEASE` rebuilt through Docker; all six health endpoints and the Market Information feed returned HTTP 200 with no startup failure markers.
 
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 
