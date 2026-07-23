@@ -23,6 +23,7 @@
 - Moved Market Information feed pagination, status-list empty handling, requester normalization, and repository orchestration into `MarketInformationQueryDomainService`.
 - The application service now performs only use-case coordination and BO-to-DTO conversion; repository access is behind the domain port.
 - Focused `MarketInformationQueryDomainServiceTest` passed 2/2. Maven/UI development versions are synchronized at `1.1.199-SNAPSHOT`; full package and Release verification remain pending for this slice.
+- Full Maven package passed all 41 modules and UI build passed. Release `1.1.199-260723-RELEASE` rebuilt through Docker; all six health endpoints and `/api/market/information?page=1&pageSize=10` returned HTTP 200, and startup logs had no failure markers.
 
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 

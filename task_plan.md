@@ -2627,3 +2627,4 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Moved Market Information feed pagination, status-list empty handling, requester normalization, and repository orchestration behind `MarketInformationQueryDomainService`.
 - Kept the application service focused on use-case coordination and BO-to-DTO conversion.
 - Focused query-domain tests passed 2/2; Maven/UI development versions are synchronized at `1.1.199-SNAPSHOT`. Full package and Release verification remain pending.
+- Full Maven package passed all 41 modules and UI build passed. Release `1.1.199-260723-RELEASE` rebuilt through Docker; all six health endpoints and the Market Information feed returned HTTP 200, with no startup failure markers.
