@@ -40,6 +40,12 @@
 - Focused domain/application tests passed 7/7; Maven/UI development versions are synchronized at `1.1.201-SNAPSHOT`. Full package and Release verification remain pending for this slice.
 - Full Maven package passed all 41 modules and UI build passed. Release `1.1.201-260723-RELEASE` rebuilt through Docker; all six health endpoints plus Sector Rank, Stock Information, A-Stock Skill Data, Data Source Freshness, and Market Overview endpoints returned HTTP 200 with `success=true`. Startup logs had no failure markers.
 
+## 2026-07-23 - Margin Trading query DDD slice
+
+- Moved Margin Trading latest/history/stocks/stock-history/industries orchestration, pagination, date/sort normalization, fallback handling, and domain response assembly into `MarginTradingQueryDomainService`.
+- Application now only maps the domain query result to API DTOs.
+- Focused Margin Trading domain tests passed 2/2; Maven/UI development versions are synchronized at `1.1.202-SNAPSHOT`. Full package and Release verification remain pending.
+
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 
 - Integrated the bounded Provider streaming timeout/interruption fix from commit `9d71938`; focused Maven coverage passed 7/7 and the AI infra reactor build passed.
