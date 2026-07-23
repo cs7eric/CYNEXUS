@@ -22,6 +22,12 @@ import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolExecutionOutcome;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentTurnDomainService;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutionPort;
+import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AgentProviderTurnPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
@@ -91,6 +97,8 @@ public class AutonomousAgentAppService {
     private final AgentObservabilityPort observability;
     private final AgentCapabilityRepository capabilityRepository;
     private final AgentCapabilityRuntimeCatalog runtimeCatalog;
+    private final AgentExecutionDomainService executionDomainService;
+    private final AgentTurnDomainService turnDomainService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AutonomousAgentAppService(AgentRunRepository agentRunRepository,
@@ -121,6 +129,9 @@ public class AutonomousAgentAppService {
         this.capabilityRepository = capabilityRepository;
         this.runtimeCatalog = toolCatalog instanceof AgentCapabilityRuntimeCatalog runtime
                 ? runtime : descriptor -> { throw new IllegalStateException("Dynamic capability runtime catalog is unavailable"); };
+        AgentExecutionLimits limits = AgentExecutionLimits.defaults();
+        this.turnDomainService = new AgentTurnDomainService(circuitBreaker, observability, limits.getMaxRetryAttempts());
+        this.executionDomainService = new AgentExecutionDomainService(limits, turnDomainService);
     }
 
     public AgentRunDTO execute(AgentRunRequest request) {
@@ -146,10 +157,8 @@ public class AutonomousAgentAppService {
         String ownerKey = safeIdentity.storageOwnerKey();
         String conversationNo = valueOr(safeRequest.getConversationNo(), "AGC-" + shortId());
         String runNo = valueOr(safeRequest.getRunNo(), "AGR-" + shortId());
-        String userInput = valueOr(safeRequest.getUserInput(), "");
-        if (userInput.isBlank()) throw new IllegalArgumentException("Agent userInput cannot be blank");
-        if (userInput.length() > MAX_USER_INPUT_CHARS) throw new IllegalArgumentException("Agent userInput is too long");
-        String idempotencyKey = normalizeIdempotencyKey(safeRequest.getIdempotencyKey());
+        String userInput = executionDomainService.validateUserInput(safeRequest.getUserInput());
+        String idempotencyKey = executionDomainService.normalizeIdempotencyKey(safeRequest.getIdempotencyKey());
         if (idempotencyKey != null) {
             var existing = agentRunRepository.findRunByIdempotencyKey(ownerKey, idempotencyKey);
             if (existing.isPresent()) {
@@ -160,7 +169,7 @@ public class AutonomousAgentAppService {
         if (!rateLimiter.allow(ownerKey, MAX_RUNS_PER_MINUTE, 60)) {
             throw new IllegalStateException("Agent request rate limit exceeded for this owner");
         }
-        if (!runtimeLease.tryAcquire(ownerKey, runNo, 2, MAX_RUN_SECONDS + 60)) {
+        if (!runtimeLease.tryAcquire(ownerKey, runNo, 2, executionDomainService.limits().getMaxRunSeconds() + 60)) {
             throw new IllegalStateException("Too many active Agent runs for this owner");
         }
         int quotaReservationTokens = Math.max(1_024, Math.min(16_000, userInput.length() / 4 + 1_024));
@@ -233,11 +242,9 @@ public class AutonomousAgentAppService {
             int totalTokens = 0;
             boolean estimatedUsage = false;
             AiModelBO usageModel = model;
-            for (int turn = 1; turn <= MAX_TURNS; turn++) {
+            for (int turn = 1; turn <= executionDomainService.limits().getMaxTurns(); turn++) {
                 checkCancelled(ownerKey, runNo);
-                if (java.time.Duration.between(startedAt, OffsetDateTime.now()).getSeconds() > MAX_RUN_SECONDS) {
-                    throw new IllegalStateException("Agent run exceeded the time limit");
-                }
+                executionDomainService.checkTurn(turn, startedAt, OffsetDateTime.now());
                 run.setTurnCount(turn);
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
                         .systemPrompt(systemPrompt(currentSystemDate())).messages(List.copyOf(messages)).tools(definitions).build();
@@ -290,51 +297,32 @@ public class AutonomousAgentAppService {
                     break;
                 }
                 int persistedToolCalls = run.getToolCallCount() == null ? 0 : run.getToolCallCount();
-                if (response.getToolCalls().size() > MAX_TOOL_CALLS - persistedToolCalls) {
-                    throw new IllegalStateException("The Agent exceeded the total tool call limit");
-                }
-                Set<String> callIds = new HashSet<>();
-                for (var modelCall : response.getToolCalls()) {
-                    if (modelCall.getCallId() == null || !callIds.add(modelCall.getCallId())) {
-                        throw new IllegalStateException("The Agent returned duplicate or missing tool call ids");
-                    }
-                }
+                executionDomainService.validateToolCalls(response.getToolCalls(), persistedToolCalls);
                 AgentModelMessage assistantMessage = AgentModelMessage.builder().role("assistant")
                         .content(valueOr(response.getContent(), "")).toolCalls(response.getToolCalls()).build();
                 messages.add(assistantMessage);
                 saveMessage(conversationNo, runNo, messages.size(), assistantMessage);
                 for (var modelCall : response.getToolCalls()) {
                     checkCancelled(ownerKey, runNo);
-                    if (intValue(run, "toolCallCount") > MAX_TOOL_CALLS) {
-                        throw new IllegalStateException("The Agent exceeded the tool call limit");
-                    }
+                    executionDomainService.incrementToolCallCount(run);
                     AgentToolCall call = AgentToolCall.builder().callId(modelCall.getCallId())
                             .toolCode(modelCall.getToolCode()).arguments(modelCall.getArguments()).build();
                     AgentToolDefinition definition = definitions.stream()
                             .filter(item -> call.getToolCode().equals(item.getCode())).findFirst().orElse(null);
-                    int attempts = 1;
-                    String toolCircuitKey = "tool:" + call.getToolCode();
-                    if (!circuitBreaker.allow(toolCircuitKey)) {
-                        throw new IllegalStateException("Agent tool circuit is open: " + call.getToolCode());
-                    }
-                    long toolStartedNanos = System.nanoTime();
-                    AgentToolResult result = bounded(executeToolWithCancellation(call, context, ownerKey, runNo));
-                    observability.toolCompleted(call.getToolCode(), "SUCCEEDED".equals(result.getStatus()), elapsedMs(toolStartedNanos));
-                    while (attempts < MAX_RETRY_ATTEMPTS && isTransientToolFailure(result)) {
-                        circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
-                        attempts++;
+                    AgentToolExecutionOutcome outcome = turnDomainService.executeToolWithRetry(call, context,
+                            (AgentToolExecutionPort) (toolCall, toolContext) -> executeToolWithCancellation(toolCall, toolContext, ownerKey, runNo),
+                            attempt -> {
                         run.setStatus("RETRYING");
                         agentRunRepository.updateRun(run);
                         publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo)
                                 .status("RETRYING").toolCode(call.getToolCode())
-                                .summary("Retrying the data tool (attempt " + attempts + ").").build());
-                        pauseBeforeRetry(attempts);
-                        result = bounded(executeToolWithCancellation(call, context, ownerKey, runNo));
-                    }
+                                .summary("Retrying the data tool (attempt " + attempt + ").").build());
+                        pauseBeforeRetry(attempt);
+                            });
+                    int attempts = outcome.getAttempts();
+                    AgentToolResult result = bounded(outcome.getResult());
                     run.setStatus("RUNNING");
                     agentRunRepository.updateRun(run);
-                    if (isTransientToolFailure(result)) circuitBreaker.recordFailure(toolCircuitKey, 3, 30);
-                    else if ("SUCCEEDED".equals(result.getStatus())) circuitBreaker.recordSuccess(toolCircuitKey);
                     AgentRunStepBO step = saveToolStep(ownerKey, runNo, steps.size() + 1, call, result, attempts,
                             definition == null ? null : definition.getSourceUrl());
                     steps.add(step);
@@ -393,7 +381,7 @@ public class AutonomousAgentAppService {
         if (isTerminal(current.getStatus())) return AgentCancellationResult.alreadyTerminal(runNo, current.getStatus());
         AgentRunBO requested = agentRunRepository.requestCancellation(safeOwnerKey, runNo, safeOwnerKey)
                 .orElseThrow(() -> new IllegalStateException("Agent cancellation request could not be persisted: " + runNo));
-        runtimeLease.requestCancellation(safeOwnerKey, runNo, MAX_RUN_SECONDS + 60);
+        runtimeLease.requestCancellation(safeOwnerKey, runNo, executionDomainService.limits().getMaxRunSeconds() + 60);
         return AgentCancellationResult.requested(runNo, requested.getStatus());
     }
 
@@ -402,15 +390,14 @@ public class AutonomousAgentAppService {
     }
 
     private void checkCancelled(String ownerKey, String runNo) {
-        if (runtimeLease.isCancellationRequested(runNo)
-                || ownerKey != null && agentRunRepository.isCancellationRequested(ownerKey, runNo)) {
+        if (isCancellationRequested(ownerKey, runNo)) {
             throw new IllegalStateException("Agent run cancelled by user");
         }
     }
 
     private boolean isCancellationRequested(String ownerKey, String runNo) {
-        return runtimeLease.isCancellationRequested(runNo)
-                || agentRunRepository.isCancellationRequested(ownerKey, runNo);
+        return executionDomainService.isCancellationRequested(runtimeLease.isCancellationRequested(runNo),
+                ownerKey != null && agentRunRepository.isCancellationRequested(ownerKey, runNo));
     }
 
     private void emit(Consumer<AgentRunEventBO> consumer, AgentRunEventBO event) {
@@ -427,7 +414,7 @@ public class AutonomousAgentAppService {
         AgentIdentity safeIdentity = identity == null ? AgentIdentity.singleUser() : identity;
         String ownerKey = safeIdentity.storageOwnerKey();
         int cursor = Math.max(0, afterSequenceNo);
-        long deadline = System.currentTimeMillis() + (MAX_RUN_SECONDS + 60L) * 1000L;
+        long deadline = System.currentTimeMillis() + (executionDomainService.limits().getMaxRunSeconds() + 60L) * 1000L;
         while (System.currentTimeMillis() < deadline) {
             List<AgentRunEventBO> events = agentRunRepository.findEvents(ownerKey, runNo, cursor, 200);
             for (AgentRunEventBO event : events) {
@@ -457,7 +444,9 @@ public class AutonomousAgentAppService {
         if (result == null) return AgentToolResult.failure("unknown", "The tool returned no result.", "cynexus-ai", "EMPTY_RESULT");
         String output = redactJson(normalizeToolOutput(valueOr(result.getOutputJson(), "{}")));
         List<String> warnings = result.getWarnings() == null ? List.of() : result.getWarnings();
-        if (output.length() <= MAX_TOOL_OUTPUT_CHARS) return copyResult(result, output, valueOr(result.getSummary(), ""), warnings);
+        if (output.length() <= executionDomainService.limits().getMaxToolOutputChars()) {
+            return copyResult(result, output, valueOr(result.getSummary(), ""), warnings);
+        }
         String preview = output.substring(0, Math.min(output.length(), 8_000));
         String compactOutput = json(Map.of("truncated", true, "originalChars", output.length(), "preview", preview));
         return copyResult(result, compactOutput, valueOr(result.getSummary(), "") + " Output truncated.",
@@ -933,7 +922,8 @@ public class AutonomousAgentAppService {
             String type = root.path("type").asText("");
             if (!"tool_calls".equals(type) && !"action".equals(type)) return List.of();
             var calls = root.get("calls");
-            if (calls == null || !calls.isArray() || calls.isEmpty() || calls.size() > MAX_TOOL_CALLS) return List.of();
+            if (calls == null || !calls.isArray() || calls.isEmpty()
+                    || calls.size() > executionDomainService.limits().getMaxToolCalls()) return List.of();
             List<cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall> parsed = new ArrayList<>();
             for (var item : calls) {
                 String toolCode = item.path("toolCode").asText(item.path("tool").asText(""));
@@ -946,12 +936,6 @@ public class AutonomousAgentAppService {
         } catch (Exception ignored) {
             return List.of();
         }
-    }
-
-    private int intValue(AgentRunBO run, String field) {
-        int value = (run.getToolCallCount() == null ? 0 : run.getToolCallCount()) + 1;
-        run.setToolCallCount(value);
-        return value;
     }
 
     private int nonNegative(Integer value) {
@@ -981,33 +965,15 @@ public class AutonomousAgentAppService {
                                                           String ownerKey, String runNo,
                                                           java.util.function.Consumer<String> textDeltaConsumer,
                                                           java.util.function.Consumer<Integer> retryConsumer) {
-        RuntimeException last = null;
-        String circuitKey = "provider:" + valueOr(model == null ? null : model.getProviderCode(), "unknown");
-        for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
-            long providerStartedNanos = System.nanoTime();
-            try {
-                if (!circuitBreaker.allow(circuitKey)) {
-                    throw new IllegalStateException("Agent provider circuit is open");
-                }
-                AgentModelTurnResponse response = awaitCancellable(() -> textDeltaConsumer == null
-                        ? completionGateway.completeAgent(model, request, "autonomous_agent")
-                        : completionGateway.streamAgent(model, request, "autonomous_agent", textDeltaConsumer), ownerKey, runNo);
-                observability.providerCompleted(model == null ? null : model.getProviderCode(), model == null ? null : model.getModelCode(), true,
-                        elapsedMs(providerStartedNanos));
-                circuitBreaker.recordSuccess(circuitKey);
-                return response;
-            } catch (RuntimeException exception) {
-                observability.providerCompleted(model == null ? null : model.getProviderCode(), model == null ? null : model.getModelCode(), false,
-                        elapsedMs(providerStartedNanos));
-                last = exception;
-                if (!isTransientProviderFailure(exception)) throw exception;
-                circuitBreaker.recordFailure(circuitKey, 3, 30);
-                if (attempt >= MAX_RETRY_ATTEMPTS) throw exception;
-                if (retryConsumer != null) retryConsumer.accept(attempt + 1);
-                pauseBeforeRetry(attempt + 1);
-            }
-        }
-        throw last == null ? new IllegalStateException("Agent provider retry failed") : last;
+        AgentProviderTurnPort provider = (resolvedModel, turnRequest, deltaConsumer) ->
+                awaitCancellable(() -> deltaConsumer == null
+                        ? completionGateway.completeAgent(resolvedModel, turnRequest, "autonomous_agent")
+                        : completionGateway.streamAgent(resolvedModel, turnRequest, "autonomous_agent", deltaConsumer), ownerKey, runNo);
+        return turnDomainService.completeWithRetry(model, request, ownerKey, runNo, provider,
+                textDeltaConsumer, attempt -> {
+                    if (retryConsumer != null) retryConsumer.accept(attempt);
+                    pauseBeforeRetry(attempt);
+                });
     }
 
     private AgentToolResult executeToolWithCancellation(AgentToolCall call, AgentExecutionContext context,
@@ -1052,37 +1018,19 @@ public class AutonomousAgentAppService {
     }
 
     private boolean isTransientProviderFailure(RuntimeException exception) {
-        String message = exception.getMessage() == null ? "" : exception.getMessage().toLowerCase();
-        return message.contains("timeout") || message.contains("timed out") || message.contains("interrupted")
-                || message.contains("http 429") || message.contains("http 500") || message.contains("http 502")
-                || message.contains("http 503") || message.contains("http 504") || message.contains("failed to call ai provider");
+        return turnDomainService.isTransientProviderFailure(exception);
     }
 
     private String classifyFailure(RuntimeException exception) {
-        String message = exception == null || exception.getMessage() == null ? "" : exception.getMessage().toLowerCase();
-        if (message.contains("rate limit") || message.contains("http 429")) return "RATE_LIMITED";
-        if (message.contains("timeout") || message.contains("timed out")) return "TIMEOUT";
-        if (message.contains("provider")) return "PROVIDER";
-        if (message.contains("tool")) return "TOOL";
-        if (message.contains("policy") || message.contains("unregistered")) return "POLICY";
-        if (message.contains("authorization") || message.contains("identity")) return "AUTHORIZATION";
-        return "INTERNAL";
+        return executionDomainService.classifyFailure(exception);
     }
 
     private boolean isTransientToolFailure(AgentToolResult result) {
-        if (result == null || !"FAILED".equals(result.getStatus()) || result.getWarnings() == null) return false;
-        return result.getWarnings().stream().map(value -> value == null ? "" : value.toLowerCase())
-                .anyMatch(value -> value.contains("timeout") || value.contains("http_5") || value.contains("upstream")
-                        || value.contains("temporarily") || value.contains("connection"));
+        return turnDomainService.isTransientToolFailure(result);
     }
 
     private String classifyToolFailure(AgentToolResult result) {
-        String warning = result == null || result.getWarnings() == null ? "" : String.join(" ", result.getWarnings()).toLowerCase();
-        if (warning.contains("timeout")) return "TIMEOUT";
-        if (warning.contains("schema") || warning.contains("argument")) return "VALIDATION";
-        if (warning.contains("unauthorized") || warning.contains("owner") || warning.contains("identity")) return "AUTHORIZATION";
-        if (isTransientToolFailure(result)) return "UPSTREAM";
-        return "TOOL";
+        return executionDomainService.classifyToolFailure(result);
     }
 
     private void pauseBeforeRetry(int attempt) {
@@ -1096,13 +1044,6 @@ public class AutonomousAgentAppService {
 
     private long elapsedMs(long startedNanos) {
         return TimeUnit.NANOSECONDS.toMillis(Math.max(0, System.nanoTime() - startedNanos));
-    }
-
-    private String normalizeIdempotencyKey(String value) {
-        if (value == null || value.isBlank()) return null;
-        String normalized = value.trim();
-        if (normalized.length() > 128) throw new IllegalArgumentException("Agent idempotencyKey is too long");
-        return normalized;
     }
 
     private String valueOr(String value, String fallback) {
