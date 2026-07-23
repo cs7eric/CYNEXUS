@@ -2050,3 +2050,9 @@
 - Restricted each starter to its own bounded context. AI now registers only the Finance, Knowledge Base, and Market Feign contracts it actually uses. Shared `CynexusDbAutoConfiguration` is imported explicitly by AI, Market, and Knowledge Base instead of being discovered as a scan side effect.
 - Maven/UI versions advanced together to `1.1.194-SNAPSHOT`; `mvn clean package -DskipTests` passed all 41 modules and `pnpm build` passed.
 - Release `1.1.194-260723-RELEASE` rebuilt through the versioned Docker entrypoint. Core, AI, Market, Gateway, Knowledge Base, and UI health checks all returned HTTP 200, and AI logs showed no context initialization error. Real Provider E2E remains network-blocked by the unavailable host proxy and is not claimed successful.
+
+## 2026-07-23 - Market Pulse DDD query slice and Release 1.1.195
+
+- Added `MarketPulseQueryDomainService` as the single domain query entry for overview, history, index-minute, style-sector, constituent, and limit-emotion reads. `MarketPulseQueryAppService` no longer injects either Market repository and now only maps domain results to API DTOs.
+- Added explicit application configuration for the domain service and a focused `MarketPulseQueryDomainServiceTest` regression run passed 4/4. The broader Market domain run still reports the pre-existing `MarketInformationClustererTest.materialCompanyFactWithFullTextCanBecomeHighValue` failure.
+- Maven/UI versions advanced together to `1.1.195-SNAPSHOT`; the targeted Market application package passed, UI build remains green, and Release `1.1.195-260723-RELEASE` rebuilt with all six health endpoints returning HTTP 200. Gateway `GET /api/market/pulse/market-overview-akshare` returned HTTP 200.

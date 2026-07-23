@@ -2598,3 +2598,9 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Explicitly imported `CynexusDbAutoConfiguration` in AI, Market, and Knowledge Base so `SnowflakeIdGenerator` is assembled without relying on cross-context scanning.
 - Versioned Release `1.1.194-260723-RELEASE` rebuilt successfully; all six application/UI health checks returned HTTP 200 and AI had no context initialization errors. Maven 41/41 and UI build passed at `1.1.194-SNAPSHOT`.
 - Provider E2E remains open because the configured host proxy was unavailable during the real smoke; the run persisted `FAILED` with `failureCategory=PROVIDER` and no fabricated answer.
+
+### Phase 108 Market Pulse follow-up
+
+- Moved Market Pulse overview/history/index/style-sector/constituent/limit-emotion query orchestration behind `MarketPulseQueryDomainService`; the application adapter no longer calls Market repositories directly.
+- Targeted Market application package passed at `1.1.195-SNAPSHOT`; the focused Pulse domain tests passed 4/4. The known unrelated Market information clusterer test remains failing and is not attributed to this slice.
+- Release `1.1.195-260723-RELEASE` rebuilt through Docker; Core, AI, Market, Gateway, Knowledge Base, and UI health checks returned HTTP 200, and the Pulse API returned HTTP 200 through Gateway.
