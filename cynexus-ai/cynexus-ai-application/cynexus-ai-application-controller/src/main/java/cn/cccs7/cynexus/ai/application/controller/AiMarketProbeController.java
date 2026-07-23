@@ -1,6 +1,6 @@
 package cn.cccs7.cynexus.ai.application.controller;
 
-import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.application.service.MarketProbeQueryAppService;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.MarketOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.SectorRankDTO;
@@ -16,32 +16,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/ai/market")
 public class AiMarketProbeController {
 
-    private final MarketDataGateway marketDataGateway;
+    private final MarketProbeQueryAppService queryService;
 
-    public AiMarketProbeController(MarketDataGateway marketDataGateway) {
-        this.marketDataGateway = marketDataGateway;
+    public AiMarketProbeController(MarketProbeQueryAppService queryService) {
+        this.queryService = queryService;
     }
 
     @GetMapping("/overview")
     public Result<MarketOverviewDTO> getMarketOverview(@RequestParam("tradeDate") String tradeDate) {
-        return Result.success(marketDataGateway.getMarketOverview(tradeDate));
+        return Result.success(queryService.marketOverview(tradeDate));
     }
 
     @GetMapping("/sectors/rank")
     public Result<SectorRankDTO> getSectorRank(@RequestParam("tradeDate") String tradeDate,
                                                @RequestParam(name = "topN", defaultValue = "10") Integer topN) {
-        return Result.success(marketDataGateway.getSectorRank(tradeDate, topN));
+        return Result.success(queryService.sectorRank(tradeDate, topN));
     }
 
     @GetMapping("/stocks/{symbol}/daily-feature")
     public Result<StockDailyFeatureDTO> getStockDailyFeature(@PathVariable("symbol") String symbol,
                                                              @RequestParam("tradeDate") String tradeDate) {
-        return Result.success(marketDataGateway.getStockDailyFeature(symbol, tradeDate));
+        return Result.success(queryService.stockDailyFeature(symbol, tradeDate));
     }
 
     @GetMapping("/stocks/{symbol}/intraday-feature")
     public Result<StockIntradayFeatureDTO> getStockIntradayFeature(@PathVariable("symbol") String symbol,
                                                                    @RequestParam("tradeDate") String tradeDate) {
-        return Result.success(marketDataGateway.getStockIntradayFeature(symbol, tradeDate));
+        return Result.success(queryService.stockIntradayFeature(symbol, tradeDate));
     }
 }
