@@ -4,7 +4,9 @@ import cn.cccs7.cynexus.market.domain.entity.MarketInformationBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketInformationRepository;
 import cn.cccs7.cynexus.market.domain.service.information.MarketInformationQueryDomainService;
 import java.util.List;
+import org.springframework.stereotype.Service;
 
+@Service
 public class MarketInformationQueryDomainServiceImpl implements MarketInformationQueryDomainService {
 
     private static final int DEFAULT_PAGE = 1;

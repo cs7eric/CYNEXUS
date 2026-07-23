@@ -16,6 +16,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.stereotype.Service;
+
+@Service
 public class StockChartQueryDomainServiceImpl implements StockChartQueryDomainService {
 
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");

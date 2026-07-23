@@ -3,7 +3,7 @@
 ## 2026-07-23 - Market Stock Feature DDD and Release 1.1.196 verification
 
 - Moved Stock Feature daily/intraday calculations into `StockChartQueryDomainService`; the application service now only orchestrates the use case and DTO conversion.
-- Removed Spring stereotypes from the Stock Chart domain implementations and registered them through `StockChartDomainServiceConfiguration` in the application layer.
+- Kept Stock Chart domain implementations as Spring-managed DomainServices, matching the existing Market module convention; the application layer still depends only on DomainService contracts.
 - Focused Stock Chart domain tests passed 5/5; the aligned UI `pnpm build` passed at `1.1.197-SNAPSHOT`.
 - Release `1.1.196-260723-RELEASE` was built from the complete Maven reactor and versioned Docker images; Core, AI, Market, Gateway, Knowledge Base, and UI health endpoints returned HTTP 200.
 - Release Stock Feature smoke returned HTTP 200 for both daily and intraday endpoints for `600519`; startup logs contained no `APPLICATION FAILED`, missing-bean, or missing-constructor markers.
@@ -13,7 +13,7 @@
 ## 2026-07-23 - Market ETF query DDD slice
 
 - Moved ETF query loading and bounded `historyDays`/`rowLimit` normalization into `MarketEtfQueryDomainService`.
-- Removed Spring stereotype registration from the ETF domain rules and assembled both ETF domain services explicitly from the Market application configuration.
+- Kept ETF domain rules and query orchestration as Spring-managed DomainServices; no application-layer assembly configuration is needed.
 - Added focused query-domain coverage for input bounds and domain-rule delegation; `MarketEtfQueryDomainServiceTest` passed 2/2.
 - Maven/UI development versions are synchronized at `1.1.198-SNAPSHOT`; full Maven package and versioned Release verification remain pending for this slice.
 - Full Maven package passed all 41 modules and UI `pnpm build` passed. Release `1.1.198-260723-RELEASE` rebuilt through Docker; all six health endpoints and `/api/market/etf` returned HTTP 200, with `ok=true` and `totalEtfs=1174`. Startup logs had no failure markers.
@@ -24,6 +24,13 @@
 - The application service now performs only use-case coordination and BO-to-DTO conversion; repository access is behind the domain port.
 - Focused `MarketInformationQueryDomainServiceTest` passed 2/2. Maven/UI development versions are synchronized at `1.1.199-SNAPSHOT`; full package and Release verification remain pending for this slice.
 - Full Maven package passed all 41 modules and UI build passed. Release `1.1.199-260723-RELEASE` rebuilt through Docker; all six health endpoints and `/api/market/information?page=1&pageSize=10` returned HTTP 200, and startup logs had no failure markers.
+
+## 2026-07-23 - DomainService assembly correction
+
+- Corrected the previous overreach that treated all Spring annotations as forbidden in the Domain layer.
+- Removed the unnecessary `XxxConfiguration` classes for the Stock Chart, ETF, and Market Information slices and restored the existing `@Service` convention in their DomainService implementations.
+- The actual boundary remains: Domain code must not depend on API DTOs, persistence PO classes, MyBatis, Spring AI, or infrastructure clients.
+- Maven/UI development versions are synchronized at `1.1.200-SNAPSHOT`; focused verification and Release rebuild are pending.
 
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 

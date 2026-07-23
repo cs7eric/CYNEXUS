@@ -3,6 +3,9 @@ package cn.cccs7.cynexus.market.domain.stock.impl;
 import cn.cccs7.cynexus.market.domain.stock.StockChartDomainService;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import org.springframework.stereotype.Service;
+
+@Service
 public class StockChartDomainServiceImpl implements StockChartDomainService {
 
     private static final int DEFAULT_KLINE_COUNT = 520;

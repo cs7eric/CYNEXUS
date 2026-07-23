@@ -4,7 +4,9 @@ import cn.cccs7.cynexus.market.domain.entity.MarketEtfBO;
 import cn.cccs7.cynexus.market.domain.etf.MarketEtfDomainService;
 import cn.cccs7.cynexus.market.domain.repository.MarketEtfQueryRepository;
 import cn.cccs7.cynexus.market.domain.service.etf.MarketEtfQueryDomainService;
+import org.springframework.stereotype.Service;
 
+@Service
 public class MarketEtfQueryDomainServiceImpl implements MarketEtfQueryDomainService {
 
     private final MarketEtfQueryRepository repository;
