@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.domain.knowledgegeneration.impl;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
@@ -20,6 +21,7 @@ import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerati
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationOutputParserPort;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationRoutingParametersPort;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
@@ -29,14 +31,18 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         implements KnowledgeBaseDocumentGenerationDomainService {
     private static final int MAX_REPAIR_OUTPUT_LENGTH = 8000;
+    private static final int MAX_LOG_TEXT_LENGTH = 8000;
 
     private final AiUsageBindingRepository bindingRepository;
     private final AiProviderRepository providerRepository;
     private final AiPromptRepository promptRepository;
+    private final AiExecutionLogRepository executionLogRepository;
     private final KnowledgeBaseGenerationFallbackModelPort fallbackModelPort;
     private final KnowledgeBaseGenerationRoutingParametersPort routingParametersPort;
     private final KnowledgeBaseGenerationCompletionPort completionPort;
@@ -47,6 +53,7 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
     public KnowledgeBaseDocumentGenerationDomainServiceImpl(AiUsageBindingRepository bindingRepository,
                                                               AiProviderRepository providerRepository,
                                                               AiPromptRepository promptRepository,
+                                                              AiExecutionLogRepository executionLogRepository,
                                                               KnowledgeBaseGenerationFallbackModelPort fallbackModelPort,
                                                               KnowledgeBaseGenerationRoutingParametersPort routingParametersPort,
                                                               KnowledgeBaseGenerationCompletionPort completionPort,
@@ -56,6 +63,7 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         this.bindingRepository = bindingRepository;
         this.providerRepository = providerRepository;
         this.promptRepository = promptRepository;
+        this.executionLogRepository = executionLogRepository;
         this.fallbackModelPort = fallbackModelPort;
         this.routingParametersPort = routingParametersPort;
         this.completionPort = completionPort;
@@ -124,6 +132,53 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         }
         return failed(sourceText, prompt, attempts, lastFailure);
     }
+
+    @Override
+    public void recordExecutionLogs(KnowledgeBaseGenerationOutcome outcome) {
+        if (outcome == null || outcome.attempts() == null) return;
+        ObjectMapper objectMapper = new ObjectMapper();
+        for (KnowledgeBaseGenerationAttempt attempt : outcome.attempts()) {
+            try {
+                AiModelBO model = attempt.model();
+                AiCompletionResultBO completion = attempt.completion();
+                String sourceText = outcome.sourceText();
+                executionLogRepository.create(AiExecutionLogBO.builder()
+                        .executionNo(attempt.executionNo()).capability("knowledge_base_document_generate")
+                        .promptKey(attempt.prompt() == null ? null : attempt.prompt().promptKey())
+                        .promptVersion(attempt.prompt() == null ? null : attempt.prompt().promptVersion())
+                        .providerCode(model == null ? null : model.getProviderCode())
+                        .modelCode(model == null ? null : model.getModelCode()).status(attempt.status())
+                        .inputTokens(completion == null ? estimateTokens(sourceText) : completion.getInputTokens())
+                        .outputTokens(completion == null ? 0 : completion.getOutputTokens())
+                        .totalTokens(completion == null ? estimateTokens(sourceText) : completion.getTotalTokens())
+                        .latencyMs(attempt.latencyMs())
+                        .requestJson(toJson(objectMapper, Map.of("sourceTextPreview", truncate(sourceText, MAX_LOG_TEXT_LENGTH),
+                                "sourceTextLength", sourceText == null ? 0 : sourceText.length())))
+                        .responseJson(toJson(objectMapper, Map.of("providerCode", safe(model == null ? null : model.getProviderCode()),
+                                "modelCode", safe(model == null ? null : model.getModelCode()),
+                                "contentPreview", safe(truncate(completion == null ? null : completion.getContent(), MAX_LOG_TEXT_LENGTH)),
+                                "rawResponsePreview", safe(truncate(completion == null ? null : completion.getRawResponse(), MAX_LOG_TEXT_LENGTH)))))
+                        .errorMessage(attempt.errorMessage() == null ? null : truncate(attempt.errorMessage(), 2000))
+                        .extra(toJson(objectMapper, Map.of("fallbackCapable", true))).build());
+            } catch (Exception ignored) {
+                // Execution logging must not change the generation outcome.
+            }
+        }
+    }
+
+    private String toJson(ObjectMapper mapper, Object value) {
+        try { return mapper.writeValueAsString(value); }
+        catch (Exception ignored) { return "{}"; }
+    }
+
+    private int estimateTokens(String value) { return value == null || value.isBlank() ? 0 : Math.max(1, value.length() / 4); }
+
+    private String truncate(String value, int maxLength) {
+        String normalized = normalize(value);
+        return normalized.length() > maxLength ? normalized.substring(0, maxLength) : normalized;
+    }
+
+    private String safe(String value) { return value == null ? "" : value; }
 
     private AiUsageBindingBO resolveBinding(KnowledgeBaseGenerationCommand command) {
         List<AiUsageBindingBO> bindings = bindingRepository.listAll();
@@ -258,8 +313,4 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         return value.isBlank() ? (failure == null ? "generation failed" : failure.getClass().getSimpleName()) : value;
     }
 
-    private String truncate(String value, int maxLength) {
-        String normalized = normalize(value);
-        return normalized.length() > maxLength ? normalized.substring(0, maxLength) : normalized;
-    }
 }
