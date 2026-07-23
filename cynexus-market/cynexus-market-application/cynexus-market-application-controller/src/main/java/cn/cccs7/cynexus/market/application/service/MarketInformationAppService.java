@@ -1,19 +1,17 @@
 package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.MarketInformationDTO;
-import cn.cccs7.cynexus.common.core.result.PageQuery;
 import cn.cccs7.cynexus.market.domain.entity.MarketInformationBO;
-import cn.cccs7.cynexus.market.domain.repository.MarketInformationRepository;
+import cn.cccs7.cynexus.market.domain.service.information.MarketInformationQueryDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class MarketInformationAppService {
-    private final MarketInformationRepository repository;
-    public MarketInformationAppService(MarketInformationRepository repository) { this.repository = repository; }
+    private final MarketInformationQueryDomainService domainService;
+    public MarketInformationAppService(MarketInformationQueryDomainService domainService) { this.domainService = domainService; }
     public MarketInformationDTO.FeedDTO feed(Integer page, Integer pageSize, String impactIndustryCode, String analysisStatus) {
-        PageQuery query = PageQuery.of(page, pageSize, 30, 60);
-        MarketInformationBO.Feed value = repository.feed(query.getPageNo(), query.getPageSize(), impactIndustryCode, analysisStatus);
+        MarketInformationBO.Feed value = domainService.feed(page, pageSize, impactIndustryCode, analysisStatus);
         List<MarketInformationDTO.NewsDTO> news = mapNews(value.getNews());
         MarketInformationBO.NewsPage newsPage = value.getNewsPage();
         return MarketInformationDTO.FeedDTO.builder().queriedAt(value.getQueriedAt())
@@ -42,11 +40,11 @@ public class MarketInformationAppService {
     }
 
     public MarketInformationDTO.BriefDTO latestBrief() {
-        return mapBrief(repository.latestBrief());
+        return mapBrief(domainService.latestBrief());
     }
 
     public MarketInformationDTO.EventDetailDTO eventDetail(long clusterId) {
-        MarketInformationBO.EventDetail value = repository.eventDetail(clusterId);
+        MarketInformationBO.EventDetail value = domainService.eventDetail(clusterId);
         if (value == null) return null;
         return MarketInformationDTO.EventDetailDTO.builder()
                 .clusterId(value.getClusterId()).title(value.getTitle()).category(value.getCategory())
@@ -71,18 +69,18 @@ public class MarketInformationAppService {
     }
 
     public boolean requestAnalysis(long clusterId, boolean force) {
-        return repository.requestAnalysis(clusterId, force, "market-ui");
+        return domainService.requestAnalysis(clusterId, force, "market-ui");
     }
 
     public List<MarketInformationDTO.AnalysisStatusDTO> analysisStatuses(List<Long> clusterIds) {
         if (clusterIds == null || clusterIds.isEmpty()) return List.of();
-        return repository.analysisStatuses(clusterIds).stream().map(item -> MarketInformationDTO.AnalysisStatusDTO.builder()
+        return domainService.analysisStatuses(clusterIds).stream().map(item -> MarketInformationDTO.AnalysisStatusDTO.builder()
                 .clusterId(item.getClusterId()).analysisStatus(item.getAnalysisStatus())
                 .materiality(item.getMateriality()).marketDirection(item.getMarketDirection()).build()).toList();
     }
 
     public int refreshPipeline() {
-        return repository.refreshPipeline();
+        return domainService.refreshPipeline();
     }
 
     private MarketInformationDTO.BriefDTO mapBrief(MarketInformationBO.Brief value) {

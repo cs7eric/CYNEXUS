@@ -18,6 +18,12 @@
 - Maven/UI development versions are synchronized at `1.1.198-SNAPSHOT`; full Maven package and versioned Release verification remain pending for this slice.
 - Full Maven package passed all 41 modules and UI `pnpm build` passed. Release `1.1.198-260723-RELEASE` rebuilt through Docker; all six health endpoints and `/api/market/etf` returned HTTP 200, with `ok=true` and `totalEtfs=1174`. Startup logs had no failure markers.
 
+## 2026-07-23 - Market Information query DDD slice
+
+- Moved Market Information feed pagination, status-list empty handling, requester normalization, and repository orchestration into `MarketInformationQueryDomainService`.
+- The application service now performs only use-case coordination and BO-to-DTO conversion; repository access is behind the domain port.
+- Focused `MarketInformationQueryDomainServiceTest` passed 2/2. Maven/UI development versions are synchronized at `1.1.199-SNAPSHOT`; full package and Release verification remain pending for this slice.
+
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 
 - Integrated the bounded Provider streaming timeout/interruption fix from commit `9d71938`; focused Maven coverage passed 7/7 and the AI infra reactor build passed.
