@@ -59,7 +59,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.math.BigDecimal;
@@ -75,12 +74,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class AutonomousAgentAppService {
 
-    private static final int MAX_TURNS = 8;
-    private static final int MAX_TOOL_CALLS = 12;
-    private static final int MAX_USER_INPUT_CHARS = 12_000;
-    private static final int MAX_TOOL_OUTPUT_CHARS = 24_000;
-    private static final int MAX_RUN_SECONDS = 600;
-    private static final int MAX_RETRY_ATTEMPTS = 2;
     private static final int MAX_RUNS_PER_MINUTE = 30;
 
     private final AgentRunRepository agentRunRepository;
@@ -1017,16 +1010,8 @@ public class AutonomousAgentAppService {
         worker.interrupt();
     }
 
-    private boolean isTransientProviderFailure(RuntimeException exception) {
-        return turnDomainService.isTransientProviderFailure(exception);
-    }
-
     private String classifyFailure(RuntimeException exception) {
         return executionDomainService.classifyFailure(exception);
-    }
-
-    private boolean isTransientToolFailure(AgentToolResult result) {
-        return turnDomainService.isTransientToolFailure(result);
     }
 
     private String classifyToolFailure(AgentToolResult result) {
