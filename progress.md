@@ -46,6 +46,12 @@
 - Application now only maps the domain query result to API DTOs.
 - Focused Margin Trading domain tests passed 2/2; Maven/UI development versions are synchronized at `1.1.202-SNAPSHOT`. Full package and Release verification remain pending.
 
+## 2026-07-23 - Industry Application DDD slice
+
+- Split Industry Application query and refresh orchestration into `IndustryApplicationQueryDomainService` and `IndustryApplicationRefreshDomainService`.
+- Moved repository access, target selection, date/top/history normalization, refresh persistence, and refresh failure decisions out of the Application service.
+- Focused Industry Application domain tests passed 2/2; Maven/UI development versions are synchronized at `1.1.203-SNAPSHOT`. Full package and Release verification remain pending.
+
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 
 - Integrated the bounded Provider streaming timeout/interruption fix from commit `9d71938`; focused Maven coverage passed 7/7 and the AI infra reactor build passed.

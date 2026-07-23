@@ -14,6 +14,9 @@ public final class IndustryApplicationBO {
     private IndustryApplicationBO() {
     }
 
+    public record RefreshResult(String id, boolean ok, int klineCount, String error) {
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

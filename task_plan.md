@@ -2648,3 +2648,9 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Moved Margin Trading latest/history/stocks/stock-history/industries orchestration, pagination, date/sort normalization, fallback handling, and domain response assembly into `MarginTradingQueryDomainService`.
 - Application now only maps the domain query result to API DTOs.
 - Focused Margin Trading domain tests passed 2/2; Maven/UI development versions are synchronized at `1.1.202-SNAPSHOT`. Full package and Release verification remain pending.
+
+### Phase 108 Industry Application DDD follow-up
+
+- Split Industry Application query and refresh orchestration into `IndustryApplicationQueryDomainService` and `IndustryApplicationRefreshDomainService`.
+- Moved repository access, target selection, date/top/history normalization, refresh persistence, and refresh failure decisions out of the Application service.
+- Focused Industry Application domain tests passed 2/2; Maven/UI development versions are synchronized at `1.1.203-SNAPSHOT`. Full package and Release verification remain pending.
