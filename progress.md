@@ -2021,3 +2021,10 @@
 - Added fail-open Langfuse rejection behavior, startup registration for zero-valued Agent Prometheus series, and an opt-in Redis high-concurrency rate-limit gate.
 - Focused domain/infra security tests passed; the Redis gate passed with 32 workers, 256 calls, and exactly 30 allowed requests.
 - The existing pre-change Release endpoint was reachable but lacked the custom Agent counter after restart. A new versioned Release rebuild is still required before runtime metric registration is marked complete; no real Provider success is claimed.
+
+## 2026-07-23 - DDD orchestration refactor through version 1.1.189
+
+- Completed and committed bounded DomainService slices for Core starter isolation, Finance, Scheduler, Media Transcription, Knowledge Base document lifecycle, Market StockChart/Pulse/Sentiment, AI model queries, Agent task lifecycle, Agent maintenance, Agent execution invariants, and AI Market Probe application boundary.
+- Each completed slice has a separate commit and focused validation. Maven/UI development versions are synchronized at `1.1.189-SNAPSHOT`.
+- `mvn clean test-compile` and UI `pnpm build` pass after the latest integration. AI focused tests pass; Market focused StockChart/Pulse tests pass. The existing `MarketInformationClustererTest.materialCompanyFactWithFullTextCanBecomeHighValue` remains a known unrelated full-market-suite failure.
+- Remaining DDD work is explicitly limited to the larger AI configuration/knowledge-generation/application-analysis flows, remaining Market application services, and removal of legacy framework dependencies from older Domain implementations. Release image and runtime startup regression remain required before completion.
