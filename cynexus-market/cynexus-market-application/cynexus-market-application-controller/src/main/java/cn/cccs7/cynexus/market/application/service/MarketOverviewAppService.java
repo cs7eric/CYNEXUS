@@ -1,20 +1,19 @@
 package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.domain.entity.MarketOverviewBO;
-import cn.cccs7.cynexus.market.domain.repository.MarketOverviewRepository;
+import cn.cccs7.cynexus.market.domain.service.pulse.MarketOverviewQueryDomainService;
 import org.springframework.stereotype.Service;
 
 @Service
 public class MarketOverviewAppService {
 
-    private final MarketOverviewRepository marketOverviewRepository;
+    private final MarketOverviewQueryDomainService domainService;
 
-    public MarketOverviewAppService(MarketOverviewRepository marketOverviewRepository) {
-        this.marketOverviewRepository = marketOverviewRepository;
+    public MarketOverviewAppService(MarketOverviewQueryDomainService domainService) {
+        this.domainService = domainService;
     }
 
     public MarketOverviewBO getOverview(String tradeDate) {
-        return marketOverviewRepository.findByTradeDate(tradeDate)
-                .orElseThrow(() -> new IllegalArgumentException("Market overview not found"));
+        return domainService.getOverview(tradeDate);
     }
 }

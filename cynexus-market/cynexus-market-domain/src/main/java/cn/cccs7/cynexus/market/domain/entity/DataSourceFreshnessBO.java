@@ -15,6 +15,21 @@ public class DataSourceFreshnessBO {
 
     private OffsetDateTime generatedAt;
     private List<ItemBO> items;
+    private SummaryBO summary;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SummaryBO {
+        private int total;
+        private int fresh;
+        private int lagging;
+        private int stale;
+        private int empty;
+        private int untracked;
+        private int error;
+    }
 
     @Data
     @Builder

@@ -2,21 +2,21 @@ package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.StockInformationDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockInformationBO;
-import cn.cccs7.cynexus.market.domain.repository.StockInformationRepository;
+import cn.cccs7.cynexus.market.domain.service.stock.StockInformationQueryDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class StockInformationAppService {
 
-    private final StockInformationRepository stockInformationRepository;
+    private final StockInformationQueryDomainService domainService;
 
-    public StockInformationAppService(StockInformationRepository stockInformationRepository) {
-        this.stockInformationRepository = stockInformationRepository;
+    public StockInformationAppService(StockInformationQueryDomainService domainService) {
+        this.domainService = domainService;
     }
 
     public StockInformationDTO.FeedDTO feed(String symbol, int limit) {
-        StockInformationBO.Feed feed = stockInformationRepository.feed(symbol, Math.max(1, Math.min(limit, 100)));
+        StockInformationBO.Feed feed = domainService.feed(symbol, limit);
         return StockInformationDTO.FeedDTO.builder()
                 .symbol(feed.getSymbol())
                 .queriedAt(feed.getQueriedAt())
