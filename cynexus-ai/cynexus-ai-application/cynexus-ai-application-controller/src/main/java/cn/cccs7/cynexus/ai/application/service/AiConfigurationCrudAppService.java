@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.domain.entity.AgentQuotaPolicyBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
@@ -8,234 +9,97 @@ import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisDailySnapshotBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisResultCurrentBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisResultHistoryBO;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisTargetBO;
-import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
-import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisConfigRepository;
-import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisDailySnapshotRepository;
-import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultCurrentRepository;
-import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultHistoryRepository;
-import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisTargetRepository;
-import cn.cccs7.cynexus.ai.domain.entity.AgentQuotaPolicyBO;
-import cn.cccs7.cynexus.ai.domain.repository.AgentQuotaPolicyRepository;
-import cn.cccs7.cynexus.ai.domain.policy.quota.AgentQuotaPolicy;
+import cn.cccs7.cynexus.ai.domain.service.configuration.AiConfigurationDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
+/** Application adapter for the AI configuration HTTP use cases. */
 @Service
 public class AiConfigurationCrudAppService {
 
-    private final AiProviderRepository aiProviderRepository;
-    private final AiPromptRepository aiPromptRepository;
-    private final AiUsageBindingRepository aiUsageBindingRepository;
-    private final ApplicationAnalysisConfigRepository applicationAnalysisConfigRepository;
-    private final ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository;
-    private final ApplicationAnalysisResultCurrentRepository applicationAnalysisResultCurrentRepository;
-    private final ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository;
-    private final ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository;
-    private final AgentQuotaPolicyRepository agentQuotaPolicyRepository;
+    private final AiConfigurationDomainService domainService;
 
-    public AiConfigurationCrudAppService(
-            AiProviderRepository aiProviderRepository,
-            AiPromptRepository aiPromptRepository,
-            AiUsageBindingRepository aiUsageBindingRepository,
-            ApplicationAnalysisConfigRepository applicationAnalysisConfigRepository,
-            ApplicationAnalysisDailySnapshotRepository applicationAnalysisDailySnapshotRepository,
-            ApplicationAnalysisResultCurrentRepository applicationAnalysisResultCurrentRepository,
-            ApplicationAnalysisResultHistoryRepository applicationAnalysisResultHistoryRepository,
-            ApplicationAnalysisTargetRepository applicationAnalysisTargetRepository,
-            AgentQuotaPolicyRepository agentQuotaPolicyRepository) {
-        this.aiProviderRepository = aiProviderRepository;
-        this.aiPromptRepository = aiPromptRepository;
-        this.aiUsageBindingRepository = aiUsageBindingRepository;
-        this.applicationAnalysisConfigRepository = applicationAnalysisConfigRepository;
-        this.applicationAnalysisDailySnapshotRepository = applicationAnalysisDailySnapshotRepository;
-        this.applicationAnalysisResultCurrentRepository = applicationAnalysisResultCurrentRepository;
-        this.applicationAnalysisResultHistoryRepository = applicationAnalysisResultHistoryRepository;
-        this.applicationAnalysisTargetRepository = applicationAnalysisTargetRepository;
-        this.agentQuotaPolicyRepository = agentQuotaPolicyRepository;
+    public AiConfigurationCrudAppService(AiConfigurationDomainService domainService) {
+        this.domainService = domainService;
     }
 
-    public List<AgentQuotaPolicyBO> listAgentQuotaPolicies() { return agentQuotaPolicyRepository.listAll(); }
-    public AgentQuotaPolicyBO findAgentQuotaPolicy(Long id) { return agentQuotaPolicyRepository.findById(id); }
-    public Long createAgentQuotaPolicy(AgentQuotaPolicyBO policy) { AgentQuotaPolicy.validate(policy); return agentQuotaPolicyRepository.create(policy); }
-    public boolean updateAgentQuotaPolicy(AgentQuotaPolicyBO policy) { AgentQuotaPolicy.validate(policy); return agentQuotaPolicyRepository.update(policy); }
-    public boolean deleteAgentQuotaPolicy(Long id) { return agentQuotaPolicyRepository.delete(id); }
+    public List<AgentQuotaPolicyBO> listAgentQuotaPolicies() { return domainService.listAgentQuotaPolicies(); }
+    public AgentQuotaPolicyBO findAgentQuotaPolicy(Long id) { return domainService.findAgentQuotaPolicy(id); }
+    public Long createAgentQuotaPolicy(AgentQuotaPolicyBO policy) { return domainService.createAgentQuotaPolicy(policy); }
+    public boolean updateAgentQuotaPolicy(AgentQuotaPolicyBO policy) { return domainService.updateAgentQuotaPolicy(policy); }
+    public boolean deleteAgentQuotaPolicy(Long id) { return domainService.deleteAgentQuotaPolicy(id); }
 
-    public List<AiProviderBO> listProviders() {
-        return aiProviderRepository.listAll();
-    }
-
-    public AiProviderBO findProviderById(Long id) {
-        return aiProviderRepository.findById(id);
-    }
-
-    public Long createProvider(AiProviderBO provider) {
-        return aiProviderRepository.create(provider);
-    }
-
-    public boolean updateProvider(AiProviderBO provider) {
-        return aiProviderRepository.update(provider);
-    }
-
-    public boolean deleteProvider(Long id) {
-        return aiProviderRepository.delete(id);
-    }
+    public List<AiProviderBO> listProviders() { return domainService.listProviders(); }
+    public AiProviderBO findProviderById(Long id) { return domainService.findProviderById(id); }
+    public Long createProvider(AiProviderBO provider) { return domainService.createProvider(provider); }
+    public boolean updateProvider(AiProviderBO provider) { return domainService.updateProvider(provider); }
+    public boolean deleteProvider(Long id) { return domainService.deleteProvider(id); }
 
     public List<AiPromptBO> listPrompts(String keyword, String scenarioCode, String status) {
-        return aiPromptRepository.list(keyword, scenarioCode, status);
+        return domainService.listPrompts(keyword, scenarioCode, status);
     }
+    public AiPromptBO findPromptById(Long id) { return domainService.findPromptById(id); }
+    public Long createPrompt(AiPromptBO prompt) { return domainService.createPrompt(prompt); }
+    public boolean updatePrompt(AiPromptBO prompt) { return domainService.updatePrompt(prompt); }
+    public boolean deletePrompt(Long id) { return domainService.deletePrompt(id); }
 
-    public AiPromptBO findPromptById(Long id) {
-        return aiPromptRepository.findById(id);
-    }
+    public List<AiUsageBindingBO> listUsageBindings() { return domainService.listUsageBindings(); }
+    public AiUsageBindingBO findUsageBindingById(Long id) { return domainService.findUsageBindingById(id); }
+    public Long createUsageBinding(AiUsageBindingBO binding) { return domainService.createUsageBinding(binding); }
+    public boolean updateUsageBinding(AiUsageBindingBO binding) { return domainService.updateUsageBinding(binding); }
+    public boolean deleteUsageBinding(Long id) { return domainService.deleteUsageBinding(id); }
 
-    public Long createPrompt(AiPromptBO prompt) {
-        return aiPromptRepository.create(prompt);
-    }
-
-    public boolean updatePrompt(AiPromptBO prompt) {
-        return aiPromptRepository.update(prompt);
-    }
-
-    public boolean deletePrompt(Long id) {
-        return aiPromptRepository.delete(id);
-    }
-
-    public List<AiUsageBindingBO> listUsageBindings() {
-        return aiUsageBindingRepository.listAll();
-    }
-
-    public AiUsageBindingBO findUsageBindingById(Long id) {
-        return aiUsageBindingRepository.findById(id);
-    }
-
-    public Long createUsageBinding(AiUsageBindingBO binding) {
-        validateBindingReferences(binding);
-        return aiUsageBindingRepository.create(binding);
-    }
-
-    public boolean updateUsageBinding(AiUsageBindingBO binding) {
-        validateBindingReferences(binding);
-        return aiUsageBindingRepository.update(binding);
-    }
-
-    public boolean deleteUsageBinding(Long id) {
-        return aiUsageBindingRepository.delete(id);
-    }
-
-    private void validateBindingReferences(AiUsageBindingBO binding) {
-        if (binding == null) {
-            throw new IllegalArgumentException("AI usage binding is required");
-        }
-        if (binding.getProviderId() != null && aiProviderRepository.findById(binding.getProviderId()) == null) {
-            throw new IllegalArgumentException("AI provider binding target does not exist");
-        }
-        if (binding.getPromptId() != null) {
-            AiPromptBO prompt = aiPromptRepository.findById(binding.getPromptId());
-            if (prompt == null || !"active".equalsIgnoreCase(prompt.getStatus())) {
-                throw new IllegalArgumentException("AI prompt binding target must be active");
-            }
-        }
-    }
-
-    public List<ApplicationAnalysisConfigBO> listAnalysisConfigs() {
-        return applicationAnalysisConfigRepository.listAll();
-    }
-
-    public ApplicationAnalysisConfigBO findAnalysisConfigById(Long id) {
-        return applicationAnalysisConfigRepository.findById(id);
-    }
-
-    public Long createAnalysisConfig(ApplicationAnalysisConfigBO config) {
-        return applicationAnalysisConfigRepository.create(config);
-    }
-
-    public boolean updateAnalysisConfig(ApplicationAnalysisConfigBO config) {
-        return applicationAnalysisConfigRepository.update(config);
-    }
-
-    public boolean deleteAnalysisConfig(Long id) {
-        return applicationAnalysisConfigRepository.delete(id);
-    }
+    public List<ApplicationAnalysisConfigBO> listAnalysisConfigs() { return domainService.listAnalysisConfigs(); }
+    public ApplicationAnalysisConfigBO findAnalysisConfigById(Long id) { return domainService.findAnalysisConfigById(id); }
+    public Long createAnalysisConfig(ApplicationAnalysisConfigBO config) { return domainService.createAnalysisConfig(config); }
+    public boolean updateAnalysisConfig(ApplicationAnalysisConfigBO config) { return domainService.updateAnalysisConfig(config); }
+    public boolean deleteAnalysisConfig(Long id) { return domainService.deleteAnalysisConfig(id); }
 
     public List<ApplicationAnalysisDailySnapshotBO> listAnalysisDailySnapshots() {
-        return applicationAnalysisDailySnapshotRepository.listAll();
+        return domainService.listAnalysisDailySnapshots();
     }
-
     public ApplicationAnalysisDailySnapshotBO findAnalysisDailySnapshotById(Long id) {
-        return applicationAnalysisDailySnapshotRepository.findById(id);
+        return domainService.findAnalysisDailySnapshotById(id);
     }
-
     public Long createAnalysisDailySnapshot(ApplicationAnalysisDailySnapshotBO snapshot) {
-        return applicationAnalysisDailySnapshotRepository.create(snapshot);
+        return domainService.createAnalysisDailySnapshot(snapshot);
     }
-
     public boolean updateAnalysisDailySnapshot(ApplicationAnalysisDailySnapshotBO snapshot) {
-        return applicationAnalysisDailySnapshotRepository.update(snapshot);
+        return domainService.updateAnalysisDailySnapshot(snapshot);
     }
-
-    public boolean deleteAnalysisDailySnapshot(Long id) {
-        return applicationAnalysisDailySnapshotRepository.delete(id);
-    }
+    public boolean deleteAnalysisDailySnapshot(Long id) { return domainService.deleteAnalysisDailySnapshot(id); }
 
     public List<ApplicationAnalysisResultCurrentBO> listAnalysisResultCurrent() {
-        return applicationAnalysisResultCurrentRepository.listAll();
+        return domainService.listAnalysisResultCurrent();
     }
-
     public ApplicationAnalysisResultCurrentBO findAnalysisResultCurrentById(Long id) {
-        return applicationAnalysisResultCurrentRepository.findById(id);
+        return domainService.findAnalysisResultCurrentById(id);
     }
-
     public Long createAnalysisResultCurrent(ApplicationAnalysisResultCurrentBO result) {
-        return applicationAnalysisResultCurrentRepository.create(result);
+        return domainService.createAnalysisResultCurrent(result);
     }
-
     public boolean updateAnalysisResultCurrent(ApplicationAnalysisResultCurrentBO result) {
-        return applicationAnalysisResultCurrentRepository.update(result);
+        return domainService.updateAnalysisResultCurrent(result);
     }
-
-    public boolean deleteAnalysisResultCurrent(Long id) {
-        return applicationAnalysisResultCurrentRepository.delete(id);
-    }
+    public boolean deleteAnalysisResultCurrent(Long id) { return domainService.deleteAnalysisResultCurrent(id); }
 
     public List<ApplicationAnalysisResultHistoryBO> listAnalysisResultHistory() {
-        return applicationAnalysisResultHistoryRepository.listAll();
+        return domainService.listAnalysisResultHistory();
     }
-
     public ApplicationAnalysisResultHistoryBO findAnalysisResultHistoryById(Long id) {
-        return applicationAnalysisResultHistoryRepository.findById(id);
+        return domainService.findAnalysisResultHistoryById(id);
     }
-
     public Long createAnalysisResultHistory(ApplicationAnalysisResultHistoryBO result) {
-        return applicationAnalysisResultHistoryRepository.create(result);
+        return domainService.createAnalysisResultHistory(result);
     }
-
     public boolean updateAnalysisResultHistory(ApplicationAnalysisResultHistoryBO result) {
-        return applicationAnalysisResultHistoryRepository.update(result);
+        return domainService.updateAnalysisResultHistory(result);
     }
+    public boolean deleteAnalysisResultHistory(Long id) { return domainService.deleteAnalysisResultHistory(id); }
 
-    public boolean deleteAnalysisResultHistory(Long id) {
-        return applicationAnalysisResultHistoryRepository.delete(id);
-    }
-
-    public List<ApplicationAnalysisTargetBO> listAnalysisTargets() {
-        return applicationAnalysisTargetRepository.listAll();
-    }
-
-    public ApplicationAnalysisTargetBO findAnalysisTargetById(Long id) {
-        return applicationAnalysisTargetRepository.findById(id);
-    }
-
-    public Long createAnalysisTarget(ApplicationAnalysisTargetBO target) {
-        return applicationAnalysisTargetRepository.create(target);
-    }
-
-    public boolean updateAnalysisTarget(ApplicationAnalysisTargetBO target) {
-        return applicationAnalysisTargetRepository.update(target);
-    }
-
-    public boolean deleteAnalysisTarget(Long id) {
-        return applicationAnalysisTargetRepository.delete(id);
-    }
+    public List<ApplicationAnalysisTargetBO> listAnalysisTargets() { return domainService.listAnalysisTargets(); }
+    public ApplicationAnalysisTargetBO findAnalysisTargetById(Long id) { return domainService.findAnalysisTargetById(id); }
+    public Long createAnalysisTarget(ApplicationAnalysisTargetBO target) { return domainService.createAnalysisTarget(target); }
+    public boolean updateAnalysisTarget(ApplicationAnalysisTargetBO target) { return domainService.updateAnalysisTarget(target); }
+    public boolean deleteAnalysisTarget(Long id) { return domainService.deleteAnalysisTarget(id); }
 }
