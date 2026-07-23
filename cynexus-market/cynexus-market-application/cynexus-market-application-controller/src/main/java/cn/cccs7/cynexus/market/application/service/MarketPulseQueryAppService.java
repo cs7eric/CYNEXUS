@@ -27,8 +27,6 @@ import cn.cccs7.cynexus.market.domain.entity.MarketPulseCaptureBatchBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketPulseSectorDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentSnapshotBO;
-import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
-import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
 import cn.cccs7.cynexus.market.domain.pulse.MarketPulseDomainService;
 import cn.cccs7.cynexus.market.domain.pulse.MarketPulsePayloadDomainPolicy;
 import cn.cccs7.cynexus.market.domain.service.pulse.MarketPulseQueryDomainService;
@@ -53,8 +51,6 @@ public class MarketPulseQueryAppService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MarketPulseQueryAppService.class);
 
-    private final MarketPulseQueryRepository marketPulseQueryRepository;
-    private final ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository;
     private final MarketPulseDomainService domainService;
     private final MarketPulseQueryDomainService queryDomainService;
     private final MarketPulsePayloadDomainPolicy payloadPolicy = new MarketPulsePayloadDomainPolicy();
@@ -63,39 +59,28 @@ public class MarketPulseQueryAppService {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     @Autowired
-    public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository,
-                                      ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
-                                      MarketPulseDomainService domainService) {
-        this(marketPulseQueryRepository, thsIndustryConstituentSnapshotRepository, domainService,
-                new MarketPulseQueryDomainService(marketPulseQueryRepository));
-    }
-
-    public MarketPulseQueryAppService(MarketPulseQueryRepository marketPulseQueryRepository,
-                                      ThsIndustryConstituentSnapshotRepository thsIndustryConstituentSnapshotRepository,
-                                      MarketPulseDomainService domainService,
+    public MarketPulseQueryAppService(MarketPulseDomainService domainService,
                                       MarketPulseQueryDomainService queryDomainService) {
-        this.marketPulseQueryRepository = marketPulseQueryRepository;
-        this.thsIndustryConstituentSnapshotRepository = thsIndustryConstituentSnapshotRepository;
         this.domainService = domainService;
         this.queryDomainService = queryDomainService;
     }
 
     public MarketPulseOverviewDTO getOverviewAkshare() {
-        MarketOverviewBO row = marketPulseQueryRepository.findLatestOverview().orElse(null);
+        MarketOverviewBO row = queryDomainService.latestOverview().orElse(null);
         if (row == null) {
             return overviewError("market overview is empty");
         }
         domainService.applyServingFacts(row);
-        return overviewPayload(row, marketPulseQueryRepository.findPreviousOverview(row.getTradeDate()).orElse(null));
+        return overviewPayload(row, queryDomainService.previousOverview(row.getTradeDate()).orElse(null));
     }
 
     public MarketPulseOverviewEltdxDTO getOverviewEltdx() {
-        MarketOverviewBO row = marketPulseQueryRepository.findLatestOverview().orElse(null);
+        MarketOverviewBO row = queryDomainService.latestOverview().orElse(null);
         if (row == null) {
             return MarketPulseOverviewEltdxDTO.builder().ok(false).error("market overview is empty").build();
         }
         domainService.applyServingFacts(row);
-        MarketOverviewBO previous = marketPulseQueryRepository.findPreviousOverview(row.getTradeDate()).orElse(null);
+        MarketOverviewBO previous = queryDomainService.previousOverview(row.getTradeDate()).orElse(null);
         return MarketPulseOverviewEltdxDTO.builder()
                 .ok(true)
                 .tradingDate(row.getTradeDate())
@@ -115,19 +100,19 @@ public class MarketPulseQueryAppService {
 
     public MarketPulseOverviewDTO getOverviewArchive(String tradingDate) {
         LocalDate date = LocalDate.parse(domainService.normalizeDate(tradingDate));
-        MarketOverviewBO row = marketPulseQueryRepository.findOverviewByDate(date).orElse(null);
+        MarketOverviewBO row = queryDomainService.overviewByDate(date).orElse(null);
         if (row == null) {
             return overviewError("market overview archive not found");
         }
         domainService.applyServingFacts(row);
-        return overviewPayload(row, marketPulseQueryRepository.findPreviousOverview(date).orElse(null));
+        return overviewPayload(row, queryDomainService.previousOverview(date).orElse(null));
     }
 
     public MarketPulseOverviewHistoryDTO getOverviewHistory(String range) {
         String normalizedRange = range == null ? "60d" : range;
         int days = domainService.historyDays(normalizedRange);
         LocalDate start = LocalDate.now().minusDays(days * 2L);
-        List<MarketOverviewBO> rows = marketPulseQueryRepository.listOverviewSince(start, days);
+        List<MarketOverviewBO> rows = queryDomainService.overviewSince(start, days);
         domainService.applyServingFacts(rows);
         List<MarketPulseOverviewHistoryDTO.ItemDTO> items = rows.stream()
                 .sorted(Comparator.comparing(MarketOverviewBO::getTradeDate))
@@ -172,7 +157,7 @@ public class MarketPulseQueryAppService {
 
     public MarketPulseSectorSnapshotHistoryDTO getSectorSnapshotHistory(int days) {
         int safeDays = domainService.safeHistoryDays(days);
-        List<LocalDate> dates = marketPulseQueryRepository.listLatestPulseTradeDates(safeDays);
+        List<LocalDate> dates = queryDomainService.latestPulseTradeDates(safeDays);
         if (dates.isEmpty()) {
             return MarketPulseSectorSnapshotHistoryDTO.builder()
                     .ok(false)
@@ -183,8 +168,8 @@ public class MarketPulseQueryAppService {
                     .error("market pulse history is empty")
                     .build();
         }
-        List<MarketPulseSectorDailySnapshotBO> rows = marketPulseQueryRepository.listPulseRowsByTradeDates(dates);
-        MarketPulseCaptureBatchBO latestBatch = marketPulseQueryRepository.findLatestPulseBatch(dates.get(dates.size() - 1)).orElse(null);
+        List<MarketPulseSectorDailySnapshotBO> rows = queryDomainService.pulseRowsByTradeDates(dates);
+        MarketPulseCaptureBatchBO latestBatch = queryDomainService.latestPulseBatch(dates.get(dates.size() - 1)).orElse(null);
         return MarketPulseSectorSnapshotHistoryDTO.builder()
                 .ok(true)
                 .days(safeDays)
@@ -227,7 +212,7 @@ public class MarketPulseQueryAppService {
 
     public MarketPulseIndexReturnsDTO getIndexReturns(int days) {
         List<MarketPulseIndexReturnsDTO.ItemDTO> items = MarketPulseIndexReturnItemDTOConverter.INSTANCE
-                .toLatestItems(marketPulseQueryRepository.listLatestIndexReturns(days));
+                .toLatestItems(queryDomainService.latestIndexReturns(days));
         return MarketPulseIndexReturnsDTO.builder()
                 .ok(true)
                 .days(days)
@@ -237,7 +222,7 @@ public class MarketPulseQueryAppService {
 
     public MarketPulseIndexReturnsHistoryDTO getIndexReturnsHistory(int window, LocalDate startDate, LocalDate endDate) {
         List<MarketPulseIndexReturnsHistoryDTO.ItemDTO> items = MarketPulseIndexReturnItemDTOConverter.INSTANCE
-                .toHistoryItems(marketPulseQueryRepository.listIndexReturnsHistory(window, startDate, endDate));
+                .toHistoryItems(queryDomainService.indexReturnsHistory(window, startDate, endDate));
         return MarketPulseIndexReturnsHistoryDTO.builder()
                 .ok(true)
                 .window(window)
@@ -254,9 +239,10 @@ public class MarketPulseQueryAppService {
         List<String> returnedDates = new ArrayList<>();
         String normalizedInterval = domainService.normalizeInterval(interval);
         for (String code : targetCodes) {
-            LocalDate tradeDate = marketPulseQueryRepository.findLatestIndexMinuteDate(code, date).orElse(date);
-            List<IndexMinuteBarBO> points = marketPulseQueryRepository.listIndexMinuteBars(code, tradeDate);
-            BigDecimal previousClose = marketPulseQueryRepository.findIndexPreviousClose(code, tradeDate).orElse(null);
+            MarketPulseQueryDomainService.IndexMinuteQuery index = queryDomainService.indexMinuteQuery(code, date);
+            LocalDate tradeDate = index.tradeDate();
+            List<IndexMinuteBarBO> points = index.points();
+            BigDecimal previousClose = index.previousClose();
             items.add(MarketPulseIndexKlineBatchDTO.ItemDTO.builder()
                     .ok(!points.isEmpty())
                     .code(code)
@@ -279,7 +265,7 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseStyleSectorListDTO getStyleSectors() {
-        List<StyleSectorSnapshotBO> rows = marketPulseQueryRepository.listLatestStyleSectors();
+        List<StyleSectorSnapshotBO> rows = queryDomainService.latestStyleSectors();
         List<MarketPulseStyleSectorListDTO.ItemDTO> items = MarketPulseStyleSectorItemDTOConverter.INSTANCE.toSourceList(rows);
         return MarketPulseStyleSectorListDTO.builder()
                 .ok(true)
@@ -290,7 +276,7 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseStyleSectorConstituentsDTO getStyleSectorConstituents(String name) {
-        StyleSectorSnapshotBO row = marketPulseQueryRepository.findLatestStyleSector(name).orElse(null);
+        StyleSectorSnapshotBO row = queryDomainService.latestStyleSector(name).orElse(null);
         List<MarketPulseStyleSectorConstituentsDTO.ConstituentDTO> constituents = List.of();
         if (row != null) {
             MarketPulseStyleSectorConstituentsDTO parsed = toDto(payloadPolicy.parsePayload(row.getPayload()),
@@ -316,7 +302,7 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseStyleSectorConstituentsDTO getIndustryConstituents(String industryCode) {
-        List<ThsIndustryConstituentSnapshotBO> rows = thsIndustryConstituentSnapshotRepository.listLatestByIndustryCode(industryCode);
+        List<ThsIndustryConstituentSnapshotBO> rows = queryDomainService.latestIndustryConstituents(industryCode);
         LocalDate snapshotDate = rows.stream()
                 .map(ThsIndustryConstituentSnapshotBO::getSnapshotDate)
                 .filter(item -> item != null)
@@ -395,16 +381,15 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseLimitEmotionDTO getLimitEmotion() {
-        MarketLimitDailySnapshotBO row = marketPulseQueryRepository.findLatestLimitEmotion().orElse(null);
+        MarketPulseQueryDomainService.LimitEmotionQuery limit = queryDomainService.latestLimitEmotion();
+        MarketLimitDailySnapshotBO row = limit.snapshot();
         if (row == null) {
             return MarketPulseLimitEmotionDTO.builder().ok(false).error("limit emotion is empty").build();
         }
         return toDto(payloadPolicy.normalizeLimitEmotion(
                         row.getExtra(),
                         row,
-                        marketPulseQueryRepository.listLimitStocks(row.getTradeDate(), "limit_up", 80),
-                        marketPulseQueryRepository.listLimitStocks(row.getTradeDate(), "limit_down", 80),
-                        marketPulseQueryRepository.listLimitStocks(row.getTradeDate(), "broken", 80)),
+                        limit.limitUp(), limit.limitDown(), limit.broken()),
                 MarketPulseLimitEmotionDTO.class);
     }
 

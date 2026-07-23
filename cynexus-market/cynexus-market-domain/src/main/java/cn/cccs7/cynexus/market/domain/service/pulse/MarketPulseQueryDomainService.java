@@ -1,11 +1,18 @@
 package cn.cccs7.cynexus.market.domain.service.pulse;
 
 import cn.cccs7.cynexus.market.domain.entity.HeatmapSnapshotBO;
+import cn.cccs7.cynexus.market.domain.entity.IndexMinuteBarBO;
+import cn.cccs7.cynexus.market.domain.entity.IndexReturnDailyBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketLimitDailySnapshotBO;
+import cn.cccs7.cynexus.market.domain.entity.MarketLimitDailyStockBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketOverviewBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketPulseCaptureBatchBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketPulseSectorDailySnapshotBO;
 import cn.cccs7.cynexus.market.domain.entity.StyleSectorSnapshotBO;
+import cn.cccs7.cynexus.market.domain.entity.ThsIndustryConstituentSnapshotBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketPulseQueryRepository;
+import cn.cccs7.cynexus.market.domain.repository.ThsIndustryConstituentSnapshotRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -27,9 +34,84 @@ public final class MarketPulseQueryDomainService {
     private static final String DEFAULT_HEATMAP_KIND = "industries";
 
     private final MarketPulseQueryRepository repository;
+    private final ThsIndustryConstituentSnapshotRepository constituentRepository;
 
     public MarketPulseQueryDomainService(MarketPulseQueryRepository repository) {
+        this(repository, null);
+    }
+
+    public MarketPulseQueryDomainService(MarketPulseQueryRepository repository,
+                                         ThsIndustryConstituentSnapshotRepository constituentRepository) {
         this.repository = repository;
+        this.constituentRepository = constituentRepository;
+    }
+
+    public Optional<MarketOverviewBO> latestOverview() {
+        return repository.findLatestOverview();
+    }
+
+    public Optional<MarketOverviewBO> overviewByDate(LocalDate tradeDate) {
+        return repository.findOverviewByDate(tradeDate);
+    }
+
+    public Optional<MarketOverviewBO> previousOverview(LocalDate tradeDate) {
+        return repository.findPreviousOverview(tradeDate);
+    }
+
+    public List<MarketOverviewBO> overviewSince(LocalDate startDate, int limit) {
+        return safeList(repository.listOverviewSince(startDate, limit));
+    }
+
+    public List<LocalDate> latestPulseTradeDates(int limit) {
+        return safeList(repository.listLatestPulseTradeDates(limit));
+    }
+
+    public List<MarketPulseSectorDailySnapshotBO> pulseRowsByTradeDates(List<LocalDate> tradeDates) {
+        return safeList(repository.listPulseRowsByTradeDates(tradeDates));
+    }
+
+    public Optional<MarketPulseCaptureBatchBO> latestPulseBatch(LocalDate tradeDate) {
+        return repository.findLatestPulseBatch(tradeDate);
+    }
+
+    public List<IndexReturnDailyBO> latestIndexReturns(int days) {
+        return safeList(repository.listLatestIndexReturns(days));
+    }
+
+    public List<IndexReturnDailyBO> indexReturnsHistory(int window, LocalDate startDate, LocalDate endDate) {
+        return safeList(repository.listIndexReturnsHistory(window, startDate, endDate));
+    }
+
+    public IndexMinuteQuery indexMinuteQuery(String code, LocalDate requestedDate) {
+        LocalDate tradeDate = repository.findLatestIndexMinuteDate(code, requestedDate).orElse(requestedDate);
+        return new IndexMinuteQuery(tradeDate, safeList(repository.listIndexMinuteBars(code, tradeDate)),
+                repository.findIndexPreviousClose(code, tradeDate).orElse(null));
+    }
+
+    public List<StyleSectorSnapshotBO> latestStyleSectors() {
+        return safeList(repository.listLatestStyleSectors());
+    }
+
+    public Optional<StyleSectorSnapshotBO> latestStyleSector(String name) {
+        return repository.findLatestStyleSector(name);
+    }
+
+    public List<ThsIndustryConstituentSnapshotBO> latestIndustryConstituents(String industryCode) {
+        if (constituentRepository == null) return List.of();
+        return safeList(constituentRepository.listLatestByIndustryCode(industryCode));
+    }
+
+    public LimitEmotionQuery latestLimitEmotion() {
+        MarketLimitDailySnapshotBO row = repository.findLatestLimitEmotion().orElse(null);
+        if (row == null) return new LimitEmotionQuery(null, List.of(), List.of(), List.of());
+        return new LimitEmotionQuery(row,
+                safeList(repository.listLimitStocks(row.getTradeDate(), "limit_up", 80)),
+                safeList(repository.listLimitStocks(row.getTradeDate(), "limit_down", 80)),
+                safeList(repository.listLimitStocks(row.getTradeDate(), "broken", 80)));
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? List.of() : List.copyOf(values);
     }
 
     public SectorSnapshotResult latestSectorSnapshot(LocalDate requestedTradeDate) {
@@ -123,5 +205,14 @@ public final class MarketPulseQueryDomainService {
         public boolean isStyles() {
             return STYLES.equals(kind);
         }
+    }
+
+    public record IndexMinuteQuery(LocalDate tradeDate, List<IndexMinuteBarBO> points, BigDecimal previousClose) {
+    }
+
+    public record LimitEmotionQuery(MarketLimitDailySnapshotBO snapshot,
+                                    List<MarketLimitDailyStockBO> limitUp,
+                                    List<MarketLimitDailyStockBO> limitDown,
+                                    List<MarketLimitDailyStockBO> broken) {
     }
 }
