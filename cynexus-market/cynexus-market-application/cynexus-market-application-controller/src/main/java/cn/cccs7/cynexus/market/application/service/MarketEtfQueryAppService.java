@@ -2,27 +2,21 @@ package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.MarketEtfDTO;
 import cn.cccs7.cynexus.market.domain.entity.MarketEtfBO;
-import cn.cccs7.cynexus.market.domain.entity.MarketEtfDataBO;
-import cn.cccs7.cynexus.market.domain.etf.MarketEtfDomainService;
-import cn.cccs7.cynexus.market.domain.repository.MarketEtfQueryRepository;
-import java.time.LocalDate;
+import cn.cccs7.cynexus.market.domain.service.etf.MarketEtfQueryDomainService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class MarketEtfQueryAppService {
 
-    private final MarketEtfQueryRepository repository;
-    private final MarketEtfDomainService domainService;
+    private final MarketEtfQueryDomainService domainService;
 
-    public MarketEtfQueryAppService(MarketEtfQueryRepository repository, MarketEtfDomainService domainService) {
-        this.repository = repository;
+    public MarketEtfQueryAppService(MarketEtfQueryDomainService domainService) {
         this.domainService = domainService;
     }
 
     public MarketEtfDTO getMarket(int historyDays, int rowLimit) {
-        int boundedRowLimit = Math.max(20, Math.min(rowLimit, 300));
-        MarketEtfBO value = domainService.build(repository.load(Math.max(3, Math.min(historyDays, 30)), boundedRowLimit), boundedRowLimit);
+        MarketEtfBO value = domainService.getMarket(historyDays, rowLimit);
         return toDto(value);
     }
 

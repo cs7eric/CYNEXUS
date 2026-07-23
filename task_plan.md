@@ -2613,3 +2613,10 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Release `1.1.196-260723-RELEASE` rebuilt through Docker; all six health endpoints returned HTTP 200. Daily and intraday Stock Feature smoke requests for `600519` returned HTTP 200.
 - Release `1.1.197-260723-RELEASE` rebuilt after the explicit Stock Chart bean assembly; all six health endpoints returned HTTP 200, both Stock Feature smoke requests returned HTTP 200, and service logs had no startup failure markers.
 - The remaining Market domain Spring stereotype audit is intentionally open for subsequent feature slices.
+
+### Phase 108 ETF query follow-up
+
+- Moved ETF query repository loading and request-bound normalization behind `MarketEtfQueryDomainService`.
+- Removed Spring from the ETF domain rules and added explicit application-layer bean assembly for the ETF rules and query domain service.
+- Added focused coverage for lower/upper bounds and delegation; `MarketEtfQueryDomainServiceTest` passed 2/2.
+- Maven/UI development versions are synchronized at `1.1.198-SNAPSHOT`; full package and versioned Release verification remain pending.

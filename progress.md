@@ -10,6 +10,13 @@
 - Release `1.1.197-260723-RELEASE` rebuilt again after explicit Stock Chart bean assembly; all six versioned services remained healthy and the Stock Feature smoke repeated successfully against the new image.
 - The broader Market domain stereotype audit remains open and is being handled feature-by-feature.
 
+## 2026-07-23 - Market ETF query DDD slice
+
+- Moved ETF query loading and bounded `historyDays`/`rowLimit` normalization into `MarketEtfQueryDomainService`.
+- Removed Spring stereotype registration from the ETF domain rules and assembled both ETF domain services explicitly from the Market application configuration.
+- Added focused query-domain coverage for input bounds and domain-rule delegation; `MarketEtfQueryDomainServiceTest` passed 2/2.
+- Maven/UI development versions are synchronized at `1.1.198-SNAPSHOT`; full Maven package and versioned Release verification remain pending for this slice.
+
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 
 - Integrated the bounded Provider streaming timeout/interruption fix from commit `9d71938`; focused Maven coverage passed 7/7 and the AI infra reactor build passed.
