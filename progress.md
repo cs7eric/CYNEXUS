@@ -1,5 +1,14 @@
 # Cynexus Setup Progress
 
+## 2026-07-23 - Market Stock Feature DDD and Release 1.1.196 verification
+
+- Moved Stock Feature daily/intraday calculations into `StockChartQueryDomainService`; the application service now only orchestrates the use case and DTO conversion.
+- Removed Spring stereotypes from the Stock Chart domain implementations and registered them through `StockChartDomainServiceConfiguration` in the application layer.
+- Focused Stock Chart domain tests passed 5/5; the aligned UI `pnpm build` passed at `1.1.197-SNAPSHOT`.
+- Release `1.1.196-260723-RELEASE` was built from the complete Maven reactor and versioned Docker images; Core, AI, Market, Gateway, Knowledge Base, and UI health endpoints returned HTTP 200.
+- Release Stock Feature smoke returned HTTP 200 for both daily and intraday endpoints for `600519`; startup logs contained no `APPLICATION FAILED`, missing-bean, or missing-constructor markers.
+- The broader Market domain stereotype audit remains open and is being handled feature-by-feature.
+
 ## 2026-07-22 - Agent streaming/UI verification follow-up
 
 - Integrated the bounded Provider streaming timeout/interruption fix from commit `9d71938`; focused Maven coverage passed 7/7 and the AI infra reactor build passed.

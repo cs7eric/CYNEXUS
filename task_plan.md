@@ -2604,3 +2604,11 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Moved Market Pulse overview/history/index/style-sector/constituent/limit-emotion query orchestration behind `MarketPulseQueryDomainService`; the application adapter no longer calls Market repositories directly.
 - Targeted Market application package passed at `1.1.195-SNAPSHOT`; the focused Pulse domain tests passed 4/4. The known unrelated Market information clusterer test remains failing and is not attributed to this slice.
 - Release `1.1.195-260723-RELEASE` rebuilt through Docker; Core, AI, Market, Gateway, Knowledge Base, and UI health checks returned HTTP 200, and the Pulse API returned HTTP 200 through Gateway.
+
+### Phase 108 Stock Feature follow-up
+
+- Moved daily-feature and intraday-feature calculations into `StockChartQueryDomainService`; the application service no longer owns indicator rules.
+- Removed Spring stereotypes from Stock Chart domain implementations and added explicit application-layer bean assembly in `StockChartDomainServiceConfiguration`.
+- Stock Chart domain tests passed 5/5, full Maven package passed all 41 modules at `1.1.196-SNAPSHOT`, and UI `pnpm build` passed at aligned `1.1.197-SNAPSHOT` after the next development version increment.
+- Release `1.1.196-260723-RELEASE` rebuilt through Docker; all six health endpoints returned HTTP 200. Daily and intraday Stock Feature smoke requests for `600519` returned HTTP 200.
+- The remaining Market domain Spring stereotype audit is intentionally open for subsequent feature slices.
