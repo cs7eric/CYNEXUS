@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.market;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication(scanBasePackages = "cn.cccs7.cynexus")
+@SpringBootApplication(scanBasePackages = "cn.cccs7.cynexus.market")
 public class CynexusMarketApplication {
 
     public static void main(String[] args) {

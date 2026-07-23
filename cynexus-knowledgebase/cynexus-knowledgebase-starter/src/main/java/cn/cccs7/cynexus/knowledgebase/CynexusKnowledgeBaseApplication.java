@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.knowledgebase;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication(scanBasePackages = "cn.cccs7.cynexus")
+@SpringBootApplication(scanBasePackages = "cn.cccs7.cynexus.knowledgebase")
 public class CynexusKnowledgeBaseApplication {
 
     public static void main(String[] args) {
