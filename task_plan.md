@@ -2591,3 +2591,10 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Release `1.1.193-260723-RELEASE` rebuilt after the Core and Market startup wiring fixes; all six versioned application/UI containers are running and health endpoints return HTTP 200.
 - PostgreSQL Agent task and notification `last_error` columns are `text`; full `mvn clean package -DskipTests` passed all 41 modules and UI `pnpm build` passed at `1.1.193-SNAPSHOT`.
 - The signed real-provider smoke reached the Agent workflow but failed truthfully at the outbound provider TLS boundary because `host.docker.internal:7890` was unavailable. Provider E2E evidence remains open until proxy/network connectivity is restored.
+
+### Phase 108 DDD runtime assembly follow-up
+
+- Audited starter wiring against the DDD guide and restricted AI, Market, Knowledge Base, and Gateway component scans to their own bounded contexts. AI Feign registration is limited to Finance, Knowledge Base, and Market contracts.
+- Explicitly imported `CynexusDbAutoConfiguration` in AI, Market, and Knowledge Base so `SnowflakeIdGenerator` is assembled without relying on cross-context scanning.
+- Versioned Release `1.1.194-260723-RELEASE` rebuilt successfully; all six application/UI health checks returned HTTP 200 and AI had no context initialization errors. Maven 41/41 and UI build passed at `1.1.194-SNAPSHOT`.
+- Provider E2E remains open because the configured host proxy was unavailable during the real smoke; the run persisted `FAILED` with `failureCategory=PROVIDER` and no fabricated answer.

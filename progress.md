@@ -2043,3 +2043,10 @@
 - Core, AI, Market, Gateway, Knowledge Base, and UI health checks returned HTTP 200. PostgreSQL Agent task and notification `last_error` columns are both `text` in `cynexus_appl_ai`.
 - Full `mvn clean package -DskipTests` passed all 41 modules at `1.1.193-SNAPSHOT`; UI `pnpm build` passed.
 - A signed real-provider Agent smoke reached `gpt-5.4-mini` but persisted `FAILED` with `failureCategory=PROVIDER` because the configured host proxy `host.docker.internal:7890` was unavailable and the upstream TLS handshake terminated. No success or fabricated output is claimed; provider E2E remains pending until network/proxy connectivity is restored.
+
+## 2026-07-23 - DDD runtime assembly boundary and Release 1.1.194
+
+- Audited the Java DDD guide against runtime wiring and found that AI, Market, Knowledge Base, and Gateway starters scanned the entire `cn.cccs7.cynexus` package; AI also scanned every Feign client.
+- Restricted each starter to its own bounded context. AI now registers only the Finance, Knowledge Base, and Market Feign contracts it actually uses. Shared `CynexusDbAutoConfiguration` is imported explicitly by AI, Market, and Knowledge Base instead of being discovered as a scan side effect.
+- Maven/UI versions advanced together to `1.1.194-SNAPSHOT`; `mvn clean package -DskipTests` passed all 41 modules and `pnpm build` passed.
+- Release `1.1.194-260723-RELEASE` rebuilt through the versioned Docker entrypoint. Core, AI, Market, Gateway, Knowledge Base, and UI health checks all returned HTTP 200, and AI logs showed no context initialization error. Real Provider E2E remains network-blocked by the unavailable host proxy and is not claimed successful.
