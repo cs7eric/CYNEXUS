@@ -2036,3 +2036,10 @@
 - Committed `809c3f8e`: moved Application Analysis recent-30 model routing, prompt resolution, structured-output validation, snapshot merge, result persistence, and execution logging into a domain service; focused domain tests passed 2/2.
 - Maven/UI versions were advanced together per slice: `1.1.190-SNAPSHOT`, `1.1.191-SNAPSHOT`, and `1.1.192-SNAPSHOT`.
 - `mvn clean test-compile -DskipTests` passed all 41 Maven modules. Release rebuild and runtime startup regression are still pending.
+
+## 2026-07-23 - Release 1.1.193 startup verification
+
+- Rebuilt the versioned Release `1.1.193-260723-RELEASE` after the Core `SnowflakeIdGenerator` and Market constructor wiring fixes; all six versioned application/UI containers are running.
+- Core, AI, Market, Gateway, Knowledge Base, and UI health checks returned HTTP 200. PostgreSQL Agent task and notification `last_error` columns are both `text` in `cynexus_appl_ai`.
+- Full `mvn clean package -DskipTests` passed all 41 modules at `1.1.193-SNAPSHOT`; UI `pnpm build` passed.
+- A signed real-provider Agent smoke reached `gpt-5.4-mini` but persisted `FAILED` with `failureCategory=PROVIDER` because the configured host proxy `host.docker.internal:7890` was unavailable and the upstream TLS handshake terminated. No success or fabricated output is claimed; provider E2E remains pending until network/proxy connectivity is restored.

@@ -2585,3 +2585,9 @@ Status: complete
 - Add focused domain/application tests and synchronize Maven/UI development versions after each functional slice.
 
 Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three slices. Focused AI domain tests passed 10/10, application configuration test passed 1/1, `mvn clean test-compile` passed all 41 modules, and the UI version is synchronized at `1.1.192-SNAPSHOT`. Versioned Release rebuild/runtime verification remains part of the remaining Phase 107 acceptance matrix.
+
+### Phase 108 Verification Follow-up
+
+- Release `1.1.193-260723-RELEASE` rebuilt after the Core and Market startup wiring fixes; all six versioned application/UI containers are running and health endpoints return HTTP 200.
+- PostgreSQL Agent task and notification `last_error` columns are `text`; full `mvn clean package -DskipTests` passed all 41 modules and UI `pnpm build` passed at `1.1.193-SNAPSHOT`.
+- The signed real-provider smoke reached the Agent workflow but failed truthfully at the outbound provider TLS boundary because `host.docker.internal:7890` was unavailable. Provider E2E evidence remains open until proxy/network connectivity is restored.
