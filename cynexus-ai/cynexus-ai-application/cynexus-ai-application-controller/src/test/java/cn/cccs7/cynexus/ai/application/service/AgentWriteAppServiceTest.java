@@ -14,6 +14,7 @@ import cn.cccs7.cynexus.ai.domain.entity.agent.AgentWriteCommandBO;
 import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentWriteExecutorPort;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentWriteResult;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentWriteCommandRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.write.AgentWriteDomainService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ class AgentWriteAppServiceTest {
         AgentWriteCommandRepository repository = mock(AgentWriteCommandRepository.class);
         AgentWriteExecutorPort executor = mock(AgentWriteExecutorPort.class);
         when(repository.save(any(AgentWriteCommandBO.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        AgentWriteAppService service = new AgentWriteAppService(repository, executor, new ObjectMapper());
+        AgentWriteAppService service = new AgentWriteAppService(new AgentWriteDomainService(repository, executor, new ObjectMapper()));
         AgentWritePreviewRequest request = new AgentWritePreviewRequest();
         request.setToolCode("knowledge.document.create");
         request.setArgumentsJson("{\"title\":\"Draft\",\"content\":\"Content\",\"status\":\"DRAFT\"}");

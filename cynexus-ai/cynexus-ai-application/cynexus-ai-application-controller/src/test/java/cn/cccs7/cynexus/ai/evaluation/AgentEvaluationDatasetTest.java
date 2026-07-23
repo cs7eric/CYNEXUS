@@ -31,6 +31,7 @@ import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepositor
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunDomainService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
@@ -114,9 +115,11 @@ class AgentEvaluationDatasetTest {
                     return AgentModelTurnResponse.builder().type("FINAL").content("已基于数据工具完成分析，包含数据日期、来源和限制。").build();
                 });
 
-        var result = new AutonomousAgentAppService(repository, catalog, executor, completion, providers, bindings,
+        AgentRunDomainService runDomainService = new AgentRunDomainService(repository,
+                mock(AgentCapabilityRepository.class), providers, bindings);
+        var result = new AutonomousAgentAppService(runDomainService, catalog, executor, completion,
                 lease, limiter, circuit, new ObjectMapper(), quota,
-                mock(AgentObservabilityPort.class), mock(AgentCapabilityRepository.class)).execute(AgentRunRequest.builder().userInput(input).build(),
+                mock(AgentObservabilityPort.class)).execute(AgentRunRequest.builder().userInput(input).build(),
                 AgentIdentity.builder().principalKey("evaluation").tenantKey("evaluation").build(), ignored -> { });
 
         assertEquals("SUCCEEDED", result.getStatus(), evaluationCase.path("id").asText());

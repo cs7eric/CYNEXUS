@@ -2,25 +2,19 @@ package cn.cccs7.cynexus.ai.application.service;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
-import cn.cccs7.cynexus.ai.domain.repository.AiModelRepository;
-import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainService;
-import java.util.List;
+import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ModelRouteAppService {
 
-    private final AiModelRepository aiModelRepository;
-    private final ModelRoutingDomainService modelRoutingDomainService;
+    private final ModelRouteDomainService modelRouteDomainService;
 
-    public ModelRouteAppService(AiModelRepository aiModelRepository,
-                                ModelRoutingDomainService modelRoutingDomainService) {
-        this.aiModelRepository = aiModelRepository;
-        this.modelRoutingDomainService = modelRoutingDomainService;
+    public ModelRouteAppService(ModelRouteDomainService modelRouteDomainService) {
+        this.modelRouteDomainService = modelRouteDomainService;
     }
 
     public AiModelBO route(AiScenarioBO scenario, String preferredModelCode) {
-        List<AiModelBO> candidates = aiModelRepository.findEnabledModels();
-        return modelRoutingDomainService.route(scenario, candidates, preferredModelCode);
+        return modelRouteDomainService.route(scenario, preferredModelCode);
     }
 }

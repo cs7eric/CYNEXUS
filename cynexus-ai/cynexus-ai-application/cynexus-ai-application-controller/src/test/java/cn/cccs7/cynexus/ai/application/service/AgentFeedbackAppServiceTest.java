@@ -13,6 +13,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentFeedbackRepository;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.feedback.AgentFeedbackDomainService;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +25,7 @@ class AgentFeedbackAppServiceTest {
         when(runs.findRun("tenant-1::user-1", "AGR-1")).thenReturn(Optional.of(AgentRunBO.builder()
                 .runNo("AGR-1").conversationNo("AGC-1").status("SUCCEEDED").build()));
         when(feedback.upsert(any(AgentFeedbackBO.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        AgentFeedbackAppService service = new AgentFeedbackAppService(feedback, runs);
+        AgentFeedbackAppService service = new AgentFeedbackAppService(new AgentFeedbackDomainService(feedback, runs));
         AgentFeedbackRequest request = new AgentFeedbackRequest();
         request.setRating(1);
         request.setFeedbackReason("Contact me at person@example.com; token Bearer abc123");
@@ -48,7 +49,8 @@ class AgentFeedbackAppServiceTest {
         AgentFeedbackRequest request = new AgentFeedbackRequest();
         request.setRating(5);
 
-        assertThatThrownBy(() -> new AgentFeedbackAppService(feedback, runs).submit(AgentIdentity.singleUser(), "AGR-1", request))
+        assertThatThrownBy(() -> new AgentFeedbackAppService(new AgentFeedbackDomainService(feedback, runs))
+                .submit(AgentIdentity.singleUser(), "AGR-1", request))
                 .isInstanceOf(IllegalStateException.class);
     }
 }

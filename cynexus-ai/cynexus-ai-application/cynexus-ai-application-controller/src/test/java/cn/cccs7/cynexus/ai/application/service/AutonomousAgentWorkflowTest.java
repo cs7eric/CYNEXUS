@@ -39,6 +39,7 @@ import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepositor
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -486,8 +487,10 @@ class AutonomousAgentWorkflowTest {
                                                    ObjectMapper objectMapper) {
         AgentQuotaPort quota = mock(AgentQuotaPort.class);
         when(quota.reserveRequest(any(), any(), any(), anyInt())).thenReturn(true);
-        return new AutonomousAgentAppService(repository, catalog, executor, completion, providers, bindings,
+        AgentRunDomainService runDomainService = new AgentRunDomainService(repository,
+                mock(AgentCapabilityRepository.class), providers, bindings);
+        return new AutonomousAgentAppService(runDomainService, catalog, executor, completion,
                 lease, rateLimiter, circuitBreaker, objectMapper, quota,
-                mock(AgentObservabilityPort.class), mock(AgentCapabilityRepository.class));
+                mock(AgentObservabilityPort.class));
     }
 }

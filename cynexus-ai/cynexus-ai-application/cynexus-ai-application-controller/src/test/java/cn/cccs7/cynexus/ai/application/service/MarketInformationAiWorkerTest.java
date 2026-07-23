@@ -11,16 +11,17 @@ import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.MarketInformationAiTaskRepository;
+import cn.cccs7.cynexus.ai.domain.marketinformation.MarketInformationAiDomainService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class MarketInformationAiWorkerTest {
+class MarketInformationAiDomainServiceTest {
 
     @Test
     void deepSeekBudgetCountsEveryAllowedProviderRequest() throws Exception {
-        MarketInformationAiWorker worker = worker(20);
+        MarketInformationAiDomainService worker = worker(20);
 
         for (int index = 0; index < 20; index++) {
             assertTrue(worker.allowDeepSeekCall());
@@ -30,14 +31,14 @@ class MarketInformationAiWorkerTest {
 
     @Test
     void zeroBudgetDisablesDeepSeekWithoutConsumingRequests() throws Exception {
-        MarketInformationAiWorker worker = worker(0);
+        MarketInformationAiDomainService worker = worker(0);
 
         assertFalse(worker.allowDeepSeekCall());
     }
 
     @Test
     void negativeBudgetAllowsUnlimitedReleaseRequests() {
-        MarketInformationAiWorker worker = worker(-1);
+        MarketInformationAiDomainService worker = worker(-1);
 
         for (int index = 0; index < 25; index++) {
             assertTrue(worker.allowDeepSeekCall());
@@ -46,7 +47,7 @@ class MarketInformationAiWorkerTest {
 
     @Test
     void customProviderUsesTypeForAdapterAndCodeForIdentity() {
-        MarketInformationAiWorker worker = worker(0);
+        MarketInformationAiDomainService worker = worker(0);
         AiProviderBO provider = AiProviderBO.builder()
                 .code("custom-yancc")
                 .providerType("custom")
@@ -72,8 +73,8 @@ class MarketInformationAiWorkerTest {
             @Override public boolean delete(Long id) { return true; }
         };
 
-        MarketInformationAiWorker worker = worker(0, prompts);
-        MarketInformationAiWorker.PromptRuntime resolved = worker.resolvePrompt(
+        MarketInformationAiDomainService worker = worker(0, prompts);
+        MarketInformationAiDomainService.PromptRuntime resolved = worker.resolvePrompt(
                 cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO.builder()
                         .capability("market_information_event_analysis").promptId(42L).build(), "v4");
 
@@ -110,9 +111,9 @@ class MarketInformationAiWorkerTest {
 
     @Test
     void briefFallbackPromptExplainsSnapshotBackgroundBeforeSynthesis() {
-        MarketInformationAiWorker worker = worker(0);
+        MarketInformationAiDomainService worker = worker(0);
 
-        MarketInformationAiWorker.PromptRuntime prompt = worker.resolvePrompt(
+        MarketInformationAiDomainService.PromptRuntime prompt = worker.resolvePrompt(
                 cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO.builder()
                         .capability("market_information_daily_brief").build(), "v6");
 
@@ -198,7 +199,7 @@ class MarketInformationAiWorkerTest {
 
     @Test
     void skipsQueuedBriefWhenItsInputHashIsNoLongerCurrent() {
-        MarketInformationAiWorker worker = worker(0);
+        MarketInformationAiDomainService worker = worker(0);
         MarketInformationAiTaskBO stale = MarketInformationAiTaskBO.builder()
                 .clusterContentHash("old-input-hash")
                 .build();
@@ -207,12 +208,12 @@ class MarketInformationAiWorkerTest {
         assertFalse(worker.isStaleBriefTask(MarketInformationAiTaskBO.builder().build(), "current input"));
     }
 
-    private MarketInformationAiWorker worker(int limit) {
+    private MarketInformationAiDomainService worker(int limit) {
         return worker(limit, null);
     }
 
-    private MarketInformationAiWorker worker(int limit, AiPromptRepository prompts) {
-        return new MarketInformationAiWorker(new BudgetRepository(), null, prompts, null, null, null, limit, 10);
+    private MarketInformationAiDomainService worker(int limit, AiPromptRepository prompts) {
+        return new MarketInformationAiDomainService(new BudgetRepository(), null, prompts, null, null, null, limit, 10);
     }
 
     private static final class BudgetRepository implements MarketInformationAiTaskRepository {

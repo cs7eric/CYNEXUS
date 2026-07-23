@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.application.service;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisKlineInputPort;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisKlineDomainPolicy;
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseOverviewHistoryDTO;
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ApplicationAnalysisKlineInputBuilder {
+public class ApplicationAnalysisKlineInputBuilder implements ApplicationAnalysisKlineInputPort {
 
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private final MarketDataGateway marketDataGateway;
@@ -27,6 +28,7 @@ public class ApplicationAnalysisKlineInputBuilder {
         this.marketDataGateway = marketDataGateway;
     }
 
+    @Override
     public Map<String, Object> buildRecent30Input(ApplicationAnalysisPageBO.Target target) {
         String targetType = defaultString(target.getTargetType(), "stock");
         String symbol = defaultString(target.getSymbol(), "");

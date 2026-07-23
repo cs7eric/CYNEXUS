@@ -18,6 +18,14 @@ import cn.cccs7.cynexus.ai.domain.service.configuration.AiConfigurationDomainSer
 import cn.cccs7.cynexus.ai.domain.service.configuration.AiConfigurationDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.service.model.AiModelQueryDomainService;
 import cn.cccs7.cynexus.ai.domain.service.model.AiModelQueryDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
+import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.service.scenario.ScenarioExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.service.scenario.ScenarioExecutionDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.service.usage.AiUsageQueryDomainService;
+import cn.cccs7.cynexus.ai.domain.service.usage.AiUsageQueryDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
+import cn.cccs7.cynexus.ai.domain.repository.AiUsageObservabilityRepository;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainServiceImpl;
 import org.springframework.context.annotation.Bean;
@@ -32,6 +40,13 @@ public class AiDomainServiceConfig {
     }
 
     @Bean
+    public ModelRouteDomainService modelRouteDomainService(
+            AiModelRepository aiModelRepository,
+            ModelRoutingDomainService modelRoutingDomainService) {
+        return new ModelRouteDomainServiceImpl(aiModelRepository, modelRoutingDomainService);
+    }
+
+    @Bean
     public OutputValidationDomainService outputValidationDomainService() {
         return new OutputValidationDomainServiceImpl();
     }
@@ -39,6 +54,20 @@ public class AiDomainServiceConfig {
     @Bean
     public AiModelQueryDomainService aiModelQueryDomainService(AiModelRepository aiModelRepository) {
         return new AiModelQueryDomainServiceImpl(aiModelRepository);
+    }
+
+    @Bean
+    public AiUsageQueryDomainService aiUsageQueryDomainService(
+            AiUsageObservabilityRepository usageObservabilityRepository,
+            AiProviderRepository providerRepository) {
+        return new AiUsageQueryDomainServiceImpl(usageObservabilityRepository, providerRepository);
+    }
+
+    @Bean
+    public ScenarioExecutionDomainService scenarioExecutionDomainService(
+            ApplicationAnalysisRoutingDomainService routingDomainService,
+            AiPromptRepository promptRepository) {
+        return new ScenarioExecutionDomainServiceImpl(routingDomainService, promptRepository);
     }
 
     @Bean

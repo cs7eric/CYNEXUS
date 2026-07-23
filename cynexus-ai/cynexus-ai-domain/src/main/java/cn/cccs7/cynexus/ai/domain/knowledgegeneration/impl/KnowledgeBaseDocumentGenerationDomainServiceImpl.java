@@ -53,6 +53,19 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
     public KnowledgeBaseDocumentGenerationDomainServiceImpl(AiUsageBindingRepository bindingRepository,
                                                               AiProviderRepository providerRepository,
                                                               AiPromptRepository promptRepository,
+                                                              KnowledgeBaseGenerationFallbackModelPort fallbackModelPort,
+                                                              KnowledgeBaseGenerationRoutingParametersPort routingParametersPort,
+                                                              KnowledgeBaseGenerationCompletionPort completionPort,
+                                                              KnowledgeBaseGenerationOutputParserPort outputParserPort,
+                                                              KnowledgeBaseDocumentDraftPolicy draftPolicy,
+                                                              KnowledgeBaseDocumentGenerationPromptPolicy promptPolicy) {
+        this(bindingRepository, providerRepository, promptRepository, log -> null, fallbackModelPort,
+                routingParametersPort, completionPort, outputParserPort, draftPolicy, promptPolicy);
+    }
+
+    public KnowledgeBaseDocumentGenerationDomainServiceImpl(AiUsageBindingRepository bindingRepository,
+                                                              AiProviderRepository providerRepository,
+                                                              AiPromptRepository promptRepository,
                                                               AiExecutionLogRepository executionLogRepository,
                                                               KnowledgeBaseGenerationFallbackModelPort fallbackModelPort,
                                                               KnowledgeBaseGenerationRoutingParametersPort routingParametersPort,
