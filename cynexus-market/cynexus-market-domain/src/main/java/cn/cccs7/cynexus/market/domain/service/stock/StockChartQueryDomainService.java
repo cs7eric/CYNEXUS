@@ -1,6 +1,8 @@
 package cn.cccs7.cynexus.market.domain.service.stock;
 
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
+import cn.cccs7.cynexus.market.domain.entity.StockDailyFeatureBO;
+import cn.cccs7.cynexus.market.domain.entity.StockIntradayFeatureBO;
 import cn.cccs7.cynexus.market.domain.stock.StockAuctionDomainPolicy;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,6 +26,10 @@ public interface StockChartQueryDomainService {
     StockChartBO.StockSectors stockSectors(String symbol);
 
     StockChartBO.FundFlowSnapshot fundFlow(String symbol);
+
+    StockDailyFeatureBO dailyFeature(String symbol, String tradeDate);
+
+    StockIntradayFeatureBO intradayFeature(String symbol, String tradeDate);
 
     StockChartBO.SectorStocks sectorStocks(String sectorId, Integer categoryRaw,
                                            String topicId, String name, int limit);

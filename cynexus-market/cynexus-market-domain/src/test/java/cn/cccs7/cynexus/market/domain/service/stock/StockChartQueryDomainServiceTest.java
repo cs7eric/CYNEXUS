@@ -1,6 +1,8 @@
 package cn.cccs7.cynexus.market.domain.service.stock;
 
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
+import cn.cccs7.cynexus.market.domain.entity.StockDailyFeatureBO;
+import cn.cccs7.cynexus.market.domain.entity.StockIntradayFeatureBO;
 import cn.cccs7.cynexus.market.domain.repository.StockChartQueryRepository;
 import cn.cccs7.cynexus.market.domain.service.stock.impl.StockChartQueryDomainServiceImpl;
 import cn.cccs7.cynexus.market.domain.stock.impl.StockChartDomainServiceImpl;
@@ -84,6 +86,34 @@ class StockChartQueryDomainServiceTest {
         assertFalse(result.allPoints().isEmpty());
     }
 
+    @Test
+    void calculatesDailyFeatureFromPersistedBarsInDomain() {
+        FakeRepository repository = new FakeRepository();
+        repository.dailyBars = List.of(
+                bar("2026-06-25", "10", "100", null),
+                bar("2026-06-26", "11", "200", "2.50"));
+        repository.meta = StockChartBO.StockMeta.builder().symbol("600519").name("贵州茅台").build();
+
+        StockDailyFeatureBO result = service(repository).dailyFeature("600519", "2026-06-26");
+
+        assertEquals("贵州茅台", result.getStock().getStockName());
+        assertEquals(new BigDecimal("10.0000"), result.getChangePercent());
+        assertEquals(new BigDecimal("2.0000"), result.getVolumeRatio());
+    }
+
+    @Test
+    void keepsMissingIntradayFeatureAsNoData() {
+        StockIntradayFeatureBO result = service(new FakeRepository()).intradayFeature("600519", "2026-06-26");
+
+        org.junit.jupiter.api.Assertions.assertNull(result);
+    }
+
+    private StockChartBO.Bar bar(String date, String close, String volume, String turnoverRate) {
+        return StockChartBO.Bar.builder().tradeDate(LocalDate.parse(date)).close(new BigDecimal(close))
+                .open(new BigDecimal(close)).high(new BigDecimal(close)).low(new BigDecimal(close))
+                .volume(new BigDecimal(volume)).turnoverRate(turnoverRate == null ? null : new BigDecimal(turnoverRate)).build();
+    }
+
     private StockChartQueryDomainService service(FakeRepository repository) {
         return new StockChartQueryDomainServiceImpl(repository, new StockChartDomainServiceImpl());
     }
@@ -95,6 +125,7 @@ class StockChartQueryDomainServiceTest {
         private Optional<LocalDate> latestMinuteDate = Optional.empty();
         private String minuteTargetType;
         private List<StockChartBO.Bar> minuteBars = List.of();
+        private StockChartBO.StockMeta meta = StockChartBO.StockMeta.builder().build();
         private List<StockChartBO.IntradayPoint> timeshare = List.of();
         private Optional<LocalDate> latestAuctionDate = Optional.empty();
         private List<StockChartBO.AuctionPoint> auctionRows = List.of();
@@ -139,7 +170,7 @@ class StockChartQueryDomainServiceTest {
         }
 
         @Override
-        public StockChartBO.StockMeta stockMeta(String symbol) { return StockChartBO.StockMeta.builder().build(); }
+        public StockChartBO.StockMeta stockMeta(String symbol) { return meta; }
 
         @Override
         public StockChartBO.StockSectors stockSectors(String symbol) { return StockChartBO.StockSectors.builder().build(); }
