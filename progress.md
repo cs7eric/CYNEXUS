@@ -2028,3 +2028,11 @@
 - Each completed slice has a separate commit and focused validation. Maven/UI development versions are synchronized at `1.1.189-SNAPSHOT`.
 - `mvn clean test-compile` and UI `pnpm build` pass after the latest integration. AI focused tests pass; Market focused StockChart/Pulse tests pass. The existing `MarketInformationClustererTest.materialCompanyFactWithFullTextCanBecomeHighValue` remains a known unrelated full-market-suite failure.
 - Remaining DDD work is explicitly limited to the larger AI configuration/knowledge-generation/application-analysis flows, remaining Market application services, and removal of legacy framework dependencies from older Domain implementations. Release image and runtime startup regression remain required before completion.
+
+## 2026-07-23 - AI DDD configuration, generation, and analysis slices
+
+- Committed `ea4bf259`: centralized AI Provider, Prompt, Usage Binding, quota, and Application Analysis configuration validation/reference rules in `AiConfigurationDomainService`; the application CRUD service now only delegates, with focused domain/application tests passing 5/5.
+- Committed `c9f56aed`: moved Knowledge Base document generation routing, prompt fallback, structured-output repair, model fallback, execution-attempt logging data, and truthful failure outcomes behind a domain service and ports; focused domain tests passed 4/4 and no local pseudo-success remains.
+- Committed `809c3f8e`: moved Application Analysis recent-30 model routing, prompt resolution, structured-output validation, snapshot merge, result persistence, and execution logging into a domain service; focused domain tests passed 2/2.
+- Maven/UI versions were advanced together per slice: `1.1.190-SNAPSHOT`, `1.1.191-SNAPSHOT`, and `1.1.192-SNAPSHOT`.
+- `mvn clean test-compile -DskipTests` passed all 41 Maven modules. Release rebuild and runtime startup regression are still pending.

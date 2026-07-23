@@ -2573,3 +2573,15 @@ Status: complete
 Verification: commit `5e1ce89c` added Prometheus exposure and synchronized versions at `1.1.175-SNAPSHOT`; commit `5c437708` added persistence repair, migration registration, and task notification boundary; Provider follow-up commit `5274e2ce` completed streamed usage reporting. Agent task 3/3, persistence 4/4, Provider adapter 7/7, Maven 41/41, UI build, Release health, Prometheus runtime, and Playwright desktop/mobile screenshot evidence passed. Remaining Phase 107 items are real newly-registered non-Market capability discovery, high-concurrency/rate-abuse and multi-instance recovery evidence, secret-scan/corpus automation, and full interactive browser workflow beyond empty-state rendering.
 
 Follow-up evidence: focused reliability tests passed 12/12; two-instance quota reservation and stale lease recovery passed. Dead-letter execution is blocked by the existing `last_error varchar(1000)` width, and the notification lifecycle adapter is not implemented. See `docs/agent-reliability-release-20260722.md`.
+
+## Phase 108 - Remaining AI DDD orchestration slices
+
+Status: complete
+
+- Move AI provider/prompt/usage-binding/application-analysis configuration rules behind a domain service and keep the application adapter as orchestration only.
+- Move Knowledge Base document-generation routing, prompt fallback, structured-output repair, model fallback, and truthful failure state into domain policies and ports.
+- Move Application Analysis recent-30 execution, validation, snapshot merge, persistence, and execution logging into a domain service with application adapters for Provider completion and structured output extraction.
+- Keep domain code independent from Spring, API DTOs, persistence objects, and infrastructure clients; keep each feature in its bounded package.
+- Add focused domain/application tests and synchronize Maven/UI development versions after each functional slice.
+
+Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three slices. Focused AI domain tests passed 10/10, application configuration test passed 1/1, `mvn clean test-compile` passed all 41 modules, and the UI version is synchronized at `1.1.192-SNAPSHOT`. Versioned Release rebuild/runtime verification remains part of the remaining Phase 107 acceptance matrix.
