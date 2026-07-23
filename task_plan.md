@@ -2611,4 +2611,5 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Removed Spring stereotypes from Stock Chart domain implementations and added explicit application-layer bean assembly in `StockChartDomainServiceConfiguration`.
 - Stock Chart domain tests passed 5/5, full Maven package passed all 41 modules at `1.1.196-SNAPSHOT`, and UI `pnpm build` passed at aligned `1.1.197-SNAPSHOT` after the next development version increment.
 - Release `1.1.196-260723-RELEASE` rebuilt through Docker; all six health endpoints returned HTTP 200. Daily and intraday Stock Feature smoke requests for `600519` returned HTTP 200.
+- Release `1.1.197-260723-RELEASE` rebuilt after the explicit Stock Chart bean assembly; all six health endpoints returned HTTP 200, both Stock Feature smoke requests returned HTTP 200, and service logs had no startup failure markers.
 - The remaining Market domain Spring stereotype audit is intentionally open for subsequent feature slices.

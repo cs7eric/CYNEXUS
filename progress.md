@@ -7,6 +7,7 @@
 - Focused Stock Chart domain tests passed 5/5; the aligned UI `pnpm build` passed at `1.1.197-SNAPSHOT`.
 - Release `1.1.196-260723-RELEASE` was built from the complete Maven reactor and versioned Docker images; Core, AI, Market, Gateway, Knowledge Base, and UI health endpoints returned HTTP 200.
 - Release Stock Feature smoke returned HTTP 200 for both daily and intraday endpoints for `600519`; startup logs contained no `APPLICATION FAILED`, missing-bean, or missing-constructor markers.
+- Release `1.1.197-260723-RELEASE` rebuilt again after explicit Stock Chart bean assembly; all six versioned services remained healthy and the Stock Feature smoke repeated successfully against the new image.
 - The broader Market domain stereotype audit remains open and is being handled feature-by-feature.
 
 ## 2026-07-22 - Agent streaming/UI verification follow-up
