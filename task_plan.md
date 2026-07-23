@@ -2641,3 +2641,4 @@ Verification: commits `ea4bf259`, `c9f56aed`, and `809c3f8e` completed the three
 - Routed Sector Rank, Stock Information, A-Stock Skill Data, Data Source Freshness, and Market Overview use cases through dedicated DomainService contracts.
 - Moved limit, symbol/date normalization, missing-input semantics, and freshness status aggregation into DomainService implementations.
 - Focused domain/application tests passed 7/7; Maven/UI development versions are synchronized at `1.1.201-SNAPSHOT`. Full package and Release verification remain pending.
+- Full Maven package passed all 41 modules and UI build passed. Release `1.1.201-260723-RELEASE` rebuilt through Docker; all six health endpoints and the five updated Market read endpoints returned HTTP 200 with `success=true`, with no startup failure markers.
