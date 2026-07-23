@@ -1,11 +1,12 @@
 package cn.cccs7.cynexus.core;
 
+import cn.cccs7.cynexus.common.db.config.CynexusDbAutoConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication(scanBasePackages = CynexusCoreApplication.CORE_COMPONENT_BASE_PACKAGE)
-@Import(CoreSchedulingConfiguration.class)
+@Import({CoreSchedulingConfiguration.class, CynexusDbAutoConfiguration.class})
 public class CynexusCoreApplication {
 
     public static final String CORE_COMPONENT_BASE_PACKAGE = "cn.cccs7.cynexus.core";
