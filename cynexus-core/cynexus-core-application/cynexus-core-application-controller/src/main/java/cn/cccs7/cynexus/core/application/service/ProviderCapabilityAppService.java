@@ -2,7 +2,7 @@ package cn.cccs7.cynexus.core.application.service;
 
 import cn.cccs7.cynexus.core.application.dto.ProviderCapabilityDTO;
 import cn.cccs7.cynexus.core.domain.entity.ProviderCapabilityBO;
-import cn.cccs7.cynexus.core.domain.repository.ProviderCapabilityRepository;
+import cn.cccs7.cynexus.core.domain.service.provider.ProviderCapabilityDomainService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -17,15 +17,15 @@ public class ProviderCapabilityAppService {
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
     };
 
-    private final ProviderCapabilityRepository providerCapabilityRepository;
+    private final ProviderCapabilityDomainService domainService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ProviderCapabilityAppService(ProviderCapabilityRepository providerCapabilityRepository) {
-        this.providerCapabilityRepository = providerCapabilityRepository;
+    public ProviderCapabilityAppService(ProviderCapabilityDomainService domainService) {
+        this.domainService = domainService;
     }
 
     public ProviderCapabilityDTO catalog() {
-        List<ProviderCapabilityBO> capabilities = providerCapabilityRepository.listEnabled();
+        List<ProviderCapabilityBO> capabilities = domainService.listEnabled();
         List<ProviderCapabilityDTO.Item> items = capabilities.stream()
                 .map(this::toItem)
                 .toList();
