@@ -242,7 +242,11 @@ public class MarketInformationClusterer {
             if (fullText) score += 0.6;
             else score -= 0.6;
             score += recencyScore(lastPublishedAt);
-            if (companySpecific && sources.size() == 1) score -= 0.7;
+            // A single-source routine notice should remain conservative, but a full-text
+            // material fact with an explicit materiality signal is already sufficiently
+            // evidenced to avoid that routine-notice discount.
+            if (companySpecific && sources.size() == 1
+                    && !(materialFact && fullText && containsAny(text, MATERIALITY_SIGNAL_KEYWORDS))) score -= 0.7;
             score -= routinePenalty(text, materialFact || policyAction);
             return Math.round(Math.max(0, score) * 100.0) / 100.0;
         }

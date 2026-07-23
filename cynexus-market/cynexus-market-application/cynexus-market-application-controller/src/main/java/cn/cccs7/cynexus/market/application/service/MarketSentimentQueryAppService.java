@@ -451,6 +451,6 @@ public class MarketSentimentQueryAppService {
     }
 
     private int n(Integer value) {
-        return domainService.count(value);
+        return value == null ? 0 : value;
     }
 }
