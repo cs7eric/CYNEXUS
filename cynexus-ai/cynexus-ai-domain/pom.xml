@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-ai</artifactId>
-    <version>1.1.211-SNAPSHOT</version>
+    <version>1.1.238-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-ai-domain</artifactId>
@@ -38,4 +38,16 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>8</source>
+                    <target>8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

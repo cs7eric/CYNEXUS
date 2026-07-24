@@ -178,7 +178,6 @@ export default function AutonomousAgentPage() {
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [workspaceTab, setWorkspaceTab] = useState("history")
   const [timeline, setTimeline] = useState<AgentTimelineEntry[]>([])
-  const [thinkingOpen, setThinkingOpen] = useState(false)
   const historyRequestId = useRef(0)
 
   const displayedConversationMessages = useMemo(
@@ -244,7 +243,6 @@ export default function AutonomousAgentPage() {
     setError(null)
     setActiveRunNo(null)
     setTimeline([])
-    setThinkingOpen(false)
     setRun({ conversationNo, userInput, status: "RUNNING", answer: "" })
     try {
       const controller = new AbortController()
@@ -256,8 +254,7 @@ export default function AutonomousAgentPage() {
         }
         if (event.type === "THINKING") {
           setTimeline((current) => completeThinking(current, event.summary))
-          setThinkingOpen(false)
-        }
+              }
         if (event.type === "TOOL_STEP") {
           setTimeline((current) => appendToolStep(current, {
             stepNo: event.stepNo,
@@ -267,8 +264,7 @@ export default function AutonomousAgentPage() {
           }))
         }
         if (event.type === "TOKEN_DELTA" || event.answer) {
-          setThinkingOpen(false)
-          setTimeline((current) => completeThinking(current))
+                setTimeline((current) => completeThinking(current))
           setRun((current) => ({
             ...(current ?? {}),
             runNo: event.runNo ?? current?.runNo,
@@ -279,14 +275,12 @@ export default function AutonomousAgentPage() {
           }))
         }
         if (event.type === "RUN_COMPLETED") {
-          setThinkingOpen(false)
-          setTimeline((current) => completeThinking(current))
+                setTimeline((current) => completeThinking(current))
         }
       }, controller.signal)
       setRun(nextRun)
       setTimeline(timelineFromSteps(nextRun.steps))
-      setThinkingOpen(false)
-      if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
+        if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
       const message = reason instanceof Error ? reason.message : "Agent run failed"
@@ -329,8 +323,7 @@ export default function AutonomousAgentPage() {
       const nextRun = await getAgentRun(conversation.lastRunNo)
       setRun(nextRun)
       setTimeline(timelineFromSteps(nextRun.steps))
-      setThinkingOpen(false)
-      setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
+        setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
       setWorkspaceOpen(false)
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Unable to reopen conversation")
@@ -556,11 +549,11 @@ export default function AutonomousAgentPage() {
 
         <div className="min-h-0 flex-1">
           <section className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-5">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-40 py-5 md:px-64 lg:px-96">
               <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={48}>
                 <MessageScroller className="min-h-0 flex-1">
-                  <MessageScrollerViewport aria-label="Agent messages">
-                    <MessageScrollerContent className="gap-6 px-1 py-2" aria-busy={loading}>
+                  <MessageScrollerViewport aria-label="Agent messages" className="scrollbar-none">
+                    <MessageScrollerContent className="gap-6 px-12 py-2 md:px-24" aria-busy={loading}>
                       {displayedConversationMessages.map((message, index) => (
                         <MessageScrollerItem key={`${message.sequenceNo ?? index}-${message.role}`} messageId={`transcript-${message.sequenceNo ?? index}`}>
                           <AgentMessageBubble align={message.role === "user" ? "end" : "start"}>
@@ -577,11 +570,7 @@ export default function AutonomousAgentPage() {
                         </MessageScrollerItem>
                         {timeline.length ? (
                           <MessageScrollerItem messageId="agent-activity">
-                            <AgentActivityTimeline
-                              entries={timeline}
-                              thinkingOpen={thinkingOpen}
-                              onThinkingOpenChange={setThinkingOpen}
-                            />
+                            <AgentActivityTimeline entries={timeline} />
                           </MessageScrollerItem>
                         ) : null}
                         {showAssistantBubble ? (
@@ -703,7 +692,7 @@ export default function AutonomousAgentPage() {
                 </MessageScroller>
               </MessageScrollerProvider>
             </div>
-            <div className="p-4 pt-2"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey) return; event.preventDefault(); void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Enter 发送 · Ctrl + Enter 换行</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => { void stopAgent() }} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
+            <div className="px-40 pb-5 pt-2 md:px-64 lg:px-96"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey) return; event.preventDefault(); void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Enter 发送 · Ctrl + Enter 换行</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => { void stopAgent() }} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
           </section>
 
         </div>

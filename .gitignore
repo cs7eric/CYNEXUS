@@ -71,3 +71,43 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+
+
+# --- repo hygiene: never commit agent/session scratch ---
+# root-only scratch scripts, jars, dumps (leading / = repository root)
+/_*
+/.tmp-*
+/*.javap.txt
+/provider-key.txt
+/restore_*.sql
+/replay*.py
+/replay*.json
+/replay*.out
+/replay_pid*.log
+/finance-capture-src.txt
+/check_jar.py
+/build-*.log
+/compile-*.log
+/package-*.log
+/test-ai-*.log
+/ui-build-*.log
+
+# local one-off planning dumps (use .planning/ or docs/ instead)
+/task_plan.md
+/findings.md
+/progress.md
+
+# root var is only for small local runtime samples; ignore generated code dumps
+/var/*.java
+/var/*.py
+/var/tmp_*
+/var/_*
+
+# deploy/local operator scratch
+/deploy/local/_*
+/deploy/local/*.bak*
+/deploy/local/*bak-bringup*
+
+# planning scratch (keep folder docs only)
+.planning/scratch/*
+!.planning/scratch/README.md

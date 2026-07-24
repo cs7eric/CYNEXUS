@@ -119,7 +119,7 @@ class AgentEvaluationDatasetTest {
                 mock(AgentCapabilityRepository.class), providers, bindings);
         var result = new AutonomousAgentAppService(runDomainService, catalog, executor, completion,
                 lease, limiter, circuit, new ObjectMapper(), quota,
-                mock(AgentObservabilityPort.class)).execute(AgentRunRequest.builder().userInput(input).build(),
+                mock(AgentObservabilityPort.class), null, null).execute(AgentRunRequest.builder().userInput(input).build(),
                 AgentIdentity.builder().principalKey("evaluation").tenantKey("evaluation").build(), ignored -> { });
 
         assertEquals("SUCCEEDED", result.getStatus(), evaluationCase.path("id").asText());

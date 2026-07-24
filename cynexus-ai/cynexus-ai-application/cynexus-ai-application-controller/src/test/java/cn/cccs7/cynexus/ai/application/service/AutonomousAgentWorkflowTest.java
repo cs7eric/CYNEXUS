@@ -521,6 +521,6 @@ class AutonomousAgentWorkflowTest {
                 mock(AgentCapabilityRepository.class), providers, bindings);
         return new AutonomousAgentAppService(runDomainService, catalog, executor, completion,
                 lease, rateLimiter, circuitBreaker, objectMapper, quota,
-                mock(AgentObservabilityPort.class));
+                mock(AgentObservabilityPort.class), null, null);
     }
 }

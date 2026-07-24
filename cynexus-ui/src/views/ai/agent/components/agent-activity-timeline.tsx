@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { Check, ChevronDown, ChevronRight, CircleDashed, Wrench } from "lucide-react"
+import { useState } from "react"
+import { Check, ChevronDown, ChevronRight, MinusCircle, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Marker, MarkerContent, MarkerIcon, markerVariants } from "@/components/ui/marker"
@@ -133,7 +133,7 @@ export function appendToolStep(
 
 function toolLabel(entry: Extract<AgentTimelineEntry, { type: "tool" }>) {
   const code = entry.toolCode
-  if (entry.status === "FAILED") return `调用失败 ${code}`
+  if (entry.status === "FAILED") return `未能调用 ${code}`
   if (entry.status === "SKIPPED") return `已跳过 ${code}`
   if (entry.summary?.trim() && entry.summary.trim().length <= 64) return entry.summary.trim()
   return `已调用 ${code}`
@@ -141,13 +141,11 @@ function toolLabel(entry: Extract<AgentTimelineEntry, { type: "tool" }>) {
 
 function ThinkingRow({
   entry,
-  open,
-  onOpenChange,
 }: {
   entry: Extract<AgentTimelineEntry, { type: "thinking" }>
-  open: boolean
-  onOpenChange: (open: boolean) => void
 }) {
+  const [open, setOpen] = useState(false)
+
   if (!entry.done) {
     const line = lastMeaningfulLine(entry.text) || "Thinking…"
     return (
@@ -161,7 +159,7 @@ function ThinkingRow({
   }
 
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange} className="w-full min-w-0">
+    <Collapsible open={open} onOpenChange={setOpen} className="w-full min-w-0">
       <CollapsibleTrigger
         className={cn(markerVariants(), "cursor-pointer text-xs outline-none hover:text-foreground")}
       >
@@ -182,6 +180,7 @@ function ThinkingRow({
 function ToolRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "tool" }> }) {
   const [open, setOpen] = useState(false)
   const failed = entry.status === "FAILED"
+  const skipped = entry.status === "SKIPPED"
   const detail = entry.summary?.trim()
 
   return (
@@ -189,18 +188,26 @@ function ToolRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "tool" 
       <CollapsibleTrigger
         className={cn(
           markerVariants(),
-          "cursor-pointer text-xs outline-none hover:text-foreground",
-          failed && "text-destructive",
+          "cursor-pointer text-xs outline-none",
+          failed ? "text-red-700/75 hover:text-red-800/85 dark:text-red-400/75 dark:hover:text-red-300/85" : "text-muted-foreground hover:text-foreground",
         )}
       >
         <MarkerIcon>
-          {failed ? <CircleDashed className="size-3.5" /> : <Wrench className="size-3.5" />}
+          {failed ? (
+            <span className="flex size-3.5 items-center justify-center text-[13px] font-semibold leading-none text-red-700/70 dark:text-red-400/70" aria-hidden>
+              !
+            </span>
+          ) : skipped ? (
+            <MinusCircle className="size-3.5 text-muted-foreground/80" />
+          ) : (
+            <Wrench className="size-3.5 text-muted-foreground" />
+          )}
         </MarkerIcon>
         <MarkerContent className="line-clamp-1 min-w-0">{toolLabel(entry)}</MarkerContent>
         {detail ? (
-          open ? <ChevronDown className="ml-auto size-3.5 shrink-0" /> : <ChevronRight className="ml-auto size-3.5 shrink-0" />
-        ) : (
-          <Check className="ml-auto size-3.5 shrink-0 opacity-50" />
+          open ? <ChevronDown className="ml-auto size-3.5 shrink-0 opacity-60" /> : <ChevronRight className="ml-auto size-3.5 shrink-0 opacity-60" />
+        ) : failed || skipped ? null : (
+          <Check className="ml-auto size-3.5 shrink-0 opacity-40" />
         )}
       </CollapsibleTrigger>
       {detail ? (
@@ -217,38 +224,17 @@ function ToolRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "tool" 
 
 export function AgentActivityTimeline({
   entries,
-  thinkingOpen,
-  onThinkingOpenChange,
 }: {
   entries: AgentTimelineEntry[]
-  thinkingOpen: boolean
-  onThinkingOpenChange: (open: boolean) => void
 }) {
-  const hasContent = entries.length > 0
-  const openThinkingId = useMemo(() => {
-    // Keep the latest completed thinking collapsible controlled by parent.
-    for (let index = entries.length - 1; index >= 0; index -= 1) {
-      const entry = entries[index]
-      if (entry.type === "thinking" && entry.done) return entry.id
-    }
-    return null
-  }, [entries])
-
-  if (!hasContent) return null
+  if (!entries.length) return null
 
   return (
     <Message>
       <MessageContent className="gap-1.5">
         {entries.map((entry) => {
           if (entry.type === "thinking") {
-            return (
-              <ThinkingRow
-                key={entry.id}
-                entry={entry}
-                open={entry.done ? (entry.id === openThinkingId ? thinkingOpen : false) : false}
-                onOpenChange={entry.id === openThinkingId ? onThinkingOpenChange : () => undefined}
-              />
-            )
+            return <ThinkingRow key={entry.id} entry={entry} />
           }
           return <ToolRow key={entry.id} entry={entry} />
         })}
