@@ -22,6 +22,10 @@ import cn.cccs7.cynexus.common.core.constant.TraceId;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,12 +64,16 @@ public class AutonomousAgentController {
     public SseEmitter stream(@RequestBody AgentRunRequest request, HttpServletRequest httpRequest) {
         AgentIdentity agentIdentity = identity(httpRequest);
         SseEmitter emitter = new SseEmitter(10 * 60 * 1000L);
+        flushConnected(emitter);
+        ScheduledFuture<?> heartbeat = scheduleHeartbeat(emitter);
         CompletableFuture.runAsync(() -> {
             try {
                 agentAppService.stream(request, agentIdentity, event -> send(emitter, event));
                 emitter.complete();
             } catch (RuntimeException exception) {
                 emitter.completeWithError(exception);
+            } finally {
+                heartbeat.cancel(false);
             }
         });
         return emitter;
@@ -79,12 +87,16 @@ public class AutonomousAgentController {
         AgentIdentity agentIdentity = identity(httpRequest);
         int cursor = resolveEventCursor(afterEventNo, lastEventId);
         SseEmitter emitter = new SseEmitter(10 * 60 * 1000L);
+        flushConnected(emitter);
+        ScheduledFuture<?> heartbeat = scheduleHeartbeat(emitter);
         CompletableFuture.runAsync(() -> {
             try {
                 agentAppService.replayStream(agentIdentity, runNo, cursor, event -> send(emitter, event));
                 emitter.complete();
             } catch (RuntimeException exception) {
                 emitter.completeWithError(exception);
+            } finally {
+                heartbeat.cancel(false);
             }
         });
         return emitter;
@@ -285,4 +297,32 @@ public class AutonomousAgentController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, exception.getMessage(), exception);
         }
     }
+
+    private void flushConnected(SseEmitter emitter) {
+        try {
+            emitter.send(SseEmitter.event().comment("connected"));
+        } catch (Exception ignored) {
+            // Client may already be gone; the async worker will complete with error later.
+        }
+    }
+
+    private java.util.concurrent.ScheduledFuture<?> scheduleHeartbeat(SseEmitter emitter) {
+        java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "agent-sse-heartbeat");
+            thread.setDaemon(true);
+            return thread;
+        });
+        java.util.concurrent.ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
+            try {
+                emitter.send(SseEmitter.event().comment("heartbeat"));
+            } catch (Exception exception) {
+                scheduler.shutdownNow();
+            }
+        }, 15, 15, java.util.concurrent.TimeUnit.SECONDS);
+        emitter.onCompletion(scheduler::shutdownNow);
+        emitter.onTimeout(scheduler::shutdownNow);
+        emitter.onError(error -> scheduler.shutdownNow());
+        return future;
+    }
+
 }

@@ -38,6 +38,7 @@ interface WorkspaceShellProps {
    */
   fullBleed?: boolean
   contentScrollable?: boolean
+  headerActions?: ReactNode
   children: ReactNode
 }
 
@@ -101,6 +102,7 @@ export function WorkspaceShell({
   sectionUrl: sectionUrlProp,
   fullBleed = false,
   contentScrollable = true,
+  headerActions,
   children,
 }: WorkspaceShellProps) {
   const location = useLocation()
@@ -155,6 +157,7 @@ export function WorkspaceShell({
             </Breadcrumb>
           </div>
           <div className="ml-auto flex items-center gap-2 px-4">
+            {headerActions}
             <WorkspaceChat />
             <GlobalCommandTrigger />
           </div>

@@ -18,6 +18,12 @@ public interface AiCompletionGateway {
 
     default AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
                                                String capability, Consumer<String> textDeltaConsumer) {
+        return streamAgent(model, request, capability, textDeltaConsumer, null);
+    }
+
+    default AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
+                                               String capability, Consumer<String> textDeltaConsumer,
+                                               Consumer<String> thinkingDeltaConsumer) {
         return completeAgent(model, request, capability);
     }
 }

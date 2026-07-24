@@ -3,13 +3,14 @@ package cn.cccs7.cynexus.ai.domain.service.agent.execution;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCallAdmission;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Agent execution invariants shared by the application adapter and turn service. */
 public class AgentExecutionDomainService {
 
     private final AgentExecutionLimits limits;
@@ -48,22 +49,56 @@ public class AgentExecutionDomainService {
         }
     }
 
-    public void validateToolCalls(List<AgentModelToolCall> calls, int existingCount) {
-        if (calls == null || calls.isEmpty()) return;
-        if (existingCount < 0 || calls.size() > limits.getMaxToolCalls() - existingCount) {
-            throw new IllegalStateException("The Agent exceeded the total tool call limit");
+    /**
+     * Soft tool budget admission: never hard-fails on count.
+     * Accepts as many unique tool calls as remaining budget allows; the rest are rejected so the
+     * runtime can return synthetic outputs and force a final answer.
+     */
+    public AgentToolCallAdmission admitToolCalls(List<AgentModelToolCall> calls, int existingCount, int budget) {
+        if (calls == null || calls.isEmpty()) {
+            int remaining = Math.max(0, budget - Math.max(0, existingCount));
+            return AgentToolCallAdmission.builder()
+                    .accepted(List.of())
+                    .rejected(List.of())
+                    .budgetExhausted(remaining <= 0)
+                    .remainingBudget(remaining)
+                    .build();
         }
+        int used = Math.max(0, existingCount);
+        int safeBudget = Math.max(0, budget);
+        int remaining = Math.max(0, safeBudget - used);
+        List<AgentModelToolCall> accepted = new ArrayList<>();
+        List<AgentModelToolCall> rejected = new ArrayList<>();
         Set<String> callIds = new HashSet<>();
         for (AgentModelToolCall call : calls) {
-            if (call == null || call.getCallId() == null || !callIds.add(call.getCallId())) {
+            if (call == null || call.getCallId() == null || call.getCallId().isBlank()) {
                 throw new IllegalStateException("The Agent returned duplicate or missing tool call ids");
             }
+            if (!callIds.add(call.getCallId())) {
+                throw new IllegalStateException("The Agent returned duplicate or missing tool call ids");
+            }
+            if (accepted.size() < remaining) accepted.add(call);
+            else rejected.add(call);
+        }
+        int remainingAfter = Math.max(0, remaining - accepted.size());
+        return AgentToolCallAdmission.builder()
+                .accepted(List.copyOf(accepted))
+                .rejected(List.copyOf(rejected))
+                .budgetExhausted(remainingAfter <= 0)
+                .remainingBudget(remainingAfter)
+                .build();
+    }
+
+    /** @deprecated Prefer {@link #admitToolCalls(List, int, int)} soft budget path. */
+    public void validateToolCalls(List<AgentModelToolCall> calls, int existingCount) {
+        AgentToolCallAdmission admission = admitToolCalls(calls, existingCount, limits.getMaxToolCalls());
+        if (calls != null && !calls.isEmpty() && admission.getAccepted().size() < calls.size()) {
+            throw new IllegalStateException("The Agent exceeded the total tool call limit");
         }
     }
 
     public int incrementToolCallCount(AgentRunBO run) {
         int next = run.getToolCallCount() == null ? 1 : run.getToolCallCount() + 1;
-        if (next > limits.getMaxToolCalls()) throw new IllegalStateException("The Agent exceeded the tool call limit");
         run.setToolCallCount(next);
         return next;
     }

@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.ArrayList;
+import java.util.Map;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -126,6 +128,43 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(tool.path("name").asText()).isEqualTo("cynexus_tool_6d61726b65742e6f76657276696577");
         assertThat(tool.path("parameters").path("type").asText()).isEqualTo("object");
         assertThat(tool.path("function").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void responsesToolContinuationIncludesItemReferenceMatchingCallId() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
+                {"output":[{"type":"message","content":[{"type":"output_text","text":"done"}]}],"usage":{"input_tokens":4,"output_tokens":1,"total_tokens":5}}
+                """);
+
+        AgentModelTurnRequest continuation = AgentModelTurnRequest.builder()
+                .systemPrompt("Use tools when needed.")
+                .messages(List.of(
+                        AgentModelMessage.builder().role("user").content("大盘怎么样？").build(),
+                        AgentModelMessage.builder().role("assistant").content("")
+                                .toolCalls(List.of(AgentModelToolCall.builder()
+                                        .callId("call-market-1")
+                                        .toolCode("market.overview")
+                                        .arguments(Map.of("tradeDate", "2026-07-24"))
+                                        .build()))
+                                .build(),
+                        AgentModelMessage.builder().role("tool").toolCallId("call-market-1")
+                                .content("{\"up\":1000,\"down\":2000}").build()
+                ))
+                .tools(List.of(toolDefinition()))
+                .build();
+
+        AgentModelTurnResponse response = adapter().completeAgent(model("{\"wire_api\":\"responses\"}"), continuation);
+        assertThat(response.getType()).isEqualTo("FINAL");
+        assertThat(response.getContent()).isEqualTo("done");
+
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        assertThat(payload.path("input").toString())
+                .contains("\"type\":\"function_call\"")
+                .contains("\"call_id\":\"call-market-1\"")
+                .contains("\"id\":\"call-market-1\"")
+                .contains("\"type\":\"function_call_output\"")
+                .contains("\"item_reference\":\"call-market-1\"");
     }
 
     @Test

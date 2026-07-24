@@ -37,6 +37,12 @@ public interface AiModelAdapter {
 
     default AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
                                                Consumer<String> textDeltaConsumer) {
+        return streamAgent(model, request, textDeltaConsumer, null);
+    }
+
+    default AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
+                                               Consumer<String> textDeltaConsumer,
+                                               Consumer<String> thinkingDeltaConsumer) {
         return completeAgent(model, request);
     }
 }

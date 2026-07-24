@@ -1,0 +1,211 @@
+.cynexus-agent-markdown {
+  --font-body: "Montserrat", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  background: transparent;
+  font-family: var(--font-body);
+}
+
+.cynexus-agent-markdown-content {
+  width: 100%;
+  min-height: 0 !important;
+  max-width: none;
+  overflow-x: hidden;
+  padding: 0 !important;
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.cynexus-agent-markdown-content:focus {
+  outline: none;
+}
+
+.cynexus-agent-markdown-content h1 {
+  margin: 0 0 0.75rem;
+  color: var(--foreground);
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.cynexus-agent-markdown-content h2 {
+  margin: 1.1rem 0 0.55rem;
+  color: var(--foreground);
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.cynexus-agent-markdown-content h3 {
+  margin: 0.9rem 0 0.4rem;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.cynexus-agent-markdown-content p,
+.cynexus-agent-markdown-content li {
+  color: var(--foreground);
+}
+
+.cynexus-agent-markdown-content p {
+  margin: 0.55rem 0;
+}
+
+.cynexus-agent-markdown-content > :first-child {
+  margin-top: 0;
+}
+
+.cynexus-agent-markdown-content > :last-child {
+  margin-bottom: 0;
+}
+
+.cynexus-agent-markdown-content ul,
+.cynexus-agent-markdown-content ol {
+  margin: 0.55rem 0;
+  padding-left: 1.25rem;
+}
+
+.cynexus-agent-markdown-content li + li {
+  margin-top: 0.2rem;
+}
+
+.cynexus-agent-markdown-content blockquote {
+  position: relative;
+  margin: 0.75rem 0;
+  border-left: 0;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 70%, var(--background) 30%);
+  padding: 0.5rem 0.9rem 0.5rem 1rem;
+  color: var(--muted-foreground);
+}
+
+.cynexus-agent-markdown-content blockquote::before {
+  position: absolute;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 72%, transparent);
+  content: "";
+}
+
+.cynexus-agent-markdown-content blockquote p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.cynexus-agent-markdown-content code {
+  border-radius: 0.3rem;
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  color: var(--foreground);
+  font-size: 0.85em;
+}
+
+.cynexus-agent-markdown [class*="_codeMirrorWrapper_"] {
+  margin: 0.75rem 0 1rem !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  background: var(--background) !important;
+  box-shadow: none !important;
+}
+
+.cynexus-agent-markdown [class*="_codeMirrorToolbar_"] {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 44%, var(--background) 56%) !important;
+  padding: 0.25rem 0.55rem !important;
+}
+
+.cynexus-agent-markdown [class*="_codeMirrorToolbar_"] button {
+  display: none !important;
+}
+
+.cynexus-agent-markdown .cm-editor {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  padding: 0.65rem 0 !important;
+}
+
+.cynexus-agent-markdown .cm-scroller {
+  font-family: var(--font-body) !important;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.cynexus-agent-markdown .cm-content {
+  padding: 0 0.85rem 0 0.75rem !important;
+}
+
+.cynexus-agent-markdown .cm-gutters {
+  border-right: 1px solid var(--border) !important;
+  background: color-mix(in oklch, var(--muted) 38%, var(--background) 62%) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.cynexus-agent-markdown-content table {
+  width: 100%;
+  margin: 0.75rem 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: hidden;
+  background: var(--background) !important;
+  table-layout: fixed;
+}
+
+.cynexus-agent-markdown-content table [data-tool-cell="true"],
+.cynexus-agent-markdown-content table [class*="_toolCell_"],
+.cynexus-agent-markdown-content table [class*="_tableToolsColumn_"],
+.cynexus-agent-markdown-content table[class*="_tableEditor_"] thead,
+.cynexus-agent-markdown-content table[class*="_tableEditor_"] tfoot {
+  display: none !important;
+}
+
+.cynexus-agent-markdown-content table th,
+.cynexus-agent-markdown-content table td {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 0.35rem 0.65rem !important;
+  text-align: left;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.cynexus-agent-markdown-content table th {
+  background: color-mix(in oklch, var(--muted) 76%, var(--background) 24%) !important;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cynexus-agent-markdown-content table td {
+  color: var(--muted-foreground);
+}
+
+.cynexus-agent-markdown-content table tr:last-child > td,
+.cynexus-agent-markdown-content table tr:last-child > th {
+  border-bottom: 0 !important;
+}
+
+.cynexus-agent-markdown-content table p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.cynexus-agent-markdown-content a {
+  color: color-mix(in oklch, var(--foreground) 20%, #0284c7 80%);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cynexus-agent-markdown-content hr {
+  margin: 0.9rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}

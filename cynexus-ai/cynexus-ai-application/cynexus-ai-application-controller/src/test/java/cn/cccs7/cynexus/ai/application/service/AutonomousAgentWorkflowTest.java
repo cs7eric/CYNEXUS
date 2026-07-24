@@ -21,6 +21,8 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentMessageBO;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunEventBO;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
@@ -473,6 +475,34 @@ class AutonomousAgentWorkflowTest {
         assertNull(AgentSourceUrlPolicy.sanitize("https://untrusted.example/report", Set.of("https://trusted.example")));
         assertEquals("https://trusted.example/report", AgentSourceUrlPolicy.sanitize(
                 "https://trusted.example/report", Set.of("https://trusted.example")));
+    }
+
+
+    @Test
+    void nextPersistedMessageSequenceUsesDbMaxNotCollapsedSize() {
+        List<AgentMessageBO> persisted = List.of(
+                AgentMessageBO.builder().sequenceNo(1).role("user").content("q1").build(),
+                AgentMessageBO.builder().sequenceNo(2).role("assistant").content("").toolCallsJson("[{\"callId\":\"c1\"}]").build(),
+                AgentMessageBO.builder().sequenceNo(3).role("tool").toolCallId("c1").content("{}").build(),
+                AgentMessageBO.builder().sequenceNo(4).role("assistant").content("final answer").build()
+        );
+        assertEquals(4, AutonomousAgentAppService.nextPersistedMessageSequence(persisted));
+
+        List<AgentModelMessage> history = List.of(
+                AgentModelMessage.builder().role("user").content("q1").build(),
+                AgentModelMessage.builder().role("assistant").content("").toolCalls(List.of(
+                        AgentModelToolCall.builder().callId("c1").toolCode("market_snapshot").arguments(Map.of()).build()
+                )).build(),
+                AgentModelMessage.builder().role("tool").toolCallId("c1").toolName("market_snapshot").content("{}").build(),
+                AgentModelMessage.builder().role("assistant").content("final answer").build()
+        );
+        List<AgentModelMessage> collapsed = AutonomousAgentAppService.collapsePersistedHistoryForProvider(history);
+        assertEquals(2, collapsed.size());
+        assertEquals("user", collapsed.get(0).getRole());
+        assertEquals("assistant", collapsed.get(1).getRole());
+        assertTrue(collapsed.get(1).getContent().contains("final answer"));
+        // Follow-up sequence must continue from DB max even though provider history collapsed.
+        assertTrue(AutonomousAgentAppService.nextPersistedMessageSequence(persisted) > collapsed.size());
     }
 
     private AutonomousAgentAppService newService(AgentRunRepository repository,

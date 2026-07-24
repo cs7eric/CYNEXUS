@@ -150,7 +150,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     @Override
     public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
-                                              Consumer<String> textDeltaConsumer) {
+                                              Consumer<String> textDeltaConsumer,
+                                              Consumer<String> thinkingDeltaConsumer) {
         String apiKey = resolveApiKey(model);
         if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
         boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
@@ -162,35 +163,99 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             logProviderFailure("agent stream", model, exception);
             throw new IllegalStateException("Failed to prepare AI provider stream: " + providerCode(), exception);
         }
+        IOException lastTransportFailure = null;
         for (int attempt = 1; attempt <= STREAM_TRANSPORT_ATTEMPTS; attempt++) {
             try {
                 return streamWithApacheHttpClient(resolveEndpoint(model, responsesApi), apiKey, payload,
-                        resolveRequestTimeout(model), responsesApi, request, textDeltaConsumer);
+                        resolveRequestTimeout(model), responsesApi, request, textDeltaConsumer, thinkingDeltaConsumer);
             } catch (IOException exception) {
                 if (isInterruptedFailure(exception)) {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
                 }
-                if (attempt < STREAM_TRANSPORT_ATTEMPTS && isTlsHandshakeFailure(exception)) {
-                    LOGGER.warn("Retrying AI provider stream after TLS handshake failure (attempt {}/{})",
-                            attempt + 1, STREAM_TRANSPORT_ATTEMPTS);
+                lastTransportFailure = exception;
+                if (attempt < STREAM_TRANSPORT_ATTEMPTS && isTransientStreamTransportFailure(exception)) {
+                    LOGGER.warn("Retrying AI provider stream after transport failure (attempt {}/{}): {}",
+                            attempt + 1, STREAM_TRANSPORT_ATTEMPTS, rootMessage(exception));
                     continue;
                 }
-                logProviderFailure("agent stream", model, exception);
-                throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
+                break;
             } catch (UncheckedIOException exception) {
                 if (isInterruptedFailure(exception)) {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException("AI provider stream interrupted: " + providerCode(), exception);
                 }
-                logProviderFailure("agent stream", model, exception);
-                throw new IllegalStateException("Failed to stream AI provider: " + providerCode(), exception);
+                lastTransportFailure = exception.getCause() instanceof IOException io
+                        ? io
+                        : new IOException(exception);
+                break;
             } catch (RuntimeException exception) {
                 logProviderFailure("agent stream", model, exception);
                 throw exception;
             }
         }
+        if (lastTransportFailure != null && isStreamFallbackCandidate(lastTransportFailure)) {
+            LOGGER.warn("Falling back to non-stream agent completion after stream failure for model {} at {}: {}",
+                    model.getModelCode(), resolveEndpoint(model, responsesApi), rootMessage(lastTransportFailure));
+            try {
+                return completeAgent(model, request);
+            } catch (RuntimeException fallbackException) {
+                logProviderFailure("agent stream fallback", model, fallbackException);
+                throw new IllegalStateException(
+                        "Failed to stream AI provider: " + providerCode() + ": " + rootMessage(lastTransportFailure),
+                        lastTransportFailure);
+            }
+        }
+        if (lastTransportFailure != null) {
+            logProviderFailure("agent stream", model, lastTransportFailure);
+            throw new IllegalStateException(
+                    "Failed to stream AI provider: " + providerCode() + ": " + rootMessage(lastTransportFailure),
+                    lastTransportFailure);
+        }
         throw new IllegalStateException("Failed to stream AI provider: " + providerCode());
+    }
+
+
+    static boolean isTransientStreamTransportFailure(Throwable failure) {
+        if (isTlsHandshakeFailure(failure)) return true;
+        Throwable current = failure;
+        while (current != null) {
+            String name = current.getClass().getSimpleName();
+            String message = current.getMessage() == null ? "" : current.getMessage();
+            if ("NoHttpResponseException".equals(name)) return true;
+            if (message.contains("HTTP/1.1 header parser received no bytes")) return true;
+            if (message.contains("Connection reset")) return true;
+            if (message.contains("Broken pipe")) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    static boolean isStreamFallbackCandidate(Throwable failure) {
+        if (isTransientStreamTransportFailure(failure)) return true;
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) return true;
+            String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
+            if (message.contains("read timed out") || message.contains("timeout")
+                    || message.contains("unexpected end of stream")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static String rootMessage(Throwable failure) {
+        String message = failure == null ? "unknown error" : String.valueOf(failure);
+        Throwable current = failure;
+        while (current != null) {
+            if (current.getMessage() != null && !current.getMessage().isBlank()) {
+                message = current.getClass().getSimpleName() + ": " + current.getMessage();
+            }
+            current = current.getCause();
+        }
+        return message;
     }
 
     static boolean isTlsHandshakeFailure(Throwable failure) {
@@ -314,11 +379,18 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), true));
         payload.put("store", !extraBoolean(model, "disable_response_storage", true));
         if (stream) payload.put("stream", true);
+        Map<String, Object> reasoning = new LinkedHashMap<>();
+        String effort = extraString(model, "model_reasoning_effort");
+        if (!effort.isBlank()) reasoning.put("effort", effort);
+        String summary = extraString(model, "reasoning_summary");
+        reasoning.put("summary", summary.isBlank() ? "auto" : summary);
+        payload.put("reasoning", reasoning);
         return objectMapper.writeValueAsString(payload);
     }
 
     private AgentModelTurnResponse readChatStream(Stream<String> lines, AgentModelTurnRequest request,
-                                                   Consumer<String> textDeltaConsumer) {
+                                                   Consumer<String> textDeltaConsumer,
+                                                   Consumer<String> thinkingDeltaConsumer) {
         StringBuilder content = new StringBuilder();
         StringBuilder raw = new StringBuilder();
         Map<String, StreamToolAccumulator> tools = new LinkedHashMap<>();
@@ -339,6 +411,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                     if (!text.isBlank()) {
                         content.append(text);
                         if (textDeltaConsumer != null) textDeltaConsumer.accept(text);
+                    }
+                    String reasoning = textValue(delta.get("reasoning_content"), "");
+                    if (reasoning.isBlank()) reasoning = textValue(delta.get("reasoning"), "");
+                    if (!reasoning.isBlank() && thinkingDeltaConsumer != null) {
+                        thinkingDeltaConsumer.accept(reasoning);
                     }
                     JsonNode toolCalls = delta.get("tool_calls");
                     if (toolCalls != null && toolCalls.isArray()) {
@@ -362,7 +439,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private AgentModelTurnResponse readResponsesStream(Stream<String> lines, AgentModelTurnRequest request,
-                                                        Consumer<String> textDeltaConsumer) {
+                                                        Consumer<String> textDeltaConsumer,
+                                                        Consumer<String> thinkingDeltaConsumer) {
         StringBuilder content = new StringBuilder();
         StringBuilder raw = new StringBuilder();
         Map<String, StreamToolAccumulator> tools = new LinkedHashMap<>();
@@ -388,6 +466,21 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                         String text = textValue(root.get("delta"), "");
                         content.append(text);
                         if (!text.isBlank() && textDeltaConsumer != null) textDeltaConsumer.accept(text);
+                    } else if ("response.reasoning_summary_text.delta".equals(type)
+                            || "response.reasoning_text.delta".equals(type)
+                            || "response.reasoning.delta".equals(type)) {
+                        String thinking = textValue(root.get("delta"), "");
+                        if (thinking.isBlank()) thinking = textValue(root.at("/part/text"), "");
+                        if (!thinking.isBlank() && thinkingDeltaConsumer != null) {
+                            thinkingDeltaConsumer.accept(thinking);
+                        }
+                    } else if ("response.reasoning_summary_part.added".equals(type)
+                            || "response.reasoning_summary_part.done".equals(type)) {
+                        String thinking = textValue(root.at("/part/text"), "");
+                        if (thinking.isBlank()) thinking = textValue(root.get("delta"), "");
+                        if (!thinking.isBlank() && thinkingDeltaConsumer != null) {
+                            thinkingDeltaConsumer.accept(thinking);
+                        }
                     } else if ("response.output_item.added".equals(type)) {
                         JsonNode item = root.get("item");
                         if (item != null && "function_call".equals(textValue(item.get("type"), ""))) {
@@ -762,7 +855,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private AgentModelTurnResponse streamWithApacheHttpClient(URI endpoint, String apiKey, String payload,
                                                                Duration requestTimeout, boolean responsesApi,
                                                                AgentModelTurnRequest request,
-                                                               Consumer<String> textDeltaConsumer) throws IOException {
+                                                               Consumer<String> textDeltaConsumer,
+                                                               Consumer<String> thinkingDeltaConsumer) throws IOException {
         HttpPost post = new HttpPost(endpoint);
         post.setConfig(buildStreamingRequestConfig(requestTimeout));
         post.setHeader("Authorization", "Bearer " + apiKey);
@@ -783,8 +877,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                     response.getEntity().getContent(), StandardCharsets.UTF_8));
                  Stream<String> lines = reader.lines()) {
-                return responsesApi ? readResponsesStream(lines, request, textDeltaConsumer)
-                        : readChatStream(lines, request, textDeltaConsumer);
+                return responsesApi ? readResponsesStream(lines, request, textDeltaConsumer, thinkingDeltaConsumer)
+                        : readChatStream(lines, request, textDeltaConsumer, thinkingDeltaConsumer);
             }
         }
     }

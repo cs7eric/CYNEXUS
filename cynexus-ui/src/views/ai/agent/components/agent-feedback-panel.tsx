@@ -1,39 +1,56 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Check, ThumbsDown, ThumbsUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { fetchAgentFeedback, fetchAgentFeedbackSummary, submitAgentFeedback, type AgentFeedback, type AgentFeedbackSummary } from "@/services/ai/agent"
+import { Input } from "@/components/ui/input"
+import {
+  fetchAgentFeedback,
+  submitAgentFeedback,
+  type AgentFeedback,
+} from "@/services/ai/agent"
+import { cn } from "@/lib/utils"
 
-export function AgentFeedbackPanel({ runNo }: { runNo: string }) {
+export function AgentFeedbackPanel({
+  runNo,
+  actions,
+}: {
+  runNo: string
+  actions?: ReactNode
+}) {
   const [feedback, setFeedback] = useState<AgentFeedback | null>(null)
-  const [summary, setSummary] = useState<AgentFeedbackSummary | null>(null)
   const [reason, setReason] = useState("")
+  const [showReason, setShowReason] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
-    void Promise.all([fetchAgentFeedback(runNo), fetchAgentFeedbackSummary()]).then(([nextFeedback, nextSummary]) => {
-      if (!active) return
-      setFeedback(nextFeedback)
-      setSummary(nextSummary)
-      setReason(nextFeedback?.feedbackReason ?? "")
-    }).catch(() => { /* Feedback is optional and must not block the transcript. */ })
-    return () => { active = false }
+    void fetchAgentFeedback(runNo)
+      .then((nextFeedback) => {
+        if (!active) return
+        setFeedback(nextFeedback)
+        setReason(nextFeedback?.feedbackReason ?? "")
+        setShowReason(Boolean(nextFeedback?.feedbackReason) || Boolean(nextFeedback?.rating && nextFeedback.rating <= 2))
+      })
+      .catch(() => {
+        /* Feedback is optional and must not block the transcript. */
+      })
+    return () => {
+      active = false
+    }
   }, [runNo])
 
-  async function submit(rating: number) {
+  async function submit(rating: number, nextReason = reason) {
     setSaving(true)
     setMessage(null)
     try {
       const next = await submitAgentFeedback(runNo, {
         rating,
-        feedbackReason: reason,
+        feedbackReason: nextReason,
         evaluationLabel: rating >= 4 ? "CORRECT" : rating <= 2 ? "INCORRECT" : "PARTIAL",
       })
       setFeedback(next)
-      setSummary(await fetchAgentFeedbackSummary())
-      setMessage("Feedback recorded")
+      setMessage("Saved")
+      setShowReason(rating <= 2 || Boolean(nextReason.trim()))
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : "Unable to record feedback")
     } finally {
@@ -41,5 +58,80 @@ export function AgentFeedbackPanel({ runNo }: { runNo: string }) {
     }
   }
 
-  return <div className="mt-5 border-t border-border/70 pt-4"><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Was this answer useful?</span><Button size="icon" variant={feedback?.rating && feedback.rating >= 4 ? "secondary" : "ghost"} className="size-7" aria-label="Helpful answer" onClick={() => void submit(5)} disabled={saving}><ThumbsUp className="size-3.5" /></Button><Button size="icon" variant={feedback?.rating && feedback.rating <= 2 ? "secondary" : "ghost"} className="size-7" aria-label="Unhelpful answer" onClick={() => void submit(1)} disabled={saving}><ThumbsDown className="size-3.5" /></Button>{feedback ? <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><Check className="size-3" /> Saved</span> : null}{message ? <span className="text-xs text-muted-foreground">{message}</span> : null}</div><Textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={120} placeholder="Optional correction reason" className="mt-2 min-h-16 resize-none text-xs" />{summary && summary.total > 0 ? <div className="mt-2 text-[11px] text-muted-foreground">Your feedback: {summary.total} total · {summary.averageRating.toFixed(1)}/5 average · {summary.reviewed} reviewed</div> : null}</div>
+  const helpful = Boolean(feedback?.rating && feedback.rating >= 4)
+  const unhelpful = Boolean(feedback?.rating && feedback.rating <= 2)
+
+  return (
+    <div className="mt-3 w-full min-w-0 space-y-2">
+      <div className="inline-flex max-w-full flex-wrap items-center gap-0.5 p-0">
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn("size-7 rounded-md text-muted-foreground hover:text-foreground", helpful && "text-foreground")}
+          aria-label="Helpful answer"
+          title="Helpful"
+          onClick={() => void submit(5)}
+          disabled={saving}
+        >
+          <ThumbsUp className="size-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn("size-7 rounded-md text-muted-foreground hover:text-foreground", unhelpful && "text-foreground")}
+          aria-label="Unhelpful answer"
+          title="Unhelpful"
+          onClick={() => {
+            setShowReason(true)
+            void submit(1)
+          }}
+          disabled={saving}
+        >
+          <ThumbsDown className="size-3.5" />
+        </Button>
+
+        {actions ? (
+          <>
+            <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />
+            <div className="flex items-center gap-0.5">{actions}</div>
+          </>
+        ) : null}
+
+        {feedback || message ? (
+          <span className="inline-flex items-center gap-1 px-1.5 text-[11px] text-muted-foreground">
+            <Check className="size-3 text-emerald-600" />
+            {message ?? "Saved"}
+          </span>
+        ) : null}
+      </div>
+
+      {showReason ? (
+        <div className="flex max-w-md items-center gap-2 pl-1">
+          <Input
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            maxLength={120}
+            placeholder="What was wrong?"
+            className="h-8 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:border-0 focus-visible:ring-0"
+            autoFocus
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (feedback?.rating) void submit(feedback.rating, reason)
+              else void submit(1, reason)
+            }}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 shrink-0 px-2 text-[11px]"
+            disabled={saving || !reason.trim()}
+            onClick={() => void submit(feedback?.rating ?? 1, reason)}
+          >
+            Save
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
 }

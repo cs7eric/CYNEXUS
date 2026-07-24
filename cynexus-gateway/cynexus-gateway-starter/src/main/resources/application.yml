@@ -31,6 +31,9 @@ spring:
         group: ${NACOS_GROUP:DEFAULT_GROUP}
         file-extension: yml
     gateway:
+      httpclient:
+        connect-timeout: 10000
+        response-timeout: 600s
       server:
         webflux:
           routes:

@@ -81,10 +81,17 @@ public class AiCompletionGatewayImpl implements AiCompletionGateway {
     @Override
     public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request, String capability,
                                               Consumer<String> textDeltaConsumer) {
+        return streamAgent(model, request, capability, textDeltaConsumer, null);
+    }
+
+    @Override
+    public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request, String capability,
+                                              Consumer<String> textDeltaConsumer,
+                                              Consumer<String> thinkingDeltaConsumer) {
         String providerCode = providerCode(model);
         AiModelAdapter adapter = factory.resolve(providerCode);
         if (adapter == null) throw new IllegalStateException("No AI model adapter for provider: " + providerCode);
-        return adapter.streamAgent(model, request, textDeltaConsumer);
+        return adapter.streamAgent(model, request, textDeltaConsumer, thinkingDeltaConsumer);
     }
 
     private String providerCode(AiModelBO model) {
