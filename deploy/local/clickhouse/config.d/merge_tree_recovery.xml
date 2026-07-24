@@ -1,5 +1,6 @@
 <clickhouse>
     <merge_tree>
         <max_suspicious_broken_parts>10000</max_suspicious_broken_parts>
+        <max_suspicious_broken_parts_bytes>17179869184</max_suspicious_broken_parts_bytes>
     </merge_tree>
 </clickhouse>

@@ -2108,3 +2108,35 @@
 - Added `MarketPulseQueryDomainService` as the single domain query entry for overview, history, index-minute, style-sector, constituent, and limit-emotion reads. `MarketPulseQueryAppService` no longer injects either Market repository and now only maps domain results to API DTOs.
 - Added explicit application configuration for the domain service and a focused `MarketPulseQueryDomainServiceTest` regression run passed 4/4. The broader Market domain run still reports the pre-existing `MarketInformationClustererTest.materialCompanyFactWithFullTextCanBecomeHighValue` failure.
 - Maven/UI versions advanced together to `1.1.195-SNAPSHOT`; the targeted Market application package passed, UI build remains green, and Release `1.1.195-260723-RELEASE` rebuilt with all six health endpoints returning HTTP 200. Gateway `GET /api/market/pulse/market-overview-akshare` returned HTTP 200.
+
+## 2026-07-23 - AI remaining application DDD slice
+
+- Routed Application Analysis page, Media Transcription, Market Information AI, Usage, Model Route, Scenario, Agent Write/Feedback, and Agent Run repository access through DomainService contracts.
+- Application services no longer inject domain repositories directly.
+- Focused verification: AI domain 34/34, AI application 55/55; full Maven package 41/41; UI pnpm build passed.
+- Maven/UI versions synchronized to 1.1.206-SNAPSHOT.
+- Commit: 7c6bad11
+- Remaining open item: Core FinanceAiCaptureAppService still injects FinanceRepository; AutonomousAgentAppService still holds substantial execution orchestration that can be refined further.
+- Release 1.1.206-260723-RELEASE verification in progress.
+
+## 2026-07-23 - Session 019f84d9 completion follow-up
+
+### Code complete
+- AI DDD slice committed earlier: `7c6bad11` at `1.1.206-SNAPSHOT`
+- Core Finance AI Capture DDD committed: `175f8fb8` at `1.1.207-SNAPSHOT`
+- Application production services: no remaining direct `Repository` field injection
+- Full Maven package `1.1.207` 41/41 SUCCESS
+
+### Release blocked
+- Docker Engine responds, but Docker Desktop data disk has I/O errors (`dev sde`, containerd `meta.db` and postgres image blob)
+- `cynexus-postgres` stuck unhealthy; cannot remove/recreate container or pull image blobs
+- Agent migration fails with `exec /usr/bin/psql: input/output error`
+- Need Docker Desktop Troubleshoot: Restart, or Clean / Purge data, then recreate `deploy/local` infra and run:
+  `deploy/release/start-release.ps1 -Version 1.1.207-260723-RELEASE`
+
+### Docker recovery complete
+- Docker Desktop image pull/create now works again; PostgreSQL, Redis, Nacos, and ClickHouse local infra containers are running.
+- Release `1.1.207-260723-RELEASE` rebuilt and started from Docker images; Core, AI, Market, Gateway, Knowledge Base, and UI health endpoints returned HTTP 200.
+- Gateway Market smoke `/api/market/pulse/market-overview-akshare` returned HTTP 200, and release logs had no startup failure markers.
+- ClickHouse recovered from the old Docker VHDX into the active named volume; `ch_dwd_kline_1m` reads `3456106922` rows.
+- F-drive space pressure remains dominated by `F:\docker-vol\DockerDesktopWSL\disk\docker_data.vhdx.broken-20260723-194311` at about `351.19 GB`; `F:\dev-repo\mp4-to-word-new\models` was moved to `E:\moved-from-f\mp4-to-word-new\models` with a junction left at the original path.
