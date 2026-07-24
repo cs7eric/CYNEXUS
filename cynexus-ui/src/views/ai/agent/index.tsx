@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { cn } from "@/lib/utils"
-import { AlertCircle, ArrowUp, Check, ChevronDown, ChevronRight, CircleDashed, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
+import { AlertCircle, ArrowUp, Check, CircleDashed, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -10,13 +9,11 @@ import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessage
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
-import { Marker, MarkerContent, MarkerIcon, markerVariants } from "@/components/ui/marker"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Message, MessageContent, MessageFooter, MessageHeader } from "@/components/ui/message"
 import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller"
+import { AgentActivityTimeline, appendThinkingDelta, appendToolStep, completeThinking, timelineFromSteps, type AgentTimelineEntry } from "./components/agent-activity-timeline"
 import { AgentFeedbackPanel } from "./components/agent-feedback-panel"
 import { AgentMarkdown } from "./components/agent-markdown"
 import { AgentWritePanel } from "./components/agent-write-panel"
@@ -115,86 +112,6 @@ function AgentMessageBubble({ align, children, footer }: { align: "start" | "end
   )
 }
 
-function thinkingFromSteps(steps?: AgentRunStep[] | null) {
-  if (!steps?.length) return ""
-  return steps
-    .filter((step) => step.kind === "THINKING")
-    .map((step) => {
-      if (step.outputJson) {
-        try {
-          const parsed = JSON.parse(step.outputJson) as { content?: string }
-          if (parsed?.content) return parsed.content
-        } catch {
-          // fall through
-        }
-      }
-      return step.summary ?? ""
-    })
-    .filter(Boolean)
-    .join("\n\n")
-}
-
-function ThinkingPanel({
-  text,
-  active,
-  open,
-  onOpenChange,
-}: {
-  text: string
-  active?: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  if (!text && !active) return null
-
-  // Streaming status: Codex-style Marker + shimmer, no chrome.
-  if (active) {
-    return (
-      <Message>
-        <MessageContent className="gap-2">
-          <Marker role="status">
-            <MarkerIcon>
-              <Spinner className="size-3.5" />
-            </MarkerIcon>
-            <MarkerContent className="shimmer">Thinking</MarkerContent>
-          </Marker>
-          {text ? (
-            <div className="max-h-64 w-full min-w-0 overflow-auto whitespace-pre-wrap break-words pl-6 text-xs leading-6 text-muted-foreground">
-              {text}
-            </div>
-          ) : null}
-        </MessageContent>
-      </Message>
-    )
-  }
-
-  // Completed thought: collapsible Marker row, still no outer frame.
-  return (
-    <Message>
-      <MessageContent>
-        <Collapsible open={open} onOpenChange={onOpenChange} className="w-full min-w-0">
-          <CollapsibleTrigger
-            className={cn(
-              markerVariants(),
-              "cursor-pointer hover:text-foreground outline-none",
-            )}
-          >
-            <MarkerIcon>
-              {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-            </MarkerIcon>
-            <MarkerContent>Thought</MarkerContent>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0">
-            <div className="mt-2 max-h-64 w-full min-w-0 overflow-auto whitespace-pre-wrap break-words pl-6 text-xs leading-6 text-muted-foreground">
-              {text}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </MessageContent>
-    </Message>
-  )
-}
-
 const TERMINAL_RUN_STATUSES = new Set([
   "SUCCEEDED",
   "FAILED",
@@ -260,8 +177,8 @@ export default function AutonomousAgentPage() {
   const [historyQuery, setHistoryQuery] = useState("")
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [workspaceTab, setWorkspaceTab] = useState("history")
-  const [thinkingText, setThinkingText] = useState("")
-  const [thinkingOpen, setThinkingOpen] = useState(true)
+  const [timeline, setTimeline] = useState<AgentTimelineEntry[]>([])
+  const [thinkingOpen, setThinkingOpen] = useState(false)
   const historyRequestId = useRef(0)
 
   const displayedConversationMessages = useMemo(
@@ -326,8 +243,8 @@ export default function AutonomousAgentPage() {
     setLoading(true)
     setError(null)
     setActiveRunNo(null)
-    setThinkingText("")
-    setThinkingOpen(true)
+    setTimeline([])
+    setThinkingOpen(false)
     setRun({ conversationNo, userInput, status: "RUNNING", answer: "" })
     try {
       const controller = new AbortController()
@@ -335,14 +252,23 @@ export default function AutonomousAgentPage() {
       const nextRun = await runAgentStream({ conversationNo, userInput, workspace: "agent", locale: "zh-CN" }, (event) => {
         if (event.runNo) setActiveRunNo(event.runNo)
         if (event.type === "THINKING_DELTA" && event.delta) {
-          setThinkingText((current) => `${current}${event.delta}`)
-          setThinkingOpen(true)
+          setTimeline((current) => appendThinkingDelta(current, event.delta || ""))
         }
-        if (event.type === "THINKING" && event.summary) {
-          setThinkingText((current) => current || event.summary || "")
+        if (event.type === "THINKING") {
+          setTimeline((current) => completeThinking(current, event.summary))
+          setThinkingOpen(false)
+        }
+        if (event.type === "TOOL_STEP") {
+          setTimeline((current) => appendToolStep(current, {
+            stepNo: event.stepNo,
+            toolCode: event.toolCode,
+            summary: event.summary,
+            status: event.status,
+          }))
         }
         if (event.type === "TOKEN_DELTA" || event.answer) {
-          if (event.type === "TOKEN_DELTA" || event.answer) setThinkingOpen(false)
+          setThinkingOpen(false)
+          setTimeline((current) => completeThinking(current))
           setRun((current) => ({
             ...(current ?? {}),
             runNo: event.runNo ?? current?.runNo,
@@ -354,11 +280,11 @@ export default function AutonomousAgentPage() {
         }
         if (event.type === "RUN_COMPLETED") {
           setThinkingOpen(false)
+          setTimeline((current) => completeThinking(current))
         }
       }, controller.signal)
       setRun(nextRun)
-      const persistedThinking = thinkingFromSteps(nextRun.steps)
-      if (persistedThinking) setThinkingText(persistedThinking)
+      setTimeline(timelineFromSteps(nextRun.steps))
       setThinkingOpen(false)
       if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
@@ -402,7 +328,7 @@ export default function AutonomousAgentPage() {
     try {
       const nextRun = await getAgentRun(conversation.lastRunNo)
       setRun(nextRun)
-      setThinkingText(thinkingFromSteps(nextRun.steps))
+      setTimeline(timelineFromSteps(nextRun.steps))
       setThinkingOpen(false)
       setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
       setWorkspaceOpen(false)
@@ -649,13 +575,12 @@ export default function AutonomousAgentPage() {
                         <MessageScrollerItem messageId={`run-user-${run.runNo ?? activeRunNo ?? "pending"}`} scrollAnchor>
                           <AgentMessageBubble align="end">{run.userInput}</AgentMessageBubble>
                         </MessageScrollerItem>
-                        {(loading || thinkingText) ? (
-                          <MessageScrollerItem messageId="agent-thinking">
-                            <ThinkingPanel
-                              text={thinkingText}
-                              active={loading && !run.answer}
-                              open={thinkingOpen}
-                              onOpenChange={setThinkingOpen}
+                        {timeline.length ? (
+                          <MessageScrollerItem messageId="agent-activity">
+                            <AgentActivityTimeline
+                              entries={timeline}
+                              thinkingOpen={thinkingOpen}
+                              onThinkingOpenChange={setThinkingOpen}
                             />
                           </MessageScrollerItem>
                         ) : null}
