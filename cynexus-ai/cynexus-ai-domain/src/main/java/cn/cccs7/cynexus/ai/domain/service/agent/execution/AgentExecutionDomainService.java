@@ -1,10 +1,22 @@
 package cn.cccs7.cynexus.ai.domain.service.agent.execution;
 
+import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentClarificationBO;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentBudgetAnswerPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentClarificationPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentCostEstimatePolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentFallbackToolCallPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentFinalAnswerPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentToolBudgetPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentToolOutputPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSensitiveDataPolicy;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCallAdmission;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -89,7 +101,55 @@ public class AgentExecutionDomainService {
                 .build();
     }
 
+    public int toolBudgetFor(String userInput) {
+        return AgentToolBudgetPolicy.budgetFor(userInput, limits);
+    }
+
+    public List<AgentModelToolCall> parseFallbackToolCalls(String content) {
+        return AgentFallbackToolCallPolicy.parse(content, limits.getMaxToolCalls());
+    }
+
+    public AgentClarificationBO parseClarification(String content) {
+        return AgentClarificationPolicy.parse(content);
+    }
+
+    public String clarificationAnswer(AgentClarificationBO clarification) {
+        return AgentClarificationPolicy.toAnswer(clarification);
+    }
+
+    public String normalizeFinalAnswer(String content) {
+        return AgentFinalAnswerPolicy.normalize(content);
+    }
+
+    public String budgetExhaustedAnswer(List<AgentRunStepBO> steps, String modelContent) {
+        return AgentFinalAnswerPolicy.normalize(AgentBudgetAnswerPolicy.compose(steps, modelContent));
+    }
+
+    public BigDecimal estimateCost(AiModelBO model, int inputTokens, int outputTokens) {
+        return AgentCostEstimatePolicy.estimate(model, inputTokens, outputTokens);
+    }
+
+    public AgentToolResult sanitizeToolResult(AgentToolResult result) {
+        if (result == null) {
+            return AgentToolResult.failure("unknown", "The tool returned no result.", "cynexus-ai", "EMPTY_RESULT");
+        }
+        AgentToolResult redacted = AgentToolResult.builder()
+                .toolCode(result.getToolCode())
+                .status(result.getStatus())
+                .outputJson(AgentSensitiveDataPolicy.redactJson(
+                        AgentToolOutputPolicy.normalize(valueOr(result.getOutputJson(), "{}"))))
+                .summary(AgentSensitiveDataPolicy.redactText(result.getSummary()))
+                .source(result.getSource())
+                .sourceUrl(result.getSourceUrl())
+                .dataDate(result.getDataDate())
+                .warnings(result.getWarnings())
+                .citations(result.getCitations())
+                .build();
+        return AgentToolOutputPolicy.bound(redacted, limits.getMaxToolOutputChars());
+    }
+
     /** @deprecated Prefer {@link #admitToolCalls(List, int, int)} soft budget path. */
+    @Deprecated
     public void validateToolCalls(List<AgentModelToolCall> calls, int existingCount) {
         AgentToolCallAdmission admission = admitToolCalls(calls, existingCount, limits.getMaxToolCalls());
         if (calls != null && !calls.isEmpty() && admission.getAccepted().size() < calls.size()) {
@@ -127,5 +187,9 @@ public class AgentExecutionDomainService {
         if (warning.contains("unauthorized") || warning.contains("owner") || warning.contains("identity")) return "AUTHORIZATION";
         if (turnService != null && turnService.isTransientToolFailure(result)) return "UPSTREAM";
         return "TOOL";
+    }
+
+    private String valueOr(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }

@@ -15,14 +15,14 @@ public class MarketSectorRankAgentToolHandler extends AbstractMarketAgentToolHan
             .code("market.sector_rank")
             .name("Sector ranking")
             .module("market")
-            .description("Read leading and lagging sector rankings for a trading date.")
+            .description("Read sector ranking by change percent / net inflow for a trading date. tradeDate is optional.")
             .inputSchemaJson(MarketAgentToolSchemas.SECTOR_RANK)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
-            .sourceUrl("/stock-overview/market")
+            .sourceUrl("/api/market/sectors/rank")
             .build();
 
     public MarketSectorRankAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {
@@ -36,10 +36,13 @@ public class MarketSectorRankAgentToolHandler extends AbstractMarketAgentToolHan
 
     @Override
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
-        String tradeDate = dateArgument(call, context);
-        Object value = marketDataGateway().getSectorRank(tradeDate.isBlank() ? null : tradeDate,
-                integerArgument(call, "topN", 10));
-        return value == null ? empty(DEFINITION, "No sector ranking was available.")
-                : success(DEFINITION, value, "Read sector ranking and direction data.");
+        String preferred = resolvedTradeDate(call, context);
+        int topN = integerArgument(call, "topN", 10);
+        return loadByTradeDate(
+                DEFINITION,
+                preferred,
+                tradeDate -> marketDataGateway().getSectorRank(tradeDate, topN),
+                tradeDate -> "Read top " + topN + " sector ranks for " + tradeDate + ".",
+                "No sector ranking was available near " + preferred + ".");
     }
 }

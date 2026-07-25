@@ -5,6 +5,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
+import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
 import cn.cccs7.cynexus.ai.domain.port.marketinformation.MarketInformationAiCompletionPort;
@@ -296,10 +297,12 @@ public class MarketInformationAiDomainService {
     public AiModelBO model(AiProviderBO provider, String modelName) {
         String adapterCode = analysisPolicy.normalize(provider.getProviderType(), provider.getCode());
         String providerIdentity = analysisPolicy.normalize(provider.getCode(), adapterCode);
+        AiProviderModelPricingPolicy.ModelPricing pricing = AiProviderModelPricingPolicy.find(provider, modelName).orElse(null);
         return AiModelBO.builder().modelCode(modelName).modelName(modelName).providerCode(adapterCode)
                 .providerIdentity(providerIdentity).baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey())
                 .apiKeyEnv(provider.getApiKeyEnv()).extra(provider.getExtra())
-                .inputPricePerMillion(provider.getInputPricePerMillion()).outputPricePerMillion(provider.getOutputPricePerMillion())
+                .inputPricePerMillion(pricing == null ? provider.getInputPricePerMillion() : pricing.inputPricePerMillion())
+                .outputPricePerMillion(pricing == null ? provider.getOutputPricePerMillion() : pricing.outputPricePerMillion())
                 .pricingCurrency(provider.getPricingCurrency())
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
     }

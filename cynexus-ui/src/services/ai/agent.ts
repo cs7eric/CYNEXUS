@@ -38,6 +38,7 @@ export interface AgentRun {
   status?: string | null
   userInput?: string | null
   answer?: string | null
+  providerCode?: string | null
   modelCode?: string | null
   planJson?: string | null
   clarificationJson?: string | null
@@ -140,7 +141,9 @@ export async function runAgent(input: {
   conversationNo?: string
   idempotencyKey?: string
   userInput: string
+  preferredProviderCode?: string
   preferredModelCode?: string
+  preferredReasoningEffort?: "low" | "medium" | "high"
   workspace?: string
   locale?: string
   tradeDate?: string
@@ -208,7 +211,7 @@ export async function exportAgentRun(runNo: string, format: "markdown" | "json" 
 }
 
 export async function runAgentStream(
-  input: { conversationNo?: string; idempotencyKey?: string; userInput: string; preferredModelCode?: string; workspace?: string; locale?: string; tradeDate?: string },
+  input: { conversationNo?: string; idempotencyKey?: string; userInput: string; preferredProviderCode?: string; preferredModelCode?: string; preferredReasoningEffort?: "low" | "medium" | "high"; workspace?: string; locale?: string; tradeDate?: string },
   onEvent: (event: AgentStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<AgentRun> {

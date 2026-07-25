@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..")
 $migrationDir = Join-Path $repoRoot "deploy\local\postgres\migrations"
@@ -31,14 +32,19 @@ $migrationFiles = @(
     "20260723_add_ai_agent_dynamic_capabilities.sql",
     "20260722_repair_ai_agent_capability_runtime_state.sql",
     "20260722_harden_ai_agent_owner_constraints.sql",
-    "20260724_seed_autonomous_agent_prompt.sql"
+    "20260724_seed_autonomous_agent_prompt.sql",
+    "20260725_fix_autonomous_agent_markdown_prompt.sql",
+    "20260725_add_ai_agent_provider_selection.sql",
+    "20260725_add_ai_provider_model_configs.sql",
+    "20260725_add_ai_binding_reasoning_effort.sql",
+    "20260725_fix_xhhai_provider_models.sql"
 )
 
 foreach ($file in $migrationFiles) {
     $path = Join-Path $migrationDir $file
     if (-not (Test-Path -LiteralPath $path)) { throw "Missing Agent migration: $file" }
     Write-Host "[cynexus] Applying Agent migration: $file"
-    Get-Content -LiteralPath $path -Raw | docker exec -i $PostgresContainer psql -U $User -d $Database -v ON_ERROR_STOP=1
+    Get-Content -LiteralPath $path -Encoding utf8 -Raw | docker exec -i $PostgresContainer psql -U $User -d $Database -v ON_ERROR_STOP=1
     if ($LASTEXITCODE -ne 0) { throw "Agent migration failed: $file" }
 }
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import {
   CodeMirrorEditor,
   MDXEditor,
@@ -11,7 +12,7 @@ import {
   tablePlugin,
   thematicBreakPlugin,
 } from "@mdxeditor/editor"
-import type { CodeBlockEditorDescriptor } from "@mdxeditor/editor"
+import type { CodeBlockEditorDescriptor, MDXEditorMethods } from "@mdxeditor/editor"
 import "@mdxeditor/editor/style.css"
 import "./agent-markdown.css"
 
@@ -54,11 +55,22 @@ const readonlyPlugins = [
   markdownShortcutPlugin(),
 ]
 
+function normalizeAgentMarkdown(markdown: string) {
+  return markdown.replace(/\r\n?/g, "\n").trim()
+}
+
 export function AgentMarkdown({ markdown, className }: AgentMarkdownProps) {
+  const editorRef = useRef<MDXEditorMethods>(null)
+  const normalizedMarkdown = normalizeAgentMarkdown(markdown)
+
+  useEffect(() => {
+    editorRef.current?.setMarkdown(normalizedMarkdown)
+  }, [normalizedMarkdown])
+
   return (
     <MDXEditor
-      key={markdown}
-      markdown={markdown}
+      ref={editorRef}
+      markdown={normalizedMarkdown}
       readOnly
       plugins={readonlyPlugins}
       className={["cynexus-agent-markdown", className].filter(Boolean).join(" ")}

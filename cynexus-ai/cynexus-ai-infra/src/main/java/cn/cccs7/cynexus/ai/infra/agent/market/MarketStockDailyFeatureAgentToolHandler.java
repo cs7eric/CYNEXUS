@@ -15,14 +15,14 @@ public class MarketStockDailyFeatureAgentToolHandler extends AbstractMarketAgent
             .code("market.stock_daily_feature")
             .name("Stock daily feature")
             .module("market")
-            .description("Read a stock's daily price, valuation and technical feature snapshot.")
+            .description("Read a stock's daily price, valuation and technical feature snapshot. symbol is required; tradeDate is optional.")
             .inputSchemaJson(MarketAgentToolSchemas.STOCK_DAILY)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
-            .sourceUrl("/stock-overview")
+            .sourceUrl("/api/market/stocks/{symbol}/daily-feature")
             .build();
 
     public MarketStockDailyFeatureAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {
@@ -37,9 +37,12 @@ public class MarketStockDailyFeatureAgentToolHandler extends AbstractMarketAgent
     @Override
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
         String symbol = requiredString(call, "symbol");
-        String tradeDate = dateArgument(call, context);
-        Object value = marketDataGateway().getStockDailyFeature(symbol, tradeDate.isBlank() ? null : tradeDate);
-        return value == null ? empty(DEFINITION, "No daily stock feature was available for " + symbol + ".")
-                : success(DEFINITION, value, "Read the daily feature snapshot for " + symbol + ".");
+        String preferred = resolvedTradeDate(call, context);
+        return loadByTradeDate(
+                DEFINITION,
+                preferred,
+                tradeDate -> marketDataGateway().getStockDailyFeature(symbol, tradeDate),
+                tradeDate -> "Read the daily feature snapshot for " + symbol + " on " + tradeDate + ".",
+                "No daily stock feature was available for " + symbol + " near " + preferred + ".");
     }
 }

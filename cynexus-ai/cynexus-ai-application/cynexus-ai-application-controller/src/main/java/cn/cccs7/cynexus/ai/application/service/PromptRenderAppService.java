@@ -1,18 +1,20 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.ai.domain.service.prompt.PromptRenderDomainService;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 
+/** Thin compatibility adapter. Application must not own prompt rendering algorithms. */
 @Service
 public class PromptRenderAppService {
 
+    private final PromptRenderDomainService domainService;
+
+    public PromptRenderAppService(PromptRenderDomainService domainService) {
+        this.domainService = domainService;
+    }
+
     public String render(String template, String userInput, Map<String, Object> variables) {
-        String rendered = template == null ? "" : template;
-        if (variables != null) {
-            for (Map.Entry<String, Object> entry : variables.entrySet()) {
-                rendered = rendered.replace("{{" + entry.getKey() + "}}", String.valueOf(entry.getValue()));
-            }
-        }
-        return rendered + System.lineSeparator() + "User: " + (userInput == null ? "" : userInput);
+        return domainService.render(template, userInput, variables);
     }
 }

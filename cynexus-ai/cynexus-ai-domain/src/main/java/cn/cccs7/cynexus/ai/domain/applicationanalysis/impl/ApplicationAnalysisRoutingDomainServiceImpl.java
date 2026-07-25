@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
+import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.AiModelRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
@@ -87,10 +88,11 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
     private AiModelBO providerModel(AiProviderBO provider, String modelName) {
         String providerCode = normalize(provider.getProviderType()).isBlank()
                 ? normalize(provider.getCode()) : normalize(provider.getProviderType());
+        AiProviderModelPricingPolicy.ModelPricing pricing = AiProviderModelPricingPolicy.find(provider, modelName).orElse(null);
         return AiModelBO.builder().modelCode(modelName).providerCode(providerCode).modelName(modelName)
                 .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
-                .extra(provider.getExtra()).inputPricePerMillion(provider.getInputPricePerMillion())
-                .outputPricePerMillion(provider.getOutputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
+                .extra(provider.getExtra()).inputPricePerMillion(pricing == null ? provider.getInputPricePerMillion() : pricing.inputPricePerMillion())
+                .outputPricePerMillion(pricing == null ? provider.getOutputPricePerMillion() : pricing.outputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
     }
 

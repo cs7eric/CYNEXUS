@@ -21,6 +21,6 @@ public class AiModelQueryAppService implements AiModelQueryUseCase {
 
     @Override
     public List<AiModelDTO> listModels() {
-        return aiModelAssembler.toTargetList(aiModelQueryDomainService.findEnabledModels());
+        return aiModelAssembler.toDTOList(aiModelQueryDomainService.findEnabledModels());
     }
 }

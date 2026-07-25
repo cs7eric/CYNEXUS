@@ -100,7 +100,7 @@ public class ApplicationAnalysisPageAppService {
         return ApplicationAnalysisPageDTO.Target.builder().id(target.getTargetKey()).targetType(defaultString(target.getTargetType(), "stock"))
                 .symbol(defaultString(target.getSymbol(), "")).market(target.getMarket()).name(defaultString(target.getName(), target.getSymbol()))
                 .adjust(defaultString(target.getAdjust(), "qfq")).enabled(target.getEnabled()).intervalMinutes(target.getIntervalMinutes())
-                .tags(readStringList(target.getTagsJson())).lastUpdatedAt(target.getUpdatedAt())
+                .tags(view.tags()).lastUpdatedAt(target.getUpdatedAt())
                 .lastResultPath(view.hasCurrentResult() ? "postgres://cynexus_appl_ai.application_analysis_result_current/" + target.getTargetKey() : null).build();
     }
 
@@ -134,20 +134,10 @@ public class ApplicationAnalysisPageAppService {
     }
 
     private ApplicationAnalysisPageDTO.DailySnapshotDetail toSnapshotDetail(ApplicationAnalysisPageDomainService.SnapshotDetail detail) {
-        return ApplicationAnalysisPageDTO.DailySnapshotDetail.builder().target(toTarget(new ApplicationAnalysisPageDomainService.TargetView(detail.target(), false)))
+        return ApplicationAnalysisPageDTO.DailySnapshotDetail.builder().target(toTarget(new ApplicationAnalysisPageDomainService.TargetView(detail.target(), false, detail.tags())))
                 .date(detail.snapshot().getTradeDate().toString()).updatedAt(detail.snapshot().getUpdatedAt())
                 .shortTermTrendJson(detail.shortTermTrendJson()).currentSituationJson(detail.currentSituationJson()).summaryJson(detail.summaryJson()).build();
     }
 
     private String defaultString(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
-
-    private List<String> readStringList(String json) {
-        try {
-            com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(defaultString(json, "[]"));
-            if (!node.isArray()) return List.of();
-            List<String> values = new java.util.ArrayList<>();
-            node.forEach(item -> { if (item.isTextual() && !item.asText().isBlank()) values.add(item.asText()); });
-            return values;
-        } catch (Exception ignored) { return List.of(); }
-    }
 }

@@ -10,6 +10,7 @@ DO NOT send optional commentary!!!
 - Only one application environment may be online at a time. Starting Dev must stop the Release application stack first; starting Release must stop Dev application processes first. Never stop the shared infrastructure containers during this switch.
 - Dev entrypoint: `deploy/dev/start-dev.ps1` and `deploy/dev/stop-dev.ps1`.
 - Release entrypoint: `deploy/release/start-release.ps1 -Version <version>` and `deploy/release/stop-release.ps1`.
+- After completing a change, restart the affected application with the corresponding Dev or Release entrypoint and verify it; do not rely only on hot reload or compilation results.
 - Every new AI capability must be registered in the AI Provider page's Capability routing list, with its runtime entry, prompt key, group, and description kept synchronized with the backend capability code before the feature is considered complete. Prompt text itself must also be seeded into `ai_prompt` and bound via `ai_usage_bindings.prompt_id` - see **AI Prompt & Capability Management Guide** below.
 
 ## Version Sync Rules
@@ -66,15 +67,109 @@ DO NOT send optional commentary!!!
 - **Secrets:** never write keys to the repo (provider-key.txt, raw API keys, .env values). Use env vars / secret files already ignored by .gitignore.
 - **Before finishing a task:** delete session scratch files; ensure git status does not show root junk (underscore scripts, jars, logs, replay dumps).
 
-## DDD Layering Discipline
+## DDD Layering Discipline (Mandatory)
 
-- `application` is an orchestration boundary only: it accepts requests, invokes domain use cases, coordinates transactions/cross-aggregate calls, and converts DTOs.
-- Business rules must live under the module's `domain` package, including validation, normalization, scoring, routing, parsing, scheduling policy, chunking, and aggregate state transitions.
-- Do not put domain algorithms or business decisions in `application/controller` services. Move them into domain entities, value objects, domain services, or domain-level policies.
-- Domain code must not depend on API DTOs, MVC, persistence PO classes, MyBatis, Feign, Spring AI, or infrastructure clients. Define ports in domain and implement them in `infra`.
-- `infra` owns persistence mappings, external clients, and repository implementations. Controllers must not depend directly on `infra`; the starter assembles application, domain, and infrastructure modules.
-- For existing modules, refactor in this order when touching shared business logic: `knowledgebase`, `market`, `core`, `ai`.
-- `domain/service` must not become a catch-all for unrelated business logic. Organize domain policies, services, implementations, and ports under feature folders such as `domain/applicationanalysis`, `domain/marketinformation`, `domain/scheduler`, `domain/stock`, or `domain/port`.
+These rules are **mandatory** for every change. Violations must be fixed before the change is considered complete.
+
+### Layer responsibilities
+
+| Layer | Owns | Must not own |
+| --- | --- | --- |
+| `api` | Request/Response DTO, Feign contracts | Business rules, repositories |
+| `application` | Orchestration, transaction boundary, DTO <-> domain mapping | Algorithms, repository access, prompt rendering, BO assembly |
+| `domain` | Entities/BO/VO, policies, domain services, ports/gateways | API DTO, Spring MVC, MyBatis PO/mapper, Feign clients |
+| `infra` | Port implementations, persistence, external clients | Business decisions that belong in domain |
+| `starter` | Assembly/boot wiring | Business logic |
+
+### Canonical data flow
+
+```text
+Controller / Request DTO
+  -> AppService (orchestration only)
+    -> DomainService / DomainPolicy (business meaning)
+      -> Domain BO / ValueObject
+    <- DomainService returns BO/VO
+  -> AppService maps BO/VO to Response DTO
+<- Controller returns DTO
+```
+
+- AppService may **see** BO only as the return value of a domain call for DTO mapping.
+- AppService must not construct business BO graphs, keep long-lived BO state, or mutate BO fields with business meaning.
+- Prefer feature-specific domain services over "god" AppServices.
+
+### Forbidden in `application` / AppService
+
+- `import ...repository...` or direct repository/port usage for business resolution
+- Hand-built BO workflows (create/fill/update many BO fields as business steps)
+- Prompt template loading, binding selection, or `{{var}}` rendering
+- Market/finance scoring, ranking, scheduling policy, parsing, normalization, tool-budget decisions
+- Long run-loop business rules (answer normalization, clarification parsing, cost estimation, history collapse, redaction policy)
+- Returning BO from public AppService APIs for **new** features (use DTO). Existing thin CRUD pass-through BO APIs are transitional debt and must not be copied.
+
+### Required in `domain`
+
+- Repository ports and gateway ports
+- Prompt resolution (`ai_prompt` + bindings + fallback)
+- Validation / normalization / scoring / routing / parsing
+- Aggregate state transitions and run lifecycle rules
+- Pure policies under `domain/policy/**` and use-case services under `domain/service/**` or feature folders
+
+### Allowed AppService patterns (good)
+
+- Thin delegate: map request -> call one domain service -> map response DTO  
+  Examples: `AgentFeedbackAppService`, `MediaTranscriptionAiAppService`, `ModelRouteAppService`, `ScenarioExecutionAppService` (after prepare/finalize domain split)
+- DTO mapping from domain BO returned by domain query services  
+  Examples: market query AppServices that only map BO -> page DTO
+
+### Forbidden AppService patterns (bad)
+
+- AppService injects `AiPromptRepository` / any `*Repository` to decide business outcome
+- AppService contains `normalizeFinalAnswer`, `render(template,...)`, MSI/score math, cron policy, clarification JSON parsing
+- AppService builds `AiExecutionBO` / `AgentRunBO` business state without domain service ownership
+- Application package imports infra mapper/PO/Feign implementation types
+
+### Import rules (quick check)
+
+- `application` may import: `api`, `domain` (service/policy/entity/valueobject/port), application assemblers
+- `application` must not import: `infra.*`, MyBatis, Feign clients, Spring AI adapters
+- `domain` may import: domain + module `common` only
+- `domain` must not import: `api`, `application`, `infra`, MVC, MyBatis, Feign, Spring AI
+- `infra` implements domain ports and may use MyBatis/Feign/HTTP clients
+
+### Definition of done for any feature touching services
+
+- [ ] Business rule lives in `domain` (policy or domain service), not AppService
+- [ ] AppService is orchestration + DTO mapping only
+- [ ] No new repository dependency on AppService
+- [ ] No new BO-returning public API unless migrating old CRUD and documented as transitional
+- [ ] Prompt text (if any) follows **AI Prompt & Capability Management Guide**
+- [ ] Maven + UI versions bumped together after functional change
+- [ ] Focused tests cover domain policy/service behavior
+
+### Refactor priority when touching shared logic
+
+1. `ai` agent/scenario/prompt paths  
+2. `core` scheduler / media / finance capture  
+3. `market` query aggregation  
+4. `knowledgebase`
+
+### Reference implementations
+
+- Good domain ownership: `AgentSystemPromptDomainService`, `AgentSystemPromptPolicy`, `ScenarioExecutionDomainService.prepare*/finalize*`, `PromptRenderPolicy`, `AgentFinalAnswerPolicy`, `AgentHistoryCollapsePolicy`
+- Good thin AppService: `AgentFeedbackAppService`, `MediaTranscriptionAiAppService`, `ScenarioExecutionAppService`
+- Do not copy: historical god AppServices (`AutonomousAgentAppService` run loop still being thinned; `SchedulerAppService` orchestration still being moved into `domain/scheduler`)
+
+### BO usage clarification
+
+- **BO is a domain object**, not an application DTO.
+- Domain **returns BO / domain value objects** to Application Service. Application Service maps BO -> Response DTO for controllers/API.
+- Application Service may build a simple BO shell from Request DTO fields only as input to a domain command; it must not decide business meaning while assembling that BO.
+- Application must not:
+  - compute business results itself (score / route / normalize / parse / reconcile / budget / prompt render)
+  - query databases or inject `*Repository` / mappers
+  - keep long-lived BO graphs as working state outside a domain use case
+- Controllers should prefer API DTOs. Historical CRUD that still exposes BO is transitional debt and must not be expanded.
+
 
 ## AI Prompt & Capability Management Guide
 

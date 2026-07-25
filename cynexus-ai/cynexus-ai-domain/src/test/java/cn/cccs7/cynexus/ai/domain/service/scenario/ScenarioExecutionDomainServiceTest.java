@@ -7,6 +7,9 @@ import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
+import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
+import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -22,7 +25,7 @@ class ScenarioExecutionDomainServiceTest {
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build())
                 .build();
         ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
-                new Routing(binding, model), emptyPromptRepository());
+                new Routing(binding, model), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
 
         assertThat(service.routeInformationModel(
                 null, List.of("missing", "stock_information_analysis"), false)).isSameAs(model);
@@ -37,10 +40,14 @@ class ScenarioExecutionDomainServiceTest {
                 .userPromptTemplate("candidate={{candidate_context}}")
                 .build();
         ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
-                new Routing(binding, null), promptRepository(prompt));
+                new Routing(binding, null), promptRepository(prompt), unusedModelRoute(), new OutputValidationDomainServiceImpl());
 
         assertThat(service.resolveVisionPrompt("accounting_receipt_parse", "receipt candidates"))
                 .isEqualTo("system" + System.lineSeparator() + "candidate=receipt candidates");
+    }
+
+    private ModelRouteDomainService unusedModelRoute() {
+        return (scenario, preferredModelCode) -> null;
     }
 
     private AiPromptRepository promptRepository(AiPromptBO prompt) {

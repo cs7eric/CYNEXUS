@@ -10,12 +10,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.function.Function;
 
 abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
 
     protected static final String SOURCE = "Market API";
+    protected static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
+    protected static final int TRADE_DATE_LOOKBACK_DAYS = 12;
 
     private final MarketDataGateway marketDataGateway;
     private final ObjectMapper objectMapper;
@@ -58,15 +63,37 @@ abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
                 ? context.getTradeDate().toString() : value;
     }
 
+    protected String resolvedTradeDate(AgentToolCall call, AgentExecutionContext context) {
+        String value = dateArgument(call, context);
+        if (!value.isBlank()) {
+            return normalizeDate(value, "tradeDate");
+        }
+        return LocalDate.now(MARKET_ZONE).toString();
+    }
+
+    protected LocalDate[] resolveHistoryRange(AgentToolCall call, AgentExecutionContext context) {
+        String endRaw = stringArgument(call, "end");
+        String startRaw = stringArgument(call, "start");
+        LocalDate end = endRaw.isBlank()
+                ? LocalDate.parse(resolvedTradeDate(call, context))
+                : LocalDate.parse(normalizeDate(endRaw, "end"));
+        LocalDate start = startRaw.isBlank() ? end.minusDays(7) : LocalDate.parse(normalizeDate(startRaw, "start"));
+        if (start.isAfter(end)) {
+            LocalDate swap = start;
+            start = end;
+            end = swap;
+        }
+        return new LocalDate[] {start, end};
+    }
+
     protected Integer integerArgument(AgentToolCall call, String name, int fallback) {
         Object value = call == null || call.getArguments() == null ? null : call.getArguments().get(name);
         int result = fallback;
         if (value instanceof Number number) {
             result = number.intValue();
-        }
-        if (value != null) {
+        } else if (value != null) {
             try {
-                result = Integer.parseInt(String.valueOf(value));
+                result = Integer.parseInt(String.valueOf(value).trim());
             } catch (NumberFormatException ignored) {
                 throw new IllegalArgumentException("Argument " + name + " must be an integer");
             }
@@ -75,6 +102,43 @@ abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
             throw new IllegalArgumentException("Argument " + name + " must be between 1 and 50");
         }
         return result;
+    }
+
+    protected <T> AgentToolResult loadByTradeDate(AgentToolDefinition definition,
+                                                  String preferredTradeDate,
+                                                  Function<String, T> loader,
+                                                  Function<String, String> successSummary,
+                                                  String emptyMessage) {
+        LocalDate start;
+        try {
+            start = LocalDate.parse(preferredTradeDate);
+        } catch (DateTimeParseException exception) {
+            return AgentToolResult.failure(definition.getCode(),
+                    "tradeDate must be YYYY-MM-DD, got: " + preferredTradeDate,
+                    definition.getSource(), "ARGUMENT_FORMAT:tradeDate");
+        }
+        String lastError = null;
+        for (int offset = 0; offset <= TRADE_DATE_LOOKBACK_DAYS; offset++) {
+            String tradeDate = start.minusDays(offset).toString();
+            try {
+                T value = loader.apply(tradeDate);
+                if (value != null) {
+                    String summary = successSummary.apply(tradeDate);
+                    if (offset > 0) {
+                        summary = summary + " (fallback from " + preferredTradeDate + ")";
+                    }
+                    return success(definition, value, summary);
+                }
+                lastError = "no data";
+            } catch (RuntimeException exception) {
+                lastError = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+                if (isHardArgumentError(lastError)) {
+                    return AgentToolResult.failure(definition.getCode(), lastError, definition.getSource(), "ARGUMENT_INVALID");
+                }
+            }
+        }
+        String detail = lastError == null || lastError.isBlank() ? emptyMessage : emptyMessage + " Last error: " + lastError;
+        return empty(definition, detail);
     }
 
     protected AgentToolResult success(AgentToolDefinition definition, Object value, String summary) {
@@ -90,6 +154,23 @@ abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
 
     protected AgentToolResult empty(AgentToolDefinition definition, String summary) {
         return AgentToolResult.failure(definition.getCode(), summary, definition.getSource(), "NO_DATA");
+    }
+
+    private boolean isHardArgumentError(String message) {
+        if (message == null) return false;
+        String lower = message.toLowerCase();
+        return lower.contains("required argument")
+                || lower.contains("must be")
+                || lower.contains("invalid symbol")
+                || lower.contains("argument ");
+    }
+
+    private String normalizeDate(String value, String field) {
+        try {
+            return LocalDate.parse(value.trim()).toString();
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(field + " must be YYYY-MM-DD");
+        }
     }
 
     private String firstText(JsonNode root, String... names) {

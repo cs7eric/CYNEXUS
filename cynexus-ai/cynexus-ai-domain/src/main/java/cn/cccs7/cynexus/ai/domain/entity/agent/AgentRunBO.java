@@ -16,6 +16,7 @@ public class AgentRunBO {
     private String status;
     private String userInput;
     private String answer;
+    private String providerCode;
     private String modelCode;
     private String planJson;
     private String contextJson;

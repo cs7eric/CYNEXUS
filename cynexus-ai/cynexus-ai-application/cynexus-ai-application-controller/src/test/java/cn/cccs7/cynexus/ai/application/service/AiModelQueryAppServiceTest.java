@@ -21,12 +21,12 @@ class AiModelQueryAppServiceTest {
         AiModelBO model = AiModelBO.builder().modelCode("gpt").enabled(true).build();
         AiModelDTO dto = AiModelDTO.builder().modelCode("gpt").enabled(true).build();
         when(domainService.findEnabledModels()).thenReturn(List.of(model));
-        when(assembler.toTargetList(List.of(model))).thenReturn(List.of(dto));
+        when(assembler.toDTOList(List.of(model))).thenReturn(List.of(dto));
 
         List<AiModelDTO> result = new AiModelQueryAppService(domainService, assembler).listModels();
 
         assertThat(result).containsExactly(dto);
         verify(domainService).findEnabledModels();
-        verify(assembler).toTargetList(List.of(model));
+        verify(assembler).toDTOList(List.of(model));
     }
 }

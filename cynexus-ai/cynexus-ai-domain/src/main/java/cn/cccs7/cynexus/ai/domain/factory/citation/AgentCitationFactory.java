@@ -2,7 +2,6 @@ package cn.cccs7.cynexus.ai.domain.factory.citation;
 
 import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import cn.cccs7.cynexus.ai.domain.valueobject.citation.AgentCitation;
-import cn.cccs7.cynexus.ai.domain.valueobject.citation.AgentCitation;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

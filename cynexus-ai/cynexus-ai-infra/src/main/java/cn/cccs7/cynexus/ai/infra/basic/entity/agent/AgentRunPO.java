@@ -19,6 +19,7 @@ public class AgentRunPO extends BasePO {
     private String status;
     @TableField("user_input") private String userInput;
     private String answer;
+    @TableField("provider_code") private String providerCode;
     @TableField("model_code") private String modelCode;
     @TableField(typeHandler = JsonbTypeHandler.class) private String plan;
     @TableField(value = "context_json", typeHandler = JsonbTypeHandler.class) private String contextJson;

@@ -15,14 +15,14 @@ public class MarketStockChartKlinesAgentToolHandler extends AbstractMarketAgentT
             .code("market.stock_chart_klines")
             .name("Stock chart K-lines")
             .module("market")
-            .description("Read historical K-line data for a stock, index, sector or ETF.")
+            .description("Read historical K-line bars for a stock/index/sector/ETF. symbol is required.")
             .inputSchemaJson(MarketAgentToolSchemas.KLINES)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)
             .requiresConfirmation(false)
             .freshness("historical chart data")
             .source(SOURCE)
-            .sourceUrl("/stock-overview")
+            .sourceUrl("/api/market/stock-chart/klines")
             .build();
 
     public MarketStockChartKlinesAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {
@@ -38,10 +38,13 @@ public class MarketStockChartKlinesAgentToolHandler extends AbstractMarketAgentT
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
         String symbol = requiredString(call, "symbol");
         String targetType = optionalString(call, "targetType", "stock");
-        String period = optionalString(call, "period", "daily");
-        String adjust = optionalString(call, "adjust", "none");
+        String period = optionalString(call, "period", "day");
+        String adjust = optionalString(call, "adjust", "qfq");
         Object value = marketDataGateway().getStockChartKlines(targetType, symbol, period, adjust);
-        return value == null ? empty(DEFINITION, "No K-line data was available for " + symbol + ".")
-                : success(DEFINITION, value, "Read historical K-line data for " + symbol + ".");
+        if (value == null) {
+            return empty(DEFINITION, "No K-line data was available for symbol=" + symbol
+                    + ", targetType=" + targetType + ", period=" + period + ", adjust=" + adjust + ".");
+        }
+        return success(DEFINITION, value, "Read K-line chart data for " + symbol + ".");
     }
 }

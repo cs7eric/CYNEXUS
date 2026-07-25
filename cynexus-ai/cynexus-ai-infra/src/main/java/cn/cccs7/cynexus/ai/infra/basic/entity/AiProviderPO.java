@@ -30,6 +30,8 @@ public class AiProviderPO extends BasePO {
     private String remark;
     @TableField(typeHandler = JsonbTypeHandler.class)
     private String models;
+    @TableField(typeHandler = JsonbTypeHandler.class)
+    private String modelConfigs;
     @TableField("input_price_per_million")
     private java.math.BigDecimal inputPricePerMillion;
     @TableField("output_price_per_million")

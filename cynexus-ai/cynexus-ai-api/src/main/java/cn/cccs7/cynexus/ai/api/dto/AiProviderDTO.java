@@ -31,6 +31,7 @@ public class AiProviderDTO {
     private OffsetDateTime updatedAt;
     private OffsetDateTime deletedAt;
     private String models;
+    private String modelConfigs;
     private java.math.BigDecimal inputPricePerMillion;
     private java.math.BigDecimal outputPricePerMillion;
     private String pricingCurrency;

@@ -12,12 +12,26 @@ import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisPageRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultCurrentRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisResultHistoryRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisTargetRepository;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolCatalog;
+import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor;
+import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
+import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentTurnDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.prompt.AgentSystemPromptDomainService;
 import cn.cccs7.cynexus.ai.domain.service.configuration.AiConfigurationDomainService;
 import cn.cccs7.cynexus.ai.domain.service.configuration.AiConfigurationDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.service.model.AiModelQueryDomainService;
 import cn.cccs7.cynexus.ai.domain.service.model.AiModelQueryDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.service.prompt.PromptRenderDomainService;
 import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
 import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.service.scenario.ScenarioExecutionDomainService;
@@ -28,6 +42,8 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRouting
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageObservabilityRepository;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -52,6 +68,11 @@ public class AiDomainServiceConfig {
     }
 
     @Bean
+    public PromptRenderDomainService promptRenderDomainService() {
+        return new PromptRenderDomainService();
+    }
+
+    @Bean
     public AiModelQueryDomainService aiModelQueryDomainService(AiModelRepository aiModelRepository) {
         return new AiModelQueryDomainServiceImpl(aiModelRepository);
     }
@@ -64,10 +85,60 @@ public class AiDomainServiceConfig {
     }
 
     @Bean
+    public AgentTurnDomainService agentTurnDomainService(
+            AgentCircuitBreakerPort circuitBreakerPort,
+            AgentObservabilityPort observabilityPort) {
+        return new AgentTurnDomainService(
+                circuitBreakerPort,
+                observabilityPort,
+                AgentExecutionLimits.defaults().getMaxRetryAttempts());
+    }
+
+    @Bean
+    public AgentExecutionDomainService agentExecutionDomainService(AgentTurnDomainService agentTurnDomainService) {
+        return new AgentExecutionDomainService(AgentExecutionLimits.defaults(), agentTurnDomainService);
+    }
+
+    @Bean
+    public AgentRunExecutionDomainService agentRunExecutionDomainService(
+            AgentRunDomainService runDomainService,
+            AgentToolCatalog toolCatalog,
+            AgentToolExecutor toolExecutor,
+            AiCompletionGateway completionGateway,
+            ObjectMapper objectMapper,
+            AgentRuntimeLeasePort runtimeLeasePort,
+            AgentRateLimitPort rateLimitPort,
+            AgentQuotaPort quotaPort,
+            AgentObservabilityPort observabilityPort,
+            AgentExecutionDomainService executionDomainService,
+            AgentTurnDomainService turnDomainService,
+            AgentSystemPromptDomainService systemPromptDomainService) {
+        return new AgentRunExecutionDomainService(
+                runDomainService,
+                toolCatalog,
+                toolExecutor,
+                completionGateway,
+                objectMapper,
+                runtimeLeasePort,
+                rateLimitPort,
+                quotaPort,
+                observabilityPort,
+                executionDomainService,
+                turnDomainService,
+                systemPromptDomainService);
+    }
+
+    @Bean
     public ScenarioExecutionDomainService scenarioExecutionDomainService(
             ApplicationAnalysisRoutingDomainService routingDomainService,
-            AiPromptRepository promptRepository) {
-        return new ScenarioExecutionDomainServiceImpl(routingDomainService, promptRepository);
+            AiPromptRepository promptRepository,
+            ModelRouteDomainService modelRouteDomainService,
+            OutputValidationDomainService outputValidationDomainService) {
+        return new ScenarioExecutionDomainServiceImpl(
+                routingDomainService,
+                promptRepository,
+                modelRouteDomainService,
+                outputValidationDomainService);
     }
 
     @Bean

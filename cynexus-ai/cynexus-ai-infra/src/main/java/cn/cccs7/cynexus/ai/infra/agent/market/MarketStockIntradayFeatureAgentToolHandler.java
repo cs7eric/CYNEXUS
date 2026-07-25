@@ -15,14 +15,14 @@ public class MarketStockIntradayFeatureAgentToolHandler extends AbstractMarketAg
             .code("market.stock_intraday_feature")
             .name("Stock intraday feature")
             .module("market")
-            .description("Read a stock's latest intraday price, volume and market activity features.")
+            .description("Read a stock's latest intraday price, volume and market activity features. symbol is required; tradeDate is optional.")
             .inputSchemaJson(MarketAgentToolSchemas.STOCK_INTRADAY)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)
             .requiresConfirmation(false)
             .freshness("intraday snapshot")
             .source(SOURCE)
-            .sourceUrl("/stock-overview")
+            .sourceUrl("/api/market/stocks/{symbol}/intraday-feature")
             .build();
 
     public MarketStockIntradayFeatureAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {
@@ -37,9 +37,12 @@ public class MarketStockIntradayFeatureAgentToolHandler extends AbstractMarketAg
     @Override
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
         String symbol = requiredString(call, "symbol");
-        String tradeDate = dateArgument(call, context);
-        Object value = marketDataGateway().getStockIntradayFeature(symbol, tradeDate.isBlank() ? null : tradeDate);
-        return value == null ? empty(DEFINITION, "No intraday stock feature was available for " + symbol + ".")
-                : success(DEFINITION, value, "Read the intraday feature snapshot for " + symbol + ".");
+        String preferred = resolvedTradeDate(call, context);
+        return loadByTradeDate(
+                DEFINITION,
+                preferred,
+                tradeDate -> marketDataGateway().getStockIntradayFeature(symbol, tradeDate),
+                tradeDate -> "Read the intraday feature snapshot for " + symbol + " on " + tradeDate + ".",
+                "No intraday stock feature was available for " + symbol + " near " + preferred + ".");
     }
 }

@@ -45,7 +45,14 @@ public interface ApplicationAnalysisPageDomainService {
     record TargetsView(ApplicationAnalysisPageBO.Config config, List<TargetView> targets) {
     }
 
-    record TargetView(ApplicationAnalysisPageBO.Target target, boolean hasCurrentResult) {
+    record TargetView(ApplicationAnalysisPageBO.Target target, boolean hasCurrentResult, List<String> tags) {
+        public TargetView(ApplicationAnalysisPageBO.Target target, boolean hasCurrentResult) {
+            this(target, hasCurrentResult, List.of());
+        }
+
+        public TargetView {
+            tags = tags == null ? List.of() : List.copyOf(tags);
+        }
     }
 
     record ResultView(String targetKey, String analysisInputJson, String analysisResultJson,
@@ -81,7 +88,16 @@ public interface ApplicationAnalysisPageDomainService {
     }
 
     record SnapshotDetail(ApplicationAnalysisPageBO.Target target, ApplicationAnalysisPageBO.DailySnapshot snapshot,
-                          String shortTermTrendJson, String currentSituationJson, String summaryJson) {
+                          String shortTermTrendJson, String currentSituationJson, String summaryJson,
+                          List<String> tags) {
+        public SnapshotDetail(ApplicationAnalysisPageBO.Target target, ApplicationAnalysisPageBO.DailySnapshot snapshot,
+                              String shortTermTrendJson, String currentSituationJson, String summaryJson) {
+            this(target, snapshot, shortTermTrendJson, currentSituationJson, summaryJson, List.of());
+        }
+
+        public SnapshotDetail {
+            tags = tags == null ? List.of() : List.copyOf(tags);
+        }
     }
 
     record FullView(boolean ok, String targetId, List<FullItem> items, String error) {

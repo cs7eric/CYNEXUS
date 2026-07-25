@@ -1,4 +1,4 @@
-package cn.cccs7.cynexus.core.application.service;
+package cn.cccs7.cynexus.core.domain.scheduler;
 
 import java.util.Map;
 import java.util.List;

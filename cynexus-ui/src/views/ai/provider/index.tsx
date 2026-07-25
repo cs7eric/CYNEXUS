@@ -33,13 +33,18 @@ import {
   type AiBindingItem,
   type AiCapability,
   type AiProviderItem,
+  type AiReasoningEffort,
   type AiProviderType,
+  AI_REASONING_EFFORT_PARAM,
+  AI_REASONING_EFFORTS,
+  DEFAULT_AI_REASONING_EFFORT,
   createAiProvider,
   deleteAiProvider,
   fetchAiBindings,
   fetchAiCapabilities,
   fetchAiProviderTypes,
   fetchAiProviders,
+  normalizeAiReasoningEffort,
   updateAiProvider,
   upsertAiBinding,
 } from "@/services/ai/provider"
@@ -67,7 +72,7 @@ type ProviderDraft = {
   provider_type: string
   base_url: string
   default_model: string
-  models: string[]
+  model_configs: ProviderModelDraft[]
   api_key: string
   api_key_env: string
   group_id: string
@@ -78,12 +83,26 @@ type ProviderDraft = {
   input_price_per_million: string
   output_price_per_million: string
   pricing_currency: string
+  extra: Record<string, unknown>
+  reasoning_effort: string
+}
+
+type ProviderModelDraft = {
+  model: string
+  input_price_per_million: string
+  output_price_per_million: string
 }
 
 type BindingDraft = {
   providerId: string
   modelOverride: string
   promptId: string
+  params: Record<string, unknown>
+  reasoningEffort: AiReasoningEffort
+}
+
+function normalizeBindingReasoning(params: Record<string, unknown>): AiReasoningEffort {
+  return normalizeAiReasoningEffort(params[AI_REASONING_EFFORT_PARAM]) || DEFAULT_AI_REASONING_EFFORT
 }
 
 const emptyDraft: ProviderDraft = {
@@ -92,7 +111,7 @@ const emptyDraft: ProviderDraft = {
   provider_type: "openai_compatible",
   base_url: "",
   default_model: "",
-  models: [],
+  model_configs: [],
   api_key: "",
   api_key_env: "",
   group_id: "",
@@ -103,6 +122,32 @@ const emptyDraft: ProviderDraft = {
   input_price_per_million: "0",
   output_price_per_million: "0",
   pricing_currency: "USD",
+  extra: {},
+  reasoning_effort: "",
+}
+
+function modelDrafts(provider: AiProviderItem): ProviderModelDraft[] {
+  const configs = provider.model_configs?.length
+    ? provider.model_configs
+    : (provider.models || []).map((model) => ({
+      model,
+      input_price_per_million: provider.input_price_per_million,
+      output_price_per_million: provider.output_price_per_million,
+    }))
+  return configs.map((config) => ({
+    model: config.model,
+    input_price_per_million: String(config.input_price_per_million ?? 0),
+    output_price_per_million: String(config.output_price_per_million ?? 0),
+  }))
+}
+
+function providerModelNames(provider: AiProviderItem | null): string[] {
+  if (!provider) return []
+  return uniq([
+    ...(provider.model_configs || []).map((item) => item.model),
+    ...(provider.models || []),
+    provider.default_model || "",
+  ])
 }
 
 function draftFromProvider(provider: AiProviderItem): ProviderDraft {
@@ -112,8 +157,10 @@ function draftFromProvider(provider: AiProviderItem): ProviderDraft {
     name: provider.name,
     provider_type: provider.provider_type,
     base_url: provider.base_url,
-    default_model: provider.default_model,
-    models: provider.models || [],
+    default_model: provider.default_model && modelDrafts(provider).some((item) => item.model === provider.default_model)
+      ? provider.default_model
+      : modelDrafts(provider)[0]?.model || "",
+    model_configs: modelDrafts(provider),
     api_key: "",
     api_key_env: provider.api_key_env,
     group_id: provider.group_id,
@@ -124,6 +171,8 @@ function draftFromProvider(provider: AiProviderItem): ProviderDraft {
     input_price_per_million: String(provider.input_price_per_million ?? 0),
     output_price_per_million: String(provider.output_price_per_million ?? 0),
     pricing_currency: provider.pricing_currency || "USD",
+    extra: provider.extra || {},
+    reasoning_effort: typeof provider.extra?.model_reasoning_effort === "string" ? provider.extra.model_reasoning_effort : "",
   }
 }
 
@@ -142,6 +191,7 @@ export default function AiProviderSettingsPage() {
   const [savingBinding, setSavingBinding] = useState("")
   const [error, setError] = useState("")
   const [newModelInput, setNewModelInput] = useState("")
+  const [selectedModelIndex, setSelectedModelIndex] = useState(0)
   const [bindingDrafts, setBindingDrafts] = useState<Record<string, BindingDraft>>({})
   const [bindingSaveTimers, setBindingSaveTimers] = useState<Record<string, number>>({})
   const [savingGovernance, setSavingGovernance] = useState("")
@@ -175,6 +225,8 @@ export default function AiProviderSettingsPage() {
               providerId: binding.provider_id || "",
               modelOverride: binding.model_override || "",
               promptId: binding.prompt_id || "",
+              params: binding.params,
+              reasoningEffort: normalizeBindingReasoning(binding.params),
             },
           ]),
         ),
@@ -217,10 +269,11 @@ export default function AiProviderSettingsPage() {
       const provider = providerById.get(providerId) || null
       const modelOverride = draftRoute?.modelOverride ?? binding?.model_override ?? ""
       const promptId = draftRoute?.promptId ?? binding?.prompt_id ?? ""
+      const reasoningEffort = draftRoute?.reasoningEffort ?? normalizeBindingReasoning(binding?.params || {})
       const effectiveModel = modelOverride || provider?.default_model || ""
       const issues = routeIssues(provider, effectiveModel)
-      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "") || promptId !== (binding?.prompt_id || "")
-      return { capability, binding, providerId, provider, modelOverride, promptId, effectiveModel, issues, dirty }
+      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "") || promptId !== (binding?.prompt_id || "") || reasoningEffort !== normalizeBindingReasoning(binding?.params || {})
+      return { capability, binding, providerId, provider, modelOverride, promptId, reasoningEffort, effectiveModel, issues, dirty }
     }),
     [bindingByCapability, bindingDrafts, capabilities, providerById],
   )
@@ -235,8 +288,26 @@ export default function AiProviderSettingsPage() {
     }
     setSaving(true)
     try {
+      const modelConfigs = draft.model_configs
+        .map((item) => ({
+          model: item.model.trim(),
+          input_price_per_million: Number(item.input_price_per_million || 0),
+          output_price_per_million: Number(item.output_price_per_million || 0),
+        }))
+        .filter((item) => item.model)
+      const extra = { ...draft.extra }
+      if (draft.reasoning_effort.trim()) {
+        extra.model_reasoning_effort = draft.reasoning_effort.trim()
+      } else {
+        delete extra.model_reasoning_effort
+      }
       const payload = {
         ...draft,
+        default_model: draft.default_model && modelConfigs.some((item) => item.model === draft.default_model)
+          ? draft.default_model
+          : modelConfigs[0]?.model || "",
+        model_configs: modelConfigs,
+        extra,
         timeout_seconds: Number(draft.timeout_seconds || 120),
         input_price_per_million: Number(draft.input_price_per_million || 0),
         output_price_per_million: Number(draft.output_price_per_million || 0),
@@ -276,6 +347,7 @@ export default function AiProviderSettingsPage() {
   function openCreateDialog() {
     setDialogMode("create")
     setDraft(emptyDraft)
+    setSelectedModelIndex(0)
     setDialogOpen(true)
   }
 
@@ -283,6 +355,7 @@ export default function AiProviderSettingsPage() {
     setDialogMode("edit")
     setSelectedProviderId(provider.id)
     setDraft(draftFromProvider(provider))
+    setSelectedModelIndex(0)
     setDialogOpen(true)
   }
 
@@ -305,6 +378,8 @@ export default function AiProviderSettingsPage() {
         providerId: binding?.provider_id || "",
         modelOverride: binding?.model_override || "",
         promptId: binding?.prompt_id || "",
+        params: binding?.params || {},
+        reasoningEffort: normalizeBindingReasoning(binding?.params || {}),
       }
       return {
         ...current,
@@ -316,11 +391,11 @@ export default function AiProviderSettingsPage() {
     })
   }
 
-  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string, promptId: string) {
+  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string, promptId: string, reasoningEffort: AiReasoningEffort) {
     const previous = bindingSaveTimers[capability.code]
     if (previous) window.clearTimeout(previous)
     const timer = window.setTimeout(() => {
-      void handleBindingChange(capability, providerId, modelOverride, promptId)
+      void handleBindingChange(capability, providerId, modelOverride, promptId, reasoningEffort)
       setBindingSaveTimers((current) => {
         const next = { ...current }
         delete next[capability.code]
@@ -330,7 +405,8 @@ export default function AiProviderSettingsPage() {
     setBindingSaveTimers((current) => ({ ...current, [capability.code]: timer }))
   }
 
-  async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string, promptId: string) {
+  async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string, promptId: string, reasoningEffort: AiReasoningEffort) {
+    const binding = bindingByCapability.get(capability.code) || null
     const provider = providerById.get(providerId) || null
     const normalizedModel = modelOverride.trim() || provider?.default_model || ""
     const issues = routeIssues(provider, normalizedModel)
@@ -350,6 +426,10 @@ export default function AiProviderSettingsPage() {
         model_override: normalizedModel,
         prompt_id: promptId,
         is_enabled: true,
+        params: {
+          ...(bindingDrafts[capability.code]?.params || binding?.params || {}),
+          [AI_REASONING_EFFORT_PARAM]: reasoningEffort,
+        },
       })
       setBindings((current) => {
         const rest = current.filter((item) => item.capability !== saved.capability)
@@ -361,6 +441,8 @@ export default function AiProviderSettingsPage() {
           providerId: saved.provider_id || "",
           modelOverride: saved.model_override || "",
           promptId: saved.prompt_id || "",
+          params: saved.params,
+          reasoningEffort: normalizeBindingReasoning(saved.params),
         },
       }))
       notification.success({ title: "绑定已保存", description: capability.label })
@@ -384,6 +466,8 @@ export default function AiProviderSettingsPage() {
       setSavingGovernance("")
     }
   }
+
+  const selectedModelConfig = draft.model_configs[selectedModelIndex]
 
   return (
     <WorkspaceShell>
@@ -514,22 +598,22 @@ export default function AiProviderSettingsPage() {
               <Badge variant="secondary">{capabilities.length}</Badge>
             </div>
             <div className="overflow-x-auto rounded-lg bg-white/70">
-              <div className="sticky top-0 z-10 grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="sticky top-0 z-10 grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(130px,0.6fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
                 <div>Capability</div>
                 <div>Group</div>
                 <div>Provider</div>
                 <div>Model</div>
+                <div>Reasoning</div>
                 <div>Prompt</div>
                 <div>Runtime / entry</div>
                 <div className="text-right">Governance</div>
               </div>
               <div className="divide-y divide-border/50">
                 {routeRows.map((row) => {
-                  const { capability, providerId, provider, modelOverride, promptId, issues, dirty } = row
-                  const providerModels = provider?.models || []
-                  const availableModels = uniq([provider?.default_model || "", ...providerModels, modelOverride].filter(Boolean))
+                  const { capability, providerId, provider, modelOverride, promptId, reasoningEffort, issues, dirty } = row
+                  const availableModels = uniq([...providerModelNames(provider), modelOverride].filter(Boolean))
                   return (
-                    <div key={capability.code} className="grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] items-start gap-3 px-3 py-3">
+                    <div key={capability.code} className="grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(130px,0.6fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] items-start gap-3 px-3 py-3">
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate font-medium">{capability.label}</span>
@@ -554,11 +638,11 @@ export default function AiProviderSettingsPage() {
                             const nextProviderId = value === "none" ? "" : value
                             const nextProvider = providerById.get(nextProviderId)
                             const nextModel = nextProvider?.default_model || ""
-                            updateBindingDraft(capability.code, {
+                              updateBindingDraft(capability.code, {
                               providerId: nextProviderId,
                               modelOverride: nextModel,
                             })
-                            scheduleBindingSave(capability, nextProviderId, nextModel, promptId)
+                            scheduleBindingSave(capability, nextProviderId, nextModel, promptId, reasoningEffort)
                           }}
                       >
                         <SelectTrigger>
@@ -576,7 +660,7 @@ export default function AiProviderSettingsPage() {
                           value={modelOverride || provider?.default_model || ""}
                           onValueChange={(value) => {
                             updateBindingDraft(capability.code, { modelOverride: value })
-                            scheduleBindingSave(capability, providerId, value, promptId)
+                            scheduleBindingSave(capability, providerId, value, promptId, reasoningEffort)
                           }}
                         >
                           <SelectTrigger>
@@ -592,16 +676,31 @@ export default function AiProviderSettingsPage() {
                         <Input
                           value={modelOverride}
                           onChange={(event) => updateBindingDraft(capability.code, { modelOverride: event.target.value })}
-                          onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value, promptId)}
+                           onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value, promptId, reasoningEffort)}
                           placeholder={provider?.default_model || "provider default"}
                         />
                       )}
+                      <Select
+                        value={reasoningEffort}
+                        onValueChange={(value) => {
+                          const nextReasoningEffort = value as AiReasoningEffort
+                          updateBindingDraft(capability.code, { reasoningEffort: nextReasoningEffort })
+                          scheduleBindingSave(capability, providerId, modelOverride, promptId, nextReasoningEffort)
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {AI_REASONING_EFFORTS.map((effort) => (
+                            <SelectItem key={effort} value={effort}>{effort}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Select
                         value={promptId || "none"}
                         onValueChange={(value) => {
                           const nextPromptId = value === "none" ? "" : value
                           updateBindingDraft(capability.code, { promptId: nextPromptId })
-                          scheduleBindingSave(capability, providerId, modelOverride, nextPromptId)
+                           scheduleBindingSave(capability, providerId, modelOverride, nextPromptId, reasoningEffort)
                         }}
                       >
                         <SelectTrigger><SelectValue placeholder="No prompt" /></SelectTrigger>
@@ -682,53 +781,184 @@ export default function AiProviderSettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Default model</Label>
-                  <Input value={draft.default_model} onChange={(e) => setDraft({ ...draft, default_model: e.target.value })} placeholder="gpt-4.1-mini" />
+                  <Select
+                    value={draft.default_model || "none"}
+                    onValueChange={(value) => setDraft({ ...draft, default_model: value === "none" ? "" : value })}
+                    disabled={!draft.model_configs.length}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Add a model first" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No default model</SelectItem>
+                      {uniq(draft.model_configs.map((item) => item.model)).filter(Boolean).map((model) => (
+                        <SelectItem key={model} value={model}>{model}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2 xl:col-span-4">
-                  <Label>Models</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {draft.models.map((model) => (
-                      <Badge key={model} variant="secondary" className="gap-1 pr-1">
-                        {model}
-                        <button
-                          type="button"
-                          className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
-                          onClick={() => setDraft({ ...draft, models: draft.models.filter((m) => m !== model) })}
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Models</Label>
+                    <Badge variant="secondary" className="font-mono text-[11px] tabular-nums">
+                      {draft.model_configs.length}
+                    </Badge>
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newModelInput}
-                      onChange={(e) => setNewModelInput(e.target.value)}
-                      placeholder="Add model name"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
+                  <div className="overflow-hidden rounded-lg border bg-card">
+                    <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
+                      <div className="min-w-0 border-b lg:border-b-0 lg:border-r">
+                        <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                          <span>Model</span>
+                          <span>Input / 1M · Output / 1M</span>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto p-1.5">
+                          {draft.model_configs.length ? draft.model_configs.map((config, index) => (
+                            <div key={`${config.model}-${index}`} className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+                                  selectedModelIndex === index ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                                )}
+                                aria-pressed={selectedModelIndex === index}
+                                onClick={() => setSelectedModelIndex(index)}
+                              >
+                                <span className="min-w-0 truncate">{config.model || "Unnamed model"}</span>
+                                <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                                  {config.input_price_per_million} · {config.output_price_per_million}
+                                </span>
+                              </button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="shrink-0"
+                                aria-label={`Remove ${config.model || "model"}`}
+                                title="Remove model"
+                                onClick={() => {
+                                  const nextModels = draft.model_configs.filter((_, itemIndex) => itemIndex !== index)
+                                  setDraft({
+                                    ...draft,
+                                    model_configs: nextModels,
+                                    default_model: config.model === draft.default_model ? nextModels[0]?.model || "" : draft.default_model,
+                                  })
+                                  setSelectedModelIndex((currentIndex) => {
+                                    if (!nextModels.length) return 0
+                                    if (currentIndex > index) return currentIndex - 1
+                                    return Math.min(currentIndex, nextModels.length - 1)
+                                  })
+                                }}
+                              >
+                                <X className="size-4" />
+                              </Button>
+                            </div>
+                          )) : (
+                            <div className="px-2.5 py-5 text-sm text-muted-foreground">No models configured</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0 p-3 sm:p-4">
+                        {selectedModelConfig ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-medium text-muted-foreground">Selected model</p>
+                                <p className="truncate text-sm font-medium">{selectedModelConfig.model || "Unnamed model"}</p>
+                              </div>
+                              {selectedModelConfig.model === draft.default_model ? <Badge variant="secondary">Default</Badge> : null}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`provider-model-${selectedModelIndex}`}>Model</Label>
+                              <Input
+                                id={`provider-model-${selectedModelIndex}`}
+                                className="h-8 min-w-0"
+                                value={selectedModelConfig.model}
+                                onChange={(event) => setDraft((current) => ({
+                                  ...current,
+                                  default_model: current.default_model === selectedModelConfig.model ? event.target.value : current.default_model,
+                                  model_configs: current.model_configs.map((item, itemIndex) => itemIndex === selectedModelIndex ? { ...item, model: event.target.value } : item),
+                                }))}
+                                placeholder="Model name"
+                              />
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label htmlFor={`provider-input-price-${selectedModelIndex}`}>Input / 1M</Label>
+                                <Input
+                                  id={`provider-input-price-${selectedModelIndex}`}
+                                  className="h-8 font-mono tabular-nums"
+                                  inputMode="decimal"
+                                  value={selectedModelConfig.input_price_per_million}
+                                  onChange={(event) => setDraft((current) => ({
+                                    ...current,
+                                    model_configs: current.model_configs.map((item, itemIndex) => itemIndex === selectedModelIndex ? { ...item, input_price_per_million: event.target.value } : item),
+                                  }))}
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`provider-output-price-${selectedModelIndex}`}>Output / 1M</Label>
+                                <Input
+                                  id={`provider-output-price-${selectedModelIndex}`}
+                                  className="h-8 font-mono tabular-nums"
+                                  inputMode="decimal"
+                                  value={selectedModelConfig.output_price_per_million}
+                                  onChange={(event) => setDraft((current) => ({
+                                    ...current,
+                                    model_configs: current.model_configs.map((item, itemIndex) => itemIndex === selectedModelIndex ? { ...item, output_price_per_million: event.target.value } : item),
+                                  }))}
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">Add a model to configure pricing</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 border-t bg-muted/20 p-2">
+                      <Input
+                        className="h-8 min-w-0"
+                        value={newModelInput}
+                        onChange={(e) => setNewModelInput(e.target.value)}
+                        placeholder="Add model name"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            const val = newModelInput.trim()
+                            if (val && !draft.model_configs.some((item) => item.model === val)) {
+                              setDraft({
+                                ...draft,
+                                model_configs: [...draft.model_configs, { model: val, input_price_per_million: draft.input_price_per_million, output_price_per_million: draft.output_price_per_million }],
+                                default_model: draft.default_model || val,
+                              })
+                              setSelectedModelIndex(draft.model_configs.length)
+                            }
+                            setNewModelInput("")
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => {
                           const val = newModelInput.trim()
-                          if (val && !draft.models.includes(val)) {
-                            setDraft({ ...draft, models: [...draft.models, val] })
+                          if (val && !draft.model_configs.some((item) => item.model === val)) {
+                            setDraft({
+                              ...draft,
+                              model_configs: [...draft.model_configs, { model: val, input_price_per_million: draft.input_price_per_million, output_price_per_million: draft.output_price_per_million }],
+                              default_model: draft.default_model || val,
+                            })
+                            setSelectedModelIndex(draft.model_configs.length)
                           }
                           setNewModelInput("")
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const val = newModelInput.trim()
-                        if (val && !draft.models.includes(val)) {
-                          setDraft({ ...draft, models: [...draft.models, val] })
-                        }
-                        setNewModelInput("")
-                      }}
-                    >
-                      Add
-                    </Button>
+                        }}
+                      >
+                        <Plus className="size-4" />
+                        Add
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2 xl:col-span-4">
@@ -767,6 +997,21 @@ export default function AiProviderSettingsPage() {
                 <div className="space-y-2">
                   <Label>Currency</Label>
                   <Input value={draft.pricing_currency} onChange={(e) => setDraft({ ...draft, pricing_currency: e.target.value.toUpperCase() })} placeholder="USD" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Model reasoning effort</Label>
+                  <Select
+                    value={draft.reasoning_effort || "none"}
+                    onValueChange={(value) => setDraft({ ...draft, reasoning_effort: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Provider default" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Provider default</SelectItem>
+                      {(["low", "medium", "high"] as const).map((effort) => (
+                        <SelectItem key={effort} value={effort}>{effort}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -825,7 +1070,7 @@ function routeIssues(provider: AiProviderItem | null, model: string) {
   if (!model.trim()) {
     issues.push({ level: "error", message: "Model is empty." })
   }
-  const knownModels = uniq([provider.default_model || "", ...(provider.models || [])].filter(Boolean))
+  const knownModels = providerModelNames(provider)
   if (model.trim() && knownModels.length > 0 && !knownModels.includes(model.trim())) {
     issues.push({ level: "error", message: "Model is not listed on this provider." })
   }

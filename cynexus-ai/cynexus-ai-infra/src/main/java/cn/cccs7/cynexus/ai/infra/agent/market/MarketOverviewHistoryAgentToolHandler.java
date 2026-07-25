@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,14 +16,14 @@ public class MarketOverviewHistoryAgentToolHandler extends AbstractMarketAgentTo
             .code("market.overview_history")
             .name("Market overview history")
             .module("market")
-            .description("Read market overview snapshots across a requested date range for comparison.")
+            .description("Read market overview snapshots across a date range. start/end are optional and default to the last 7 Asia/Shanghai sessions.")
             .inputSchemaJson(MarketAgentToolSchemas.HISTORY)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
-            .sourceUrl("/stock-overview")
+            .sourceUrl("/api/market/sentiment/market-overview/history")
             .build();
 
     public MarketOverviewHistoryAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {
@@ -36,8 +37,10 @@ public class MarketOverviewHistoryAgentToolHandler extends AbstractMarketAgentTo
 
     @Override
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
-        Object value = marketDataGateway().getMarketOverviewHistory(stringArgument(call, "start"), stringArgument(call, "end"));
-        return value == null ? empty(DEFINITION, "No market overview history was available.")
-                : success(DEFINITION, value, "Read market overview history for comparison.");
+        LocalDate[] range = resolveHistoryRange(call, context);
+        Object value = marketDataGateway().getMarketOverviewHistory(range[0].toString(), range[1].toString());
+        return value == null
+                ? empty(DEFINITION, "No market overview history was available for " + range[0] + ".." + range[1] + ".")
+                : success(DEFINITION, value, "Read market overview history for " + range[0] + ".." + range[1] + ".");
     }
 }

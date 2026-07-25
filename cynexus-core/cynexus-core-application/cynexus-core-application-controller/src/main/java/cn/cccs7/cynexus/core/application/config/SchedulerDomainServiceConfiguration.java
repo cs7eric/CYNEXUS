@@ -1,6 +1,6 @@
 package cn.cccs7.cynexus.core.application.config;
 
-import cn.cccs7.cynexus.core.application.service.SchedulerDataJobKeyResolver;
+import cn.cccs7.cynexus.core.domain.scheduler.SchedulerDataJobKeyResolver;
 import cn.cccs7.cynexus.core.domain.client.MarketAutomationClient;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.gateway.scheduler.SchedulerExecutionCapabilityPort;
@@ -8,8 +8,10 @@ import cn.cccs7.cynexus.core.domain.scheduler.SchedulerDomainService;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerTimingDomainService;
 import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerExecutionDomainService;
 import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerManagementDomainService;
+import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerTriggerDomainService;
 import cn.cccs7.cynexus.core.domain.service.scheduler.impl.SchedulerExecutionDomainServiceImpl;
 import cn.cccs7.cynexus.core.domain.service.scheduler.impl.SchedulerManagementDomainServiceImpl;
+import cn.cccs7.cynexus.core.domain.service.scheduler.impl.SchedulerTriggerDomainServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -45,5 +47,12 @@ public class SchedulerDomainServiceConfiguration {
             MarketAutomationClient marketAutomationClient) {
         return new SchedulerExecutionDomainServiceImpl(
                 schedulerDomainService, timingDomainService, capabilityPort, marketAutomationClient);
+    }
+
+    @Bean
+    public SchedulerTriggerDomainService schedulerTriggerDomainService(
+            SchedulerDomainService schedulerDomainService,
+            SchedulerManagementDomainService schedulerManagementDomainService) {
+        return new SchedulerTriggerDomainServiceImpl(schedulerDomainService, schedulerManagementDomainService);
     }
 }

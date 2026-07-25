@@ -17,14 +17,6 @@ SELECT
 FROM cynexus_appl_ai.ai_providers provider
 WHERE provider.code = 'custom'
   AND provider.deleted_at IS NULL
-ON CONFLICT (capability) DO UPDATE SET
-    label = EXCLUDED.label,
-    provider_id = EXCLUDED.provider_id,
-    model_override = EXCLUDED.model_override,
-    is_enabled = EXCLUDED.is_enabled,
-    params = EXCLUDED.params,
-    remark = EXCLUDED.remark,
-    updated_at = now(),
-    deleted_at = NULL;
+ON CONFLICT (capability) DO NOTHING;
 
 COMMIT;

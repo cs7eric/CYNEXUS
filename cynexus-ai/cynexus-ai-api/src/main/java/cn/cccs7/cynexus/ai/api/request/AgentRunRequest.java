@@ -15,7 +15,9 @@ public class AgentRunRequest {
     private String conversationNo;
     private String idempotencyKey;
     private String userInput;
+    private String preferredProviderCode;
     private String preferredModelCode;
+    private String preferredReasoningEffort;
     private String workspace;
     private String locale;
     private LocalDate tradeDate;

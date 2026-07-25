@@ -190,7 +190,7 @@ public class ApplicationAnalysisPageDomainServiceImpl implements ApplicationAnal
 
     private TargetView targetView(ApplicationAnalysisPageBO.Target target) {
         String targetKey = policy.defaultString(target.getTargetKey(), policy.buildTargetKey(target.getTargetType(), target.getSymbol()));
-        return new TargetView(target, repository.findCurrentResult(targetKey) != null);
+        return new TargetView(target, repository.findCurrentResult(targetKey) != null, policy.readStringList(target.getTagsJson()));
     }
 
     private ApplicationAnalysisPageBO.Target toTarget(TargetInput target) {
@@ -219,7 +219,8 @@ public class ApplicationAnalysisPageDomainServiceImpl implements ApplicationAnal
     private SnapshotDetail snapshotDetail(ApplicationAnalysisPageBO.Target target, ApplicationAnalysisPageBO.DailySnapshot snapshot) {
         JsonNode root = parseJson(snapshot.getPayloadJson());
         return new SnapshotDetail(target, snapshot, childRaw(root, "short_term_trend", JSON_NULL),
-                childRaw(root, "current_situation", JSON_NULL), childRaw(root, "summary", JSON_NULL));
+                childRaw(root, "current_situation", JSON_NULL), childRaw(root, "summary", JSON_NULL),
+                policy.readStringList(target.getTagsJson()));
     }
 
     private String dailyFilename(ApplicationAnalysisPageBO.DailySnapshot snapshot) { return snapshot.getTradeDate() + ".json"; }

@@ -26,7 +26,8 @@ class ApplicationAnalysisPageDomainServiceTest {
 
         assertThat(repository.saved.getFirst().getTargetKey()).isEqualTo("stock-600000");
         assertThat(repository.saved.getFirst().getEnabled()).isTrue();
-        assertThat(service.getTargets().targets()).hasSize(1);
+        assertThat(service.getTargets().targets()).singleElement().satisfies(view ->
+                assertThat(view.tags()).containsExactly("tag"));
     }
 
     @Test

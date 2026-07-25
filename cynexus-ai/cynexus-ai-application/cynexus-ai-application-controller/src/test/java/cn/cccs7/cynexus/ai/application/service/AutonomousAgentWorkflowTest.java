@@ -37,11 +37,15 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.service.agent.prompt.AgentSystemPromptDomainService;
 import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentExecutionDomainService;
 import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentTurnDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -486,7 +490,7 @@ class AutonomousAgentWorkflowTest {
                 AgentMessageBO.builder().sequenceNo(3).role("tool").toolCallId("c1").content("{}").build(),
                 AgentMessageBO.builder().sequenceNo(4).role("assistant").content("final answer").build()
         );
-        assertEquals(4, AutonomousAgentAppService.nextPersistedMessageSequence(persisted));
+        assertEquals(4, AgentRunDomainService.nextMessageSequence(persisted));
 
         List<AgentModelMessage> history = List.of(
                 AgentModelMessage.builder().role("user").content("q1").build(),
@@ -502,7 +506,7 @@ class AutonomousAgentWorkflowTest {
         assertEquals("assistant", collapsed.get(1).getRole());
         assertTrue(collapsed.get(1).getContent().contains("final answer"));
         // Follow-up sequence must continue from DB max even though provider history collapsed.
-        assertTrue(AutonomousAgentAppService.nextPersistedMessageSequence(persisted) > collapsed.size());
+        assertTrue(AgentRunDomainService.nextMessageSequence(persisted) > collapsed.size());
     }
 
     private AutonomousAgentAppService newService(AgentRunRepository repository,
@@ -517,10 +521,21 @@ class AutonomousAgentWorkflowTest {
                                                    ObjectMapper objectMapper) {
         AgentQuotaPort quota = mock(AgentQuotaPort.class);
         when(quota.reserveRequest(any(), any(), any(), anyInt())).thenReturn(true);
+        AgentObservabilityPort observability = mock(AgentObservabilityPort.class);
+        var limits = cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits.defaults();
+        AgentTurnDomainService turnDomainService = new AgentTurnDomainService(
+                circuitBreaker, observability, limits.getMaxRetryAttempts());
+        AgentExecutionDomainService executionDomainService = new AgentExecutionDomainService(limits, turnDomainService);
         AgentRunDomainService runDomainService = new AgentRunDomainService(repository,
                 mock(AgentCapabilityRepository.class), providers, bindings);
-        return new AutonomousAgentAppService(runDomainService, catalog, executor, completion,
-                lease, rateLimiter, circuitBreaker, objectMapper, quota,
-                mock(AgentObservabilityPort.class), null, null);
+        AgentRunExecutionDomainService runExecutionDomainService = new AgentRunExecutionDomainService(
+                runDomainService, catalog, executor, completion, objectMapper, lease, rateLimiter, quota,
+                observability, executionDomainService, turnDomainService, fallbackPromptService());
+        return new AutonomousAgentAppService(
+                runDomainService, runExecutionDomainService, executionDomainService, catalog, objectMapper);
+    }
+
+    private static AgentSystemPromptDomainService fallbackPromptService() {
+        return new AgentSystemPromptDomainService(null, null);
     }
 }

@@ -63,13 +63,32 @@ class AiUsageQueryDomainServiceTest {
         assertThat(report.getMessage()).contains("Langfuse");
     }
 
-    private AiProviderRepository providers() {
+    @Test
+    void calculatesCostWithTheSelectedModelPrice() {
+        AiUsageObservationBO observation = AiUsageObservationBO.builder()
+                .name("chat").providerCode("openai").modelCode("gpt-premium")
+                .inputTokens(1_000).outputTokens(2_000).totalTokens(3_000).build();
         AiProviderBO provider = AiProviderBO.builder()
+                .code("openai").inputPricePerMillion(new BigDecimal("2"))
+                .outputPricePerMillion(new BigDecimal("4"))
+                .modelConfigs("[{\"model\":\"gpt-premium\",\"input_price_per_million\":\"10\",\"output_price_per_million\":\"20\"}]")
+                .build();
+        AiUsageQueryDomainService service = new AiUsageQueryDomainServiceImpl(
+                (from, to, limit) -> List.of(observation), providers(provider));
+
+        assertThat(service.query(null, null, null).getTotalCost()).isEqualByComparingTo("0.050000000000");
+    }
+
+    private AiProviderRepository providers() {
+        return providers(AiProviderBO.builder()
                 .code("openai")
                 .providerType("openai")
                 .inputPricePerMillion(new BigDecimal("2"))
                 .outputPricePerMillion(new BigDecimal("4"))
-                .build();
+                .build());
+    }
+
+    private AiProviderRepository providers(AiProviderBO provider) {
         return new AiProviderRepository() {
             @Override public List<AiProviderBO> listAll() { return List.of(provider); }
             @Override public AiProviderBO findById(Long id) { return null; }

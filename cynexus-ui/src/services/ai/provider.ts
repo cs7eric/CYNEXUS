@@ -4,6 +4,18 @@ import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
 import { fetchAgentCapabilities } from "@/services/ai/agent"
 
+export const AI_REASONING_EFFORTS = ["low", "medium", "high"] as const
+export type AiReasoningEffort = typeof AI_REASONING_EFFORTS[number]
+export const DEFAULT_AI_REASONING_EFFORT: AiReasoningEffort = "low"
+export const AI_REASONING_EFFORT_PARAM = "reasoning_effort"
+
+export function normalizeAiReasoningEffort(value: unknown): AiReasoningEffort | null {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : ""
+  return (AI_REASONING_EFFORTS as readonly string[]).includes(normalized)
+    ? normalized as AiReasoningEffort
+    : null
+}
+
 export interface AiCapability {
   code: string
   label: string
@@ -46,6 +58,7 @@ export interface AiProviderItem {
   base_url: string
   default_model: string
   models: string[]
+  model_configs: AiProviderModelConfig[]
   api_key?: string
   api_key_masked: string
   api_key_env: string
@@ -60,6 +73,12 @@ export interface AiProviderItem {
   remark: string
   created_at?: string | null
   updated_at?: string | null
+}
+
+export interface AiProviderModelConfig {
+  model: string
+  input_price_per_million: number
+  output_price_per_million: number
 }
 
 export interface AiBindingItem {
@@ -96,6 +115,7 @@ interface JavaAiProviderDTO {
   updatedAt?: string | null
   deletedAt?: string | null
   models?: string | null
+  modelConfigs?: string | null
   inputPricePerMillion?: number | null
   outputPricePerMillion?: number | null
   pricingCurrency?: string | null
@@ -311,6 +331,44 @@ function parseJsonStringList(value?: string | null): string[] {
   }
 }
 
+function parseModelConfigs(
+  value: string | null | undefined,
+  legacyModels: string[],
+  inputPrice: number,
+  outputPrice: number,
+): AiProviderModelConfig[] {
+  let parsed: unknown
+  try {
+    parsed = value ? JSON.parse(value) : []
+  } catch {
+    parsed = []
+  }
+  if (Array.isArray(parsed)) {
+    const configs = parsed
+      .map((item) => {
+        if (typeof item === "string") {
+          return { model: item.trim(), input_price_per_million: inputPrice, output_price_per_million: outputPrice }
+        }
+        if (!item || typeof item !== "object") return null
+        const record = item as Record<string, unknown>
+        const model = String(record.model ?? record.model_code ?? "").trim()
+        if (!model) return null
+        return {
+          model,
+          input_price_per_million: Number(record.input_price_per_million ?? record.inputPricePerMillion ?? inputPrice) || 0,
+          output_price_per_million: Number(record.output_price_per_million ?? record.outputPricePerMillion ?? outputPrice) || 0,
+        }
+      })
+      .filter((item): item is AiProviderModelConfig => Boolean(item))
+    if (configs.length) return configs
+  }
+  return legacyModels.map((model) => ({
+    model,
+    input_price_per_million: inputPrice,
+    output_price_per_million: outputPrice,
+  }))
+}
+
 function maskSecret(value?: string | null): string {
   if (!value) return ""
   if (value.length <= 8) return "****"
@@ -318,6 +376,9 @@ function maskSecret(value?: string | null): string {
 }
 
 function toAiProviderItem(dto: JavaAiProviderDTO): AiProviderItem {
+  const models = parseJsonStringList(dto.models)
+  const inputPrice = dto.inputPricePerMillion ?? 0
+  const outputPrice = dto.outputPricePerMillion ?? 0
   return {
     id: String(dto.id),
     code: dto.code || "",
@@ -325,7 +386,8 @@ function toAiProviderItem(dto: JavaAiProviderDTO): AiProviderItem {
     provider_type: dto.providerType || "",
     base_url: dto.baseUrl || "",
     default_model: dto.defaultModel || "",
-    models: parseJsonStringList(dto.models),
+    models,
+    model_configs: parseModelConfigs(dto.modelConfigs, models, inputPrice, outputPrice),
     api_key: "",
     api_key_masked: dto.apiKeyMasked || maskSecret(dto.apiKey),
     api_key_env: dto.apiKeyEnv || "",
@@ -334,8 +396,8 @@ function toAiProviderItem(dto: JavaAiProviderDTO): AiProviderItem {
     is_enabled: dto.enabled ?? true,
     timeout_seconds: dto.timeoutSeconds ?? null,
     extra: parseJsonObject(dto.extra),
-    input_price_per_million: dto.inputPricePerMillion ?? 0,
-    output_price_per_million: dto.outputPricePerMillion ?? 0,
+    input_price_per_million: inputPrice,
+    output_price_per_million: outputPrice,
     pricing_currency: dto.pricingCurrency || "USD",
     remark: dto.remark || "",
     created_at: dto.createdAt || null,
@@ -344,6 +406,7 @@ function toAiProviderItem(dto: JavaAiProviderDTO): AiProviderItem {
 }
 
 function toJavaAiProviderPayload(payload: Partial<AiProviderItem>): Partial<JavaAiProviderDTO> {
+  const modelConfigs = payload.model_configs || []
   const value: Partial<JavaAiProviderDTO> = {
     id: payload.id,
     code: payload.code,
@@ -358,7 +421,8 @@ function toJavaAiProviderPayload(payload: Partial<AiProviderItem>): Partial<Java
     timeoutSeconds: payload.timeout_seconds,
     extra: JSON.stringify(payload.extra || {}),
     remark: payload.remark,
-    models: JSON.stringify(payload.models || []),
+    models: JSON.stringify(modelConfigs.length ? modelConfigs.map((item) => item.model) : payload.models || []),
+    modelConfigs: JSON.stringify(modelConfigs),
     inputPricePerMillion: payload.input_price_per_million,
     outputPricePerMillion: payload.output_price_per_million,
     pricingCurrency: payload.pricing_currency,

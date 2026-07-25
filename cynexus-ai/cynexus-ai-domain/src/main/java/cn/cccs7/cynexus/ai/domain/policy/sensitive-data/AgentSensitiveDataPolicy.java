@@ -1,10 +1,16 @@
 package cn.cccs7.cynexus.ai.domain.policy.sensitivedata;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Iterator;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /** Defines the field names that must never cross the Agent audit/model boundary. */
 public final class AgentSensitiveDataPolicy {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Set<String> SENSITIVE_KEYS = Set.of(
             "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey",
             "authorization", "cookie", "setcookie", "privatekey", "accesskey", "phone", "mobile",
@@ -36,5 +42,39 @@ public final class AgentSensitiveDataPolicy {
                 .replaceAll("(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+(?![A-Za-z0-9])", marker())
                 .replaceAll("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", marker())
                 .replaceAll("(?<!\\d)(?:\\+?86[- ]?)?1[3-9]\\d{9}(?!\\d)", marker());
+    }
+
+    public static String redactJson(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        try {
+            JsonNode node = MAPPER.readTree(value);
+            redactNode(node);
+            return MAPPER.writeValueAsString(node);
+        } catch (Exception ignored) {
+            return redactText(value);
+        }
+    }
+
+    public static void redactNode(JsonNode node) {
+        if (node == null) {
+            return;
+        }
+        if (node.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                if (isSensitiveKey(entry.getKey())) {
+                    ((ObjectNode) node).put(entry.getKey(), marker());
+                } else {
+                    redactNode(entry.getValue());
+                }
+            }
+        } else if (node.isArray()) {
+            for (JsonNode item : node) {
+                redactNode(item);
+            }
+        }
     }
 }

@@ -15,6 +15,6 @@ public class SectorRankAssembler {
     }
 
     public SectorRankDTO toDTO(String tradeDate, Integer topN, List<SectorRankBO> ranks) {
-        return new SectorRankDTO(tradeDate, topN, sectorRankItemAssembler.toTargetList(ranks));
+        return new SectorRankDTO(tradeDate, topN, sectorRankItemAssembler.toDTOList(ranks));
     }
 }

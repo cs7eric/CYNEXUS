@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { AlertCircle, ArrowUp, Check, CircleDashed, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
+import { AlertCircle, ArrowUp, Check, CircleDashed, Cpu, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { notification } from "@/components/ui/notification"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentCancellationResult, type AgentCitation, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 import { Input } from "@/components/ui/input"
@@ -11,13 +12,16 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } fro
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Message, MessageContent, MessageFooter, MessageHeader } from "@/components/ui/message"
+import { Spinner } from "@/components/ui/spinner"
 import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller"
 import { AgentActivityTimeline, appendThinkingDelta, appendToolStep, completeThinking, timelineFromSteps, type AgentTimelineEntry } from "./components/agent-activity-timeline"
 import { AgentFeedbackPanel } from "./components/agent-feedback-panel"
 import { AgentMarkdown } from "./components/agent-markdown"
 import { AgentWritePanel } from "./components/agent-write-panel"
 import { AgentTaskPanel } from "./components/agent-task-panel"
+import { AI_REASONING_EFFORTS, DEFAULT_AI_REASONING_EFFORT, fetchAiBindings, fetchAiProviders, normalizeAiReasoningEffort, type AiProviderItem, type AiReasoningEffort } from "@/services/ai/provider"
 
 function stepLabel(step: AgentRunStep) {
   if (step.kind === "ANSWER") return "Answer"
@@ -59,6 +63,13 @@ function clarification(run: AgentRun) {
   } catch {
     return null
   }
+}
+
+function notifyAgentError(title: string, reason: unknown, fallback: string) {
+  notification.danger({
+    title,
+    description: reason instanceof Error ? reason.message : fallback,
+  })
 }
 
 function CitationList({ citations }: { citations: AgentCitation[] }) {
@@ -142,6 +153,10 @@ function sameMessageText(left?: string | null, right?: string | null) {
   return (left ?? "").trim() === (right ?? "").trim()
 }
 
+function providerReasoningEffort(provider?: AiProviderItem): AiReasoningEffort {
+  return normalizeAiReasoningEffort(provider?.extra?.model_reasoning_effort) || DEFAULT_AI_REASONING_EFFORT
+}
+
 function removeCurrentRunFromTranscript(messages: AgentMessage[], run: AgentRun | null) {
   const visible = messages.filter(isVisibleTranscriptMessage)
   if (!run) return visible
@@ -168,12 +183,16 @@ export default function AutonomousAgentPage() {
   const [run, setRun] = useState<AgentRun | null>(null)
   const [conversationMessages, setConversationMessages] = useState<AgentMessage[]>([])
   const [tools, setTools] = useState<AgentToolDefinition[]>([])
+  const [providers, setProviders] = useState<AiProviderItem[]>([])
+  const [defaultProviderCode, setDefaultProviderCode] = useState("")
+  const [selectedProviderCode, setSelectedProviderCode] = useState("")
+  const [selectedModelCode, setSelectedModelCode] = useState("")
+  const [selectedReasoningEffort, setSelectedReasoningEffort] = useState<AiReasoningEffort | "">("")
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [activeRunNo, setActiveRunNo] = useState<string | null>(null)
   const abortController = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [historyQuery, setHistoryQuery] = useState("")
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [workspaceTab, setWorkspaceTab] = useState("history")
@@ -205,7 +224,7 @@ export default function AutonomousAgentPage() {
       if (requestId === historyRequestId.current) setConversations(nextConversations)
     } catch (reason: unknown) {
       if (requestId === historyRequestId.current) {
-        setError(reason instanceof Error ? reason.message : "Unable to load conversation history")
+        notifyAgentError("加载 Agent 会话失败", reason, "无法加载会话记录")
       }
     }
   }
@@ -213,15 +232,30 @@ export default function AutonomousAgentPage() {
   useEffect(() => {
     let disposed = false
     async function loadWorkspace() {
-      const [nextTools] = await Promise.all([
+      const [nextTools, nextProviders, nextBindings] = await Promise.all([
         fetchAgentTools(),
+        fetchAiProviders(),
+        fetchAiBindings(),
         refreshConversations(),
       ])
-      if (!disposed) setTools(nextTools)
+      if (!disposed) {
+        const enabledProviders = nextProviders.filter((provider) => provider.is_enabled)
+        const binding = nextBindings.find((item) => item.capability === "autonomous_agent" && item.is_enabled)
+        const boundProvider = enabledProviders.find((provider) =>
+          provider.code === binding?.provider?.code || provider.id === binding?.provider_id,
+        )
+        const boundProviderCode = boundProvider?.code || ""
+        setTools(nextTools)
+        setProviders(enabledProviders)
+        setDefaultProviderCode(boundProviderCode)
+        setSelectedProviderCode(boundProviderCode)
+        setSelectedModelCode(binding?.model_override || boundProvider?.default_model || boundProvider?.models[0] || "")
+        setSelectedReasoningEffort("")
+      }
     }
 
     void loadWorkspace().catch((reason: unknown) => {
-      if (!disposed) setError(reason instanceof Error ? reason.message : "Unable to load Agent tools")
+      if (!disposed) notifyAgentError("加载 Agent 工具失败", reason, "无法加载 Agent 工具")
     })
     return () => {
       disposed = true
@@ -234,20 +268,32 @@ export default function AutonomousAgentPage() {
     return [...groups.entries()]
   }, [tools])
 
+  const selectedProvider = providers.find((provider) => provider.code === selectedProviderCode)
+    ?? providers.find((provider) => provider.code === defaultProviderCode)
+  const providerDefaultReasoning = providerReasoningEffort(selectedProvider)
+  const providerDisplayName = selectedProvider?.name || selectedProvider?.code || "Default provider"
+
   async function submit() {
     const userInput = input.trim()
     if (!userInput || loading) return
     const conversationNo = run?.conversationNo ?? undefined
     setInput("")
     setLoading(true)
-    setError(null)
     setActiveRunNo(null)
     setTimeline([])
     setRun({ conversationNo, userInput, status: "RUNNING", answer: "" })
     try {
       const controller = new AbortController()
       abortController.current = controller
-      const nextRun = await runAgentStream({ conversationNo, userInput, workspace: "agent", locale: "zh-CN" }, (event) => {
+      const nextRun = await runAgentStream({
+        conversationNo,
+        userInput,
+        preferredProviderCode: selectedProviderCode || undefined,
+        preferredModelCode: selectedModelCode || undefined,
+        preferredReasoningEffort: selectedReasoningEffort || undefined,
+        workspace: "agent",
+        locale: "zh-CN",
+      }, (event) => {
         if (event.runNo) setActiveRunNo(event.runNo)
         if (event.type === "THINKING_DELTA" && event.delta) {
           setTimeline((current) => appendThinkingDelta(current, event.delta || ""))
@@ -284,7 +330,7 @@ export default function AutonomousAgentPage() {
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
       const message = reason instanceof Error ? reason.message : "Agent run failed"
-      setError(message)
+      notifyAgentError("Agent 执行失败", reason, message)
       setRun((current) => current?.userInput === userInput ? { ...current, status: "FAILED", errorMessage: message } : current)
     } finally {
       abortController.current = null
@@ -299,16 +345,19 @@ export default function AutonomousAgentPage() {
         const result: AgentCancellationResult = await cancelAgent(activeRunNo)
         if (result.status === "CANCEL_REQUESTED") {
           setRun((current) => current ? { ...current, status: "CANCEL_REQUESTED" } : current)
-          setError("Cancellation requested. Waiting for the Agent to stop safely…")
+          notification.info({ title: "已请求停止 Agent", description: "正在等待 Agent 安全停止" })
         } else if (result.status === "ALREADY_TERMINAL") {
           const terminalRun = await getAgentRun(activeRunNo)
           setRun(terminalRun)
-          setError(`This run has already finished (${terminalRun.status ?? result.runStatus ?? "terminal"}).`)
+          notification.warn({
+            title: "Agent 已结束",
+            description: `当前运行已结束（${terminalRun.status ?? result.runStatus ?? "terminal"}）`,
+          })
         } else {
-          setError("The Agent run was not found for the current workspace.")
+          notification.danger({ title: "停止 Agent 失败", description: "找不到当前工作区中的运行记录" })
         }
       } catch (reason: unknown) {
-        setError(reason instanceof Error ? reason.message : "Unable to stop Agent")
+        notifyAgentError("停止 Agent 失败", reason, "无法停止 Agent")
       }
       return
     }
@@ -318,7 +367,6 @@ export default function AutonomousAgentPage() {
   async function openConversation(conversation: AgentConversation) {
     if (!conversation.lastRunNo || historyLoading) return
     setHistoryLoading(true)
-    setError(null)
     try {
       const nextRun = await getAgentRun(conversation.lastRunNo)
       setRun(nextRun)
@@ -326,7 +374,7 @@ export default function AutonomousAgentPage() {
         setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
       setWorkspaceOpen(false)
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Unable to reopen conversation")
+      notifyAgentError("打开 Agent 会话失败", reason, "无法重新打开会话")
     } finally {
       setHistoryLoading(false)
     }
@@ -335,7 +383,6 @@ export default function AutonomousAgentPage() {
   async function rerun(action: "retry" | "regenerate") {
     if (!run?.runNo || loading) return
     setLoading(true)
-    setError(null)
     try {
       setRun((current) => current ? { ...current, status: "RUNNING" } : current)
       const nextRun = action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo)
@@ -344,7 +391,7 @@ export default function AutonomousAgentPage() {
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
       const message = reason instanceof Error ? reason.message : "Unable to rerun Agent"
-      setError(message)
+      notifyAgentError("重新运行 Agent 失败", reason, message)
       setRun((current) => current ? { ...current, status: "FAILED", errorMessage: message } : current)
     } finally {
       setLoading(false)
@@ -362,7 +409,7 @@ export default function AutonomousAgentPage() {
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Unable to export Agent result")
+      notifyAgentError("导出 Agent 结果失败", reason, "无法导出 Agent 结果")
     }
   }
 
@@ -545,15 +592,13 @@ export default function AutonomousAgentPage() {
           </SheetContent>
         </Sheet>
 
-        {error ? <Alert variant="destructive"><AlertTitle>Agent unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-
         <div className="min-h-0 flex-1">
           <section className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-40 py-5 md:px-64 lg:px-96">
               <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={48}>
                 <MessageScroller className="min-h-0 flex-1">
                   <MessageScrollerViewport aria-label="Agent messages" className="scrollbar-none">
-                    <MessageScrollerContent className="gap-6 px-12 py-2 md:px-24" aria-busy={loading}>
+                    <MessageScrollerContent className="gap-6 py-2" aria-busy={loading}>
                       {displayedConversationMessages.map((message, index) => (
                         <MessageScrollerItem key={`${message.sequenceNo ?? index}-${message.role}`} messageId={`transcript-${message.sequenceNo ?? index}`}>
                           <AgentMessageBubble align={message.role === "user" ? "end" : "start"}>
@@ -571,6 +616,19 @@ export default function AutonomousAgentPage() {
                         {timeline.length ? (
                           <MessageScrollerItem messageId="agent-activity">
                             <AgentActivityTimeline entries={timeline} />
+                          </MessageScrollerItem>
+                        ) : loading && !showAssistantBubble ? (
+                          <MessageScrollerItem messageId="agent-awaiting" scrollAnchor>
+                            <Message>
+                              <MessageContent className="gap-1.5">
+                                <Marker role="status" className="text-xs">
+                                  <MarkerIcon>
+                                    <Spinner className="size-3.5" />
+                                  </MarkerIcon>
+                                  <MarkerContent className="shimmer">Awaiting…</MarkerContent>
+                                </Marker>
+                              </MessageContent>
+                            </Message>
                           </MessageScrollerItem>
                         ) : null}
                         {showAssistantBubble ? (
@@ -598,11 +656,7 @@ export default function AutonomousAgentPage() {
                                       {run.errorMessage && !run.answer ? (
                                         <div className="whitespace-pre-wrap">{run.errorMessage}</div>
                                       ) : run.answer ? (
-                                        loading ? (
-                                          <div className="whitespace-pre-wrap">{run.answer}</div>
-                                        ) : (
-                                          <AgentMarkdown markdown={run.answer} />
-                                        )
+                                        <AgentMarkdown markdown={run.answer} />
                                       ) : (
                                         <div className="whitespace-pre-wrap">The Agent did not return an answer.</div>
                                       )}
@@ -624,57 +678,66 @@ export default function AutonomousAgentPage() {
                                     ) : null}
                                     {evidence(run).length ? (
                                       <div className="mt-5 w-full min-w-0 pt-3">
-                                        <div className="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">
-                                          Evidence
-                                        </div>
-                                        <Accordion
-                                          type="multiple"
-                                          className="w-full px-0"
-                                        >
-                                          {evidence(run).map((item, index) => {
-                                            const value = `${item.toolCode ?? "evidence"}-${index}`
-                                            return (
-                                              <AccordionItem key={value} value={value} className="border-none">
-                                                <AccordionTrigger className="py-2 hover:no-underline">
-                                                  <div className="min-w-0 flex-1 pr-2">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                      <span className="truncate text-[11px] font-medium text-foreground">
-                                                        {item.toolCode || "Evidence"}
-                                                      </span>
-                                                      <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
-                                                        {item.dataDate || "Date unavailable"}
-                                                      </span>
-                                                    </div>
-                                                    <div className="mt-0.5 line-clamp-1 text-[10px] font-normal leading-4 text-muted-foreground">
-                                                      {item.summary || item.source || "No summary"}
-                                                    </div>
-                                                  </div>
-                                                </AccordionTrigger>
-                                                <AccordionContent className="text-[11px] leading-5 text-muted-foreground">
-                                                  <div className="space-y-1.5">
-                                                    {item.summary ? (
-                                                      <p className="text-[11px] leading-5 text-muted-foreground">{item.summary}</p>
-                                                    ) : null}
-                                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-                                                      {item.source ? <span>{item.source}</span> : null}
-                                                      {item.sourceUrl ? (
-                                                        <a
-                                                          href={item.sourceUrl}
-                                                          target="_blank"
-                                                          rel="noreferrer"
-                                                          className="inline-flex items-center gap-1 text-sky-700 hover:underline"
-                                                        >
-                                                          <ExternalLink className="size-3" />
-                                                          Source
-                                                        </a>
-                                                      ) : null}
-                                                    </div>
-                                                    {item.citations?.length ? <CitationList citations={item.citations} /> : null}
-                                                  </div>
-                                                </AccordionContent>
-                                              </AccordionItem>
-                                            )
-                                          })}
+                                        <Accordion type="single" collapsible defaultValue="" className="w-full px-0">
+                                          <AccordionItem value="evidence" className="border-none">
+                                            <AccordionTrigger className="mb-1.5 py-1.5 hover:no-underline">
+                                              <span className="text-[11px] font-medium tracking-wide text-muted-foreground">
+                                                Evidence
+                                              </span>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="text-[11px] leading-5 text-muted-foreground">
+                                              <Accordion
+                                                type="multiple"
+                                                defaultValue={[]}
+                                                className="w-full px-0"
+                                              >
+                                                {evidence(run).map((item, index) => {
+                                                  const value = `${item.toolCode ?? "evidence"}-${index}`
+                                                  return (
+                                                    <AccordionItem key={value} value={value} className="border-none">
+                                                      <AccordionTrigger className="py-2 hover:no-underline">
+                                                        <div className="min-w-0 flex-1 pr-2">
+                                                          <div className="flex items-center justify-between gap-2">
+                                                            <span className="truncate text-[11px] font-medium text-foreground">
+                                                              {item.toolCode || "Evidence"}
+                                                            </span>
+                                                            <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
+                                                              {item.dataDate || "Date unavailable"}
+                                                            </span>
+                                                          </div>
+                                                          <div className="mt-0.5 line-clamp-1 text-[10px] font-normal leading-4 text-muted-foreground">
+                                                            {item.summary || item.source || "No summary"}
+                                                          </div>
+                                                        </div>
+                                                      </AccordionTrigger>
+                                                      <AccordionContent className="text-[11px] leading-5 text-muted-foreground">
+                                                        <div className="space-y-1.5">
+                                                          {item.summary ? (
+                                                            <p className="text-[11px] leading-5 text-muted-foreground">{item.summary}</p>
+                                                          ) : null}
+                                                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                                                            {item.source ? <span>{item.source}</span> : null}
+                                                            {item.sourceUrl ? (
+                                                              <a
+                                                                href={item.sourceUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center gap-1 text-sky-700 hover:underline"
+                                                              >
+                                                                <ExternalLink className="size-3" />
+                                                                Source
+                                                              </a>
+                                                            ) : null}
+                                                          </div>
+                                                          {item.citations?.length ? <CitationList citations={item.citations} /> : null}
+                                                        </div>
+                                                      </AccordionContent>
+                                                    </AccordionItem>
+                                                  )
+                                                })}
+                                              </Accordion>
+                                            </AccordionContent>
+                                          </AccordionItem>
                                         </Accordion>
                                       </div>
                                     ) : null}
@@ -692,7 +755,32 @@ export default function AutonomousAgentPage() {
                 </MessageScroller>
               </MessageScrollerProvider>
             </div>
-            <div className="px-40 pb-5 pt-2 md:px-64 lg:px-96"><form onSubmit={(event) => { event.preventDefault(); void submit() }}><InputGroup className="h-auto min-h-0 flex-col items-stretch"><InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey) return; event.preventDefault(); void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" /><InputGroupAddon align="block-end"><span className="px-1 text-xs text-muted-foreground">Enter 发送 · Ctrl + Enter 换行</span>{loading ? <InputGroupButton type="button" variant="outline" onClick={() => { void stopAgent() }} className="ml-auto"><Square className="size-3.5" /> Stop</InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}</InputGroupAddon></InputGroup></form></div>
+            <div className="px-40 pb-5 pt-2 md:px-64 lg:px-96">
+              <form onSubmit={(event) => { event.preventDefault(); void submit() }}>
+                <InputGroup className="h-auto min-h-0 flex-col items-stretch">
+                  <InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey) return; event.preventDefault(); void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" />
+                  <InputGroupAddon align="block-end" className="flex-wrap">
+                    <span className="px-1 text-xs text-muted-foreground">Enter 发送 · Ctrl + Enter 换行</span>
+                    <Select value={selectedProviderCode || "auto"} onValueChange={(value) => { const nextProviderCode = value === "auto" ? "" : value; const nextProvider = providers.find((provider) => provider.code === nextProviderCode); setSelectedProviderCode(nextProviderCode); setSelectedModelCode(nextProvider?.default_model || nextProvider?.models[0] || ""); setSelectedReasoningEffort("") }} disabled={loading}>
+                      <SelectTrigger size="sm" className="h-7 max-w-[11rem] border-0 bg-transparent px-2 text-xs shadow-none"><Cpu className="size-3.5" /><SelectValue placeholder="Provider">{providerDisplayName}</SelectValue></SelectTrigger>
+                      <SelectContent side="top" align="start"><SelectItem value="auto">Default provider</SelectItem>{providers.map((provider) => <SelectItem key={provider.code} value={provider.code}>{provider.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    {selectedProviderCode ? <Select value={selectedModelCode || "auto"} onValueChange={(value) => setSelectedModelCode(value === "auto" ? "" : value)} disabled={loading}>
+                      <SelectTrigger size="sm" className="h-7 max-w-[13rem] border-0 bg-transparent px-2 text-xs shadow-none"><SelectValue placeholder="Model" /></SelectTrigger>
+                      <SelectContent side="top" align="start"><SelectItem value="auto">Provider default</SelectItem>{[...new Set([selectedModelCode, providers.find((provider) => provider.code === selectedProviderCode)?.default_model || "", ...(providers.find((provider) => provider.code === selectedProviderCode)?.models || [])].filter(Boolean))].map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}</SelectContent>
+                    </Select> : null}
+                    <Select value={selectedReasoningEffort || "provider-default"} onValueChange={(value) => setSelectedReasoningEffort((value === "provider-default" ? "" : value) as AiReasoningEffort | "")} disabled={loading}>
+                      <SelectTrigger size="sm" title={selectedReasoningEffort || providerDefaultReasoning} className="h-7 min-w-[6rem] shrink-0 border-0 bg-transparent px-2 text-xs shadow-none"><Sparkles className="size-3.5" /><SelectValue placeholder="Reasoning">{selectedReasoningEffort || providerDefaultReasoning}</SelectValue></SelectTrigger>
+                      <SelectContent side="top" align="start">
+                        <SelectItem value="provider-default">{providerDefaultReasoning ? `Provider default (${providerDefaultReasoning})` : "Provider default"}</SelectItem>
+                        {AI_REASONING_EFFORTS.map((effort) => <SelectItem key={effort} value={effort}>{effort}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {loading ? <InputGroupButton type="button" variant="outline" size="icon-sm" aria-label="Stop Agent" title="Stop Agent" onClick={() => { void stopAgent() }} className="ml-auto border-destructive/30 bg-destructive/5 text-destructive hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/30"><Square className="size-3.5" fill="currentColor" /></InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}
+                  </InputGroupAddon>
+                </InputGroup>
+              </form>
+            </div>
           </section>
 
         </div>

@@ -69,6 +69,14 @@
   padding-left: 1.25rem;
 }
 
+.cynexus-agent-markdown-content ul {
+  list-style: disc;
+}
+
+.cynexus-agent-markdown-content ol {
+  list-style: decimal;
+}
+
 .cynexus-agent-markdown-content li + li {
   margin-top: 0.2rem;
 }

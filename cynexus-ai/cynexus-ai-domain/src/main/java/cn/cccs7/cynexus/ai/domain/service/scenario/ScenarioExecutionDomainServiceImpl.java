@@ -1,23 +1,123 @@
 package cn.cccs7.cynexus.ai.domain.service.scenario;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
+import cn.cccs7.cynexus.ai.domain.entity.AiExecutionBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
+import cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus;
+import cn.cccs7.cynexus.ai.domain.policy.prompt.PromptRenderPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.scenario.ScenarioPromptPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
+import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
+import cn.cccs7.cynexus.ai.domain.valueobject.scenario.PreparedScenarioTextExecution;
+import cn.cccs7.cynexus.ai.domain.valueobject.scenario.PreparedScenarioVisionExecution;
+import cn.cccs7.cynexus.ai.domain.workspacechat.WorkspaceChatDomainPolicy;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDomainService {
 
     private final ApplicationAnalysisRoutingDomainService routingDomainService;
     private final AiPromptRepository promptRepository;
+    private final ModelRouteDomainService modelRouteDomainService;
+    private final OutputValidationDomainService outputValidationDomainService;
 
     public ScenarioExecutionDomainServiceImpl(
             ApplicationAnalysisRoutingDomainService routingDomainService,
-            AiPromptRepository promptRepository) {
+            AiPromptRepository promptRepository,
+            ModelRouteDomainService modelRouteDomainService,
+            OutputValidationDomainService outputValidationDomainService) {
         this.routingDomainService = Objects.requireNonNull(routingDomainService, "routingDomainService");
         this.promptRepository = Objects.requireNonNull(promptRepository, "promptRepository");
+        this.modelRouteDomainService = Objects.requireNonNull(modelRouteDomainService, "modelRouteDomainService");
+        this.outputValidationDomainService = Objects.requireNonNull(outputValidationDomainService, "outputValidationDomainService");
+    }
+
+    @Override
+    public PreparedScenarioTextExecution prepareTextExecution(String scenarioCode,
+                                                              String preferredModelCode,
+                                                              String userInput,
+                                                              Map<String, Object> variables,
+                                                              List<String> enabledToolCodes) {
+        String resolvedCode = scenarioCode == null || scenarioCode.isBlank()
+                ? AiConstants.DEFAULT_SCENARIO : scenarioCode;
+        boolean workspaceChat = WorkspaceChatDomainPolicy.supports(resolvedCode);
+        AiScenarioBO scenario = resolveScenario(resolvedCode, workspaceChat);
+        AiModelBO model = resolveTextModel(resolvedCode, preferredModelCode, workspaceChat);
+        String prompt = PromptRenderPolicy.render(
+                ScenarioPromptPolicy.systemPrompt(resolvedCode),
+                userInput,
+                variables);
+        List<String> toolCodes = "stock_information_analysis".equals(resolvedCode) || workspaceChat
+                ? List.of()
+                : (enabledToolCodes == null ? List.of() : enabledToolCodes);
+        return PreparedScenarioTextExecution.builder()
+                .scenario(scenario)
+                .model(model)
+                .prompt(prompt)
+                .toolCodes(toolCodes)
+                .build();
+    }
+
+    @Override
+    public PreparedScenarioVisionExecution prepareVisionExecution(String scenarioCode,
+                                                                  String preferredModelCode,
+                                                                  String userInput) {
+        String resolvedCode = scenarioCode == null || scenarioCode.isBlank()
+                ? "accounting_receipt_parse" : scenarioCode;
+        String capability = "accounting_receipt_parse";
+        AiScenarioBO scenario = AiScenarioBO.builder()
+                .scenarioCode(resolvedCode)
+                .scenarioName("Accounting Receipt Recognition")
+                .defaultModelCode(null)
+                .maxToolCalls(0)
+                .toolCallRequired(false)
+                .jsonOutputRequired(true)
+                .enabled(true)
+                .build();
+        AiModelBO model = routeVisionModel(capability, preferredModelCode);
+        String prompt = resolveVisionPrompt(capability, userInput == null ? "" : userInput);
+        return PreparedScenarioVisionExecution.builder()
+                .scenario(scenario)
+                .model(model)
+                .prompt(prompt)
+                .capability(capability)
+                .build();
+    }
+
+    @Override
+    public AiExecutionBO finalizeExecution(PreparedScenarioTextExecution prepared, String content) {
+        Objects.requireNonNull(prepared, "prepared");
+        boolean valid = outputValidationDomainService.validateJsonRequired(
+                prepared.getScenario().isJsonOutputRequired(), content);
+        AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
+        return new AiExecutionBO(
+                nextExecutionNo(),
+                prepared.getScenario(),
+                prepared.getModel().getModelCode(),
+                status,
+                content,
+                prepared.getToolCodes());
+    }
+
+    @Override
+    public AiExecutionBO finalizeVisionExecution(PreparedScenarioVisionExecution prepared, String content) {
+        Objects.requireNonNull(prepared, "prepared");
+        boolean valid = outputValidationDomainService.validateJsonRequired(true, content);
+        AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
+        return new AiExecutionBO(
+                nextExecutionNo(),
+                prepared.getScenario(),
+                prepared.getModel().getModelCode(),
+                status,
+                content,
+                List.of());
     }
 
     @Override
@@ -64,6 +164,31 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
             }
         }
         return defaultVisionPrompt(candidateContext);
+    }
+
+    private AiScenarioBO resolveScenario(String scenarioCode, boolean workspaceChat) {
+        if (workspaceChat) {
+            return WorkspaceChatDomainPolicy.scenario();
+        }
+        return new AiScenarioBO(scenarioCode, "Market Daily Review", null, null, 6, true, true, true);
+    }
+
+    private AiModelBO resolveTextModel(String scenarioCode, String preferredModelCode, boolean workspaceChat) {
+        if ("stock_information_analysis".equals(scenarioCode) || workspaceChat) {
+            return routeInformationModel(
+                    preferredModelCode,
+                    workspaceChat
+                            ? WorkspaceChatDomainPolicy.bindingCapabilities()
+                            : List.of("stock_information_analysis", "application_analysis", "text_summary"),
+                    workspaceChat);
+        }
+        return modelRouteDomainService.route(
+                resolveScenario(scenarioCode, false),
+                preferredModelCode);
+    }
+
+    private String nextExecutionNo() {
+        return "AI-" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private String defaultVisionPrompt(String candidateContext) {

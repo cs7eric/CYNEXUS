@@ -104,6 +104,17 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
+    void sendsReasoningEffortToChatCompletions() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+
+        adapter().completeAgent(model("{\"model_reasoning_effort\":\"low\"}"), request(List.of()));
+
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get())
+                .path("reasoning_effort").asText()).isEqualTo("low");
+    }
+
+    @Test
     void parsesResponsesFunctionCallItemsWithUsage() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
         server = server(requestBody, """
@@ -128,6 +139,18 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(tool.path("name").asText()).isEqualTo("cynexus_tool_6d61726b65742e6f76657276696577");
         assertThat(tool.path("parameters").path("type").asText()).isEqualTo("object");
         assertThat(tool.path("function").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void allowsTheSelectedProviderOriginEvenWhenItIsAbsentFromDeploymentDefaults() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+
+        AgentModelTurnResponse response = adapterWithDeploymentOrigins("https://api.openai.com")
+                .completeAgent(model(""), request(List.of()));
+
+        assertThat(response.getType()).isEqualTo("FINAL");
+        assertThat(response.getContent()).isEqualTo("ok");
     }
 
     @Test
@@ -227,6 +250,10 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     private CustomModelAdapter adapter() {
+        return adapterWithDeploymentOrigins("http://127.0.0.1:" + server.getAddress().getPort());
+    }
+
+    private CustomModelAdapter adapterWithDeploymentOrigins(String deploymentOrigins) {
         SecretResolver secrets = secretRef -> "test-key";
         Environment environment = mock(Environment.class);
         when(environment.getProperty("cynexus.ai.platform.providers.custom.base-url", "https://am.xtyooo.top"))
@@ -234,7 +261,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
         when(environment.getProperty("cynexus.ai.platform.providers.custom.api-key-env", "CYNEXUS_AI_CUSTOM_API_KEY"))
                 .thenReturn("CYNEXUS_AI_CUSTOM_API_KEY");
         when(environment.getProperty("cynexus.ai.security.provider-allowed-origins"))
-                .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
+                .thenReturn(deploymentOrigins);
         return new CustomModelAdapter(secrets, environment);
     }
 

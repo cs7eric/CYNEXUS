@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageObservationBO;
 import cn.cccs7.cynexus.ai.domain.entity.usage.AiUsageBreakdownBO;
 import cn.cccs7.cynexus.ai.domain.entity.usage.AiUsageReportBO;
+import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageObservabilityRepository;
 import java.math.BigDecimal;
@@ -112,17 +113,19 @@ public class AiUsageQueryDomainServiceImpl implements AiUsageQueryDomainService 
     }
 
     private static BigDecimal costFor(AiUsageObservationBO item, Map<String, AiProviderBO> pricing) {
-        if (item.getTotalCost() != null) {
+        AiProviderBO provider = pricing.get(safe(item.getProviderCode()).toLowerCase());
+        AiProviderModelPricingPolicy.ModelPricing modelPricing = provider == null
+                ? null : AiProviderModelPricingPolicy.find(provider, item.getModelCode()).orElse(null);
+        if (modelPricing == null && provider == null) {
+            return item.getTotalCost() == null ? BigDecimal.ZERO : item.getTotalCost();
+        }
+        if (modelPricing == null && item.getTotalCost() != null) {
             return item.getTotalCost();
         }
-        AiProviderBO provider = pricing.get(safe(item.getProviderCode()).toLowerCase());
-        if (provider == null) {
-            return BigDecimal.ZERO;
-        }
-        BigDecimal input = provider.getInputPricePerMillion() == null
-                ? BigDecimal.ZERO : provider.getInputPricePerMillion();
-        BigDecimal output = provider.getOutputPricePerMillion() == null
-                ? BigDecimal.ZERO : provider.getOutputPricePerMillion();
+        BigDecimal input = modelPricing == null ? provider.getInputPricePerMillion() : modelPricing.inputPricePerMillion();
+        BigDecimal output = modelPricing == null ? provider.getOutputPricePerMillion() : modelPricing.outputPricePerMillion();
+        input = input == null ? BigDecimal.ZERO : input;
+        output = output == null ? BigDecimal.ZERO : output;
         return BigDecimal.valueOf(value(item.getInputTokens()))
                 .multiply(input)
                 .add(BigDecimal.valueOf(value(item.getOutputTokens())).multiply(output))

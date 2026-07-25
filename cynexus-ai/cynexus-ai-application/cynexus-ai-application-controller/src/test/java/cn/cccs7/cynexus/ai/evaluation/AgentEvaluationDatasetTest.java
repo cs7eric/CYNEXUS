@@ -27,11 +27,15 @@ import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
+import cn.cccs7.cynexus.ai.domain.service.agent.prompt.AgentSystemPromptDomainService;
 import cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository;
 import cn.cccs7.cynexus.ai.domain.repository.agent.AgentRunRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentExecutionDomainService;
 import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentRunExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.service.agent.execution.AgentTurnDomainService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
@@ -117,9 +121,18 @@ class AgentEvaluationDatasetTest {
 
         AgentRunDomainService runDomainService = new AgentRunDomainService(repository,
                 mock(AgentCapabilityRepository.class), providers, bindings);
-        var result = new AutonomousAgentAppService(runDomainService, catalog, executor, completion,
-                lease, limiter, circuit, new ObjectMapper(), quota,
-                mock(AgentObservabilityPort.class), null, null).execute(AgentRunRequest.builder().userInput(input).build(),
+        ObjectMapper objectMapper = new ObjectMapper();
+        AgentObservabilityPort observability = mock(AgentObservabilityPort.class);
+        var limits = cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits.defaults();
+        AgentTurnDomainService turnDomainService = new AgentTurnDomainService(
+                circuit, observability, limits.getMaxRetryAttempts());
+        AgentExecutionDomainService executionDomainService = new AgentExecutionDomainService(limits, turnDomainService);
+        AgentRunExecutionDomainService runExecutionDomainService = new AgentRunExecutionDomainService(
+                runDomainService, catalog, executor, completion, objectMapper, lease, limiter, quota,
+                observability, executionDomainService, turnDomainService, fallbackPromptService());
+        var result = new AutonomousAgentAppService(
+                runDomainService, runExecutionDomainService, executionDomainService, catalog, objectMapper)
+                .execute(AgentRunRequest.builder().userInput(input).build(),
                 AgentIdentity.builder().principalKey("evaluation").tenantKey("evaluation").build(), ignored -> { });
 
         assertEquals("SUCCEEDED", result.getStatus(), evaluationCase.path("id").asText());
@@ -142,5 +155,9 @@ class AgentEvaluationDatasetTest {
         return AgentToolDefinition.builder().code(code).name(code).module(code.substring(0, code.indexOf('.')))
                 .description("Evaluation read tool").inputSchemaJson("{\"type\":\"object\"}")
                 .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).source("evaluation").freshness("test").build();
+    }
+
+    private static AgentSystemPromptDomainService fallbackPromptService() {
+        return new AgentSystemPromptDomainService(null, null);
     }
 }

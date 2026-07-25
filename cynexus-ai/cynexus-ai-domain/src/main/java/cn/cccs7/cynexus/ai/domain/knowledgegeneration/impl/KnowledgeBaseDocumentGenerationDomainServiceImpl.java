@@ -5,6 +5,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
+import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.knowledgebase.KnowledgeBaseDocumentDraftPolicy;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseDocumentGenerationDomainService;
@@ -265,10 +266,11 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         if (providerCode.isBlank()) {
             providerCode = normalize(provider.getCode());
         }
+        AiProviderModelPricingPolicy.ModelPricing pricing = AiProviderModelPricingPolicy.find(provider, name).orElse(null);
         return AiModelBO.builder().modelCode(name).providerCode(providerCode).modelName(name)
                 .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
-                .extra(provider.getExtra()).inputPricePerMillion(provider.getInputPricePerMillion())
-                .outputPricePerMillion(provider.getOutputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
+                .extra(provider.getExtra()).inputPricePerMillion(pricing == null ? provider.getInputPricePerMillion() : pricing.inputPricePerMillion())
+                .outputPricePerMillion(pricing == null ? provider.getOutputPricePerMillion() : pricing.outputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
     }
 

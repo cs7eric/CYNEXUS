@@ -34,8 +34,16 @@ import cn.cccs7.cynexus.core.domain.entity.SchedulerTodayCountersBO;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerDomainService;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerManagementPolicy;
 import cn.cccs7.cynexus.core.domain.scheduler.SchedulerRunResultDomainPolicy;
+import cn.cccs7.cynexus.core.domain.scheduler.SchedulerReconciliationPolicy;
 import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerExecutionDomainService;
 import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerManagementDomainService;
+import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerTriggerDomainService;
+import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerCategoryCreateCommand;
+import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerCategoryDeleteOutcome;
+import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerCategoryMutationResult;
+import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerCategoryUpdateCommand;
+import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerTriggerCommand;
+import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerTriggerOutcome;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -53,10 +61,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -69,25 +74,21 @@ public class SchedulerAppService {
 
     private static final Logger log = LoggerFactory.getLogger(SchedulerAppService.class);
     private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final String MARKET_SENTIMENT_CHAIN_JOB_CODE = "market_sentiment_chain_refresh";
-    private static final Set<String> PROGRESS_POLL_JOB_CODES = Set.of(
-            MARKET_SENTIMENT_CHAIN_JOB_CODE,
-            "a_stock_fund_flow_history_bootstrap_120"
-    );
-    private static final int MARKET_SENTIMENT_CHAIN_STEP_COUNT = 17;
-
     private final SchedulerDomainService schedulerDomainService;
     private final SchedulerManagementDomainService schedulerManagementDomainService;
     private final SchedulerExecutionDomainService schedulerExecutionDomainService;
+    private final SchedulerTriggerDomainService schedulerTriggerDomainService;
     private final ObjectMapper objectMapper;
     private final SchedulerRunResultDomainPolicy runResultPolicy = new SchedulerRunResultDomainPolicy();
 
     public SchedulerAppService(SchedulerDomainService schedulerDomainService,
                                SchedulerManagementDomainService schedulerManagementDomainService,
-                               SchedulerExecutionDomainService schedulerExecutionDomainService) {
+                               SchedulerExecutionDomainService schedulerExecutionDomainService,
+                               SchedulerTriggerDomainService schedulerTriggerDomainService) {
         this.schedulerDomainService = schedulerDomainService;
         this.schedulerManagementDomainService = schedulerManagementDomainService;
         this.schedulerExecutionDomainService = schedulerExecutionDomainService;
+        this.schedulerTriggerDomainService = schedulerTriggerDomainService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -299,88 +300,36 @@ public class SchedulerAppService {
 
     public SchedulerManagementCategoriesResponseDTO.Item createManagementCategory(
             SchedulerManagementCategoryCreateRequest request) {
-        if (request == null || request.getLabel() == null || request.getLabel().isBlank()) {
-            throw new IllegalArgumentException("Scheduler category label is required");
-        }
-        List<SchedulerJobCategoryBO> existingCategories = schedulerDomainService.listCategories().stream()
-                .filter(category -> category.getDeletedAt() == null)
-                .toList();
-        String label = request.getLabel().trim();
-        String code = SchedulerManagementPolicy.uniqueCategoryCode(
-                firstNonBlank(request.getCode(), SchedulerManagementPolicy.categoryCode(label)), existingCategories);
-        String iconHint = firstNonBlank(request.getIconHint(), "grid");
-        int sortOrder = request.getSortOrder() == null
-                ? SchedulerManagementPolicy.nextCategorySortOrder(existingCategories)
-                : request.getSortOrder();
-        Long id = schedulerDomainService.createCategory(SchedulerJobCategoryBO.builder()
-                .code(code)
-                .label(label)
-                .iconHint(iconHint)
-                .sortOrder(sortOrder)
-                .description(SchedulerManagementPolicy.blankToNull(request.getDescription()))
-                .status("active")
-                .remark("scheduler-management")
-                .build());
-        SchedulerJobCategoryBO category = schedulerDomainService.findCategoryById(id);
-        return toManagementCategoryItem(category, 0);
+        SchedulerCategoryMutationResult result = schedulerManagementDomainService.createCategory(
+                new SchedulerCategoryCreateCommand(
+                        request == null ? null : request.getCode(),
+                        request == null ? null : request.getLabel(),
+                        request == null ? null : request.getIconHint(),
+                        request == null ? null : request.getSortOrder(),
+                        request == null ? null : request.getDescription()));
+        return toManagementCategoryItem(result.category(), result.mappingCount());
     }
 
     public SchedulerManagementCategoriesResponseDTO.Item updateManagementCategory(
             Long categoryId,
             SchedulerManagementCategoryUpdateRequest request) {
-        SchedulerJobCategoryBO category = schedulerDomainService.findCategoryById(categoryId);
-        if (category == null || category.getDeletedAt() != null) {
-            throw new IllegalArgumentException("Scheduler category not found: " + categoryId);
-        }
-        if (request == null || request.getLabel() == null || request.getLabel().isBlank()) {
-            throw new IllegalArgumentException("Scheduler category label is required");
-        }
-        List<SchedulerJobCategoryBO> otherCategories = schedulerDomainService.listCategories().stream()
-                .filter(item -> item.getDeletedAt() == null)
-                .filter(item -> !Objects.equals(item.getId(), categoryId))
-                .toList();
-        String label = request.getLabel().trim();
-        String code = SchedulerManagementPolicy.uniqueCategoryCode(
-                firstNonBlank(request.getCode(), firstNonBlank(category.getCode(), SchedulerManagementPolicy.categoryCode(label))),
-                otherCategories);
-        String iconHint = firstNonBlank(request.getIconHint(), firstNonBlank(category.getIconHint(), "grid"));
-        Integer sortOrder = request.getSortOrder() == null ? category.getSortOrder() : request.getSortOrder();
-        boolean updated = schedulerDomainService.updateCategory(SchedulerJobCategoryBO.builder()
-                .id(category.getId())
-                .code(code)
-                .label(label)
-                .iconHint(iconHint)
-                .sortOrder(sortOrder)
-                .description(request.getDescription() == null ? category.getDescription() : request.getDescription().trim())
-                .status(firstNonBlank(category.getStatus(), "active"))
-                .remark(firstNonBlank(category.getRemark(), "scheduler-management"))
-                .build());
-        if (!updated) {
-            throw new IllegalStateException("Scheduler category update failed: " + categoryId);
-        }
-        int count = (int) schedulerDomainService.listCategoryMappings().stream()
-                .filter(mapping -> mapping.getDeletedAt() == null)
-                .filter(mapping -> Objects.equals(mapping.getCategoryId(), categoryId))
-                .count();
-        return toManagementCategoryItem(schedulerDomainService.findCategoryById(categoryId), count);
+        SchedulerCategoryMutationResult result = schedulerManagementDomainService.updateCategory(categoryId,
+                new SchedulerCategoryUpdateCommand(
+                        request == null ? null : request.getCode(),
+                        request == null ? null : request.getLabel(),
+                        request == null ? null : request.getIconHint(),
+                        request == null ? null : request.getSortOrder(),
+                        request == null ? null : request.getDescription()));
+        return toManagementCategoryItem(result.category(), result.mappingCount());
     }
 
     public SchedulerManagementJobActionResponseDTO deleteManagementCategory(Long categoryId) {
-        SchedulerJobCategoryBO category = schedulerDomainService.findCategoryById(categoryId);
-        if (category == null || category.getDeletedAt() != null) {
-            throw new IllegalArgumentException("Scheduler category not found: " + categoryId);
-        }
-        List<SchedulerJobCategoryMappingBO> mappings = schedulerDomainService.listCategoryMappings().stream()
-                .filter(mapping -> mapping.getDeletedAt() == null)
-                .filter(mapping -> Objects.equals(mapping.getCategoryId(), categoryId))
-                .toList();
-        mappings.forEach(mapping -> schedulerDomainService.deleteCategoryMapping(mapping.getId()));
-        boolean deleted = schedulerDomainService.deleteCategory(categoryId);
+        SchedulerCategoryDeleteOutcome outcome = schedulerManagementDomainService.deleteCategory(categoryId);
         return SchedulerManagementJobActionResponseDTO.builder()
-                .ok(deleted)
-                .status(deleted ? "category_deleted" : "category_delete_failed")
-                .count(deleted ? mappings.size() + 1 : 0)
-                .failedCount(deleted ? 0 : 1)
+                .ok(outcome.deleted())
+                .status(outcome.deleted() ? "category_deleted" : "category_delete_failed")
+                .count(outcome.deleted() ? outcome.deletedMappingCount() + 1 : 0)
+                .failedCount(outcome.deleted() ? 0 : 1)
                 .build();
     }
 
@@ -551,7 +500,8 @@ public class SchedulerAppService {
             DataJobTriggerResultBO snapshot = dataJobRunSnapshot(runId, run);
             String finalStatus = SchedulerManagementPolicy.normalizeTriggerStatus(snapshot);
             if (!SchedulerManagementPolicy.isTerminalStatus(finalStatus)) {
-                syncChainProgress(job, firstNonNull(status.getSchedulerStartedAt(), snapshotStartedAt(run, status)), snapshot);
+                schedulerTriggerDomainService.synchronizeProgress(
+                        job, firstNonNull(status.getSchedulerStartedAt(), snapshotStartedAt(run, status)), snapshot);
                 return;
             }
             boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(snapshot);
@@ -559,7 +509,8 @@ public class SchedulerAppService {
             OffsetDateTime endedAt = snapshotEndedAt(run);
             OffsetDateTime startedAt = safeStartedAt(snapshotStartedAt(run, status), status.getSchedulerStartedAt(), endedAt);
             String triggerType = openHistory == null ? "manual" : SchedulerManagementPolicy.allowedHistoryTriggerType(openHistory.getTriggerType());
-            recordTriggerResult(job, startedAt, endedAt, ok, finalStatus, error, triggerType, snapshot, historyId);
+            schedulerTriggerDomainService.recordResult(
+                    job, startedAt, endedAt, ok, finalStatus, error, triggerType, snapshot, historyId);
         } catch (RuntimeException exception) {
             log.warn("Reconcile scheduler data job run failed: jobCode={}, runId={}", job.getCode(), runId, exception);
         }
@@ -569,264 +520,51 @@ public class SchedulerAppService {
                                                                SchedulerManagementTriggerRequest request,
                                                                String triggerType,
                                                                String triggeredBy) {
-        SchedulerJobBO job = requireJobByCode(jobCode);
-        OffsetDateTime startedAt = OffsetDateTime.now(CHINA_ZONE);
-        SchedulerDataJobKeyResolver.ResolvedDataJob dataJob = resolveDataJob(job).orElse(null);
-        if (dataJob == null) {
-            String error = "No Python data job mapping for scheduler job: " + job.getCode();
-            recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), false, "failed", error, triggerType);
-            return SchedulerManagementJobActionResponseDTO.builder()
-                    .ok(false)
-                    .jobId(job.getCode())
-                    .accepted(false)
-                    .status("failed")
-                    .count(0)
-                    .failedCount(1)
-                    .items(List.of())
-                    .error(error)
-                    .build();
-        }
-        Map<String, Object> params = new LinkedHashMap<>(dataJob.defaultParams());
-        if (request != null && request.getTargetDate() != null && !request.getTargetDate().isBlank()) {
-            params.put("target_date", request.getTargetDate());
-            params.putIfAbsent("trade_date", request.getTargetDate());
-            params.putIfAbsent("snapshot_date", request.getTargetDate());
-        }
-        if (PROGRESS_POLL_JOB_CODES.contains(job.getCode())) {
-            return triggerProgressJobAsync(job, dataJob, params, request, triggerType, triggeredBy, startedAt);
-        }
-        DataJobTriggerResultBO result;
-        try {
-            result = schedulerDomainService.triggerDataJob(dataJob.jobKey(), DataJobTriggerRequestBO.builder()
-                    .triggeredBy(triggeredBy)
-                    .dryRun(request != null && Boolean.TRUE.equals(request.getDryRun()))
-                    .params(params)
-                    .build());
-        } catch (RuntimeException exception) {
-            OffsetDateTime endedAt = OffsetDateTime.now(CHINA_ZONE);
-            recordTriggerResult(job, startedAt, endedAt, false, "failed", exception.getMessage(), triggerType);
-            return SchedulerManagementJobActionResponseDTO.builder()
-                    .ok(false)
-                    .jobId(job.getCode())
-                    .accepted(false)
-                    .status("failed")
-                    .count(0)
-                    .failedCount(1)
-                    .items(List.of())
-                    .error(exception.getMessage())
-                    .build();
-        }
-        List<SchedulerManagementJobActionResponseDTO.TriggerItem> items = toTriggerItems(result.getResult());
-        int failedCount = (int) items.stream().filter(item -> !Boolean.TRUE.equals(item.getOk())).count();
-        int count = items.isEmpty() ? (Boolean.TRUE.equals(result.getAccepted()) ? 1 : 0) : items.size();
-        boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(result);
-        String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
-        String error = SchedulerManagementPolicy.triggerError(result);
-        recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), ok, status, error, triggerType, result);
+        SchedulerTriggerOutcome outcome = schedulerTriggerDomainService.trigger(new SchedulerTriggerCommand(
+                jobCode,
+                request == null ? null : request.getTargetDate(),
+                request != null && Boolean.TRUE.equals(request.getDryRun()),
+                triggerType,
+                triggeredBy,
+                OffsetDateTime.now(CHINA_ZONE)));
         return SchedulerManagementJobActionResponseDTO.builder()
-                .ok(ok)
-                .jobId(job.getCode())
-                .accepted(result.getAccepted())
-                .runId(result.getRunId())
-                .status(status)
-                .count(count)
-                .failedCount(ok ? failedCount : Math.max(1, failedCount))
-                .items(items)
-                .error(error)
+                .ok(outcome.ok())
+                .jobId(outcome.jobCode())
+                .accepted(outcome.accepted())
+                .runId(outcome.runId())
+                .status(outcome.status())
+                .count(outcome.count())
+                .failedCount(outcome.failedCount())
+                .items(outcome.items().stream()
+                        .map(item -> SchedulerManagementJobActionResponseDTO.TriggerItem.builder()
+                                .jobId(item.jobId())
+                                .ok(item.ok())
+                                .lastStatus(item.lastStatus())
+                                .lastRunError(item.lastRunError())
+                                .lastMessage(item.lastMessage())
+                                .build())
+                        .toList())
+                .error(outcome.error())
                 .build();
-    }
-
-    private Optional<SchedulerDataJobKeyResolver.ResolvedDataJob> resolveDataJob(SchedulerJobBO job) {
-        Map<String, Object> extra = readExtra(job == null ? null : job.getExtra());
-        String dataJobKey = firstNonBlank(
-                asString(firstPresent(extra, Set.of("data_job_key", "dataJobKey", "job_key", "jobKey"))),
-                null);
-        if (dataJobKey != null) {
-            Map<String, Object> defaultParams = asMap(firstPresent(extra, Set.of("default_params", "defaultParams")));
-            return Optional.of(new SchedulerDataJobKeyResolver.ResolvedDataJob(dataJobKey, defaultParams));
-        }
-        return SchedulerDataJobKeyResolver.resolve(job == null ? null : job.getCode());
-    }
-
-    private SchedulerManagementJobActionResponseDTO triggerProgressJobAsync(SchedulerJobBO job,
-                                                                         SchedulerDataJobKeyResolver.ResolvedDataJob dataJob,
-                                                                         Map<String, Object> params,
-                                                                         SchedulerManagementTriggerRequest request,
-                                                                         String triggerType,
-                                                                         String triggeredBy,
-                                                                         OffsetDateTime startedAt) {
-        SchedulerJobStatusBO jobStatus = ensureStatus(job);
-        Map<String, Object> extra = new LinkedHashMap<>(readExtra(jobStatus.getExtra()));
-        extra.put("lastStep", "starting");
-        if (MARKET_SENTIMENT_CHAIN_JOB_CODE.equals(job.getCode())) {
-            extra.put("lastCompletedSteps", List.of());
-            extra.put("lastStepResults", List.of());
-            extra.put("plannedSteps", MARKET_SENTIMENT_CHAIN_STEP_COUNT);
-        }
-        extra.put("lastMessage", job.getCode() + " 已在后台启动");
-        extra.put("lastDataJobKey", dataJob.jobKey());
-        Map<String, Object> progress = runResultPolicy.progress(extra, "running", startedAt);
-        schedulerDomainService.updateStatusProgress(
-                jobStatus.getId(),
-                true,
-                startedAt,
-                "running",
-                toJson(progress),
-                toJson(extra),
-                job.getCode() + " started");
-
-        Long historyId = null;
-        try {
-            historyId = schedulerDomainService.createRunHistory(SchedulerJobRunHistoryBO.builder()
-                    .jobId(job.getId())
-                    .startedAt(startedAt)
-                    .endedAt(startedAt)
-                    .triggerType(triggerType)
-                    .status("processing")
-                    .durationSeconds(BigDecimal.ZERO)
-                    .remark(job.getCode() + " processing")
-                    .resultSummary(toJson(runResultPolicy.resultSummary(null, extra, "processing", null, startedAt)))
-                    .build());
-        } catch (RuntimeException exception) {
-            log.warn("Create scheduler processing history failed, continue triggering data job: jobCode={}", job.getCode(), exception);
-        }
-
-        Long openHistoryId = historyId;
-        CompletableFuture.runAsync(() -> {
-            try {
-                DataJobTriggerResultBO result = schedulerDomainService.triggerDataJob(dataJob.jobKey(), DataJobTriggerRequestBO.builder()
-                        .triggerRequestId(job.getCode() + "-" + triggerType + "-" + UUID.randomUUID())
-                        .triggeredBy(triggeredBy)
-                        .dryRun(request != null && Boolean.TRUE.equals(request.getDryRun()))
-                        .params(params)
-                        .build());
-                if (SchedulerManagementPolicy.shouldPoll(result)) {
-                    pollProgressDataJobRun(job, startedAt, triggerType, result, openHistoryId);
-                    return;
-                }
-                boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(result);
-                String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
-                String error = SchedulerManagementPolicy.triggerError(result);
-                OffsetDateTime endedAt = OffsetDateTime.now(CHINA_ZONE);
-                recordTriggerResult(job, startedAt, endedAt, ok, status, error, triggerType, result, openHistoryId);
-            } catch (RuntimeException exception) {
-                OffsetDateTime endedAt = OffsetDateTime.now(CHINA_ZONE);
-                recordTriggerResult(job, startedAt, endedAt, false, "failed", exception.getMessage(), triggerType, null, openHistoryId);
-                log.warn("Async scheduler chain trigger failed: jobCode={}", job.getCode(), exception);
-            }
-        });
-
-        return SchedulerManagementJobActionResponseDTO.builder()
-                .ok(true)
-                .jobId(job.getCode())
-                .accepted(true)
-                .status("processing")
-                .count(1)
-                .failedCount(0)
-                .items(List.of(SchedulerManagementJobActionResponseDTO.TriggerItem.builder()
-                        .jobId(job.getCode())
-                        .ok(true)
-                        .lastStatus("processing")
-                        .lastMessage("job 已在后台启动, 请刷新查看进度")
-                        .build()))
-                .build();
-    }
-
-    private void pollProgressDataJobRun(SchedulerJobBO job,
-                                     OffsetDateTime startedAt,
-                                     String triggerType,
-                                     DataJobTriggerResultBO initialResult,
-                                     Long historyId) {
-        String runId = initialResult.getRunId();
-        String jobKey = initialResult.getJobKey();
-        long deadlineMs = System.currentTimeMillis() + Duration.ofHours(6).toMillis();
-        syncChainProgress(job, startedAt, initialResult);
-        while (System.currentTimeMillis() < deadlineMs) {
-            try {
-                Thread.sleep(2000L);
-                Map<String, Object> run = schedulerDomainService.getDataJobRun(runId);
-                DataJobTriggerResultBO snapshot = DataJobTriggerResultBO.builder()
-                        .accepted(true)
-                        .runId(runId)
-                        .jobKey(jobKey)
-                        .status(asString(run.get("status")))
-                        .result(run)
-                        .build();
-                String status = SchedulerManagementPolicy.normalizeTriggerStatus(snapshot);
-                if (SchedulerManagementPolicy.isTerminalStatus(status)) {
-                    boolean ok = SchedulerManagementPolicy.isAcceptedSuccess(snapshot);
-                    String error = SchedulerManagementPolicy.triggerError(snapshot);
-                    recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), ok, status, error, triggerType, snapshot, historyId);
-                    return;
-                }
-                syncChainProgress(job, startedAt, snapshot);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), false, "failed", "poll interrupted", triggerType, initialResult, historyId);
-                return;
-            } catch (RuntimeException exception) {
-                log.warn("Polling chain data job run failed: runId={}", runId, exception);
-            }
-        }
-        recordTriggerResult(job, startedAt, OffsetDateTime.now(CHINA_ZONE), false, "failed", "poll timeout", triggerType, initialResult, historyId);
-    }
-
-    private void syncChainProgress(SchedulerJobBO job,
-                                   OffsetDateTime startedAt,
-                                   DataJobTriggerResultBO result) {
-        SchedulerJobStatusBO jobStatus = ensureStatus(job);
-        String status = SchedulerManagementPolicy.normalizeTriggerStatus(result);
-        Map<String, Object> extra = runResultPolicy.build(jobStatus, result, false, status, null, OffsetDateTime.now(CHINA_ZONE)).extra();
-        extra.put("lastRunOk", null);
-        extra.put("lastRunError", null);
-        extra.putIfAbsent("plannedSteps", MARKET_SENTIMENT_CHAIN_STEP_COUNT);
-        Map<String, Object> progress = runResultPolicy.progress(extra, status, OffsetDateTime.now(CHINA_ZONE));
-        schedulerDomainService.updateStatusProgress(
-                jobStatus.getId(),
-                true,
-                startedAt,
-                status,
-                toJson(progress),
-                toJson(extra),
-                asString(progress.get("message")));
     }
 
     private DataJobTriggerResultBO dataJobRunSnapshot(String runId, Map<String, Object> run) {
-        Map<String, Object> safeRun = run == null ? Map.of() : run;
-        return DataJobTriggerResultBO.builder()
-                .accepted(true)
-                .runId(runId)
-                .jobKey(asString(firstPresent(safeRun, Set.of("job_key", "jobKey"))))
-                .status(asString(safeRun.get("status")))
-                .result(safeRun)
-                .build();
+        return SchedulerReconciliationPolicy.dataJobRunSnapshot(runId, run);
     }
 
     private boolean shouldReconcileDataJobStatus(SchedulerJobStatusBO status) {
-        if (status == null || status.getDeletedAt() != null) {
-            return false;
-        }
-        String lastStatus = status.getLastRunStatus();
-        return Boolean.TRUE.equals(status.getRunning())
-                || "running".equalsIgnoreCase(lastStatus)
-                || "processing".equalsIgnoreCase(lastStatus);
+        return SchedulerReconciliationPolicy.shouldReconcileDataJobStatus(status);
     }
 
     private String extractDataJobRunId(SchedulerJobStatusBO status) {
-        Map<String, Object> progress = readExtra(status.getProgress());
-        Object fromProgress = readPayloadValue(progress, "lastDataJobRunId");
-        if (fromProgress != null) {
-            return String.valueOf(fromProgress);
+        if (status == null) {
+            return null;
         }
-        Map<String, Object> extra = readExtra(status.getExtra());
-        Object fromExtra = firstPresent(extra, Set.of("lastDataJobRunId", "runId"));
-        return fromExtra == null ? null : String.valueOf(fromExtra);
+        return SchedulerReconciliationPolicy.extractRunId(readExtra(status.getProgress()), readExtra(status.getExtra()));
     }
 
     private String extractDataJobRunId(String resultSummaryJson) {
-        Map<String, Object> summary = readExtra(resultSummaryJson);
-        Object fromPayload = readPayloadValue(summary, "lastDataJobRunId");
-        return fromPayload == null ? null : String.valueOf(fromPayload);
+        return SchedulerReconciliationPolicy.extractRunIdFromSummary(readExtra(resultSummaryJson));
     }
 
     private SchedulerJobRunHistoryBO findOpenHistory(Long jobId, String runId) {
@@ -886,79 +624,7 @@ public class SchedulerAppService {
     }
 
     private OffsetDateTime safeStartedAt(OffsetDateTime preferred, OffsetDateTime fallback, OffsetDateTime endedAt) {
-        OffsetDateTime startedAt = firstNonNull(firstNonNull(preferred, fallback), firstNonNull(endedAt, OffsetDateTime.now(CHINA_ZONE)));
-        if (endedAt != null && startedAt.isAfter(endedAt)) {
-            return endedAt;
-        }
-        return startedAt;
-    }
-
-    private void recordTriggerResult(SchedulerJobBO job,
-                                     OffsetDateTime startedAt,
-                                     OffsetDateTime endedAt,
-                                     boolean ok,
-                                     String status,
-                                     String error,
-                                     String triggerType) {
-        recordTriggerResult(job, startedAt, endedAt, ok, status, error, triggerType, null, null);
-    }
-
-    private void recordTriggerResult(SchedulerJobBO job,
-                                     OffsetDateTime startedAt,
-                                     OffsetDateTime endedAt,
-                                     boolean ok,
-                                     String status,
-                                     String error,
-                                     String triggerType,
-                                     DataJobTriggerResultBO result) {
-        recordTriggerResult(job, startedAt, endedAt, ok, status, error, triggerType, result, null);
-    }
-
-    private void recordTriggerResult(SchedulerJobBO job,
-                                     OffsetDateTime startedAt,
-                                     OffsetDateTime endedAt,
-                                     boolean ok,
-                                     String status,
-                                     String error,
-                                     String triggerType,
-                                     DataJobTriggerResultBO result,
-                                     Long existingHistoryId) {
-        BigDecimal durationSeconds = runResultPolicy.durationSeconds(startedAt, endedAt);
-        SchedulerJobStatusBO jobStatus = ensureStatus(job);
-        SchedulerRunResultDomainPolicy.RunFacts facts = runResultPolicy.build(jobStatus, result, ok, status, error, endedAt);
-        Map<String, Object> extra = facts.extra();
-        Map<String, Object> progress = facts.progress();
-        Map<String, Object> resultSummary = facts.resultSummary();
-        Integer targetsProcessed = facts.targetsProcessed();
-        String remark = facts.remark();
-        schedulerDomainService.updateStatusRunResult(
-                jobStatus.getId(),
-                endedAt,
-                ok,
-                status,
-                error,
-                durationSeconds,
-                targetsProcessed,
-                toJson(progress),
-                toJson(extra),
-                remark);
-        SchedulerJobRunHistoryBO history = SchedulerJobRunHistoryBO.builder()
-                .id(existingHistoryId)
-                .jobId(job.getId())
-                .startedAt(startedAt)
-                .endedAt(endedAt)
-                .triggerType(triggerType)
-                .status(status)
-                .errorMessage(error)
-                .durationSeconds(durationSeconds)
-                .remark(remark)
-                .resultSummary(toJson(resultSummary))
-                .build();
-        if (existingHistoryId == null) {
-            schedulerDomainService.createRunHistory(history);
-        } else {
-            schedulerDomainService.updateRunHistory(history);
-        }
+        return SchedulerReconciliationPolicy.safeStartedAt(preferred, fallback, endedAt, OffsetDateTime.now(CHINA_ZONE));
     }
 
     private void recordRunHistoryResult(SchedulerJobRunHistoryBO existingHistory,
@@ -1302,30 +968,6 @@ public class SchedulerAppService {
         return toJson(Map.of("value", value == null ? List.of() : value));
     }
 
-    private List<SchedulerManagementJobActionResponseDTO.TriggerItem> toTriggerItems(Map<String, Object> result) {
-        Object rawItems = result == null ? null : result.get("items");
-        if (!(rawItems instanceof List<?>)) {
-            Map<String, Object> metadata = runResultPolicy.metadata(result);
-            rawItems = metadata.get("lastStepResults");
-        }
-        if (!(rawItems instanceof List<?> list)) {
-            return List.of();
-        }
-        List<SchedulerManagementJobActionResponseDTO.TriggerItem> items = new ArrayList<>();
-        for (Object raw : list) {
-            if (raw instanceof Map<?, ?> map) {
-                items.add(SchedulerManagementJobActionResponseDTO.TriggerItem.builder()
-                        .jobId(asString(map.get("jobId")))
-                        .ok(asBoolean(map.get("ok")))
-                        .lastStatus(asString(map.get("lastStatus")))
-                        .lastRunError(asString(firstPresent(map, Set.of("lastRunError", "last_error"))))
-                        .lastMessage(asString(map.get("lastMessage")))
-                        .build());
-            }
-        }
-        return items;
-    }
-
     private Map<String, Object> readExtra(String json) {
         if (json == null || json.isBlank()) {
             return Map.of();
@@ -1441,9 +1083,9 @@ public class SchedulerAppService {
     }
 
     private static boolean isOpenHistoryStatus(String status) {
-        return "running".equalsIgnoreCase(status)
-                || "processing".equalsIgnoreCase(status);
+        return SchedulerReconciliationPolicy.isOpenHistoryStatus(status);
     }
+
 
     private static Integer asInteger(Object value) {
         if (value instanceof Number number) {

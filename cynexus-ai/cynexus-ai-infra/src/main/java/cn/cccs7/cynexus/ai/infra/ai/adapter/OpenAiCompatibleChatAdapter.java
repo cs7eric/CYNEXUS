@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.ai.adapter;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
@@ -332,6 +333,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             }
             payload.put("messages", List.of(Map.of("role", "user", "content", content)));
         }
+        String reasoningEffort = extraString(model, AiConstants.MODEL_REASONING_EFFORT_EXTRA);
+        if (!reasoningEffort.isBlank()) {
+            payload.put(AiConstants.REASONING_EFFORT_REQUEST_FIELD, reasoningEffort);
+        }
         return objectMapper.writeValueAsString(payload);
     }
 
@@ -340,7 +345,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         payload.put("model", resolveModelName(model));
         payload.put("input", prompt == null ? "" : prompt);
         payload.put("store", !extraBoolean(model, "disable_response_storage", true));
-        String reasoningEffort = extraString(model, "model_reasoning_effort");
+        String reasoningEffort = extraString(model, AiConstants.MODEL_REASONING_EFFORT_EXTRA);
         if (!reasoningEffort.isBlank()) {
             payload.put("reasoning", Map.of("effort", reasoningEffort));
         }
@@ -361,6 +366,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         payload.put("messages", buildChatMessages(request));
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), false));
         payload.put("tool_choice", "auto");
+        String reasoningEffort = extraString(model, AiConstants.MODEL_REASONING_EFFORT_EXTRA);
+        if (!reasoningEffort.isBlank()) {
+            payload.put(AiConstants.REASONING_EFFORT_REQUEST_FIELD, reasoningEffort);
+        }
         if (stream) {
             payload.put("stream", true);
             payload.put("stream_options", Map.of("include_usage", true));
@@ -380,9 +389,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         payload.put("store", !extraBoolean(model, "disable_response_storage", true));
         if (stream) payload.put("stream", true);
         Map<String, Object> reasoning = new LinkedHashMap<>();
-        String effort = extraString(model, "model_reasoning_effort");
+        String effort = extraString(model, AiConstants.MODEL_REASONING_EFFORT_EXTRA);
         if (!effort.isBlank()) reasoning.put("effort", effort);
-        String summary = extraString(model, "reasoning_summary");
+        String summary = extraString(model, AiConstants.REASONING_SUMMARY_EXTRA);
         reasoning.put("summary", summary.isBlank() ? "auto" : summary);
         payload.put("reasoning", reasoning);
         return objectMapper.writeValueAsString(payload);
@@ -818,7 +827,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 : (baseUrl.endsWith("/v1") ? CHAT_COMPLETIONS_PATH : V1_CHAT_COMPLETIONS_PATH);
         String allowedOrigins = environment.getProperty("cynexus.ai.security.provider-allowed-origins");
         if (allowedOrigins == null || allowedOrigins.isBlank()) allowedOrigins = DEFAULT_ALLOWED_PROVIDER_ORIGINS;
-        URI allowedBase = AgentOutboundEndpointPolicy.requireAllowed(baseUrl, allowedOrigins);
+        // Provider endpoints are persisted in ai_providers, so the selected provider's origin
+        // is an explicit trust entry in addition to the deployment-level defaults.
+        URI allowedBase = AgentOutboundEndpointPolicy.requireAllowed(baseUrl, allowedOrigins + "," + baseUrl);
         return URI.create(allowedBase.toString() + path);
     }
 

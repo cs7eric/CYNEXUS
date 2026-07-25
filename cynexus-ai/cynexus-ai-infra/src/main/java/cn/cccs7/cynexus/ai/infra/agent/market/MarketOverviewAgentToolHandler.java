@@ -15,14 +15,14 @@ public class MarketOverviewAgentToolHandler extends AbstractMarketAgentToolHandl
             .code("market.overview")
             .name("Market overview")
             .module("market")
-            .description("Read market breadth, turnover, index and fund-flow overview for a trading date.")
+            .description("Read market breadth, turnover, index and fund-flow overview for a trading date. tradeDate is optional and defaults to the latest available Asia/Shanghai session.")
             .inputSchemaJson(MarketAgentToolSchemas.TRADE_DATE)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)
             .requiresConfirmation(false)
             .freshness("daily snapshot")
             .source(SOURCE)
-            .sourceUrl("/stock-overview")
+            .sourceUrl("/api/market/overview")
             .build();
 
     public MarketOverviewAgentToolHandler(MarketDataGateway marketDataGateway, ObjectMapper objectMapper) {
@@ -36,9 +36,12 @@ public class MarketOverviewAgentToolHandler extends AbstractMarketAgentToolHandl
 
     @Override
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
-        String tradeDate = dateArgument(call, context);
-        Object value = marketDataGateway().getMarketOverview(tradeDate.isBlank() ? null : tradeDate);
-        return value == null ? empty(DEFINITION, "No market overview was available for the requested date.")
-                : success(DEFINITION, value, "Read the market overview snapshot.");
+        String preferred = resolvedTradeDate(call, context);
+        return loadByTradeDate(
+                DEFINITION,
+                preferred,
+                tradeDate -> marketDataGateway().getMarketOverview(tradeDate),
+                tradeDate -> "Read the market overview snapshot for " + tradeDate + ".",
+                "No market overview was available near " + preferred + ".");
     }
 }
