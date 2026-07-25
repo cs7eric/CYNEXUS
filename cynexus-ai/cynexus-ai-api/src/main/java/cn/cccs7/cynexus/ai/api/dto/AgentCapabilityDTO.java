@@ -12,6 +12,7 @@ public class AgentCapabilityDTO {
     private String name;
     private String module;
     private String description;
+    private String guidanceJson;
     private String inputSchemaJson;
     private String outputSchemaJson;
     private boolean readOnly;

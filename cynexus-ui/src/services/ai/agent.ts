@@ -95,6 +95,7 @@ export interface AgentToolDefinition {
   name: string
   module: string
   description: string
+  guidanceJson?: string | null
   inputSchemaJson: string
   outputSchemaJson: string
   readOnly: boolean
@@ -118,6 +119,7 @@ export interface AgentCapability {
   name: string
   module: string
   description: string
+  guidanceJson?: string | null
   inputSchemaJson: string
   outputSchemaJson: string
   readOnly: boolean
@@ -194,6 +196,13 @@ export async function searchAgentConversations(query: string, limit = 30): Promi
 export async function fetchAgentMessages(conversationNo: string): Promise<AgentMessage[]> {
   return cynexusResult<AgentMessage[]>(await fetchWithRetry(
     `${SERVICE_PREFIX.ai}/agent/conversations/${encodeURIComponent(conversationNo)}/messages`,
+  ))
+}
+
+export async function archiveAgentConversation(conversationNo: string): Promise<boolean> {
+  return cynexusResult<boolean>(await fetchWithRetry(
+    `${SERVICE_PREFIX.ai}/agent/conversations/${encodeURIComponent(conversationNo)}/archive`,
+    { method: "POST" },
   ))
 }
 

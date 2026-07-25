@@ -137,7 +137,7 @@ public class AutonomousAgentAppService {
     public List<AgentToolDefinitionDTO> enabledTools() {
         return toolCatalog.enabledTools().stream().map(definition -> AgentToolDefinitionDTO.builder()
                 .code(definition.getCode()).name(definition.getName()).module(definition.getModule())
-                .description(definition.getDescription()).inputSchemaJson(definition.getInputSchemaJson())
+                .description(definition.getDescription()).guidanceJson(definition.getGuidanceJson()).inputSchemaJson(definition.getInputSchemaJson())
                 .outputSchemaJson(definition.getOutputSchemaJson()).readOnly(definition.isReadOnly())
                 .requiresConfirmation(definition.isRequiresConfirmation()).freshness(definition.getFreshness())
                 .source(definition.getSource()).sourceUrl(definition.getSourceUrl()).version(definition.getVersion())
@@ -176,6 +176,12 @@ public class AutonomousAgentAppService {
 
     public List<AgentConversationDTO> conversations(AgentIdentity identity, int limit, String query) {
         return conversations(identity == null ? null : identity.storageOwnerKey(), limit, query);
+    }
+
+    public boolean archiveConversation(AgentIdentity identity, String conversationNo) {
+        return runDomainService.archiveConversation(
+                identity == null ? AgentIdentity.singleUser().storageOwnerKey() : identity.storageOwnerKey(),
+                conversationNo);
     }
 
     public AgentRunDTO retry(AgentIdentity identity, String runNo) {

@@ -27,6 +27,10 @@ public interface AgentRunRepository {
 
     void updateConversation(AgentConversationBO conversation);
 
+    default boolean archiveConversation(String ownerKey, String conversationNo, OffsetDateTime archivedAt) {
+        return false;
+    }
+
     void saveStep(AgentRunStepBO step);
 
     Optional<AgentRunBO> findRun(String ownerKey, String runNo);

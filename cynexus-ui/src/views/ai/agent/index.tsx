@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { AlertCircle, ArrowUp, Check, CircleDashed, Cpu, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
+import { Archive, AlertCircle, ArrowUp, Check, CircleDashed, Cpu, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { notification } from "@/components/ui/notification"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentCancellationResult, type AgentCitation, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { archiveAgentConversation, cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentCancellationResult, type AgentCitation, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
@@ -16,6 +16,7 @@ import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Message, MessageContent, MessageFooter, MessageHeader } from "@/components/ui/message"
 import { Spinner } from "@/components/ui/spinner"
 import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { AgentActivityTimeline, appendThinkingDelta, appendToolStep, completeThinking, timelineFromSteps, type AgentTimelineEntry } from "./components/agent-activity-timeline"
 import { AgentFeedbackPanel } from "./components/agent-feedback-panel"
 import { AgentMarkdown } from "./components/agent-markdown"
@@ -70,6 +71,26 @@ function notifyAgentError(title: string, reason: unknown, fallback: string) {
     title,
     description: reason instanceof Error ? reason.message : fallback,
   })
+}
+
+function markdownTitle(markdown?: string | null) {
+  return (markdown ?? "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+[.)]\s+/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[|*_~`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function conversationLabel(conversation: AgentConversation) {
+  const source = conversation.lastMessage || conversation.title || conversation.conversationNo
+  return markdownTitle(source) || conversation.title || conversation.conversationNo
 }
 
 function CitationList({ citations }: { citations: AgentCitation[] }) {
@@ -194,6 +215,7 @@ export default function AutonomousAgentPage() {
   const abortController = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
   const [historyQuery, setHistoryQuery] = useState("")
+  const [archiveLoadingNo, setArchiveLoadingNo] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [workspaceTab, setWorkspaceTab] = useState("history")
   const [timeline, setTimeline] = useState<AgentTimelineEntry[]>([])
@@ -380,6 +402,26 @@ export default function AutonomousAgentPage() {
     }
   }
 
+  async function archiveConversation(conversation: AgentConversation) {
+    if (archiveLoadingNo) return
+    setArchiveLoadingNo(conversation.conversationNo)
+    try {
+      const archived = await archiveAgentConversation(conversation.conversationNo)
+      if (!archived) throw new Error("Conversation is no longer available")
+      setConversations((current) => current.filter((item) => item.conversationNo !== conversation.conversationNo))
+      if (run?.conversationNo === conversation.conversationNo) {
+        setRun(null)
+        setConversationMessages([])
+        setTimeline([])
+      }
+      notification.success({ title: "会话已归档" })
+    } catch (reason: unknown) {
+      notifyAgentError("归档会话失败", reason, "无法归档此会话")
+    } finally {
+      setArchiveLoadingNo(null)
+    }
+  }
+
   async function rerun(action: "retry" | "regenerate") {
     if (!run?.runNo || loading) return
     setLoading(true)
@@ -500,20 +542,43 @@ export default function AutonomousAgentPage() {
                   <div className="space-y-1.5">
                     {conversations.length ? (
                       conversations.map((conversation) => (
-                        <button
+                        <div
                           key={conversation.conversationNo}
-                          type="button"
-                          className="w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/50"
-                          onClick={() => void openConversation(conversation)}
+                          className="group flex items-center gap-1 rounded-lg border border-transparent px-1 transition-colors hover:border-border hover:bg-muted/50 focus-within:border-border focus-within:bg-muted/50"
                         >
-                          <div className="truncate text-xs font-medium">
-                            {conversation.lastMessage?.slice(0, 72) || conversation.title || conversation.conversationNo}
-                          </div>
-                          <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                            <span className="truncate">{conversation.conversationNo}</span>
-                            <span>{conversation.updatedAt ? new Date(conversation.updatedAt).toLocaleDateString() : ""}</span>
-                          </div>
-                        </button>
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 rounded-md px-2 py-2 text-left outline-none"
+                            onClick={() => void openConversation(conversation)}
+                          >
+                            <div className="line-clamp-2 break-words text-xs font-medium leading-5">
+                              {conversationLabel(conversation)}
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                              <span className="truncate">{conversation.conversationNo}</span>
+                              <span className="shrink-0">{conversation.updatedAt ? new Date(conversation.updatedAt).toLocaleDateString() : ""}</span>
+                            </div>
+                          </button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                                  aria-label="Archive conversation"
+                                  title="Archive conversation"
+                                  onClick={() => void archiveConversation(conversation)}
+                                  disabled={archiveLoadingNo !== null}
+                                >
+                                  <Archive className={archiveLoadingNo === conversation.conversationNo ? "size-3.5 animate-pulse" : "size-3.5"} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Archive conversation</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       ))
                     ) : (
                       <p className="px-1 text-xs leading-5 text-muted-foreground">

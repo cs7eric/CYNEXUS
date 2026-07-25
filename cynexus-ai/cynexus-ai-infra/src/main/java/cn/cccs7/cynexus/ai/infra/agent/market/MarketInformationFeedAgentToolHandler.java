@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -15,7 +16,8 @@ public class MarketInformationFeedAgentToolHandler implements cn.cccs7.cynexus.a
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder()
             .code("market.information_feed").name("Market information feed").module("market-information")
             .description("Read the persisted market information feed, event impact mappings, and analysis status.")
-            .inputSchemaJson("{\"type\":\"object\",\"properties\":{\"page\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":20},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"impactIndustryCode\":{\"type\":\"string\"},\"analysisStatus\":{\"type\":\"string\"}},\"additionalProperties\":false}")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_INFORMATION_FEED)
+            .inputSchemaJson(MarketAgentToolSchemas.INFORMATION_FEED)
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
             .freshness("persisted feed").source("Market Information API").sourceUrl("/market/pulse").build();
 

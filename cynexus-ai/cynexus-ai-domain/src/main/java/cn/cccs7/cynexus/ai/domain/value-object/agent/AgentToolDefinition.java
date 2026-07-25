@@ -12,6 +12,7 @@ public class AgentToolDefinition {
     String name;
     String module;
     String description;
+    String guidanceJson;
     String inputSchemaJson;
     String outputSchemaJson;
     boolean readOnly;

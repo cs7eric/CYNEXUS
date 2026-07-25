@@ -13,8 +13,11 @@ class AgentCapabilityDynamicRegistrationContractTest {
         String migration = read("deploy/local/postgres/migrations/20260723_add_ai_agent_dynamic_capabilities.sql");
         assertThat(migration).contains("registration_mode varchar(32)", "registration_mode IN ('HANDLER', 'ADMIN')",
                 "idx_ai_agent_capability_registration_mode");
+        assertThat(read("deploy/local/postgres/migrations/20260725_add_ai_agent_capability_guidance.sql"))
+                .contains("guidance_json jsonb");
         assertThat(read("deploy/release/apply-agent-migrations.ps1"))
-                .contains("20260723_add_ai_agent_dynamic_capabilities.sql");
+                .contains("20260723_add_ai_agent_dynamic_capabilities.sql",
+                        "20260725_add_ai_agent_capability_guidance.sql");
     }
 
     private String read(String relativePath) throws IOException {

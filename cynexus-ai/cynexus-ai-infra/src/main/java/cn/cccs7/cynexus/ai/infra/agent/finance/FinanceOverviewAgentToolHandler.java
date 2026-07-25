@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.finance;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -19,6 +20,7 @@ public class FinanceOverviewAgentToolHandler implements AgentToolHandler {
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("Finance overview").module("finance")
             .description("Read income, expense, net assets, account balances and recent finance summary for a date range.")
+            .guidanceJson(AgentToolGuidanceCatalog.FINANCE_OVERVIEW)
             .inputSchemaJson(FinanceAgentToolSchemas.DATE_RANGE).outputSchemaJson(FinanceAgentToolSchemas.OVERVIEW_OUTPUT)
             .readOnly(true).requiresConfirmation(false).freshness("ledger snapshot").source("Core Finance API")
             .sourceUrl("/finance/overview").build();

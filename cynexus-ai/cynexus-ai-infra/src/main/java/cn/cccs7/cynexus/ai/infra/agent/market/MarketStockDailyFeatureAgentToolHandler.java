@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -16,6 +17,7 @@ public class MarketStockDailyFeatureAgentToolHandler extends AbstractMarketAgent
             .name("Stock daily feature")
             .module("market")
             .description("Read a stock's daily price, valuation and technical feature snapshot. symbol is required; tradeDate is optional.")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_STOCK_DAILY)
             .inputSchemaJson(MarketAgentToolSchemas.STOCK_DAILY)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)

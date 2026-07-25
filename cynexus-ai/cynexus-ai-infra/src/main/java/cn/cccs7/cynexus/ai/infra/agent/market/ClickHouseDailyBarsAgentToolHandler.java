@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -29,7 +30,8 @@ public class ClickHouseDailyBarsAgentToolHandler implements AgentToolHandler {
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("ClickHouse daily bars").module("market")
             .description("Read bounded historical daily OHLCV bars from the approved ClickHouse market dataset.")
-            .inputSchemaJson("{\"type\":\"object\",\"required\":[\"symbol\"],\"properties\":{\"market\":{\"type\":\"string\",\"enum\":[\"SH\",\"SZ\",\"BJ\"]},\"symbol\":{\"type\":\"string\"},\"start\":{\"type\":\"string\",\"format\":\"date\"},\"end\":{\"type\":\"string\",\"format\":\"date\"},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":300}}}")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_CLICKHOUSE_DAILY_BARS)
+            .inputSchemaJson(MarketAgentToolSchemas.CLICKHOUSE_DAILY_BARS)
             .outputSchemaJson("{\"type\":\"array\"}").readOnly(true).requiresConfirmation(false)
             .freshness("historical daily data").source(SOURCE).sourceUrl("/stock-overview").build();
 

@@ -206,6 +206,11 @@ public class AutonomousAgentController {
         return Result.success(agentAppService.messages(identity(httpRequest), conversationNo));
     }
 
+    @PostMapping("/conversations/{conversationNo}/archive")
+    public Result<Boolean> archiveConversation(@PathVariable String conversationNo, HttpServletRequest httpRequest) {
+        return Result.success(agentAppService.archiveConversation(identity(httpRequest), conversationNo));
+    }
+
     private void send(SseEmitter emitter, AgentRunEventBO event) {
         try {
             SseEmitter.SseEventBuilder builder = SseEmitter.event().name(event.getType())
@@ -229,7 +234,7 @@ public class AutonomousAgentController {
     private AgentCapabilityDTO toCapabilityDTO(AgentCapabilityDescriptor item) {
         return AgentCapabilityDTO.builder().id(item.getId()).capabilityCode(item.getCapabilityCode())
                 .version(item.getVersion()).name(item.getName()).module(item.getModule()).description(item.getDescription())
-                .inputSchemaJson(item.getInputSchemaJson()).outputSchemaJson(item.getOutputSchemaJson())
+                .guidanceJson(item.getGuidanceJson()).inputSchemaJson(item.getInputSchemaJson()).outputSchemaJson(item.getOutputSchemaJson())
                 .readOnly(item.isReadOnly()).requiresConfirmation(item.isRequiresConfirmation())
                 .tenantScope(item.getTenantScope()).source(item.getSource()).sourceUrl(item.getSourceUrl())
                 .freshness(item.getFreshness()).availability(item.getAvailability()).enabled(item.isEnabled())
@@ -261,7 +266,7 @@ public class AutonomousAgentController {
         }
         return AgentCapabilityDescriptor.builder().capabilityCode(code).version(request.getVersion())
                 .name(request.getName()).module(request.getModule()).description(request.getDescription())
-                .inputSchemaJson(request.getInputSchemaJson()).outputSchemaJson(request.getOutputSchemaJson())
+                .guidanceJson(request.getGuidanceJson()).inputSchemaJson(request.getInputSchemaJson()).outputSchemaJson(request.getOutputSchemaJson())
                 .readOnly(request.getReadOnly()).requiresConfirmation(request.getRequiresConfirmation())
                 .tenantScope(request.getTenantScope()).source(request.getSource()).sourceUrl(request.getSourceUrl())
                 .freshness(request.getFreshness()).availability(request.getAvailability())

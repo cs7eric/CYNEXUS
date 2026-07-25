@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -16,6 +17,7 @@ public class MarketSectorRankAgentToolHandler extends AbstractMarketAgentToolHan
             .name("Sector ranking")
             .module("market")
             .description("Read sector ranking by change percent / net inflow for a trading date. tradeDate is optional.")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_SECTOR_RANK)
             .inputSchemaJson(MarketAgentToolSchemas.SECTOR_RANK)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)

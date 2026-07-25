@@ -10,6 +10,7 @@ public class AgentCapabilityRegistrationRequest {
     private String name;
     private String module;
     private String description;
+    private String guidanceJson;
     private String inputSchemaJson;
     private String outputSchemaJson;
     private Boolean readOnly;

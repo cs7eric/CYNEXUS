@@ -17,6 +17,7 @@ public class AgentCapabilityPO extends BasePO {
     private String name;
     private String module;
     private String description;
+    @TableField(value = "guidance_json", typeHandler = JsonbTypeHandler.class) private String guidanceJson;
     @TableField(value = "input_schema_json", typeHandler = JsonbTypeHandler.class) private String inputSchemaJson;
     @TableField(value = "output_schema_json", typeHandler = JsonbTypeHandler.class) private String outputSchemaJson;
     @TableField("is_read_only") private Boolean readOnly;

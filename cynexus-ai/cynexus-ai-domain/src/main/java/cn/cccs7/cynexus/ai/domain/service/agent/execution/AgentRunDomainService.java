@@ -85,6 +85,13 @@ public class AgentRunDomainService {
         runRepository.updateConversation(conversation);
     }
 
+    public boolean archiveConversation(String ownerKey, String conversationNo) {
+        if (ownerKey == null || ownerKey.isBlank() || conversationNo == null || conversationNo.isBlank()) {
+            throw new IllegalArgumentException("Agent conversation identity is required");
+        }
+        return runRepository.archiveConversation(ownerKey, conversationNo, OffsetDateTime.now());
+    }
+
     public void saveStep(AgentRunStepBO step) {
         runRepository.saveStep(step);
     }

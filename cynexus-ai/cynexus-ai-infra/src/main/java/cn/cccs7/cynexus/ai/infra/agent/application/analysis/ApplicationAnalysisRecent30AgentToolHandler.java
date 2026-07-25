@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.application.analysis;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -16,7 +17,8 @@ public class ApplicationAnalysisRecent30AgentToolHandler implements AgentToolHan
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder()
             .code("application_analysis.recent30").name("Application analysis recent 30 days").module("application-analysis")
             .description("Read persisted daily snapshots for an application-analysis target.")
-            .inputSchemaJson("{\"type\":\"object\",\"required\":[\"targetId\"],\"properties\":{\"targetId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":60}},\"additionalProperties\":false}")
+            .guidanceJson(AgentToolGuidanceCatalog.APPLICATION_ANALYSIS_RECENT30)
+            .inputSchemaJson(ApplicationAnalysisAgentToolSchemas.RECENT30)
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
             .freshness("daily snapshots").source("Application Analysis")
             .sourceUrl("/stock-overview/application-analysis").build();

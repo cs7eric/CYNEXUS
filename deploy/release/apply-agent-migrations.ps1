@@ -37,6 +37,7 @@ $migrationFiles = @(
     "20260725_add_ai_agent_provider_selection.sql",
     "20260725_add_ai_provider_model_configs.sql",
     "20260725_add_ai_binding_reasoning_effort.sql",
+    "20260725_add_ai_agent_capability_guidance.sql",
     "20260725_fix_xhhai_provider_models.sql"
 )
 

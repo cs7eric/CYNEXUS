@@ -659,7 +659,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         for (AgentToolDefinition definition : definitions) {
             Map<String, Object> function = new LinkedHashMap<>();
             function.put("name", providerToolName(definition.getCode()));
-            function.put("description", definition.getDescription());
+            function.put("description", AgentToolDescriptionRenderer.render(objectMapper,
+                    definition.getDescription(), definition.getGuidanceJson()));
             function.put("parameters", objectMapper.readTree(definition.getInputSchemaJson()));
             if (responsesApi) {
                 Map<String, Object> responseTool = new LinkedHashMap<>();

@@ -1,7 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.handler.toolcall;
 
 import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
-import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -21,6 +20,7 @@ public interface AgentToolHandler {
                 .name(definition.getName())
                 .module(definition.getModule())
                 .description(definition.getDescription())
+                .guidanceJson(definition.getGuidanceJson())
                 .inputSchemaJson(definition.getInputSchemaJson())
                 .outputSchemaJson(definition.getOutputSchemaJson())
                 .readOnly(definition.isReadOnly())

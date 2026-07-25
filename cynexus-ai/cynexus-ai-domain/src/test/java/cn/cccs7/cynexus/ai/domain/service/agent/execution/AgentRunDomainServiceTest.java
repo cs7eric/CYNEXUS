@@ -77,6 +77,16 @@ class AgentRunDomainServiceTest {
     }
 
     @Test
+    void archivesConversationThroughTheRepositoryPort() {
+        RecordingRepository repository = new RecordingRepository();
+        AgentRunDomainService service = new AgentRunDomainService(repository, null, null, null);
+
+        assertThat(service.archiveConversation("owner-1", "AGC-1")).isTrue();
+        assertThat(repository.archivedConversation).isEqualTo("owner-1/AGC-1");
+        assertThat(repository.archivedAt).isNotNull();
+    }
+
+    @Test
     void appliesReasoningOverrideToRuntimeModelWithoutChangingProviderConfiguration() {
         AiProviderBO provider = AiProviderBO.builder().id(7L).code("openai").providerType("openai")
                 .enabled(true).defaultModel("gpt-5")
@@ -149,6 +159,8 @@ class AgentRunDomainServiceTest {
     private static final class RecordingRepository implements AgentRunRepository {
         private final List<AgentRunStepBO> steps = new ArrayList<>();
         private final List<AgentMessageBO> messages = new ArrayList<>();
+        private String archivedConversation;
+        private OffsetDateTime archivedAt;
 
         @Override public void saveConversation(AgentConversationBO conversation) { }
         @Override public Optional<AgentConversationBO> findConversation(String ownerKey, String conversationNo) { return Optional.empty(); }
@@ -156,6 +168,11 @@ class AgentRunDomainServiceTest {
         @Override public void saveRun(AgentRunBO run) { }
         @Override public void updateRun(AgentRunBO run) { }
         @Override public void updateConversation(AgentConversationBO conversation) { }
+        @Override public boolean archiveConversation(String ownerKey, String conversationNo, OffsetDateTime archivedAt) {
+            this.archivedConversation = ownerKey + "/" + conversationNo;
+            this.archivedAt = archivedAt;
+            return true;
+        }
         @Override public void saveStep(AgentRunStepBO step) { steps.add(step); }
         @Override public Optional<AgentRunBO> findRun(String ownerKey, String runNo) { return Optional.empty(); }
         @Override public Optional<AgentRunBO> findRunByIdempotencyKey(String ownerKey, String idempotencyKey) { return Optional.empty(); }

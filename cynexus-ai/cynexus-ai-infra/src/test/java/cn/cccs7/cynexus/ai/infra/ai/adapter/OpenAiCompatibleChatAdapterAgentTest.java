@@ -137,6 +137,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
         var tool = payload.path("tools").get(0);
         assertThat(tool.path("type").asText()).isEqualTo("function");
         assertThat(tool.path("name").asText()).isEqualTo("cynexus_tool_6d61726b65742e6f76657276696577");
+        assertThat(tool.path("description").asText()).contains("Purpose: Read one bounded market snapshot.");
         assertThat(tool.path("parameters").path("type").asText()).isEqualTo("object");
         assertThat(tool.path("function").isMissingNode()).isTrue();
     }
@@ -280,6 +281,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
     private AgentToolDefinition toolDefinition() {
         return AgentToolDefinition.builder().code("market.overview").name("Market overview")
                 .description("Read market overview.").inputSchemaJson("{\"type\":\"object\",\"properties\":{\"tradeDate\":{\"type\":\"string\"}}}")
+                .guidanceJson("{\"purpose\":\"Read one bounded market snapshot.\"}")
                 .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).source("test").build();
     }
 }

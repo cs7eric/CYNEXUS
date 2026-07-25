@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.application.analysis;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -16,7 +17,8 @@ public class ApplicationAnalysisResultAgentToolHandler implements AgentToolHandl
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder()
             .code("application_analysis.result").name("Application analysis result").module("application-analysis")
             .description("Read the persisted application-analysis result for a configured target.")
-            .inputSchemaJson("{\"type\":\"object\",\"required\":[\"targetId\"],\"properties\":{\"targetId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128}},\"additionalProperties\":false}")
+            .guidanceJson(AgentToolGuidanceCatalog.APPLICATION_ANALYSIS_RESULT)
+            .inputSchemaJson(ApplicationAnalysisAgentToolSchemas.RESULT)
             .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).requiresConfirmation(false)
             .freshness("persisted result").source("Application Analysis")
             .sourceUrl("/stock-overview/application-analysis").build();

@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -16,6 +17,7 @@ public class MarketStockIntradayFeatureAgentToolHandler extends AbstractMarketAg
             .name("Stock intraday feature")
             .module("market")
             .description("Read a stock's latest intraday price, volume and market activity features. symbol is required; tradeDate is optional.")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_STOCK_INTRADAY)
             .inputSchemaJson(MarketAgentToolSchemas.STOCK_INTRADAY)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)

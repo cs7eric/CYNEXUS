@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.knowledge;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -20,8 +21,9 @@ public class KnowledgeSearchAgentToolHandler implements AgentToolHandler {
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("Knowledge search").module("knowledge-base")
             .description("Search approved Cynexus knowledge-base documents by a bounded keyword query.")
-            .inputSchemaJson("{\"type\":\"object\",\"required\":[\"query\"],\"properties\":{\"query\":{\"type\":\"string\",\"minLength\":2,\"maxLength\":240},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":10}},\"additionalProperties\":false}")
-            .outputSchemaJson("{\"type\":\"array\",\"items\":{\"type\":\"object\",\"required\":[\"id\",\"title\",\"status\"],\"properties\":{\"id\":{\"type\":\"integer\"},\"title\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"updatedAt\":{\"type\":[\"string\",\"null\"]}}}}")
+            .guidanceJson(AgentToolGuidanceCatalog.KNOWLEDGE_SEARCH)
+            .inputSchemaJson(KnowledgeAgentToolSchemas.SEARCH)
+            .outputSchemaJson(KnowledgeAgentToolSchemas.SEARCH_OUTPUT)
             .readOnly(true).requiresConfirmation(false).freshness("published knowledge documents")
             .source("Knowledge Base API").sourceUrl("/knowledge-base").build();
 

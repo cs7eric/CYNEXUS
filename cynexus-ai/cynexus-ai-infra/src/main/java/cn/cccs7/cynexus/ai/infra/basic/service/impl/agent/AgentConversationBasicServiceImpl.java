@@ -7,6 +7,7 @@ import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.util.Optional;
 import java.util.List;
+import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -48,5 +49,15 @@ public class AgentConversationBasicServiceImpl implements AgentConversationBasic
         }
         return mapper.selectList(wrapper.orderByDesc("updated_at")
                 .last("LIMIT " + Math.max(1, Math.min(limit, 100))));
+    }
+
+    @Override
+    public boolean archive(String ownerKey, String conversationNo, OffsetDateTime archivedAt) {
+        Optional<AgentConversationPO> conversation = find(ownerKey, conversationNo);
+        if (conversation.isEmpty()) return false;
+        AgentConversationPO source = conversation.get();
+        source.setDeletedAt(archivedAt == null ? OffsetDateTime.now() : archivedAt);
+        source.setUpdatedAt(source.getDeletedAt());
+        return mapper.updateById(source) == 1;
     }
 }

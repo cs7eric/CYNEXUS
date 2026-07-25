@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.finance;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -20,6 +21,7 @@ public class FinanceTransactionsAgentToolHandler implements AgentToolHandler {
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("Finance transactions").module("finance")
             .description("Read a bounded list of ledger transactions for a date range; use for spending details and audit context.")
+            .guidanceJson(AgentToolGuidanceCatalog.FINANCE_TRANSACTIONS)
             .inputSchemaJson(FinanceAgentToolSchemas.TRANSACTIONS).outputSchemaJson(FinanceAgentToolSchemas.TRANSACTIONS_OUTPUT)
             .readOnly(true).requiresConfirmation(false).freshness("ledger transactions").source("Core Finance API")
             .sourceUrl("/finance/transactions").build();

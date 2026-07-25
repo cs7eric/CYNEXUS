@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.knowledge;
 
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
@@ -18,8 +19,9 @@ public class KnowledgeDocumentAgentToolHandler implements AgentToolHandler {
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("Knowledge document").module("knowledge-base")
             .description("Read one approved Cynexus knowledge-base document by id for grounded analysis.")
-            .inputSchemaJson("{\"type\":\"object\",\"required\":[\"documentId\"],\"properties\":{\"documentId\":{\"type\":\"integer\",\"minimum\":1}}}")
-            .outputSchemaJson("{\"type\":\"object\",\"required\":[\"id\",\"title\",\"status\",\"content\"],\"properties\":{\"id\":{\"type\":\"integer\"},\"title\":{\"type\":\"string\"},\"description\":{\"type\":[\"string\",\"null\"]},\"content\":{\"type\":\"string\"},\"contentFormat\":{\"type\":[\"string\",\"null\"]},\"status\":{\"type\":\"string\"},\"updatedAt\":{\"type\":[\"string\",\"null\"],\"format\":\"date-time\"}}}").readOnly(true).requiresConfirmation(false)
+            .guidanceJson(AgentToolGuidanceCatalog.KNOWLEDGE_DOCUMENT)
+            .inputSchemaJson(KnowledgeAgentToolSchemas.DOCUMENT)
+            .outputSchemaJson(KnowledgeAgentToolSchemas.DOCUMENT_OUTPUT).readOnly(true).requiresConfirmation(false)
             .freshness("stored document").source("Knowledge Base API").sourceUrl("/knowledge-base/view").build();
 
     private final KnowledgeBaseFeignClient client;

@@ -185,6 +185,23 @@ class AgentToolRegistryTest {
     }
 
     @Test
+    void keepsRuntimeEntryControlledByTheHandlerDefinition() {
+        AgentToolHandler handler = handler("market.canonical", true, false);
+        var repository = mock(cn.cccs7.cynexus.ai.domain.repository.capability.AgentCapabilityRepository.class);
+        org.mockito.Mockito.when(repository.listRuntimeCapabilities()).thenReturn(List.of());
+        AgentToolRegistry registry = new AgentToolRegistry(List.of(handler), repository);
+        AgentCapabilityDescriptor descriptor = AgentCapabilityDescriptor.builder()
+                .capabilityCode("market.dynamic_alias").version("1.0.0").name("Dynamic market alias")
+                .module("market").description("Dynamic alias").inputSchemaJson(handler.definition().getInputSchemaJson())
+                .outputSchemaJson(handler.definition().getOutputSchemaJson()).readOnly(true).requiresConfirmation(false)
+                .tenantScope("TENANT").source("test").availability("AVAILABLE").governanceAvailability("AVAILABLE")
+                .enabled(true).priority(10).promptKey("autonomous_agent").runtimeEntry(handler.definition().getCode())
+                .routeGroup("Agent / market").registrationMode("ADMIN").build();
+
+        assertThatIllegalArgumentException().isThrownBy(() -> registry.register(descriptor));
+    }
+
+    @Test
     void rejectsDynamicCapabilityOutsideTheRuntimeHandlerAllowList() {
         AgentToolRegistry registry = new AgentToolRegistry(List.of(handler("market.canonical", true, false)));
         AgentCapabilityDescriptor descriptor = AgentCapabilityDescriptor.builder()

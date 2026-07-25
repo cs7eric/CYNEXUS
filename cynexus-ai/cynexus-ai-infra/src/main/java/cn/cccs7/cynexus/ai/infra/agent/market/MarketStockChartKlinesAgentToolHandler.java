@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -16,6 +17,7 @@ public class MarketStockChartKlinesAgentToolHandler extends AbstractMarketAgentT
             .name("Stock chart K-lines")
             .module("market")
             .description("Read historical K-line bars for a stock/index/sector/ETF. symbol is required.")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_STOCK_CHART_KLINES)
             .inputSchemaJson(MarketAgentToolSchemas.KLINES)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)

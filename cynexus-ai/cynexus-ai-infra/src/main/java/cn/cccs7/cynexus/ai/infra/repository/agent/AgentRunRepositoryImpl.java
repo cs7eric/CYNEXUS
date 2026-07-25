@@ -97,6 +97,11 @@ public class AgentRunRepositoryImpl implements AgentRunRepository {
     }
 
     @Override
+    public boolean archiveConversation(String ownerKey, String conversationNo, OffsetDateTime archivedAt) {
+        return conversationService.archive(ownerKey, conversationNo, archivedAt);
+    }
+
+    @Override
     public void saveStep(AgentRunStepBO step) {
         runService.createStep(cn.cccs7.cynexus.ai.infra.convert.agent.AgentRunStepPOConverter.INSTANCE.toSource(step));
     }

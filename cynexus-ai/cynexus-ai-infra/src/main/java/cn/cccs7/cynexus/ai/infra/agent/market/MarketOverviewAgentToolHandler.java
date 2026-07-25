@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -16,6 +17,7 @@ public class MarketOverviewAgentToolHandler extends AbstractMarketAgentToolHandl
             .name("Market overview")
             .module("market")
             .description("Read market breadth, turnover, index and fund-flow overview for a trading date. tradeDate is optional and defaults to the latest available Asia/Shanghai session.")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_OVERVIEW)
             .inputSchemaJson(MarketAgentToolSchemas.TRADE_DATE)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)

@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
+import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
@@ -17,6 +18,7 @@ public class MarketOverviewHistoryAgentToolHandler extends AbstractMarketAgentTo
             .name("Market overview history")
             .module("market")
             .description("Read market overview snapshots across a date range. start/end are optional and default to the last 7 Asia/Shanghai sessions.")
+            .guidanceJson(AgentToolGuidanceCatalog.MARKET_OVERVIEW_HISTORY)
             .inputSchemaJson(MarketAgentToolSchemas.HISTORY)
             .outputSchemaJson("{\"type\":\"object\"}")
             .readOnly(true)

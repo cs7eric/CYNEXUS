@@ -41,7 +41,9 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
                         "STALE", "Handler descriptor was not present during synchronization"));
         for (AgentCapabilityDescriptor descriptor : descriptors) {
             AgentCapabilityDescriptorPolicy.validate(descriptor);
-            AgentCapabilityDescriptor seen = descriptor.toBuilder().registrationMode(AgentCapabilityDescriptorPolicy.HANDLER_REGISTRATION)
+            AgentCapabilityDescriptor seen = descriptor.toBuilder()
+                    .guidanceJson(hasGuidance(descriptor.getGuidanceJson()) ? descriptor.getGuidanceJson() : "{}")
+                    .registrationMode(AgentCapabilityDescriptorPolicy.HANDLER_REGISTRATION)
                     .lastSeenAt(now).staleAt(now.plusHours(2)).build();
             service.markOlderVersionsUnavailable(seen.getCapabilityCode(), seen.getVersion());
             previous.stream().filter(item -> seen.getCapabilityCode().equals(item.getCapabilityCode())
@@ -57,6 +59,8 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
                 update.setId(existing.getId());
                 update.setCreatedAt(existing.getCreatedAt());
                 update.setEnabled(existing.getEnabled());
+                update.setGuidanceJson(hasGuidance(existing.getGuidanceJson())
+                        ? existing.getGuidanceJson() : seen.getGuidanceJson());
                 // Runtime availability belongs to the live handler snapshot. Keep only
                 // governance decisions from the persisted row.
                 update.setAvailability(seen.getAvailability());
@@ -91,6 +95,7 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
     public AgentCapabilityDescriptor register(AgentCapabilityDescriptor descriptor) {
         AgentCapabilityDescriptorPolicy.validateRegistration(descriptor);
         AgentCapabilityDescriptor source = descriptor.toBuilder()
+                .guidanceJson(hasGuidance(descriptor.getGuidanceJson()) ? descriptor.getGuidanceJson() : "{}")
                 .registrationMode(AgentCapabilityDescriptorPolicy.ADMIN_REGISTRATION)
                 .lastSeenAt(OffsetDateTime.now()).staleAt(null).build();
         var existing = service.find(source.getCapabilityCode(), source.getVersion());
@@ -110,6 +115,10 @@ public class AgentCapabilityRepositoryImpl implements AgentCapabilityRepository 
         }
         record(source, action, "Administrator hot-add registration");
         return AgentCapabilityPOConverter.INSTANCE.toTarget(target);
+    }
+
+    private boolean hasGuidance(String guidanceJson) {
+        return guidanceJson != null && !guidanceJson.isBlank() && !"{}".equals(guidanceJson.trim());
     }
 
     private void record(AgentCapabilityDescriptor descriptor, String action, String reason) {

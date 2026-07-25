@@ -178,7 +178,7 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor, A
         AgentToolDefinition definition = handler.definition();
         return AgentCapabilityDescriptor.builder().capabilityCode(definition.getCode()).version(valueOr(definition.getVersion(), "1.0.0"))
                 .name(definition.getName()).module(definition.getModule()).description(definition.getDescription())
-                .inputSchemaJson(definition.getInputSchemaJson()).outputSchemaJson(definition.getOutputSchemaJson())
+                .guidanceJson(definition.getGuidanceJson()).inputSchemaJson(definition.getInputSchemaJson()).outputSchemaJson(definition.getOutputSchemaJson())
                 .readOnly(definition.isReadOnly()).requiresConfirmation(definition.isRequiresConfirmation())
                 .tenantScope(valueOr(definition.getTenantScope(), "TENANT")).source(definition.getSource())
                 .sourceUrl(definition.getSourceUrl()).freshness(definition.getFreshness())
@@ -195,13 +195,25 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor, A
 
     private void validateRuntimeBinding(AgentCapabilityDescriptor descriptor, AgentToolHandler handler) {
         AgentToolDefinition definition = handler.definition();
+        if (descriptor.isReadOnly() != definition.isReadOnly()
+                || descriptor.isRequiresConfirmation() != definition.isRequiresConfirmation()) {
+            throw new IllegalArgumentException("Capability safety attributes must match the allow-listed runtime handler");
+        }
         if (!definition.isReadOnly() || definition.isRequiresConfirmation()) {
             throw new IllegalArgumentException("The runtime handler is not eligible for autonomous execution");
+        }
+        if (!runtimeEntryFor(handler).equals(descriptor.getRuntimeEntry())) {
+            throw new IllegalArgumentException("Capability runtimeEntry must match the allow-listed runtime handler");
         }
         if (!sameJsonSchema(descriptor.getInputSchemaJson(), definition.getInputSchemaJson())
                 || !sameJsonSchema(descriptor.getOutputSchemaJson(), definition.getOutputSchemaJson())) {
             throw new IllegalArgumentException("Capability schemas must match the allow-listed runtime handler");
         }
+    }
+
+    private String runtimeEntryFor(AgentToolHandler handler) {
+        String configured = handler.definition().getRuntimeEntry();
+        return valueOr(configured, handler.getClass().getName());
     }
 
     private boolean sameJsonSchema(String left, String right) {
@@ -216,14 +228,16 @@ public class AgentToolRegistry implements AgentToolCatalog, AgentToolExecutor, A
     }
 
     private AgentToolDefinition toDefinition(AgentCapabilityDescriptor descriptor, AgentToolHandler handler) {
+        AgentToolDefinition runtimeDefinition = handler.definition();
         return AgentToolDefinition.builder().code(descriptor.getCapabilityCode()).name(descriptor.getName())
                 .module(descriptor.getModule()).description(descriptor.getDescription())
-                .inputSchemaJson(descriptor.getInputSchemaJson()).outputSchemaJson(descriptor.getOutputSchemaJson())
-                .readOnly(descriptor.isReadOnly()).requiresConfirmation(descriptor.isRequiresConfirmation())
+                .guidanceJson(descriptor.getGuidanceJson()).inputSchemaJson(runtimeDefinition.getInputSchemaJson())
+                .outputSchemaJson(runtimeDefinition.getOutputSchemaJson())
+                .readOnly(runtimeDefinition.isReadOnly()).requiresConfirmation(runtimeDefinition.isRequiresConfirmation())
                 .freshness(descriptor.getFreshness()).source(descriptor.getSource()).sourceUrl(descriptor.getSourceUrl())
                 .version(descriptor.getVersion()).tenantScope(descriptor.getTenantScope()).availability(descriptor.getAvailability())
                 .priority(descriptor.getPriority()).promptKey(descriptor.getPromptKey())
-                .runtimeEntry(descriptor.getRuntimeEntry()).routeGroup(descriptor.getRouteGroup()).build();
+                .runtimeEntry(runtimeEntryFor(handler)).routeGroup(descriptor.getRouteGroup()).build();
     }
 
     private String validateArguments(AgentToolDefinition definition, Map<String, Object> arguments) {

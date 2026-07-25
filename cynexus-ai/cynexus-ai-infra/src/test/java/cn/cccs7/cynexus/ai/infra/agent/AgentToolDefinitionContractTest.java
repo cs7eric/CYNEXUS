@@ -11,6 +11,7 @@ import cn.cccs7.cynexus.ai.infra.agent.application.analysis.ApplicationAnalysisR
 import cn.cccs7.cynexus.ai.infra.agent.finance.FinanceOverviewAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.finance.FinanceTransactionsAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeDocumentAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeSearchAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.ClickHouseDailyBarsAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketInformationFeedAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketOverviewAgentToolHandler;
@@ -36,6 +37,7 @@ class AgentToolDefinitionContractTest {
             FinanceOverviewAgentToolHandler.class,
             FinanceTransactionsAgentToolHandler.class,
             KnowledgeDocumentAgentToolHandler.class,
+            KnowledgeSearchAgentToolHandler.class,
             ClickHouseDailyBarsAgentToolHandler.class,
             MarketInformationFeedAgentToolHandler.class,
             MarketOverviewAgentToolHandler.class,
@@ -53,20 +55,23 @@ class AgentToolDefinitionContractTest {
                 .map(AgentToolHandler::definition)
                 .toList();
 
-        assertThat(definitions).hasSize(13);
+        assertThat(definitions).hasSize(14);
         assertThat(definitions).extracting(AgentToolDefinition::getCode).doesNotHaveDuplicates();
         assertThat(definitions).allSatisfy(definition -> {
             assertThat(definition.getCode()).matches("[a-z0-9_]+\\.[a-z0-9_]+" );
             assertThat(definition.getName()).isNotBlank();
             assertThat(definition.getModule()).isNotBlank();
             assertThat(definition.getDescription()).isNotBlank();
+            assertThat(definition.getGuidanceJson()).isNotBlank();
             assertThat(definition.getFreshness()).isNotBlank();
             assertThat(definition.getSource()).isNotBlank();
             assertThat(definition.getSourceUrl()).startsWith("/");
             assertThat(definition.isReadOnly()).isTrue();
             assertThat(definition.isRequiresConfirmation()).isFalse();
             assertSchema(objectMapper, definition.getInputSchemaJson(), "object");
+            assertInputFieldDescriptions(objectMapper, definition.getInputSchemaJson());
             assertSchema(objectMapper, definition.getOutputSchemaJson(), null);
+            assertGuidance(objectMapper, definition.getGuidanceJson());
         });
 
         AgentToolRegistry registry = new AgentToolRegistry(REGISTERED_HANDLERS.stream().map(this::instantiate).toList());
@@ -83,6 +88,30 @@ class AgentToolDefinitionContractTest {
             if (expectedType != null) assertThat(schema.path("type").asText()).isEqualTo(expectedType);
         } catch (Exception exception) {
             throw new AssertionError("Agent tool schema must be valid JSON: " + rawSchema, exception);
+        }
+    }
+
+    private void assertInputFieldDescriptions(ObjectMapper objectMapper, String rawSchema) {
+        try {
+            JsonNode properties = objectMapper.readTree(rawSchema).path("properties");
+            properties.fields().forEachRemaining(field ->
+                    assertThat(field.getValue().path("description").asText())
+                            .as("description for input field %s", field.getKey())
+                            .isNotBlank());
+        } catch (Exception exception) {
+            throw new AssertionError("Agent tool input schema must describe every field: " + rawSchema, exception);
+        }
+    }
+
+    private void assertGuidance(ObjectMapper objectMapper, String rawGuidance) {
+        try {
+            JsonNode guidance = objectMapper.readTree(rawGuidance);
+            assertThat(guidance.isObject()).isTrue();
+            assertThat(guidance.path("purpose").asText()).isNotBlank();
+            assertThat(guidance.path("useWhen").isArray()).isTrue();
+            assertThat(guidance.path("parameterNotes").isObject()).isTrue();
+        } catch (Exception exception) {
+            throw new AssertionError("Agent tool guidance must be valid JSON: " + rawGuidance, exception);
         }
     }
 
