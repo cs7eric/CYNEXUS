@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.agent;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+
 /** Model-facing usage guidance. Runtime safety remains defined by the Handler schema and flags. */
 public final class AgentToolGuidanceCatalog {
 
@@ -8,11 +10,11 @@ public final class AgentToolGuidanceCatalog {
               "purpose": "Summarize market breadth, turnover, major index performance, and fund flow for one trading session.",
               "useWhen": ["The user asks how the overall market performed on a trading date.", "The user needs a broad market context before analyzing a sector or stock."],
               "avoidWhen": ["The user asks for one stock's detailed metrics; use a stock feature tool instead.", "The user asks for a date range; use market.overview_history instead."],
-              "parameterNotes": {"tradeDate": "YYYY-MM-DD trading date. Omit it to use the latest available Asia/Shanghai session."},
+              "parameterNotes": {"tradeDate": "YYYY-MM-DD trading date. Omit it to use the latest available %s session."},
               "examples": [{"arguments": {"tradeDate": "2026-07-24"}, "note": "Read the market snapshot for a specific session."}],
               "resultNotes": "The result is a daily market snapshot; cite the returned data date when summarizing it."
             }
-            """;
+            """.formatted(CommonConstants.SHANGHAI_ZONE_ID);
 
     public static final String MARKET_OVERVIEW_HISTORY = """
             {

@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.knowledgebase.infra.basic.service.impl;
 
+import cn.cccs7.cynexus.knowledgebase.common.constant.KnowledgeBaseConstants;
+
 import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.CategoryPO;
 import cn.cccs7.cynexus.knowledgebase.infra.basic.entity.DocumentCategoryMappingPO;
@@ -71,7 +73,7 @@ public class KnowledgeBaseBasicServiceImpl implements KnowledgeBaseBasicService 
             });
         }
         wrapper.orderByDesc(DocumentPO::getUpdatedAt, DocumentPO::getCreatedAt)
-                .last("LIMIT " + KnowledgeDocumentSearchQuery.MAX_CANDIDATES);
+                .last("LIMIT " + KnowledgeBaseConstants.MAX_SEARCH_CANDIDATES);
         return documentMapper.selectList(wrapper);
     }
 

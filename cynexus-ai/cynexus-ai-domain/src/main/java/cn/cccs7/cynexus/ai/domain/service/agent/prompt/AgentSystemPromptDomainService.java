@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.service.agent.prompt;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentSystemPromptPolicy;
@@ -65,7 +66,7 @@ public class AgentSystemPromptDomainService {
             }
         }
         if (promptRepository != null) {
-            List<AiPromptBO> prompts = promptRepository.list(AgentSystemPromptPolicy.PROMPT_KEY, null, "active");
+            List<AiPromptBO> prompts = promptRepository.list(AgentSystemPromptPolicy.PROMPT_KEY, null, AiConstants.STATUS_ACTIVE);
             if (prompts != null) {
                 for (AiPromptBO prompt : prompts) {
                     if (!AgentSystemPromptPolicy.isUsable(prompt)) {

@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.market.api.dto.MarketOverviewDTO;
@@ -35,8 +36,8 @@ class MarketAgentToolHandlerTest {
     @Test
     void overviewDefaultsTradeDateAndFallsBackWhenPreferredMissing() {
         MarketDataGateway gateway = mock(MarketDataGateway.class);
-        String today = LocalDate.now(ZoneId.of("Asia/Shanghai")).toString();
-        String previous = LocalDate.now(ZoneId.of("Asia/Shanghai")).minusDays(1).toString();
+        String today = LocalDate.now(ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID)).toString();
+        String previous = LocalDate.now(ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID)).minusDays(1).toString();
         when(gateway.getMarketOverview(today)).thenThrow(new IllegalStateException("Market overview not found"));
         when(gateway.getMarketOverview(previous)).thenReturn(MarketOverviewDTO.builder()
                 .tradeDate(LocalDate.parse(previous)).build());
@@ -53,7 +54,7 @@ class MarketAgentToolHandlerTest {
     @Test
     void sectorRankUsesResolvedTradeDateWithEmptyArguments() {
         MarketDataGateway gateway = mock(MarketDataGateway.class);
-        String today = LocalDate.now(ZoneId.of("Asia/Shanghai")).toString();
+        String today = LocalDate.now(ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID)).toString();
         when(gateway.getSectorRank(eq(today), eq(10))).thenReturn(SectorRankDTO.builder()
                 .tradeDate(today).topN(10).build());
 

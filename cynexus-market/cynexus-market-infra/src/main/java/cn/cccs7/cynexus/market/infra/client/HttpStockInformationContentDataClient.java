@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.market.domain.entity.StockInformationBO;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HttpStockInformationContentDataClient implements StockInformationContentExtractor {
 
-    private static final String TOKEN_HEADER = "X-Cynexus-Internal-Token";
+    private static final String TOKEN_HEADER = CommonConstants.HTTP_HEADER_INTERNAL_TOKEN;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String baseUrl;
@@ -48,8 +49,8 @@ public class HttpStockInformationContentDataClient implements StockInformationCo
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/internal/stock-information/content"))
                     .timeout(requestTimeout)
-                    .header("Accept", "application/json")
-                    .header("Content-Type", "application/json")
+                    .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8));
             if (!internalToken.isBlank()) {
                 builder.header(TOKEN_HEADER, internalToken);

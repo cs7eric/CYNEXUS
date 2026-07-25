@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.repository;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.entity.MarketInformationBO;
 import cn.cccs7.cynexus.market.domain.repository.MarketInformationRepository;
 import cn.cccs7.cynexus.market.infra.client.PostgresMarketInformationClient;
@@ -20,7 +21,7 @@ public class MarketInformationRepositoryImpl implements MarketInformationReposit
         int panelLimit = 30;
         var leaders = client.leaders(panelLimit);
         var dragonTiger = client.dragonTiger(panelLimit);
-        return MarketInformationBO.Feed.builder().queriedAt(OffsetDateTime.now(ZoneId.of("Asia/Shanghai")))
+        return MarketInformationBO.Feed.builder().queriedAt(OffsetDateTime.now(ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID)))
                 .brief(client.latestBrief())
                 .newsPage(newsPage).news(macroNews).macroNews(macroNews).policyAnnouncements(client.policyAnnouncements(panelLimit)).signals(client.signals(panelLimit))
                 .hotStocks(leaders).leaders(leaders).leaderEvents(client.leaderEvents(leaders, dragonTiger, panelLimit)).dragonTiger(dragonTiger)

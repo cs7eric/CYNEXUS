@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.finance.policy;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceCreditInstallmentBO;
@@ -27,7 +28,7 @@ public class FinanceInstallmentPolicy {
         for (int index = 0; index < count; index++) {
             result.add(FinanceCreditInstallmentBO.builder().planId(planId).installmentNo(index + 1)
                     .dueDate(firstDueDate.plusMonths((long) index * intervalMonths)).principalAmount(principals[index])
-                    .feeAmount(fees[index]).amount(principals[index].add(fees[index])).status("pending").build());
+                    .feeAmount(fees[index]).amount(principals[index].add(fees[index])).status(CoreConstants.STATUS_PENDING).build());
         }
         return result;
     }

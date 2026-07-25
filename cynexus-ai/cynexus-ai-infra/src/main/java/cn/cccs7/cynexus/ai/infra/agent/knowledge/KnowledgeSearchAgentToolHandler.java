@@ -7,6 +7,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.handler.toolcall.AgentToolHandler;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.common.core.result.Result;
+import cn.cccs7.cynexus.knowledgebase.common.constant.KnowledgeBaseConstants;
 import cn.cccs7.cynexus.knowledgebase.api.dto.KnowledgeDocumentDTO;
 import cn.cccs7.cynexus.knowledgebase.api.feign.KnowledgeBaseFeignClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class KnowledgeSearchAgentToolHandler implements AgentToolHandler {
     private static final String CODE = "knowledge.search";
-    private static final int MAX_RESULTS = 10;
     private static final AgentToolDefinition DEFINITION = AgentToolDefinition.builder().code(CODE)
             .name("Knowledge search").module("knowledge-base")
             .description("Search approved Cynexus knowledge-base documents by a bounded keyword query.")
@@ -41,11 +41,12 @@ public class KnowledgeSearchAgentToolHandler implements AgentToolHandler {
     @Override
     public AgentToolResult execute(AgentToolCall call, AgentExecutionContext context) {
         String query = String.valueOf(call.getArguments() == null ? "" : call.getArguments().getOrDefault("query", "")).trim();
-        if (query.length() < 2 || query.length() > 240) {
+        if (query.length() < 2 || query.length() > KnowledgeBaseConstants.MAX_SEARCH_KEYWORD_LENGTH) {
             return AgentToolResult.failure(CODE, "query must contain between 2 and 240 characters.", DEFINITION.getSource(), "ARGUMENT_INVALID");
         }
-        int limit = Math.min(MAX_RESULTS, Math.max(1, integer(call.getArguments() == null ? null : call.getArguments().get("limit"), MAX_RESULTS)));
-        Result<List<KnowledgeDocumentDTO>> result = client.listDocuments(query, "published", null, null);
+        int limit = Math.min(KnowledgeBaseConstants.MAX_AGENT_SEARCH_RESULTS,
+                Math.max(1, integer(call.getArguments() == null ? null : call.getArguments().get("limit"), KnowledgeBaseConstants.MAX_AGENT_SEARCH_RESULTS)));
+        Result<List<KnowledgeDocumentDTO>> result = client.listDocuments(query, KnowledgeBaseConstants.STATUS_PUBLISHED, null, null);
         if (result == null || result.isFailed() || result.getData() == null || result.getData().isEmpty()) {
             return AgentToolResult.failure(CODE, "No published knowledge documents matched the query.", DEFINITION.getSource(), "NO_DATA");
         }

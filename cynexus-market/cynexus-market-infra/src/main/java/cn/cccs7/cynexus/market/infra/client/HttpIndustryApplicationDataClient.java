@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.market.domain.entity.IndustryApplicationBO;
@@ -24,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HttpIndustryApplicationDataClient {
 
-    private static final String TOKEN_HEADER = "X-Cynexus-Internal-Token";
+    private static final String TOKEN_HEADER = CommonConstants.HTTP_HEADER_INTERNAL_TOKEN;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -105,7 +106,7 @@ public class HttpIndustryApplicationDataClient {
                 .uri(URI.create(baseUrl + path + queryString(params)))
                 .version(HttpClient.Version.HTTP_1_1)
                 .timeout(requestTimeout)
-                .header("Accept", "application/json");
+                    .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
         if (!internalToken.isBlank()) {
             builder.header(TOKEN_HEADER, internalToken);
         }

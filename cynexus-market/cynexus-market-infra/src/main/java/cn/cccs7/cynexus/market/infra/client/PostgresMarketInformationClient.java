@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.entity.MarketInformationBO;
 import cn.cccs7.cynexus.market.domain.information.MarketInformationClusterer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,7 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 public class PostgresMarketInformationClient {
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private final JdbcTemplate jdbcTemplate;
     private final MarketInformationClusterer clusterer;
     private final ObjectMapper objectMapper;

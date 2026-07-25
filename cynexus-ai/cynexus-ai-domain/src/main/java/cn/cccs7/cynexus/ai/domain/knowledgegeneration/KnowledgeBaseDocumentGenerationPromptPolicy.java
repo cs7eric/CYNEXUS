@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.knowledgegeneration;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import java.util.List;
 
@@ -52,7 +53,7 @@ public final class KnowledgeBaseDocumentGenerationPromptPolicy {
     }
 
     private boolean isActive(AiPromptBO prompt) {
-        return prompt != null && "active".equalsIgnoreCase(prompt.getStatus());
+        return prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus());
     }
 
     private boolean versionMatches(String actual, String requested) {

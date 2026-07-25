@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.service.scheduler.impl;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.client.MarketAutomationClient;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerDueJobBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
@@ -103,7 +104,7 @@ public class SchedulerExecutionDomainServiceImpl implements SchedulerExecutionDo
         BigDecimal duration = BigDecimal.valueOf(
                 Math.max(0L, Duration.between(startedAt, endedAt).toMillis()) / 1000.0);
         boolean success = failure == null;
-        String resultStatus = success ? "success" : "failed";
+        String resultStatus = success ? CoreConstants.STATUS_SUCCESS : CoreConstants.STATUS_FAILED;
         String error = success ? null : failure.getMessage();
         String remark = targetsProcessed == null
                 ? "market_information_pipeline_refresh"

@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.observability;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageObservationBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageObservabilityRepository;
 import cn.cccs7.cynexus.ai.domain.policy.security.AgentOutboundEndpointPolicy;
@@ -88,7 +89,7 @@ public class LangfuseUsageRepositoryImpl implements AiUsageObservabilityReposito
             connection.setConnectTimeout(3_000);
             connection.setReadTimeout(8_000);
             connection.setRequestProperty("Authorization", authorization);
-            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
                 LOGGER.warn("Langfuse observations returned status {} from {} page {}", status, baseUrl, page);

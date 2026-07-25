@@ -154,7 +154,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
         AiUsageBindingBO binding = routingDomainService.findBinding(capability);
         if (binding != null && binding.getPromptId() != null) {
             AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && "active".equalsIgnoreCase(prompt.getStatus())) {
+            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
                 String userPrompt = prompt.getUserPromptTemplate() == null
                         || prompt.getUserPromptTemplate().isBlank()
                         ? candidateContext

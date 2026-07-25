@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.basic.service.impl;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationConfigPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.IndustryApplicationResultPO;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IndustryApplicationBasicServiceImpl implements IndustryApplicationBasicService {
 
-    private static final String DEFAULT_CONFIG_KEY = "default";
+    private static final String DEFAULT_CONFIG_KEY = CommonConstants.DEFAULT_SPACE_CODE;
 
     private final IndustryApplicationMapper industryApplicationMapper;
     private final SnowflakeIdGenerator snowflakeIdGenerator;

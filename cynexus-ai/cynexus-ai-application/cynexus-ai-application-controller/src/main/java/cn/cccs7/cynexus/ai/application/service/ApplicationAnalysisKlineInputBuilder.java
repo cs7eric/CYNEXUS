@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.application.service;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisKlineInputPort;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ApplicationAnalysisKlineInputBuilder implements ApplicationAnalysisKlineInputPort {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private final MarketDataGateway marketDataGateway;
     private final ApplicationAnalysisKlineDomainPolicy domainPolicy = new ApplicationAnalysisKlineDomainPolicy();
 

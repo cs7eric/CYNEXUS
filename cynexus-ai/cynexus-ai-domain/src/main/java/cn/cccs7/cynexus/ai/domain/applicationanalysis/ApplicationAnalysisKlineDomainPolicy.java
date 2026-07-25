@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.applicationanalysis;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.IsoFields;
@@ -10,7 +11,7 @@ import java.util.Map;
 
 /** Window and weekly aggregation rules for application-analysis K-line input. */
 public final class ApplicationAnalysisKlineDomainPolicy {
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private static final Map<String, String> BENCHMARKS = Map.of("000001", "上证指数", "399001", "深证成指", "000688", "科创50", "000300", "沪深300");
     public int recentDays() { return 30; }
     public int weeklyKeep() { return 12; }

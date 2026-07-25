@@ -19,6 +19,8 @@ import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAp
 import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.common.core.constant.TraceId;
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -60,7 +62,7 @@ public class AutonomousAgentController {
         }
     }
 
-    @PostMapping(value = "/runs/stream", produces = "text/event-stream")
+    @PostMapping(value = "/runs/stream", produces = CommonConstants.MEDIA_TYPE_TEXT_EVENT_STREAM)
     public SseEmitter stream(@RequestBody AgentRunRequest request, HttpServletRequest httpRequest) {
         AgentIdentity agentIdentity = identity(httpRequest);
         SseEmitter emitter = new SseEmitter(10 * 60 * 1000L);
@@ -79,7 +81,7 @@ public class AutonomousAgentController {
         return emitter;
     }
 
-    @GetMapping(value = "/runs/{runNo}/stream", produces = "text/event-stream")
+    @GetMapping(value = "/runs/{runNo}/stream", produces = CommonConstants.MEDIA_TYPE_TEXT_EVENT_STREAM)
     public SseEmitter reconnect(@PathVariable String runNo,
                                 @RequestParam(required = false) Integer afterEventNo,
                                 @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
@@ -133,7 +135,7 @@ public class AutonomousAgentController {
 
     @GetMapping("/runs/{runNo}/export")
     public Result<AgentRunExportDTO> export(@PathVariable String runNo,
-                                            @RequestParam(defaultValue = "markdown") String format,
+                                            @RequestParam(defaultValue = AiConstants.FORMAT_MARKDOWN) String format,
                                             HttpServletRequest httpRequest) {
         return Result.success(agentAppService.export(identity(httpRequest), runNo, format));
     }

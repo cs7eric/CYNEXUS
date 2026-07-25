@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.infra.agent.AgentToolGuidanceCatalog;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
@@ -96,7 +97,7 @@ public class ClickHouseDailyBarsAgentToolHandler implements AgentToolHandler {
                 + URLEncoder.encode(database, StandardCharsets.UTF_8);
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(endpoint))
                 .timeout(Duration.ofSeconds(10))
-                .header("Content-Type", "text/plain; charset=utf-8")
+                .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_TEXT_PLAIN_UTF8)
                 .header("X-ClickHouse-User", username == null ? "" : username);
         if (password != null && !password.isBlank()) request.header("X-ClickHouse-Key", password);
         HttpResponse<String> response = httpClient.send(request.POST(HttpRequest.BodyPublishers.ofString(sql)).build(),

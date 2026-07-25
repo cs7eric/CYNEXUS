@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.basic.service.impl;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.infra.basic.entity.AiPromptPO;
 import cn.cccs7.cynexus.ai.infra.basic.mapper.AiPromptMapper;
 import cn.cccs7.cynexus.ai.infra.basic.service.AiPromptBasicService;
@@ -64,7 +65,7 @@ public class AiPromptBasicServiceImpl implements AiPromptBasicService {
             po.setPromptVersion("v1");
         }
         if (!hasText(po.getStatus())) {
-            po.setStatus("draft");
+            po.setStatus(AiConstants.STATUS_DRAFT);
         }
         if (!hasText(po.getVariables())) {
             po.setVariables("[]");

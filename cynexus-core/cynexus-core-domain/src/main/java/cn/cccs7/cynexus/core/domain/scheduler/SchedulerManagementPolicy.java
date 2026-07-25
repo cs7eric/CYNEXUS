@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.core.domain.scheduler;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerDailyCounterBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
@@ -22,23 +24,24 @@ import org.springframework.scheduling.support.CronExpression;
 /** Domain decisions used by scheduler management and run reconciliation. */
 public final class SchedulerManagementPolicy {
 
-    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId CHINA_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private SchedulerManagementPolicy() {
     }
 
     public static String normalizeTriggerStatus(DataJobTriggerResultBO result) {
         if (result == null || result.getStatus() == null || result.getStatus().isBlank()) {
-            return "failed";
+            return CoreConstants.STATUS_FAILED;
         }
-        return "locked".equalsIgnoreCase(result.getStatus()) ? "skipped" : result.getStatus();
+        return CoreConstants.STATUS_LOCKED.equalsIgnoreCase(result.getStatus()) ? CoreConstants.STATUS_SKIPPED : result.getStatus();
     }
 
     public static boolean isTerminalStatus(String status) {
         if (status == null) {
             return false;
         }
-        return Set.of("success", "skipped", "failed", "locked", "unknown_job", "partial").contains(status.toLowerCase());
+        return Set.of(CoreConstants.STATUS_SUCCESS, CoreConstants.STATUS_SKIPPED, CoreConstants.STATUS_FAILED,
+                CoreConstants.STATUS_LOCKED, CoreConstants.STATUS_UNKNOWN_JOB, CoreConstants.STATUS_PARTIAL).contains(status.toLowerCase());
     }
 
     public static boolean isAcceptedSuccess(DataJobTriggerResultBO result) {
@@ -46,7 +49,7 @@ public final class SchedulerManagementPolicy {
             return false;
         }
         String status = result.getStatus() == null ? "" : result.getStatus().toLowerCase();
-        return "success".equals(status) || "skipped".equals(status);
+        return CoreConstants.STATUS_SUCCESS.equals(status) || CoreConstants.STATUS_SKIPPED.equals(status);
     }
 
     public static boolean isAcceptedRunning(DataJobTriggerResultBO result) {
@@ -54,7 +57,7 @@ public final class SchedulerManagementPolicy {
             return false;
         }
         String status = result.getStatus() == null ? "" : result.getStatus().toLowerCase();
-        return "running".equals(status) || "processing".equals(status);
+        return CoreConstants.STATUS_RUNNING.equals(status) || CoreConstants.STATUS_PROCESSING.equals(status);
     }
 
     public static boolean shouldPoll(DataJobTriggerResultBO result) {

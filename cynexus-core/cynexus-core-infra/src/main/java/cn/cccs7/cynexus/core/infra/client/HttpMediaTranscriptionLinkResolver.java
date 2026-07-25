@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionLinkResolver;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionResolvedLinkBO;
 import java.net.URI;
@@ -46,7 +47,7 @@ public class HttpMediaTranscriptionLinkResolver implements MediaTranscriptionLin
         try {
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .timeout(timeout)
-                    .header("Accept", "application/json")
+                    .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .GET()
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

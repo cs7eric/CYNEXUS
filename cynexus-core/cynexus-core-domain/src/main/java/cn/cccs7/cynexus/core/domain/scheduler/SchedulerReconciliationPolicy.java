@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.scheduler;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
 import java.time.OffsetDateTime;
@@ -18,8 +19,8 @@ public final class SchedulerReconciliationPolicy {
         }
         String lastStatus = status.getLastRunStatus();
         return Boolean.TRUE.equals(status.getRunning())
-                || "running".equalsIgnoreCase(lastStatus)
-                || "processing".equalsIgnoreCase(lastStatus);
+                || CoreConstants.STATUS_RUNNING.equalsIgnoreCase(lastStatus)
+                || CoreConstants.STATUS_PROCESSING.equalsIgnoreCase(lastStatus);
     }
 
     public static OffsetDateTime safeStartedAt(OffsetDateTime preferred,
@@ -39,10 +40,10 @@ public final class SchedulerReconciliationPolicy {
             return false;
         }
         String normalized = status.trim().toLowerCase();
-        return "running".equals(normalized)
-                || "processing".equals(normalized)
-                || "queued".equals(normalized)
-                || "pending".equals(normalized);
+        return CoreConstants.STATUS_RUNNING.equals(normalized)
+                || CoreConstants.STATUS_PROCESSING.equals(normalized)
+                || CoreConstants.STATUS_QUEUED.equals(normalized)
+                || CoreConstants.STATUS_PENDING.equals(normalized);
     }
 
     public static String extractRunId(Map<String, Object> progress, Map<String, Object> extra) {

@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.core.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.finance.port.ReceiptAiParserPort;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,7 +47,7 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
             if (!"0".equals(root.path("code").asText("0")) || data.isMissingNode() || data.isNull()) {
                 throw new IllegalStateException("AI vision response is invalid: " + compact(response.body()));
             }
-            if ("failed".equalsIgnoreCase(data.path("status").asText())) {
+            if (CoreConstants.STATUS_FAILED.equalsIgnoreCase(data.path("status").asText())) {
                 throw new IllegalStateException("AI vision execution failed: " + data.path("errorMessage").asText("unknown error"));
             }
             String content = data.path("content").asText("");
@@ -66,7 +68,7 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
         IllegalStateException last = null;
         for (int attempt = 1; attempt <= 2; attempt++) {
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/ai/executions/vision")).timeout(Duration.ofMinutes(3))
-                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(requestBody)).build();
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON).POST(HttpRequest.BodyPublishers.ofString(requestBody)).build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 try {
@@ -75,7 +77,7 @@ public class HttpReceiptAiParser implements ReceiptAiParserPort {
                     String content = data.path("content").asText("");
                     JsonNode parsed = content.isBlank() ? objectMapper.createObjectNode() : objectMapper.readTree(stripCodeFence(content));
                     if ("0".equals(root.path("code").asText("0")) && !data.isMissingNode() && !data.isNull()
-                            && !"failed".equalsIgnoreCase(data.path("status").asText()) && parsed.path("items").isArray()) {
+                            && !CoreConstants.STATUS_FAILED.equalsIgnoreCase(data.path("status").asText()) && parsed.path("items").isArray()) {
                         return response;
                     }
                     last = new IllegalStateException("AI vision response is invalid: " + compact(response.body()));

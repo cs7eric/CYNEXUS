@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.mediatranscription.impl;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
@@ -25,7 +26,6 @@ import java.util.UUID;
 
 public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDomainService {
 
-    private static final int MAX_LOG_TEXT_LENGTH = 8000;
     private final ApplicationAnalysisRoutingDomainService routingService;
     private final MediaTranscriptionCompletionPort completionPort;
     private final AiPromptRepository promptRepository;
@@ -108,9 +108,9 @@ public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDo
         AiUsageBindingBO binding = routingService.findBinding(capability);
         if (binding != null && binding.getPromptId() != null) {
             AiPromptBO bound = promptRepository.findById(binding.getPromptId());
-            if (bound != null && "active".equalsIgnoreCase(bound.getStatus())) return prompt(bound);
+            if (bound != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(bound.getStatus())) return prompt(bound);
         }
-        List<AiPromptBO> prompts = promptRepository.list(promptKey, null, "active").stream()
+        List<AiPromptBO> prompts = promptRepository.list(promptKey, null, AiConstants.STATUS_ACTIVE).stream()
                 .filter(prompt -> promptKey.equals(prompt.getPromptKey())).toList();
         return prompts.isEmpty() ? defaultPrompt(promptKey) : prompt(prompts.getFirst());
     }
@@ -151,8 +151,8 @@ public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDo
                     .outputTokens(completion == null ? 0 : completion.getOutputTokens())
                     .totalTokens(completion == null ? estimateTokens(requestText) : completion.getTotalTokens())
                     .latencyMs(Duration.between(startedAt, Instant.now()).toMillis())
-                    .requestJson(toJson(Map.of("promptPreview", truncate(requestText, MAX_LOG_TEXT_LENGTH))))
-                    .responseJson(toJson(Map.of("contentPreview", truncate(completion == null ? "" : completion.getContent(), MAX_LOG_TEXT_LENGTH))))
+                    .requestJson(toJson(Map.of("promptPreview", truncate(requestText, AiConstants.MAX_LOG_TEXT_LENGTH))))
+                    .responseJson(toJson(Map.of("contentPreview", truncate(completion == null ? "" : completion.getContent(), AiConstants.MAX_LOG_TEXT_LENGTH))))
                     .errorMessage(error == null ? null : truncate(error.getMessage(), 2000)).extra("{}").build());
         } catch (Exception ignored) { }
     }

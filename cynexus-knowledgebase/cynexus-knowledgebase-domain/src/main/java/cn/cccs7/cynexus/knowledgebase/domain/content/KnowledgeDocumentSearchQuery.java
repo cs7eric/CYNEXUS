@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.knowledgebase.domain.content;
 
+import cn.cccs7.cynexus.knowledgebase.common.constant.KnowledgeBaseConstants;
+
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -18,10 +20,6 @@ import java.util.regex.Pattern;
  * persistence implementations.</p>
  */
 public final class KnowledgeDocumentSearchQuery {
-    public static final int MAX_KEYWORD_LENGTH = 240;
-    public static final int MAX_TOKENS = 32;
-    public static final int MAX_CANDIDATES = 100;
-
     private static final Pattern NON_WORD_SEPARATOR = Pattern.compile("[^\\p{L}\\p{N}\\u4e00-\\u9fff]+", Pattern.UNICODE_CHARACTER_CLASS);
 
     private final String keyword;
@@ -107,16 +105,16 @@ public final class KnowledgeDocumentSearchQuery {
             } else {
                 tokens.add(segment);
             }
-            if (tokens.size() >= MAX_TOKENS) break;
+            if (tokens.size() >= KnowledgeBaseConstants.MAX_SEARCH_TOKENS) break;
         }
-        return List.copyOf(tokens).subList(0, Math.min(tokens.size(), MAX_TOKENS));
+        return List.copyOf(tokens).subList(0, Math.min(tokens.size(), KnowledgeBaseConstants.MAX_SEARCH_TOKENS));
     }
 
     private static void addCjkTokens(String segment, Set<String> tokens) {
         if (segment.length() <= 4) {
             tokens.add(segment);
         }
-        for (int index = 0; index + 1 < segment.length() && tokens.size() < MAX_TOKENS; index++) {
+        for (int index = 0; index + 1 < segment.length() && tokens.size() < KnowledgeBaseConstants.MAX_SEARCH_TOKENS; index++) {
             String pair = segment.substring(index, index + 2);
             if (containsCjk(pair)) tokens.add(pair);
         }
@@ -126,9 +124,9 @@ public final class KnowledgeDocumentSearchQuery {
         if (value == null || value.isBlank()) return "";
         String normalized = Normalizer.normalize(value, Normalizer.Form.NFKC)
                 .trim().toLowerCase(Locale.ROOT);
-        return normalized.length() <= MAX_KEYWORD_LENGTH
+        return normalized.length() <= KnowledgeBaseConstants.MAX_SEARCH_KEYWORD_LENGTH
                 ? normalized
-                : normalized.substring(0, MAX_KEYWORD_LENGTH);
+                : normalized.substring(0, KnowledgeBaseConstants.MAX_SEARCH_KEYWORD_LENGTH);
     }
 
     private static String normalizeStatus(String value) {

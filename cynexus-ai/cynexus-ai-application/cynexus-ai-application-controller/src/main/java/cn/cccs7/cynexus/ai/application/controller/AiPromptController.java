@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.application.controller;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.api.dto.AiPromptDTO;
 import cn.cccs7.cynexus.ai.api.dto.AiPromptTemplateDTO;
 import cn.cccs7.cynexus.ai.application.convert.AiPromptDTOConverter;
@@ -59,7 +60,7 @@ public class AiPromptController {
 
     @GetMapping("/templates")
     public Result<List<AiPromptTemplateDTO>> listPromptTemplates() {
-        return Result.success(appService.listPrompts(null, null, "active").stream()
+        return Result.success(appService.listPrompts(null, null, AiConstants.STATUS_ACTIVE).stream()
                 .map(prompt -> new AiPromptTemplateDTO(prompt.getScenarioCode(),
                         prompt.getUserPromptTemplate() == null
                                 || prompt.getUserPromptTemplate().isBlank()

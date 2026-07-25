@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-ai</artifactId>
-    <version>1.1.269-SNAPSHOT</version>
+    <version>1.1.270-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-ai-infra</artifactId>
@@ -36,12 +36,22 @@
         </dependency>
         <dependency>
             <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-market-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-core-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>cn.cccs7</groupId>
             <artifactId>cynexus-knowledgebase-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.cccs7</groupId>
+            <artifactId>cynexus-knowledgebase-common</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.service.agent.execution;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentClarificationBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentConversationBO;
@@ -570,7 +571,7 @@ public class AgentRunExecutionDomainService {
     }
 
     private String currentSystemDate() {
-        return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+        return java.time.LocalDate.now(java.time.ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID)).toString();
     }
 
     private String toolFreshness(List<AgentToolDefinition> definitions, String toolCode) {

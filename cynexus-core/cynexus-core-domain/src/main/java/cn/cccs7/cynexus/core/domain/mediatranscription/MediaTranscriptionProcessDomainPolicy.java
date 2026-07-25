@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.core.domain.mediatranscription;
 
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import java.net.URI;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,11 +51,11 @@ public class MediaTranscriptionProcessDomainPolicy {
     }
 
     public String normalizeStatus(String status) {
-        return status == null || status.isBlank() ? "queued" : status;
+        return status == null || status.isBlank() ? CoreConstants.STATUS_QUEUED : status;
     }
 
     public String normalizePhase(String phase) {
-        return phase == null || phase.isBlank() ? "queued" : phase;
+        return phase == null || phase.isBlank() ? CoreConstants.STATUS_QUEUED : phase;
     }
 
     public int progress(Integer progress) {

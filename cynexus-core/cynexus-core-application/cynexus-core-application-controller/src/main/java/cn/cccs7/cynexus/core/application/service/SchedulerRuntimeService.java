@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.core.application.service;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.application.dto.SchedulerManagementJobActionResponseDTO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerDueJobBO;
 import cn.cccs7.cynexus.core.domain.service.scheduler.SchedulerExecutionDomainService;
@@ -13,7 +15,7 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(prefix = "cynexus.scheduler.runtime", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SchedulerRuntimeService {
 
-    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId CHINA_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private final SchedulerAppService schedulerAppService;
     private final SchedulerExecutionDomainService schedulerExecutionDomainService;
@@ -45,7 +47,7 @@ public class SchedulerRuntimeService {
                 } else {
                     SchedulerManagementJobActionResponseDTO response = schedulerAppService.triggerScheduledJob(
                             dueJob.getJob().getCode());
-                    backgroundProcessing = response != null && "processing".equalsIgnoreCase(response.getStatus());
+                    backgroundProcessing = response != null && CoreConstants.STATUS_PROCESSING.equalsIgnoreCase(response.getStatus());
                 }
             } catch (RuntimeException exception) {
                 if (schedulerExecutionDomainService.isMarketAutomation(dueJob)) {

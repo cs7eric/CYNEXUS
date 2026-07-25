@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.scheduler;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.valueobject.scheduler.SchedulerTriggerItem;
@@ -88,13 +89,13 @@ public final class SchedulerTriggerPolicy {
     }
 
     public static SchedulerTriggerOutcome failed(String jobCode, String error) {
-        return new SchedulerTriggerOutcome(false, jobCode, false, null, "failed", 0, 1, List.of(), error);
+        return new SchedulerTriggerOutcome(false, jobCode, false, null, CoreConstants.STATUS_FAILED, 0, 1, List.of(), error);
     }
 
     public static SchedulerTriggerOutcome processing(String jobCode) {
         SchedulerTriggerItem item = new SchedulerTriggerItem(
-                jobCode, true, "processing", null, "job 已在后台启动, 请刷新查看进度");
-        return new SchedulerTriggerOutcome(true, jobCode, true, null, "processing", 1, 0, List.of(item), null);
+                jobCode, true, CoreConstants.STATUS_PROCESSING, null, "job 已在后台启动, 请刷新查看进度");
+        return new SchedulerTriggerOutcome(true, jobCode, true, null, CoreConstants.STATUS_PROCESSING, 1, 0, List.of(item), null);
     }
 
     private static List<SchedulerTriggerItem> triggerItems(Map<String, Object> result) {

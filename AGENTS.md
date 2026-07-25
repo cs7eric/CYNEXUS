@@ -3,14 +3,13 @@ DO NOT send optional commentary!!!
 ## Codex Operating Rules
 
 - Read this file before making project changes.
-- After completing a functional change, increment Maven and UI versions together and keep them fully synchronized. See **Version Sync Rules** below. Development versions stay `x.y.z-SNAPSHOT`; the matching Release image/version is `x.y.z-YYMMDD-RELEASE` (for example `1.0.1-260712-RELEASE`).
-- Release runs only from versioned Docker images and the built UI image. Never use local Java processes, `cmd.exe`, Vite, or the source tree as the Release runtime.
-- Development uses the `dev` Spring profile and separate application ports.
-- PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor may be shared, but Dev and Release application processes and ports remain separate.
-- Only one application environment may be online at a time. Starting Dev must stop the Release application stack first; starting Release must stop Dev application processes first. Never stop the shared infrastructure containers during this switch.
-- Dev entrypoint: `deploy/dev/start-dev.ps1` and `deploy/dev/stop-dev.ps1`.
+- After completing a functional change, increment Maven and UI versions together and keep them fully synchronized. See **Version Sync Rules** below. Source and Maven versions stay `x.y.z-SNAPSHOT`; the matching Release image/version is `x.y.z-YYMMDD-RELEASE` (for example `1.0.1-260712-RELEASE`).
+- The Dev application environment is deprecated and must not be started. Do not use `deploy/dev/start-dev.ps1`, local Java processes, `cmd.exe`, Vite, or the source tree as an application runtime.
+- Release runs only from versioned Docker images and the built UI image.
+- PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor are shared infrastructure and must remain running while the Release application stack is switched or restarted.
+- Only the Release application stack may be online. Use the Release entrypoint for every application restart; never start a parallel Dev or local application process.
 - Release entrypoint: `deploy/release/start-release.ps1 -Version <version>` and `deploy/release/stop-release.ps1`.
-- After completing a change, restart the affected application with the corresponding Dev or Release entrypoint and verify it; do not rely only on hot reload or compilation results.
+- After completing a change, rebuild/recreate and verify the Release stack through `deploy/release/start-release.ps1 -Version <version>`; do not rely only on compilation results or frontend hot reload.
 - Every new AI capability must be registered in the AI Provider page's Capability routing list, with its runtime entry, prompt key, group, and description kept synchronized with the backend capability code before the feature is considered complete. Prompt text itself must also be seeded into `ai_prompt` and bound via `ai_usage_bindings.prompt_id` - see **AI Prompt & Capability Management Guide** below.
 
 ## Version Sync Rules
@@ -37,7 +36,7 @@ DO NOT send optional commentary!!!
   - all Cynexus SNAPSHOT versions in `pom.xml` are identical
   - UI `package.json` version matches
   - `mvn -DskipTests compile` succeeds
-- **Release images** still use `x.y.z-YYMMDD-RELEASE` derived from the synchronized base version.
+- **Release images** use `x.y.z-YYMMDD-RELEASE` derived from the synchronized base version. Release verification must use the versioned Docker stack, not local Java or Vite processes.
 
 ## Repository Layout & File Placement
 
@@ -47,7 +46,8 @@ DO NOT send optional commentary!!!
   - cynexus-ui/ : frontend only (src/views, src/components, src/services, etc.)
   - deploy/ : runtime and deploy scripts
     - deploy/local/postgres/migrations/ : SQL migrations and prompt seeds
-    - deploy/dev/ and deploy/release/ : start/stop and release scripts
+  - deploy/release/ : Release start/stop and image scripts
+  - deploy/dev/ : deprecated legacy scripts; do not use for application startup
   - docs/ : durable design notes, release notes, architecture docs
   - guide/ : project guides and onboarding docs
   - design/ : UI/UX or product design assets
@@ -210,4 +210,12 @@ Controller / Request DTO
   - [ ] `ai_usage_bindings` created/updated with provider + `prompt_id`
   - [ ] runtime loads prompt from repository (binding → key → fallback)
   - [ ] Prompt UI can edit/publish the prompt without code redeploy for wording-only changes
-  - [ ] Maven + UI versions bumped after functional change
+- [ ] Maven + UI versions bumped after functional change
+
+## Constants Placement Rules
+
+- Repeated literals with shared meaning must be defined once in a `Constants` class and referenced by callers; do not create several near-identical copies of the same protocol key, header, status, schema, limit, or timezone value.
+- Put truly cross-module values in `cynexus-common` (normally `cynexus-common-core`); put values shared by one bounded service in that service's `cynexus-xxx-common` module.
+- Put values used only by one layer in that layer's local common package, for example `cynexus-xxx-*/src/main/java/.../<layer>/common/constant`, instead of leaking infra or adapter details into domain/common modules.
+- Keep a constant in its owning module even when another module consumes the API. Do not move business-specific values into global common merely to remove a duplicate field name.
+- Local `private static final` values remain appropriate for one class's implementation detail, derived values, regular expressions, SQL fragments, and single-use business rules. A refactor must preserve DDD dependency direction and must not make domain depend on infra.

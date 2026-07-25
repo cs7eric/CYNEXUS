@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.marketinformation;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -222,7 +223,7 @@ public class MarketInformationAiDomainService {
     public PromptRuntime resolvePrompt(AiUsageBindingBO binding, String fallbackVersion) {
         if (binding != null && binding.getPromptId() != null && promptRepository != null) {
             AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && "active".equalsIgnoreCase(prompt.getStatus())) {
+            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
                 return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(), prompt.getSystemPrompt(), prompt.getUserPromptTemplate());
             }
         }
@@ -233,7 +234,7 @@ public class MarketInformationAiDomainService {
     private String promptVersion(AiUsageBindingBO binding, String fallbackVersion) {
         if (binding != null && binding.getPromptId() != null && promptRepository != null) {
             AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && "active".equalsIgnoreCase(prompt.getStatus())) {
+            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
                 return prompt.getPromptVersion();
             }
         }

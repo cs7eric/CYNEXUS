@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.market.domain.information.StockInformationAnalysisGateway;
@@ -47,7 +48,8 @@ public class HttpStockInformationAiClient implements StockInformationAnalysisGat
                     """.formatted(symbol == null ? "" : symbol, title == null ? "" : title, truncate(content, 60_000));
             String body = objectMapper.writeValueAsString(Map.of("scenarioCode", "stock_information_analysis", "userInput", prompt));
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl + "/api/ai/executions"))
-                    .timeout(requestTimeout).header("Accept", "application/json").header("Content-Type", "application/json")
+                    .timeout(requestTimeout).header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() < 200 || response.statusCode() >= 300) {

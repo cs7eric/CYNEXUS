@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.core.application.service;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.application.convert.SchedulerJobCategoryDTOConverter;
 import cn.cccs7.cynexus.core.application.convert.SchedulerJobCategoryMappingDTOConverter;
 import cn.cccs7.cynexus.core.application.convert.SchedulerJobDTOConverter;
@@ -73,7 +75,7 @@ import tools.jackson.databind.ObjectMapper;
 public class SchedulerAppService {
 
     private static final Logger log = LoggerFactory.getLogger(SchedulerAppService.class);
-    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId CHINA_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private final SchedulerDomainService schedulerDomainService;
     private final SchedulerManagementDomainService schedulerManagementDomainService;
     private final SchedulerExecutionDomainService schedulerExecutionDomainService;
@@ -825,7 +827,7 @@ public class SchedulerAppService {
                 .message(item.getRemark())
                 .durationSeconds(historyDurationSeconds(item))
                 .targetCount(targetCount)
-                .succeeded("success".equalsIgnoreCase(item.getStatus()) ? targetCount : null)
+                .succeeded(CoreConstants.STATUS_SUCCESS.equalsIgnoreCase(item.getStatus()) ? targetCount : null)
                 .resultSummary(readResultSummary(item.getResultSummary(), item.getRemark(), item.getUpdatedAt()))
                 .build();
     }

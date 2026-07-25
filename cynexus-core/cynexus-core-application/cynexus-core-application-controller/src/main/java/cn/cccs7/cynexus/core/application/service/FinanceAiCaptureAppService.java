@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.application.service;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceAiCaptureDTO;
@@ -38,13 +39,13 @@ public class FinanceAiCaptureAppService {
                 throw new BizException(ErrorCode.BAD_REQUEST, "\u8bfb\u53d6\u56fe\u7247\u5931\u8d25");
             }
         }
-        String processingMode = "review".equalsIgnoreCase(mode) ? "review" : "auto";
+        String processingMode = CoreConstants.STATUS_REVIEW.equalsIgnoreCase(mode) ? CoreConstants.STATUS_REVIEW : "auto";
         return toDto(domainService.parse(FinanceLedgerAppService.DEFAULT_OWNER, fileName, contentType, content, size, mode, idempotencyKey),
                 processingMode);
     }
 
     public FinanceAiCaptureDTO get(Long id) {
-        return toDto(domainService.get(FinanceLedgerAppService.DEFAULT_OWNER, id), "review");
+        return toDto(domainService.get(FinanceLedgerAppService.DEFAULT_OWNER, id), CoreConstants.STATUS_REVIEW);
     }
 
     public FinanceAiCapturePageDTO history(int limit, int offset, String status) {
@@ -63,12 +64,12 @@ public class FinanceAiCaptureAppService {
         List<FinanceAiCaptureItemUpdate> updates = request == null || request.getItems() == null
                 ? List.of()
                 : request.getItems().stream().map(this::toUpdate).toList();
-        return toDto(domainService.confirm(FinanceLedgerAppService.DEFAULT_OWNER, id, updates), "review");
+        return toDto(domainService.confirm(FinanceLedgerAppService.DEFAULT_OWNER, id, updates), CoreConstants.STATUS_REVIEW);
     }
 
     @Transactional
     public FinanceAiCaptureDTO retry(Long id) {
-        return toDto(domainService.retry(FinanceLedgerAppService.DEFAULT_OWNER, id), "review");
+        return toDto(domainService.retry(FinanceLedgerAppService.DEFAULT_OWNER, id), CoreConstants.STATUS_REVIEW);
     }
 
     @Transactional
@@ -94,8 +95,9 @@ public class FinanceAiCaptureAppService {
     }
 
     private FinanceAiCaptureDTO toDto(FinanceAiCaptureBO value, String processingMode) {
-        long autoPosted = value.getItems() == null ? 0 : value.getItems().stream().filter(item -> "confirmed".equals(item.getStatus())).count();
-        long review = value.getItems() == null ? 0 : value.getItems().stream().filter(item -> "draft".equals(item.getStatus())).count();
+        long autoPosted = value.getItems() == null ? 0 : value.getItems().stream()
+                .filter(item -> CoreConstants.STATUS_CONFIRMED.equals(item.getStatus())).count();
+        long review = value.getItems() == null ? 0 : value.getItems().stream().filter(item -> CoreConstants.STATUS_DRAFT.equals(item.getStatus())).count();
         return FinanceAiCaptureDTO.builder()
                 .id(value.getId())
                 .status(value.getStatus())

@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.client.DataJobExecutorClient;
@@ -21,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class HttpDataJobExecutorClient implements DataJobExecutorClient {
 
-    private static final String TOKEN_HEADER = "X-Cynexus-Internal-Token";
+    private static final String TOKEN_HEADER = CommonConstants.HTTP_HEADER_INTERNAL_TOKEN;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -92,7 +93,7 @@ public class HttpDataJobExecutorClient implements DataJobExecutorClient {
 
     private Map<String, Object> postMap(String path, Map<String, Object> body) {
         HttpRequest request = baseRequest(path)
-                .header("Content-Type", "application/json; charset=utf-8")
+                .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON_UTF8)
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(body), StandardCharsets.UTF_8))
                 .build();
         return sendForMap(request);
@@ -103,7 +104,7 @@ public class HttpDataJobExecutorClient implements DataJobExecutorClient {
                 .uri(URI.create(baseUrl + path))
                 .version(HttpClient.Version.HTTP_1_1)
                 .timeout(requestTimeout)
-                .header("Accept", "application/json");
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
         if (!internalToken.isBlank()) {
             builder.header(TOKEN_HEADER, internalToken);
         }

@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.infra.repository;
 
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
 import cn.cccs7.cynexus.ai.domain.repository.MarketInformationAiTaskRepository;
+import cn.cccs7.cynexus.market.common.constant.MarketConstants;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                  where task_status = 'RUNNING'
                    and claimed_at < now() - (? * interval '1 minute')
                 """, Math.max(timeoutMinutes, 1));
-        int requeued = jdbcTemplate.update("""
+        int requeued = jdbcTemplate.update(marketSql("""
                 with retryable as (
                     select distinct on (task.cluster_id, task.cluster_content_hash) task.id
                       from market_information_ai_task task
@@ -36,7 +37,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                        and task.requested_by <> 'automatic-retry'
                        and task.last_error <> 'Event has no source content'
                        and exists (
-                           select 1 from cynexus_appl_market.market_information_event_member member
+                           select 1 from ${market_schema}.market_information_event_member member
                             where member.cluster_id = task.cluster_id
                        )
                        and not exists (
@@ -66,7 +67,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                        claimed_at = null, claimed_by = null, requested_by = 'automatic-retry',
                        last_error = 'Retrying eligible AI analysis failure', updated_at = now()
                  where task.id in (select id from retryable)
-                """);
+                """));
         return recovered + requeued;
     }
 
@@ -111,10 +112,10 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
     @Override
     public MarketInformationAiTaskBO loadInput(MarketInformationAiTaskBO task) {
         if (task == null || task.getClusterId() == null) return task;
-        jdbcTemplate.query("""
+        jdbcTemplate.query(marketSql("""
                 select display_title, category, content_hash
-                  from cynexus_appl_market.market_information_event_cluster where id = ?
-                """, rs -> {
+                  from ${market_schema}.market_information_event_cluster where id = ?
+                """), rs -> {
             if (rs.next()) {
                 task.setTitle(rs.getString("display_title"));
                 task.setCategory(rs.getString("category"));
@@ -122,40 +123,40 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
             }
             return task;
         }, task.getClusterId());
-        List<MarketInformationAiTaskBO.Source> sources = jdbcTemplate.query("""
+        List<MarketInformationAiTaskBO.Source> sources = jdbcTemplate.query(marketSql("""
                 select member.source, member.source_record_id, cache.title, cache.content_text, cache.content_quality
-                  from cynexus_appl_market.market_information_event_member member
+                  from ${market_schema}.market_information_event_member member
                   left join lateral (
                       select title, content_text, content_quality
-                        from cynexus_appl_market.market_information_content_cache value
+                        from ${market_schema}.market_information_content_cache value
                        where value.source = member.source and value.source_record_id = member.source_record_id
                        order by case value.content_quality when 'full_text' then 0 when 'ocr' then 1 else 2 end,
                                 value.updated_at desc limit 1
                   ) cache on true
                  where member.cluster_id = ? order by member.published_at desc
-                """, (rs, n) -> MarketInformationAiTaskBO.Source.builder()
+                """), (rs, n) -> MarketInformationAiTaskBO.Source.builder()
                 .sourceId(rs.getString("source") + ":" + rs.getString("source_record_id"))
                 .source(rs.getString("source")).title(rs.getString("title"))
                 .content(rs.getString("content_text")).contentQuality(rs.getString("content_quality")).build(),
                 task.getClusterId());
         for (MarketInformationAiTaskBO.Source source : sources) {
-            source.setDeterministicImpact(jdbcTemplate.query("""
+            source.setDeterministicImpact(jdbcTemplate.query(marketSql("""
                     with raw as (
-                        select nullif(trim(code), '') as code, title, summary from cynexus_appl_market.a_stock_news where source = ? and news_id = ?
+                        select nullif(trim(code), '') as code, title, summary from ${market_schema}.a_stock_news where source = ? and news_id = ?
                         union all
-                        select nullif(trim(code), ''), title, null from cynexus_appl_market.a_stock_announcement where source = ? and announcement_id = ?
-                    ), latest as (select max(snapshot_date) snapshot_date from cynexus_appl_market.ths_industry_constituent_snapshot where deleted_at is null)
+                        select nullif(trim(code), ''), title, null from ${market_schema}.a_stock_announcement where source = ? and announcement_id = ?
+                    ), latest as (select max(snapshot_date) snapshot_date from ${market_schema}.ths_industry_constituent_snapshot where deleted_at is null)
                     select distinct map.tdx_name || ' [' || case when exists (
-                        select 1 from cynexus_appl_market.ths_industry_constituent_snapshot c cross join latest
+                        select 1 from ${market_schema}.ths_industry_constituent_snapshot c cross join latest
                          where c.deleted_at is null and c.snapshot_date = latest.snapshot_date and c.stock_code = raw.code and c.industry_code = map.ths_code
                     ) then 'Direct' else 'Inferred' end || ']'
-                      from raw join cynexus_appl_market.tdx_ths_industry_mapping map on map.deleted_at is null
+                      from raw join ${market_schema}.tdx_ths_industry_mapping map on map.deleted_at is null
                      where exists (
-                        select 1 from cynexus_appl_market.ths_industry_constituent_snapshot c cross join latest
+                        select 1 from ${market_schema}.ths_industry_constituent_snapshot c cross join latest
                          where c.deleted_at is null and c.snapshot_date = latest.snapshot_date and c.stock_code = raw.code and c.industry_code = map.ths_code
                      ) or ((raw.title || ' ' || coalesce(raw.summary, '')) like '%' || map.tdx_name || '%')
                      order by 1
-                    """, (rs, n) -> rs.getString(1), source.getSource(), source.getSourceId().substring(source.getSource().length() + 1), source.getSource(), source.getSourceId().substring(source.getSource().length() + 1)));
+                    """), (rs, n) -> rs.getString(1), source.getSource(), source.getSourceId().substring(source.getSource().length() + 1), source.getSource(), source.getSourceId().substring(source.getSource().length() + 1)));
         }
         task.setSources(sources);
         return task;
@@ -163,7 +164,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
 
     @Override
     public String loadBriefInput(String eventSchemaVersion, String eventPromptVersion) {
-        List<String> rows = jdbcTemplate.query("""
+        List<String> rows = jdbcTemplate.query(marketSql("""
                 with ranked as (
                     select analysis.cluster_id, analysis.analysis_json, analysis.updated_at as analysis_updated_at,
                            cluster.display_title, cluster.category, cluster.priority_score,
@@ -173,7 +174,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                                order by analysis.updated_at desc, analysis.id desc
                            ) as version_rank
                       from market_information_event_analysis analysis
-                      join cynexus_appl_market.market_information_event_cluster cluster
+                      join ${market_schema}.market_information_event_cluster cluster
                         on cluster.id = analysis.cluster_id
                        and cluster.content_hash = analysis.cluster_content_hash
                      where analysis.analysis_status = 'SUCCEEDED'
@@ -188,7 +189,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                 ), coverage as (
                     select member.source, count(distinct member.source_record_id)::integer as source_count
                       from selected
-                      join cynexus_appl_market.market_information_event_member member
+                      join ${market_schema}.market_information_event_member member
                         on member.cluster_id = selected.cluster_id
                      group by member.source
                 ), payload as (
@@ -217,7 +218,7 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
                     'events', payload.events
                 )::text end
                   from payload
-                """, (rs, n) -> rs.getString(1), eventSchemaVersion, eventPromptVersion);
+                """), (rs, n) -> rs.getString(1), eventSchemaVersion, eventPromptVersion);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -301,5 +302,9 @@ public class MarketInformationAiTaskRepositoryImpl implements MarketInformationA
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to hash Market Information AI input", exception);
         }
+    }
+
+    private static String marketSql(String sql) {
+        return sql.replace("${market_schema}", MarketConstants.DATABASE_SCHEMA);
     }
 }

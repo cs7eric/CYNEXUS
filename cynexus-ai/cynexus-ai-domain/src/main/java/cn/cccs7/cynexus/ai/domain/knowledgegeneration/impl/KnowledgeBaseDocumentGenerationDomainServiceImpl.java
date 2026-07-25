@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.knowledgegeneration.impl;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -38,7 +39,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         implements KnowledgeBaseDocumentGenerationDomainService {
     private static final int MAX_REPAIR_OUTPUT_LENGTH = 8000;
-    private static final int MAX_LOG_TEXT_LENGTH = 8000;
 
     private final AiUsageBindingRepository bindingRepository;
     private final AiProviderRepository providerRepository;
@@ -166,12 +166,12 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
                         .outputTokens(completion == null ? 0 : completion.getOutputTokens())
                         .totalTokens(completion == null ? estimateTokens(sourceText) : completion.getTotalTokens())
                         .latencyMs(attempt.latencyMs())
-                        .requestJson(toJson(objectMapper, Map.of("sourceTextPreview", truncate(sourceText, MAX_LOG_TEXT_LENGTH),
+                        .requestJson(toJson(objectMapper, Map.of("sourceTextPreview", truncate(sourceText, AiConstants.MAX_LOG_TEXT_LENGTH),
                                 "sourceTextLength", sourceText == null ? 0 : sourceText.length())))
                         .responseJson(toJson(objectMapper, Map.of("providerCode", safe(model == null ? null : model.getProviderCode()),
                                 "modelCode", safe(model == null ? null : model.getModelCode()),
-                                "contentPreview", safe(truncate(completion == null ? null : completion.getContent(), MAX_LOG_TEXT_LENGTH)),
-                                "rawResponsePreview", safe(truncate(completion == null ? null : completion.getRawResponse(), MAX_LOG_TEXT_LENGTH)))))
+                                "contentPreview", safe(truncate(completion == null ? null : completion.getContent(), AiConstants.MAX_LOG_TEXT_LENGTH)),
+                                "rawResponsePreview", safe(truncate(completion == null ? null : completion.getRawResponse(), AiConstants.MAX_LOG_TEXT_LENGTH)))))
                         .errorMessage(attempt.errorMessage() == null ? null : truncate(attempt.errorMessage(), 2000))
                         .extra(toJson(objectMapper, Map.of("fallbackCapable", true))).build());
             } catch (Exception ignored) {
@@ -223,7 +223,7 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
                 ? null : promptRepository.findById(binding.getPromptId());
         String version = routingParameters(binding).promptVersion();
         List<AiPromptBO> prompts = promptRepository.list(
-                KnowledgeBaseDocumentGenerationPromptPolicy.PROMPT_KEY, null, "active");
+                KnowledgeBaseDocumentGenerationPromptPolicy.PROMPT_KEY, null, AiConstants.STATUS_ACTIVE);
         return promptPolicy.resolve(bound, prompts, version);
     }
 

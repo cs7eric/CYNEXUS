@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.repository;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisPageRepository;
 import cn.cccs7.cynexus.ai.infra.basic.entity.ApplicationAnalysisConfigPO;
@@ -25,7 +27,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ApplicationAnalysisPageRepositoryImpl implements ApplicationAnalysisPageRepository {
 
-    private static final String DEFAULT_CONFIG_KEY = "default";
+    private static final String DEFAULT_CONFIG_KEY = CommonConstants.DEFAULT_SPACE_CODE;
 
     private final ApplicationAnalysisConfigBasicService configBasicService;
     private final ApplicationAnalysisTargetBasicService targetBasicService;
@@ -97,7 +99,7 @@ public class ApplicationAnalysisPageRepositoryImpl implements ApplicationAnalysi
                 existing.setTargetKey(targetKey);
                 existing.setLegacyKey(defaultString(incoming.getLegacyKey(), targetKey));
                 existing.setSourceType("manual");
-                existing.setStatus("active");
+                existing.setStatus(AiConstants.STATUS_ACTIVE);
             }
             existing.setSymbol(symbol);
             existing.setMarket(blankToNull(incoming.getMarket()));
@@ -237,7 +239,7 @@ public class ApplicationAnalysisPageRepositoryImpl implements ApplicationAnalysi
         }
         config = new ApplicationAnalysisConfigPO();
         config.setConfigKey(DEFAULT_CONFIG_KEY);
-        config.setStatus("active");
+        config.setStatus(AiConstants.STATUS_ACTIVE);
         config.setHorizonDays(120);
         config.setHorizonSegments(4);
         config.setMonthlyKeep(6);

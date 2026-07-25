@@ -1,8 +1,10 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+
 final class MarketAgentToolSchemas {
 
-    static final String TRADE_DATE = "{\"type\":\"object\",\"properties\":{\"tradeDate\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Trading date in YYYY-MM-DD format. Omit to use the latest available Asia/Shanghai session.\"}},\"additionalProperties\":false}";
+    static final String TRADE_DATE = "{\"type\":\"object\",\"properties\":{\"tradeDate\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Trading date in YYYY-MM-DD format. Omit to use the latest available " + CommonConstants.SHANGHAI_ZONE_ID + " session.\"}},\"additionalProperties\":false}";
     static final String HISTORY = "{\"type\":\"object\",\"properties\":{\"start\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Optional range start date in YYYY-MM-DD format.\"},\"end\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Optional range end date in YYYY-MM-DD format.\"}},\"additionalProperties\":false}";
     static final String SECTOR_RANK = "{\"type\":\"object\",\"properties\":{\"tradeDate\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Optional trading date in YYYY-MM-DD format.\"},\"topN\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":50,\"description\":\"Number of sectors to return, from 1 to 50.\"}},\"additionalProperties\":false}";
     static final String STOCK_DAILY = "{\"type\":\"object\",\"required\":[\"symbol\"],\"properties\":{\"symbol\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":20,\"description\":\"Required stock code, for example 600519.\"},\"tradeDate\":{\"type\":\"string\",\"format\":\"date\",\"description\":\"Optional trading date in YYYY-MM-DD format.\"}},\"additionalProperties\":false}";

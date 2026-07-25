@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.repository;
 
+import cn.cccs7.cynexus.market.common.constant.MarketConstants;
 import cn.cccs7.cynexus.market.domain.entity.AStockSkillDataBO;
 import cn.cccs7.cynexus.market.domain.repository.AStockSkillDataRepository;
 import cn.cccs7.cynexus.market.infra.client.ClickHouseAStockSkillDataClient;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class AStockSkillDataRepositoryImpl implements AStockSkillDataRepository {
 
-    private static final String PG_SCHEMA = "cynexus_appl_market";
+    private static final String PG_SCHEMA = MarketConstants.DATABASE_SCHEMA;
     private static final String CH_DATABASE = "cynexus";
 
     private static final List<DatasetSpec> DATASETS = List.of(

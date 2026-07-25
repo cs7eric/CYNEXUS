@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.agent.market;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.api.gateway.MarketDataGateway;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
@@ -19,7 +20,7 @@ import java.util.function.Function;
 abstract class AbstractMarketAgentToolHandler implements AgentToolHandler {
 
     protected static final String SOURCE = "Market API";
-    protected static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
+    protected static final ZoneId MARKET_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     protected static final int TRADE_DATE_LOOKBACK_DAYS = 12;
 
     private final MarketDataGateway marketDataGateway;

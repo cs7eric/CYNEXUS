@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.service.finance;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAccountBO;
@@ -50,7 +51,7 @@ public class FinanceInstallmentDomainService {
                 .accountId(account.getId()).accountName(account.getName()).accountType(account.getAccountType())
                 .purchaseTransactionId(purchaseTransactionId).merchant(merchant).totalAmount(totalAmount)
                 .feeTotal(normalizedFee).installmentCount(count).firstDueDate(firstDueDate).intervalMonths(interval)
-                .status("active").note(note).build();
+                .status(CoreConstants.STATUS_ACTIVE).note(note).build();
         List<FinanceCreditInstallmentBO> installments = policy.schedule(totalAmount, normalizedFee, count, firstDueDate, interval, null);
         Long planId = repository.saveInstallmentPlan(plan);
         installments.forEach(item -> { item.setPlanId(planId); repository.saveInstallment(item); });
@@ -64,7 +65,7 @@ public class FinanceInstallmentDomainService {
         FinanceCreditInstallmentBO installment = plan.getInstallments().stream()
                 .filter(item -> installmentNo != null && installmentNo.equals(item.getInstallmentNo())).findFirst().orElse(null);
         if (installment == null) throw new BizException(ErrorCode.NOT_FOUND, "分期不存在");
-        if (!"pending".equals(installment.getStatus())) throw new BizException(ErrorCode.BAD_REQUEST, "该分期已处理");
+        if (!CoreConstants.STATUS_PENDING.equals(installment.getStatus())) throw new BizException(ErrorCode.BAD_REQUEST, "该分期已处理");
         FinanceAccountBO paymentAccount = repository.findAccount(ownerKey, paymentAccountId);
         if (paymentAccount == null || !"asset".equals(paymentAccount.getNature())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "还款账户必须是资产账户");

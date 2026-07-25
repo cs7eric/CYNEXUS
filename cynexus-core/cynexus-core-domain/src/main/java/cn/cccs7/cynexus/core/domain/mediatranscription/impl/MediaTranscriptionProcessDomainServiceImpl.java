@@ -1,7 +1,9 @@
 package cn.cccs7.cynexus.core.domain.mediatranscription.impl;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionAiClient;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionLinkResolver;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionMetadataBO;
@@ -24,7 +26,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscriptionProcessDomainService {
 
-    private static final String OWNER_KEY = "default";
+    private static final String OWNER_KEY = CommonConstants.DEFAULT_SPACE_CODE;
 
     private final MediaTranscriptionProcessRepository repository;
     private final MediaTranscriptionTaskDomainService taskService;
@@ -65,8 +67,8 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
                 .title(processPolicy.normalizeOptional(title))
                 .platform(processPolicy.normalizeOptional(platform))
                 .noteType(processPolicy.normalizeOptional(noteType))
-                .status("queued")
-                .phase("queued")
+                .status(CoreConstants.STATUS_QUEUED)
+                .phase(CoreConstants.STATUS_QUEUED)
                 .progress(0)
                 .attemptCount(0)
                 .build();
@@ -95,11 +97,11 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
     @Override
     public MediaTranscriptionProcessBO retry(String processId) {
         MediaTranscriptionProcessBO process = require(processId);
-        if (!"failed".equalsIgnoreCase(process.getStatus())) {
+        if (!CoreConstants.STATUS_FAILED.equalsIgnoreCase(process.getStatus())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "只有失败的自动化任务可以重试");
         }
-        process.setStatus("queued");
-        process.setPhase("queued");
+        process.setStatus(CoreConstants.STATUS_QUEUED);
+        process.setPhase(CoreConstants.STATUS_QUEUED);
         process.setProgress(0);
         process.setWorkerTaskId(null);
         process.setDownloadUrl(null);
@@ -128,7 +130,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
         try {
             markStarted(process);
             MediaTranscriptionTaskBO task = startOrResumeWorker(process);
-            if ("error".equalsIgnoreCase(task.getStatus())) {
+            if (CoreConstants.STATUS_ERROR.equalsIgnoreCase(task.getStatus())) {
                 throw new IllegalStateException(defaultError(task.getError(), "视频转写失败"));
             }
             if (!"done".equalsIgnoreCase(task.getStatus())) {
@@ -165,8 +167,8 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
             process.setCompletedAt(OffsetDateTime.now());
             repository.update(process);
         } catch (Exception exception) {
-            process.setStatus("failed");
-            process.setPhase("failed");
+            process.setStatus(CoreConstants.STATUS_FAILED);
+            process.setPhase(CoreConstants.STATUS_FAILED);
             process.setProgress(Math.min(99, processPolicy.progress(process.getProgress())));
             process.setErrorMessage(errorMessage(exception));
             process.setCompletedAt(OffsetDateTime.now());
@@ -175,7 +177,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
     }
 
     private void markStarted(MediaTranscriptionProcessBO process) {
-        process.setStatus("running");
+        process.setStatus(CoreConstants.STATUS_RUNNING);
         process.setPhase("starting");
         process.setStartedAt(OffsetDateTime.now());
         process.setAttemptCount((process.getAttemptCount() == null ? 0 : process.getAttemptCount()) + 1);
@@ -215,7 +217,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
         long deadline = System.currentTimeMillis() + Duration.ofHours(6).toMillis();
         MediaTranscriptionTaskBO current = task;
         while (System.currentTimeMillis() < deadline) {
-            if ("error".equalsIgnoreCase(current.getStatus()) || "done".equalsIgnoreCase(current.getStatus())) {
+            if (CoreConstants.STATUS_ERROR.equalsIgnoreCase(current.getStatus()) || "done".equalsIgnoreCase(current.getStatus())) {
                 return current;
             }
             updateWorkerProgress(process, current);
@@ -239,7 +241,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
     }
 
     private void setProgress(MediaTranscriptionProcessBO process, String phase, int progress) {
-        process.setStatus("running");
+        process.setStatus(CoreConstants.STATUS_RUNNING);
         process.setPhase(phase);
         process.setProgress(processPolicy.progress(progress));
         repository.update(process);

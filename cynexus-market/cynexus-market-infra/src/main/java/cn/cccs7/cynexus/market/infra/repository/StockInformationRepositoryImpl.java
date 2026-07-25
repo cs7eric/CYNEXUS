@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.repository;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
 import cn.cccs7.cynexus.market.domain.entity.StockInformationBO;
 import cn.cccs7.cynexus.market.domain.repository.StockInformationRepository;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class StockInformationRepositoryImpl implements StockInformationRepository {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private final PostgresStockInformationClient postgresClient;
     private final HttpStockChartF10DataClient f10Client;

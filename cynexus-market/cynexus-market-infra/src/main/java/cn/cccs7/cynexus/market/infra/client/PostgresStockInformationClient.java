@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.entity.StockInformationBO;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PostgresStockInformationClient {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private final JdbcTemplate jdbcTemplate;
 

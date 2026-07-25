@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.applicationanalysis;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +15,7 @@ import java.util.Map;
 /** Domain rules for sanitizing and merging recent-30 analysis snapshots. */
 public final class ApplicationAnalysisSnapshotDomainPolicy {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
 
     public ObjectNode sanitize(JsonNode rawRoot, ApplicationAnalysisPageBO.Target target,

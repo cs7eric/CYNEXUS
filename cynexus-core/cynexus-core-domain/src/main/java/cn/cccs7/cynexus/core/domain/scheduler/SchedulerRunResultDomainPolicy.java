@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.core.domain.scheduler;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobStatusBO;
 import java.math.BigDecimal;
@@ -14,7 +16,7 @@ import java.util.Set;
 /** Builds the domain facts persisted for a scheduler execution. */
 public final class SchedulerRunResultDomainPolicy {
 
-    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId CHINA_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     public RunFacts build(SchedulerJobStatusBO jobStatus, DataJobTriggerResultBO result,
                           boolean ok, String status, String error, OffsetDateTime updatedAt) {
@@ -86,7 +88,7 @@ public final class SchedulerRunResultDomainPolicy {
 
     private String buildRunRemark(DataJobTriggerResultBO result, boolean ok, String status, String error) {
         if (!ok) return error == null || error.isBlank() ? "failed: " + status : error;
-        if (result == null) return "success";
+        if (result == null) return CoreConstants.STATUS_SUCCESS;
         Map<String, Object> resultMap = result.getResult() == null ? Map.of() : result.getResult();
         Map<String, Object> metadata = extractMetadata(resultMap);
         StringBuilder builder = new StringBuilder("run_id=").append(result.getRunId())
@@ -173,8 +175,8 @@ public final class SchedulerRunResultDomainPolicy {
         return extra.containsKey("lastStepResults") || extra.containsKey("lastCompletedSteps") ? "chain" : "job";
     }
     private static BigDecimal inferPercent(Map<String, Object> extra, String status) {
-        if ("success".equalsIgnoreCase(status) || "skipped".equalsIgnoreCase(status)) return BigDecimal.valueOf(100);
-        if ("failed".equalsIgnoreCase(status)) return null;
+        if (CoreConstants.STATUS_SUCCESS.equalsIgnoreCase(status) || CoreConstants.STATUS_SKIPPED.equalsIgnoreCase(status)) return BigDecimal.valueOf(100);
+        if (CoreConstants.STATUS_FAILED.equalsIgnoreCase(status)) return null;
         Integer planned = asInteger(firstPresent(extra, Set.of("plannedSteps", "planned_steps", "totalSteps")));
         Object completed = firstPresent(extra, Set.of("lastCompletedSteps", "completedSteps"));
         Object steps = firstPresent(extra, Set.of("lastStepResults", "stepResults"));
@@ -193,7 +195,7 @@ public final class SchedulerRunResultDomainPolicy {
             for (Object item : list) if (item instanceof Map<?, ?> map && Boolean.FALSE.equals(asBoolean(map.get("ok")))) count++;
             return count;
         }
-        return "failed".equalsIgnoreCase(status) || error != null && !error.isBlank() ? 1 : result == null ? null : 0;
+        return CoreConstants.STATUS_FAILED.equalsIgnoreCase(status) || error != null && !error.isBlank() ? 1 : result == null ? null : 0;
     }
     private static Map<String, Object> extractMetadata(Map<String, Object> value) {
         Object metadata = value == null ? null : value.get("metadata");

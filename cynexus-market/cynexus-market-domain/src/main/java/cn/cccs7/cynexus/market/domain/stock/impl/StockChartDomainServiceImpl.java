@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.domain.stock.impl;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.stock.StockChartDomainService;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -9,7 +10,7 @@ import org.springframework.stereotype.Service;
 public class StockChartDomainServiceImpl implements StockChartDomainService {
 
     private static final int DEFAULT_KLINE_COUNT = 520;
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     @Override
     public int defaultKlineCount() {

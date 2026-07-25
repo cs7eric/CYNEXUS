@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.application.controller;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -85,7 +86,7 @@ class AutonomousAgentControllerAuthorizationTest {
         String principal = "user-a";
         String tenant = "tenant-a";
         mockMvc.perform(post("/api/ai/agent/capabilities/market.overview/governance")
-                        .contentType("application/json").content("{\"enabled\":false,\"availability\":\"AVAILABLE\",\"priority\":1}")
+                        .contentType(CommonConstants.MEDIA_TYPE_APPLICATION_JSON).content("{\"enabled\":false,\"availability\":\"AVAILABLE\",\"priority\":1}")
                         .header("X-Cynexus-Principal", principal).header("X-Cynexus-Tenant", tenant)
                         .header("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign(principal, tenant, SECRET)))
                 .andExpect(status().isUnauthorized());

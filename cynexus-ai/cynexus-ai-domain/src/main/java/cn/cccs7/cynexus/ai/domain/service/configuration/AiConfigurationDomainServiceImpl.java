@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.service.configuration;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AgentQuotaPolicyBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
@@ -26,10 +27,6 @@ import java.util.List;
  * Repository interfaces are domain ports; persistence details stay in infrastructure.
  */
 public class AiConfigurationDomainServiceImpl implements AiConfigurationDomainService {
-
-    private static final String STATUS_DRAFT = "draft";
-    private static final String STATUS_ACTIVE = "active";
-    private static final String STATUS_ARCHIVED = "archived";
 
     private final AiProviderRepository providerRepository;
     private final AiPromptRepository promptRepository;
@@ -107,7 +104,7 @@ public class AiConfigurationDomainServiceImpl implements AiConfigurationDomainSe
     }
     @Override public boolean updatePrompt(AiPromptBO prompt) {
         validatePrompt(prompt);
-        if (!STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus()) && hasEnabledBindingForPrompt(prompt.getId())) {
+        if (!AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus()) && hasEnabledBindingForPrompt(prompt.getId())) {
             throw new IllegalStateException("Cannot archive a prompt referenced by an enabled AI usage binding");
         }
         return promptRepository.update(prompt);
@@ -205,7 +202,7 @@ public class AiConfigurationDomainServiceImpl implements AiConfigurationDomainSe
         if (binding.getPromptId() != null) {
             AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
             if (prompt == null) throw new IllegalArgumentException("AI prompt binding target does not exist");
-            if (Boolean.TRUE.equals(binding.getEnabled()) && !STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
+            if (Boolean.TRUE.equals(binding.getEnabled()) && !AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
                 throw new IllegalArgumentException("Enabled AI usage binding requires an active prompt");
             }
         }
@@ -223,8 +220,8 @@ public class AiConfigurationDomainServiceImpl implements AiConfigurationDomainSe
     }
 
     private void validateStatus(String status, String field) {
-        if (!STATUS_DRAFT.equalsIgnoreCase(status) && !STATUS_ACTIVE.equalsIgnoreCase(status)
-                && !STATUS_ARCHIVED.equalsIgnoreCase(status)) {
+        if (!AiConstants.STATUS_DRAFT.equalsIgnoreCase(status) && !AiConstants.STATUS_ACTIVE.equalsIgnoreCase(status)
+                && !AiConstants.STATUS_ARCHIVED.equalsIgnoreCase(status)) {
             throw new IllegalArgumentException("Unsupported " + field + ": " + status);
         }
     }
@@ -232,7 +229,7 @@ public class AiConfigurationDomainServiceImpl implements AiConfigurationDomainSe
     private void normalizePromptDefaults(AiPromptBO prompt) {
         require(prompt, "AI prompt is required");
         if (prompt.getPromptVersion() == null || prompt.getPromptVersion().isBlank()) prompt.setPromptVersion("v1");
-        if (prompt.getStatus() == null || prompt.getStatus().isBlank()) prompt.setStatus(STATUS_DRAFT);
+        if (prompt.getStatus() == null || prompt.getStatus().isBlank()) prompt.setStatus(AiConstants.STATUS_DRAFT);
     }
 
     private boolean hasBindingForProvider(Long providerId) {

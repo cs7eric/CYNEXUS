@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.ai.domain.applicationanalysis.impl;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisCompletionPort;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisExecutionDomainService;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
@@ -37,8 +39,7 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
     public static final String CAPABILITY = "application_recent30";
     public static final String PROMPT_KEY = "application_recent30_short_term_daily";
 
-    private static final int MAX_LOG_TEXT_LENGTH = 8000;
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private static final String DEFAULT_SYSTEM_PROMPT = """
             你是一个专注的 A 股 K 线短期趋势研判模型。
             基于 analysis_input 输出唯一 JSON 对象，根字段只能是 analysis_result。
@@ -149,12 +150,12 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
         AiUsageBindingBO binding = routingService.findBinding(CAPABILITY);
         if (binding != null && binding.getPromptId() != null) {
             AiPromptBO boundPrompt = promptRepository.findById(binding.getPromptId());
-            if (boundPrompt != null && "active".equalsIgnoreCase(boundPrompt.getStatus())) {
+            if (boundPrompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(boundPrompt.getStatus())) {
                 return prompt(boundPrompt);
             }
         }
         String promptVersion = routingService.promptVersion(binding);
-        List<AiPromptBO> prompts = promptRepository.list(PROMPT_KEY, null, "active").stream()
+        List<AiPromptBO> prompts = promptRepository.list(PROMPT_KEY, null, AiConstants.STATUS_ACTIVE).stream()
                 .filter(item -> PROMPT_KEY.equals(item.getPromptKey()))
                 .filter(item -> promptVersion == null || promptVersion.isBlank()
                         || promptVersion.equals(item.getPromptVersion()))
@@ -184,7 +185,7 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
         ObjectNode meta = objectMapper.createObjectNode();
         meta.put("provider_code", completion.getProviderCode());
         meta.put("model_code", completion.getModelCode());
-        meta.put("raw_response_preview", snapshotPolicy.truncate(completion.getRawResponse(), MAX_LOG_TEXT_LENGTH));
+        meta.put("raw_response_preview", snapshotPolicy.truncate(completion.getRawResponse(), AiConstants.MAX_LOG_TEXT_LENGTH));
         payload.set("raw_meta", meta);
         return payload;
     }
@@ -238,9 +239,9 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
                     .outputTokens(completion == null ? 0 : completion.getOutputTokens())
                     .totalTokens(completion == null ? snapshotPolicy.estimateTokens(inputJson) : completion.getTotalTokens())
                     .latencyMs(Duration.between(startedAt, Instant.now()).toMillis())
-                    .requestJson(previewJson("analysisInputPreview", snapshotPolicy.truncate(inputJson, MAX_LOG_TEXT_LENGTH)))
+                    .requestJson(previewJson("analysisInputPreview", snapshotPolicy.truncate(inputJson, AiConstants.MAX_LOG_TEXT_LENGTH)))
                     .responseJson(previewJson("contentPreview", snapshotPolicy.truncate(
-                            completion == null ? "" : completion.getContent(), MAX_LOG_TEXT_LENGTH)))
+                            completion == null ? "" : completion.getContent(), AiConstants.MAX_LOG_TEXT_LENGTH)))
                     .errorMessage(error == null ? null : snapshotPolicy.truncate(error.getMessage(), 2000))
                     .extra("{}").build());
         } catch (Exception ignored) {

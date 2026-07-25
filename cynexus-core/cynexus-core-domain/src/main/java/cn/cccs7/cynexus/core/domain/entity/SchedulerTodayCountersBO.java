@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.entity;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import java.time.OffsetDateTime;
 import lombok.Data;
 
@@ -27,11 +28,11 @@ public class SchedulerTodayCountersBO {
             manual++;
         }
         String normalized = item.getStatus() == null ? "" : item.getStatus().toLowerCase();
-        if ("success".equals(normalized)) {
+        if (CoreConstants.STATUS_SUCCESS.equals(normalized)) {
             success++;
         } else if ("skipped".equals(normalized)) {
             skipped++;
-        } else if ("failed".equals(normalized) || "error".equals(normalized)
+        } else if (CoreConstants.STATUS_FAILED.equals(normalized) || CoreConstants.STATUS_ERROR.equals(normalized)
                 || "partial".equals(normalized) || "partial_failed".equals(normalized)) {
             failed++;
             OffsetDateTime startedAt = item.getStartedAt();

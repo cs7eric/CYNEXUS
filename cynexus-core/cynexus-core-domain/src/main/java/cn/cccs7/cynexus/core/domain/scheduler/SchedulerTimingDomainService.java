@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.scheduler;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class SchedulerTimingDomainService {
 
-    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId CHINA_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     public boolean isDue(Map<String, Object> schedule, OffsetDateTime lastRunAt, OffsetDateTime now) {
         if (schedule == null || schedule.isEmpty() || now == null) {

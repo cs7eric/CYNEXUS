@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionWorkerClient;
@@ -39,7 +40,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class HttpMediaTranscriptionWorkerClient implements MediaTranscriptionWorkerClient {
 
-    private static final String TOKEN_HEADER = "X-Cynexus-Internal-Token";
+    private static final String TOKEN_HEADER = CommonConstants.HTTP_HEADER_INTERNAL_TOKEN;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -65,7 +66,7 @@ public class HttpMediaTranscriptionWorkerClient implements MediaTranscriptionWor
     public MediaTranscriptionTaskRefBO upload(Path filePath, String fileName, String contentType) {
         String boundary = "----CynexusBoundary" + System.nanoTime();
         HttpRequest request = baseRequest("/transcribe")
-                .header("Accept", "application/json")
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofInputStream(() -> openMultipartStream(filePath, fileName, contentType, boundary)))
                 .build();
@@ -152,7 +153,7 @@ public class HttpMediaTranscriptionWorkerClient implements MediaTranscriptionWor
     @Override
     public MediaTranscriptionStreamBO openStream(String taskId) {
         HttpRequest request = baseRequest("/stream/" + encodePath(taskId))
-                .header("Accept", "text/event-stream")
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_TEXT_EVENT_STREAM)
                 .GET()
                 .build();
         try {
@@ -164,7 +165,8 @@ public class HttpMediaTranscriptionWorkerClient implements MediaTranscriptionWor
             }
             return MediaTranscriptionStreamBO.builder()
                     .inputStream(response.body())
-                    .contentType(response.headers().firstValue("Content-Type").orElse("text/event-stream"))
+                    .contentType(response.headers().firstValue(CommonConstants.HTTP_HEADER_CONTENT_TYPE)
+                            .orElse(CommonConstants.MEDIA_TYPE_TEXT_EVENT_STREAM))
                     .build();
         } catch (BizException exception) {
             throw exception;
@@ -185,15 +187,15 @@ public class HttpMediaTranscriptionWorkerClient implements MediaTranscriptionWor
 
     private Map<String, Object> getForMap(String path) {
         return sendForMap(baseRequest(path)
-                .header("Accept", "application/json")
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                 .GET()
                 .build());
     }
 
     private Map<String, Object> postForMap(String path, Map<String, Object> payload) {
         HttpRequest request = baseRequest(path)
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json; charset=utf-8")
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON_UTF8)
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(payload), StandardCharsets.UTF_8))
                 .build();
         return sendForMap(request);

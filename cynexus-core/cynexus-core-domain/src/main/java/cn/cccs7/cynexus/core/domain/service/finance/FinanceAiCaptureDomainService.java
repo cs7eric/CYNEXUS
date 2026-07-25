@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.core.domain.service.finance;
 
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAccountBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureHistoryPageBO;
@@ -41,7 +42,8 @@ public class FinanceAiCaptureDomainService {
 
     public FinanceAiCaptureBO parse(String ownerKey, String fileName, String contentType, byte[] content,
                                     Long fileSize, String mode, String idempotencyKey) {
-        String processingMode = "review".equalsIgnoreCase(mode) ? "review" : "auto";
+        String processingMode = CoreConstants.STATUS_REVIEW.equalsIgnoreCase(mode)
+                ? CoreConstants.STATUS_REVIEW : "auto";
         String validationError = null;
         if (content == null || content.length == 0 || fileSize == null || fileSize <= 0) {
             validationError = "\u5fc5\u987b\u4e0a\u4f20\u4e00\u5f20\u56fe\u7247";
@@ -61,10 +63,10 @@ public class FinanceAiCaptureDomainService {
             return existing;
         }
         int sourceCount = content == null || content.length == 0 ? 0 : 1;
-        Long captureId = repository.createCapture(FinanceAiCaptureBO.builder().ownerKey(ownerKey).status("processing")
+        Long captureId = repository.createCapture(FinanceAiCaptureBO.builder().ownerKey(ownerKey).status(CoreConstants.STATUS_PROCESSING)
                 .processingMode(processingMode).sourceCount(sourceCount).idempotencyKey(requestKey).build());
         if (validationError != null) {
-            repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status("failed")
+            repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status(CoreConstants.STATUS_FAILED)
                     .sourceCount(sourceCount).errorMessage(validationError).rawResponse("{}").build());
             return repository.findCapture(ownerKey, captureId);
         }
@@ -104,7 +106,7 @@ public class FinanceAiCaptureDomainService {
         if (capture == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "AI \u8bc6\u522b\u6279\u6b21\u4e0d\u5b58\u5728");
         }
-        if (!List.of("review", "failed", "confirmed").contains(capture.getStatus())) {
+        if (!List.of(CoreConstants.STATUS_REVIEW, CoreConstants.STATUS_FAILED, CoreConstants.STATUS_CONFIRMED).contains(capture.getStatus())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "\u5f53\u524d\u6279\u6b21\u4e0d\u53ef\u786e\u8ba4");
         }
         if (capture.getItems() == null || capture.getItems().isEmpty()) {
@@ -121,17 +123,17 @@ public class FinanceAiCaptureDomainService {
                 apply(item, change);
             }
             if (item.getTransactionId() != null) {
-                if ("rejected".equals(item.getStatus())) {
+                if (CoreConstants.STATUS_REJECTED.equals(item.getStatus())) {
                     throw new BizException(ErrorCode.BAD_REQUEST, "\u5df2\u5165\u8d26\u8d26\u76ee\u4e0d\u80fd\u6807\u8bb0\u4e3a\u62d2\u7edd\uff0c\u8bf7\u76f4\u63a5\u5220\u9664\u8d26\u76ee");
                 }
                 if (changed) {
                     ledgerService.saveTransaction(ownerKey, toTransaction(item), "ai_capture", "capture-" + id + "-" + item.getId());
                 }
-                item.setStatus("confirmed");
+                item.setStatus(CoreConstants.STATUS_CONFIRMED);
                 repository.updateCaptureItem(item);
                 continue;
             }
-            if ("rejected".equals(item.getStatus())) {
+            if (CoreConstants.STATUS_REJECTED.equals(item.getStatus())) {
                 repository.updateCaptureItem(item);
                 continue;
             }
@@ -141,15 +143,16 @@ public class FinanceAiCaptureDomainService {
             FinanceTransactionBO saved = ledgerService.saveTransaction(ownerKey, toTransaction(item), "ai_capture",
                     "capture-" + id + "-" + item.getId());
             Long transactionId = saved.getId();
-            item.setStatus("confirmed");
+            item.setStatus(CoreConstants.STATUS_CONFIRMED);
             item.setTransactionId(transactionId);
             repository.updateCaptureItem(item);
             installmentService.createForPurchase(ownerKey, item.getAccountId(), transactionId, item.getAmount(),
                     item.getInstallmentFee(), item.getInstallmentCount(), item.getOccurredAt(), item.getMerchant());
         }
         capture.setStatus(capture.getItems().stream()
-                .allMatch(item -> "confirmed".equals(item.getStatus()) || "rejected".equals(item.getStatus()))
-                ? "confirmed" : "review");
+                .allMatch(item -> CoreConstants.STATUS_CONFIRMED.equals(item.getStatus())
+                        || CoreConstants.STATUS_REJECTED.equals(item.getStatus()))
+                ? CoreConstants.STATUS_CONFIRMED : CoreConstants.STATUS_REVIEW);
         repository.updateCapture(capture);
         return repository.findCapture(ownerKey, id);
     }
@@ -159,7 +162,7 @@ public class FinanceAiCaptureDomainService {
         if (capture == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "AI \u8bc6\u522b\u6279\u6b21\u4e0d\u5b58\u5728");
         }
-        if (!"failed".equals(capture.getStatus())) {
+        if (!CoreConstants.STATUS_FAILED.equals(capture.getStatus())) {
             throw new BizException(ErrorCode.BAD_REQUEST, "\u53ea\u6709\u5931\u8d25\u6279\u6b21\u53ef\u4ee5\u91cd\u65b0\u8bc6\u522b");
         }
         if (capture.getItems() != null && capture.getItems().stream().anyMatch(item -> item.getTransactionId() != null)) {
@@ -170,8 +173,8 @@ public class FinanceAiCaptureDomainService {
             throw new BizException(ErrorCode.BAD_REQUEST, "\u539f\u59cb\u56fe\u7247\u672a\u4fdd\u5b58\uff0c\u65e0\u6cd5\u91cd\u65b0\u8bc6\u522b");
         }
         repository.deleteCaptureItems(ownerKey, id);
-        String processingMode = capture.getProcessingMode() == null ? "review" : capture.getProcessingMode();
-        repository.updateCapture(FinanceAiCaptureBO.builder().id(id).ownerKey(ownerKey).status("processing")
+        String processingMode = capture.getProcessingMode() == null ? CoreConstants.STATUS_REVIEW : capture.getProcessingMode();
+        repository.updateCapture(FinanceAiCaptureBO.builder().id(id).ownerKey(ownerKey).status(CoreConstants.STATUS_PROCESSING)
                 .processingMode(processingMode).sourceCount(images.size()).errorMessage(null).rawResponse("{}").build());
         return processCapture(ownerKey, id, images, Map.of(), processingMode);
     }
@@ -211,17 +214,17 @@ public class FinanceAiCaptureDomainService {
                         .note(parsed.note())
                         .confidence(parsed.confidence())
                         .rawText(parsed.rawText())
-                        .status("draft")
+                        .status(CoreConstants.STATUS_DRAFT)
                         .build());
             }
-            repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status("review")
+            repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status(CoreConstants.STATUS_REVIEW)
                     .processingMode(processingMode).sourceCount(images.size()).modelCode(result.modelCode())
                     .rawResponse(result.rawResponse()).errorMessage(null).build());
             if ("auto".equals(processingMode) && !parsedItems.isEmpty()) {
                 autoPost(ownerKey, captureId);
             }
         } catch (RuntimeException exception) {
-            repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status("failed")
+            repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status(CoreConstants.STATUS_FAILED)
                     .processingMode(processingMode).sourceCount(images.size()).errorMessage(exception.getMessage())
                     .rawResponse("{}").build());
         }
@@ -237,13 +240,14 @@ public class FinanceAiCaptureDomainService {
             FinanceTransactionBO saved = ledgerService.saveTransaction(ownerKey, toTransaction(item), "ai_capture",
                     "capture-" + captureId + "-" + item.getId());
             Long transactionId = saved.getId();
-            item.setStatus("confirmed");
+            item.setStatus(CoreConstants.STATUS_CONFIRMED);
             item.setTransactionId(transactionId);
             repository.updateCaptureItem(item);
             installmentService.createForPurchase(ownerKey, item.getAccountId(), transactionId, item.getAmount(),
                     item.getInstallmentFee(), item.getInstallmentCount(), item.getOccurredAt(), item.getMerchant());
         }
-        capture.setStatus(capture.getItems().stream().allMatch(item -> "confirmed".equals(item.getStatus())) ? "confirmed" : "review");
+        capture.setStatus(capture.getItems().stream().allMatch(item -> CoreConstants.STATUS_CONFIRMED.equals(item.getStatus()))
+                ? CoreConstants.STATUS_CONFIRMED : CoreConstants.STATUS_REVIEW);
         repository.updateCapture(capture);
     }
 

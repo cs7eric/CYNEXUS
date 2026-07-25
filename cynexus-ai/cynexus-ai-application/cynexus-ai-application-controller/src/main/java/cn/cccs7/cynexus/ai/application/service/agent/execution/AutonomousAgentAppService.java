@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.application.service.agent.execution;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.api.dto.AgentCancellationResult;
 import cn.cccs7.cynexus.ai.api.dto.AgentConversationDTO;
 import cn.cccs7.cynexus.ai.api.dto.AgentMessageDTO;
@@ -218,14 +219,15 @@ public class AutonomousAgentAppService {
 
     public AgentRunExportDTO export(AgentIdentity identity, String runNo, String format) {
         AgentRunDTO run = getRun(identity, runNo);
-        String normalizedFormat = "json".equalsIgnoreCase(format) ? "json" : "markdown";
+        String normalizedFormat = AiConstants.FORMAT_JSON.equalsIgnoreCase(format)
+                ? AiConstants.FORMAT_JSON : AiConstants.FORMAT_MARKDOWN;
         String content;
         String contentType;
         String extension;
-        if ("json".equals(normalizedFormat)) {
+        if (AiConstants.FORMAT_JSON.equals(normalizedFormat)) {
             content = json(run);
             contentType = "application/json;charset=UTF-8";
-            extension = "json";
+            extension = AiConstants.FORMAT_JSON;
         } else {
             StringBuilder markdown = new StringBuilder();
             markdown.append("# Cynexus Agent Result\n\n")

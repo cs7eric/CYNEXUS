@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.infra.observability;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.policy.security.AgentOutboundEndpointPolicy;
@@ -96,7 +97,7 @@ public class LangfuseGenerationReporter {
             String payload = objectMapper.writeValueAsString(Map.of("batch", new Object[]{event}));
             HttpRequest request = HttpRequest.newBuilder(ingestionUri)
                     .timeout(Duration.ofSeconds(3)).header("Authorization", authorization)
-                    .header("Content-Type", "application/json")
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8)).build();
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding())
                     .thenAccept(response -> { if (response.statusCode() >= 300) LOGGER.debug("Langfuse returned {}", response.statusCode()); })

@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.client.MarketAutomationClient;
@@ -33,7 +34,7 @@ public class HttpMarketAutomationClient implements MarketAutomationClient {
     @Override
     public int refreshInformationPipeline() {
         HttpRequest request = HttpRequest.newBuilder(refreshUri).timeout(timeout)
-                .header("Accept", "application/json").POST(HttpRequest.BodyPublishers.noBody()).build();
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON).POST(HttpRequest.BodyPublishers.noBody()).build();
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {

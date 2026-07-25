@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
+import cn.cccs7.cynexus.market.infra.common.constant.MarketInfraConstants;
 import cn.cccs7.cynexus.market.domain.entity.DataSourceFreshnessBO;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,32 +26,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClickHouseDataSourceFreshnessClient {
 
-    private static final ZoneId STATUS_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final List<String> DATE_COLUMN_PRIORITY = List.of(
-            "trade_date",
-            "trading_date",
-            "snapshot_date",
-            "capture_date",
-            "data_date",
-            "stat_date",
-            "report_date",
-            "target_date",
-            "biz_date",
-            "last_trade_date",
-            "last_seen",
-            "ex_date",
-            "date",
-            "dt",
-            "trade_time",
-            "quote_time",
-            "updated_at_result",
-            "captured_at",
-            "ingested_at",
-            "fetched_at",
-            "source_updated_at",
-            "updated_at",
-            "created_at"
-    );
+    private static final ZoneId STATUS_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -142,17 +119,17 @@ public class ClickHouseDataSourceFreshnessClient {
     }
 
     private int priority(String columnName) {
-        int index = DATE_COLUMN_PRIORITY.indexOf(columnName);
+        int index = MarketInfraConstants.DATE_COLUMN_PRIORITY.indexOf(columnName);
         if (index >= 0) {
             return index;
         }
         if (columnName != null && columnName.endsWith("_date")) {
-            return DATE_COLUMN_PRIORITY.size();
+            return MarketInfraConstants.DATE_COLUMN_PRIORITY.size();
         }
         if (columnName != null && columnName.endsWith("_at")) {
-            return DATE_COLUMN_PRIORITY.size() + 10;
+            return MarketInfraConstants.DATE_COLUMN_PRIORITY.size() + 10;
         }
-        return DATE_COLUMN_PRIORITY.size() + 20;
+        return MarketInfraConstants.DATE_COLUMN_PRIORITY.size() + 20;
     }
 
     private Long rowCount(TableRow table) {
@@ -201,7 +178,7 @@ public class ClickHouseDataSourceFreshnessClient {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(clickHouseEndpoint()))
-                    .header("Content-Type", "text/plain; charset=utf-8")
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_TEXT_PLAIN_UTF8)
                     .POST(HttpRequest.BodyPublishers.ofString(sql, StandardCharsets.UTF_8))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

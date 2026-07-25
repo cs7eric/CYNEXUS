@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.service.scheduler.impl;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryMappingBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobCategoryBO;
@@ -84,7 +85,7 @@ public class SchedulerManagementDomainServiceImpl implements SchedulerManagement
                 .iconHint(iconHint)
                 .sortOrder(sortOrder)
                 .description(SchedulerManagementPolicy.blankToNull(command.description()))
-                .status("active")
+                .status(CoreConstants.STATUS_ACTIVE)
                 .remark("scheduler-management")
                 .build());
         return new SchedulerCategoryMutationResult(schedulerDomainService.findCategoryById(id), 0);
@@ -115,7 +116,7 @@ public class SchedulerManagementDomainServiceImpl implements SchedulerManagement
                 .iconHint(iconHint)
                 .sortOrder(sortOrder)
                 .description(command.description() == null ? category.getDescription() : command.description().trim())
-                .status(firstNonBlank(category.getStatus(), "active"))
+                .status(firstNonBlank(category.getStatus(), CoreConstants.STATUS_ACTIVE))
                 .remark(firstNonBlank(category.getRemark(), "scheduler-management"))
                 .build());
         if (!updated) {

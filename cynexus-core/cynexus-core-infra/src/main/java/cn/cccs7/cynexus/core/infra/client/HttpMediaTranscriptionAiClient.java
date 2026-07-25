@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionAiClient;
@@ -84,8 +85,8 @@ public class HttpMediaTranscriptionAiClient implements MediaTranscriptionAiClien
     private Map<String, Object> postForData(String path, Map<String, Object> payload) {
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + path))
                 .timeout(requestTimeout)
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json; charset=utf-8")
+                .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON_UTF8)
                 .POST(HttpRequest.BodyPublishers.ofString(toJson(payload), StandardCharsets.UTF_8))
                 .build();
         try {

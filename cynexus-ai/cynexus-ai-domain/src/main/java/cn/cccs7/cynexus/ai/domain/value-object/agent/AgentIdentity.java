@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.valueobject.agent;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import lombok.Builder;
 import lombok.Value;
 
@@ -15,6 +16,6 @@ public class AgentIdentity {
     }
 
     public static AgentIdentity singleUser() {
-        return AgentIdentity.builder().principalKey("single-user").tenantKey("default").build();
+        return AgentIdentity.builder().principalKey("single-user").tenantKey(CommonConstants.DEFAULT_SPACE_CODE).build();
     }
 }

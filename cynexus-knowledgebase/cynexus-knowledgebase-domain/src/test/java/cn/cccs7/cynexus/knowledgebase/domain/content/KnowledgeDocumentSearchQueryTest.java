@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.knowledgebase.domain.content;
 
+import cn.cccs7.cynexus.knowledgebase.common.constant.KnowledgeBaseConstants;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,7 +30,7 @@ class KnowledgeDocumentSearchQueryTest {
         KnowledgeDocumentSearchQuery query = KnowledgeDocumentSearchQuery.of(input, " published ", null, null);
 
         assertEquals("published", query.getStatus());
-        assertTrue(query.getKeyword().length() <= KnowledgeDocumentSearchQuery.MAX_KEYWORD_LENGTH);
-        assertTrue(query.getTokens().size() <= KnowledgeDocumentSearchQuery.MAX_TOKENS);
+        assertTrue(query.getKeyword().length() <= KnowledgeBaseConstants.MAX_SEARCH_KEYWORD_LENGTH);
+        assertTrue(query.getTokens().size() <= KnowledgeBaseConstants.MAX_SEARCH_TOKENS);
     }
 }

@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.ai.adapter;
 
 import cn.cccs7.cynexus.ai.common.constant.AiConstants;
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
@@ -94,7 +95,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             HttpRequest request = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
                     .timeout(resolveRequestTimeout(model))
                     .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -132,7 +133,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             HttpRequest httpRequest = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
                     .timeout(resolveRequestTimeout(model))
                     .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
             HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
@@ -285,7 +286,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             String payload = buildChatPayload(model, prompt, shouldRequestJsonOutput(model, prompt), images);
             HttpRequest request = HttpRequest.newBuilder(resolveEndpoint(model, false))
                     .timeout(resolveRequestTimeout(model)).header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(payload)).build();
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON).POST(HttpRequest.BodyPublishers.ofString(payload)).build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) throw providerHttpFailure(response.statusCode(), response.body());
             String content = extractChatContent(response.body());
@@ -629,6 +630,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             for (AgentModelMessage message : request.getMessages()) {
                 if ("tool".equals(message.getRole())) {
                     input.add(Map.of("type", "function_call_output", "call_id", message.getToolCallId(),
+                            "item_reference", message.getToolCallId(),
                             "output", message.getContent() == null ? "" : message.getContent()));
                 } else if ("assistant".equals(message.getRole()) && message.getToolCalls() != null
                         && !message.getToolCalls().isEmpty()) {
@@ -645,7 +647,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private Map<String, Object> toResponsesFunctionCall(AgentModelToolCall call) {
         try {
-            return Map.of("type", "function_call", "call_id", call.getCallId(), "name", providerToolName(call.getToolCode()),
+            return Map.of("type", "function_call", "id", call.getCallId(), "call_id", call.getCallId(),
+                    "name", providerToolName(call.getToolCode()),
                     "arguments", objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments()));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize Agent tool arguments", exception);
@@ -872,8 +875,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         HttpPost post = new HttpPost(endpoint);
         post.setConfig(buildStreamingRequestConfig(requestTimeout));
         post.setHeader("Authorization", "Bearer " + apiKey);
-        post.setHeader("Content-Type", "application/json");
-        post.setHeader("Accept", "text/event-stream");
+        post.setHeader(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
+        post.setHeader(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_TEXT_EVENT_STREAM);
         post.setEntity(new StringEntity(payload, ContentType.APPLICATION_JSON));
         try (CloseableHttpResponse response = streamingHttpClient.execute(post)) {
             int statusCode = response.getCode();

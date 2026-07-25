@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.application.service;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceAccountDTO;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceCategoryDTO;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceOverviewDTO;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FinanceLedgerAppService {
-    public static final String DEFAULT_OWNER = "default";
+    public static final String DEFAULT_OWNER = CommonConstants.DEFAULT_SPACE_CODE;
 
     private final FinanceLedgerDomainService domainService;
 

@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.domain.service.scheduler.impl;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerRequestBO;
 import cn.cccs7.cynexus.core.domain.entity.DataJobTriggerResultBO;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
@@ -30,7 +31,7 @@ import org.slf4j.LoggerFactory;
 public class SchedulerTriggerDomainServiceImpl implements SchedulerTriggerDomainService {
 
     private static final Logger log = LoggerFactory.getLogger(SchedulerTriggerDomainServiceImpl.class);
-    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId CHINA_ZONE = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private final SchedulerDomainService schedulerDomainService;
     private final SchedulerManagementDomainService schedulerManagementDomainService;

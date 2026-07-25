@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ public class MarketOverviewHistoryAgentToolHandler extends AbstractMarketAgentTo
             .code("market.overview_history")
             .name("Market overview history")
             .module("market")
-            .description("Read market overview snapshots across a date range. start/end are optional and default to the last 7 Asia/Shanghai sessions.")
+            .description("Read market overview snapshots across a date range. start/end are optional and default to the last 7 " + CommonConstants.SHANGHAI_ZONE_ID + " sessions.")
             .guidanceJson(AgentToolGuidanceCatalog.MARKET_OVERVIEW_HISTORY)
             .inputSchemaJson(MarketAgentToolSchemas.HISTORY)
             .outputSchemaJson("{\"type\":\"object\"}")

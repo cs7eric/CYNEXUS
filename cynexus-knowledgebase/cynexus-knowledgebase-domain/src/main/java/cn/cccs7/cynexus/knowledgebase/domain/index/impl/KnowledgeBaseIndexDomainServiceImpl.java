@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.knowledgebase.domain.index.impl;
 
+import cn.cccs7.cynexus.knowledgebase.common.constant.KnowledgeBaseConstants;
+
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentChunkBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentIndexTaskBO;
@@ -16,8 +18,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class KnowledgeBaseIndexDomainServiceImpl implements KnowledgeBaseIndexDomainService {
 
-    private static final int CHUNK_MAX_LENGTH = 1200;
-
     private final KnowledgeBaseIndexRepository indexRepository;
 
     public KnowledgeBaseIndexDomainServiceImpl(KnowledgeBaseIndexRepository indexRepository) {
@@ -31,8 +31,8 @@ public class KnowledgeBaseIndexDomainServiceImpl implements KnowledgeBaseIndexDo
         }
         List<KnowledgeDocumentChunkBO> chunks = buildChunks(document);
         List<KnowledgeDocumentIndexTaskBO> tasks = List.of(
-                buildTask(document.getId(), "pgvector", chunks.size()),
-                buildTask(document.getId(), "elasticsearch", chunks.size())
+                buildTask(document.getId(), KnowledgeBaseConstants.INDEX_TARGET_PGVECTOR, chunks.size()),
+                buildTask(document.getId(), KnowledgeBaseConstants.INDEX_TARGET_ELASTICSEARCH, chunks.size())
         );
         indexRepository.replaceDocumentIndex(document.getId(), chunks, tasks);
     }
@@ -53,7 +53,7 @@ public class KnowledgeBaseIndexDomainServiceImpl implements KnowledgeBaseIndexDo
             if (block.startsWith("#")) {
                 currentHeading = block.replaceFirst("^#+\\s*", "").trim();
             }
-            if (current.length() + block.length() + 2 > CHUNK_MAX_LENGTH && current.length() > 0) {
+            if (current.length() + block.length() + 2 > KnowledgeBaseConstants.MAX_CHUNK_LENGTH && current.length() > 0) {
                 chunks.add(buildChunk(document.getId(), chunks.size(), currentHeading, current.toString()));
                 current.setLength(0);
             }
@@ -80,7 +80,7 @@ public class KnowledgeBaseIndexDomainServiceImpl implements KnowledgeBaseIndexDo
                 .content(normalizedContent)
                 .contentHash(sha256(normalizedContent))
                 .tokenEstimate(estimateTokens(normalizedContent))
-                .embeddingStatus("pending")
+                .embeddingStatus(KnowledgeBaseConstants.INDEX_STATUS_PENDING)
                 .extra("{\"source\":\"markdown\"}")
                 .build();
     }
@@ -89,7 +89,7 @@ public class KnowledgeBaseIndexDomainServiceImpl implements KnowledgeBaseIndexDo
         return KnowledgeDocumentIndexTaskBO.builder()
                 .documentId(documentId)
                 .target(target)
-                .status("pending")
+                .status(KnowledgeBaseConstants.INDEX_STATUS_PENDING)
                 .payload("{\"chunkCount\":" + chunkCount + "}")
                 .build();
     }

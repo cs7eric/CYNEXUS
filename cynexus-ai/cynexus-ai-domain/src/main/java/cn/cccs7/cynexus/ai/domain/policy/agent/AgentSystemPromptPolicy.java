@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.policy.agent;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
 import java.util.LinkedHashMap;
@@ -56,7 +57,7 @@ public final class AgentSystemPromptPolicy {
         return prompt != null
                 && prompt.getSystemPrompt() != null
                 && !prompt.getSystemPrompt().isBlank()
-                && (prompt.getStatus() == null || "active".equalsIgnoreCase(prompt.getStatus()));
+                && (prompt.getStatus() == null || AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus()));
     }
 
     public static String applyVariables(String template, Map<String, String> variables) {

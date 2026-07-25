@@ -1,5 +1,7 @@
 package cn.cccs7.cynexus.knowledgebase.domain.content;
 
+import cn.cccs7.cynexus.knowledgebase.common.constant.KnowledgeBaseConstants;
+
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeCategoryBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeTagBO;
@@ -17,7 +19,7 @@ public final class KnowledgeBaseContentPolicy {
         document.setTitle(document.getTitle().trim());
         document.setDescription(trimToEmpty(document.getDescription()));
         document.setContent(trimToEmpty(document.getContent()));
-        document.setContentFormat(defaultValue(document.getContentFormat(), "markdown"));
+        document.setContentFormat(defaultValue(document.getContentFormat(), KnowledgeBaseConstants.CONTENT_FORMAT_MARKDOWN));
         document.setStatus(normalizeStatus(document.getStatus()));
         document.setExtra(defaultValue(document.getExtra(), "{}"));
         return document;
@@ -49,8 +51,10 @@ public final class KnowledgeBaseContentPolicy {
     }
 
     private static String normalizeStatus(String value) {
-        String status = defaultValue(value, "draft").toLowerCase();
-        if (!status.equals("draft") && !status.equals("published") && !status.equals("archived")) {
+        String status = defaultValue(value, KnowledgeBaseConstants.STATUS_DRAFT).toLowerCase();
+        if (!status.equals(KnowledgeBaseConstants.STATUS_DRAFT)
+                && !status.equals(KnowledgeBaseConstants.STATUS_PUBLISHED)
+                && !status.equals(KnowledgeBaseConstants.STATUS_ARCHIVED)) {
             throw new IllegalArgumentException("unsupported document status: " + status);
         }
         return status;

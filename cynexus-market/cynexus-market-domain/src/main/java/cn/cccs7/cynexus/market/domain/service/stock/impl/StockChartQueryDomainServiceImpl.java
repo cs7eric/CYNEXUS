@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.domain.service.stock.impl;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
 import cn.cccs7.cynexus.market.domain.entity.StockDailyFeatureBO;
 import cn.cccs7.cynexus.market.domain.entity.StockIntradayFeatureBO;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class StockChartQueryDomainServiceImpl implements StockChartQueryDomainService {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
     private static final String EMPTY_MINUTE_SOURCE = "clickhouse.ch_dwd_kline_1m-empty";
     private static final String EMPTY_AUCTION_SOURCE = "clickhouse.ch_ods_stock_auction_point-empty";
 

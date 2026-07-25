@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.application.service;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class StockChartQueryAppService {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId SHANGHAI = ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID);
 
     private final StockChartQueryDomainService queryDomainService;
 

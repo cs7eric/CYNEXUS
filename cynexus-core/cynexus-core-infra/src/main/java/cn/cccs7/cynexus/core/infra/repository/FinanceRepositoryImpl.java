@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.core.infra.repository;
 
+import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.common.core.id.SnowflakeIdGenerator;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAccountBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureBO;
@@ -318,7 +319,7 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, plan.getOwnerKey(), plan.getAccountId(), plan.getPurchaseTransactionId(), plan.getMerchant(), plan.getTotalAmount(),
                 value(plan.getFeeTotal(), BigDecimal.ZERO), plan.getInstallmentCount(), plan.getFirstDueDate(), value(plan.getIntervalMonths(), 1),
-                value(plan.getStatus(), "active"), plan.getNote());
+                value(plan.getStatus(), CoreConstants.STATUS_ACTIVE), plan.getNote());
         return id;
     }
 
@@ -329,7 +330,7 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                 INSERT INTO finance_credit_installments (id, plan_id, installment_no, due_date, principal_amount, fee_amount, amount, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, installment.getPlanId(), installment.getInstallmentNo(), installment.getDueDate(), installment.getPrincipalAmount(),
-                value(installment.getFeeAmount(), BigDecimal.ZERO), installment.getAmount(), value(installment.getStatus(), "pending"));
+                value(installment.getFeeAmount(), BigDecimal.ZERO), installment.getAmount(), value(installment.getStatus(), CoreConstants.STATUS_PENDING));
         return id;
     }
 
@@ -481,7 +482,7 @@ public class FinanceRepositoryImpl implements FinanceRepository {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, item.getCaptureId(), item.getImageId(), value(item.getItemIndex(), 0), value(item.getTransactionType(), "expense"), item.getOccurredAt(),
                 item.getAmount(), value(item.getCurrency(), "CNY"), item.getMerchant(), item.getCategoryHint(), item.getCategoryId(), item.getAccountId(),
-                item.getInstallmentCount(), item.getInstallmentFee(), item.getNote(), item.getConfidence(), item.getRawText(), value(item.getStatus(), "draft"));
+                item.getInstallmentCount(), item.getInstallmentFee(), item.getNote(), item.getConfidence(), item.getRawText(), value(item.getStatus(), CoreConstants.STATUS_DRAFT));
         return id;
     }
 

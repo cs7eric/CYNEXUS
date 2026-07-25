@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +17,7 @@ public class MarketOverviewAgentToolHandler extends AbstractMarketAgentToolHandl
             .code("market.overview")
             .name("Market overview")
             .module("market")
-            .description("Read market breadth, turnover, index and fund-flow overview for a trading date. tradeDate is optional and defaults to the latest available Asia/Shanghai session.")
+            .description("Read market breadth, turnover, index and fund-flow overview for a trading date. tradeDate is optional and defaults to the latest available " + CommonConstants.SHANGHAI_ZONE_ID + " session.")
             .guidanceJson(AgentToolGuidanceCatalog.MARKET_OVERVIEW)
             .inputSchemaJson(MarketAgentToolSchemas.TRADE_DATE)
             .outputSchemaJson("{\"type\":\"object\"}")

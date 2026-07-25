@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.market.infra.client;
 
+import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.entity.IndexMinuteBarBO;
 import cn.cccs7.cynexus.market.domain.entity.MarketOverviewBO;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -135,7 +136,7 @@ public class ClickHouseMarketPulseClient {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(clickHouseEndpoint()))
-                    .header("Content-Type", "text/plain; charset=utf-8")
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_TEXT_PLAIN_UTF8)
                     .POST(HttpRequest.BodyPublishers.ofString(sql, StandardCharsets.UTF_8))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
