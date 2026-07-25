@@ -14,12 +14,21 @@ import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeDocumentAgentToolHandl
 import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeSearchAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.ClickHouseDailyBarsAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketInformationFeedAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketDataFreshnessAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketIndustryAnalysisAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketMarginTradingAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketOverviewAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketOverviewHistoryAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketPulseAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketSectorRankAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockChartKlinesAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockDailyFeatureAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockF10AgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockIntradayFeatureAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockResearchAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketSentimentAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketSkillDataAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockInformationAgentToolHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.Constructor;
@@ -42,10 +51,19 @@ class AgentToolDefinitionContractTest {
             MarketInformationFeedAgentToolHandler.class,
             MarketOverviewAgentToolHandler.class,
             MarketOverviewHistoryAgentToolHandler.class,
+            MarketDataFreshnessAgentToolHandler.class,
+            MarketIndustryAnalysisAgentToolHandler.class,
+            MarketMarginTradingAgentToolHandler.class,
+            MarketPulseAgentToolHandler.class,
             MarketSectorRankAgentToolHandler.class,
             MarketStockChartKlinesAgentToolHandler.class,
             MarketStockDailyFeatureAgentToolHandler.class,
-            MarketStockIntradayFeatureAgentToolHandler.class);
+            MarketStockIntradayFeatureAgentToolHandler.class,
+            MarketStockF10AgentToolHandler.class,
+            MarketStockResearchAgentToolHandler.class,
+            MarketSentimentAgentToolHandler.class,
+            MarketSkillDataAgentToolHandler.class,
+            MarketStockInformationAgentToolHandler.class);
 
     @Test
     void everyRegisteredCapabilityHasExecutableMetadataContract() throws Exception {
@@ -55,7 +73,7 @@ class AgentToolDefinitionContractTest {
                 .map(AgentToolHandler::definition)
                 .toList();
 
-        assertThat(definitions).hasSize(14);
+        assertThat(definitions).hasSize(23);
         assertThat(definitions).extracting(AgentToolDefinition::getCode).doesNotHaveDuplicates();
         assertThat(definitions).allSatisfy(definition -> {
             assertThat(definition.getCode()).matches("[a-z0-9_]+\\.[a-z0-9_]+" );
