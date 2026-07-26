@@ -30,6 +30,14 @@ class AgentReasoningPolicyTest {
     }
 
     @Test
+    void appliesValidatedResponsesTransportFromBinding() throws Exception {
+        String extra = AgentReasoningPolicy.resolveRuntimeExtra(
+                "{}", "{\"wire_api\":\"responses\",\"responses_transport\":\"websocket\"}", null);
+
+        assertThat(objectMapper.readTree(extra).path("responses_transport").asText()).isEqualTo("websocket");
+    }
+
+    @Test
     void mergesOnlyValidatedResponsesCacheRuntimeParams() throws Exception {
         String extra = AgentReasoningPolicy.resolveRuntimeExtra(
                 "{\"provider_setting\":\"kept\"}",

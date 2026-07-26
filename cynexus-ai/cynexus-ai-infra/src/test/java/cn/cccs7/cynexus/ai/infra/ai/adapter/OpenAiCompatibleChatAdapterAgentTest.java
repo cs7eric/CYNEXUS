@@ -391,6 +391,18 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getCachedInputTokens()).isEqualTo(8);
     }
 
+    @Test
+    void fallsBackToHttpResponsesWhenWebSocketHandshakeFails() throws Exception {
+        server = server(new AtomicReference<>(),
+                "{\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}]}" );
+
+        AgentModelTurnResponse response = adapter().completeAgent(
+                model("{\"wire_api\":\"responses\",\"responses_transport\":\"websocket\"}"),
+                request(List.of()));
+
+        assertThat(response.getContent()).isEqualTo("ok");
+    }
+
     private HttpServer server(AtomicReference<String> requestBody, String responseBody) throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/chat/completions", exchange -> {

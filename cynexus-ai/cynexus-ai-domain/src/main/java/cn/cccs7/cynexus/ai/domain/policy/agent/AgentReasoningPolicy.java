@@ -14,6 +14,8 @@ public final class AgentReasoningPolicy {
             AiConstants.WIRE_API_RESPONSES, AiConstants.WIRE_API_CHAT_COMPLETIONS);
     private static final Set<String> SUPPORTED_RESPONSE_STATE_MODES = Set.of(
             AiConstants.RESPONSES_STATE_MODE_PREVIOUS_RESPONSE_ID);
+    private static final Set<String> SUPPORTED_RESPONSES_TRANSPORTS = Set.of(
+            AiConstants.RESPONSES_TRANSPORT_HTTP, AiConstants.RESPONSES_TRANSPORT_WEBSOCKET);
     private static final Set<String> SUPPORTED_CACHE_RETENTIONS = Set.of(
             AiConstants.PROMPT_CACHE_RETENTION_IN_MEMORY, AiConstants.PROMPT_CACHE_RETENTION_24_HOURS);
 
@@ -68,6 +70,7 @@ public final class AgentReasoningPolicy {
             if (!params.isObject()) throw new IllegalArgumentException("AI binding params must be a JSON object");
             copyText(params, extra, AiConstants.MODEL_WIRE_API_EXTRA, SUPPORTED_WIRE_APIS);
             copyText(params, extra, AiConstants.RESPONSES_STATE_MODE_EXTRA, SUPPORTED_RESPONSE_STATE_MODES);
+            copyText(params, extra, AiConstants.RESPONSES_TRANSPORT_EXTRA, SUPPORTED_RESPONSES_TRANSPORTS);
             copyBoolean(params, extra, AiConstants.RESPONSES_DISABLE_STORAGE_EXTRA);
             copyText(params, extra, AiConstants.PROMPT_CACHE_RETENTION_EXTRA, SUPPORTED_CACHE_RETENTIONS);
             return OBJECT_MAPPER.writeValueAsString(extra);

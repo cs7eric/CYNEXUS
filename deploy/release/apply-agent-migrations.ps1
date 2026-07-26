@@ -36,6 +36,7 @@ $migrationFiles = @(
     "20260725_fix_autonomous_agent_markdown_prompt.sql",
     "20260726_optimize_autonomous_agent_prompt_cache_prefix.sql",
     "20260726_route_autonomous_agent_via_responses.sql",
+    "20260726_enable_xhhai_responses_websocket.sql",
     "20260725_add_ai_agent_provider_selection.sql",
     "20260725_add_ai_provider_model_configs.sql",
     "20260725_add_ai_binding_reasoning_effort.sql",

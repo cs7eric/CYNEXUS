@@ -45,6 +45,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.HexFormat;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import jakarta.annotation.PreDestroy;
@@ -72,7 +75,6 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private static final String V1_CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
     private static final String RESPONSES_PATH = "/responses";
     private static final String V1_RESPONSES_PATH = "/v1/responses";
-    private static final String PROVIDER_TOOL_PREFIX = "cynexus_tool_";
     private static final String DEFAULT_ALLOWED_PROVIDER_ORIGINS =
             "https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://dashscope.aliyuncs.com";
 
@@ -82,6 +84,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private final HttpClient httpClient;
     private final CloseableHttpClient streamingHttpClient;
     private final PromptCacheStrategyRegistry promptCacheStrategyRegistry = PromptCacheStrategyRegistry.defaultRegistry();
+    private final ConcurrentMap<String, ResponsesWebSocketSession> responsesWebSocketSessions = new ConcurrentHashMap<>();
 
     protected OpenAiCompatibleChatAdapter(SecretResolver secretResolver,
                                           Environment environment) {
@@ -134,11 +137,14 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     @Override
     public AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request) {
-        return completeAgent(model, request, false, false);
+        if (responsesApi(model) && responsesWebSocketEnabled(model)) {
+            return completeAgentResponsesWebSocket(model, request);
+        }
+        return completeAgentHttp(model, request, false, false);
     }
 
-    private AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request,
-                                                 boolean forceStateless, boolean stateFallback) {
+    private AgentModelTurnResponse completeAgentHttp(AiModelBO model, AgentModelTurnRequest request,
+                                                     boolean forceStateless, boolean stateFallback) {
         String apiKey = resolveApiKey(model);
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Missing API key for provider: " + providerCode());
@@ -160,7 +166,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 ProviderHttpException failure = providerHttpFailure(response.statusCode(), response.body());
                 if (stateful && isResponsesStateFallbackCandidate(failure)) {
                     LOGGER.warn("Retrying Responses request with full transcript after state continuation rejection");
-                    return completeAgent(model, request, true, true);
+                    return completeAgentHttp(model, request, true, true);
                 }
                 throw failure;
             }
@@ -182,14 +188,24 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     public AgentModelTurnResponse streamAgent(AiModelBO model, AgentModelTurnRequest request,
                                               Consumer<String> textDeltaConsumer,
                                               Consumer<String> thinkingDeltaConsumer) {
+        if (responsesApi(model) && responsesWebSocketEnabled(model)) {
+            return streamAgentResponsesWebSocket(model, request, textDeltaConsumer, thinkingDeltaConsumer);
+        }
+        return streamAgentHttp(model, request, textDeltaConsumer, thinkingDeltaConsumer, false, false);
+    }
+
+    private AgentModelTurnResponse streamAgentHttp(AiModelBO model, AgentModelTurnRequest request,
+                                                   Consumer<String> textDeltaConsumer,
+                                                   Consumer<String> thinkingDeltaConsumer,
+                                                   boolean forceStateless, boolean stateFallback) {
         String apiKey = resolveApiKey(model);
         if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
-        boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
+        boolean responsesApi = responsesApi(model);
         String payload;
         PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
         boolean stateful = responsesApi && shouldUseResponsesState(model, request, false);
         try {
-            payload = responsesApi ? buildAgentResponsesPayload(model, request, true, cacheStrategy, false)
+            payload = responsesApi ? buildAgentResponsesPayload(model, request, true, cacheStrategy, forceStateless)
                     : buildAgentChatPayload(model, request, true, cacheStrategy);
         } catch (IOException exception) {
             logProviderFailure("agent stream", model, exception);
@@ -201,7 +217,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 AgentModelTurnResponse result = streamWithApacheHttpClient(model, resolveEndpoint(model, responsesApi), apiKey, payload,
                         resolveRequestTimeout(model), responsesApi, request, cacheStrategy,
                         textDeltaConsumer, thinkingDeltaConsumer);
-                return attachCacheTelemetry(result, payload, request, stateful, false,
+                return attachCacheTelemetry(result, payload, request, stateful, stateFallback,
                         responsesApi && responsesStateEnabled(model));
             } catch (IOException exception) {
                 if (isInterruptedFailure(exception)) {
@@ -228,7 +244,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 if (stateful && exception instanceof ProviderHttpException failure
                         && isResponsesStateFallbackCandidate(failure)) {
                     LOGGER.warn("Retrying streamed Responses request with full transcript after state continuation rejection");
-                    return completeAgent(model, request, true, true);
+                    return completeAgentHttp(model, request, true, true);
                 }
                 logProviderFailure("agent stream", model, exception);
                 throw exception;
@@ -238,7 +254,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             LOGGER.warn("Falling back to non-stream agent completion after stream failure for model {} at {}: {}",
                     model.getModelCode(), resolveEndpoint(model, responsesApi), rootMessage(lastTransportFailure));
             try {
-                return completeAgent(model, request);
+                return completeAgentHttp(model, request, forceStateless, stateFallback);
             } catch (RuntimeException fallbackException) {
                 logProviderFailure("agent stream fallback", model, fallbackException);
                 throw new IllegalStateException(
@@ -476,6 +492,120 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         reasoning.put("summary", summary.isBlank() ? "auto" : summary);
         payload.put("reasoning", reasoning);
         return objectMapper.writeValueAsString(payload);
+    }
+
+    private AgentModelTurnResponse completeAgentResponsesWebSocket(AiModelBO model,
+                                                                    AgentModelTurnRequest request) {
+        String apiKey = resolveApiKey(model);
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("Missing API key for provider: " + providerCode());
+        }
+        PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
+        boolean stateful = shouldUseResponsesState(model, request, false);
+        String payload;
+        try {
+            payload = buildAgentResponsesPayload(model, request, false, cacheStrategy, false);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to prepare AI provider Responses WebSocket request: "
+                    + providerCode(), exception);
+        }
+        String sessionKey = responsesWebSocketSessionKey(model, request);
+        ResponsesWebSocketSession session = responsesWebSocketSession(model, request, apiKey, cacheStrategy, sessionKey);
+        try {
+            AgentModelTurnResponse result = session.execute(payload, request, null, null);
+            return attachCacheTelemetry(result, payload, request, stateful, false,
+                    responsesStateEnabled(model));
+        } catch (RuntimeException exception) {
+            discardResponsesWebSocketSession(sessionKey, session);
+            LOGGER.warn("Falling back to HTTP Responses after WebSocket failure for provider {}: {}",
+                    providerCode(), rootMessage(exception));
+            return completeAgentHttp(model, request, true, stateful);
+        } finally {
+            if (sessionKey == null) session.close();
+        }
+    }
+
+    private AgentModelTurnResponse streamAgentResponsesWebSocket(AiModelBO model,
+                                                                  AgentModelTurnRequest request,
+                                                                  Consumer<String> textDeltaConsumer,
+                                                                  Consumer<String> thinkingDeltaConsumer) {
+        String apiKey = resolveApiKey(model);
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("Missing API key for provider: " + providerCode());
+        }
+        PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
+        boolean stateful = shouldUseResponsesState(model, request, false);
+        String payload;
+        try {
+            payload = buildAgentResponsesPayload(model, request, false, cacheStrategy, false);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to prepare AI provider Responses WebSocket request: "
+                    + providerCode(), exception);
+        }
+        AtomicBoolean emitted = new AtomicBoolean();
+        Consumer<String> textConsumer = delta -> {
+            emitted.set(true);
+            if (textDeltaConsumer != null) textDeltaConsumer.accept(delta);
+        };
+        Consumer<String> thinkingConsumer = delta -> {
+            emitted.set(true);
+            if (thinkingDeltaConsumer != null) thinkingDeltaConsumer.accept(delta);
+        };
+        String sessionKey = responsesWebSocketSessionKey(model, request);
+        ResponsesWebSocketSession session = responsesWebSocketSession(model, request, apiKey, cacheStrategy, sessionKey);
+        try {
+            AgentModelTurnResponse result = session.execute(payload, request, textConsumer, thinkingConsumer);
+            return attachCacheTelemetry(result, payload, request, stateful, false,
+                    responsesStateEnabled(model));
+        } catch (RuntimeException exception) {
+            discardResponsesWebSocketSession(sessionKey, session);
+            if (emitted.get()) throw exception;
+            LOGGER.warn("Falling back to HTTP Responses stream after WebSocket failure for provider {}: {}",
+                    providerCode(), rootMessage(exception));
+            return streamAgentHttp(model, request, textDeltaConsumer, thinkingDeltaConsumer,
+                    true, stateful);
+        } finally {
+            if (sessionKey == null) session.close();
+        }
+    }
+
+    private ResponsesWebSocketSession responsesWebSocketSession(AiModelBO model,
+                                                                 AgentModelTurnRequest request,
+                                                                 String apiKey,
+                                                                 PromptCacheStrategy cacheStrategy,
+                                                                 String sessionKey) {
+        URI endpoint = responsesWebSocketEndpoint(model);
+        Map<String, String> headers = cacheStrategy.headers(model, promptCacheContext(request));
+        if (sessionKey == null) {
+            return ResponsesWebSocketSession.connect(httpClient, endpoint, apiKey, headers,
+                    resolveRequestTimeout(model), objectMapper);
+        }
+        return responsesWebSocketSessions.computeIfAbsent(sessionKey, ignored ->
+                ResponsesWebSocketSession.connect(httpClient, endpoint, apiKey, headers,
+                        resolveRequestTimeout(model), objectMapper));
+    }
+
+    private void discardResponsesWebSocketSession(String sessionKey, ResponsesWebSocketSession session) {
+        if (sessionKey == null) {
+            session.close();
+            return;
+        }
+        if (responsesWebSocketSessions.remove(sessionKey, session)) session.close();
+    }
+
+    private String responsesWebSocketSessionKey(AiModelBO model, AgentModelTurnRequest request) {
+        PromptCacheContext context = promptCacheContext(request);
+        String conversationKey = context == null ? "" : context.getConversationKey();
+        if (conversationKey == null || conversationKey.isBlank()) return null;
+        return providerCode() + "|" + valueOr(resolveModelName(model), "unknown") + "|" + conversationKey;
+    }
+
+    private URI responsesWebSocketEndpoint(AiModelBO model) {
+        URI endpoint = resolveEndpoint(model, true);
+        String websocketScheme = "https".equalsIgnoreCase(endpoint.getScheme()) ? "wss" : "ws";
+        return URI.create(websocketScheme + "://" + endpoint.getRawAuthority()
+                + (endpoint.getRawPath() == null ? "" : endpoint.getRawPath())
+                + (endpoint.getRawQuery() == null ? "" : "?" + endpoint.getRawQuery()));
     }
 
     private AgentModelTurnResponse readChatStream(Stream<String> lines, AgentModelTurnRequest request,
@@ -934,7 +1064,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private String providerToolName(String canonicalToolCode) {
         String value = canonicalToolCode == null ? "" : canonicalToolCode;
-        StringBuilder encoded = new StringBuilder(PROVIDER_TOOL_PREFIX);
+        StringBuilder encoded = new StringBuilder(AiConstants.PROVIDER_TOOL_PREFIX);
         for (byte item : value.getBytes(StandardCharsets.UTF_8)) {
             encoded.append(String.format("%02x", item & 0xff));
         }
@@ -942,8 +1072,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private String canonicalToolName(String providerToolName) {
-        if (providerToolName == null || !providerToolName.startsWith(PROVIDER_TOOL_PREFIX)) return providerToolName;
-        String hex = providerToolName.substring(PROVIDER_TOOL_PREFIX.length());
+        if (providerToolName == null || !providerToolName.startsWith(AiConstants.PROVIDER_TOOL_PREFIX)) return providerToolName;
+        String hex = providerToolName.substring(AiConstants.PROVIDER_TOOL_PREFIX.length());
         if (hex.isBlank() || (hex.length() % 2) != 0 || !hex.matches("[0-9a-fA-F]+")) return providerToolName;
         try {
             byte[] decoded = new byte[hex.length() / 2];
@@ -1110,6 +1240,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     @PreDestroy
     void closeStreamingHttpClient() throws IOException {
+        responsesWebSocketSessions.values().forEach(ResponsesWebSocketSession::close);
+        responsesWebSocketSessions.clear();
         streamingHttpClient.close();
     }
 
@@ -1243,6 +1375,19 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         } catch (IOException ignored) {
             return objectMapper.createObjectNode();
         }
+    }
+
+    private boolean responsesApi(AiModelBO model) {
+        return AiConstants.WIRE_API_RESPONSES.equalsIgnoreCase(extraString(model, AiConstants.MODEL_WIRE_API_EXTRA));
+    }
+
+    private boolean responsesWebSocketEnabled(AiModelBO model) {
+        return AiConstants.RESPONSES_TRANSPORT_WEBSOCKET.equalsIgnoreCase(
+                extraString(model, AiConstants.RESPONSES_TRANSPORT_EXTRA));
+    }
+
+    private String valueOr(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private boolean responsesStateEnabled(AiModelBO model) {
