@@ -286,9 +286,6 @@ public class AgentRunExecutionDomainService {
                 updateProviderState(conversation, model, promptCacheContext, providerResponseId);
                 runDomainService.updateConversation(conversation);
                 continuationMessages.clear();
-                // Keep the previous turn's runtime suffix in the next request so the full
-                // conversation prefix remains byte-for-byte cacheable.
-                messages.add(AgentModelMessage.builder().role("system").content(runtimeContext).build());
                 inputTokens += nonNegative(response.getInputTokens());
                 cachedInputTokens += nonNegative(response.getCachedInputTokens());
                 cacheWriteTokens += nonNegative(response.getCacheWriteTokens());
@@ -320,6 +317,7 @@ public class AgentRunExecutionDomainService {
                                 .type("TOOL_CALLS")
                                 .content("")
                                 .toolCalls(fallbackCalls)
+                                .providerOutputJson(null)
                                 .build();
                     }
                 }
@@ -329,7 +327,10 @@ public class AgentRunExecutionDomainService {
                             ? executionDomainService.normalizeFinalAnswer(response.getContent())
                             : executionDomainService.clarificationAnswer(clarification);
                     answer = redactText(answer);
-                    AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer).build();
+                    AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer)
+                            .runtimeContext(runtimeContext)
+                            .providerOutputJson(response.getProviderOutputJson())
+                            .build();
                     messages.add(finalMessage);
                     runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), finalMessage);
                     AgentRunStepBO answerStep = clarification == null
@@ -349,7 +350,9 @@ public class AgentRunExecutionDomainService {
                         response.getToolCalls(), persistedToolCalls, toolBudget);
                 if (forceFinalAnswer) {
                     answer = executionDomainService.budgetExhaustedAnswer(steps, response.getContent());
-                    AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer).build();
+                    AgentModelMessage finalMessage = AgentModelMessage.builder().role("assistant").content(answer)
+                            .runtimeContext(runtimeContext)
+                            .build();
                     messages.add(finalMessage);
                     runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), finalMessage);
                     AgentRunStepBO answerStep = runDomainService.saveAnswerStep(
@@ -363,6 +366,8 @@ public class AgentRunExecutionDomainService {
                 AgentModelMessage assistantMessage = AgentModelMessage.builder().role("assistant")
                         .content(valueOr(response.getContent(), ""))
                         .toolCalls(response.getToolCalls())
+                        .runtimeContext(runtimeContext)
+                        .providerOutputJson(response.getProviderOutputJson())
                         .build();
                 messages.add(assistantMessage);
                 runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), assistantMessage);

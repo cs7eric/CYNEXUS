@@ -17,6 +17,7 @@ public class AgentModelTurnResponse {
     Integer outputTokens;
     Integer totalTokens;
     String providerResponseId;
+    String providerOutputJson;
     PromptCacheTelemetry cacheTelemetry;
     String rawResponse;
 

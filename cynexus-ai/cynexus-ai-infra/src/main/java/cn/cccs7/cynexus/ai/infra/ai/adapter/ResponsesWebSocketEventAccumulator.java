@@ -44,6 +44,10 @@ final class ResponsesWebSocketEventAccumulator {
         if (responseNode != null && responseNode.isObject()) {
             usage.responseId = nonBlank(textValue(responseNode.get(AiConstants.RESPONSES_RESPONSE_ID_FIELD), ""),
                     usage.responseId);
+            JsonNode outputItems = responseNode.get(AiConstants.RESPONSES_OUTPUT_ITEMS_FIELD);
+            if (outputItems != null && outputItems.isArray()) {
+                usage.providerOutputJson = objectMapper.writeValueAsString(outputItems);
+            }
         }
         if (AiConstants.RESPONSES_COMPLETED_EVENT.equals(type)) {
             usageNode = responseNode == null ? usageNode : responseNode.get(AiConstants.AI_USAGE_FIELD);
@@ -109,6 +113,7 @@ final class ResponsesWebSocketEventAccumulator {
                 .content(content.toString()).toolCalls(calls).inputTokens(inputTokens)
                 .cachedInputTokens(usage.cachedInputTokens).cacheWriteTokens(usage.cacheWriteTokens)
                 .outputTokens(outputTokens).totalTokens(totalTokens).providerResponseId(usage.responseId)
+                .providerOutputJson(usage.providerOutputJson)
                 .rawResponse(formatRawResponse()).build();
     }
 
@@ -240,5 +245,6 @@ final class ResponsesWebSocketEventAccumulator {
         private Integer outputTokens;
         private Integer totalTokens;
         private String responseId;
+        private String providerOutputJson;
     }
 }

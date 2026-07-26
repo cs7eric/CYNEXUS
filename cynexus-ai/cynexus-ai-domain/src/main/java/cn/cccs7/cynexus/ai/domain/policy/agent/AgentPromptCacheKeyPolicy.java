@@ -29,13 +29,15 @@ public final class AgentPromptCacheKeyPolicy {
                 .append(value(stableSystemPrompt)).append('|')
                 .append(canonicalTools(tools))
                 .toString();
-        String stablePrefixKey = "cynexus-prefix-" + digest(stablePrefix);
+        String stablePrefixKey = AiConstants.PROMPT_CACHE_STABLE_PREFIX_KEY_PREFIX + digest(stablePrefix);
+        int routingShard = (int) (Long.parseLong(conversationKey.substring(0, 8), 16)
+                % AiConstants.PROMPT_CACHE_ROUTING_SHARD_COUNT);
         String routingKey = AiConstants.PROMPT_CACHE_KEY_VERSION + "|routing|"
-                + conversationKey + "|" + stablePrefixKey;
+                + stablePrefixKey + "|shard-" + routingShard;
         return PromptCacheContext.builder()
-                .conversationKey("cynexus-conversation-" + conversationKey)
+                .conversationKey(AiConstants.PROMPT_CACHE_CONVERSATION_KEY_PREFIX + conversationKey)
                 .stablePrefixKey(stablePrefixKey)
-                .routingKey("cynexus-agent-" + digest(routingKey))
+                .routingKey(AiConstants.PROMPT_CACHE_ROUTING_KEY_PREFIX + digest(routingKey))
                 .stablePrefixVersion(AiConstants.PROMPT_CACHE_KEY_VERSION)
                 .build();
     }

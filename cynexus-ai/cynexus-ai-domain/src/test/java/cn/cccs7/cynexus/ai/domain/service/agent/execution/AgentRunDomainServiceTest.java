@@ -77,6 +77,28 @@ class AgentRunDomainServiceTest {
     }
 
     @Test
+    void persistsReplayStateWithSensitiveArgumentsRedactedAndOpaqueReasoningPreserved() {
+        RecordingRepository repository = new RecordingRepository();
+        AgentRunDomainService service = new AgentRunDomainService(repository, null, null, null);
+
+        service.saveMessage("AGC-1", "AGR-1", 6, AgentModelMessage.builder()
+                .role("assistant")
+                .runtimeContext("runtime for user@example.com")
+                .providerOutputJson("[{\"type\":\"reasoning\",\"encrypted_content\":\"opaque-state\"},"
+                        + "{\"type\":\"function_call\",\"arguments\":{\"apiKey\":\"secret-value\"}}]")
+                .build());
+
+        AgentMessageBO persisted = repository.messages.get(0);
+        assertThat(persisted.getRuntimeContext()).isEqualTo("runtime for [REDACTED]");
+        assertThat(persisted.getProviderOutputJson())
+                .contains("opaque-state", "[REDACTED]")
+                .doesNotContain("secret-value");
+        AgentModelMessage reconstructed = service.toModelMessage(persisted);
+        assertThat(reconstructed.getRuntimeContext()).isEqualTo(persisted.getRuntimeContext());
+        assertThat(reconstructed.getProviderOutputJson()).isEqualTo(persisted.getProviderOutputJson());
+    }
+
+    @Test
     void archivesConversationThroughTheRepositoryPort() {
         RecordingRepository repository = new RecordingRepository();
         AgentRunDomainService service = new AgentRunDomainService(repository, null, null, null);

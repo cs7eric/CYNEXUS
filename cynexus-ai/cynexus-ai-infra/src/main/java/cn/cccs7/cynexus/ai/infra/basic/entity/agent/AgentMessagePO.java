@@ -20,4 +20,6 @@ public class AgentMessagePO extends BasePO {
     @TableField("tool_call_id") private String toolCallId;
     @TableField("tool_name") private String toolName;
     @TableField(value = "tool_calls", typeHandler = JsonbTypeHandler.class) private String toolCalls;
+    @TableField("runtime_context") private String runtimeContext;
+    @TableField(value = "provider_output", typeHandler = JsonbTypeHandler.class) private String providerOutput;
 }

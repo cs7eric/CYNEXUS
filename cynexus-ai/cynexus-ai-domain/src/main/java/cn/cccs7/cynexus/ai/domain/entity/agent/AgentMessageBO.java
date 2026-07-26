@@ -16,5 +16,7 @@ public class AgentMessageBO {
     private String toolCallId;
     private String toolName;
     private String toolCallsJson;
+    private String runtimeContext;
+    private String providerOutputJson;
     private OffsetDateTime createdAt;
 }

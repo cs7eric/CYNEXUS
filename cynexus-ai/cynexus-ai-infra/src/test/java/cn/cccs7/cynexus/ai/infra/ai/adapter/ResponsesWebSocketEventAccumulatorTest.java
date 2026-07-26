@@ -33,6 +33,8 @@ class ResponsesWebSocketEventAccumulatorTest {
                 + "\"item_id\":\"item-1\",\"delta\":\"{\\\"symbol\\\":\\\"600519\\\"}\"}",
                 text::add, thinking::add);
         accumulator.accept("{\"type\":\"response.completed\",\"response\":{\"id\":\"resp-1\","
+                + "\"output\":[{\"type\":\"reasoning\",\"encrypted_content\":\"opaque\"},"
+                + "{\"type\":\"function_call\",\"call_id\":\"call-1\"}],"
                 + "\"usage\":{\"input_tokens\":100,\"input_tokens_details\":{\"cached_tokens\":80},"
                 + "\"output_tokens\":10,\"total_tokens\":110}}}", text::add, thinking::add);
 
@@ -42,6 +44,7 @@ class ResponsesWebSocketEventAccumulatorTest {
         assertThat(text).containsExactly("done");
         assertThat(thinking).containsExactly("plan");
         assertThat(response.getProviderResponseId()).isEqualTo("resp-1");
+        assertThat(response.getProviderOutputJson()).contains("encrypted_content", "function_call");
         assertThat(response.getCachedInputTokens()).isEqualTo(80);
         assertThat(response.getToolCalls()).singleElement().satisfies(call -> {
             assertThat(call.getCallId()).isEqualTo("call-1");

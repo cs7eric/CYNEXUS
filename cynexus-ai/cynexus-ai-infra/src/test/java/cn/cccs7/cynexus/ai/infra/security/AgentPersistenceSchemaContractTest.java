@@ -17,7 +17,7 @@ class AgentPersistenceSchemaContractTest {
             "20260722_add_ai_agent_feedback.sql", "20260722_add_ai_agent_write_commands.sql",
             "20260722_add_ai_agent_source_urls.sql", "20260722_add_ai_agent_cancellation_intent.sql",
             "20260722_add_ai_agent_capabilities.sql", "20260722_repair_ai_agent_capability_runtime_state.sql",
-            "20260722_add_ai_agent_task_notifications.sql");
+            "20260722_add_ai_agent_task_notifications.sql", "20260726_add_agent_stateless_responses_replay.sql");
 
     @Test
     void agentMigrationsStayInTheAiSchemaAndExposeOwnerBoundaries() throws IOException {
@@ -45,6 +45,29 @@ class AgentPersistenceSchemaContractTest {
                         "uk_ai_agent_run_owner_idempotency", "ck_ai_agent_task_lease_shape");
         assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
                 .contains("20260722_harden_ai_agent_owner_constraints.sql");
+    }
+
+    @Test
+    void statelessResponsesReplayPersistsOpaqueOutputAndDisablesUnsupportedXhhaiState() throws IOException {
+        String migration = readMigration("20260726_add_agent_stateless_responses_replay.sql");
+        assertThat(migration).contains("runtime_context text", "provider_output jsonb",
+                "'responses_transport', 'http'", "'disable_response_storage', true")
+                .contains("- 'responses_state_mode'");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260726_add_agent_stateless_responses_replay.sql");
+        String releaseMigrations = readResource("deploy/release/apply-agent-migrations.ps1");
+        assertThat(releaseMigrations.indexOf("20260726_add_agent_stateless_responses_replay.sql"))
+                .isGreaterThan(releaseMigrations.indexOf(
+                        "20260726_add_ai_agent_response_state_and_cache_telemetry.sql"));
+    }
+
+    @Test
+    void statelessReplayKnowledgeBaseV4IsSeededAndRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260726_update_agent_prompt_cache_architecture_kb_v4_zh.sql");
+        assertThat(migration).contains("'documentVersion', 'v4-zh'", "STATELESS_REPLAY",
+                "provider_output", "runtime_context", "responses_transport", "stateless-replay");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260726_update_agent_prompt_cache_architecture_kb_v4_zh.sql");
     }
 
     @Test

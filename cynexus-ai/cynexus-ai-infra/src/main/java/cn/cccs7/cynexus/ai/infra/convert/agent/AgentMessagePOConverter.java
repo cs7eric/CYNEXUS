@@ -21,6 +21,8 @@ public final class AgentMessagePOConverter {
         target.setToolCallId(source.getToolCallId());
         target.setToolName(source.getToolName());
         target.setToolCalls(source.getToolCallsJson());
+        target.setRuntimeContext(source.getRuntimeContext());
+        target.setProviderOutput(source.getProviderOutputJson());
         target.setCreatedAt(source.getCreatedAt());
         return target;
     }
@@ -30,6 +32,7 @@ public final class AgentMessagePOConverter {
         return AgentMessageBO.builder().id(source.getId()).conversationNo(source.getConversationNo())
                 .runNo(source.getRunNo()).sequenceNo(source.getSequenceNo()).role(source.getRole())
                 .content(source.getContent()).toolCallId(source.getToolCallId()).toolName(source.getToolName())
-                .toolCallsJson(source.getToolCalls()).createdAt(source.getCreatedAt()).build();
+                .toolCallsJson(source.getToolCalls()).runtimeContext(source.getRuntimeContext())
+                .providerOutputJson(source.getProviderOutput()).createdAt(source.getCreatedAt()).build();
     }
 }

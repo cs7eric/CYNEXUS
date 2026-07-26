@@ -189,6 +189,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getInputTokens()).isEqualTo(10);
         assertThat(response.getOutputTokens()).isEqualTo(6);
         assertThat(response.getTotalTokens()).isEqualTo(16);
+        assertThat(response.getProviderOutputJson()).contains("fc-resp-1", "function_call");
 
         var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
         var tool = payload.path("tools").get(0);
@@ -326,6 +327,53 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
+    void replaysNativeResponsesOutputInExactConversationOrder() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
+                {"id":"resp-next","output":[{"type":"message","phase":"final_answer","content":[{"type":"output_text","text":"done"}]}],"usage":{"input_tokens":40,"input_tokens_details":{"cached_tokens":32},"output_tokens":2,"total_tokens":42}}
+                """);
+        String nativeOutput = "[{\"type\":\"reasoning\",\"encrypted_content\":\"opaque-state\"},"
+                + "{\"id\":\"fc-1\",\"type\":\"function_call\",\"call_id\":\"call-1\","
+                + "\"name\":\"cynexus_tool_6d61726b65742e6f76657276696577\",\"arguments\":\"{}\"}]";
+        AgentModelTurnRequest turn = AgentModelTurnRequest.builder()
+                .systemPrompt("stable system prompt")
+                .messages(List.of(
+                        AgentModelMessage.builder().role("user").content("old question").build(),
+                        AgentModelMessage.builder().role("assistant").content("")
+                                .runtimeContext("runtime-1")
+                                .providerOutputJson(nativeOutput)
+                                .toolCalls(List.of(AgentModelToolCall.builder()
+                                        .itemId("fc-1").callId("call-1").toolCode("market.overview")
+                                        .arguments(Map.of()).build()))
+                                .build(),
+                        AgentModelMessage.builder().role("tool").toolCallId("call-1")
+                                .content("{\"up\":1000}").build()))
+                .runtimeContext("runtime-2")
+                .promptCacheContext(PromptCacheContext.builder()
+                        .routingKey("shared-routing-key")
+                        .stablePrefixKey("stable-prefix-key")
+                        .build())
+                .tools(List.of(toolDefinition()))
+                .build();
+
+        AgentModelTurnResponse response = adapter().completeAgent(
+                model("{\"wire_api\":\"responses\",\"disable_response_storage\":true}"), turn);
+
+        var input = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get()).path("input");
+        assertThat(input).hasSize(7);
+        assertThat(input.get(0).path("content").asText()).isEqualTo("stable system prompt");
+        assertThat(input.get(1).path("content").asText()).isEqualTo("old question");
+        assertThat(input.get(2).path("content").asText()).isEqualTo("runtime-1");
+        assertThat(input.get(3).path("type").asText()).isEqualTo("reasoning");
+        assertThat(input.get(3).path("encrypted_content").asText()).isEqualTo("opaque-state");
+        assertThat(input.get(4).path("type").asText()).isEqualTo("function_call");
+        assertThat(input.get(5).path("type").asText()).isEqualTo("function_call_output");
+        assertThat(input.get(6).path("content").asText()).isEqualTo("runtime-2");
+        assertThat(response.getCacheTelemetry().getContinuationMode()).isEqualTo("STATELESS_REPLAY");
+        assertThat(response.getProviderOutputJson()).contains("final_answer");
+    }
+
+    @Test
     void parsesChatStreamingTextAndToolDeltas() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
         server = server(requestBody, """
@@ -372,7 +420,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
 
                 data: {"type":"response.function_call_arguments.done","item_id":"fc-item-1","arguments":"{\\"operation\\":\\"metadata\\",\\"symbol\\":\\"600519\\"}"}
 
-                data: {"type":"response.completed","response":{"id":"resp-stream-1","usage":{"input_tokens":14,"input_tokens_details":{"cached_tokens":8},"output_tokens":3,"total_tokens":17}}}
+                data: {"type":"response.completed","response":{"id":"resp-stream-1","output":[{"type":"reasoning","encrypted_content":"opaque-stream"},{"id":"fc-item-1","type":"function_call","call_id":"call-1","name":"market.stock_research","arguments":"{\\"operation\\":\\"metadata\\",\\"symbol\\":\\"600519\\"}"}],"usage":{"input_tokens":14,"input_tokens_details":{"cached_tokens":8},"output_tokens":3,"total_tokens":17}}}
 
                 data: [DONE]
 
@@ -389,6 +437,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
         });
         assertThat(response.getProviderResponseId()).isEqualTo("resp-stream-1");
         assertThat(response.getCachedInputTokens()).isEqualTo(8);
+        assertThat(response.getProviderOutputJson()).contains("opaque-stream", "fc-item-1");
     }
 
     @Test

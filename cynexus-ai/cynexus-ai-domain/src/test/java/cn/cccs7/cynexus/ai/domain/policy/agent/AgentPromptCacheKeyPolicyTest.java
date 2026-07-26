@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.domain.policy.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import java.util.List;
@@ -15,7 +16,7 @@ class AgentPromptCacheKeyPolicyTest {
             .build();
 
     @Test
-    void keepsStablePrefixIndependentOfToolOrderAndSeparatesConversations() {
+    void keepsStablePrefixIndependentOfToolOrderAndKeepsConversationRoutingDeterministic() {
         AgentToolDefinition first = tool("market.overview", "Read market data.");
         AgentToolDefinition second = tool("kb.search", "Search the knowledge base.");
 
@@ -31,7 +32,24 @@ class AgentPromptCacheKeyPolicyTest {
         assertThat(left.getConversationKey()).isNotEqualTo(otherConversation.getConversationKey());
         assertThat(left.getStablePrefixKey()).isEqualTo(otherConversation.getStablePrefixKey());
         assertThat(left.getRoutingKey()).isEqualTo(reordered.getRoutingKey());
-        assertThat(left.getRoutingKey()).isNotEqualTo(otherConversation.getRoutingKey());
+        assertThat(otherConversation.getRoutingKey())
+                .startsWith(AiConstants.PROMPT_CACHE_ROUTING_KEY_PREFIX);
+    }
+
+    @Test
+    void boundsSharedStablePrefixRoutingToConfiguredShards() {
+        AgentToolDefinition tool = tool("market.overview", "Read market data.");
+
+        var contexts = java.util.stream.IntStream.range(0, 64)
+                .mapToObj(index -> AgentPromptCacheKeyPolicy.context(
+                        "tenant:user", "conversation-" + index, "stable prompt", model, List.of(tool)))
+                .toList();
+
+        assertThat(contexts).extracting(context -> context.getStablePrefixKey()).containsOnly(
+                contexts.get(0).getStablePrefixKey());
+        assertThat(contexts.stream().map(context -> context.getRoutingKey()).distinct().count())
+                .isGreaterThan(1)
+                .isLessThanOrEqualTo(AiConstants.PROMPT_CACHE_ROUTING_SHARD_COUNT);
     }
 
     @Test

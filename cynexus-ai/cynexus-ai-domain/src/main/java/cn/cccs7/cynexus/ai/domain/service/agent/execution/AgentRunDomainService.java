@@ -201,6 +201,8 @@ public class AgentRunDomainService {
                 .toolName(message.getToolName())
                 .toolCallsJson(AgentSensitiveDataPolicy.redactJson(json(
                         message.getToolCalls() == null ? List.of() : message.getToolCalls())))
+                .runtimeContext(AgentSensitiveDataPolicy.redactText(message.getRuntimeContext()))
+                .providerOutputJson(AgentSensitiveDataPolicy.redactJson(message.getProviderOutputJson()))
                 .build());
     }
 
@@ -220,6 +222,8 @@ public class AgentRunDomainService {
                 .toolCallId(message.getToolCallId())
                 .toolName(message.getToolName())
                 .toolCalls(calls)
+                .runtimeContext(message.getRuntimeContext())
+                .providerOutputJson(message.getProviderOutputJson())
                 .build();
     }
 

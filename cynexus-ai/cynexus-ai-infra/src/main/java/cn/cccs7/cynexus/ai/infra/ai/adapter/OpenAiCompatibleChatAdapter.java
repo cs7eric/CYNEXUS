@@ -683,6 +683,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                         usage.responseId = response == null ? usage.responseId
                                 : nonBlank(textValue(response.get(AiConstants.RESPONSES_RESPONSE_ID_FIELD), ""),
                                 usage.responseId);
+                        JsonNode outputItems = response == null ? null
+                                : response.get(AiConstants.RESPONSES_OUTPUT_ITEMS_FIELD);
+                        if (outputItems != null && outputItems.isArray()) {
+                            usage.providerOutputJson = objectMapper.writeValueAsString(outputItems);
+                        }
                     }
                     captureStreamUsage(usage, usageNode);
                     if ("response.output_text.delta".equals(type)) {
@@ -784,6 +789,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .cachedInputTokens(usage.cachedInputTokens).cacheWriteTokens(usage.cacheWriteTokens)
                 .outputTokens(outputTokens).totalTokens(totalTokens)
                 .providerResponseId(usage.responseId)
+                .providerOutputJson(usage.providerOutputJson)
                 .rawResponse(formatStreamingRawResponse(raw, usage)).build();
     }
 
@@ -805,6 +811,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         private Integer outputTokens;
         private Integer totalTokens;
         private String responseId;
+        private String providerOutputJson;
 
         private boolean hasAny() {
             return inputTokens != null || cachedInputTokens != null || cacheWriteTokens != null
@@ -900,6 +907,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private void appendResponsesMessages(List<Map<String, Object>> input, List<AgentModelMessage> messages) {
         if (messages == null) return;
         for (AgentModelMessage message : messages) {
+            if (message.getRuntimeContext() != null && !message.getRuntimeContext().isBlank()) {
+                input.add(Map.of("role", "system", "content", message.getRuntimeContext()));
+            }
+            if (appendProviderOutputItems(input, message.getProviderOutputJson())) {
+                continue;
+            }
             if ("tool".equals(message.getRole())) {
                 input.add(Map.of(AiConstants.RESPONSES_TYPE_FIELD,
                         AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_TYPE,
@@ -915,6 +928,26 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 input.add(Map.of("role", message.getRole(),
                         "content", message.getContent() == null ? "" : message.getContent()));
             }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean appendProviderOutputItems(List<Map<String, Object>> input, String providerOutputJson) {
+        if (providerOutputJson == null || providerOutputJson.isBlank()) return false;
+        try {
+            JsonNode outputItems = objectMapper.readTree(providerOutputJson);
+            if (outputItems == null || !outputItems.isArray()) return false;
+            List<Map<String, Object>> replayItems = new ArrayList<>();
+            for (JsonNode item : outputItems) {
+                if (item == null || !item.isObject()) return false;
+                replayItems.add(objectMapper.convertValue(item, Map.class));
+            }
+            input.addAll(replayItems);
+            return true;
+        } catch (RuntimeException | IOException exception) {
+            LOGGER.warn("Ignoring invalid persisted Responses output for provider {}: {}",
+                    providerCode(), exception.getClass().getSimpleName());
+            return false;
         }
     }
 
@@ -1012,7 +1045,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         JsonNode root = objectMapper.readTree(responseBody);
         List<AgentModelToolCall> calls = new ArrayList<>();
         StringBuilder text = new StringBuilder();
-        JsonNode output = root.get("output");
+        JsonNode output = root.get(AiConstants.RESPONSES_OUTPUT_ITEMS_FIELD);
         if (output != null && output.isArray()) {
             for (JsonNode item : output) {
                 if (AiConstants.RESPONSES_FUNCTION_CALL_TYPE.equals(
@@ -1047,6 +1080,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .outputTokens(extractOutputTokens(responseBody, content))
                 .totalTokens(extractTotalTokens(responseBody, requestPrompt(request), content))
                 .providerResponseId(textValue(root.get(AiConstants.RESPONSES_RESPONSE_ID_FIELD), ""))
+                .providerOutputJson(output != null && output.isArray()
+                        ? objectMapper.writeValueAsString(output) : null)
                 .rawResponse(responseBody)
                 .build();
     }
@@ -1413,7 +1448,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             String cacheKey = textValue(root.get(AiConstants.PROMPT_CACHE_KEY_FIELD), "");
             PromptCacheContext context = promptCacheContext(request);
             String mode = stateFallback ? AiConstants.AGENT_CACHE_MODE_STATELESS_FALLBACK
-                    : stateful ? AiConstants.AGENT_CACHE_MODE_STATEFUL : AiConstants.AGENT_CACHE_MODE_STATELESS;
+                    : stateful ? AiConstants.AGENT_CACHE_MODE_STATEFUL
+                    : hasNativeProviderReplay(request) ? AiConstants.AGENT_CACHE_MODE_STATELESS_REPLAY
+                    : AiConstants.AGENT_CACHE_MODE_STATELESS;
             PromptCacheTelemetry telemetry = PromptCacheTelemetry.builder()
                     .cacheKeyHash(digestTelemetry(cacheKey))
                     .stablePrefixHash(digestTelemetry(context == null ? null : context.getStablePrefixKey()))
@@ -1440,6 +1477,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private boolean hasNativeProviderReplay(AgentModelTurnRequest request) {
+        if (request == null || request.getMessages() == null) return false;
+        return request.getMessages().stream().anyMatch(message -> message != null
+                && message.getProviderOutputJson() != null && !message.getProviderOutputJson().isBlank());
     }
 
     private boolean isResponsesStateFallbackCandidate(ProviderHttpException failure) {

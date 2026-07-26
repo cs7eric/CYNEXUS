@@ -14,4 +14,6 @@ public class AgentModelMessage {
     String toolCallId;
     String toolName;
     List<AgentModelToolCall> toolCalls;
+    String runtimeContext;
+    String providerOutputJson;
 }

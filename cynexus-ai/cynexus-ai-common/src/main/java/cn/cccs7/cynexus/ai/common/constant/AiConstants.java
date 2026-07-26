@@ -25,6 +25,7 @@ public final class AiConstants {
     public static final String RESPONSES_FUNCTION_CALL_OUTPUT_FIELD = "output";
     public static final String RESPONSES_RESPONSE_ID_FIELD = "id";
     public static final String RESPONSES_RESPONSE_FIELD = "response";
+    public static final String RESPONSES_OUTPUT_ITEMS_FIELD = "output";
     public static final String RESPONSES_ITEM_FIELD = "item";
     public static final String RESPONSES_DELTA_FIELD = "delta";
     public static final String RESPONSES_PART_FIELD = "part";
@@ -59,7 +60,11 @@ public final class AiConstants {
     public static final String PROMPT_CACHE_RETENTION_FIELD = "prompt_cache_retention";
     public static final String PROMPT_CACHE_RETENTION_IN_MEMORY = "in-memory";
     public static final String PROMPT_CACHE_RETENTION_24_HOURS = "24h";
-    public static final String PROMPT_CACHE_KEY_VERSION = "v4";
+    public static final String PROMPT_CACHE_KEY_VERSION = "v5";
+    public static final String PROMPT_CACHE_CONVERSATION_KEY_PREFIX = "cynexus-conversation-";
+    public static final String PROMPT_CACHE_STABLE_PREFIX_KEY_PREFIX = "cynexus-prefix-";
+    public static final String PROMPT_CACHE_ROUTING_KEY_PREFIX = "cynexus-agent-";
+    public static final int PROMPT_CACHE_ROUTING_SHARD_COUNT = 16;
     public static final String PROMPT_CACHE_CAPABILITY = AUTONOMOUS_AGENT_CAPABILITY;
     public static final String PROMPT_CACHE_XAI_CONVERSATION_HEADER = "x-grok-conv-id";
     public static final String PROMPT_CACHE_KEY_FIELD = "prompt_cache_key";
@@ -83,6 +88,7 @@ public final class AiConstants {
     public static final String AI_USAGE_TOTAL_TOKENS_FIELD = "total_tokens";
     public static final String AGENT_EVENT_CACHE_USAGE = "CACHE_USAGE";
     public static final String AGENT_CACHE_MODE_STATELESS = "STATELESS";
+    public static final String AGENT_CACHE_MODE_STATELESS_REPLAY = "STATELESS_REPLAY";
     public static final String AGENT_CACHE_MODE_STATEFUL = "STATEFUL";
     public static final String AGENT_CACHE_MODE_STATELESS_FALLBACK = "STATELESS_FALLBACK";
     public static final String AGENT_CACHE_TELEMETRY_TURN_FIELD = "turn";
