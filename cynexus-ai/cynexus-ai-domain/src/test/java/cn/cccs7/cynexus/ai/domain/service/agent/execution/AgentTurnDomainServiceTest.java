@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.domain.service.agent.execution;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
@@ -39,6 +40,32 @@ class AgentTurnDomainServiceTest {
         assertEquals("done", response.getContent());
         assertEquals(2, calls.get());
         assertEquals(List.of(2), retries);
+    }
+
+    @Test
+    void clearsResponsesContinuationStateBeforeRetryingATransientFailure() {
+        FakeCircuitBreaker circuit = new FakeCircuitBreaker();
+        AgentTurnDomainService service = new AgentTurnDomainService(circuit, new NoopObservability(), 3);
+        AtomicInteger calls = new AtomicInteger();
+        List<Integer> retries = new ArrayList<>();
+        AgentProviderTurnPort provider = (model, request, delta) -> {
+            int attempt = calls.incrementAndGet();
+            if (attempt == 1) {
+                assertEquals("response-1", request.getPreviousResponseId());
+                throw new IllegalStateException("HTTP 502 from provider");
+            }
+            assertNull(request.getPreviousResponseId());
+            if (attempt == 2) throw new IllegalStateException("HTTP 503 from provider");
+            return AgentModelTurnResponse.builder().type("FINAL").content("done").build();
+        };
+
+        AgentModelTurnResponse response = service.completeWithRetry(AiModelBO.builder().providerCode("custom")
+                        .modelCode("model").build(), AgentModelTurnRequest.builder()
+                        .previousResponseId("response-1").build(), "owner", "run", provider, null, retries::add);
+
+        assertEquals("done", response.getContent());
+        assertEquals(3, calls.get());
+        assertEquals(List.of(2, 3), retries);
     }
 
     @Test

@@ -28,7 +28,7 @@ public class AgentExecutionLimits {
                 .maxUserInputChars(12_000)
                 .maxToolOutputChars(24_000)
                 .maxRunSeconds(600)
-                .maxRetryAttempts(2)
+                .maxRetryAttempts(3)
                 .build();
     }
 }

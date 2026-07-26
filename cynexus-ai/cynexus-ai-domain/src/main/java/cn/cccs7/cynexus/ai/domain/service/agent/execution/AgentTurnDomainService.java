@@ -39,6 +39,7 @@ public class AgentTurnDomainService {
                                                     Consumer<String> textDeltaConsumer,
                                                     Consumer<Integer> retryConsumer) {
         RuntimeException last = null;
+        AgentModelTurnRequest retryRequest = request;
         String circuitKey = "provider:" + valueOr(model == null ? null : model.getProviderCode(), "unknown");
         for (int attempt = 1; attempt <= maxRetryAttempts; attempt++) {
             long startedNanos = System.nanoTime();
@@ -46,7 +47,7 @@ public class AgentTurnDomainService {
                 if (!circuitBreaker.allow(circuitKey)) {
                     throw new IllegalStateException("Agent provider circuit is open");
                 }
-                AgentModelTurnResponse response = provider.complete(model, request, textDeltaConsumer);
+                AgentModelTurnResponse response = provider.complete(model, retryRequest, textDeltaConsumer);
                 observability.providerCompleted(model == null ? null : model.getProviderCode(),
                         model == null ? null : model.getModelCode(), true, elapsedMs(startedNanos));
                 circuitBreaker.recordSuccess(circuitKey);
@@ -57,6 +58,10 @@ public class AgentTurnDomainService {
                 last = exception;
                 if (!isTransientProviderFailure(exception) || attempt >= maxRetryAttempts) throw exception;
                 circuitBreaker.recordFailure(circuitKey, 3, 30);
+                if (retryRequest.getPreviousResponseId() != null
+                        && !retryRequest.getPreviousResponseId().isBlank()) {
+                    retryRequest = retryRequest.toBuilder().previousResponseId(null).build();
+                }
                 if (retryConsumer != null) retryConsumer.accept(attempt + 1);
             }
         }
