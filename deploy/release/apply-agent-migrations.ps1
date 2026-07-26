@@ -49,6 +49,7 @@ $migrationFiles = @(
     "20260726_update_agent_prompt_cache_architecture_kb_zh.sql",
     "20260726_update_agent_prompt_cache_architecture_kb_v3_zh.sql"
     "20260726_update_agent_prompt_cache_architecture_kb_v4_zh.sql"
+    "20260726_update_agent_prompt_cache_architecture_kb_v5_zh.sql"
 )
 
 foreach ($file in $migrationFiles) {

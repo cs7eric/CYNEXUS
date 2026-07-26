@@ -71,6 +71,15 @@ class AgentPersistenceSchemaContractTest {
     }
 
     @Test
+    void encryptedReasoningReplayKnowledgeBaseV5IsSeededAndRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260726_update_agent_prompt_cache_architecture_kb_v5_zh.sql");
+        assertThat(migration).contains("'documentVersion', 'v5-zh'", "reasoning.encrypted_content",
+                "STATELESS_REPLAY", "encrypted_content");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260726_update_agent_prompt_cache_architecture_kb_v5_zh.sql");
+    }
+
+    @Test
     void taskNotificationOutboxIsIdempotentAndRegisteredForRelease() throws IOException {
         String migration = readMigration("20260722_add_ai_agent_task_notifications.sql");
         assertThat(migration).contains("ai_agent_task_notification", "event_key varchar(256) NOT NULL UNIQUE",

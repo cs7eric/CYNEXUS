@@ -390,7 +390,32 @@ xhhai 当前是否支持 compaction 尚未验证，因此 v4 不默认发送相�
 
 紧急降级时可以保留数据库列，只需把绑定切回兼容的 `wire_api` 或移除 Provider 不支持的缓存参数。不要恢复 xhhai HTTP `previous_response_id`，除非 Provider 已明确修复并经过验证。
 
-## 20. 参考资料
+## 20. xhhai 加密 reasoning 返回差异与 v5 修正
+
+`2026-07-26` 部署 v4 后的真实 Agent Run `AGR-47d95ff97b41` 提供了关键证据：
+
+```text
+turn 1: input=12269, cached=0,    mode=STATELESS
+turn 2: input=13426, cached=6656, mode=STATELESS_REPLAY
+turn 3: input=13744, cached=6656, mode=STATELESS_REPLAY
+```
+
+数据库已经保存并回放 `provider_output`，routing key 和 stable prefix 也保持一致，但 reasoning item 只有 `type` 与 `summary`，没有 `encrypted_content`。这说明问题不再是 Cynexus 丢弃完整 output，而是 xhhai 在 `store=false` 时没有按照当前 OpenAI 默认行为自动返回加密 reasoning 状态。
+
+OpenAI Reasoning 指南说明：无状态请求的 reasoning item 应携带 opaque `encrypted_content`，下一次请求必须把它连同完整 output 一起回放。官方当前服务会默认返回该字段，同时仍兼容旧的显式请求形式：
+
+```json
+{
+  "store": false,
+  "include": ["reasoning.encrypted_content"]
+}
+```
+
+对 xhhai 直接探测确认，未显式设置 `include` 时字段缺失；设置后 reasoning item 会返回约千字节的 `encrypted_content`，Assistant message 也会保留 `phase`。因此 v5 在所有 Agent Responses 请求中显式发送该 `include`，同时继续把返回的完整 `output[]` 原样持久化和回放。
+
+这项修正影响的是 Provider 原生 reasoning 状态连续性，不是把 reasoning 明文写入数据库：`encrypted_content` 对 Cynexus 始终是不解析、不修改的 opaque 字符串。它也是当前固定 `6,656` 平台最直接的根因修复。部署后必须新建会话重新预热；旧消息中没有 `encrypted_content`，无法在客户端补造。
+
+## 21. 参考资料
 
 - OpenAI Prompt Caching：<https://developers.openai.com/api/docs/guides/prompt-caching>
 - OpenAI Conversation State：<https://developers.openai.com/api/docs/guides/conversation-state>

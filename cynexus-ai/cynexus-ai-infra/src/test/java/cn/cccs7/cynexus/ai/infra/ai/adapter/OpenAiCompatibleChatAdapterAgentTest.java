@@ -360,6 +360,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
                 model("{\"wire_api\":\"responses\",\"disable_response_storage\":true}"), turn);
 
         var input = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get()).path("input");
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        assertThat(payload.path("include").get(0).asText()).isEqualTo("reasoning.encrypted_content");
         assertThat(input).hasSize(7);
         assertThat(input.get(0).path("content").asText()).isEqualTo("stable system prompt");
         assertThat(input.get(1).path("content").asText()).isEqualTo("old question");

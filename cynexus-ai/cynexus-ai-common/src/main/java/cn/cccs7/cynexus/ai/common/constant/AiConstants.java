@@ -33,6 +33,8 @@ public final class AiConstants {
     public static final String RESPONSES_ERROR_FIELD = "error";
     public static final String RESPONSES_EVENTS_FIELD = "events";
     public static final String RESPONSES_INPUT_FIELD = "input";
+    public static final String RESPONSES_INCLUDE_FIELD = "include";
+    public static final String RESPONSES_REASONING_ENCRYPTED_CONTENT_INCLUDE = "reasoning.encrypted_content";
     public static final String RESPONSES_STORE_FIELD = "store";
     public static final String RESPONSES_PREVIOUS_RESPONSE_ID_FIELD = "previous_response_id";
     public static final String RESPONSES_STATE_MODE_EXTRA = "responses_state_mode";

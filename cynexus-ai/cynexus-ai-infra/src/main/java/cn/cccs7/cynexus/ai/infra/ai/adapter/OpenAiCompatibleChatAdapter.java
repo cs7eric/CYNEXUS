@@ -471,6 +471,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         boolean stateful = shouldUseResponsesState(model, request, forceStateless);
         payload.put(AiConstants.RESPONSES_INPUT_FIELD,
                 stateful ? buildResponsesContinuationInput(request) : buildResponsesInput(request));
+        payload.put(AiConstants.RESPONSES_INCLUDE_FIELD,
+                List.of(AiConstants.RESPONSES_REASONING_ENCRYPTED_CONTENT_INCLUDE));
         if (stateful) {
             payload.put(AiConstants.RESPONSES_PREVIOUS_RESPONSE_ID_FIELD, request.getPreviousResponseId());
         }
