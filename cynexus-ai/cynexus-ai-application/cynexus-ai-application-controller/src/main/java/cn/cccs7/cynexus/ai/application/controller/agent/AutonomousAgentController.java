@@ -230,6 +230,7 @@ public class AutonomousAgentController {
                 .runNo(event.getRunNo()).status(event.getStatus()).stepNo(event.getStepNo())
                 .toolCode(event.getToolCode()).summary(event.getSummary()).answer(event.getAnswer())
                 .delta(event.getDelta()).errorMessage(event.getErrorMessage())
+                .detailsJson(event.getDetailsJson())
                 .occurredAt(event.getOccurredAt()).build();
     }
 

@@ -15,9 +15,9 @@ public final class OpenAiPromptCacheStrategy implements PromptCacheStrategy {
     @Override
     public void enrichPayload(AiModelBO model, PromptCacheContext context,
                               Map<String, Object> payload, boolean responsesApi) {
-        if (context != null && context.getStablePrefixKey() != null
-                && !context.getStablePrefixKey().isBlank()) {
-            payload.put(AiConstants.PROMPT_CACHE_KEY_FIELD, context.getStablePrefixKey());
+        if (context != null && context.getRoutingKey() != null
+                && !context.getRoutingKey().isBlank()) {
+            payload.put(AiConstants.PROMPT_CACHE_KEY_FIELD, context.getRoutingKey());
         }
     }
 

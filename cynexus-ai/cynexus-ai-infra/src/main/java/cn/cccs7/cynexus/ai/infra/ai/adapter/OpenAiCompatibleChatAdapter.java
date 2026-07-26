@@ -11,6 +11,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheTelemetry;
 import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheStrategy;
 import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheStrategyRegistry;
 import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheUsage;
@@ -36,11 +37,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.HexFormat;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import jakarta.annotation.PreDestroy;
@@ -130,6 +134,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     @Override
     public AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request) {
+        return completeAgent(model, request, false, false);
+    }
+
+    private AgentModelTurnResponse completeAgent(AiModelBO model, AgentModelTurnRequest request,
+                                                 boolean forceStateless, boolean stateFallback) {
         String apiKey = resolveApiKey(model);
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("Missing API key for provider: " + providerCode());
@@ -137,7 +146,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         try {
             boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
             PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
-            String payload = responsesApi ? buildAgentResponsesPayload(model, request, cacheStrategy)
+            boolean stateful = responsesApi && shouldUseResponsesState(model, request, forceStateless);
+            String payload = responsesApi ? buildAgentResponsesPayload(model, request, false, cacheStrategy, forceStateless)
                     : buildAgentChatPayload(model, request, cacheStrategy);
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
                     .timeout(resolveRequestTimeout(model))
@@ -147,10 +157,18 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             HttpRequest httpRequest = requestBuilder.POST(HttpRequest.BodyPublishers.ofString(payload)).build();
             HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw providerHttpFailure(response.statusCode(), response.body());
+                ProviderHttpException failure = providerHttpFailure(response.statusCode(), response.body());
+                if (stateful && isResponsesStateFallbackCandidate(failure)) {
+                    LOGGER.warn("Retrying Responses request with full transcript after state continuation rejection");
+                    return completeAgent(model, request, true, true);
+                }
+                throw failure;
             }
-            return responsesApi ? extractResponsesAgentResponse(response.body(), request, cacheStrategy)
+            AgentModelTurnResponse result = responsesApi
+                    ? extractResponsesAgentResponse(response.body(), request, cacheStrategy)
                     : extractChatAgentResponse(response.body(), request, cacheStrategy);
+            return attachCacheTelemetry(result, payload, request, stateful, stateFallback,
+                    responsesApi && responsesStateEnabled(model));
         } catch (IOException exception) {
             logProviderFailure("agent", model, exception);
             throw new IllegalStateException("Failed to call AI provider: " + providerCode(), exception);
@@ -169,8 +187,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
         String payload;
         PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
+        boolean stateful = responsesApi && shouldUseResponsesState(model, request, false);
         try {
-            payload = responsesApi ? buildAgentResponsesPayload(model, request, true, cacheStrategy)
+            payload = responsesApi ? buildAgentResponsesPayload(model, request, true, cacheStrategy, false)
                     : buildAgentChatPayload(model, request, true, cacheStrategy);
         } catch (IOException exception) {
             logProviderFailure("agent stream", model, exception);
@@ -179,9 +198,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         IOException lastTransportFailure = null;
         for (int attempt = 1; attempt <= STREAM_TRANSPORT_ATTEMPTS; attempt++) {
             try {
-                return streamWithApacheHttpClient(model, resolveEndpoint(model, responsesApi), apiKey, payload,
+                AgentModelTurnResponse result = streamWithApacheHttpClient(model, resolveEndpoint(model, responsesApi), apiKey, payload,
                         resolveRequestTimeout(model), responsesApi, request, cacheStrategy,
                         textDeltaConsumer, thinkingDeltaConsumer);
+                return attachCacheTelemetry(result, payload, request, stateful, false,
+                        responsesApi && responsesStateEnabled(model));
             } catch (IOException exception) {
                 if (isInterruptedFailure(exception)) {
                     Thread.currentThread().interrupt();
@@ -204,6 +225,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                         : new IOException(exception);
                 break;
             } catch (RuntimeException exception) {
+                if (stateful && exception instanceof ProviderHttpException failure
+                        && isResponsesStateFallbackCandidate(failure)) {
+                    LOGGER.warn("Retrying streamed Responses request with full transcript after state continuation rejection");
+                    return completeAgent(model, request, true, true);
+                }
                 logProviderFailure("agent stream", model, exception);
                 throw exception;
             }
@@ -417,14 +443,30 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request,
                                               boolean stream, PromptCacheStrategy cacheStrategy) throws IOException {
+        return buildAgentResponsesPayload(model, request, stream, cacheStrategy, false);
+    }
+
+    private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request,
+                                              boolean stream, PromptCacheStrategy cacheStrategy,
+                                              boolean forceStateless) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
-        payload.put("input", buildResponsesInput(request));
+        boolean stateEnabled = responsesStateEnabled(model);
+        boolean stateful = shouldUseResponsesState(model, request, forceStateless);
+        payload.put(AiConstants.RESPONSES_INPUT_FIELD,
+                stateful ? buildResponsesContinuationInput(request) : buildResponsesInput(request));
+        if (stateful) {
+            payload.put(AiConstants.RESPONSES_PREVIOUS_RESPONSE_ID_FIELD, request.getPreviousResponseId());
+        }
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), true));
         payload.put(AiConstants.TOOL_CHOICE_FIELD,
                 request == null || request.isToolsAllowed()
                         ? AiConstants.TOOL_CHOICE_AUTO : AiConstants.TOOL_CHOICE_NONE);
-        payload.put("store", !extraBoolean(model, "disable_response_storage", true));
+        payload.put(AiConstants.RESPONSES_STORE_FIELD, stateEnabled);
+        String cacheRetention = extraString(model, AiConstants.PROMPT_CACHE_RETENTION_EXTRA);
+        if (!cacheRetention.isBlank()) {
+            payload.put(AiConstants.PROMPT_CACHE_RETENTION_FIELD, cacheRetention);
+        }
         cacheStrategy.enrichPayload(model, promptCacheContext(request), payload, true);
         if (stream) payload.put("stream", true);
         Map<String, Object> reasoning = new LinkedHashMap<>();
@@ -505,9 +547,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                     JsonNode root = objectMapper.readTree(data);
                     String type = textValue(root.get("type"), "");
                     JsonNode usageNode = root.get(AiConstants.AI_USAGE_FIELD);
-                    if (usageNode == null && "response.completed".equals(type)) {
+                    if (usageNode == null && AiConstants.RESPONSES_COMPLETED_EVENT.equals(type)) {
                         JsonNode response = root.get("response");
                         usageNode = response == null ? null : response.get(AiConstants.AI_USAGE_FIELD);
+                        usage.responseId = response == null ? usage.responseId
+                                : nonBlank(textValue(response.get(AiConstants.RESPONSES_RESPONSE_ID_FIELD), ""),
+                                usage.responseId);
                     }
                     captureStreamUsage(usage, usageNode);
                     if ("response.output_text.delta".equals(type)) {
@@ -608,6 +653,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .content(content).toolCalls(calls).inputTokens(inputTokens)
                 .cachedInputTokens(usage.cachedInputTokens).cacheWriteTokens(usage.cacheWriteTokens)
                 .outputTokens(outputTokens).totalTokens(totalTokens)
+                .providerResponseId(usage.responseId)
                 .rawResponse(formatStreamingRawResponse(raw, usage)).build();
     }
 
@@ -628,6 +674,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         private Integer cacheWriteTokens;
         private Integer outputTokens;
         private Integer totalTokens;
+        private String responseId;
 
         private boolean hasAny() {
             return inputTokens != null || cachedInputTokens != null || cacheWriteTokens != null
@@ -708,26 +755,37 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (request != null && request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
             input.add(Map.of("role", "system", "content", request.getSystemPrompt()));
         }
-        if (request != null && request.getMessages() != null) {
-            for (AgentModelMessage message : request.getMessages()) {
-                if ("tool".equals(message.getRole())) {
-                    input.add(Map.of(AiConstants.RESPONSES_TYPE_FIELD,
-                            AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_TYPE,
-                            AiConstants.RESPONSES_FUNCTION_CALL_ID_FIELD, message.getToolCallId(),
-                            AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_FIELD,
-                            message.getContent() == null ? "" : message.getContent()));
-                } else if ("assistant".equals(message.getRole()) && message.getToolCalls() != null
-                        && !message.getToolCalls().isEmpty()) {
-                    for (AgentModelToolCall call : message.getToolCalls()) {
-                        input.add(toResponsesFunctionCall(call));
-                    }
-                } else {
-                    input.add(Map.of("role", message.getRole(), "content", message.getContent() == null ? "" : message.getContent()));
-                }
-            }
-        }
+        appendResponsesMessages(input, request == null ? null : request.getMessages());
         appendRuntimeContext(input, request);
         return input;
+    }
+
+    private List<Map<String, Object>> buildResponsesContinuationInput(AgentModelTurnRequest request) {
+        List<Map<String, Object>> input = new ArrayList<>();
+        appendResponsesMessages(input, request == null ? null : request.getContinuationMessages());
+        appendRuntimeContext(input, request);
+        return input;
+    }
+
+    private void appendResponsesMessages(List<Map<String, Object>> input, List<AgentModelMessage> messages) {
+        if (messages == null) return;
+        for (AgentModelMessage message : messages) {
+            if ("tool".equals(message.getRole())) {
+                input.add(Map.of(AiConstants.RESPONSES_TYPE_FIELD,
+                        AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_TYPE,
+                        AiConstants.RESPONSES_FUNCTION_CALL_ID_FIELD, message.getToolCallId(),
+                        AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_FIELD,
+                        message.getContent() == null ? "" : message.getContent()));
+            } else if ("assistant".equals(message.getRole()) && message.getToolCalls() != null
+                    && !message.getToolCalls().isEmpty()) {
+                for (AgentModelToolCall call : message.getToolCalls()) {
+                    input.add(toResponsesFunctionCall(call));
+                }
+            } else {
+                input.add(Map.of("role", message.getRole(),
+                        "content", message.getContent() == null ? "" : message.getContent()));
+            }
+        }
     }
 
     private void appendRuntimeContext(List<Map<String, Object>> input, AgentModelTurnRequest request) {
@@ -858,6 +916,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .cacheWriteTokens(extractCacheWriteTokens(responseBody, cacheStrategy))
                 .outputTokens(extractOutputTokens(responseBody, content))
                 .totalTokens(extractTotalTokens(responseBody, requestPrompt(request), content))
+                .providerResponseId(textValue(root.get(AiConstants.RESPONSES_RESPONSE_ID_FIELD), ""))
                 .rawResponse(responseBody)
                 .build();
     }
@@ -1186,11 +1245,68 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
     }
 
-    private IllegalStateException providerHttpFailure(int statusCode, String responseBody) {
+    private boolean responsesStateEnabled(AiModelBO model) {
+        return AiConstants.RESPONSES_STATE_MODE_PREVIOUS_RESPONSE_ID.equalsIgnoreCase(
+                extraString(model, AiConstants.RESPONSES_STATE_MODE_EXTRA))
+                && !extraBoolean(model, AiConstants.RESPONSES_DISABLE_STORAGE_EXTRA, false);
+    }
+
+    private boolean shouldUseResponsesState(AiModelBO model, AgentModelTurnRequest request,
+                                            boolean forceStateless) {
+        return !forceStateless && responsesStateEnabled(model) && request != null
+                && request.getPreviousResponseId() != null && !request.getPreviousResponseId().isBlank();
+    }
+
+    private AgentModelTurnResponse attachCacheTelemetry(AgentModelTurnResponse response, String payload,
+                                                         AgentModelTurnRequest request, boolean stateful,
+                                                         boolean stateFallback, boolean storageEnabled) {
+        if (response == null) return null;
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            JsonNode input = root.has(AiConstants.RESPONSES_INPUT_FIELD)
+                    ? root.get(AiConstants.RESPONSES_INPUT_FIELD) : root.get("messages");
+            String cacheKey = textValue(root.get(AiConstants.PROMPT_CACHE_KEY_FIELD), "");
+            PromptCacheContext context = promptCacheContext(request);
+            String mode = stateFallback ? AiConstants.AGENT_CACHE_MODE_STATELESS_FALLBACK
+                    : stateful ? AiConstants.AGENT_CACHE_MODE_STATEFUL : AiConstants.AGENT_CACHE_MODE_STATELESS;
+            PromptCacheTelemetry telemetry = PromptCacheTelemetry.builder()
+                    .cacheKeyHash(digestTelemetry(cacheKey))
+                    .stablePrefixHash(digestTelemetry(context == null ? null : context.getStablePrefixKey()))
+                    .requestInputHash(digestTelemetry(input == null ? null : input.toString()))
+                    .inputItemCount(input == null ? 0 : input.isArray() ? input.size() : 1)
+                    .continuationMode(mode)
+                    .previousResponseIdHash(digestTelemetry(stateful && request != null
+                            ? request.getPreviousResponseId() : null))
+                    .providerResponseIdHash(digestTelemetry(response.getProviderResponseId()))
+                    .responseStorageEnabled(storageEnabled)
+                    .stateFallback(stateFallback)
+                    .build();
+            return response.toBuilder().cacheTelemetry(telemetry).build();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to build Agent cache telemetry", exception);
+        }
+    }
+
+    private String digestTelemetry(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private boolean isResponsesStateFallbackCandidate(ProviderHttpException failure) {
+        return failure != null && (failure.statusCode == 400 || failure.statusCode == 404
+                || failure.statusCode == 409 || failure.statusCode == 422);
+    }
+
+    private ProviderHttpException providerHttpFailure(int statusCode, String responseBody) {
         String detail = responseBody == null ? "" : responseBody.replaceAll("[\\r\\n\\t]+", " ").trim();
         if (detail.length() > 240) detail = detail.substring(0, 240);
         LOGGER.warn("AI provider {} returned HTTP {} with safe detail: {}", providerCode(), statusCode, detail);
-        return new IllegalStateException("AI provider returned HTTP " + statusCode);
+        return new ProviderHttpException(statusCode);
     }
 
     private void logProviderFailure(String operation, AiModelBO model, Exception exception) {
@@ -1203,6 +1319,15 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             return resolveEndpoint(model, "responses".equalsIgnoreCase(extraString(model, "wire_api"))).toString();
         } catch (RuntimeException ignored) {
             return "unresolved";
+        }
+    }
+
+    private static final class ProviderHttpException extends IllegalStateException {
+        private final int statusCode;
+
+        private ProviderHttpException(int statusCode) {
+            super("AI provider returned HTTP " + statusCode);
+            this.statusCode = statusCode;
         }
     }
 }

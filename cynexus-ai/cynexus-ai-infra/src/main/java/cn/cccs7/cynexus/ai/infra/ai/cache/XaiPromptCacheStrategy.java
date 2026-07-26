@@ -23,9 +23,9 @@ public final class XaiPromptCacheStrategy implements PromptCacheStrategy {
     @Override
     public void enrichPayload(AiModelBO model, PromptCacheContext context,
                               Map<String, Object> payload, boolean responsesApi) {
-        if (!responsesApi || context == null || context.getStablePrefixKey() == null
-                || context.getStablePrefixKey().isBlank()) return;
-        payload.put(AiConstants.PROMPT_CACHE_KEY_FIELD, context.getStablePrefixKey());
+        if (!responsesApi || context == null || context.getRoutingKey() == null
+                || context.getRoutingKey().isBlank()) return;
+        payload.put(AiConstants.PROMPT_CACHE_KEY_FIELD, context.getRoutingKey());
     }
 
     private boolean provider(AiModelBO model, String expected) {

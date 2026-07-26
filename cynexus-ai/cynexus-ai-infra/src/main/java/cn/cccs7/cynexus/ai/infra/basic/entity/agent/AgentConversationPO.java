@@ -18,4 +18,9 @@ public class AgentConversationPO extends BasePO {
     @TableField("last_run_no") private String lastRunNo;
     @TableField("last_message") private String lastMessage;
     @TableField(typeHandler = JsonbTypeHandler.class) private String metadata;
+    @TableField("provider_response_id") private String providerResponseId;
+    @TableField("provider_state_provider_code") private String providerStateProviderCode;
+    @TableField("provider_state_model_code") private String providerStateModelCode;
+    @TableField("provider_state_signature") private String providerStateSignature;
+    @TableField("provider_state_updated_at") private java.time.OffsetDateTime providerStateUpdatedAt;
 }

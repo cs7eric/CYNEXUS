@@ -15,6 +15,11 @@ public final class AgentConversationPOConverter {
         target.setOwnerKey(source.getOwnerKey()); target.setTitle(source.getTitle()); target.setStatus(source.getStatus());
         target.setLastRunNo(source.getLastRunNo()); target.setLastMessage(source.getLastMessage());
         target.setMetadata(source.getMetadataJson()); target.setCreatedAt(source.getCreatedAt());
+        target.setProviderResponseId(source.getProviderResponseId());
+        target.setProviderStateProviderCode(source.getProviderStateProviderCode());
+        target.setProviderStateModelCode(source.getProviderStateModelCode());
+        target.setProviderStateSignature(source.getProviderStateSignature());
+        target.setProviderStateUpdatedAt(source.getProviderStateUpdatedAt());
         target.setUpdatedAt(source.getUpdatedAt()); target.setDeletedAt(source.getDeletedAt());
         return target;
     }
@@ -24,6 +29,11 @@ public final class AgentConversationPOConverter {
         return AgentConversationBO.builder().id(source.getId()).conversationNo(source.getConversationNo())
                 .ownerKey(source.getOwnerKey()).title(source.getTitle()).status(source.getStatus())
                 .lastRunNo(source.getLastRunNo()).lastMessage(source.getLastMessage()).metadataJson(source.getMetadata())
+                .providerResponseId(source.getProviderResponseId())
+                .providerStateProviderCode(source.getProviderStateProviderCode())
+                .providerStateModelCode(source.getProviderStateModelCode())
+                .providerStateSignature(source.getProviderStateSignature())
+                .providerStateUpdatedAt(source.getProviderStateUpdatedAt())
                 .createdAt(source.getCreatedAt()).updatedAt(source.getUpdatedAt()).deletedAt(source.getDeletedAt()).build();
     }
 }

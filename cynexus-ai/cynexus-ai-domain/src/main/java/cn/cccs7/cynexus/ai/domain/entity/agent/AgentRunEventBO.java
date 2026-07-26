@@ -18,5 +18,6 @@ public class AgentRunEventBO {
     String answer;
     String delta;
     String errorMessage;
+    String detailsJson;
     OffsetDateTime occurredAt;
 }

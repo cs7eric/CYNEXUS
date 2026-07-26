@@ -10,5 +10,6 @@ public class PromptCacheContext {
 
     String conversationKey;
     String stablePrefixKey;
+    String routingKey;
     String stablePrefixVersion;
 }

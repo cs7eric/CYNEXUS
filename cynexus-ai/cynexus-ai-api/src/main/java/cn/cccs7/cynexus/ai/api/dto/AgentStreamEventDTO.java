@@ -18,5 +18,6 @@ public class AgentStreamEventDTO {
     private String answer;
     private String delta;
     private String errorMessage;
+    private String detailsJson;
     private OffsetDateTime occurredAt;
 }

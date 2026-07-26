@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Value;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class AgentModelTurnResponse {
 
     String type;
@@ -16,6 +16,8 @@ public class AgentModelTurnResponse {
     Integer cacheWriteTokens;
     Integer outputTokens;
     Integer totalTokens;
+    String providerResponseId;
+    PromptCacheTelemetry cacheTelemetry;
     String rawResponse;
 
     public boolean hasToolCalls() {

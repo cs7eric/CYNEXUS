@@ -42,8 +42,10 @@ $migrationFiles = @(
     "20260725_add_ai_agent_capability_guidance.sql",
     "20260725_fix_xhhai_provider_models.sql",
     "20260726_add_ai_agent_prompt_cache_usage.sql",
+    "20260726_add_ai_agent_response_state_and_cache_telemetry.sql",
     "20260726_seed_agent_prompt_cache_architecture_kb.sql",
-    "20260726_update_agent_prompt_cache_architecture_kb_zh.sql"
+    "20260726_update_agent_prompt_cache_architecture_kb_zh.sql",
+    "20260726_update_agent_prompt_cache_architecture_kb_v3_zh.sql"
 )
 
 foreach ($file in $migrationFiles) {

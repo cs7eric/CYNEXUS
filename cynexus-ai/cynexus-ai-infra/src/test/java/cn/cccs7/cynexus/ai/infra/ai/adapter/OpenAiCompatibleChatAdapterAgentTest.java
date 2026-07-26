@@ -14,6 +14,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheContext;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import java.net.InetSocketAddress;
@@ -21,6 +22,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.Map;
 import javax.net.ssl.SSLHandshakeException;
@@ -198,6 +200,83 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
+    void storesFirstResponsesTurnAndCapturesProviderStateAndTelemetry() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
+                {"id":"resp-first","output":[{"type":"message","content":[{"type":"output_text","text":"done"}]}],"usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":8},"output_tokens":2,"total_tokens":22}}
+                """);
+
+        AgentModelTurnResponse response = adapter().completeAgent(statefulModel(), statefulRequest(null));
+
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        assertThat(payload.path("store").asBoolean()).isTrue();
+        assertThat(payload.has("previous_response_id")).isFalse();
+        assertThat(payload.path("prompt_cache_retention").asText()).isEqualTo("24h");
+        assertThat(payload.path("prompt_cache_key").asText()).isEqualTo("cynexus-agent-routing-test");
+        assertThat(response.getProviderResponseId()).isEqualTo("resp-first");
+        assertThat(response.getCachedInputTokens()).isEqualTo(8);
+        assertThat(response.getCacheTelemetry().isResponseStorageEnabled()).isTrue();
+        assertThat(response.getCacheTelemetry().getProviderResponseIdHash())
+                .isNotBlank().isNotEqualTo("resp-first");
+    }
+
+    @Test
+    void sendsOnlyDeltaInputWhenContinuingAStoredResponsesConversation() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
+                {"id":"resp-next","output":[{"type":"message","content":[{"type":"output_text","text":"done"}]}],"usage":{"input_tokens":12,"output_tokens":2,"total_tokens":14}}
+                """);
+
+        AgentModelTurnResponse response = adapter().completeAgent(statefulModel(), statefulRequest("resp-first"));
+
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        assertThat(payload.path("previous_response_id").asText()).isEqualTo("resp-first");
+        assertThat(payload.path("input").toString())
+                .contains("function_call_output")
+                .contains("fresh runtime")
+                .doesNotContain("old history")
+                .doesNotContain("stable system prompt");
+        assertThat(response.getProviderResponseId()).isEqualTo("resp-next");
+        assertThat(response.getCacheTelemetry().getContinuationMode()).isEqualTo("STATEFUL");
+        assertThat(response.getCacheTelemetry().getPreviousResponseIdHash())
+                .isNotBlank().isNotEqualTo("resp-first");
+    }
+
+    @Test
+    void retriesFullTranscriptWhenGatewayRejectsResponsesState() throws Exception {
+        List<String> requestBodies = new ArrayList<>();
+        AtomicInteger requests = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/responses", exchange -> {
+            requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            int requestNo = requests.incrementAndGet();
+            String body = requestNo == 1 ? "{\"error\":\"previous response not found\"}" : """
+                    {"id":"resp-recovered","output":[{"type":"message","content":[{"type":"output_text","text":"recovered"}]}],"usage":{"input_tokens":30,"output_tokens":2,"total_tokens":32}}
+                    """;
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
+            exchange.sendResponseHeaders(requestNo == 1 ? 404 : 200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+
+        AgentModelTurnResponse response = adapter().completeAgent(statefulModel(), statefulRequest("resp-expired"));
+
+        assertThat(requestBodies).hasSize(2);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(mapper.readTree(requestBodies.get(0)).has("previous_response_id")).isTrue();
+        var fallback = mapper.readTree(requestBodies.get(1));
+        assertThat(fallback.has("previous_response_id")).isFalse();
+        assertThat(fallback.path("input").toString())
+                .contains("stable system prompt")
+                .contains("old history");
+        assertThat(response.getProviderResponseId()).isEqualTo("resp-recovered");
+        assertThat(response.getCacheTelemetry().isStateFallback()).isTrue();
+        assertThat(response.getCacheTelemetry().getContinuationMode()).isEqualTo("STATELESS_FALLBACK");
+    }
+
+    @Test
     void allowsTheSelectedProviderOriginEvenWhenItIsAbsentFromDeploymentDefaults() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
         server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
@@ -293,6 +372,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
 
                 data: {"type":"response.function_call_arguments.done","item_id":"fc-item-1","arguments":"{\\"operation\\":\\"metadata\\",\\"symbol\\":\\"600519\\"}"}
 
+                data: {"type":"response.completed","response":{"id":"resp-stream-1","usage":{"input_tokens":14,"input_tokens_details":{"cached_tokens":8},"output_tokens":3,"total_tokens":17}}}
+
                 data: [DONE]
 
                 """);
@@ -306,6 +387,8 @@ class OpenAiCompatibleChatAdapterAgentTest {
             assertThat(call.getArguments()).containsEntry("operation", "metadata")
                     .containsEntry("symbol", "600519");
         });
+        assertThat(response.getProviderResponseId()).isEqualTo("resp-stream-1");
+        assertThat(response.getCachedInputTokens()).isEqualTo(8);
     }
 
     private HttpServer server(AtomicReference<String> requestBody, String responseBody) throws Exception {
@@ -356,6 +439,32 @@ class OpenAiCompatibleChatAdapterAgentTest {
         return AgentModelTurnRequest.builder().systemPrompt("Use tools when needed.")
                 .messages(List.of(AgentModelMessage.builder().role("user").content("大盘怎么样？").build()))
                 .tools(tools).build();
+    }
+
+    private AiModelBO statefulModel() {
+        return model("{\"wire_api\":\"responses\",\"responses_state_mode\":\"previous_response_id\","
+                + "\"disable_response_storage\":false,\"prompt_cache_retention\":\"24h\"}");
+    }
+
+    private AgentModelTurnRequest statefulRequest(String previousResponseId) {
+        AgentModelMessage toolOutput = AgentModelMessage.builder().role("tool")
+                .toolCallId("call-market-1").content("{\"up\":1000}").build();
+        return AgentModelTurnRequest.builder()
+                .systemPrompt("stable system prompt")
+                .runtimeContext("fresh runtime")
+                .messages(List.of(
+                        AgentModelMessage.builder().role("user").content("old history").build(),
+                        toolOutput))
+                .continuationMessages(List.of(toolOutput))
+                .previousResponseId(previousResponseId)
+                .promptCacheContext(PromptCacheContext.builder()
+                        .conversationKey("cynexus-conversation-test")
+                        .stablePrefixKey("cynexus-prefix-test")
+                        .routingKey("cynexus-agent-routing-test")
+                        .stablePrefixVersion("v4")
+                        .build())
+                .tools(List.of(toolDefinition()))
+                .build();
     }
 
     private AgentToolDefinition toolDefinition() {

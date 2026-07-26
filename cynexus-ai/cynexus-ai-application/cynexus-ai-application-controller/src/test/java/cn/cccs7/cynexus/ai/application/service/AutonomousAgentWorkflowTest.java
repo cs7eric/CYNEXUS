@@ -20,6 +20,7 @@ import cn.cccs7.cynexus.ai.application.service.agent.execution.AutonomousAgentAp
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentMessageBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
@@ -34,6 +35,7 @@ import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheTelemetry;
 import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSourceUrlPolicy;
 import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
 import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
@@ -135,6 +137,84 @@ class AutonomousAgentWorkflowTest {
         for (int index = 0; index < eventCaptor.getAllValues().size(); index++) {
             assertEquals(index + 1, eventCaptor.getAllValues().get(index).getSequenceNo());
         }
+    }
+
+    @Test
+    void responsesStateFlowsAcrossToolTurnsAndPersistsPerTurnCacheTelemetry() throws Exception {
+        AgentRunRepository repository = mock(AgentRunRepository.class);
+        AgentToolCatalog catalog = mock(AgentToolCatalog.class);
+        AgentToolExecutor executor = mock(AgentToolExecutor.class);
+        AiCompletionGateway completion = mock(AiCompletionGateway.class);
+        AiProviderRepository providers = mock(AiProviderRepository.class);
+        AiUsageBindingRepository bindings = mock(AiUsageBindingRepository.class);
+        AgentRuntimeLeasePort lease = mock(AgentRuntimeLeasePort.class);
+        AgentRateLimitPort rateLimiter = mock(AgentRateLimitPort.class);
+        AgentCircuitBreakerPort circuitBreaker = mock(AgentCircuitBreakerPort.class);
+        AgentToolDefinition definition = AgentToolDefinition.builder().code("market.overview")
+                .description("Read market overview").inputSchemaJson("{\"type\":\"object\"}")
+                .outputSchemaJson("{\"type\":\"object\"}").readOnly(true).build();
+        when(catalog.enabledTools()).thenReturn(List.of(definition));
+        when(repository.findConversation(any(), any())).thenReturn(Optional.empty());
+        when(repository.findMessages(any(), any())).thenReturn(List.of());
+        when(lease.tryAcquire(any(), any(), anyInt(), anyInt())).thenReturn(true);
+        when(rateLimiter.allow(any(), anyInt(), anyInt())).thenReturn(true);
+        when(lease.isCancellationRequested(any())).thenReturn(false);
+        when(circuitBreaker.allow(any())).thenReturn(true);
+        when(bindings.listAll()).thenReturn(List.of(AiUsageBindingBO.builder().capability("autonomous_agent")
+                .providerId(1L).modelOverride("gpt-5.4-mini").enabled(true).build()));
+        when(providers.findById(1L)).thenReturn(AiProviderBO.builder().id(1L).code("custom")
+                .providerType("custom").baseUrl("http://mock").defaultModel("gpt-5.4-mini").enabled(true).build());
+        when(executor.execute(any(AgentToolCall.class), any(AgentExecutionContext.class)))
+                .thenReturn(AgentToolResult.success("market.overview", "{\"up\":1000}",
+                        "Market data", "2026-07-26", "Market API", List.of()));
+        when(completion.completeAgent(any(), any(), eq("autonomous_agent")))
+                .thenReturn(AgentModelTurnResponse.builder().type("TOOL_CALLS")
+                        .toolCalls(List.of(AgentModelToolCall.builder().itemId("fc-1").callId("call-1")
+                                .toolCode("market.overview").arguments(Map.of()).build()))
+                        .providerResponseId("resp-1").inputTokens(10).cachedInputTokens(0).totalTokens(12)
+                        .cacheTelemetry(PromptCacheTelemetry.builder().continuationMode("STATELESS")
+                                .cacheKeyHash("cache-hash-1").providerResponseIdHash("response-hash-1")
+                                .responseStorageEnabled(true).build())
+                        .rawResponse("{\"usage\":{\"input_tokens\":10}}").build())
+                .thenReturn(AgentModelTurnResponse.builder().type("FINAL").content("市场已核验。")
+                        .providerResponseId("resp-2").inputTokens(14).cachedInputTokens(8).totalTokens(16)
+                        .cacheTelemetry(PromptCacheTelemetry.builder().continuationMode("STATEFUL")
+                                .cacheKeyHash("cache-hash-1").previousResponseIdHash("response-hash-1")
+                                .providerResponseIdHash("response-hash-2").responseStorageEnabled(true).build())
+                        .rawResponse("{\"usage\":{\"input_tokens\":14}}").build());
+        List<String> persistedResponseIds = new ArrayList<>();
+        doAnswer(invocation -> {
+            persistedResponseIds.add(invocation.getArgument(0,
+                    cn.cccs7.cynexus.ai.domain.entity.agent.AgentConversationBO.class).getProviderResponseId());
+            return null;
+        }).when(repository).updateConversation(any());
+
+        AutonomousAgentAppService service = newService(repository, catalog, executor, completion,
+                providers, bindings, lease, rateLimiter, circuitBreaker, new ObjectMapper());
+        var result = service.execute(AgentRunRequest.builder().userInput("检查市场").build(),
+                AgentIdentity.builder().principalKey("user-1").tenantKey("tenant-1").build(), ignored -> { });
+
+        assertEquals("SUCCEEDED", result.getStatus(), result.getErrorMessage());
+        ArgumentCaptor<AgentModelTurnRequest> requestCaptor = ArgumentCaptor.forClass(AgentModelTurnRequest.class);
+        verify(completion, times(2)).completeAgent(any(), requestCaptor.capture(), eq("autonomous_agent"));
+        assertNull(requestCaptor.getAllValues().get(0).getPreviousResponseId());
+        AgentModelTurnRequest continuation = requestCaptor.getAllValues().get(1);
+        assertEquals("resp-1", continuation.getPreviousResponseId());
+        assertEquals(1, continuation.getContinuationMessages().size());
+        assertEquals("tool", continuation.getContinuationMessages().get(0).getRole());
+        assertTrue(persistedResponseIds.contains("resp-1"));
+        assertTrue(persistedResponseIds.contains("resp-2"));
+
+        ArgumentCaptor<AgentRunEventBO> eventCaptor = ArgumentCaptor.forClass(AgentRunEventBO.class);
+        verify(repository, atLeast(2)).saveEvent(eq("tenant-1::user-1"), eventCaptor.capture());
+        List<AgentRunEventBO> cacheEvents = eventCaptor.getAllValues().stream()
+                .filter(event -> "CACHE_USAGE".equals(event.getType())).toList();
+        assertEquals(2, cacheEvents.size());
+        assertEquals("STATEFUL", new ObjectMapper().readTree(cacheEvents.get(1).getDetailsJson())
+                .path("continuationMode").asText());
+        assertEquals(8, new ObjectMapper().readTree(cacheEvents.get(1).getDetailsJson())
+                .path("cachedInputTokens").asInt());
+        assertTrue(!cacheEvents.get(1).getDetailsJson().contains("resp-1"));
     }
 
     @Test

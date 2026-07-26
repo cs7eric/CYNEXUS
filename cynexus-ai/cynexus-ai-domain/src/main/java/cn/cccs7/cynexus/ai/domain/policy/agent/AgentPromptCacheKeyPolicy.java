@@ -17,7 +17,7 @@ public final class AgentPromptCacheKeyPolicy {
     private AgentPromptCacheKeyPolicy() {
     }
 
-    public static PromptCacheContext context(String ownerKey, String conversationNo,
+    public static PromptCacheContext context(String ownerKey, String conversationNo, String stableSystemPrompt,
                                              AiModelBO model, List<AgentToolDefinition> tools) {
         String conversationKey = digest(AiConstants.PROMPT_CACHE_KEY_VERSION + "|conversation|"
                 + value(ownerKey) + "|" + value(conversationNo));
@@ -26,11 +26,16 @@ public final class AgentPromptCacheKeyPolicy {
                 .append(AiConstants.PROMPT_CACHE_CAPABILITY).append('|')
                 .append(value(model == null ? null : model.getProviderIdentity())).append('|')
                 .append(value(model == null ? null : model.getModelCode())).append('|')
+                .append(value(stableSystemPrompt)).append('|')
                 .append(canonicalTools(tools))
                 .toString();
+        String stablePrefixKey = "cynexus-prefix-" + digest(stablePrefix);
+        String routingKey = AiConstants.PROMPT_CACHE_KEY_VERSION + "|routing|"
+                + conversationKey + "|" + stablePrefixKey;
         return PromptCacheContext.builder()
                 .conversationKey("cynexus-conversation-" + conversationKey)
-                .stablePrefixKey("cynexus-prefix-" + digest(stablePrefix))
+                .stablePrefixKey(stablePrefixKey)
+                .routingKey("cynexus-agent-" + digest(routingKey))
                 .stablePrefixVersion(AiConstants.PROMPT_CACHE_KEY_VERSION)
                 .build();
     }

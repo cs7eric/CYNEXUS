@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.infra.basic.entity.agent;
 
 import cn.cccs7.cynexus.common.db.entity.BasePO;
+import cn.cccs7.cynexus.common.db.typehandler.JsonbTypeHandler;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.OffsetDateTime;
@@ -9,7 +10,7 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("ai_agent_run_event")
+@TableName(value = "ai_agent_run_event", autoResultMap = true)
 public class AgentRunEventPO extends BasePO {
     @TableField("run_no") private String runNo;
     @TableField("owner_key") private String ownerKey;
@@ -23,5 +24,6 @@ public class AgentRunEventPO extends BasePO {
     private String answer;
     private String delta;
     @TableField("error_message") private String errorMessage;
+    @TableField(value = "details_json", typeHandler = JsonbTypeHandler.class) private String detailsJson;
     @TableField("occurred_at") private OffsetDateTime occurredAt;
 }

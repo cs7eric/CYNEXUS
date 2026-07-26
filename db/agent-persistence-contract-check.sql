@@ -19,6 +19,32 @@ END $$;
 
 DO $$
 DECLARE
+    missing_count bigint;
+BEGIN
+    SELECT count(*) INTO missing_count
+    FROM (VALUES
+        ('ai_agent_conversation', 'provider_response_id', 'character varying'),
+        ('ai_agent_conversation', 'provider_state_provider_code', 'character varying'),
+        ('ai_agent_conversation', 'provider_state_model_code', 'character varying'),
+        ('ai_agent_conversation', 'provider_state_signature', 'character varying'),
+        ('ai_agent_conversation', 'provider_state_updated_at', 'timestamp with time zone'),
+        ('ai_agent_run_event', 'details_json', 'jsonb')
+    ) AS required(table_name, column_name, data_type)
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns actual
+        WHERE actual.table_schema = 'cynexus_appl_ai'
+          AND actual.table_name = required.table_name
+          AND actual.column_name = required.column_name
+          AND actual.data_type = required.data_type
+    );
+    IF missing_count <> 0 THEN
+        RAISE EXCEPTION 'Missing or invalid Agent response-state/cache-telemetry columns: %', missing_count;
+    END IF;
+END $$;
+
+DO $$
+DECLARE
     bad_count bigint;
 BEGIN
     SELECT count(*) INTO bad_count
@@ -38,8 +64,8 @@ END $$;
 DO $$
 DECLARE
     required_constraints text[] := ARRAY[
-        'fk_ai_agent_run_conversation', 'fk_ai_agent_message_conversation',
-        'fk_ai_agent_message_run', 'fk_ai_agent_run_step_run',
+        'fk_ai_agent_run_conversation', 'fk_ai_agent_message_owner_conversation',
+        'fk_ai_agent_message_run', 'fk_ai_agent_run_step_owner_run',
         'fk_ai_agent_run_event_run_owner', 'fk_ai_agent_task_conversation',
         'fk_ai_agent_task_run', 'fk_ai_agent_feedback_run_owner',
         'fk_ai_agent_feedback_conversation', 'fk_ai_agent_write_command_run',
@@ -54,8 +80,8 @@ BEGIN
         END IF;
     END LOOP;
     FOREACH item IN ARRAY ARRAY[
-        'fk_ai_agent_run_conversation', 'fk_ai_agent_message_conversation',
-        'fk_ai_agent_message_run', 'fk_ai_agent_run_step_run',
+        'fk_ai_agent_run_conversation', 'fk_ai_agent_message_owner_conversation',
+        'fk_ai_agent_message_run', 'fk_ai_agent_run_step_owner_run',
         'fk_ai_agent_run_event_run_owner', 'fk_ai_agent_task_conversation',
         'fk_ai_agent_task_run', 'fk_ai_agent_feedback_run_owner',
         'fk_ai_agent_feedback_conversation', 'fk_ai_agent_write_command_run',

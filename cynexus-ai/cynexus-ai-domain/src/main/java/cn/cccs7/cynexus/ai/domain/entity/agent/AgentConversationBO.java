@@ -16,6 +16,11 @@ public class AgentConversationBO {
     private String lastRunNo;
     private String lastMessage;
     private String metadataJson;
+    private String providerResponseId;
+    private String providerStateProviderCode;
+    private String providerStateModelCode;
+    private String providerStateSignature;
+    private OffsetDateTime providerStateUpdatedAt;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private OffsetDateTime deletedAt;

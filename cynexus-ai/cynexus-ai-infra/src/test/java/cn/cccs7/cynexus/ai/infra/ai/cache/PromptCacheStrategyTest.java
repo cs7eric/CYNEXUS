@@ -14,7 +14,8 @@ class PromptCacheStrategyTest {
     private final PromptCacheContext context = PromptCacheContext.builder()
             .conversationKey("cynexus-conversation-test")
             .stablePrefixKey("cynexus-prefix-test")
-            .stablePrefixVersion("v1")
+            .routingKey("cynexus-agent-routing-test")
+            .stablePrefixVersion("v4")
             .build();
 
     @Test
@@ -25,7 +26,7 @@ class PromptCacheStrategyTest {
 
         strategy.enrichPayload(model, context, payload, false);
 
-        assertThat(payload).containsEntry("prompt_cache_key", "cynexus-prefix-test");
+        assertThat(payload).containsEntry("prompt_cache_key", "cynexus-agent-routing-test");
         PromptCacheUsage usage = strategy.extractUsage(new ObjectMapper().readTree(
                 "{\"prompt_tokens_details\":{\"cached_tokens\":42,\"cache_write_tokens\":9}}"));
         assertThat(usage.getCachedInputTokens()).isEqualTo(42);
@@ -40,7 +41,7 @@ class PromptCacheStrategyTest {
         assertThat(strategy.headers(model, context)).containsEntry("x-grok-conv-id", "cynexus-conversation-test");
         Map<String, Object> payload = new LinkedHashMap<>();
         strategy.enrichPayload(model, context, payload, true);
-        assertThat(payload).containsEntry("prompt_cache_key", "cynexus-prefix-test");
+        assertThat(payload).containsEntry("prompt_cache_key", "cynexus-agent-routing-test");
     }
 
     @Test
@@ -53,7 +54,7 @@ class PromptCacheStrategyTest {
 
         assertThat(strategy).isInstanceOf(GenericPromptCacheStrategy.class);
         assertThat(strategy.headers(null, context)).isEmpty();
-        assertThat(payload).containsEntry("prompt_cache_key", "cynexus-prefix-test");
+        assertThat(payload).containsEntry("prompt_cache_key", "cynexus-agent-routing-test");
     }
 
     @Test

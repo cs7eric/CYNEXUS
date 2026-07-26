@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.service.agent.execution;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.agent.AgentClarificationBO;
@@ -38,13 +39,16 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolExecutionOutcome;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheContext;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheTelemetry;
 import cn.cccs7.cynexus.common.core.constant.TraceId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -180,6 +184,7 @@ public class AgentRunExecutionDomainService {
                     .answer(redactText(event.getAnswer()))
                     .delta(redactText(event.getDelta()))
                     .errorMessage(redactText(event.getErrorMessage()))
+                    .detailsJson(AgentSensitiveDataPolicy.redactJson(event.getDetailsJson()))
                     .sequenceNo(eventSequence.incrementAndGet())
                     .occurredAt(OffsetDateTime.now())
                     .build();
@@ -204,6 +209,11 @@ public class AgentRunExecutionDomainService {
             AgentModelMessage userMessage = AgentModelMessage.builder().role("user").content(userInput).build();
             messages.add(userMessage);
             runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), userMessage);
+            PromptCacheContext promptCacheContext = AgentPromptCacheKeyPolicy.context(
+                    ownerKey, conversationNo, stableSystemPrompt, model, definitions);
+            List<AgentModelMessage> continuationMessages = new ArrayList<>();
+            continuationMessages.add(userMessage);
+            String providerResponseId = reusableProviderResponseId(conversation, model, promptCacheContext);
             AgentExecutionContext context = AgentExecutionContext.builder()
                     .ownerKey(ownerKey)
                     .tenantKey(safeIdentity.getTenantKey())
@@ -234,12 +244,12 @@ public class AgentRunExecutionDomainService {
                 String runtimeContext = systemPromptDomainService.resolveRuntimeContext(
                         currentSystemDate(), toolBudget, usedTools, forceFinalAnswer,
                         executionDomainService.limits());
-                PromptCacheContext promptCacheContext = AgentPromptCacheKeyPolicy.context(
-                        ownerKey, conversationNo, model, definitions);
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
                         .systemPrompt(stableSystemPrompt)
                         .runtimeContext(runtimeContext)
                         .messages(List.copyOf(messages))
+                        .continuationMessages(List.copyOf(continuationMessages))
+                        .previousResponseId(providerResponseId)
                         .tools(definitions)
                         .toolsAllowed(!forceFinalAnswer)
                         .promptCacheContext(promptCacheContext)
@@ -272,6 +282,10 @@ public class AgentRunExecutionDomainService {
                 run.setStatus("RUNNING");
                 runDomainService.updateRun(run);
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
+                providerResponseId = valueOrNull(response.getProviderResponseId());
+                updateProviderState(conversation, model, promptCacheContext, providerResponseId);
+                runDomainService.updateConversation(conversation);
+                continuationMessages.clear();
                 // Keep the previous turn's runtime suffix in the next request so the full
                 // conversation prefix remains byte-for-byte cacheable.
                 messages.add(AgentModelMessage.builder().role("system").content(runtimeContext).build());
@@ -288,20 +302,24 @@ public class AgentRunExecutionDomainService {
                 run.setTotalTokens(totalTokens);
                 run.setUsageSource(estimatedUsage ? "ESTIMATED" : "REPORTED");
                 run.setEstimatedCost(executionDomainService.estimateCost(model, inputTokens, outputTokens));
+                publisher.accept(AgentRunEventBO.builder()
+                        .type(AiConstants.AGENT_EVENT_CACHE_USAGE)
+                        .runNo(runNo)
+                        .status("SUCCEEDED")
+                        .summary(cacheUsageSummary(turn, response))
+                        .detailsJson(cacheUsageDetails(turn, response))
+                        .build());
                 if (!response.hasToolCalls()) {
                     List<AgentModelToolCall> fallbackCalls =
                             executionDomainService.parseFallbackToolCalls(response.getContent());
                     if (!fallbackCalls.isEmpty()) {
-                        response = AgentModelTurnResponse.builder()
+                        providerResponseId = null;
+                        updateProviderState(conversation, model, promptCacheContext, null);
+                        runDomainService.updateConversation(conversation);
+                        response = response.toBuilder()
                                 .type("TOOL_CALLS")
                                 .content("")
                                 .toolCalls(fallbackCalls)
-                                .inputTokens(response.getInputTokens())
-                                .cachedInputTokens(response.getCachedInputTokens())
-                                .cacheWriteTokens(response.getCacheWriteTokens())
-                                .outputTokens(response.getOutputTokens())
-                                .totalTokens(response.getTotalTokens())
-                                .rawResponse(response.getRawResponse())
                                 .build();
                     }
                 }
@@ -381,6 +399,7 @@ public class AgentRunExecutionDomainService {
                                 .content(skipped.getOutputJson())
                                 .build();
                         messages.add(toolMessage);
+                        continuationMessages.add(toolMessage);
                         runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), toolMessage);
                         continue;
                     }
@@ -420,16 +439,19 @@ public class AgentRunExecutionDomainService {
                             .content(result.getOutputJson())
                             .build();
                     messages.add(toolMessage);
+                    continuationMessages.add(toolMessage);
                     runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), toolMessage);
                 }
                 int usedAfter = run.getToolCallCount() == null ? 0 : run.getToolCallCount();
                 if (admission.isBudgetExhausted() || usedAfter >= toolBudget) {
                     forceFinalAnswer = true;
                     if (!budgetExhaustedNotified) {
-                        messages.add(AgentModelMessage.builder().role("user").content(
+                        AgentModelMessage budgetMessage = AgentModelMessage.builder().role("user").content(
                                 "系统提示：本轮工具预算已用尽（上限 " + toolBudget + " 次）。"
                                         + "请停止调用工具，仅基于已有工具结果给出最终回答；"
-                                        + "如数据不足请明确说明缺口，不要再发起 tool calls。").build());
+                                        + "如数据不足请明确说明缺口，不要再发起 tool calls。").build();
+                        messages.add(budgetMessage);
+                        continuationMessages.add(budgetMessage);
                         budgetExhaustedNotified = true;
                         publisher.accept(AgentRunEventBO.builder().type("RETRYING").runNo(runNo).status("RUNNING")
                                 .summary("Tool budget reached; forcing a final answer from collected evidence.").build());
@@ -582,6 +604,74 @@ public class AgentRunExecutionDomainService {
         }
     }
 
+    private String reusableProviderResponseId(AgentConversationBO conversation, AiModelBO model,
+                                              PromptCacheContext promptCacheContext) {
+        if (conversation == null || model == null || promptCacheContext == null) return null;
+        boolean sameProvider = Objects.equals(valueOrNull(conversation.getProviderStateProviderCode()),
+                valueOrNull(model.getProviderIdentity()));
+        boolean sameModel = Objects.equals(valueOrNull(conversation.getProviderStateModelCode()),
+                valueOrNull(model.getModelCode()));
+        boolean sameSignature = Objects.equals(valueOrNull(conversation.getProviderStateSignature()),
+                valueOrNull(promptCacheContext.getRoutingKey()));
+        return sameProvider && sameModel && sameSignature
+                ? valueOrNull(conversation.getProviderResponseId()) : null;
+    }
+
+    private void updateProviderState(AgentConversationBO conversation, AiModelBO model,
+                                     PromptCacheContext promptCacheContext, String providerResponseId) {
+        String responseId = valueOrNull(providerResponseId);
+        conversation.setProviderResponseId(responseId);
+        conversation.setProviderStateProviderCode(responseId == null || model == null
+                ? null : valueOrNull(model.getProviderIdentity()));
+        conversation.setProviderStateModelCode(responseId == null || model == null
+                ? null : valueOrNull(model.getModelCode()));
+        conversation.setProviderStateSignature(responseId == null || promptCacheContext == null
+                ? null : valueOrNull(promptCacheContext.getRoutingKey()));
+        conversation.setProviderStateUpdatedAt(responseId == null ? null : OffsetDateTime.now());
+        conversation.setUpdatedAt(OffsetDateTime.now());
+    }
+
+    private String cacheUsageSummary(int turn, AgentModelTurnResponse response) {
+        int input = nonNegative(response == null ? null : response.getInputTokens());
+        int cached = nonNegative(response == null ? null : response.getCachedInputTokens());
+        double ratio = input == 0 ? 0D : (double) cached / input;
+        return "Turn " + turn + " prompt cache: " + cached + "/" + input
+                + " input tokens (" + Math.round(ratio * 1_000D) / 10D + "%).";
+    }
+
+    private String cacheUsageDetails(int turn, AgentModelTurnResponse response) {
+        PromptCacheTelemetry telemetry = response == null ? null : response.getCacheTelemetry();
+        int input = nonNegative(response == null ? null : response.getInputTokens());
+        int cached = nonNegative(response == null ? null : response.getCachedInputTokens());
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_TURN_FIELD, turn);
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_TOKENS_FIELD, input);
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_CACHED_INPUT_TOKENS_FIELD, cached);
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_WRITE_TOKENS_FIELD,
+                nonNegative(response == null ? null : response.getCacheWriteTokens()));
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_HIT_RATIO_FIELD,
+                input == 0 ? 0D : (double) cached / input);
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_KEY_HASH_FIELD,
+                telemetry == null ? null : telemetry.getCacheKeyHash());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_STABLE_PREFIX_HASH_FIELD,
+                telemetry == null ? null : telemetry.getStablePrefixHash());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_REQUEST_INPUT_HASH_FIELD,
+                telemetry == null ? null : telemetry.getRequestInputHash());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_ITEM_COUNT_FIELD,
+                telemetry == null ? null : telemetry.getInputItemCount());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_CONTINUATION_MODE_FIELD,
+                telemetry == null ? null : telemetry.getContinuationMode());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_STORAGE_ENABLED_FIELD,
+                telemetry != null && telemetry.isResponseStorageEnabled());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_STATE_FALLBACK_FIELD,
+                telemetry != null && telemetry.isStateFallback());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_PREVIOUS_RESPONSE_HASH_FIELD,
+                telemetry == null ? null : telemetry.getPreviousResponseIdHash());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_PROVIDER_RESPONSE_HASH_FIELD,
+                telemetry == null ? null : telemetry.getProviderResponseIdHash());
+        return json(details);
+    }
+
     private String currentSystemDate() {
         return java.time.LocalDate.now(java.time.ZoneId.of(CommonConstants.SHANGHAI_ZONE_ID)).toString();
     }
@@ -590,6 +680,7 @@ public class AgentRunExecutionDomainService {
         return definitions.stream()
                 .filter(definition -> definition.getCode().equals(toolCode))
                 .map(AgentToolDefinition::getFreshness)
+                .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(null);
     }
@@ -620,6 +711,10 @@ public class AgentRunExecutionDomainService {
 
     private String valueOr(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private String valueOrNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private String shortId() {
