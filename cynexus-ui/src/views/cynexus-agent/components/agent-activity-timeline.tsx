@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, ChevronDown, ChevronRight, MinusCircle, Wrench } from "lucide-react"
+import { Check, ChevronDown, ChevronRight, MinusCircle, RefreshCw, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Marker, MarkerContent, MarkerIcon, markerVariants } from "@/components/ui/marker"
@@ -21,6 +21,12 @@ export type AgentTimelineEntry =
       toolCode: string
       summary: string
       status: string
+    }
+  | {
+      id: string
+      type: "retry"
+      attempt?: number | null
+      summary: string
     }
 
 function lastMeaningfulLine(text: string) {
@@ -131,6 +137,25 @@ export function appendToolStep(
   ]
 }
 
+export function appendRetry(
+  entries: AgentTimelineEntry[],
+  retry: { sequenceNo?: number | null; summary?: string | null },
+): AgentTimelineEntry[] {
+  const id = `retry-${retry.sequenceNo ?? Date.now()}`
+  if (entries.some((entry) => entry.id === id)) return entries
+  const summary = retry.summary?.trim() || "Retrying the AI provider request."
+  const attempt = summary.match(/attempt\s+(\d+)/i)?.[1]
+  return [
+    ...entries,
+    {
+      id,
+      type: "retry",
+      attempt: attempt ? Number(attempt) : null,
+      summary,
+    },
+  ]
+}
+
 function toolLabel(entry: Extract<AgentTimelineEntry, { type: "tool" }>) {
   const code = entry.toolCode
   if (entry.status === "FAILED") return `未能调用 ${code}`
@@ -222,6 +247,19 @@ function ToolRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "tool" 
   )
 }
 
+function RetryRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "retry" }> }) {
+  return (
+    <Marker role="status" className="text-xs text-amber-700/80 dark:text-amber-400/80">
+      <MarkerIcon>
+        <RefreshCw className="size-3.5" />
+      </MarkerIcon>
+      <MarkerContent className="line-clamp-1 min-w-0">
+        {entry.summary}
+      </MarkerContent>
+    </Marker>
+  )
+}
+
 export function AgentActivityTimeline({
   entries,
 }: {
@@ -235,6 +273,9 @@ export function AgentActivityTimeline({
         {entries.map((entry) => {
           if (entry.type === "thinking") {
             return <ThinkingRow key={entry.id} entry={entry} />
+          }
+          if (entry.type === "retry") {
+            return <RetryRow key={entry.id} entry={entry} />
           }
           return <ToolRow key={entry.id} entry={entry} />
         })}

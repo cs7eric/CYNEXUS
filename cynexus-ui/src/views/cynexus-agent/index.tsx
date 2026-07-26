@@ -17,12 +17,12 @@ import { Message, MessageContent, MessageFooter, MessageHeader } from "@/compone
 import { Spinner } from "@/components/ui/spinner"
 import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { AgentActivityTimeline, appendThinkingDelta, appendToolStep, completeThinking, timelineFromSteps, type AgentTimelineEntry } from "./components/agent-activity-timeline"
+import { AgentActivityTimeline, appendRetry, appendThinkingDelta, appendToolStep, completeThinking, timelineFromSteps, type AgentTimelineEntry } from "./components/agent-activity-timeline"
 import { AgentFeedbackPanel } from "./components/agent-feedback-panel"
 import { AgentMarkdown } from "./components/agent-markdown"
 import { AgentWritePanel } from "./components/agent-write-panel"
 import { AgentTaskPanel } from "./components/agent-task-panel"
-import { AI_REASONING_EFFORTS, DEFAULT_AI_REASONING_EFFORT, fetchAiBindings, fetchAiProviders, normalizeAiReasoningEffort, type AiProviderItem, type AiReasoningEffort } from "@/services/ai/provider"
+import { AI_REASONING_EFFORT_PARAM, AI_REASONING_EFFORTS, DEFAULT_AI_REASONING_EFFORT, fetchAiBindings, fetchAiProviders, normalizeAiReasoningEffort, type AiProviderItem, type AiReasoningEffort } from "@/services/ai/provider"
 
 function stepLabel(step: AgentRunStep) {
   if (step.kind === "ANSWER") return "Answer"
@@ -178,6 +178,10 @@ function providerReasoningEffort(provider?: AiProviderItem): AiReasoningEffort {
   return normalizeAiReasoningEffort(provider?.extra?.model_reasoning_effort) || DEFAULT_AI_REASONING_EFFORT
 }
 
+function bindingReasoningEffort(params?: Record<string, unknown>): AiReasoningEffort | null {
+  return normalizeAiReasoningEffort(params?.[AI_REASONING_EFFORT_PARAM])
+}
+
 function removeCurrentRunFromTranscript(messages: AgentMessage[], run: AgentRun | null) {
   const visible = messages.filter(isVisibleTranscriptMessage)
   if (!run) return visible
@@ -206,6 +210,7 @@ export default function AutonomousAgentPage() {
   const [tools, setTools] = useState<AgentToolDefinition[]>([])
   const [providers, setProviders] = useState<AiProviderItem[]>([])
   const [defaultProviderCode, setDefaultProviderCode] = useState("")
+  const [bindingDefaultReasoning, setBindingDefaultReasoning] = useState<AiReasoningEffort>(DEFAULT_AI_REASONING_EFFORT)
   const [selectedProviderCode, setSelectedProviderCode] = useState("")
   const [selectedModelCode, setSelectedModelCode] = useState("")
   const [selectedReasoningEffort, setSelectedReasoningEffort] = useState<AiReasoningEffort | "">("")
@@ -272,6 +277,7 @@ export default function AutonomousAgentPage() {
         setDefaultProviderCode(boundProviderCode)
         setSelectedProviderCode(boundProviderCode)
         setSelectedModelCode(binding?.model_override || boundProvider?.default_model || boundProvider?.models[0] || "")
+        setBindingDefaultReasoning(bindingReasoningEffort(binding?.params) || providerReasoningEffort(boundProvider))
         setSelectedReasoningEffort("")
       }
     }
@@ -292,8 +298,15 @@ export default function AutonomousAgentPage() {
 
   const selectedProvider = providers.find((provider) => provider.code === selectedProviderCode)
     ?? providers.find((provider) => provider.code === defaultProviderCode)
-  const providerDefaultReasoning = providerReasoningEffort(selectedProvider)
+  const providerDefaultReasoning = !selectedProviderCode || selectedProviderCode === defaultProviderCode
+    ? bindingDefaultReasoning
+    : providerReasoningEffort(selectedProvider)
   const providerDisplayName = selectedProvider?.name || selectedProvider?.code || "Default provider"
+  const displayedModelCode = selectedModelCode
+    || run?.modelCode?.trim()
+    || selectedProvider?.default_model
+    || selectedProvider?.models[0]
+    || ""
 
   async function submit() {
     const userInput = input.trim()
@@ -331,6 +344,12 @@ export default function AutonomousAgentPage() {
             status: event.status,
           }))
         }
+        if (event.type === "RETRYING") {
+          setTimeline((current) => appendRetry(current, {
+            sequenceNo: event.sequenceNo,
+            summary: event.summary,
+          }))
+        }
         if (event.type === "TOKEN_DELTA" || event.answer) {
                 setTimeline((current) => completeThinking(current))
           setRun((current) => ({
@@ -347,7 +366,8 @@ export default function AutonomousAgentPage() {
         }
       }, controller.signal)
       setRun(nextRun)
-      setTimeline(timelineFromSteps(nextRun.steps))
+      if (nextRun.modelCode?.trim()) setSelectedModelCode(nextRun.modelCode.trim())
+      setTimeline((current) => current.length ? current : timelineFromSteps(nextRun.steps))
         if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
@@ -392,6 +412,7 @@ export default function AutonomousAgentPage() {
     try {
       const nextRun = await getAgentRun(conversation.lastRunNo)
       setRun(nextRun)
+      if (nextRun.modelCode?.trim()) setSelectedModelCode(nextRun.modelCode.trim())
       setTimeline(timelineFromSteps(nextRun.steps))
         setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
       setWorkspaceOpen(false)
@@ -425,10 +446,13 @@ export default function AutonomousAgentPage() {
   async function rerun(action: "retry" | "regenerate") {
     if (!run?.runNo || loading) return
     setLoading(true)
+    setTimeline([])
     try {
       setRun((current) => current ? { ...current, status: "RUNNING" } : current)
       const nextRun = action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo)
       setRun(nextRun)
+      if (nextRun.modelCode?.trim()) setSelectedModelCode(nextRun.modelCode.trim())
+      setTimeline((current) => current.length ? current : timelineFromSteps(nextRun.steps))
       if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
       setConversations(await fetchAgentConversations())
     } catch (reason: unknown) {
@@ -830,9 +854,9 @@ export default function AutonomousAgentPage() {
                       <SelectTrigger size="sm" className="h-7 max-w-[11rem] border-0 bg-transparent px-2 text-xs shadow-none"><Cpu className="size-3.5" /><SelectValue placeholder="Provider">{providerDisplayName}</SelectValue></SelectTrigger>
                       <SelectContent side="top" align="start"><SelectItem value="auto">Default provider</SelectItem>{providers.map((provider) => <SelectItem key={provider.code} value={provider.code}>{provider.name}</SelectItem>)}</SelectContent>
                     </Select>
-                    {selectedProviderCode ? <Select value={selectedModelCode || "auto"} onValueChange={(value) => setSelectedModelCode(value === "auto" ? "" : value)} disabled={loading}>
-                      <SelectTrigger size="sm" className="h-7 max-w-[13rem] border-0 bg-transparent px-2 text-xs shadow-none"><SelectValue placeholder="Model" /></SelectTrigger>
-                      <SelectContent side="top" align="start"><SelectItem value="auto">Provider default</SelectItem>{[...new Set([selectedModelCode, providers.find((provider) => provider.code === selectedProviderCode)?.default_model || "", ...(providers.find((provider) => provider.code === selectedProviderCode)?.models || [])].filter(Boolean))].map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}</SelectContent>
+                    {selectedProvider ? <Select value={selectedModelCode || "auto"} onValueChange={(value) => setSelectedModelCode(value === "auto" ? "" : value)} disabled={loading}>
+                      <SelectTrigger size="sm" className="h-7 max-w-[13rem] border-0 bg-transparent px-2 text-xs shadow-none"><SelectValue placeholder="Model">{displayedModelCode || "Model"}</SelectValue></SelectTrigger>
+                      <SelectContent side="top" align="start"><SelectItem value="auto">Provider default</SelectItem>{[...new Set([selectedModelCode, run?.modelCode || "", selectedProvider.default_model, ...selectedProvider.models].filter(Boolean))].map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}</SelectContent>
                     </Select> : null}
                     <Select value={selectedReasoningEffort || "provider-default"} onValueChange={(value) => setSelectedReasoningEffort((value === "provider-default" ? "" : value) as AiReasoningEffort | "")} disabled={loading}>
                       <SelectTrigger size="sm" title={selectedReasoningEffort || providerDefaultReasoning} className="h-7 min-w-[6rem] shrink-0 border-0 bg-transparent px-2 text-xs shadow-none"><Sparkles className="size-3.5" /><SelectValue placeholder="Reasoning">{selectedReasoningEffort || providerDefaultReasoning}</SelectValue></SelectTrigger>

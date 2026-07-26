@@ -12,6 +12,8 @@ public class AgentModelTurnResponse {
     String content;
     List<AgentModelToolCall> toolCalls;
     Integer inputTokens;
+    Integer cachedInputTokens;
+    Integer cacheWriteTokens;
     Integer outputTokens;
     Integer totalTokens;
     String rawResponse;

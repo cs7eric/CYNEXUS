@@ -41,6 +41,19 @@ public class AgentSystemPromptDomainService {
                 limits);
     }
 
+    public String resolveStable(AgentExecutionLimits limits) {
+        return AgentSystemPromptPolicy.renderStable(loadTemplate(boundPromptId()), limits);
+    }
+
+    public String resolveRuntimeContext(String currentDate,
+                                        int toolBudget,
+                                        int usedTools,
+                                        boolean forceFinalAnswer,
+                                        AgentExecutionLimits limits) {
+        return AgentSystemPromptPolicy.runtimeContext(
+                currentDate, toolBudget, usedTools, forceFinalAnswer, limits);
+    }
+
     private Long boundPromptId() {
         if (usageBindingRepository == null) {
             return null;

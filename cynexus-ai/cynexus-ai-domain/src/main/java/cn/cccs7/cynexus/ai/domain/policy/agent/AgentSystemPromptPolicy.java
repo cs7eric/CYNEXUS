@@ -38,6 +38,43 @@ public final class AgentSystemPromptPolicy {
         return applyVariables(resolvedTemplate, variables);
     }
 
+    /**
+     * Renders the cache-stable part of the prompt. Dynamic values are resolved
+     * in a later runtime-context message so they do not invalidate the prefix.
+     */
+    public static String renderStable(String template, AgentExecutionLimits limits) {
+        AgentExecutionLimits safe = limits == null ? AgentExecutionLimits.defaults() : limits;
+        String resolvedTemplate = template == null || template.isBlank() ? fallbackTemplate() : template;
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("current_date", "runtime_context.current_date");
+        variables.put("tool_budget", "runtime_context.tool_budget");
+        variables.put("used_tools", "runtime_context.used_tools");
+        variables.put("simple_max_tool_calls", String.valueOf(safe.getSimpleMaxToolCalls()));
+        variables.put("deep_max_tool_calls", String.valueOf(safe.getDeepMaxToolCalls()));
+        variables.put("max_tool_calls", String.valueOf(safe.getMaxToolCalls()));
+        variables.put("tool_budget_guidance", "runtime_context.tool_budget_guidance");
+        return applyVariables(resolvedTemplate, variables);
+    }
+
+    public static String runtimeContext(String currentDate,
+                                        int toolBudget,
+                                        int usedTools,
+                                        boolean forceFinalAnswer,
+                                        AgentExecutionLimits limits) {
+        AgentExecutionLimits safe = limits == null ? AgentExecutionLimits.defaults() : limits;
+        String guidance = forceFinalAnswer
+                ? "当前已达到工具预算：禁止再调用任何工具，必须直接基于已有结果给出最终回答。"
+                : "接近预算时优先收敛作答，而不是继续广撒网查询。";
+        return "本轮运行时上下文（权威值）：current_date=" + valueOr(currentDate, "")
+                + "; tool_budget=" + Math.max(0, toolBudget)
+                + "; used_tools=" + Math.max(0, usedTools)
+                + "; simple_max_tool_calls=" + safe.getSimpleMaxToolCalls()
+                + "; deep_max_tool_calls=" + safe.getDeepMaxToolCalls()
+                + "; max_tool_calls=" + safe.getMaxToolCalls()
+                + "; force_final_answer=" + forceFinalAnswer
+                + "; tool_budget_guidance=" + guidance;
+    }
+
     public static String fallbackTemplate() {
         return "你是 Cynexus 的自主数据分析 Agent。根据用户请求自主选择并按需调用提供的数据工具，先获取事实再分析。"
                 + "当前系统日期是 {{current_date}}；‘今天’、‘当前’等相对日期必须以此为准，不得自行猜测其他日期。"

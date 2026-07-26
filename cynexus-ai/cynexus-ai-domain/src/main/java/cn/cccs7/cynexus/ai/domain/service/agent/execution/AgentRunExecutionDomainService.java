@@ -19,6 +19,7 @@ import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentHistoryCollapsePolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentPromptCacheKeyPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentRunArtifactPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSensitiveDataPolicy;
 import cn.cccs7.cynexus.ai.domain.service.agent.prompt.AgentSystemPromptDomainService;
@@ -36,6 +37,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCallAdmission;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolExecutionOutcome;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheContext;
 import cn.cccs7.cynexus.common.core.constant.TraceId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -194,6 +196,7 @@ public class AgentRunExecutionDomainService {
             run.setProviderCode(model.getProviderIdentity());
             run.setModelCode(model.getModelCode());
             List<AgentToolDefinition> definitions = toolCatalog.enabledTools();
+            String stableSystemPrompt = systemPromptDomainService.resolveStable(executionDomainService.limits());
             List<AgentMessageBO> persistedMessages = runDomainService.findMessages(ownerKey, conversationNo);
             AtomicInteger messageSequence = new AtomicInteger(AgentRunDomainService.nextMessageSequence(persistedMessages));
             List<AgentModelMessage> messages = new ArrayList<>(AgentHistoryCollapsePolicy.collapseForProvider(
@@ -214,6 +217,8 @@ public class AgentRunExecutionDomainService {
             String answer = null;
             AgentClarificationBO clarification = null;
             int inputTokens = 0;
+            int cachedInputTokens = 0;
+            int cacheWriteTokens = 0;
             int outputTokens = 0;
             int totalTokens = 0;
             boolean estimatedUsage = false;
@@ -226,11 +231,18 @@ public class AgentRunExecutionDomainService {
                 run.setTurnCount(turn);
                 int usedTools = run.getToolCallCount() == null ? 0 : run.getToolCallCount();
                 if (usedTools >= toolBudget) forceFinalAnswer = true;
-                List<AgentToolDefinition> toolsForTurn = forceFinalAnswer ? List.of() : definitions;
+                String runtimeContext = systemPromptDomainService.resolveRuntimeContext(
+                        currentSystemDate(), toolBudget, usedTools, forceFinalAnswer,
+                        executionDomainService.limits());
+                PromptCacheContext promptCacheContext = AgentPromptCacheKeyPolicy.context(
+                        ownerKey, conversationNo, model, definitions);
                 AgentModelTurnRequest modelRequest = AgentModelTurnRequest.builder()
-                        .systemPrompt(systemPrompt(currentSystemDate(), toolBudget, usedTools, forceFinalAnswer))
+                        .systemPrompt(stableSystemPrompt)
+                        .runtimeContext(runtimeContext)
                         .messages(List.copyOf(messages))
-                        .tools(toolsForTurn)
+                        .tools(definitions)
+                        .toolsAllowed(!forceFinalAnswer)
+                        .promptCacheContext(promptCacheContext)
                         .build();
                 StringBuilder turnThinking = new StringBuilder();
                 AgentModelTurnResponse response = completeAgentWithRetry(model, modelRequest, ownerKey, runNo,
@@ -260,11 +272,18 @@ public class AgentRunExecutionDomainService {
                 run.setStatus("RUNNING");
                 runDomainService.updateRun(run);
                 if (response == null) throw new IllegalStateException("Agent model returned no response");
+                // Keep the previous turn's runtime suffix in the next request so the full
+                // conversation prefix remains byte-for-byte cacheable.
+                messages.add(AgentModelMessage.builder().role("system").content(runtimeContext).build());
                 inputTokens += nonNegative(response.getInputTokens());
+                cachedInputTokens += nonNegative(response.getCachedInputTokens());
+                cacheWriteTokens += nonNegative(response.getCacheWriteTokens());
                 outputTokens += nonNegative(response.getOutputTokens());
                 totalTokens += nonNegative(response.getTotalTokens());
                 estimatedUsage |= !hasReportedUsage(response);
                 run.setInputTokens(inputTokens);
+                run.setCachedInputTokens(cachedInputTokens);
+                run.setCacheWriteTokens(cacheWriteTokens);
                 run.setOutputTokens(outputTokens);
                 run.setTotalTokens(totalTokens);
                 run.setUsageSource(estimatedUsage ? "ESTIMATED" : "REPORTED");
@@ -278,6 +297,8 @@ public class AgentRunExecutionDomainService {
                                 .content("")
                                 .toolCalls(fallbackCalls)
                                 .inputTokens(response.getInputTokens())
+                                .cachedInputTokens(response.getCachedInputTokens())
+                                .cacheWriteTokens(response.getCacheWriteTokens())
                                 .outputTokens(response.getOutputTokens())
                                 .totalTokens(response.getTotalTokens())
                                 .rawResponse(response.getRawResponse())
@@ -559,15 +580,6 @@ public class AgentRunExecutionDomainService {
         } catch (JsonProcessingException ignored) {
             return false;
         }
-    }
-
-    private String systemPrompt(String currentDate, int toolBudget, int usedTools, boolean forceFinalAnswer) {
-        return systemPromptDomainService.resolve(
-                currentDate,
-                toolBudget,
-                usedTools,
-                forceFinalAnswer,
-                executionDomainService.limits());
     }
 
     private String currentSystemDate() {

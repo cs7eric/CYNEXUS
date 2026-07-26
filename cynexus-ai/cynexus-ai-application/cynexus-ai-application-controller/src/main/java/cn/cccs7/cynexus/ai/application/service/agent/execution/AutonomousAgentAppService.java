@@ -267,6 +267,7 @@ public class AutonomousAgentAppService {
                 .clarificationJson(run.getClarificationJson())
                 .warningsJson(run.getWarningsJson())
                 .turnCount(run.getTurnCount()).toolCallCount(run.getToolCallCount()).inputTokens(run.getInputTokens())
+                .cachedInputTokens(run.getCachedInputTokens()).cacheWriteTokens(run.getCacheWriteTokens())
                 .outputTokens(run.getOutputTokens()).totalTokens(run.getTotalTokens()).estimatedCost(run.getEstimatedCost())
                 .usageSource(run.getUsageSource()).errorMessage(run.getErrorMessage())
                 .failureCategory(run.getFailureCategory())

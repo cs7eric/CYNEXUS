@@ -219,3 +219,10 @@ Controller / Request DTO
 - Put values used only by one layer in that layer's local common package, for example `cynexus-xxx-*/src/main/java/.../<layer>/common/constant`, instead of leaking infra or adapter details into domain/common modules.
 - Keep a constant in its owning module even when another module consumes the API. Do not move business-specific values into global common merely to remove a duplicate field name.
 - Local `private static final` values remain appropriate for one class's implementation detail, derived values, regular expressions, SQL fragments, and single-use business rules. A refactor must preserve DDD dependency direction and must not make domain depend on infra.
+
+## Agent Prompt Cache Rules
+
+- Keep the DB-managed Agent system prompt stable: runtime date, budget, tool-count, and force-final-answer values must be sent as a later runtime-context message, not rendered into the stable prefix.
+- Place runtime context after the existing conversation history so each completed Agent turn remains reusable as the next request's prefix; keep the runtime context as an authoritative system instruction.
+- Generate `PromptCacheContext` per model turn using the exact Tool set sent on that turn. A no-Tool final-answer turn must not reuse the cache key for a Tool-enabled turn.
+- Sort Tool definitions deterministically before serialization, and version the cache key whenever the prefix layout or Tool serialization contract changes. A `prompt_cache_key` is only a routing hint; verify real hits from provider usage fields.

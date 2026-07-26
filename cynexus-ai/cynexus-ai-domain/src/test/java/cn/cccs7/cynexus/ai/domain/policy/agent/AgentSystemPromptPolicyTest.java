@@ -37,4 +37,31 @@ class AgentSystemPromptPolicyTest {
         assertTrue(prompt.contains("已用=2"));
         assertTrue(prompt.contains("禁止再调用任何工具"));
     }
+
+    @Test
+    void keepsStablePromptIdenticalWhenRuntimeValuesChange() {
+        String first = AgentSystemPromptPolicy.renderStable(
+                "固定规则 日期={{current_date}} 预算={{tool_budget}} 已用={{used_tools}} {{tool_budget_guidance}}",
+                AgentExecutionLimits.defaults());
+        String second = AgentSystemPromptPolicy.renderStable(
+                "固定规则 日期={{current_date}} 预算={{tool_budget}} 已用={{used_tools}} {{tool_budget_guidance}}",
+                AgentExecutionLimits.defaults());
+
+        assertTrue(first.equals(second));
+        assertTrue(first.contains("runtime_context.current_date"));
+        assertTrue(first.contains("runtime_context.tool_budget"));
+        assertTrue(!first.contains("2026-07-24"));
+    }
+
+    @Test
+    void putsChangingExecutionStateInRuntimeContext() {
+        String context = AgentSystemPromptPolicy.runtimeContext(
+                "2026-07-24", 2, 1, true, AgentExecutionLimits.defaults());
+
+        assertTrue(context.contains("current_date=2026-07-24"));
+        assertTrue(context.contains("tool_budget=2"));
+        assertTrue(context.contains("used_tools=1"));
+        assertTrue(context.contains("force_final_answer=true"));
+        assertTrue(context.contains("禁止再调用任何工具"));
+    }
 }

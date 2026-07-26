@@ -10,6 +10,11 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnRequest;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelTurnResponse;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolDefinition;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.PromptCacheContext;
+import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheStrategy;
+import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheStrategyRegistry;
+import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheUsage;
+import cn.cccs7.cynexus.ai.infra.ai.cache.PromptCacheUsageParser;
 import cn.cccs7.cynexus.ai.infra.secret.SecretResolver;
 import cn.cccs7.cynexus.ai.domain.policy.security.AgentOutboundEndpointPolicy;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -34,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -71,6 +77,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private final Environment environment;
     private final HttpClient httpClient;
     private final CloseableHttpClient streamingHttpClient;
+    private final PromptCacheStrategyRegistry promptCacheStrategyRegistry = PromptCacheStrategyRegistry.defaultRegistry();
 
     protected OpenAiCompatibleChatAdapter(SecretResolver secretResolver,
                                           Environment environment) {
@@ -129,18 +136,21 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
         try {
             boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
-            String payload = responsesApi ? buildAgentResponsesPayload(model, request) : buildAgentChatPayload(model, request);
-            HttpRequest httpRequest = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
+            PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
+            String payload = responsesApi ? buildAgentResponsesPayload(model, request, cacheStrategy)
+                    : buildAgentChatPayload(model, request, cacheStrategy);
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
                     .timeout(resolveRequestTimeout(model))
                     .header("Authorization", "Bearer " + apiKey)
-                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
-                    .POST(HttpRequest.BodyPublishers.ofString(payload))
-                    .build();
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
+            cacheStrategy.headers(model, promptCacheContext(request)).forEach(requestBuilder::header);
+            HttpRequest httpRequest = requestBuilder.POST(HttpRequest.BodyPublishers.ofString(payload)).build();
             HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw providerHttpFailure(response.statusCode(), response.body());
             }
-            return responsesApi ? extractResponsesAgentResponse(response.body(), request) : extractChatAgentResponse(response.body(), request);
+            return responsesApi ? extractResponsesAgentResponse(response.body(), request, cacheStrategy)
+                    : extractChatAgentResponse(response.body(), request, cacheStrategy);
         } catch (IOException exception) {
             logProviderFailure("agent", model, exception);
             throw new IllegalStateException("Failed to call AI provider: " + providerCode(), exception);
@@ -158,9 +168,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Missing API key for provider: " + providerCode());
         boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
         String payload;
+        PromptCacheStrategy cacheStrategy = promptCacheStrategyRegistry.resolve(model);
         try {
-            payload = responsesApi ? buildAgentResponsesPayload(model, request, true)
-                    : buildAgentChatPayload(model, request, true);
+            payload = responsesApi ? buildAgentResponsesPayload(model, request, true, cacheStrategy)
+                    : buildAgentChatPayload(model, request, true, cacheStrategy);
         } catch (IOException exception) {
             logProviderFailure("agent stream", model, exception);
             throw new IllegalStateException("Failed to prepare AI provider stream: " + providerCode(), exception);
@@ -168,8 +179,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         IOException lastTransportFailure = null;
         for (int attempt = 1; attempt <= STREAM_TRANSPORT_ATTEMPTS; attempt++) {
             try {
-                return streamWithApacheHttpClient(resolveEndpoint(model, responsesApi), apiKey, payload,
-                        resolveRequestTimeout(model), responsesApi, request, textDeltaConsumer, thinkingDeltaConsumer);
+                return streamWithApacheHttpClient(model, resolveEndpoint(model, responsesApi), apiKey, payload,
+                        resolveRequestTimeout(model), responsesApi, request, cacheStrategy,
+                        textDeltaConsumer, thinkingDeltaConsumer);
             } catch (IOException exception) {
                 if (isInterruptedFailure(exception)) {
                     Thread.currentThread().interrupt();
@@ -357,16 +369,28 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request) throws IOException {
-        return buildAgentChatPayload(model, request, false);
+        return buildAgentChatPayload(model, request, false, promptCacheStrategyRegistry.resolve(model));
     }
 
     private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request, boolean stream) throws IOException {
+        return buildAgentChatPayload(model, request, stream, promptCacheStrategyRegistry.resolve(model));
+    }
+
+    private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request, PromptCacheStrategy cacheStrategy) throws IOException {
+        return buildAgentChatPayload(model, request, false, cacheStrategy);
+    }
+
+    private String buildAgentChatPayload(AiModelBO model, AgentModelTurnRequest request,
+                                         boolean stream, PromptCacheStrategy cacheStrategy) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("temperature", 0);
         payload.put("messages", buildChatMessages(request));
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), false));
-        payload.put("tool_choice", "auto");
+        payload.put(AiConstants.TOOL_CHOICE_FIELD,
+                request == null || request.isToolsAllowed()
+                        ? AiConstants.TOOL_CHOICE_AUTO : AiConstants.TOOL_CHOICE_NONE);
+        cacheStrategy.enrichPayload(model, promptCacheContext(request), payload, false);
         String reasoningEffort = extraString(model, AiConstants.MODEL_REASONING_EFFORT_EXTRA);
         if (!reasoningEffort.isBlank()) {
             payload.put(AiConstants.REASONING_EFFORT_REQUEST_FIELD, reasoningEffort);
@@ -379,15 +403,29 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request) throws IOException {
-        return buildAgentResponsesPayload(model, request, false);
+        return buildAgentResponsesPayload(model, request, false, promptCacheStrategyRegistry.resolve(model));
     }
 
     private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request, boolean stream) throws IOException {
+        return buildAgentResponsesPayload(model, request, stream, promptCacheStrategyRegistry.resolve(model));
+    }
+
+    private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request,
+                                              PromptCacheStrategy cacheStrategy) throws IOException {
+        return buildAgentResponsesPayload(model, request, false, cacheStrategy);
+    }
+
+    private String buildAgentResponsesPayload(AiModelBO model, AgentModelTurnRequest request,
+                                              boolean stream, PromptCacheStrategy cacheStrategy) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", resolveModelName(model));
         payload.put("input", buildResponsesInput(request));
         payload.put("tools", buildToolDefinitions(request == null ? List.of() : request.getTools(), true));
+        payload.put(AiConstants.TOOL_CHOICE_FIELD,
+                request == null || request.isToolsAllowed()
+                        ? AiConstants.TOOL_CHOICE_AUTO : AiConstants.TOOL_CHOICE_NONE);
         payload.put("store", !extraBoolean(model, "disable_response_storage", true));
+        cacheStrategy.enrichPayload(model, promptCacheContext(request), payload, true);
         if (stream) payload.put("stream", true);
         Map<String, Object> reasoning = new LinkedHashMap<>();
         String effort = extraString(model, AiConstants.MODEL_REASONING_EFFORT_EXTRA);
@@ -415,7 +453,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 raw.append(data).append('\n');
                 try {
                     JsonNode root = objectMapper.readTree(data);
-                    captureStreamUsage(usage, root.get("usage"));
+                    captureStreamUsage(usage, root.get(AiConstants.AI_USAGE_FIELD));
                     JsonNode delta = root.at("/choices/0/delta");
                     String text = textValue(delta.get("content"), "");
                     if (!text.isBlank()) {
@@ -466,10 +504,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 try {
                     JsonNode root = objectMapper.readTree(data);
                     String type = textValue(root.get("type"), "");
-                    JsonNode usageNode = root.get("usage");
+                    JsonNode usageNode = root.get(AiConstants.AI_USAGE_FIELD);
                     if (usageNode == null && "response.completed".equals(type)) {
                         JsonNode response = root.get("response");
-                        usageNode = response == null ? null : response.get("usage");
+                        usageNode = response == null ? null : response.get(AiConstants.AI_USAGE_FIELD);
                     }
                     captureStreamUsage(usage, usageNode);
                     if ("response.output_text.delta".equals(type)) {
@@ -493,20 +531,25 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                         }
                     } else if ("response.output_item.added".equals(type)) {
                         JsonNode item = root.get("item");
-                        if (item != null && "function_call".equals(textValue(item.get("type"), ""))) {
-                            String key = nonBlank(textValue(item.get("call_id"), ""), textValue(item.get("id"), String.valueOf(tools.size())));
+                        if (item != null && AiConstants.RESPONSES_FUNCTION_CALL_TYPE.equals(
+                                textValue(item.get(AiConstants.RESPONSES_TYPE_FIELD), ""))) {
+                            String itemId = textValue(item.get("id"), "");
+                            String callId = textValue(item.get("call_id"), "");
+                            String key = nonBlank(itemId, nonBlank(callId, String.valueOf(tools.size())));
                             StreamToolAccumulator accumulator = tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator());
-                            accumulator.id = key;
-                            accumulator.name = textValue(item.get("name"), "");
+                            accumulator.itemId = nonBlank(itemId, accumulator.itemId);
+                            accumulator.id = nonBlank(callId, nonBlank(itemId, accumulator.id));
+                            accumulator.name = nonBlank(textValue(item.get("name"), ""), accumulator.name);
                             accumulator.arguments.append(textValue(item.get("arguments"), ""));
                         }
                     } else if ("response.function_call_arguments.delta".equals(type)) {
-                        String key = nonBlank(textValue(root.get("call_id"), ""), textValue(root.get("item_id"), String.valueOf(tools.size())));
-                        tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator()).arguments
+                        StreamToolAccumulator accumulator = findStreamTool(tools,
+                                textValue(root.get("item_id"), ""), textValue(root.get("call_id"), ""));
+                        accumulator.arguments
                                 .append(textValue(root.get("delta"), ""));
                     } else if ("response.function_call_arguments.done".equals(type)) {
-                        String key = nonBlank(textValue(root.get("call_id"), ""), textValue(root.get("item_id"), String.valueOf(tools.size())));
-                        StreamToolAccumulator accumulator = tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator());
+                        StreamToolAccumulator accumulator = findStreamTool(tools,
+                                textValue(root.get("item_id"), ""), textValue(root.get("call_id"), ""));
                         if (accumulator.arguments.isEmpty()) accumulator.arguments.append(textValue(root.get("arguments"), ""));
                     }
                 } catch (IOException ignored) {
@@ -515,6 +558,28 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             }
         }
         return streamResponse(content.toString(), tools, raw.toString(), usage, request);
+    }
+
+    private StreamToolAccumulator findStreamTool(Map<String, StreamToolAccumulator> tools,
+                                                  String itemId, String callId) {
+        String itemKey = itemId == null ? "" : itemId;
+        String callKey = callId == null ? "" : callId;
+        StreamToolAccumulator accumulator = tools.get(itemKey);
+        if (accumulator == null) accumulator = tools.get(callKey);
+        if (accumulator == null) {
+            accumulator = tools.values().stream()
+                    .filter(candidate -> (!itemKey.isBlank() && itemKey.equals(candidate.itemId))
+                            || (!callKey.isBlank() && callKey.equals(candidate.id)))
+                    .findFirst().orElse(null);
+        }
+        if (accumulator != null) {
+            return accumulator;
+        }
+        String key = nonBlank(itemKey, nonBlank(callKey, String.valueOf(tools.size())));
+        accumulator = tools.computeIfAbsent(key, ignored -> new StreamToolAccumulator());
+        accumulator.itemId = nonBlank(itemKey, accumulator.itemId);
+        accumulator.id = nonBlank(callKey, accumulator.id);
+        return accumulator;
     }
 
     private AgentModelTurnResponse streamResponse(String content, Map<String, StreamToolAccumulator> tools,
@@ -527,7 +592,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 JsonNode arguments = accumulator.arguments.isEmpty() ? objectMapper.createObjectNode()
                         : objectMapper.readTree(accumulator.arguments.toString());
                 if (!arguments.isObject()) throw new IllegalStateException("AI tool arguments must be a JSON object");
-                calls.add(AgentModelToolCall.builder().callId(nonBlank(accumulator.id, "stream-call-" + calls.size()))
+                String callId = nonBlank(accumulator.id, "stream-call-" + calls.size());
+                calls.add(AgentModelToolCall.builder().itemId(accumulator.itemId).callId(callId)
                         .toolCode(canonicalToolName(accumulator.name)).arguments(objectMapper.convertValue(arguments, Map.class)).build());
             } catch (IOException exception) {
                 throw new IllegalStateException("AI provider emitted invalid tool arguments", exception);
@@ -540,6 +606,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         int totalTokens = usage.totalTokens == null ? inputTokens + outputTokens : usage.totalTokens;
         return AgentModelTurnResponse.builder().type(calls.isEmpty() ? "FINAL" : "TOOL_CALLS")
                 .content(content).toolCalls(calls).inputTokens(inputTokens)
+                .cachedInputTokens(usage.cachedInputTokens).cacheWriteTokens(usage.cacheWriteTokens)
                 .outputTokens(outputTokens).totalTokens(totalTokens)
                 .rawResponse(formatStreamingRawResponse(raw, usage)).build();
     }
@@ -549,6 +616,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private static final class StreamToolAccumulator {
+        private String itemId;
         private String id;
         private String name;
         private final StringBuilder arguments = new StringBuilder();
@@ -556,25 +624,36 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private static final class StreamUsageAccumulator {
         private Integer inputTokens;
+        private Integer cachedInputTokens;
+        private Integer cacheWriteTokens;
         private Integer outputTokens;
         private Integer totalTokens;
 
         private boolean hasAny() {
-            return inputTokens != null || outputTokens != null || totalTokens != null;
+            return inputTokens != null || cachedInputTokens != null || cacheWriteTokens != null
+                    || outputTokens != null || totalTokens != null;
         }
     }
 
     private void captureStreamUsage(StreamUsageAccumulator usage, JsonNode usageNode) {
         if (usageNode == null || !usageNode.isObject()) return;
-        Integer input = firstInt(usageNode, "input_tokens", "prompt_tokens");
-        Integer output = firstInt(usageNode, "output_tokens", "completion_tokens");
-        Integer total = firstInt(usageNode, "total_tokens");
+        Integer input = firstInt(usageNode, AiConstants.AI_USAGE_INPUT_TOKENS_FIELD,
+                AiConstants.AI_USAGE_PROMPT_TOKENS_FIELD);
+        Integer output = firstInt(usageNode, AiConstants.AI_USAGE_OUTPUT_TOKENS_FIELD,
+                AiConstants.AI_USAGE_COMPLETION_TOKENS_FIELD);
+        Integer total = firstInt(usageNode, AiConstants.AI_USAGE_TOTAL_TOKENS_FIELD);
+        PromptCacheUsage cacheUsage = PromptCacheUsageParser.parse(usageNode);
+        Integer cached = cacheUsage.getCachedInputTokens();
+        Integer writes = cacheUsage.getCacheWriteTokens();
         if (input != null) usage.inputTokens = input;
+        if (cached != null) usage.cachedInputTokens = cached;
+        if (writes != null) usage.cacheWriteTokens = writes;
         if (output != null) usage.outputTokens = output;
         if (total != null) usage.totalTokens = total;
     }
 
     private Integer firstInt(JsonNode node, String... fields) {
+        if (node == null) return null;
         for (String field : fields) {
             JsonNode value = node.get(field);
             if (value != null && value.canConvertToInt()) return value.asInt();
@@ -586,10 +665,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         ObjectNode envelope = objectMapper.createObjectNode();
         envelope.put("events", raw == null ? "" : raw);
         if (usage != null && usage.hasAny()) {
-            ObjectNode usageNode = envelope.putObject("usage");
-            if (usage.inputTokens != null) usageNode.put("input_tokens", usage.inputTokens);
-            if (usage.outputTokens != null) usageNode.put("output_tokens", usage.outputTokens);
-            if (usage.totalTokens != null) usageNode.put("total_tokens", usage.totalTokens);
+            ObjectNode usageNode = envelope.putObject(AiConstants.AI_USAGE_FIELD);
+            if (usage.inputTokens != null) usageNode.put(AiConstants.AI_USAGE_INPUT_TOKENS_FIELD, usage.inputTokens);
+            if (usage.cachedInputTokens != null) usageNode.put(AiConstants.PROMPT_CACHE_USAGE_CACHED_INPUT_TOKENS_FIELD, usage.cachedInputTokens);
+            if (usage.cacheWriteTokens != null) usageNode.put(AiConstants.PROMPT_CACHE_USAGE_WRITE_TOKENS_FIELD, usage.cacheWriteTokens);
+            if (usage.outputTokens != null) usageNode.put(AiConstants.AI_USAGE_OUTPUT_TOKENS_FIELD, usage.outputTokens);
+            if (usage.totalTokens != null) usageNode.put(AiConstants.AI_USAGE_TOTAL_TOKENS_FIELD, usage.totalTokens);
         }
         try {
             return objectMapper.writeValueAsString(envelope);
@@ -618,6 +699,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 messages.add(item);
             }
         }
+        appendRuntimeContext(messages, request);
         return messages;
     }
 
@@ -629,9 +711,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (request != null && request.getMessages() != null) {
             for (AgentModelMessage message : request.getMessages()) {
                 if ("tool".equals(message.getRole())) {
-                    input.add(Map.of("type", "function_call_output", "call_id", message.getToolCallId(),
-                            "item_reference", message.getToolCallId(),
-                            "output", message.getContent() == null ? "" : message.getContent()));
+                    input.add(Map.of(AiConstants.RESPONSES_TYPE_FIELD,
+                            AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_TYPE,
+                            AiConstants.RESPONSES_FUNCTION_CALL_ID_FIELD, message.getToolCallId(),
+                            AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_FIELD,
+                            message.getContent() == null ? "" : message.getContent()));
                 } else if ("assistant".equals(message.getRole()) && message.getToolCalls() != null
                         && !message.getToolCalls().isEmpty()) {
                     for (AgentModelToolCall call : message.getToolCalls()) {
@@ -642,14 +726,25 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 }
             }
         }
+        appendRuntimeContext(input, request);
         return input;
+    }
+
+    private void appendRuntimeContext(List<Map<String, Object>> input, AgentModelTurnRequest request) {
+        if (request != null && request.getRuntimeContext() != null && !request.getRuntimeContext().isBlank()) {
+            input.add(Map.of("role", "system", "content", request.getRuntimeContext()));
+        }
     }
 
     private Map<String, Object> toResponsesFunctionCall(AgentModelToolCall call) {
         try {
-            return Map.of("type", "function_call", "id", call.getCallId(), "call_id", call.getCallId(),
-                    "name", providerToolName(call.getToolCode()),
-                    "arguments", objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments()));
+            String itemId = nonBlank(call.getItemId(), call.getCallId());
+            return Map.of(AiConstants.RESPONSES_TYPE_FIELD, AiConstants.RESPONSES_FUNCTION_CALL_TYPE,
+                    AiConstants.RESPONSES_FUNCTION_CALL_ITEM_ID_FIELD, itemId,
+                    AiConstants.RESPONSES_FUNCTION_CALL_ID_FIELD, call.getCallId(),
+                    AiConstants.RESPONSES_FUNCTION_CALL_NAME_FIELD, providerToolName(call.getToolCode()),
+                    AiConstants.RESPONSES_FUNCTION_CALL_ARGUMENTS_FIELD,
+                    objectMapper.writeValueAsString(call.getArguments() == null ? Map.of() : call.getArguments()));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize Agent tool arguments", exception);
         }
@@ -659,7 +754,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                                                             boolean responsesApi) throws IOException {
         List<Map<String, Object>> tools = new ArrayList<>();
         if (definitions == null) return tools;
-        for (AgentToolDefinition definition : definitions) {
+        List<AgentToolDefinition> orderedDefinitions = definitions.stream()
+                .filter(definition -> definition != null)
+                .sorted(Comparator.comparing(definition -> definition.getCode() == null ? "" : definition.getCode()))
+                .toList();
+        for (AgentToolDefinition definition : orderedDefinitions) {
             Map<String, Object> function = new LinkedHashMap<>();
             function.put("name", providerToolName(definition.getCode()));
             function.put("description", AgentToolDescriptionRenderer.render(objectMapper,
@@ -689,7 +788,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
     }
 
-    private AgentModelTurnResponse extractChatAgentResponse(String responseBody, AgentModelTurnRequest request) throws IOException {
+    private AgentModelTurnResponse extractChatAgentResponse(String responseBody, AgentModelTurnRequest request,
+                                                             PromptCacheStrategy cacheStrategy) throws IOException {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode message = root.at("/choices/0/message");
         List<AgentModelToolCall> calls = new ArrayList<>();
@@ -697,8 +797,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (toolCalls != null && toolCalls.isArray()) {
             for (JsonNode toolCall : toolCalls) {
                 JsonNode function = toolCall.get("function");
-                calls.add(AgentModelToolCall.builder()
-                        .callId(textValue(toolCall.get("id"), "call_" + calls.size()))
+                String callId = textValue(toolCall.get("id"), "call_" + calls.size());
+                calls.add(AgentModelToolCall.builder().itemId(callId)
+                        .callId(callId)
                         .toolCode(canonicalToolName(textValue(function == null ? null : function.get("name"), "")))
                         .arguments(parseArguments(function == null ? null : function.get("arguments")))
                         .build());
@@ -710,22 +811,30 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .content(content)
                 .toolCalls(calls)
                 .inputTokens(extractInputTokens(responseBody, requestPrompt(request)))
+                .cachedInputTokens(extractCachedInputTokens(responseBody, cacheStrategy))
+                .cacheWriteTokens(extractCacheWriteTokens(responseBody, cacheStrategy))
                 .outputTokens(extractOutputTokens(responseBody, content))
                 .totalTokens(extractTotalTokens(responseBody, requestPrompt(request), content))
                 .rawResponse(responseBody)
                 .build();
     }
 
-    private AgentModelTurnResponse extractResponsesAgentResponse(String responseBody, AgentModelTurnRequest request) throws IOException {
+    private AgentModelTurnResponse extractResponsesAgentResponse(String responseBody, AgentModelTurnRequest request,
+                                                                  PromptCacheStrategy cacheStrategy) throws IOException {
         JsonNode root = objectMapper.readTree(responseBody);
         List<AgentModelToolCall> calls = new ArrayList<>();
         StringBuilder text = new StringBuilder();
         JsonNode output = root.get("output");
         if (output != null && output.isArray()) {
             for (JsonNode item : output) {
-                if ("function_call".equals(textValue(item.get("type"), ""))) {
+                if (AiConstants.RESPONSES_FUNCTION_CALL_TYPE.equals(
+                        textValue(item.get(AiConstants.RESPONSES_TYPE_FIELD), ""))) {
+                    String callId = textValue(item.get(AiConstants.RESPONSES_FUNCTION_CALL_ID_FIELD),
+                            textValue(item.get(AiConstants.RESPONSES_FUNCTION_CALL_ITEM_ID_FIELD),
+                                    "call_" + calls.size()));
                     calls.add(AgentModelToolCall.builder()
-                            .callId(textValue(item.get("call_id"), textValue(item.get("id"), "call_" + calls.size())))
+                            .itemId(textValue(item.get(AiConstants.RESPONSES_FUNCTION_CALL_ITEM_ID_FIELD), callId))
+                            .callId(callId)
                             .toolCode(canonicalToolName(textValue(item.get("name"), "")))
                             .arguments(parseArguments(item.get("arguments")))
                             .build());
@@ -745,6 +854,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 .content(content)
                 .toolCalls(calls)
                 .inputTokens(extractInputTokens(responseBody, requestPrompt(request)))
+                .cachedInputTokens(extractCachedInputTokens(responseBody, cacheStrategy))
+                .cacheWriteTokens(extractCacheWriteTokens(responseBody, cacheStrategy))
                 .outputTokens(extractOutputTokens(responseBody, content))
                 .totalTokens(extractTotalTokens(responseBody, requestPrompt(request), content))
                 .rawResponse(responseBody)
@@ -789,6 +900,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private String requestPrompt(AgentModelTurnRequest request) {
         return request == null || request.getMessages() == null ? "" : request.getMessages().stream()
                 .map(AgentModelMessage::getContent).filter(value -> value != null).reduce("", (left, right) -> left + right);
+    }
+
+    private PromptCacheContext promptCacheContext(AgentModelTurnRequest request) {
+        return request == null ? null : request.getPromptCacheContext();
     }
 
     private String resolveApiKey(AiModelBO model) {
@@ -867,9 +982,10 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         return builder.build();
     }
 
-    private AgentModelTurnResponse streamWithApacheHttpClient(URI endpoint, String apiKey, String payload,
+    private AgentModelTurnResponse streamWithApacheHttpClient(AiModelBO model, URI endpoint, String apiKey, String payload,
                                                                Duration requestTimeout, boolean responsesApi,
                                                                AgentModelTurnRequest request,
+                                                               PromptCacheStrategy cacheStrategy,
                                                                Consumer<String> textDeltaConsumer,
                                                                Consumer<String> thinkingDeltaConsumer) throws IOException {
         HttpPost post = new HttpPost(endpoint);
@@ -877,6 +993,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON);
         post.setHeader(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_TEXT_EVENT_STREAM);
+        cacheStrategy.headers(model, promptCacheContext(request)).forEach(post::setHeader);
         post.setEntity(new StringEntity(payload, ContentType.APPLICATION_JSON));
         try (CloseableHttpResponse response = streamingHttpClient.execute(post)) {
             int statusCode = response.getCode();
@@ -987,6 +1104,24 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private Integer extractTotalTokens(String responseBody, String prompt, String content) {
         Integer tokens = extractFirstInt(responseBody, "/usage/total_tokens");
         return tokens == null ? estimateTokens(prompt) + estimateTokens(content) : tokens;
+    }
+
+    private Integer extractCachedInputTokens(String responseBody, PromptCacheStrategy strategy) {
+        return extractPromptCacheUsage(responseBody, strategy).getCachedInputTokens();
+    }
+
+    private Integer extractCacheWriteTokens(String responseBody, PromptCacheStrategy strategy) {
+        return extractPromptCacheUsage(responseBody, strategy).getCacheWriteTokens();
+    }
+
+    private PromptCacheUsage extractPromptCacheUsage(String responseBody, PromptCacheStrategy strategy) {
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode usage = root.get(AiConstants.AI_USAGE_FIELD);
+            return strategy.extractUsage(usage);
+        } catch (IOException ignored) {
+            return PromptCacheUsage.builder().build();
+        }
     }
 
     private Integer extractFirstInt(String responseBody, String... paths) {

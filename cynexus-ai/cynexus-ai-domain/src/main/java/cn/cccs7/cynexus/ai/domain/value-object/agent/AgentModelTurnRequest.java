@@ -9,6 +9,11 @@ import lombok.Value;
 public class AgentModelTurnRequest {
 
     String systemPrompt;
+    String runtimeContext;
     List<AgentModelMessage> messages;
     List<AgentToolDefinition> tools;
+    PromptCacheContext promptCacheContext;
+
+    @Builder.Default
+    boolean toolsAllowed = true;
 }

@@ -24,6 +24,8 @@ public class AgentRunDTO {
     private Integer turnCount;
     private Integer toolCallCount;
     private Integer inputTokens;
+    private Integer cachedInputTokens;
+    private Integer cacheWriteTokens;
     private Integer outputTokens;
     private Integer totalTokens;
     private java.math.BigDecimal estimatedCost;

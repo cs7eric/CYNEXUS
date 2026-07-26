@@ -116,10 +116,63 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
+    void sendsReasoningEffortToResponses() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, "{\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}]}");
+
+        adapter().completeAgent(model("{\"wire_api\":\"responses\",\"model_reasoning_effort\":\"high\"}"), request(List.of()));
+
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get())
+                .path("reasoning").path("effort").asText()).isEqualTo("high");
+    }
+
+    @Test
+    void keepsToolDefinitionsStableWhenFinalTurnDisablesToolCalls() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+
+        AgentModelTurnRequest turn = AgentModelTurnRequest.builder()
+                .systemPrompt("Use tools when needed.")
+                .messages(List.of(AgentModelMessage.builder().role("user").content("大盘怎么样？").build()))
+                .tools(List.of(toolDefinition()))
+                .toolsAllowed(false)
+                .build();
+
+        adapter().completeAgent(model(""), turn);
+
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        assertThat(payload.path("tools")).hasSize(1);
+        assertThat(payload.path("tool_choice").asText()).isEqualTo("none");
+    }
+
+    @Test
+    void placesRuntimeContextAfterConversationHistory() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+
+        AgentModelTurnRequest turn = AgentModelTurnRequest.builder()
+                .systemPrompt("stable system prompt")
+                .runtimeContext("dynamic runtime context")
+                .messages(List.of(AgentModelMessage.builder().role("user").content("question").build()))
+                .tools(List.of())
+                .build();
+        adapter().completeAgent(model(""), turn);
+
+        var messages = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get()).path("messages");
+        assertThat(messages).hasSize(3);
+        assertThat(messages.get(0).path("role").asText()).isEqualTo("system");
+        assertThat(messages.get(0).path("content").asText()).isEqualTo("stable system prompt");
+        assertThat(messages.get(1).path("role").asText()).isEqualTo("user");
+        assertThat(messages.get(1).path("content").asText()).isEqualTo("question");
+        assertThat(messages.get(2).path("role").asText()).isEqualTo("system");
+        assertThat(messages.get(2).path("content").asText()).isEqualTo("dynamic runtime context");
+    }
+
+    @Test
     void parsesResponsesFunctionCallItemsWithUsage() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
         server = server(requestBody, """
-                {"output":[{"type":"function_call","call_id":"resp-1","name":"market.overview","arguments":"{}"}],"usage":{"input_tokens":10,"output_tokens":6,"total_tokens":16}}
+                {"output":[{"type":"function_call","id":"fc-resp-1","call_id":"resp-1","name":"market.overview","arguments":"{}"}],"usage":{"input_tokens":10,"output_tokens":6,"total_tokens":16}}
                 """);
 
         AgentModelTurnResponse response = adapter().completeAgent(model("{\"wire_api\":\"responses\"}"), request(List.of(toolDefinition())));
@@ -127,6 +180,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getType()).isEqualTo("TOOL_CALLS");
         assertThat(response.getToolCalls()).singleElement().satisfies(call -> {
             assertThat(call.getCallId()).isEqualTo("resp-1");
+            assertThat(call.getItemId()).isEqualTo("fc-resp-1");
             assertThat(call.getToolCode()).isEqualTo("market.overview");
             assertThat(call.getArguments()).isEmpty();
         });
@@ -156,7 +210,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
-    void responsesToolContinuationIncludesItemReferenceMatchingCallId() throws Exception {
+    void responsesToolContinuationPreservesItemIdAndUsesStandardFunctionOutput() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
         server = server(requestBody, """
                 {"output":[{"type":"message","content":[{"type":"output_text","text":"done"}]}],"usage":{"input_tokens":4,"output_tokens":1,"total_tokens":5}}
@@ -167,7 +221,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
                 .messages(List.of(
                         AgentModelMessage.builder().role("user").content("大盘怎么样？").build(),
                         AgentModelMessage.builder().role("assistant").content("")
-                                .toolCalls(List.of(AgentModelToolCall.builder()
+                                .toolCalls(List.of(AgentModelToolCall.builder().itemId("fc-market-1")
                                         .callId("call-market-1")
                                         .toolCode("market.overview")
                                         .arguments(Map.of("tradeDate", "2026-07-24"))
@@ -187,9 +241,9 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(payload.path("input").toString())
                 .contains("\"type\":\"function_call\"")
                 .contains("\"call_id\":\"call-market-1\"")
-                .contains("\"id\":\"call-market-1\"")
+                .contains("\"id\":\"fc-market-1\"")
                 .contains("\"type\":\"function_call_output\"")
-                .contains("\"item_reference\":\"call-market-1\"");
+                .doesNotContain("item_reference");
     }
 
     @Test
@@ -227,6 +281,31 @@ class OpenAiCompatibleChatAdapterAgentTest {
         var requestPayload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
                 requestBody.get());
         assertThat(requestPayload.path("stream_options").path("include_usage").asBoolean()).isTrue();
+    }
+
+    @Test
+    void correlatesResponsesStreamingArgumentsByItemIdAndPreservesCallId() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
+                data: {"type":"response.output_item.added","item":{"id":"fc-item-1","type":"function_call","call_id":"call-1","name":"market.stock_research","arguments":""}}
+
+                data: {"type":"response.function_call_arguments.delta","item_id":"fc-item-1","delta":"{\\"operation\\":\\"metadata\\",\\"symbol\\":\\"600519\\"}"}
+
+                data: {"type":"response.function_call_arguments.done","item_id":"fc-item-1","arguments":"{\\"operation\\":\\"metadata\\",\\"symbol\\":\\"600519\\"}"}
+
+                data: [DONE]
+
+                """);
+
+        AgentModelTurnResponse response = adapter().streamAgent(model("{\"wire_api\":\"responses\"}"),
+                request(List.of(toolDefinition())), ignored -> { });
+
+        assertThat(response.getToolCalls()).singleElement().satisfies(call -> {
+            assertThat(call.getCallId()).isEqualTo("call-1");
+            assertThat(call.getToolCode()).isEqualTo("market.stock_research");
+            assertThat(call.getArguments()).containsEntry("operation", "metadata")
+                    .containsEntry("symbol", "600519");
+        });
     }
 
     private HttpServer server(AtomicReference<String> requestBody, String responseBody) throws Exception {

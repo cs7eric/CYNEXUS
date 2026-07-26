@@ -15,7 +15,7 @@ import DataSourceSettingsPage from "../views/settings/data-source"
 import ProviderSettingsPage from "../views/settings/provider"
 import PromptSettingsPage from "../views/ai/prompt"
 import AiUsageSettingsPage from "../views/ai/usage"
-import AutonomousAgentPage from "../views/ai/agent"
+import AutonomousAgentPage from "../views/cynexus-agent"
 import SelfSelectedPage from "../views/self-selected"
 import StockOverviewPage from "../views/stock-overview"
 import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
@@ -193,12 +193,16 @@ export const router = createBrowserRouter([
         element: <Navigate to="/ai/provider" replace />,
       },
       {
+        path: "cynexus-agent",
+        element: <AutonomousAgentPage />,
+      },
+      {
         path: "ai/provider",
         element: <AiProviderSettingsPage />,
       },
       {
         path: "ai/agent",
-        element: <AutonomousAgentPage />,
+        element: <Navigate to="/cynexus-agent" replace />,
       },
       {
         path: "settings/data-source",

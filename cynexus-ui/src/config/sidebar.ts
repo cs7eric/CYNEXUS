@@ -39,6 +39,11 @@ export const sidebarConfig = {
   ],
   navMain: [
     {
+      title: "Cynexus Agent",
+      url: "/cynexus-agent",
+      icon: Sparkles,
+    },
+    {
       title: "Finance",
       url: "/finance/overview",
       icon: WalletCards,
@@ -56,7 +61,7 @@ export const sidebarConfig = {
       icon: LayoutDashboard,
     },
     {
-      title: "MP4 to Word",
+      title: "Parsing Tool",
       url: "/mp4-to-word",
       icon: FileText,
       items: [
@@ -155,6 +160,59 @@ export const sidebarConfig = {
       ],
     },
     {
+      title: "Knowledge Base",
+      url: "/knowledge-base/view",
+      icon: ComputerIcon,
+      items: [
+        {
+          title: "writing",
+          url: "/knowledge-base/writing",
+        },
+        {
+          title: "view",
+          url: "/knowledge-base/view",
+        },
+      ],
+    },
+    {
+      title: "AI",
+      url: "/ai",
+      icon: BrainCircuit,
+      items: [
+        {
+          title: "Provider",
+          url: "/ai/provider",
+        },
+        {
+          title: "Prompt",
+          url: "/ai/prompt",
+        },
+        {
+          title: "Usage",
+          url: "/ai/usage",
+        },
+      ],
+    },
+    {
+      title: "Settings",
+      url: "/settings/scheduler",
+      icon: Settings,
+      items: [
+        {
+          title: "Scheduler",
+          url: "/settings/scheduler",
+        },
+        {
+          title: "Data Source",
+          url: "/settings/data-source",
+        },
+        {
+          title: "Provider",
+          url: "/settings/provider",
+        },
+      ],
+    },
+    {
       title: "POC",
       url: "/poc",
       icon: Beaker,
@@ -181,63 +239,6 @@ export const sidebarConfig = {
         },
       ],
     },
-    {
-      title: "Knowledge Base",
-      url: "/knowledge-base/view",
-      icon: ComputerIcon,
-      items: [
-        {
-          title: "writing",
-          url: "/knowledge-base/writing",
-        },
-        {
-          title: "view",
-          url: "/knowledge-base/view",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "/settings/scheduler",
-      icon: Settings,
-      items: [
-        {
-          title: "Scheduler",
-          url: "/settings/scheduler",
-        },
-        {
-          title: "Data Source",
-          url: "/settings/data-source",
-        },
-        {
-          title: "Provider",
-          url: "/settings/provider",
-        },
-      ],
-    },
-    {
-      title: "AI",
-      url: "/ai",
-      icon: BrainCircuit,
-      items: [
-        {
-          title: "Cynexus Agent",
-          url: "/ai/agent",
-        },
-        {
-          title: "AI Provider",
-          url: "/ai/provider",
-        },
-        {
-          title: "Prompt",
-          url: "/ai/prompt",
-        },
-        {
-          title: "AI Usage",
-          url: "/ai/usage",
-        },
-      ],
-    },
   ],
   projects: [
     {
@@ -261,7 +262,7 @@ export const sidebarConfig = {
       icon: Download,
     },
     {
-      name: "MP4 to Word",
+      name: "Parsing Tool",
       url: "/mp4-to-word",
       icon: FileText,
     },
@@ -346,8 +347,8 @@ export const sidebarConfig = {
       icon: Settings,
     },
     {
-      name: "AI · Cynexus Agent",
-      url: "/ai/agent",
+      name: "Cynexus Agent",
+      url: "/cynexus-agent",
       icon: Sparkles,
     },
     {
