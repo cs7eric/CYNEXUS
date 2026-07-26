@@ -18,6 +18,7 @@ import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolResult;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,6 +97,30 @@ class AgentRunDomainServiceTest {
         AgentModelMessage reconstructed = service.toModelMessage(persisted);
         assertThat(reconstructed.getRuntimeContext()).isEqualTo(persisted.getRuntimeContext());
         assertThat(reconstructed.getProviderOutputJson()).isEqualTo(persisted.getProviderOutputJson());
+    }
+
+    @Test
+    void replaysOnlyCompletedPriorRunsAsVisibleConversation() {
+        RecordingRepository repository = new RecordingRepository();
+        repository.runs.put("AGR-ok", AgentRunBO.builder().runNo("AGR-ok").status("SUCCEEDED").build());
+        repository.runs.put("AGR-failed", AgentRunBO.builder().runNo("AGR-failed").status("FAILED").build());
+        List<AgentMessageBO> persisted = List.of(
+                AgentMessageBO.builder().runNo("AGR-ok").sequenceNo(1).role("user").content("q1").build(),
+                AgentMessageBO.builder().runNo("AGR-ok").sequenceNo(2).role("assistant").content("")
+                        .providerOutputJson("[{\"type\":\"function_call\"}]").build(),
+                AgentMessageBO.builder().runNo("AGR-ok").sequenceNo(3).role("tool").content("result").build(),
+                AgentMessageBO.builder().runNo("AGR-ok").sequenceNo(4).role("assistant").content("a1")
+                        .runtimeContext("runtime").providerOutputJson("[{\"type\":\"message\"}]").build(),
+                AgentMessageBO.builder().runNo("AGR-failed").sequenceNo(5).role("user").content("q2").build());
+
+        List<AgentModelMessage> replay = new AgentRunDomainService(repository, null, null, null)
+                .collapsePersistedHistoryForProvider("owner-1", persisted);
+
+        assertThat(replay).extracting(AgentModelMessage::getContent).containsExactly("q1", "a1");
+        assertThat(replay).allSatisfy(message -> {
+            assertThat(message.getRuntimeContext()).isNull();
+            assertThat(message.getProviderOutputJson()).isNull();
+        });
     }
 
     @Test
@@ -181,6 +206,7 @@ class AgentRunDomainServiceTest {
     private static final class RecordingRepository implements AgentRunRepository {
         private final List<AgentRunStepBO> steps = new ArrayList<>();
         private final List<AgentMessageBO> messages = new ArrayList<>();
+        private final Map<String, AgentRunBO> runs = new LinkedHashMap<>();
         private String archivedConversation;
         private OffsetDateTime archivedAt;
 
@@ -196,7 +222,9 @@ class AgentRunDomainServiceTest {
             return true;
         }
         @Override public void saveStep(AgentRunStepBO step) { steps.add(step); }
-        @Override public Optional<AgentRunBO> findRun(String ownerKey, String runNo) { return Optional.empty(); }
+        @Override public Optional<AgentRunBO> findRun(String ownerKey, String runNo) {
+            return Optional.ofNullable(runs.get(runNo));
+        }
         @Override public Optional<AgentRunBO> findRunByIdempotencyKey(String ownerKey, String idempotencyKey) { return Optional.empty(); }
         @Override public Optional<AgentRunBO> requestCancellation(String ownerKey, String runNo, String requestedBy) { return Optional.empty(); }
         @Override public boolean isCancellationRequested(String ownerKey, String runNo) { return false; }

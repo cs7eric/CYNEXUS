@@ -87,7 +87,7 @@ cached:     0,  6656,  6656,  6656
 
 OpenAI 官方服务支持 HTTP 和 WebSocket 的 `previous_response_id`。xhhai 的限制属于 Provider 兼容差异，不应写成 Responses API 的通用限制。
 
-## 6. v4 总体方案
+## 6. 当前总体方案
 
 ```text
 稳定 System Prompt + 排序后的 Tool Schema
@@ -95,10 +95,10 @@ OpenAI 官方服务支持 HTTP 和 WebSocket 的 `previous_response_id`。xhhai 
                     v
              stablePrefixKey
                     |
-       conversation hash -> 16 个稳定路由分片
+       conversation hash -> 会话独占路由身份
                     |
                     v
-        prompt_cache_key (v5 routing key)
+        prompt_cache_key (v6 routing key)
 
 Responses HTTP, store=false
   用户输入 + runtime-1
@@ -111,7 +111,7 @@ Responses HTTP, store=false
 
 每轮请求都携带完整无状态 input，但前缀从稳定 Prompt、Tool、历史 input/output 开始保持一致。Provider 可以复用越来越长的前缀，缓存读 Token 不应继续固定在 `6,656`。
 
-## 7. PromptCacheContext v5
+## 7. PromptCacheContext v6
 
 领域对象包含：
 
@@ -140,17 +140,17 @@ PromptCacheContext {
 
 Prompt 或 Tool 协议变化会自动生成新的稳定前缀身份。
 
-### 7.3 routingKey 与 16 分片
+### 7.3 routingKey 与会话隔离
 
-v4 之前的会话独占 routing key 会降低不同会话之间复用同一静态前缀的概率。v5 改为：
+v5 曾按稳定前缀把所有会话压缩到 16 个共享 Key，希望提高不同会话对静态 Prompt 与 Tool Schema 的复用率。真实 xhhai 链路证明，共享 Key 会让不同会话在首个动态输入处分叉，缓存只能停在共同的静态前缀。v6 改为：
 
 ```text
-stablePrefixKey + deterministic conversation shard(0..15)
+stablePrefixKey + SHA-256(ownerKey + conversationNo) + deterministic shard marker
 ```
 
-最终再做 SHA-256，生成 `cynexus-agent-...`。相同稳定前缀可以在最多 16 个缓存分区中复用，不暴露原始会话标识，也避免所有流量集中在一个 Key。
+最终再做 SHA-256，生成 `cynexus-agent-...`。每个会话获得独立且稳定的 Key，Provider 可以沿该会话的完整 input/output/tool-result 前缀持续扩展缓存。原始租户、用户和会话标识不会外发。
 
-分片数是吞吐量和跨会话复用率的折中。调整分片规则或稳定前缀序列化时必须升级 Key 版本。
+`shard marker` 只保留用于可观测性和未来路由兼容，不再决定 Key 的唯一性。调整会话摘要、分片规则或稳定前缀序列化时必须升级 Key 版本。
 
 ## 8. HTTP 无状态原生回放
 
@@ -304,7 +304,7 @@ SELECT run_no,
        round(100 * (details_json ->> 'cacheHitRatio')::numeric, 2) AS hit_percent,
        details_json ->> 'inputItemCount' AS input_items
 FROM cynexus_appl_ai.ai_agent_run_event
-WHERE type = 'CACHE_USAGE'
+WHERE event_type = 'CACHE_USAGE'
 ORDER BY occurred_at DESC
 LIMIT 50;
 ```
@@ -367,10 +367,11 @@ xhhai 当前是否支持 compaction 尚未验证，因此 v4 不默认发送相�
 ## 18. 测试清单
 
 - Tool 顺序变化不改变 `stablePrefixKey`；
-- 相同稳定前缀的 routing key 最多分布在 16 个稳定分片；
+- 相同会话和稳定前缀生成相同 routing key，不同会话生成不同 routing key；
 - Prompt、Model 或 Tool Schema 变化会生成新稳定前缀；
 - 普通 HTTP、SSE 和 WebSocket 都捕获完整 output；
-- replay 顺序为历史 runtime、原生 output、Tool Result、新 runtime；
+- 当前 Run 的 replay 顺序为历史 runtime、原生 output、Tool Result、新 runtime；
+- 跨 Run 只投影完成状态的可见 user/assistant，不携带旧 Run 的原生 wire item；
 - reasoning `encrypted_content` 和 Assistant `phase` 被保留；
 - 非原生 Tool Call 不伪造 Provider output；
 - 持久化脱敏敏感 Tool 字段但保留 opaque reasoning；
@@ -411,11 +412,108 @@ OpenAI Reasoning 指南说明：无状态请求的 reasoning item 应携带 opaq
 }
 ```
 
-对 xhhai 直接探测确认，未显式设置 `include` 时字段缺失；设置后 reasoning item 会返回约千字节的 `encrypted_content`，Assistant message 也会保留 `phase`。因此 v5 在所有 Agent Responses 请求中显式发送该 `include`，同时继续把返回的完整 `output[]` 原样持久化和回放。
+早期直接探测使用的是非流式请求，只能证明 xhhai 非流式 Responses 在显式设置 `include` 后会返回 `encrypted_content`。它没有覆盖 UI Agent 实际使用的 HTTP SSE 链路，因此不能作为真实 Agent 验证结论。
 
 这项修正影响的是 Provider 原生 reasoning 状态连续性，不是把 reasoning 明文写入数据库：`encrypted_content` 对 Cynexus 始终是不解析、不修改的 opaque 字符串。它也是当前固定 `6,656` 平台最直接的根因修复。部署后必须新建会话重新预热；旧消息中没有 `encrypted_content`，无法在客户端补造。
 
-## 21. 参考资料
+## 21. v6：HTTP SSE 与非流式 Responses 的实测差异
+
+对同一 xhhai 账号、同一 `gpt-5.4-mini`、同一 low reasoning 请求做严格单变量 A/B：
+
+```text
+stream=false: HTTP 200, output=reasoning,message, encrypted_content length=996
+stream=true:  HTTP 200, response.completed.output=message, encrypted_content length=0
+```
+
+两个请求都发送 `store=false` 与 `include=[reasoning.encrypted_content]`，并报告相同的 `3,840` cached input tokens。差异只来自 `stream`。这证明 xhhai 当前 HTTP SSE 兼容层会从最终 output 中移除 encrypted reasoning；Cynexus SSE parser 没有丢字段，因为数据库保存的就是上游 `response.completed.response.output[]` 原值。
+
+真实 Run `AGR-f5293c6e9896` 的两个 assistant output 都只有 reasoning summary，没有 encrypted state。另一个两轮 Run 显示 `13,312 = 2 x 6,656`，说明每次模型调用仍只命中静态 Prompt 与 Tool Schema，不是第二轮命中了 13K。
+
+v6 为 Agent binding 增加 `responses_http_stream_mode`：
+
+- `sse`：适用于能在 `response.completed` 中完整返回 encrypted reasoning 的 Provider；
+- `buffered`：发送非流式 Responses，先获取完整 output，再通过现有 UI 事件一次性发出 reasoning summary 和答案文本；
+- xhhai 默认使用 `buffered`，同时保持 `responses_transport=http`、`store=false` 与完整无状态回放。
+
+这个模式不会伪造 reasoning，也不会发起第二个补偿请求。它只把同一次 Responses 调用从 SSE 改为 buffered JSON，因此避免双倍 Token 消耗，并绕过本次日志中反复出现的 xhhai Cloudflare SSE `502` 与 TLS EOF 路径。代价是 UI 不再逐 Token 显示，而是在上游完成后一次显示本轮推理摘要和答案。
+
+部署验证必须使用真实 Agent 会话，并同时满足：新 assistant `provider_output` 含非空 `encrypted_content`；后续 Tool 续轮的单次 `cachedInputTokens` 超过旧的 `6,656` 平台；不能再用不带 Tool Schema、runtime context 和 SSE 行为的最小 Demo 代替真实链路验证。
+
+## 22. v7：会话隔离假设及其证伪
+
+`1.1.295-260727-RELEASE` 对真实 Agent 请求增加了不含原文的边界遥测：每个 input item 的 SHA-256、累积前缀 SHA-256、字节数和 item kind，以及 Tool Schema 与请求选项哈希。真实 Run `AGR-d2627dcf79ab` 连续执行六个模型轮次，输入从 `12,294` 增长到 `19,556`，但每个后续请求都只缓存 `6,656` Token。
+
+逐项对比确认：第 2 轮的 stable system、user、旧 runtime context 与第 1 轮完全一致；第 3 至第 6 轮也完整继承此前所有 reasoning、message、function_call、function_call_output 与 runtime context；Tool Schema 和请求选项始终一致。由此排除了历史丢失、JSON 排序、动态日期、reasoning effort 和 encrypted state 变化。
+
+当时的假设是 v5 routing key 只包含 `stablePrefixKey + shard(0..15)`，多个会话共用 Key 后从首个用户输入处分叉，导致 xhhai 只能复用共同静态前缀。v6 因此改成会话独占 Key。这个改动保留，因为它能降低不同会话争用同一显式 Key 的风险，但后续 Release 实测证明它不是 `6,656` 平台的最终根因。
+
+严格 A/B 仍确认了显式 Key 的必要性：使用独占 Key 时三轮 cached input 为 `0 -> 7,552 -> 8,064`；完全不发送 Key 时三轮均为 `0`。但部署 `1.1.296-260727-RELEASE` 后，真实 Run `AGR-84dd6283612c` 在会话独占 Key 下，第 2 至第 7 轮仍全部是 `6,656`。因此“共享 Key 是最终根因”的判断被真实链路证伪。
+
+## 23. v8：动态 system runtime context 才是 6,656 平台的根因
+
+进一步使用真实 22 个 Tool、完整 guidance、相同模型、相同 Responses 参数和相同会话回放结构做单变量 A/B，只改变 runtime context 的消息角色：
+
+```text
+runtime role=system: turn 1 = 0/11,190; turn 2 = 6,656/11,237
+runtime role=user:   turn 1 = 0/11,178; turn 2 = 10,752/11,203
+```
+
+这次 A/B 精确复现了真实 Agent 的 `6,656`。原因是每轮都会追加一条变化的 `system` runtime context。虽然请求 JSON 数组的旧 item 前缀逐项一致，但 Provider 会把 system/developer 指令纳入特殊指令前缀处理；新增的动态 system 消息使内部有效前缀在 Tool Schema/历史之前分叉。仅看请求数组 SHA-256 无法观察这种 Provider 内部规范化。
+
+v8 将服务端生成的 runtime context 作为尾部 `user` 消息发送。稳定 System Prompt 已明确声明该消息是每轮权威运行时值，因此工具预算、当前日期和强制收敛语义不变。历史 runtime context 也按原顺序以 `user` 消息回放；Chat Completions 路径同步补齐历史 runtime context，避免只发送当前动态上下文导致前缀截断。缓存 Key 升级到 v7，避免继续使用旧角色布局预热出的缓存分支。
+
+验收必须同时检查：同一会话 Key 不变；不同会话 Key 不同；runtime context item kind 为 `user`；第 2 轮单次 cached input 明显超过 `6,656`；后续轮次随历史增长；跨 Run 继续同一 conversation 时仍使用同一 Key；UI retry marker 和上游 502 重试保持可见。
+
+## 24. v9：跨 Run 原生回放导致 502
+
+v8 修复后，真实 Run `AGR-c8da91dc6de8` 的单次缓存从第 2 轮开始增长：
+
+```text
+turn 1: input=12,214 cached=0
+turn 2: input=12,564 cached=12,288
+turn 3: input=13,052 cached=12,800
+turn 4: input=14,078 cached=12,800
+turn 5: input=14,803 cached=13,824
+turn 6: input=15,455 cached=14,336
+```
+
+这证明 trailing user runtime context 已解决同一 Run 内固定 `6,656` 的问题。但同一 conversation 发起新的 Run 时，上游连续返回 HTTP 502，三个请求重试均在 `CACHE_USAGE` 前失败。失败 Run 还留下了只有 user、没有最终 assistant 的消息尾部。
+
+根因是“持久化会话历史”与“Provider 原生协议历史”混为一体。一个 Run 内的 reasoning、function call、function call output、runtime context 和 encrypted state 共同组成有效 Responses 链，必须按原顺序回放；进入新 Run 后，客户端没有可用的原始 response linkage，却仍把旧 Run 的这些 wire item 与完整 22 Tool Schema 一起提交。xhhai 对这个大型跨 Run 组合返回 502。失败 Run 的孤立 user 再次进入后续请求，会继续污染会话结构。
+
+v9 建立两级历史：
+
+- 当前 Run：保留完整原生 output、Tool Result 和每轮 runtime context，以获得高缓存命中并维持 reasoning 连续性；
+- 已完成旧 Run：只保留可见 user 输入与最终 assistant 答案，重新构造普通消息，不携带 `provider_output`、runtime context、Tool calls 或 Tool outputs；
+- 只有状态为 `SUCCEEDED` 或 `NEEDS_CLARIFICATION` 且存在非空最终 assistant 的 Run 可以进入跨 Run 历史；
+- `FAILED`、`CANCELLED` 和没有最终 assistant 的不完整 Run 整组丢弃，而不是只删除最后一条 Tool 消息。
+
+由于跨 Run input 布局发生变化，缓存 Key 合约同步升级到 v8，避免继续路由到旧版原生跨 Run 回放形成的缓存分支。
+
+这不是删除审计数据。数据库仍保存每个 Run 的完整消息和执行步骤，变化只发生在下一次 Provider 请求的投影层。UI 查看历史、运行审计和故障分析不受影响。
+
+跨 Run 第一次请求的可复用前缀通常短于同一 Run 内下一 Tool 轮，因为旧 Run 的原生 wire transcript 被安全折叠。它仍复用稳定 System Prompt、Tool Schema、会话专属 `prompt_cache_key` 以及能保持一致的可见历史；新 Run 产生 Tool 往返后，缓存会再次沿当前 Run 的完整原生链增长。这里优先保证协议有效和请求可用，不能为追求命中率重放没有 linkage 的孤立 function items。
+
+排障时可先检查每个 Run 是否形成可见闭合对：
+
+```sql
+SELECT m.run_no,
+       r.status,
+       count(*) FILTER (WHERE m.role = 'user') AS user_messages,
+       count(*) FILTER (WHERE m.role = 'assistant' AND nullif(trim(m.content), '') IS NOT NULL) AS visible_answers,
+       count(*) FILTER (WHERE m.role = 'tool') AS tool_messages
+FROM cynexus_appl_ai.ai_agent_message m
+JOIN cynexus_appl_ai.ai_agent_run r ON r.run_no = m.run_no
+WHERE m.conversation_no = :conversation_no
+  AND m.deleted_at IS NULL
+  AND r.deleted_at IS NULL
+GROUP BY m.run_no, r.status
+ORDER BY min(m.sequence_no);
+```
+
+验收标准：完成旧 Run 后，同 conversation 的新 Run 能成功返回；失败 Run 的 user 尾部不进入 Provider 输入；跨 Run 输入不含旧 Run 的 reasoning/function_call/function_call_output/runtime context；当前 Run 的 Tool 续轮仍保留原生回放且缓存继续增长；真实上游故障仍显示 retry marker。
+
+## 25. 参考资料
 
 - OpenAI Prompt Caching：<https://developers.openai.com/api/docs/guides/prompt-caching>
 - OpenAI Conversation State：<https://developers.openai.com/api/docs/guides/conversation-state>

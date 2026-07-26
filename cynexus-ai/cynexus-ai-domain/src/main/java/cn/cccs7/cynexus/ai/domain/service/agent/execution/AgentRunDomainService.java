@@ -13,6 +13,7 @@ import cn.cccs7.cynexus.ai.domain.entity.agent.AgentRunStepBO;
 import cn.cccs7.cynexus.ai.domain.entity.capability.AgentCapabilityDescriptor;
 import cn.cccs7.cynexus.ai.domain.factory.citation.AgentCitationFactory;
 import cn.cccs7.cynexus.ai.domain.policy.capability.AgentCapabilityDescriptorPolicy;
+import cn.cccs7.cynexus.ai.domain.policy.agent.AgentHistoryCollapsePolicy;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentReasoningPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentFinalAnswerPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
@@ -32,6 +33,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -225,6 +227,24 @@ public class AgentRunDomainService {
                 .runtimeContext(message.getRuntimeContext())
                 .providerOutputJson(message.getProviderOutputJson())
                 .build();
+    }
+
+    public List<AgentModelMessage> collapsePersistedHistoryForProvider(
+            String ownerKey, List<AgentMessageBO> persistedMessages) {
+        if (persistedMessages == null || persistedMessages.isEmpty()) return List.of();
+        Set<String> inspectedRunNos = new LinkedHashSet<>();
+        Set<String> replayableRunNos = new LinkedHashSet<>();
+        for (AgentMessageBO message : persistedMessages) {
+            if (message == null || message.getRunNo() == null || message.getRunNo().isBlank()
+                    || !inspectedRunNos.add(message.getRunNo())) {
+                continue;
+            }
+            runRepository.findRun(ownerKey, message.getRunNo())
+                    .filter(run -> AiConstants.AGENT_RUN_STATUS_SUCCEEDED.equals(run.getStatus())
+                            || AiConstants.AGENT_RUN_STATUS_NEEDS_CLARIFICATION.equals(run.getStatus()))
+                    .ifPresent(run -> replayableRunNos.add(message.getRunNo()));
+        }
+        return AgentHistoryCollapsePolicy.collapsePersistedForProvider(persistedMessages, replayableRunNos);
     }
 
     public static int nextMessageSequence(List<AgentMessageBO> persistedMessages) {

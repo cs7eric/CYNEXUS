@@ -16,6 +16,8 @@ public final class AgentReasoningPolicy {
             AiConstants.RESPONSES_STATE_MODE_PREVIOUS_RESPONSE_ID);
     private static final Set<String> SUPPORTED_RESPONSES_TRANSPORTS = Set.of(
             AiConstants.RESPONSES_TRANSPORT_HTTP, AiConstants.RESPONSES_TRANSPORT_WEBSOCKET);
+    private static final Set<String> SUPPORTED_RESPONSES_HTTP_STREAM_MODES = Set.of(
+            AiConstants.RESPONSES_HTTP_STREAM_MODE_SSE, AiConstants.RESPONSES_HTTP_STREAM_MODE_BUFFERED);
     private static final Set<String> SUPPORTED_CACHE_RETENTIONS = Set.of(
             AiConstants.PROMPT_CACHE_RETENTION_IN_MEMORY, AiConstants.PROMPT_CACHE_RETENTION_24_HOURS);
 
@@ -71,6 +73,8 @@ public final class AgentReasoningPolicy {
             copyText(params, extra, AiConstants.MODEL_WIRE_API_EXTRA, SUPPORTED_WIRE_APIS);
             copyText(params, extra, AiConstants.RESPONSES_STATE_MODE_EXTRA, SUPPORTED_RESPONSE_STATE_MODES);
             copyText(params, extra, AiConstants.RESPONSES_TRANSPORT_EXTRA, SUPPORTED_RESPONSES_TRANSPORTS);
+            copyText(params, extra, AiConstants.RESPONSES_HTTP_STREAM_MODE_EXTRA,
+                    SUPPORTED_RESPONSES_HTTP_STREAM_MODES);
             copyBoolean(params, extra, AiConstants.RESPONSES_DISABLE_STORAGE_EXTRA);
             copyText(params, extra, AiConstants.PROMPT_CACHE_RETENTION_EXTRA, SUPPORTED_CACHE_RETENTIONS);
             return OBJECT_MAPPER.writeValueAsString(extra);

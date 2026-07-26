@@ -1,9 +1,12 @@
 package cn.cccs7.cynexus.ai.domain.policy.agent;
 
+import cn.cccs7.cynexus.ai.common.constant.AiConstants;
+import cn.cccs7.cynexus.ai.domain.entity.agent.AgentMessageBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentModelMessage;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -20,36 +23,66 @@ public final class AgentHistoryCollapsePolicy {
             return List.of();
         }
         List<AgentModelMessage> collapsed = new ArrayList<>();
-        Set<String> replayableToolCalls = new HashSet<>();
         for (AgentModelMessage message : history) {
             if (message == null || message.getRole() == null) {
                 continue;
             }
             String role = message.getRole();
-            if ("user".equals(role)) {
-                collapsed.add(AgentModelMessage.builder().role("user")
+            if (AiConstants.AI_ROLE_USER.equals(role)) {
+                collapsed.add(AgentModelMessage.builder().role(AiConstants.AI_ROLE_USER)
                         .content(message.getContent() == null ? "" : message.getContent()).build());
                 continue;
             }
-            if ("assistant".equals(role)) {
+            if (AiConstants.AI_ROLE_ASSISTANT.equals(role)) {
                 String content = message.getContent() == null ? "" : message.getContent().trim();
-                boolean nativeOutput = message.getProviderOutputJson() != null
-                        && !message.getProviderOutputJson().isBlank();
-                if (nativeOutput || !content.isBlank()) {
-                    collapsed.add(message);
-                    if (nativeOutput && message.getToolCalls() != null) {
-                        message.getToolCalls().stream()
-                                .filter(call -> call != null && call.getCallId() != null && !call.getCallId().isBlank())
-                                .forEach(call -> replayableToolCalls.add(call.getCallId()));
-                    }
+                if (!content.isBlank()) {
+                    collapsed.add(AgentModelMessage.builder().role(AiConstants.AI_ROLE_ASSISTANT)
+                            .content(content).build());
                 }
-                continue;
-            }
-            if ("tool".equals(role) && message.getToolCallId() != null
-                    && replayableToolCalls.remove(message.getToolCallId())) {
-                collapsed.add(message);
             }
         }
         return collapsed;
+    }
+
+    public static List<AgentModelMessage> collapsePersistedForProvider(
+            List<AgentMessageBO> history, Set<String> replayableRunNos) {
+        if (history == null || history.isEmpty() || replayableRunNos == null || replayableRunNos.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<AgentMessageBO>> messagesByRun = new LinkedHashMap<>();
+        for (AgentMessageBO message : history) {
+            if (message == null || message.getRunNo() == null || message.getRunNo().isBlank()
+                    || !replayableRunNos.contains(message.getRunNo())) {
+                continue;
+            }
+            messagesByRun.computeIfAbsent(message.getRunNo(), ignored -> new ArrayList<>()).add(message);
+        }
+
+        List<AgentModelMessage> collapsed = new ArrayList<>();
+        for (List<AgentMessageBO> runMessages : messagesByRun.values()) {
+            AgentMessageBO finalAssistant = finalVisibleAssistant(runMessages);
+            if (finalAssistant == null) continue;
+            for (AgentMessageBO message : runMessages) {
+                if (AiConstants.AI_ROLE_USER.equals(message.getRole())
+                        && message.getContent() != null && !message.getContent().isBlank()) {
+                    collapsed.add(AgentModelMessage.builder().role(AiConstants.AI_ROLE_USER)
+                            .content(message.getContent()).build());
+                }
+            }
+            collapsed.add(AgentModelMessage.builder().role(AiConstants.AI_ROLE_ASSISTANT)
+                    .content(finalAssistant.getContent().trim()).build());
+        }
+        return List.copyOf(collapsed);
+    }
+
+    private static AgentMessageBO finalVisibleAssistant(List<AgentMessageBO> runMessages) {
+        AgentMessageBO finalAssistant = null;
+        for (AgentMessageBO message : runMessages) {
+            if (message != null && AiConstants.AI_ROLE_ASSISTANT.equals(message.getRole())
+                    && message.getContent() != null && !message.getContent().isBlank()) {
+                finalAssistant = message;
+            }
+        }
+        return finalAssistant;
     }
 }

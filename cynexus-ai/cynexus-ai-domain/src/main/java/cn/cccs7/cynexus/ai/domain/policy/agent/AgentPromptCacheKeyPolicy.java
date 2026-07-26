@@ -33,7 +33,7 @@ public final class AgentPromptCacheKeyPolicy {
         int routingShard = (int) (Long.parseLong(conversationKey.substring(0, 8), 16)
                 % AiConstants.PROMPT_CACHE_ROUTING_SHARD_COUNT);
         String routingKey = AiConstants.PROMPT_CACHE_KEY_VERSION + "|routing|"
-                + stablePrefixKey + "|shard-" + routingShard;
+                + stablePrefixKey + "|conversation|" + conversationKey + "|shard-" + routingShard;
         return PromptCacheContext.builder()
                 .conversationKey(AiConstants.PROMPT_CACHE_CONVERSATION_KEY_PREFIX + conversationKey)
                 .stablePrefixKey(stablePrefixKey)

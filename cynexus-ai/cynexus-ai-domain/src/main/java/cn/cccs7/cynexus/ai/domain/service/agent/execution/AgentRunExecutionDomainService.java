@@ -19,7 +19,6 @@ import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
 import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
-import cn.cccs7.cynexus.ai.domain.policy.agent.AgentHistoryCollapsePolicy;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentPromptCacheKeyPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.agent.AgentRunArtifactPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.sensitivedata.AgentSensitiveDataPolicy;
@@ -204,8 +203,8 @@ public class AgentRunExecutionDomainService {
             String stableSystemPrompt = systemPromptDomainService.resolveStable(executionDomainService.limits());
             List<AgentMessageBO> persistedMessages = runDomainService.findMessages(ownerKey, conversationNo);
             AtomicInteger messageSequence = new AtomicInteger(AgentRunDomainService.nextMessageSequence(persistedMessages));
-            List<AgentModelMessage> messages = new ArrayList<>(AgentHistoryCollapsePolicy.collapseForProvider(
-                    persistedMessages.stream().map(runDomainService::toModelMessage).toList()));
+            List<AgentModelMessage> messages = new ArrayList<>(
+                    runDomainService.collapsePersistedHistoryForProvider(ownerKey, persistedMessages));
             AgentModelMessage userMessage = AgentModelMessage.builder().role("user").content(userInput).build();
             messages.add(userMessage);
             runDomainService.saveMessage(conversationNo, runNo, messageSequence.incrementAndGet(), userMessage);
@@ -664,6 +663,20 @@ public class AgentRunExecutionDomainService {
                 telemetry == null ? null : telemetry.getRequestInputHash());
         details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_ITEM_COUNT_FIELD,
                 telemetry == null ? null : telemetry.getInputItemCount());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_ITEM_HASHES_FIELD,
+                telemetry == null ? null : telemetry.getInputItemHashes());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_PREFIX_HASHES_FIELD,
+                telemetry == null ? null : telemetry.getInputPrefixHashes());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_ITEM_KINDS_FIELD,
+                telemetry == null ? null : telemetry.getInputItemKinds());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_INPUT_ITEM_BYTES_FIELD,
+                telemetry == null ? null : telemetry.getInputItemBytes());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_TOOLS_HASH_FIELD,
+                telemetry == null ? null : telemetry.getToolsHash());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_REQUEST_OPTIONS_HASH_FIELD,
+                telemetry == null ? null : telemetry.getRequestOptionsHash());
+        details.put(AiConstants.AGENT_CACHE_TELEMETRY_PAYLOAD_BYTES_FIELD,
+                telemetry == null ? null : telemetry.getPayloadBytes());
         details.put(AiConstants.AGENT_CACHE_TELEMETRY_CONTINUATION_MODE_FIELD,
                 telemetry == null ? null : telemetry.getContinuationMode());
         details.put(AiConstants.AGENT_CACHE_TELEMETRY_STORAGE_ENABLED_FIELD,

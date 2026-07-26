@@ -80,6 +80,46 @@ class AgentPersistenceSchemaContractTest {
     }
 
     @Test
+    void bufferedXhhaiResponsesAndKnowledgeBaseV6AreRegisteredForRelease() throws IOException {
+        String routingMigration = readMigration("20260726_use_buffered_xhhai_responses_http.sql");
+        assertThat(routingMigration).contains("responses_http_stream_mode", "buffered",
+                "responses_transport", "http", "disable_response_storage");
+        String knowledgeMigration = readMigration("20260726_update_agent_prompt_cache_architecture_kb_v6_zh.sql");
+        assertThat(knowledgeMigration).contains("'documentVersion', 'v6-zh'",
+                "SSE", "encrypted_content", "buffered");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260726_use_buffered_xhhai_responses_http.sql",
+                        "20260726_update_agent_prompt_cache_architecture_kb_v6_zh.sql");
+    }
+
+    @Test
+    void conversationIsolatedCacheKeyKnowledgeBaseV7IsRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260727_update_agent_prompt_cache_architecture_kb_v7_zh.sql");
+        assertThat(migration).contains("'documentVersion', 'v7-zh'", "6,656",
+                "conversation digest", "7,552", "8,064");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260727_update_agent_prompt_cache_architecture_kb_v7_zh.sql");
+    }
+
+    @Test
+    void runtimeContextCacheFixKnowledgeBaseV8IsRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260727_update_agent_prompt_cache_architecture_kb_v8_zh.sql");
+        assertThat(migration).contains("'documentVersion', 'v8-zh'", "runtime role=system",
+                "runtime role=user", "6,656", "10,752", "Chat Completions");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260727_update_agent_prompt_cache_architecture_kb_v8_zh.sql");
+    }
+
+    @Test
+    void crossRunHistoryProjectionKnowledgeBaseV9IsRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260727_update_agent_prompt_cache_architecture_kb_v9_zh.sql");
+        assertThat(migration).contains("'documentVersion', 'v9-zh'", "跨 Run", "SUCCEEDED",
+                "NEEDS_CLARIFICATION", "FAILED", "function_call_output", "retry marker");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260727_update_agent_prompt_cache_architecture_kb_v9_zh.sql");
+    }
+
+    @Test
     void taskNotificationOutboxIsIdempotentAndRegisteredForRelease() throws IOException {
         String migration = readMigration("20260722_add_ai_agent_task_notifications.sql");
         assertThat(migration).contains("ai_agent_task_notification", "event_key varchar(256) NOT NULL UNIQUE",

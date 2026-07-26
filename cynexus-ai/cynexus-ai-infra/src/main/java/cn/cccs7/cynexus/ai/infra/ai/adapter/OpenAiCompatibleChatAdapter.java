@@ -191,7 +191,42 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         if (responsesApi(model) && responsesWebSocketEnabled(model)) {
             return streamAgentResponsesWebSocket(model, request, textDeltaConsumer, thinkingDeltaConsumer);
         }
+        if (responsesApi(model) && responsesHttpBuffered(model)) {
+            AgentModelTurnResponse response = completeAgentHttp(model, request, false, false);
+            emitBufferedResponsesDeltas(response, textDeltaConsumer, thinkingDeltaConsumer);
+            return response;
+        }
         return streamAgentHttp(model, request, textDeltaConsumer, thinkingDeltaConsumer, false, false);
+    }
+
+    private void emitBufferedResponsesDeltas(AgentModelTurnResponse response,
+                                              Consumer<String> textDeltaConsumer,
+                                              Consumer<String> thinkingDeltaConsumer) {
+        if (response == null) return;
+        if (thinkingDeltaConsumer != null && response.getRawResponse() != null
+                && !response.getRawResponse().isBlank()) {
+            try {
+                JsonNode output = objectMapper.readTree(response.getRawResponse())
+                        .get(AiConstants.RESPONSES_OUTPUT_ITEMS_FIELD);
+                if (output != null && output.isArray()) {
+                    for (JsonNode item : output) {
+                        if (!AiConstants.RESPONSES_REASONING_TYPE.equals(
+                                textValue(item.get(AiConstants.RESPONSES_TYPE_FIELD), ""))) continue;
+                        JsonNode summary = item.get(AiConstants.RESPONSES_REASONING_SUMMARY_FIELD);
+                        if (summary == null || !summary.isArray()) continue;
+                        for (JsonNode part : summary) {
+                            String text = textValue(part.get(AiConstants.RESPONSES_TEXT_FIELD), "");
+                            if (!text.isBlank()) thinkingDeltaConsumer.accept(text);
+                        }
+                    }
+                }
+            } catch (IOException exception) {
+                LOGGER.warn("Ignoring invalid buffered Responses reasoning summary for provider {}", providerCode());
+            }
+        }
+        if (textDeltaConsumer != null && response.getContent() != null && !response.getContent().isBlank()) {
+            textDeltaConsumer.accept(response.getContent());
+        }
     }
 
     private AgentModelTurnResponse streamAgentHttp(AiModelBO model, AgentModelTurnRequest request,
@@ -868,17 +903,20 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private List<Map<String, Object>> buildChatMessages(AgentModelTurnRequest request) {
         List<Map<String, Object>> messages = new ArrayList<>();
         if (request != null && request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
-            messages.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+            messages.add(Map.of(AiConstants.AI_ROLE_FIELD, AiConstants.AI_ROLE_SYSTEM,
+                    "content", request.getSystemPrompt()));
         }
         if (request != null && request.getMessages() != null) {
             for (AgentModelMessage message : request.getMessages()) {
+                appendHistoricalRuntimeContext(messages, message);
                 Map<String, Object> item = new LinkedHashMap<>();
-                item.put("role", message.getRole());
+                item.put(AiConstants.AI_ROLE_FIELD, message.getRole());
                 item.put("content", message.getContent() == null ? "" : message.getContent());
-                if ("tool".equals(message.getRole()) && message.getToolCallId() != null) {
+                if (AiConstants.AI_ROLE_TOOL.equals(message.getRole()) && message.getToolCallId() != null) {
                     item.put("tool_call_id", message.getToolCallId());
                 }
-                if ("assistant".equals(message.getRole()) && message.getToolCalls() != null && !message.getToolCalls().isEmpty()) {
+                if (AiConstants.AI_ROLE_ASSISTANT.equals(message.getRole()) && message.getToolCalls() != null
+                        && !message.getToolCalls().isEmpty()) {
                     item.put("tool_calls", message.getToolCalls().stream().map(this::toChatToolCall).toList());
                     item.put("content", message.getContent() == null ? "" : message.getContent());
                 }
@@ -892,7 +930,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private List<Map<String, Object>> buildResponsesInput(AgentModelTurnRequest request) {
         List<Map<String, Object>> input = new ArrayList<>();
         if (request != null && request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
-            input.add(Map.of("role", "system", "content", request.getSystemPrompt()));
+            input.add(Map.of(AiConstants.AI_ROLE_FIELD, AiConstants.AI_ROLE_SYSTEM,
+                    "content", request.getSystemPrompt()));
         }
         appendResponsesMessages(input, request == null ? null : request.getMessages());
         appendRuntimeContext(input, request);
@@ -909,27 +948,32 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private void appendResponsesMessages(List<Map<String, Object>> input, List<AgentModelMessage> messages) {
         if (messages == null) return;
         for (AgentModelMessage message : messages) {
-            if (message.getRuntimeContext() != null && !message.getRuntimeContext().isBlank()) {
-                input.add(Map.of("role", "system", "content", message.getRuntimeContext()));
-            }
+            appendHistoricalRuntimeContext(input, message);
             if (appendProviderOutputItems(input, message.getProviderOutputJson())) {
                 continue;
             }
-            if ("tool".equals(message.getRole())) {
+            if (AiConstants.AI_ROLE_TOOL.equals(message.getRole())) {
                 input.add(Map.of(AiConstants.RESPONSES_TYPE_FIELD,
                         AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_TYPE,
                         AiConstants.RESPONSES_FUNCTION_CALL_ID_FIELD, message.getToolCallId(),
                         AiConstants.RESPONSES_FUNCTION_CALL_OUTPUT_FIELD,
                         message.getContent() == null ? "" : message.getContent()));
-            } else if ("assistant".equals(message.getRole()) && message.getToolCalls() != null
+            } else if (AiConstants.AI_ROLE_ASSISTANT.equals(message.getRole()) && message.getToolCalls() != null
                     && !message.getToolCalls().isEmpty()) {
                 for (AgentModelToolCall call : message.getToolCalls()) {
                     input.add(toResponsesFunctionCall(call));
                 }
             } else {
-                input.add(Map.of("role", message.getRole(),
+                input.add(Map.of(AiConstants.AI_ROLE_FIELD, message.getRole(),
                         "content", message.getContent() == null ? "" : message.getContent()));
             }
+        }
+    }
+
+    private void appendHistoricalRuntimeContext(List<Map<String, Object>> input, AgentModelMessage message) {
+        if (message != null && message.getRuntimeContext() != null && !message.getRuntimeContext().isBlank()) {
+            input.add(Map.of(AiConstants.AI_ROLE_FIELD, AiConstants.AGENT_RUNTIME_CONTEXT_ROLE,
+                    "content", message.getRuntimeContext()));
         }
     }
 
@@ -955,7 +999,8 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
 
     private void appendRuntimeContext(List<Map<String, Object>> input, AgentModelTurnRequest request) {
         if (request != null && request.getRuntimeContext() != null && !request.getRuntimeContext().isBlank()) {
-            input.add(Map.of("role", "system", "content", request.getRuntimeContext()));
+            input.add(Map.of(AiConstants.AI_ROLE_FIELD, AiConstants.AGENT_RUNTIME_CONTEXT_ROLE,
+                    "content", request.getRuntimeContext()));
         }
     }
 
@@ -1423,6 +1468,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                 extraString(model, AiConstants.RESPONSES_TRANSPORT_EXTRA));
     }
 
+    private boolean responsesHttpBuffered(AiModelBO model) {
+        return AiConstants.RESPONSES_HTTP_STREAM_MODE_BUFFERED.equalsIgnoreCase(
+                extraString(model, AiConstants.RESPONSES_HTTP_STREAM_MODE_EXTRA));
+    }
+
     private String valueOr(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
     }
@@ -1446,7 +1496,29 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         try {
             JsonNode root = objectMapper.readTree(payload);
             JsonNode input = root.has(AiConstants.RESPONSES_INPUT_FIELD)
-                    ? root.get(AiConstants.RESPONSES_INPUT_FIELD) : root.get("messages");
+                    ? root.get(AiConstants.RESPONSES_INPUT_FIELD) : root.get(AiConstants.AI_MESSAGES_FIELD);
+            JsonNode tools = root.get(AiConstants.AI_TOOLS_FIELD);
+            List<String> inputItemHashes = new ArrayList<>();
+            List<String> inputPrefixHashes = new ArrayList<>();
+            List<String> inputItemKinds = new ArrayList<>();
+            List<Integer> inputItemBytes = new ArrayList<>();
+            StringBuilder cumulativeInput = new StringBuilder();
+            if (input != null) {
+                Iterable<JsonNode> items = input.isArray() ? input : List.of(input);
+                for (JsonNode item : items) {
+                    String itemJson = item == null ? "null" : item.toString();
+                    inputItemHashes.add(digestTelemetry(itemJson));
+                    cumulativeInput.append(itemJson.length()).append(':').append(itemJson);
+                    inputPrefixHashes.add(digestTelemetry(cumulativeInput.toString()));
+                    inputItemKinds.add(inputItemKind(item));
+                    inputItemBytes.add(itemJson.getBytes(StandardCharsets.UTF_8).length);
+                }
+            }
+            ObjectNode options = root.deepCopy();
+            options.remove(AiConstants.RESPONSES_INPUT_FIELD);
+            options.remove(AiConstants.AI_MESSAGES_FIELD);
+            options.remove(AiConstants.AI_TOOLS_FIELD);
+            options.remove(AiConstants.PROMPT_CACHE_KEY_FIELD);
             String cacheKey = textValue(root.get(AiConstants.PROMPT_CACHE_KEY_FIELD), "");
             PromptCacheContext context = promptCacheContext(request);
             String mode = stateFallback ? AiConstants.AGENT_CACHE_MODE_STATELESS_FALLBACK
@@ -1458,6 +1530,13 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                     .stablePrefixHash(digestTelemetry(context == null ? null : context.getStablePrefixKey()))
                     .requestInputHash(digestTelemetry(input == null ? null : input.toString()))
                     .inputItemCount(input == null ? 0 : input.isArray() ? input.size() : 1)
+                    .inputItemHashes(List.copyOf(inputItemHashes))
+                    .inputPrefixHashes(List.copyOf(inputPrefixHashes))
+                    .inputItemKinds(List.copyOf(inputItemKinds))
+                    .inputItemBytes(List.copyOf(inputItemBytes))
+                    .toolsHash(digestTelemetry(tools == null ? null : tools.toString()))
+                    .requestOptionsHash(digestTelemetry(options.toString()))
+                    .payloadBytes(payload.getBytes(StandardCharsets.UTF_8).length)
                     .continuationMode(mode)
                     .previousResponseIdHash(digestTelemetry(stateful && request != null
                             ? request.getPreviousResponseId() : null))
@@ -1469,6 +1548,14 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to build Agent cache telemetry", exception);
         }
+    }
+
+    private String inputItemKind(JsonNode item) {
+        if (item == null || !item.isObject()) return "unknown";
+        String type = textValue(item.get(AiConstants.RESPONSES_TYPE_FIELD), "");
+        if (!type.isBlank()) return type;
+        String role = textValue(item.get(AiConstants.AI_ROLE_FIELD), "");
+        return role.isBlank() ? "unknown" : role;
     }
 
     private String digestTelemetry(String value) {

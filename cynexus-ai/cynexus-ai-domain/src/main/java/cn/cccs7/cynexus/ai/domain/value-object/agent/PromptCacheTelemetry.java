@@ -1,5 +1,6 @@
 package cn.cccs7.cynexus.ai.domain.valueobject.agent;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Value;
 
@@ -12,6 +13,13 @@ public class PromptCacheTelemetry {
     String stablePrefixHash;
     String requestInputHash;
     Integer inputItemCount;
+    List<String> inputItemHashes;
+    List<String> inputPrefixHashes;
+    List<String> inputItemKinds;
+    List<Integer> inputItemBytes;
+    String toolsHash;
+    String requestOptionsHash;
+    Integer payloadBytes;
     String continuationMode;
     String previousResponseIdHash;
     String providerResponseIdHash;

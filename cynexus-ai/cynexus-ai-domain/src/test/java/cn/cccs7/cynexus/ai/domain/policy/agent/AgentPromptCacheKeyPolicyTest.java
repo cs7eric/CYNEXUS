@@ -32,12 +32,13 @@ class AgentPromptCacheKeyPolicyTest {
         assertThat(left.getConversationKey()).isNotEqualTo(otherConversation.getConversationKey());
         assertThat(left.getStablePrefixKey()).isEqualTo(otherConversation.getStablePrefixKey());
         assertThat(left.getRoutingKey()).isEqualTo(reordered.getRoutingKey());
+        assertThat(left.getRoutingKey()).isNotEqualTo(otherConversation.getRoutingKey());
         assertThat(otherConversation.getRoutingKey())
                 .startsWith(AiConstants.PROMPT_CACHE_ROUTING_KEY_PREFIX);
     }
 
     @Test
-    void boundsSharedStablePrefixRoutingToConfiguredShards() {
+    void givesEachConversationAnIsolatedRoutingKeyWithinTheStablePrefix() {
         AgentToolDefinition tool = tool("market.overview", "Read market data.");
 
         var contexts = java.util.stream.IntStream.range(0, 64)
@@ -48,8 +49,7 @@ class AgentPromptCacheKeyPolicyTest {
         assertThat(contexts).extracting(context -> context.getStablePrefixKey()).containsOnly(
                 contexts.get(0).getStablePrefixKey());
         assertThat(contexts.stream().map(context -> context.getRoutingKey()).distinct().count())
-                .isGreaterThan(1)
-                .isLessThanOrEqualTo(AiConstants.PROMPT_CACHE_ROUTING_SHARD_COUNT);
+                .isEqualTo(contexts.size());
     }
 
     @Test

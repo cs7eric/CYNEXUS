@@ -38,6 +38,15 @@ class AgentReasoningPolicyTest {
     }
 
     @Test
+    void appliesValidatedResponsesHttpStreamModeFromBinding() throws Exception {
+        String extra = AgentReasoningPolicy.resolveRuntimeExtra(
+                "{}", "{\"wire_api\":\"responses\",\"responses_http_stream_mode\":\"buffered\"}", null);
+
+        assertThat(objectMapper.readTree(extra).path("responses_http_stream_mode").asText())
+                .isEqualTo("buffered");
+    }
+
+    @Test
     void mergesOnlyValidatedResponsesCacheRuntimeParams() throws Exception {
         String extra = AgentReasoningPolicy.resolveRuntimeExtra(
                 "{\"provider_setting\":\"kept\"}",

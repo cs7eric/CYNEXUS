@@ -37,6 +37,7 @@ $migrationFiles = @(
     "20260726_optimize_autonomous_agent_prompt_cache_prefix.sql",
     "20260726_route_autonomous_agent_via_responses.sql",
     "20260726_enable_xhhai_responses_websocket.sql",
+    "20260726_use_buffered_xhhai_responses_http.sql",
     "20260725_add_ai_agent_provider_selection.sql",
     "20260725_add_ai_provider_model_configs.sql",
     "20260725_add_ai_binding_reasoning_effort.sql",
@@ -50,6 +51,10 @@ $migrationFiles = @(
     "20260726_update_agent_prompt_cache_architecture_kb_v3_zh.sql"
     "20260726_update_agent_prompt_cache_architecture_kb_v4_zh.sql"
     "20260726_update_agent_prompt_cache_architecture_kb_v5_zh.sql"
+    "20260726_update_agent_prompt_cache_architecture_kb_v6_zh.sql"
+    "20260727_update_agent_prompt_cache_architecture_kb_v7_zh.sql"
+    "20260727_update_agent_prompt_cache_architecture_kb_v8_zh.sql"
+    "20260727_update_agent_prompt_cache_architecture_kb_v9_zh.sql"
 )
 
 foreach ($file in $migrationFiles) {

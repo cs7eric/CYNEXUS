@@ -148,7 +148,7 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
-    void placesRuntimeContextAfterConversationHistory() throws Exception {
+    void placesRuntimeContextAsTrailingUserMessageAfterConversationHistory() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
         server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
 
@@ -166,8 +166,33 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(messages.get(0).path("content").asText()).isEqualTo("stable system prompt");
         assertThat(messages.get(1).path("role").asText()).isEqualTo("user");
         assertThat(messages.get(1).path("content").asText()).isEqualTo("question");
-        assertThat(messages.get(2).path("role").asText()).isEqualTo("system");
+        assertThat(messages.get(2).path("role").asText()).isEqualTo("user");
         assertThat(messages.get(2).path("content").asText()).isEqualTo("dynamic runtime context");
+    }
+
+    @Test
+    void replaysHistoricalRuntimeContextAsUserMessageForChatCompletions() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+
+        AgentModelTurnRequest turn = AgentModelTurnRequest.builder()
+                .systemPrompt("stable system prompt")
+                .messages(List.of(
+                        AgentModelMessage.builder().role("user").content("question").build(),
+                        AgentModelMessage.builder().role("assistant").content("prior answer")
+                                .runtimeContext("runtime-1").build()))
+                .runtimeContext("runtime-2")
+                .tools(List.of())
+                .build();
+        adapter().completeAgent(model(""), turn);
+
+        var messages = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get()).path("messages");
+        assertThat(messages).hasSize(5);
+        assertThat(messages.get(2).path("role").asText()).isEqualTo("user");
+        assertThat(messages.get(2).path("content").asText()).isEqualTo("runtime-1");
+        assertThat(messages.get(3).path("role").asText()).isEqualTo("assistant");
+        assertThat(messages.get(4).path("role").asText()).isEqualTo("user");
+        assertThat(messages.get(4).path("content").asText()).isEqualTo("runtime-2");
     }
 
     @Test
@@ -219,6 +244,14 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getCacheTelemetry().isResponseStorageEnabled()).isTrue();
         assertThat(response.getCacheTelemetry().getProviderResponseIdHash())
                 .isNotBlank().isNotEqualTo("resp-first");
+        assertThat(response.getCacheTelemetry().getInputItemKinds())
+                .containsExactly("system", "user", "function_call_output", "user");
+        assertThat(response.getCacheTelemetry().getInputItemHashes()).hasSize(4).doesNotContainNull();
+        assertThat(response.getCacheTelemetry().getInputPrefixHashes()).hasSize(4).doesNotContainNull();
+        assertThat(response.getCacheTelemetry().getInputItemBytes()).allMatch(size -> size > 0);
+        assertThat(response.getCacheTelemetry().getToolsHash()).isNotBlank();
+        assertThat(response.getCacheTelemetry().getRequestOptionsHash()).isNotBlank();
+        assertThat(response.getCacheTelemetry().getPayloadBytes()).isPositive();
     }
 
     @Test
@@ -365,11 +398,13 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(input).hasSize(7);
         assertThat(input.get(0).path("content").asText()).isEqualTo("stable system prompt");
         assertThat(input.get(1).path("content").asText()).isEqualTo("old question");
+        assertThat(input.get(2).path("role").asText()).isEqualTo("user");
         assertThat(input.get(2).path("content").asText()).isEqualTo("runtime-1");
         assertThat(input.get(3).path("type").asText()).isEqualTo("reasoning");
         assertThat(input.get(3).path("encrypted_content").asText()).isEqualTo("opaque-state");
         assertThat(input.get(4).path("type").asText()).isEqualTo("function_call");
         assertThat(input.get(5).path("type").asText()).isEqualTo("function_call_output");
+        assertThat(input.get(6).path("role").asText()).isEqualTo("user");
         assertThat(input.get(6).path("content").asText()).isEqualTo("runtime-2");
         assertThat(response.getCacheTelemetry().getContinuationMode()).isEqualTo("STATELESS_REPLAY");
         assertThat(response.getProviderOutputJson()).contains("final_answer");
@@ -440,6 +475,28 @@ class OpenAiCompatibleChatAdapterAgentTest {
         assertThat(response.getProviderResponseId()).isEqualTo("resp-stream-1");
         assertThat(response.getCachedInputTokens()).isEqualTo(8);
         assertThat(response.getProviderOutputJson()).contains("opaque-stream", "fc-item-1");
+    }
+
+    @Test
+    void buffersResponsesHttpToPreserveEncryptedReasoningAndEmitsUiDeltas() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server = server(requestBody, """
+                {"id":"resp-buffered-1","output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"分析完成"}],"encrypted_content":"opaque-buffered"},{"type":"message","content":[{"type":"output_text","text":"最终答案"}]}],"usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":12},"output_tokens":4,"total_tokens":24}}
+                """);
+        List<String> textDeltas = new ArrayList<>();
+        List<String> thinkingDeltas = new ArrayList<>();
+
+        AgentModelTurnResponse response = adapter().streamAgent(
+                model("{\"wire_api\":\"responses\",\"responses_http_stream_mode\":\"buffered\"}"),
+                request(List.of()), textDeltas::add, thinkingDeltas::add);
+
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(requestBody.get());
+        assertThat(payload.path("stream").asBoolean()).isFalse();
+        assertThat(payload.path("include").get(0).asText()).isEqualTo("reasoning.encrypted_content");
+        assertThat(textDeltas).containsExactly("最终答案");
+        assertThat(thinkingDeltas).containsExactly("分析完成");
+        assertThat(response.getProviderOutputJson()).contains("opaque-buffered");
+        assertThat(response.getCachedInputTokens()).isEqualTo(12);
     }
 
     @Test
