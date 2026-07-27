@@ -412,6 +412,8 @@ public class AgentRunExecutionDomainService {
                             .filter(item -> call.getToolCode().equals(item.getCode()))
                             .findFirst()
                             .orElse(null);
+                    publisher.accept(AgentRunEventBO.builder().type("TOOL_STEP").runNo(runNo).status("RUNNING")
+                            .stepNo(steps.size() + 1).toolCode(call.getToolCode()).build());
                     AgentToolExecutionOutcome outcome = turnDomainService.executeToolWithRetry(call, context,
                             (AgentToolExecutionPort) (toolCall, toolContext) ->
                                     executeToolWithCancellation(toolCall, toolContext, ownerKey, runNo),

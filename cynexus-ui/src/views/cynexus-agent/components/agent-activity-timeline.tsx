@@ -123,18 +123,28 @@ export function appendToolStep(
 ): AgentTimelineEntry[] {
   const toolCode = tool.toolCode?.trim() || "tool"
   const id = `tool-${tool.stepNo ?? Date.now()}-${toolCode}`
-  if (entries.some((entry) => entry.id === id)) return entries
-  return [
-    ...entries,
-    {
-      id,
-      type: "tool",
-      stepNo: tool.stepNo,
-      toolCode,
-      summary: tool.summary ?? "",
-      status: tool.status ?? "SUCCEEDED",
-    },
-  ]
+  const existingIndex = entries.findIndex((entry) => entry.id === id)
+  if (existingIndex >= 0) {
+    const next = [...entries]
+    const existing = next[existingIndex]
+    if (existing.type === "tool") {
+      next[existingIndex] = {
+        ...existing,
+        stepNo: tool.stepNo ?? existing.stepNo,
+        summary: tool.summary ?? existing.summary,
+        status: tool.status ?? existing.status,
+      }
+    }
+    return next
+  }
+  return [...entries, {
+    id,
+    type: "tool",
+    stepNo: tool.stepNo,
+    toolCode,
+    summary: tool.summary ?? "",
+    status: tool.status ?? "SUCCEEDED",
+  }]
 }
 
 export function appendRetry(
@@ -158,6 +168,7 @@ export function appendRetry(
 
 function toolLabel(entry: Extract<AgentTimelineEntry, { type: "tool" }>) {
   const code = entry.toolCode
+  if (entry.status === "RUNNING") return `正在调用 ${code}`
   if (entry.status === "FAILED") return `未能调用 ${code}`
   if (entry.status === "SKIPPED") return `已跳过 ${code}`
   if (entry.summary?.trim() && entry.summary.trim().length <= 64) return entry.summary.trim()
@@ -204,6 +215,7 @@ function ThinkingRow({
 
 function ToolRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "tool" }> }) {
   const [open, setOpen] = useState(false)
+  const running = entry.status === "RUNNING"
   const failed = entry.status === "FAILED"
   const skipped = entry.status === "SKIPPED"
   const detail = entry.summary?.trim()
@@ -224,14 +236,16 @@ function ToolRow({ entry }: { entry: Extract<AgentTimelineEntry, { type: "tool" 
             </span>
           ) : skipped ? (
             <MinusCircle className="size-3.5 text-muted-foreground/80" />
+          ) : running ? (
+            <Spinner className="size-3.5" />
           ) : (
             <Wrench className="size-3.5 text-muted-foreground" />
           )}
         </MarkerIcon>
         <MarkerContent className="line-clamp-1 min-w-0">{toolLabel(entry)}</MarkerContent>
-        {detail ? (
+        {detail && !running ? (
           open ? <ChevronDown className="ml-auto size-3.5 shrink-0 opacity-60" /> : <ChevronRight className="ml-auto size-3.5 shrink-0 opacity-60" />
-        ) : failed || skipped ? null : (
+        ) : failed || skipped || running ? null : (
           <Check className="ml-auto size-3.5 shrink-0 opacity-40" />
         )}
       </CollapsibleTrigger>

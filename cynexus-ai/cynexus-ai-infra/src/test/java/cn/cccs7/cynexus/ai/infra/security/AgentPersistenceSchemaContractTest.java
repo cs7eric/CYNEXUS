@@ -93,6 +93,15 @@ class AgentPersistenceSchemaContractTest {
     }
 
     @Test
+    void xhhaiResponsesSseMigrationIsRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260727_enable_xhhai_responses_sse.sql");
+        assertThat(migration).contains("responses_http_stream_mode", "sse",
+                "responses_transport", "http", "disable_response_storage");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260727_enable_xhhai_responses_sse.sql");
+    }
+
+    @Test
     void conversationIsolatedCacheKeyKnowledgeBaseV7IsRegisteredForRelease() throws IOException {
         String migration = readMigration("20260727_update_agent_prompt_cache_architecture_kb_v7_zh.sql");
         assertThat(migration).contains("'documentVersion', 'v7-zh'", "6,656",
