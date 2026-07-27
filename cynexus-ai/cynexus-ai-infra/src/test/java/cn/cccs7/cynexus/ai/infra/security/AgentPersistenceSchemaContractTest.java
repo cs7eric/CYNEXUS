@@ -102,6 +102,14 @@ class AgentPersistenceSchemaContractTest {
     }
 
     @Test
+    void agentRunReasoningEffortMigrationIsRegisteredForRelease() throws IOException {
+        String migration = readMigration("20260727_add_ai_agent_run_reasoning_effort.sql");
+        assertThat(migration).contains("ai_agent_run", "reasoning_effort");
+        assertThat(readResource("deploy/release/apply-agent-migrations.ps1"))
+                .contains("20260727_add_ai_agent_run_reasoning_effort.sql");
+    }
+
+    @Test
     void conversationIsolatedCacheKeyKnowledgeBaseV7IsRegisteredForRelease() throws IOException {
         String migration = readMigration("20260727_update_agent_prompt_cache_architecture_kb_v7_zh.sql");
         assertThat(migration).contains("'documentVersion', 'v7-zh'", "6,656",

@@ -756,6 +756,7 @@ export default function AutonomousAgentPage() {
                                     </div>
                                     {showRunActions ? (
                                       <AgentFeedbackPanel
+                                        run={run}
                                         runNo={run.runNo!}
                                         actions={
                                           <>

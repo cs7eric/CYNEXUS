@@ -56,6 +56,7 @@ $migrationFiles = @(
     "20260727_update_agent_prompt_cache_architecture_kb_v8_zh.sql"
     "20260727_update_agent_prompt_cache_architecture_kb_v9_zh.sql"
     "20260727_enable_xhhai_responses_sse.sql"
+    "20260727_add_ai_agent_run_reasoning_effort.sql"
 )
 
 foreach ($file in $migrationFiles) {

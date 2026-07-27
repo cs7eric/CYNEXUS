@@ -13,7 +13,7 @@ public final class AgentRunPOConverter {
         AgentRunPO target = new AgentRunPO();
         target.setId(source.getId()); target.setRunNo(source.getRunNo()); target.setConversationNo(source.getConversationNo());
         target.setOwnerKey(source.getOwnerKey()); target.setIdempotencyKey(source.getIdempotencyKey()); target.setStatus(source.getStatus()); target.setUserInput(source.getUserInput());
-        target.setAnswer(source.getAnswer()); target.setProviderCode(source.getProviderCode()); target.setModelCode(source.getModelCode()); target.setPlan(source.getPlanJson());
+        target.setAnswer(source.getAnswer()); target.setProviderCode(source.getProviderCode()); target.setModelCode(source.getModelCode()); target.setReasoningEffort(source.getReasoningEffort()); target.setPlan(source.getPlanJson());
         target.setContextJson(source.getContextJson()); target.setAssumptionsJson(source.getAssumptionsJson());
         target.setEvidenceJson(source.getEvidenceJson()); target.setWarningsJson(source.getWarningsJson());
         target.setErrorMessage(source.getErrorMessage()); target.setFailureCategory(source.getFailureCategory()); target.setTurnCount(source.getTurnCount());
@@ -32,7 +32,7 @@ public final class AgentRunPOConverter {
         if (source == null) return null;
         return AgentRunBO.builder().id(source.getId()).runNo(source.getRunNo()).conversationNo(source.getConversationNo())
                 .ownerKey(source.getOwnerKey()).idempotencyKey(source.getIdempotencyKey()).status(source.getStatus()).userInput(source.getUserInput())
-                .answer(source.getAnswer()).providerCode(source.getProviderCode()).modelCode(source.getModelCode()).planJson(source.getPlan())
+                .answer(source.getAnswer()).providerCode(source.getProviderCode()).modelCode(source.getModelCode()).reasoningEffort(source.getReasoningEffort()).planJson(source.getPlan())
                 .contextJson(source.getContextJson()).assumptionsJson(source.getAssumptionsJson())
                 .evidenceJson(source.getEvidenceJson()).warningsJson(source.getWarningsJson())
                 .errorMessage(source.getErrorMessage()).failureCategory(source.getFailureCategory()).turnCount(source.getTurnCount()).toolCallCount(source.getToolCallCount())

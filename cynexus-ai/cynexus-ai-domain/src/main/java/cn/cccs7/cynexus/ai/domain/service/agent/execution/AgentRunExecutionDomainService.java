@@ -199,6 +199,8 @@ public class AgentRunExecutionDomainService {
                     safeCommand.getPreferredReasoningEffort());
             run.setProviderCode(model.getProviderIdentity());
             run.setModelCode(model.getModelCode());
+            run.setReasoningEffort(resolveReasoningEffort(model));
+            runDomainService.updateRun(run);
             List<AgentToolDefinition> definitions = toolCatalog.enabledTools();
             String stableSystemPrompt = systemPromptDomainService.resolveStable(executionDomainService.limits());
             List<AgentMessageBO> persistedMessages = runDomainService.findMessages(ownerKey, conversationNo);
@@ -731,6 +733,17 @@ public class AgentRunExecutionDomainService {
 
     private String valueOr(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private String resolveReasoningEffort(AiModelBO model) {
+        if (model == null || model.getExtra() == null || model.getExtra().isBlank()) return null;
+        try {
+            String effort = objectMapper.readTree(model.getExtra())
+                    .path(AiConstants.MODEL_REASONING_EFFORT_EXTRA).asText(null);
+            return effort == null || effort.isBlank() ? null : effort;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private String valueOrNull(String value) {

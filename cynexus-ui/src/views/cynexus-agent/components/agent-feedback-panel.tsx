@@ -1,18 +1,29 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { Check, ThumbsDown, ThumbsUp } from "lucide-react"
+import { Check, Clock3, Cpu, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   fetchAgentFeedback,
   submitAgentFeedback,
+  type AgentRun,
   type AgentFeedback,
 } from "@/services/ai/agent"
 import { cn } from "@/lib/utils"
 
+function formatProcessingTime(startedAt?: string | null, finishedAt?: string | null) {
+  if (!startedAt || !finishedAt) return "--"
+  const elapsedMs = Date.parse(finishedAt) - Date.parse(startedAt)
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return "--"
+  if (elapsedMs < 1000) return `${elapsedMs}ms`
+  return `${(elapsedMs / 1000).toFixed(elapsedMs >= 10000 ? 1 : 2)}s`
+}
+
 export function AgentFeedbackPanel({
+  run,
   runNo,
   actions,
 }: {
+  run: AgentRun
   runNo: string
   actions?: ReactNode
 }) {
@@ -60,9 +71,25 @@ export function AgentFeedbackPanel({
 
   const helpful = Boolean(feedback?.rating && feedback.rating >= 4)
   const unhelpful = Boolean(feedback?.rating && feedback.rating <= 2)
+  const processingTime = formatProcessingTime(run.startedAt, run.finishedAt)
+  const reasoningEffort = run.reasoningEffort?.trim() || "low"
 
   return (
     <div className="mt-3 w-full min-w-0 space-y-2">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
+        <span className="inline-flex min-w-0 items-center gap-1" title="Processing time">
+          <Clock3 className="size-3 shrink-0" />
+          <span>用时 {processingTime}</span>
+        </span>
+        <span className="inline-flex min-w-0 max-w-full items-center gap-1" title={run.modelCode || "Model unavailable"}>
+          <Cpu className="size-3 shrink-0" />
+          <span className="max-w-[12rem] truncate">{run.modelCode || "Model unavailable"}</span>
+        </span>
+        <span className="inline-flex items-center gap-1" title="Reasoning level">
+          <Sparkles className="size-3 shrink-0" />
+          <span>Reasoning {reasoningEffort}</span>
+        </span>
+      </div>
       <div className="inline-flex max-w-full flex-wrap items-center gap-0.5 p-0">
         <Button
           size="icon"

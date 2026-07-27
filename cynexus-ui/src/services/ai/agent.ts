@@ -40,6 +40,7 @@ export interface AgentRun {
   answer?: string | null
   providerCode?: string | null
   modelCode?: string | null
+  reasoningEffort?: string | null
   planJson?: string | null
   clarificationJson?: string | null
   evidenceJson?: string | null

@@ -190,6 +190,7 @@ public class AutonomousAgentAppService {
                 .orElseThrow(() -> new IllegalArgumentException("Agent run was not found"));
         return execute(AgentRunRequest.builder().conversationNo(original.getConversationNo()).userInput(original.getUserInput())
                 .preferredProviderCode(original.getProviderCode()).preferredModelCode(original.getModelCode())
+                .preferredReasoningEffort(original.getReasoningEffort())
                 .workspace("agent").locale("zh-CN").build(), identity, ignored -> { });
     }
 
@@ -262,7 +263,8 @@ public class AutonomousAgentAppService {
 
     private AgentRunDTO toDTO(AgentRunBO run, List<AgentRunStepBO> steps) {
         return AgentRunDTO.builder().runNo(run.getRunNo()).conversationNo(run.getConversationNo()).status(run.getStatus())
-                .userInput(run.getUserInput()).answer(run.getAnswer()).providerCode(run.getProviderCode()).modelCode(run.getModelCode()).planJson(run.getPlanJson())
+                .userInput(run.getUserInput()).answer(run.getAnswer()).providerCode(run.getProviderCode()).modelCode(run.getModelCode())
+                .reasoningEffort(run.getReasoningEffort()).planJson(run.getPlanJson())
                 .contextJson(run.getContextJson()).assumptionsJson(run.getAssumptionsJson()).evidenceJson(run.getEvidenceJson())
                 .clarificationJson(run.getClarificationJson())
                 .warningsJson(run.getWarningsJson())

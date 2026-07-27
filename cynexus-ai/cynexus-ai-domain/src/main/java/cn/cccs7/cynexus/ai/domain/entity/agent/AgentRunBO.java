@@ -18,6 +18,7 @@ public class AgentRunBO {
     private String answer;
     private String providerCode;
     private String modelCode;
+    private String reasoningEffort;
     private String planJson;
     private String contextJson;
     private String assumptionsJson;
