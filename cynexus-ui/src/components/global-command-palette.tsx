@@ -124,13 +124,13 @@ export function GlobalCommandTrigger({ className }: { className?: string }) {
       type="button"
       onClick={openGlobalCommand}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-md border border-border/70 bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground",
+        "inline-flex h-9 items-center gap-2 rounded-md border border-border/70 bg-muted/40 px-2 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground sm:px-3",
         className,
       )}
     >
       <Search className="size-4" />
-      <span>搜索</span>
-      <span className="ml-1 inline-flex items-center gap-0.5 rounded border border-border/70 bg-background/80 px-1 py-0.5 font-mono text-[10px]">
+      <span className="hidden sm:inline">搜索</span>
+      <span className="ml-0 hidden items-center gap-0.5 rounded border border-border/70 bg-background/80 px-1 py-0.5 font-mono text-[10px] sm:inline-flex sm:ml-1">
         Alt K
       </span>
     </button>

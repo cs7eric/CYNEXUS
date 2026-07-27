@@ -490,17 +490,21 @@ export default function AutonomousAgentPage() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 gap-1.5 text-xs"
+              className="h-9 gap-1.5 px-2 text-xs sm:h-8 sm:px-2.5"
+              aria-label="Export Agent result"
+              title="Export Agent result"
               onClick={() => void exportResult()}
             >
               <Download className="size-3.5" />
-              Export
+              <span className="hidden sm:inline">Export</span>
             </Button>
           ) : null}
           <Button
             size="sm"
             variant="secondary"
-            className="h-8 gap-1.5 text-xs"
+            className="h-9 gap-1.5 px-2 text-xs sm:h-8 sm:px-2.5"
+            aria-label="Open Agent workspace"
+            title="Open Agent workspace"
             onClick={() => {
               setWorkspaceTab("history")
               setWorkspaceOpen(true)
@@ -508,7 +512,7 @@ export default function AutonomousAgentPage() {
             }}
           >
             <PanelRight className="size-3.5" />
-            Workspace
+            <span className="hidden sm:inline">Workspace</span>
           </Button>
         </div>
       }
@@ -683,7 +687,7 @@ export default function AutonomousAgentPage() {
 
         <div className="min-h-0 flex-1">
           <section className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-40 py-5 md:px-64 lg:px-96">
+            <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden px-0 py-3 sm:px-4 sm:py-4 md:px-8 md:py-5 lg:px-12">
               <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={48}>
                 <MessageScroller className="min-h-0 flex-1">
                   <MessageScrollerViewport aria-label="Agent messages" className="scrollbar-none">
@@ -697,7 +701,7 @@ export default function AutonomousAgentPage() {
                           </AgentMessageBubble>
                         </MessageScrollerItem>
                       ))}
-                      {!run && !loading && !displayedConversationMessages.length ? <MessageScrollerItem messageId="agent-empty"><div className="flex min-h-[18rem] items-center justify-center"><div className="max-w-xl text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div></div></MessageScrollerItem> : null}
+                      {!run && !loading && !displayedConversationMessages.length ? <MessageScrollerItem messageId="agent-empty"><div className="flex min-h-[18rem] w-full min-w-0 items-center justify-center"><div className="w-full max-w-xl min-w-0 px-3 text-center"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"><Sparkles className="size-5" /></div><h2 className="text-lg font-semibold">Start with a question</h2><p className="mt-2 break-words text-sm leading-6 text-muted-foreground">Try asking for a market comparison, a stock snapshot, or a data-backed explanation of today&apos;s movement.</p></div></div></MessageScrollerItem> : null}
                       {run ? <>
                         <MessageScrollerItem messageId={`run-user-${run.runNo ?? activeRunNo ?? "pending"}`} scrollAnchor>
                           <AgentMessageBubble align="end">{run.userInput}</AgentMessageBubble>
@@ -844,28 +848,28 @@ export default function AutonomousAgentPage() {
                 </MessageScroller>
               </MessageScrollerProvider>
             </div>
-            <div className="px-40 pb-5 pt-2 md:px-64 lg:px-96">
+            <div className="mx-auto w-full max-w-5xl px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-5 md:px-8 lg:px-12">
               <form onSubmit={(event) => { event.preventDefault(); void submit() }}>
                 <InputGroup className="h-auto min-h-0 flex-col items-stretch">
-                  <InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey) return; event.preventDefault(); void submit() }} placeholder="Ask about markets, stocks, sectors, or a comparison" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" />
-                  <InputGroupAddon align="block-end" className="flex-wrap">
-                    <span className="px-1 text-xs text-muted-foreground">Enter 发送 · Ctrl + Enter 换行</span>
+                  <InputGroupTextarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey) return; event.preventDefault(); void submit() }} placeholder="Ask about markets or stocks" aria-label="Ask Cynexus Agent" rows={3} className="!block h-20 min-h-20 max-h-20 min-w-0 max-w-full flex-none resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-left leading-6 scrollbar-none [&::-webkit-scrollbar]:hidden" />
+                  <InputGroupAddon align="block-end" className="flex-wrap gap-1.5">
+                    <span className="order-last basis-full px-1 pt-0 text-[11px] leading-4 text-muted-foreground sm:order-none sm:basis-auto sm:text-xs">Enter 发送 · Ctrl + Enter 换行</span>
                     <Select value={selectedProviderCode || "auto"} onValueChange={(value) => { const nextProviderCode = value === "auto" ? "" : value; const nextProvider = providers.find((provider) => provider.code === nextProviderCode); setSelectedProviderCode(nextProviderCode); setSelectedModelCode(nextProvider?.default_model || nextProvider?.models[0] || ""); setSelectedReasoningEffort("") }} disabled={loading}>
-                      <SelectTrigger size="sm" className="h-7 max-w-[11rem] border-0 bg-transparent px-2 text-xs shadow-none"><Cpu className="size-3.5" /><SelectValue placeholder="Provider">{providerDisplayName}</SelectValue></SelectTrigger>
+                      <SelectTrigger size="sm" className="h-9 min-w-0 max-w-[6.5rem] flex-1 border-0 bg-transparent px-2 text-xs shadow-none sm:h-7 sm:max-w-[11rem] sm:flex-none"><Cpu className="size-3.5" /><SelectValue placeholder="Provider">{providerDisplayName}</SelectValue></SelectTrigger>
                       <SelectContent side="top" align="start"><SelectItem value="auto">Default provider</SelectItem>{providers.map((provider) => <SelectItem key={provider.code} value={provider.code}>{provider.name}</SelectItem>)}</SelectContent>
                     </Select>
                     {selectedProvider ? <Select value={selectedModelCode || "auto"} onValueChange={(value) => setSelectedModelCode(value === "auto" ? "" : value)} disabled={loading}>
-                      <SelectTrigger size="sm" className="h-7 max-w-[13rem] border-0 bg-transparent px-2 text-xs shadow-none"><SelectValue placeholder="Model">{displayedModelCode || "Model"}</SelectValue></SelectTrigger>
+                      <SelectTrigger size="sm" className="h-9 min-w-0 max-w-[7rem] flex-1 border-0 bg-transparent px-2 text-xs shadow-none sm:h-7 sm:max-w-[13rem] sm:flex-none"><SelectValue placeholder="Model">{displayedModelCode || "Model"}</SelectValue></SelectTrigger>
                       <SelectContent side="top" align="start"><SelectItem value="auto">Provider default</SelectItem>{[...new Set([selectedModelCode, run?.modelCode || "", selectedProvider.default_model, ...selectedProvider.models].filter(Boolean))].map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}</SelectContent>
                     </Select> : null}
                     <Select value={selectedReasoningEffort || "provider-default"} onValueChange={(value) => setSelectedReasoningEffort((value === "provider-default" ? "" : value) as AiReasoningEffort | "")} disabled={loading}>
-                      <SelectTrigger size="sm" title={selectedReasoningEffort || providerDefaultReasoning} className="h-7 min-w-[6rem] shrink-0 border-0 bg-transparent px-2 text-xs shadow-none"><Sparkles className="size-3.5" /><SelectValue placeholder="Reasoning">{selectedReasoningEffort || providerDefaultReasoning}</SelectValue></SelectTrigger>
+                      <SelectTrigger size="sm" title={selectedReasoningEffort || providerDefaultReasoning} className="h-9 min-w-[5rem] max-w-[5.25rem] flex-1 shrink-0 border-0 bg-transparent px-2 text-xs shadow-none sm:h-7 sm:min-w-[6rem] sm:max-w-none sm:flex-none"><Sparkles className="size-3.5" /><SelectValue placeholder="Reasoning">{selectedReasoningEffort || providerDefaultReasoning}</SelectValue></SelectTrigger>
                       <SelectContent side="top" align="start">
                         <SelectItem value="provider-default">{providerDefaultReasoning ? `Provider default (${providerDefaultReasoning})` : "Provider default"}</SelectItem>
                         {AI_REASONING_EFFORTS.map((effort) => <SelectItem key={effort} value={effort}>{effort}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {loading ? <InputGroupButton type="button" variant="outline" size="icon-sm" aria-label="Stop Agent" title="Stop Agent" onClick={() => { void stopAgent() }} className="ml-auto border-destructive/30 bg-destructive/5 text-destructive hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/30"><Square className="size-3.5" fill="currentColor" /></InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}
+                    {loading ? <InputGroupButton type="button" variant="outline" size="icon-sm" aria-label="Stop Agent" title="Stop Agent" onClick={() => { void stopAgent() }} className="ml-auto size-9 border-destructive/30 bg-destructive/5 text-destructive hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/30 sm:size-8"><Square className="size-3.5" fill="currentColor" /></InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto size-9 sm:size-8" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}
                   </InputGroupAddon>
                 </InputGroup>
               </form>

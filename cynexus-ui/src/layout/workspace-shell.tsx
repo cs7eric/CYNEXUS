@@ -115,11 +115,11 @@ export function WorkspaceShell({
       <AppSidebar className="border-sidebar-border/30" variant="inset" />
       <SidebarInset className="flex h-svh min-h-0 flex-col overflow-hidden md:!m-0 md:rounded-none md:border-0 md:border-l md:border-border/30 md:shadow-none">
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border/75 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex items-center gap-3 px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2 sm:gap-3 sm:px-4">
             <SidebarTrigger />
             <Separator orientation="vertical" className="mr-1 h-4 bg-border/40" />
-            <Breadcrumb>
-              <BreadcrumbList>
+            <Breadcrumb className="min-w-0 max-w-full">
+              <BreadcrumbList className="min-w-0 max-w-full flex-nowrap overflow-hidden">
                 <BreadcrumbItem className="hidden md:flex">
                   <BreadcrumbLink
                     asChild
@@ -141,8 +141,8 @@ export function WorkspaceShell({
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="rounded-md bg-muted/40 px-2 py-1 font-medium">
+                <BreadcrumbItem className="min-w-0">
+                  <BreadcrumbPage className="max-w-[9rem] truncate rounded-md bg-muted/40 px-2 py-1 font-medium sm:max-w-none">
                     {mobilePageTitle ? (
                       <>
                         <span className="md:hidden">{mobilePageTitle}</span>
@@ -156,7 +156,7 @@ export function WorkspaceShell({
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div className="ml-auto flex items-center gap-2 px-4">
+          <div className="ml-auto flex shrink-0 items-center gap-1 px-2 sm:gap-2 sm:px-4">
             {headerActions}
             <WorkspaceChat />
             <GlobalCommandTrigger />
