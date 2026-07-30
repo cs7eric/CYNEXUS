@@ -53,8 +53,9 @@ Phase 10: Release Verification
 ### Phase 10: Release Verification
 - [x] Synchronize versions and verify Maven/UI versions
 - [x] Run Maven full compile and UI production build
-- [ ] Rebuild Release images and verify the full workflow
-- **Status:** blocked by unavailable Docker Desktop Linux engine
+- [x] Rebuild `market`/`ui` Release images and verify the empty-data API workflow
+- [ ] Verify a live non-empty sync through the shared Data Executor image
+- **Status:** blocked by the shared Data Executor image predating this feature
 
 ## Key Questions
 1. MVP definition: daily/EOD exchange member position rankings, not personal positions or intraday member positions.

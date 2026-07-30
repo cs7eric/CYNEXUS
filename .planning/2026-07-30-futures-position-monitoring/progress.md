@@ -107,9 +107,12 @@
 ### Release Verification Update (2026-07-31)
 
 - Commit `56c024ad` delivered the UI workflow, exchange-qualified identity fix, version synchronization, and self-test record.
-- Release verification could not start because Docker Desktop's Linux engine is unavailable (`npipe:////./pipe/dockerDesktopLinuxEngine` not found).
-- Per repository rules, no Dev application, local Java process, or Vite server was started as a fallback.
-- Remaining verification: apply market migrations, rebuild versioned `market`/`ui` images, start the Release stack, and exercise latest/member/history/coverage plus self-selected navigation against live PostgreSQL.
+- Release command completed: `start-release.ps1 -Version 1.1.357-260731-RELEASE -Build -Services market,ui`.
+- Versioned `market` and `ui` images were built and the Release containers were recreated successfully.
+- Market migrations applied successfully. PostgreSQL contains both futures position tables, and `futures_position_daily` is enabled for `19:00` trading-day execution.
+- Release HTTP checks passed with status 200 for latest, coverage, members, and history. With no capture rows, latest returns `ok=false` and an explicit empty-data message; no false snapshot is displayed.
+- UI route `/market/futures-position` returned the Release HTML successfully.
+- Live non-empty ingestion remains pending because the shared `cynexus-data-job-executor:local` image was created on 2026-07-29 and does not contain `sync_futures_position` (`/internal/jobs/sync_futures_position` returned 404). The shared Data Executor was not restarted, per repository rules.
 
 ### Verification Error
 
