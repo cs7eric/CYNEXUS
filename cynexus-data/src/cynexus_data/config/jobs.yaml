@@ -9,6 +9,16 @@ jobs:
     params:
       any: optional
 
+  sync_futures_position:
+    description: Sync exchange-published futures member volume, long, and short position rankings into PostgreSQL.
+    params:
+      trade_date: optional; YYYY-MM-DD or YYYYMMDD
+      providers: optional; defaults to akshare and is evaluated per exchange
+      exchanges: optional; CFFEX, SHFE, CZCE, DCE, GFEX, INE
+      varieties: optional; comma-separated variety filters
+      create_table: optional
+      dry_run: optional
+
   sync_metadata:
     description: Sync metadata bundle by delegating to stock-basic sync in this foundation pass.
     params:

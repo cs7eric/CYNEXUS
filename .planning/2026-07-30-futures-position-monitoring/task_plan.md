@@ -4,7 +4,7 @@
 Implement the approved daily exchange-member futures long/short position monitor end to end, with ingestion in `cynexus-data`, query semantics/API/UI in the market bounded context, and Release-stack verification.
 
 ## Current Phase
-Phase 6: POC Contract & Source Boundary
+Phase 8: Java Query API
 
 ## Phases
 
@@ -34,16 +34,16 @@ Phase 6: POC Contract & Source Boundary
 - **Status:** in_progress
 
 ### Phase 6: POC Contract & Source Boundary
-- [ ] Run focused tests and document per-exchange POC status
-- **Status:** in_progress
+- [x] Run focused tests and document per-exchange POC status
+- **Status:** complete
 
 ### Phase 7: Data Storage & Sync Job
-- [ ] Add PostgreSQL migrations, capture batches, canonical replacement, and scheduler-backed sync job
-- **Status:** pending
+- [x] Add PostgreSQL migrations, capture batches, canonical replacement, and scheduler-backed sync job
+- **Status:** complete
 
 ### Phase 8: Java Query API
 - [ ] Add market domain query semantics, MyBatis infrastructure, DTO mapping, and REST endpoints
-- **Status:** pending
+- **Status:** in_progress
 
 ### Phase 9: UI Workflow
 - [ ] Add Market navigation, page, ranking/detail/history workflow, freshness/coverage states, and futures self-selected behavior

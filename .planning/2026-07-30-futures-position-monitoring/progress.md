@@ -79,3 +79,10 @@
 | What's the goal? | Analyze a futures long/short monitoring feature for `cynexus-market` before implementation |
 | What have I learned? | See `findings.md`; related market data work and a dirty worktree already exist |
 | What have I done? | Added the first futures domain normalization contract, AkShare adapter boundary, and focused unit tests; no schema/UI yet |
+
+## Implementation Session Update
+
+- Phase 6 complete: exchange-isolated AkShare adapter and independent rank normalization are covered by focused tests. The live POC remains partial: CFFEX/SHFE/CZCE have direct historical results, while DCE returned `BadZipFile` and GFEX was empty for the sample.
+- Phase 7 complete: PostgreSQL contract/catalog, capture-batch audit boundary, canonical member rank storage, idempotent replacement semantics, data job registry, daily scheduler migration, and Release migration wiring are implemented.
+- Data tests: `6 passed`; Python `compileall` completed for `cynexus_data`.
+- Version sync: root and all module Maven POMs plus UI package are `1.1.355-SNAPSHOT`.

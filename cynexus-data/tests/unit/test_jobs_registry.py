@@ -27,6 +27,7 @@ def test_required_jobs_are_registered() -> None:
         "build_msi",
         "transcribe_media",
         "sync_stock_sectors",
+        "sync_futures_position",
     ]:
         assert key in JOB_REGISTRY
 

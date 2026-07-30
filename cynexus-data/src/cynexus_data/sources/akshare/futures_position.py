@@ -34,22 +34,28 @@ def fetch_position_rows(
         if exchange not in AKSHARE_EXCHANGE_VARIETIES:
             raise ValueError(f"unsupported AkShare futures exchange: {exchange}")
         exchange_varieties = [item for item in AKSHARE_EXCHANGE_VARIETIES[exchange] if not requested_varieties or item in requested_varieties]
-        if exchange == "CFFEX":
-            raw = ak.get_cffex_rank_table(_date_arg(trade_date), exchange_varieties)
-        elif exchange == "SHFE":
-            raw = ak.get_shfe_rank_table(_date_arg(trade_date), exchange_varieties)
-        elif exchange == "CZCE":
-            raw = ak.get_rank_table_czce(_date_arg(trade_date))
-        elif exchange == "DCE":
-            raw = ak.futures_dce_position_rank(_date_arg(trade_date), exchange_varieties)
-        elif exchange == "GFEX":
-            raw = ak.futures_gfex_position_rank(_date_arg(trade_date), exchange_varieties)
-        else:
-            # AkShare's SHFE report can contain INE contracts, but not with a
-            # stable INE exchange identity. The caller may map these rows only
-            # after the exchange-specific identity has been validated.
-            raw = ak.get_shfe_rank_table(_date_arg(trade_date), exchange_varieties)
-        output[exchange] = _records(raw, requested_varieties)
+        try:
+            if exchange == "CFFEX":
+                raw = ak.get_cffex_rank_table(_date_arg(trade_date), exchange_varieties)
+            elif exchange == "SHFE":
+                raw = ak.get_shfe_rank_table(_date_arg(trade_date), exchange_varieties)
+            elif exchange == "CZCE":
+                raw = ak.get_rank_table_czce(_date_arg(trade_date))
+            elif exchange == "DCE":
+                raw = ak.futures_dce_position_rank(_date_arg(trade_date), exchange_varieties)
+            elif exchange == "GFEX":
+                raw = ak.futures_gfex_position_rank(_date_arg(trade_date), exchange_varieties)
+            else:
+                # AkShare's SHFE report can contain INE contracts, but not with
+                # a stable INE exchange identity. This remains an explicit
+                # source result so the pipeline can mark INE coverage empty.
+                raw = ak.get_shfe_rank_table(_date_arg(trade_date), exchange_varieties)
+            output[exchange] = _records(raw, requested_varieties)
+        except Exception:
+            # Upstream wrappers are independently rate-limited and can fail on
+            # one exchange (DCE currently returns a non-zip response). Preserve
+            # other exchange results and let capture-batch state expose EMPTY.
+            output[exchange] = []
     return output
 
 
