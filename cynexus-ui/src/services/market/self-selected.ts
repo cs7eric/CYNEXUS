@@ -2,6 +2,8 @@ import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 
+export type SelfSelectedTargetType = "stock" | "hk_stock" | "etf" | "index" | "other" | "future_instrument"
+
 async function triggerWatchlistDataWarmup(symbol: string) {
   const trigger = async (jobKey: string, params: Record<string, unknown>) => {
     const response = await fetchWithRetry(`${SERVICE_PREFIX.core}/scheduler/data-jobs/${jobKey}/trigger`, {
@@ -58,7 +60,7 @@ export interface SelfSelectedItem {
   market?: string | null
   name?: string | null
   notes?: string | null
-  target_type?: "stock" | "hk_stock" | "etf" | "index" | "other"
+  target_type?: SelfSelectedTargetType
   source_type?: "manual" | "search" | "imported"
   sort_order?: number
   created_at: string
@@ -116,7 +118,7 @@ interface JavaSelfSelectedListItemDTO {
   market?: string | null
   name?: string | null
   notes?: string | null
-  targetType?: "stock" | "hk_stock" | "etf" | "index" | "other" | null
+  targetType?: SelfSelectedTargetType | null
   sourceType?: "manual" | "search" | "imported" | null
   status?: string | null
   sortOrder?: number | null
@@ -187,7 +189,7 @@ function toJavaItemPayload(payload: {
   market?: string | null
   name?: string | null
   notes?: string | null
-  target_type?: "stock" | "hk_stock" | "etf" | "index" | "other"
+  target_type?: SelfSelectedTargetType
   sort_order?: number
 }): Partial<JavaSelfSelectedListItemDTO> & { id?: string; listId?: string; extra: string } {
   const value: Partial<JavaSelfSelectedListItemDTO> & { id?: string; listId?: string; extra?: string } = {
@@ -292,7 +294,7 @@ export async function createSelfSelectedItem(
     market?: string
     name?: string
     notes?: string
-    target_type?: "stock" | "hk_stock" | "etf" | "index" | "other"
+    target_type?: SelfSelectedTargetType
   },
 ): Promise<SelfSelectedItemActionResponse> {
   const id = await cynexusResult<string>(

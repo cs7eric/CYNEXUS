@@ -85,7 +85,7 @@
 - Phase 6 complete: exchange-isolated AkShare adapter and independent rank normalization are covered by focused tests. The live POC remains partial: CFFEX/SHFE/CZCE have direct historical results, while DCE returned `BadZipFile` and GFEX was empty for the sample.
 - Phase 7 complete: PostgreSQL contract/catalog, capture-batch audit boundary, canonical member rank storage, idempotent replacement semantics, data job registry, daily scheduler migration, and Release migration wiring are implemented.
 - Data tests: `6 passed`; Python `compileall` completed for `cynexus_data`.
-- Version sync: root and all module Maven POMs plus UI package are `1.1.355-SNAPSHOT`.
+- Version sync: root and all module Maven POMs plus UI package are `1.1.357-SNAPSHOT`.
 
 ## Java Query API Update (2026-07-30)
 
@@ -94,6 +94,15 @@
 - Removed the Spring stereotype from the domain implementation; application configuration is the sole Bean assembly point.
 - Added focused domain tests for date fallback, filter/page normalization, empty data, and invalid rank type.
 - Verification pending: run the focused Maven test and module compile before committing.
+
+### UI Workflow Update (2026-07-30)
+
+- Added `/market/futures-position` with saved filters, contract/variety scope, exchange/date/Top-N filters, latest ranking table, aggregate structure, coverage state, member detail drawer, and history view.
+- Added `future_instrument` self-selected items with exchange-qualified identity and navigation back to the monitor.
+- Added the Market sidebar and router entries, with the Java client isolated under `src/services/market/futures-position.ts`.
+- Maven full compile at `1.1.357-SNAPSHOT`: `BUILD SUCCESS`.
+- UI production build at `1.1.357-SNAPSHOT`: passed; Vite emitted existing unresolved Montserrat runtime-path warnings and a chunk-size warning.
+- Futures mapper XML parsed successfully; SQL execution still requires Release PostgreSQL verification.
 
 ### Verification Error
 

@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   type SelfSelectedGroup,
   type SelfSelectedItem,
+  type SelfSelectedTargetType,
   createSelfSelectedGroup,
   createSelfSelectedItem,
   deleteSelfSelectedGroup,
@@ -200,7 +201,7 @@ export default function SelfSelectedPage() {
         market?: string
         name?: string
         notes?: string
-        target_type?: "stock" | "hk_stock" | "etf" | "index" | "other"
+        target_type?: SelfSelectedTargetType
       },
     ) => {
       const res = await createSelfSelectedItem({ group_id: groupId, ...payload })

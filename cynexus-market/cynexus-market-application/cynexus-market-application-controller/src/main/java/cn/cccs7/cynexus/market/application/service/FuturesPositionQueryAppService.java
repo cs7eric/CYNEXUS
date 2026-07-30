@@ -53,7 +53,7 @@ public class FuturesPositionQueryAppService {
     }
 
     private FuturesPositionDTO.Instrument instrument(FuturesPositionQueryBO.Instrument b) {
-        return FuturesPositionDTO.Instrument.builder().instrumentCode(b.instrumentCode()).varietyCode(b.varietyCode())
+        return FuturesPositionDTO.Instrument.builder().exchangeCode(b.exchangeCode()).instrumentCode(b.instrumentCode()).varietyCode(b.varietyCode())
                 .contractCode(b.contractCode()).volume(b.volume()).longPosition(b.longPosition())
                 .shortPosition(b.shortPosition()).netPosition(b.netPosition()).longShortRatio(b.longShortRatio())
                 .longChange(b.longChange()).shortChange(b.shortChange()).source(b.source()).build();

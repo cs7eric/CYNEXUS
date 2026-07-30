@@ -12,7 +12,7 @@ public final class FuturesPositionQueryBO {
     public record Page(int number, int size, int offset) {
     }
 
-    public record Instrument(String instrumentCode, String varietyCode, String contractCode,
+    public record Instrument(String exchangeCode, String instrumentCode, String varietyCode, String contractCode,
                              BigDecimal volume, BigDecimal longPosition, BigDecimal shortPosition,
                              BigDecimal netPosition, BigDecimal longShortRatio,
                              BigDecimal longChange, BigDecimal shortChange, String source) {

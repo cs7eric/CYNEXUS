@@ -104,6 +104,10 @@ export const sidebarConfig = {
           title: "market-etf",
           url: "/market/etf",
         },
+        {
+          title: "futures position",
+          url: "/market/futures-position",
+        },
       ],
     },
     {

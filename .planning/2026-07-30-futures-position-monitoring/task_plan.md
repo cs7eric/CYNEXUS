@@ -4,7 +4,7 @@
 Implement the approved daily exchange-member futures long/short position monitor end to end, with ingestion in `cynexus-data`, query semantics/API/UI in the market bounded context, and Release-stack verification.
 
 ## Current Phase
-Phase 8: Java Query API
+Phase 10: Release Verification
 
 ## Phases
 
@@ -27,11 +27,12 @@ Phase 8: Java Query API
 
 ### Phase 4: Testing & Verification
 - [x] Run focused tests after each feature commit
-- **Status:** in_progress
+- [x] Run Maven full compile and UI production build after UI integration
+- **Status:** complete
 
 ### Phase 5: Delivery
-- [ ] Deliver scoped commits with completed scope and self-test results
-- **Status:** in_progress
+- [x] Deliver scoped commits with completed scope and self-test results
+- **Status:** complete
 
 ### Phase 6: POC Contract & Source Boundary
 - [x] Run focused tests and document per-exchange POC status
@@ -46,12 +47,14 @@ Phase 8: Java Query API
 - **Status:** complete
 
 ### Phase 9: UI Workflow
-- [ ] Add Market navigation, page, ranking/detail/history workflow, freshness/coverage states, and futures self-selected behavior
-- **Status:** pending
+- [x] Add Market navigation, page, ranking/detail/history workflow, freshness/coverage states, and futures self-selected behavior
+- **Status:** complete
 
 ### Phase 10: Release Verification
-- [ ] Synchronize versions, run tests, rebuild Release images, and verify the full workflow
-- **Status:** pending
+- [x] Synchronize versions and verify Maven/UI versions
+- [x] Run Maven full compile and UI production build
+- [ ] Rebuild Release images and verify the full workflow
+- **Status:** in_progress
 
 ## Key Questions
 1. MVP definition: daily/EOD exchange member position rankings, not personal positions or intraday member positions.

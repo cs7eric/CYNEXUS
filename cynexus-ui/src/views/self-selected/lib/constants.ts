@@ -86,4 +86,5 @@ export const TARGET_TYPE_LABEL: Record<string, string> = {
   stock: "个股",
   index: "指数",
   sector: "板块",
+  future_instrument: "期货标的",
 }

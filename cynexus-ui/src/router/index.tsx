@@ -23,6 +23,7 @@ import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
 import MarketMarginTradingPage from "../views/market/market-margin-trading"
 import MarketEtfPage from "../views/market/market-etf"
+import MarketFuturesPositionPage from "../views/market/market-futures-position"
 import MarketInformationPage, { MarketInformationAnalyzedPage } from "../views/information"
 import PocPage from "../views/poc"
 import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
@@ -115,6 +116,10 @@ export const router = createBrowserRouter([
       {
         path: "market/etf",
         element: <MarketEtfPage />,
+      },
+      {
+        path: "market/futures-position",
+        element: <MarketFuturesPositionPage />,
       },
       {
         path: "information",

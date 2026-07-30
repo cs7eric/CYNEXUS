@@ -37,11 +37,11 @@
 
     <select id="listInstruments" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionInstrumentPO">
         with facts as (
-            select m.instrument_code, m.variety_code, m.contract_code, m.rank_type, m.rank_no,
+            select m.exchange_code, m.instrument_code, m.variety_code, m.contract_code, m.rank_type, m.rank_no,
                    m.rank_value, m.rank_change, m.selected_source
             <include refid="selectedFacts"/>
         ), aggregated as (
-            select instrument_code, max(variety_code) as variety_code, max(contract_code) as contract_code,
+            select exchange_code, instrument_code, max(variety_code) as variety_code, max(contract_code) as contract_code,
                    sum(rank_value) filter (where rank_type = 'VOLUME' and rank_no &lt;= #{top}) as volume,
                    sum(rank_value) filter (where rank_type = 'LONG' and rank_no &lt;= #{top}) as long_position,
                    sum(rank_value) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_position,
@@ -49,9 +49,9 @@
                    sum(rank_change) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_change,
                    max(selected_source) as source
               from facts
-             group by instrument_code
+             group by exchange_code, instrument_code
         )
-        select instrument_code, variety_code, contract_code, volume, long_position, short_position,
+        select exchange_code, instrument_code, variety_code, contract_code, volume, long_position, short_position,
                long_position - short_position as net_position,
                long_position / nullif(short_position, 0) as long_short_ratio,
                long_change, short_change, source
@@ -75,7 +75,7 @@
     </select>
 
     <select id="countInstruments" resultType="int">
-        select count(distinct m.instrument_code)::int
+        select count(distinct (m.exchange_code, m.instrument_code))::int
         <include refid="selectedFacts"/>
     </select>
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Loader2, Search } from "lucide-react"
 
 import { searchStockChart } from "@/services/market/stock-chart"
+import type { SelfSelectedTargetType } from "@/services/market/self-selected"
 import type { StockSearchItem } from "@/views/stock-chart/lib/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +22,6 @@ import {
   inferMarketFromSymbol,
 } from "../lib/constants"
 
-type SelfSelectedTargetType = "stock" | "hk_stock" | "etf" | "index" | "other"
 type SelfSelectedSearchItem = StockSearchItem & {
   target_type: Extract<StockSearchItem["target_type"], SelfSelectedTargetType>
 }

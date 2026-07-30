@@ -53,6 +53,15 @@ export function ItemRow({
   // 点击卡片任意空白处 → 跳到 application-analysis 页面，并把当前股票以
   // query string 带过去；该页面会按 symbol 自动定位 / 添加到 targets
   const goToChart = () => {
+    if (item.target_type === "future_instrument") {
+      const [scope, exchange, instrument] = item.symbol.split(":")
+      const query = new URLSearchParams()
+      if (scope === "CONTRACT" || scope === "VARIETY") query.set("scopeType", scope)
+      if (exchange) query.set("exchangeCode", exchange)
+      if (instrument) query.set("instrumentCode", instrument)
+      navigate(`/market/futures-position?${query.toString()}`)
+      return
+    }
     const params = new URLSearchParams({
       target_type: item.target_type || (market === "HK" ? "hk_stock" : "stock"),
       symbol: item.symbol,

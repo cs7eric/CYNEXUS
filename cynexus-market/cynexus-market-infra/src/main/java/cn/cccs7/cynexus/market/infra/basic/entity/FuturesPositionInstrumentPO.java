@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class FuturesPositionInstrumentPO {
+    private String exchangeCode;
     private String instrumentCode;
     private String varietyCode;
     private String contractCode;

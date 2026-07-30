@@ -70,7 +70,7 @@ public class FuturesPositionRepositoryImpl implements FuturesPositionRepository 
     }
 
     private FuturesPositionQueryBO.Instrument instrument(FuturesPositionInstrumentPO value) {
-        return new FuturesPositionQueryBO.Instrument(value.getInstrumentCode(), value.getVarietyCode(),
+        return new FuturesPositionQueryBO.Instrument(value.getExchangeCode(), value.getInstrumentCode(), value.getVarietyCode(),
                 value.getContractCode(), value.getVolume(), value.getLongPosition(), value.getShortPosition(),
                 value.getNetPosition(), value.getLongShortRatio(), value.getLongChange(), value.getShortChange(),
                 value.getSource());

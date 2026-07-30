@@ -41,6 +41,7 @@ public final class FuturesPositionDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Instrument {
+        private String exchangeCode;
         private String instrumentCode;
         private String varietyCode;
         private String contractCode;
