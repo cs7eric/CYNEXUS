@@ -104,6 +104,13 @@
 - UI production build at `1.1.357-SNAPSHOT`: passed; Vite emitted existing unresolved Montserrat runtime-path warnings and a chunk-size warning.
 - Futures mapper XML parsed successfully; SQL execution still requires Release PostgreSQL verification.
 
+### Release Verification Update (2026-07-31)
+
+- Commit `56c024ad` delivered the UI workflow, exchange-qualified identity fix, version synchronization, and self-test record.
+- Release verification could not start because Docker Desktop's Linux engine is unavailable (`npipe:////./pipe/dockerDesktopLinuxEngine` not found).
+- Per repository rules, no Dev application, local Java process, or Vite server was started as a fallback.
+- Remaining verification: apply market migrations, rebuild versioned `market`/`ui` images, start the Release stack, and exercise latest/member/history/coverage plus self-selected navigation against live PostgreSQL.
+
 ### Verification Error
 
 - Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.
