@@ -26,7 +26,7 @@ Phase 8: Java Query API
 - **Status:** complete
 
 ### Phase 4: Testing & Verification
-- [ ] Run focused tests after each feature commit
+- [x] Run focused tests after each feature commit
 - **Status:** in_progress
 
 ### Phase 5: Delivery
@@ -42,8 +42,8 @@ Phase 8: Java Query API
 - **Status:** complete
 
 ### Phase 8: Java Query API
-- [ ] Add market domain query semantics, MyBatis infrastructure, DTO mapping, and REST endpoints
-- **Status:** in_progress
+- [x] Add market domain query semantics, MyBatis infrastructure, DTO mapping, and REST endpoints
+- **Status:** complete
 
 ### Phase 9: UI Workflow
 - [ ] Add Market navigation, page, ranking/detail/history workflow, freshness/coverage states, and futures self-selected behavior

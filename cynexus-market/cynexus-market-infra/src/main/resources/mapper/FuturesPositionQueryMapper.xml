@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.FuturesPositionQueryMapper">
+
+    <sql id="selectedFacts">
+        from cynexus_appl_market.futures_position_member_rank m
+        join cynexus_appl_market.futures_position_capture_batch b
+          on b.id = m.capture_batch_id
+         and b.deleted_at is null
+         and b.selected is true
+         and b.status in ('SUCCEEDED', 'PARTIAL')
+       where m.deleted_at is null
+         and m.trade_date = #{tradeDate}
+         <if test="scopeType != null and scopeType != ''">
+           and m.scope_type = #{scopeType}
+         </if>
+         <if test="exchangeCode != null and exchangeCode != ''">
+           and m.exchange_code = #{exchangeCode}
+         </if>
+         <if test="varietyCode != null and varietyCode != ''">
+           and m.variety_code = #{varietyCode}
+         </if>
+    </sql>
+
+    <select id="findLatestTradeDate" resultType="java.time.LocalDate">
+        select max(trade_date)
+          from cynexus_appl_market.futures_position_capture_batch
+         where deleted_at is null
+           and selected is true
+           and status in ('SUCCEEDED', 'PARTIAL')
+        <if test="endDate != null">
+           and trade_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="listInstruments" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionInstrumentPO">
+        with facts as (
+            select m.instrument_code, m.variety_code, m.contract_code, m.rank_type, m.rank_no,
+                   m.rank_value, m.rank_change, m.selected_source
+            <include refid="selectedFacts"/>
+        ), aggregated as (
+            select instrument_code, max(variety_code) as variety_code, max(contract_code) as contract_code,
+                   sum(rank_value) filter (where rank_type = 'VOLUME' and rank_no &lt;= #{top}) as volume,
+                   sum(rank_value) filter (where rank_type = 'LONG' and rank_no &lt;= #{top}) as long_position,
+                   sum(rank_value) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_position,
+                   sum(rank_change) filter (where rank_type = 'LONG' and rank_no &lt;= #{top}) as long_change,
+                   sum(rank_change) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_change,
+                   max(selected_source) as source
+              from facts
+             group by instrument_code
+        )
+        select instrument_code, variety_code, contract_code, volume, long_position, short_position,
+               long_position - short_position as net_position,
+               long_position / nullif(short_position, 0) as long_short_ratio,
+               long_change, short_change, source
+          from aggregated
+         order by
+        <choose>
+            <when test="sort == 'volume'">volume</when>
+            <when test="sort == 'longPosition'">long_position</when>
+            <when test="sort == 'shortPosition'">short_position</when>
+            <when test="sort == 'ratio'">long_position / nullif(short_position, 0)</when>
+            <when test="sort == 'instrumentCode'">instrument_code</when>
+            <otherwise>long_position - short_position</otherwise>
+        </choose>
+        <choose>
+            <when test="sortDir == 'asc'">asc nulls last</when>
+            <otherwise>desc nulls last</otherwise>
+        </choose>
+        , instrument_code asc
+         offset #{offset}
+         limit #{limit}
+    </select>
+
+    <select id="countInstruments" resultType="int">
+        select count(distinct m.instrument_code)::int
+        <include refid="selectedFacts"/>
+    </select>
+
+    <select id="aggregate" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionAggregatePO">
+        with facts as (
+            select m.rank_type, m.rank_no, m.rank_value, m.rank_change
+            <include refid="selectedFacts"/>
+        ), totals as (
+            select sum(rank_value) filter (where rank_type = 'VOLUME' and rank_no &lt;= #{top}) as volume,
+                   sum(rank_value) filter (where rank_type = 'LONG' and rank_no &lt;= #{top}) as long_position,
+                   sum(rank_value) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_position,
+                   sum(rank_change) filter (where rank_type = 'LONG' and rank_no &lt;= #{top}) as long_change,
+                   sum(rank_change) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_change
+              from facts
+        )
+        select volume, long_position, short_position, long_position - short_position as net_position,
+               long_position / nullif(short_position, 0) as long_short_ratio,
+               long_change, short_change
+          from totals
+    </select>
+
+    <select id="listMembers" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionMemberPO">
+        select m.trade_date, m.exchange_code, m.scope_type, m.instrument_code, m.variety_code,
+               m.contract_code, m.rank_type, m.rank_no, m.member_name, m.rank_value, m.rank_change,
+               m.selected_source as source
+          from cynexus_appl_market.futures_position_member_rank m
+          join cynexus_appl_market.futures_position_capture_batch b
+            on b.id = m.capture_batch_id
+           and b.deleted_at is null
+           and b.selected is true
+           and b.status in ('SUCCEEDED', 'PARTIAL')
+         where m.deleted_at is null
+           and m.trade_date = #{tradeDate}
+           and m.scope_type = #{scopeType}
+           and m.exchange_code = #{exchangeCode}
+           and m.instrument_code = #{instrumentCode}
+           and m.rank_no &lt;= #{top}
+        <if test="rankType != null and rankType != ''">
+           and m.rank_type = #{rankType}
+        </if>
+         order by m.rank_type asc, m.rank_no asc, m.member_name asc nulls last
+    </select>
+
+    <select id="listHistory" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionHistoryPO">
+        with dates as (
+            select distinct m.trade_date
+              from cynexus_appl_market.futures_position_member_rank m
+              join cynexus_appl_market.futures_position_capture_batch b
+                on b.id = m.capture_batch_id
+               and b.deleted_at is null
+               and b.selected is true
+               and b.status in ('SUCCEEDED', 'PARTIAL')
+             where m.deleted_at is null
+               and m.scope_type = #{scopeType}
+               and m.exchange_code = #{exchangeCode}
+               and m.instrument_code = #{instrumentCode}
+             order by m.trade_date desc
+             limit #{limit}
+        ), totals as (
+            select m.trade_date, m.instrument_code, max(m.variety_code) as variety_code,
+                   sum(m.rank_value) filter (where m.rank_type = 'VOLUME' and m.rank_no &lt;= #{top}) as volume,
+                   sum(m.rank_value) filter (where m.rank_type = 'LONG' and m.rank_no &lt;= #{top}) as long_position,
+                   sum(m.rank_value) filter (where m.rank_type = 'SHORT' and m.rank_no &lt;= #{top}) as short_position,
+                   sum(m.rank_change) filter (where m.rank_type = 'LONG' and m.rank_no &lt;= #{top}) as long_change,
+                   sum(m.rank_change) filter (where m.rank_type = 'SHORT' and m.rank_no &lt;= #{top}) as short_change,
+                   max(m.selected_source) as source
+              from cynexus_appl_market.futures_position_member_rank m
+              join dates d on d.trade_date = m.trade_date
+              join cynexus_appl_market.futures_position_capture_batch b
+                on b.id = m.capture_batch_id
+               and b.deleted_at is null
+               and b.selected is true
+               and b.status in ('SUCCEEDED', 'PARTIAL')
+             where m.deleted_at is null
+               and m.scope_type = #{scopeType}
+               and m.exchange_code = #{exchangeCode}
+               and m.instrument_code = #{instrumentCode}
+             group by m.trade_date, m.instrument_code
+        )
+        select trade_date, instrument_code, variety_code, volume, long_position, short_position,
+               long_position - short_position as net_position,
+               long_position / nullif(short_position, 0) as long_short_ratio,
+               long_change, short_change, source
+          from totals
+         order by trade_date asc
+    </select>
+
+    <select id="listCoverage" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionCoveragePO">
+        select trade_date, exchange_code, provider, status, selected,
+               expected_instrument_count, actual_instrument_count, row_count, completed_at
+          from cynexus_appl_market.futures_position_capture_batch
+         where deleted_at is null
+           and trade_date = #{tradeDate}
+         order by exchange_code asc, selected desc, provider asc
+    </select>
+</mapper>

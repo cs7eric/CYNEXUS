@@ -86,3 +86,17 @@
 - Phase 7 complete: PostgreSQL contract/catalog, capture-batch audit boundary, canonical member rank storage, idempotent replacement semantics, data job registry, daily scheduler migration, and Release migration wiring are implemented.
 - Data tests: `6 passed`; Python `compileall` completed for `cynexus_data`.
 - Version sync: root and all module Maven POMs plus UI package are `1.1.355-SNAPSHOT`.
+
+## Java Query API Update (2026-07-30)
+
+- Added the market domain query port and policy-backed coherent-date, scope, sort, and page semantics.
+- Added the infra Repository conversion path and MyBatis queries for selected capture batches, independent `VOLUME`/`LONG`/`SHORT` Top-N aggregation, member ranks, history, and coverage.
+- Removed the Spring stereotype from the domain implementation; application configuration is the sole Bean assembly point.
+- Added focused domain tests for date fallback, filter/page normalization, empty data, and invalid rank type.
+- Verification pending: run the focused Maven test and module compile before committing.
+
+### Verification Error
+
+- Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.
+- Maven focused test attempt 2 accepted the test selector but stopped during dependency resolution because `cynexus-market-common` was not installed; the next attempt will build required reactor dependencies with `-am`.
+- Maven focused test attempt 3 built the first reactor dependency but Surefire failed in `cynexus-common-core` because the selected test does not exist there; the next attempt adds `-Dsurefire.failIfNoSpecifiedTests=false` for upstream modules.
