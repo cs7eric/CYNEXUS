@@ -42,12 +42,20 @@ class _Akshare:
         }
 
 
+class _Sina:
+    def fetch_dce_position_rows(self, trade_date, *, varieties):
+        assert trade_date == date(2026, 7, 30)
+        assert varieties == []
+        return []
+
+
 def test_sync_position_replaces_successful_exchange_and_preserves_empty_exchange(monkeypatch) -> None:
     repository = _Repository(object())
     monkeypatch.setattr(sync_position, "FuturesPositionRepository", lambda client: repository)
     hooks = SimpleNamespace(
         postgres=SimpleNamespace(get_client=lambda: object()),
         akshare=SimpleNamespace(get_client=lambda: _Akshare()),
+        sina_futures=SimpleNamespace(get_client=lambda: _Sina()),
     )
     context = SimpleNamespace(hooks=hooks)
 

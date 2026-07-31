@@ -9,14 +9,14 @@ from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.storage.postgres.futures_position import FuturesPositionRepository
 
 
-SUPPORTED_PROVIDERS = {"akshare"}
+SUPPORTED_PROVIDERS = {"akshare", "sina"}
 SUPPORTED_EXCHANGES = {"CFFEX", "SHFE", "CZCE", "DCE", "GFEX", "INE"}
 
 
 def run(context: PipelineContext, request: JobRequest, run_id: str | None = None) -> dict[str, Any]:
     if context.hooks is None:
         raise RuntimeError("PipelineContext.hooks is required")
-    providers = _list(request.params.get("providers") or request.params.get("provider") or ["akshare"])
+    providers = _list(request.params.get("providers") or request.params.get("provider") or ["akshare", "sina"])
     exchanges = [item.upper() for item in _list(request.params.get("exchanges") or sorted(SUPPORTED_EXCHANGES))]
     varieties = [item.upper() for item in _list(request.params.get("varieties") or [])]
     unsupported = [item for item in providers if item not in SUPPORTED_PROVIDERS]
@@ -41,11 +41,9 @@ def run(context: PipelineContext, request: JobRequest, run_id: str | None = None
     repo = FuturesPositionRepository(context.hooks.postgres.get_client())
     if _truthy(request.params.get("create_table")):
         repo.create_table()
-    client = context.hooks.akshare.get_client()
-    raw_by_exchange = client.fetch_futures_position_rows(trade_date, exchanges=exchanges, varieties=varieties)
+    raw_by_provider = _fetch_provider_rows(context, providers, exchanges, trade_date, varieties)
     for exchange in exchanges:
-        provider = f"akshare.futures_position.{exchange.lower()}"
-        raw_rows = raw_by_exchange.get(exchange, [])
+        provider, raw_rows = _select_exchange_rows(raw_by_provider, providers, exchange)
         normalized = normalize_position_rows(
             raw_rows, trade_date=trade_date, exchange_code=exchange, selected_source=provider,
         )
@@ -74,6 +72,41 @@ def run(context: PipelineContext, request: JobRequest, run_id: str | None = None
     if not result["success"]:
         result["error"] = "no exchange returned publishable futures position rows"
     return result
+
+
+def _fetch_provider_rows(context: PipelineContext, providers: list[str], exchanges: list[str],
+                         trade_date: date, varieties: list[str]) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    result: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for provider in providers:
+        if provider == "akshare":
+            result[provider] = context.hooks.akshare.get_client().fetch_futures_position_rows(
+                trade_date, exchanges=exchanges, varieties=varieties,
+            )
+        elif provider == "sina" and "DCE" in exchanges:
+            try:
+                result[provider] = {"DCE": context.hooks.sina_futures.get_client().fetch_dce_position_rows(
+                    trade_date, varieties=varieties,
+                )}
+            except Exception:  # noqa: BLE001
+                # A fallback source outage must leave DCE explicitly EMPTY
+                # without hiding successful data from other exchanges.
+                result[provider] = {"DCE": []}
+    return result
+
+
+def _select_exchange_rows(raw_by_provider: dict[str, dict[str, list[dict[str, Any]]]], providers: list[str],
+                          exchange: str) -> tuple[str, list[dict[str, Any]]]:
+    for provider in providers:
+        raw = raw_by_provider.get(provider, {}).get(exchange, [])
+        if provider == "akshare":
+            source = f"akshare.futures_position.{exchange.lower()}"
+        elif provider == "sina" and exchange == "DCE":
+            source = "sina.futures_position.dce"
+        else:
+            continue
+        if raw:
+            return source, raw
+    return f"{providers[0]}.futures_position.{exchange.lower()}", []
 
 
 def _list(value: Any) -> list[str]:

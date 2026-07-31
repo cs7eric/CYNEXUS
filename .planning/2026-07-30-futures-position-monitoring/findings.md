@@ -202,3 +202,10 @@ Official exchange endpoints / AkShare
 - The first 20-date aggregate probe called AkShare's combined `get_rank_sum` for all exchanges; every date was aborted by the DCE exception. This is a source-isolation failure in the wrapper, not evidence that CFFEX/SHFE/CZCE are unavailable.
 - Added a provider boundary at `cynexus_data.sources.akshare.futures_position` and a domain normalization contract that expands each exchange report row into independent `VOLUME`, `LONG`, and `SHORT` facts and excludes synthetic rank `999` totals.
 - POC gate status: not yet accepted for production ingestion. CFFEX/SHFE/CZCE still need the required 20-date per-exchange sample and official-source comparison; DCE is currently excluded pending a repaired official/fallback adapter.
+
+## DCE Fallback Update (2026-07-31)
+
+- The official DCE batch endpoint still returns HTTP 412 in the Release/Data Executor network, so it remains recorded as blocked rather than being treated as a successful official source.
+- Sina's daily futures position page exposes one HTML page per contract with independent volume, long-position, and short-position tables. It is suitable as a third-party fallback for current published dates, but it is not an exchange-primary source.
+- The new adapter filters the Sina contract catalogue to DCE varieties and produced 1,814 member-ranking rows for 91 contracts and 20 varieties on `2026-07-30`.
+- Provider order is per exchange/date: AkShare first, Sina for DCE only when AkShare has no rows, then `EMPTY`. This prevents Sina and AkShare rows from being double-counted.

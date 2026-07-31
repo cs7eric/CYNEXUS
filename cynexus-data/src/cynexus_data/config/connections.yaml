@@ -65,6 +65,12 @@ connections:
     timeout: 10
     retry: 3
 
+  sina_futures_default:
+    type: http
+    base_url: https://vip.stock.finance.sina.com.cn
+    timeout: 15
+    retry: 2
+
   ths_default:
     type: http
     base_url: https://data.10jqka.com.cn

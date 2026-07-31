@@ -58,7 +58,7 @@ Phase 10: Release Verification and Data Coverage Repair
 - [x] Run a full six-exchange sync for the latest published trade date
 - [x] Repair cross-process ID collisions and non-finite source values
 - [x] Verify the default all-exchange query and visible futures-code explanations
-- **Status:** complete for the available sources; DCE remains explicitly unavailable because its AkShare download endpoint returns HTTP 412
+- **Status:** complete for available sources; DCE now has a third-party Sina fallback while the official endpoint remains blocked by HTTP 412
 
 ## Key Questions
 1. MVP definition: daily/EOD exchange member position rankings, not personal positions or intraday member positions.

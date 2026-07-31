@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import requests
 
+from cynexus_data.sources.sina.futures_position import fetch_dce_position_rows
+
 
 @dataclass
 class SinaClient:
@@ -20,3 +22,11 @@ class SinaClient:
         response.raise_for_status()
         return response.json()
 
+    def fetch_dce_position_rows(self, trade_date, *, varieties=None) -> list[dict]:
+        return fetch_dce_position_rows(
+            self.session,
+            trade_date,
+            varieties=varieties,
+            base_url=self.base_url,
+            timeout=self.timeout,
+        )

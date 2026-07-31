@@ -133,6 +133,14 @@
 - Focused Python tests: `5 passed`; Maven market compile: `BUILD SUCCESS`; UI production build: passed with existing Montserrat path and chunk-size warnings.
 - Release images are now `cynexus-market:1.1.360-260731-RELEASE` and `cynexus-ui:1.1.360-260731-RELEASE`; the rebuilt Data Executor is healthy.
 
+### DCE Fallback Update (2026-07-31)
+
+- AkShare's DCE batch download and the direct DCE endpoint remain blocked by HTTP 412; no stale or fabricated DCE rows were used.
+- Added an isolated Sina daily member-position adapter under `sources/sina/futures_position.py`. It reads the three independent DCE ranking tables from one contract page and keeps `VOLUME`, `LONG`, and `SHORT` semantics unchanged.
+- Live probe for `2026-07-30` returned 1,814 rows across 91 DCE contracts and 20 DCE varieties. The adapter filters the Sina catalogue to DCE varieties before requesting contract pages.
+- Provider selection now attempts AkShare first and Sina only as the DCE fallback. Scheduler defaults and Release migration wiring include both providers; the selected source remains visible in capture/query metadata.
+- Focused Python tests after the fallback change: `6 passed`; source `compileall` passed.
+
 ### Verification Error
 
 - Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.

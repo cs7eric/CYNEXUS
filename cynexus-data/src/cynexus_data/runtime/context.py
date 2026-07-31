@@ -63,6 +63,10 @@ class HookBundle:
         return SinaHook("sina_default", self.registry)
 
     @property
+    def sina_futures(self) -> SinaHook:
+        return SinaHook("sina_futures_default", self.registry)
+
+    @property
     def tdx(self) -> TdxHook:
         return TdxHook("tdx_local", self.registry)
 
