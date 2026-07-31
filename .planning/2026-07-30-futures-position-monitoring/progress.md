@@ -147,6 +147,13 @@
 - Removed that premature flag reset. An existing selected batch stays visible until `replace_selected_snapshot` atomically installs a successful replacement; `EMPTY` now only records the failed attempt.
 - Added a storage regression test for this invariant. The rerun must restore the coherent all-exchange view instead of relying on stale API behavior.
 
+### Final DCE and Release Verification (2026-07-31)
+
+- Rebuilt and recreated only `data-job-executor`; it is healthy and exposes `sync_futures_position`.
+- Full sync for `2026-07-30` completed successfully with AkShare primary and Sina DCE fallback: CFFEX 22, SHFE 59, CZCE 125, DCE 91, GFEX 8, INE 4; 18,314 rank facts written.
+- Release API now returns `309` instruments for the coherent date. DCE coverage is `SUCCEEDED`, selected provider `sina.futures_position.dce`, with 91 instruments and 5,442 rank facts. A DCE member detail request for `M2609` returned 5 LONG rows.
+- Release stack rebuilt and started at `1.1.362-260731-RELEASE`; market health is `UP`, UI route `/market/futures-position` returns HTTP 200, and the Data Executor remains healthy.
+
 ### Verification Error
 
 - Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.

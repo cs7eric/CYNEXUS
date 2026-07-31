@@ -214,3 +214,8 @@ Official exchange endpoints / AkShare
 
 - A full fallback run exposed that an upserted `RUNNING` batch was clearing the current `selected` flag before source validation. That violated the no-empty-overwrite rule even though the `EMPTY` branch did not delete member rows.
 - The repository now preserves `selected` during batch start and only changes selection after a successful canonical replacement. This keeps the last valid snapshot queryable across upstream outages.
+
+## Final Runtime Result (2026-07-31)
+
+- The corrected rerun restored all six exchange snapshots without allowing transient empty responses to hide valid CFFEX/CZCE data. The query exposes 309 contracts for `2026-07-30`.
+- DCE is covered by Sina's third-party page fallback (91 contracts, 5,442 canonical rank facts). The UI/API must continue to show this provider distinction until the official DCE endpoint becomes reachable.
