@@ -4,7 +4,7 @@
 Implement the approved daily exchange-member futures long/short position monitor end to end, with ingestion in `cynexus-data`, query semantics/API/UI in the market bounded context, and Release-stack verification.
 
 ## Current Phase
-Phase 10: Release Verification
+Phase 10: Release Verification and Data Coverage Repair
 
 ## Phases
 
@@ -55,7 +55,10 @@ Phase 10: Release Verification
 - [x] Run Maven full compile and UI production build
 - [x] Rebuild `market`/`ui` Release images and verify the empty-data API workflow
 - [x] Rebuild the shared Data Executor image and verify a live non-empty CFFEX sync
-- **Status:** complete for the implemented CFFEX workflow; other exchanges remain source-health dependent
+- [x] Run a full six-exchange sync for the latest published trade date
+- [x] Repair cross-process ID collisions and non-finite source values
+- [x] Verify the default all-exchange query and visible futures-code explanations
+- **Status:** complete for the available sources; DCE remains explicitly unavailable because its AkShare download endpoint returns HTTP 412
 
 ## Key Questions
 1. MVP definition: daily/EOD exchange member position rankings, not personal positions or intraday member positions.

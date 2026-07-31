@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.domain.service.futures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,6 +58,27 @@ class FuturesPositionQueryDomainServiceTest {
         assertFalse(value.ok());
         assertEquals("futures position data is empty", value.error());
         assertTrue(value.instruments().isEmpty());
+    }
+
+    @Test
+    void treatsAllExchangeSentinelAsUnfilteredQuery() {
+        QueryArguments args = new QueryArguments();
+        FuturesPositionRepository repository = new EmptyRepository() {
+            @Override public Optional<LocalDate> findLatestTradeDate(LocalDate endDate) {
+                return Optional.of(LocalDate.of(2026, 7, 21));
+            }
+
+            @Override public List<FuturesPositionQueryBO.Instrument> listInstruments(LocalDate date, String scope,
+                    String exchange, String variety, int top, String sort, String sortDir, int offset, int limit) {
+                args.exchange = exchange;
+                return List.of();
+            }
+        };
+
+        new FuturesPositionQueryDomainServiceImpl(repository)
+                .latest(null, "CONTRACT", "ALL", null, 10, null, null, null, null);
+
+        assertNull(args.exchange);
     }
 
     @Test

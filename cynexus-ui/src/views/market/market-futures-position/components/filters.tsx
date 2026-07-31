@@ -46,7 +46,7 @@ export function FuturesPositionFilters(props: FuturesPositionFiltersProps) {
       </label>
       <label className="grid gap-1 text-xs text-muted-foreground">
         品种代码
-        <Input value={props.varietyCode} onChange={(event) => props.onVarietyChange(event.target.value.toUpperCase())} placeholder="如 IF / RB" className="h-8 w-[112px] text-xs" />
+        <Input value={props.varietyCode} onChange={(event) => props.onVarietyChange(event.target.value.toUpperCase())} placeholder="如 IF / RB" title="IF：沪深300股指期货；RB：螺纹钢" className="h-8 w-[112px] text-xs" />
       </label>
       <label className="grid gap-1 text-xs text-muted-foreground">
         会员 Top-N
@@ -55,6 +55,7 @@ export function FuturesPositionFilters(props: FuturesPositionFiltersProps) {
           <SelectContent>{[5, 10, 15, 20].map((value) => <SelectItem key={value} value={String(value)}>Top {value}</SelectItem>)}</SelectContent>
         </Select>
       </label>
+      <p className="basis-full text-[11px] text-muted-foreground">品种说明：IF · 沪深300股指期货，IC · 中证500股指期货，RB · 螺纹钢；结果中的代码均会同时显示中文名称。</p>
     </section>
   )
 }

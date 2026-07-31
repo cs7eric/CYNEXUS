@@ -30,7 +30,7 @@ public final class FuturesPositionDomainPolicy {
     }
 
     public String exchange(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.isBlank() || "ALL".equalsIgnoreCase(value.trim())) {
             return null;
         }
         String normalized = value.trim().toUpperCase(Locale.ROOT);

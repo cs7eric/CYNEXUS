@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { FuturesPositionInstrument } from "@/services/market/futures-position"
 import { formatPosition, formatRatio, formatSigned, toneForValue } from "../lib/format"
+import { varietyLabel } from "../lib/variety"
 
 interface InstrumentTableProps {
   rows: FuturesPositionInstrument[]
@@ -46,7 +47,7 @@ export function InstrumentTable({ rows, loading, scopeType, selectedCode, onSele
               <TableCell>
                 <button type="button" onClick={() => onSelect(row)} className="group flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <span className="grid size-7 shrink-0 place-items-center rounded-md bg-muted text-[10px] font-semibold text-muted-foreground">{row.varietyCode?.slice(0, 2) || "期"}</span>
-                  <span className="min-w-0"><span className="block truncate font-mono text-sm font-semibold group-hover:text-primary">{row.instrumentCode}</span><span className="block truncate text-[11px] text-muted-foreground">{row.contractCode && row.contractCode !== row.instrumentCode ? row.contractCode : row.varietyCode || "-"}</span></span>
+                  <span className="min-w-0"><span className="block truncate font-mono text-sm font-semibold group-hover:text-primary">{row.instrumentCode}</span><span className="block truncate text-[11px] text-muted-foreground">{varietyLabel(row.varietyCode)}{row.contractCode && row.contractCode !== row.instrumentCode ? ` · ${row.contractCode}` : ""}</span></span>
                 </button>
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">{formatPosition(row.volume)}</TableCell>

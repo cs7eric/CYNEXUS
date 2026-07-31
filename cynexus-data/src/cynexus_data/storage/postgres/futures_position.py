@@ -10,7 +10,7 @@ from sqlalchemy import text
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.domain.futures.position import PositionRank
 from cynexus_data.storage.postgres.client import PostgresClient
-from cynexus_data.storage.postgres.ids import next_bigint_id, stable_bigint_id
+from cynexus_data.storage.postgres.ids import stable_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260730_create_futures_position_tables.sql"
@@ -24,8 +24,8 @@ class FuturesPositionRepository:
         self.client.apply_sql_file(Path(DDL_PATH))
 
     def begin_batch(self, *, trade_date: date, exchange_code: str, provider: str, expected_instrument_count: int = 0) -> int:
-        batch_id = next_bigint_id()
         with self.client.session() as db:
+            batch_id = int(db.execute(text(f"SELECT nextval('{self.client.schema}.futures_position_id_seq')")).scalar_one())
             db.execute(text(f"""
                 INSERT INTO {self.client.schema}.futures_position_capture_batch (
                     id, trade_date, exchange_code, provider, status, selected,
@@ -85,12 +85,12 @@ class FuturesPositionRepository:
                         contract_code, rank_type, rank_no, member_name, rank_value, rank_change,
                         selected_source, capture_batch_id, extra, updated_at, deleted_at
                     ) VALUES (
-                        :id, :trade_date, :exchange_code, :scope_type, :instrument_code, :variety_code,
+                        nextval('{self.client.schema}.futures_position_id_seq'), :trade_date, :exchange_code, :scope_type, :instrument_code, :variety_code,
                         :contract_code, :rank_type, :rank_no, :member_name, :rank_value, :rank_change,
                         :selected_source, :capture_batch_id, CAST(:extra AS jsonb), now(), NULL
                     )
                 """), {
-                    "id": next_bigint_id(), "trade_date": row.trade_date, "exchange_code": row.exchange_code,
+                    "trade_date": row.trade_date, "exchange_code": row.exchange_code,
                     "scope_type": row.scope_type, "instrument_code": row.instrument_code,
                     "variety_code": row.variety_code, "contract_code": row.contract_code,
                     "rank_type": row.rank_type, "rank_no": row.rank_no, "member_name": row.member_name,

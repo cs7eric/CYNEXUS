@@ -123,6 +123,16 @@
 - Release market API verified the non-empty workflow: latest returned 4 instruments, coverage returned `SUCCEEDED`, member details returned 5 LONG rows for `IF2703`, and history returned 1 daily structure row.
 - The default all-exchange sync remains subject to the previously recorded DCE/GFEX upstream limitations; this verification intentionally used the stable CFFEX path.
 
+### Coverage Repair and Final Release Update (2026-07-31)
+
+- Fixed the shared PostgreSQL ID collision path by allocating futures capture/member IDs from `cynexus_appl_market.futures_position_id_seq`, reseeded above existing IDs.
+- Triggered the complete AkShare exchange set for trade date `2026-07-30`: CFFEX 22 instruments/1320 ranks, SHFE 59/3513, CZCE 125/7337, GFEX 8/480, and INE 4/240. DCE returned no rows because the upstream batch endpoint returned HTTP 412, so it remains `EMPTY` and unselected.
+- Found and repaired 18 SHFE rows containing PostgreSQL numeric `NaN`; the domain normalizer now ignores non-finite source values, and the affected persisted values were corrected so the all-exchange query can deserialize safely.
+- Default Release query now succeeds without an exchange filter and returns 218 instruments for `2026-07-30`; coverage exposes all six exchange states.
+- Added visible code explanations in the futures filter and row/detail views, including `IF · 沪深300股指期货`.
+- Focused Python tests: `5 passed`; Maven market compile: `BUILD SUCCESS`; UI production build: passed with existing Montserrat path and chunk-size warnings.
+- Release images are now `cynexus-market:1.1.360-260731-RELEASE` and `cynexus-ui:1.1.360-260731-RELEASE`; the rebuilt Data Executor is healthy.
+
 ### Verification Error
 
 - Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.

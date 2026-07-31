@@ -38,3 +38,21 @@ def test_normalize_position_rows_supports_variety_scope_without_contract_identit
 
     assert rows[0].instrument_code == "M"
     assert rows[0].contract_code is None
+
+
+def test_normalize_position_rows_ignores_non_finite_source_values() -> None:
+    rows = normalize_position_rows([
+        {
+            "symbol": "CU2609",
+            "variety": "CU",
+            "rank": 1,
+            "vol": "NaN",
+            "long_open_interest": "Infinity",
+            "short_open_interest": 120,
+            "short_open_interest_chg": "-Infinity",
+        },
+    ], trade_date=date(2026, 7, 30), exchange_code="SHFE", selected_source="akshare.shfe")
+
+    assert [(row.rank_type, row.rank_value, row.rank_change) for row in rows] == [
+        ("SHORT", Decimal("120"), None),
+    ]

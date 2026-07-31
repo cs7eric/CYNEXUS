@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createSelfSelectedItem, fetchSelfSelectedGroups, type SelfSelectedGroup } from "@/services/market/self-selected"
 import { fetchFuturesPositionHistory, fetchFuturesPositionMembers, type FuturesPositionHistory, type FuturesPositionInstrument, type FuturesPositionMember, type FuturesRankType, type FuturesScopeType } from "@/services/market/futures-position"
 import { formatDate, formatPosition, formatRatio, formatSigned, toneForValue } from "../lib/format"
+import { varietyLabel } from "../lib/variety"
 
 interface PositionDrawerProps {
   row: FuturesPositionInstrument | null
@@ -90,7 +91,7 @@ export function PositionDrawer({ row, scopeType, exchangeCode, top, tradeDate, o
       <SheetHeader className="border-b border-border/60 pr-12">
         <div className="flex flex-wrap items-center gap-2"><Badge variant="outline" className="font-mono">{exchangeCode}</Badge><Badge variant="secondary">Top {top}</Badge></div>
         <SheetTitle className="font-mono text-lg">{row?.instrumentCode ?? "期货标的"}</SheetTitle>
-        <SheetDescription>交易所会员排名明细与近 {history.length || 20} 个有效交易日的结构变化。</SheetDescription>
+        <SheetDescription>{varietyLabel(row?.varietyCode)} · 交易所会员排名明细与近 {history.length || 20} 个有效交易日的结构变化。</SheetDescription>
       </SheetHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {row ? <div className="space-y-4 p-4">

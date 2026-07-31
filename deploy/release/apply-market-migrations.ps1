@@ -12,6 +12,7 @@ $migrationDir = Join-Path $repoRoot "deploy\local\postgres\migrations"
 
 $migrationFiles = @(
     "20260730_create_futures_position_tables.sql",
+    "20260731_fix_futures_position_id_sequence.sql",
     "20260730_schedule_futures_position_daily.sql",
     "20260728_schedule_margin_stock_history_backfill_batch.sql",
     "20260727_create_market_indicator_tables.sql",

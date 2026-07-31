@@ -11,6 +11,14 @@ function StatusIcon({ status }: { status: string }) {
   return <XCircle className="size-4 text-rose-600 dark:text-rose-400" />
 }
 
+function statusLabel(status: string) {
+  if (status === "SUCCEEDED") return "已完成"
+  if (status === "PARTIAL") return "部分完成"
+  if (status === "EMPTY") return "接口无数据"
+  if (status === "RUNNING") return "同步中"
+  return "失败"
+}
+
 interface CoveragePanelProps {
   coverage?: FuturesPositionCoverage | null
 }
@@ -26,6 +34,7 @@ export function CoveragePanel({ coverage }: CoveragePanelProps) {
           <span className="w-12 shrink-0 font-mono font-semibold">{item.exchangeCode}</span>
           <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.provider}</span>
           <span className="font-mono tabular-nums text-muted-foreground">{item.actualInstrumentCount}/{item.expectedInstrumentCount || "-"}</span>
+          <span className="hidden text-[11px] text-muted-foreground sm:inline">{statusLabel(item.status)}</span>
           {item.selected ? <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">已选</Badge> : <span className="w-7" />}
           <span className="hidden w-20 text-right text-muted-foreground sm:inline">{formatDateTime(item.completedAt)}</span>
         </div>) : <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground"><Database className="size-5" />暂无覆盖记录</div>}

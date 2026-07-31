@@ -46,6 +46,15 @@
 | Large pre-existing worktree diff | Scope all inspection carefully and do not clean or rewrite unrelated changes |
 | One compact Python live-probe command had mismatched parentheses | Do not repeat it; use separate small probes if live endpoint validation is needed |
 | AkShare `get_rank_sum` calls across all exchanges stop on DCE `BadZipFile` | Keep exchange calls isolated; one source failure must not hide other exchange results |
+| PostgreSQL numeric `NaN` from SHFE source rows broke Java `BigDecimal` mapping | Filter non-finite decimals in the data domain and correct the 18 affected persisted rows |
+| Default all-exchange query rejected the UI sentinel `ALL` | The UI omits `ALL` from the request; the domain keeps exchange filtering optional for the aggregate view |
+
+## Final Runtime Coverage (2026-07-31)
+
+- Trade date `2026-07-30` is the latest published date available in the shared runtime.
+- Successful selected snapshots: CFFEX 22 instruments, SHFE 59, CZCE 125, GFEX 8, and INE 4; the combined query exposes 218 instruments and 12,890 member-rank facts.
+- DCE is intentionally represented as `EMPTY` rather than fabricated or stale data. AkShare `futures_dce_position_rank` received HTTP 412 from the official batch-download endpoint; a separate DCE connector is required before DCE can be promoted to selected coverage.
+- The UI now exposes coverage per exchange and renders common futures abbreviations with Chinese names, including `IF · 沪深300股指期货`.
 
 ## Resources
 - Repository instructions: `E:/project-repo/cynexus/AGENTS.md`

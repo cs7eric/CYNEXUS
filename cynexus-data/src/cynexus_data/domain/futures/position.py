@@ -106,7 +106,8 @@ def _decimal(value: Any) -> Decimal | None:
     if value in (None, "", "-", "--"):
         return None
     try:
-        return Decimal(str(value).replace(",", "").strip())
+        parsed = Decimal(str(value).replace(",", "").strip())
+        return parsed if parsed.is_finite() else None
     except (InvalidOperation, TypeError, ValueError):
         return None
 

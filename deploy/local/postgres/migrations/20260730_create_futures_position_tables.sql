@@ -1,5 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS cynexus_appl_market;
 
+CREATE SEQUENCE IF NOT EXISTS cynexus_appl_market.futures_position_id_seq;
+
 CREATE TABLE IF NOT EXISTS cynexus_appl_market.futures_contract_catalog (
     id bigint PRIMARY KEY,
     exchange_code text NOT NULL,
