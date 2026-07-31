@@ -141,6 +141,12 @@
 - Provider selection now attempts AkShare first and Sina only as the DCE fallback. Scheduler defaults and Release migration wiring include both providers; the selected source remains visible in capture/query metadata.
 - Focused Python tests after the fallback change: `6 passed`; source `compileall` passed.
 
+### Empty-Batch Preservation Fix (2026-07-31)
+
+- Found during the first full AkShare+Sina rerun: `begin_batch` cleared `selected` on an existing provider row before knowing whether the new response was publishable. That made a transient CFFEX/CZCE empty response hide previously valid snapshots.
+- Removed that premature flag reset. An existing selected batch stays visible until `replace_selected_snapshot` atomically installs a successful replacement; `EMPTY` now only records the failed attempt.
+- Added a storage regression test for this invariant. The rerun must restore the coherent all-exchange view instead of relying on stale API behavior.
+
 ### Verification Error
 
 - Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.

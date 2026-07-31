@@ -209,3 +209,8 @@ Official exchange endpoints / AkShare
 - Sina's daily futures position page exposes one HTML page per contract with independent volume, long-position, and short-position tables. It is suitable as a third-party fallback for current published dates, but it is not an exchange-primary source.
 - The new adapter filters the Sina contract catalogue to DCE varieties and produced 1,814 member-ranking rows for 91 contracts and 20 varieties on `2026-07-30`.
 - Provider order is per exchange/date: AkShare first, Sina for DCE only when AkShare has no rows, then `EMPTY`. This prevents Sina and AkShare rows from being double-counted.
+
+## Empty-Batch Preservation Finding (2026-07-31)
+
+- A full fallback run exposed that an upserted `RUNNING` batch was clearing the current `selected` flag before source validation. That violated the no-empty-overwrite rule even though the `EMPTY` branch did not delete member rows.
+- The repository now preserves `selected` during batch start and only changes selection after a successful canonical replacement. This keeps the last valid snapshot queryable across upstream outages.

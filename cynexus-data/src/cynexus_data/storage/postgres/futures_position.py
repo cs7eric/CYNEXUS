@@ -32,8 +32,8 @@ class FuturesPositionRepository:
                     expected_instrument_count, started_at, updated_at
                 ) VALUES (:id, :trade_date, :exchange_code, :provider, 'RUNNING', false,
                           :expected_instrument_count, now(), now())
-                ON CONFLICT (trade_date, exchange_code, provider) WHERE deleted_at IS NULL
-                DO UPDATE SET status = 'RUNNING', selected = false,
+            ON CONFLICT (trade_date, exchange_code, provider) WHERE deleted_at IS NULL
+                DO UPDATE SET status = 'RUNNING',
                               expected_instrument_count = EXCLUDED.expected_instrument_count,
                               started_at = now(), completed_at = NULL, error = NULL,
                               warnings = '[]'::jsonb, updated_at = now()
