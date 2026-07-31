@@ -114,6 +114,15 @@
 - UI route `/market/futures-position` returned the Release HTML successfully.
 - Live non-empty ingestion remains pending because the shared `cynexus-data-job-executor:local` image was created on 2026-07-29 and does not contain `sync_futures_position` (`/internal/jobs/sync_futures_position` returned 404). The shared Data Executor was not restarted, per repository rules.
 
+### Data Executor Completion Update (2026-07-31)
+
+- Rebuilt `cynexus-data-job-executor:local` from the current source and recreated only the Data Executor with `--no-deps --force-recreate`; PostgreSQL, Redis, ClickHouse, Nacos, and Release application containers were not restarted.
+- Data Executor became healthy and now exposes `sync_futures_position` with HTTP 200.
+- Triggered `sync_futures_position` for `2026-07-30`, provider `akshare`, exchange `CFFEX`, variety `IF`.
+- Run `job_run_65f04e18c8bf41a49a09a6506abc8299` succeeded: 84 source rows read, 240 rank rows written, 4 instruments captured.
+- Release market API verified the non-empty workflow: latest returned 4 instruments, coverage returned `SUCCEEDED`, member details returned 5 LONG rows for `IF2703`, and history returned 1 daily structure row.
+- The default all-exchange sync remains subject to the previously recorded DCE/GFEX upstream limitations; this verification intentionally used the stable CFFEX path.
+
 ### Verification Error
 
 - Maven focused test attempt 1 failed before compilation because PowerShell split the unquoted `-Dtest=...` argument and Maven interpreted the class suffix as a lifecycle phase. The next attempt uses a quoted system-property argument.

@@ -54,8 +54,8 @@ Phase 10: Release Verification
 - [x] Synchronize versions and verify Maven/UI versions
 - [x] Run Maven full compile and UI production build
 - [x] Rebuild `market`/`ui` Release images and verify the empty-data API workflow
-- [ ] Verify a live non-empty sync through the shared Data Executor image
-- **Status:** blocked by the shared Data Executor image predating this feature
+- [x] Rebuild the shared Data Executor image and verify a live non-empty CFFEX sync
+- **Status:** complete for the implemented CFFEX workflow; other exchanges remain source-health dependent
 
 ## Key Questions
 1. MVP definition: daily/EOD exchange member position rankings, not personal positions or intraday member positions.
