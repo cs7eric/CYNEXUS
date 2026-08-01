@@ -5,6 +5,8 @@ import cn.cccs7.cynexus.common.messaging.api.MessageType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportDispatchPort;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioOutboxEventPO;
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioOutboxMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -16,10 +18,13 @@ public class PortfolioImportDispatchAdapter implements PortfolioImportDispatchPo
     private static final String ROUTING_KEY = "portfolio.import.parse-requested.v1";
     private final PortfolioOutboxMapper mapper;
     private final PortfolioIdGeneratorAdapter idGenerator;
+    private final ObjectMapper objectMapper;
 
-    public PortfolioImportDispatchAdapter(PortfolioOutboxMapper mapper, PortfolioIdGeneratorAdapter idGenerator) {
+    public PortfolioImportDispatchAdapter(PortfolioOutboxMapper mapper, PortfolioIdGeneratorAdapter idGenerator,
+                                         ObjectMapper objectMapper) {
         this.mapper = mapper;
         this.idGenerator = idGenerator;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -39,14 +44,15 @@ public class PortfolioImportDispatchAdapter implements PortfolioImportDispatchPo
         event.setSchemaVersion(envelope.schemaVersion());
         event.setRoutingKey(ROUTING_KEY);
         event.setPayload(envelope.payloadJson());
-        event.setHeaders("{\"tenant\":\"" + escape(tenantKey) + "\",\"principal\":\"" + escape(principalKey) + "\"}");
+        try {
+            event.setHeaders(objectMapper.writeValueAsString(Map.of("tenant", tenantKey, "principal", principalKey)));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Unable to serialize portfolio outbox headers", exception);
+        }
         event.setStatus("PENDING");
         event.setAttemptCount(0);
         event.setAvailableAt(java.time.OffsetDateTime.now());
         mapper.insert(event);
     }
 
-    private static String escape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

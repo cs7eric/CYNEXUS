@@ -11,4 +11,50 @@
                 #{schemaVersion}, #{routingKey}, cast(#{payload} as jsonb), cast(#{headers} as jsonb),
                 #{status}, #{attemptCount}, #{availableAt})
     </insert>
+
+    <select id="claimReady" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioOutboxEventPO">
+        with candidates as (
+            select id
+              from cynexus_appl_market.portfolio_outbox_event
+             where (status = 'PENDING' and available_at &lt;= #{now})
+                or (status = 'PUBLISHING' and claimed_at &lt;= #{now})
+             order by id
+             for update skip locked
+             limit #{limit}
+        )
+        update cynexus_appl_market.portfolio_outbox_event event
+           set status = 'PUBLISHING',
+               claimed_at = #{leaseUntil},
+               claimed_by = #{leaseOwner},
+               updated_at = now()
+          from candidates
+         where event.id = candidates.id
+        returning event.id, event.message_id, event.aggregate_type, event.aggregate_id,
+                  event.message_type, event.event_name, event.schema_version, event.routing_key,
+                  event.payload::text as payload, event.headers::text as headers,
+                  event.status, event.attempt_count, event.available_at;
+    </select>
+
+    <update id="markPublished">
+        update cynexus_appl_market.portfolio_outbox_event
+           set status = 'PUBLISHED', published_at = #{publishedAt}, claimed_at = null,
+               claimed_by = null, updated_at = now()
+         where id = #{id} and status = 'PUBLISHING' and claimed_by = #{leaseOwner}
+    </update>
+
+    <update id="markRetry">
+        update cynexus_appl_market.portfolio_outbox_event
+           set status = 'PENDING', available_at = #{availableAt}, attempt_count = attempt_count + 1,
+               last_error_code = #{errorCode}, last_error_message = #{errorMessage},
+               claimed_at = null, claimed_by = null, updated_at = now()
+         where id = #{id} and status = 'PUBLISHING' and claimed_by = #{leaseOwner}
+    </update>
+
+    <update id="markFailed">
+        update cynexus_appl_market.portfolio_outbox_event
+           set status = 'FAILED', attempt_count = attempt_count + 1,
+               last_error_code = #{errorCode}, last_error_message = #{errorMessage},
+               claimed_at = null, claimed_by = null, updated_at = now()
+         where id = #{id} and status = 'PUBLISHING' and claimed_by = #{leaseOwner}
+    </update>
 </mapper>
