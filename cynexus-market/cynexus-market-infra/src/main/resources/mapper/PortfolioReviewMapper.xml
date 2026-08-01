@@ -21,7 +21,10 @@
     <select id="list" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioReviewPO">
         select id, principal_key, tenant_key, symbol, period_start, period_end, thesis, plan, execution, lessons, next_action,
                tags::text as tags, rating, metrics_snapshot::text as metrics_snapshot, status from cynexus_appl_market.portfolio_review
-         where principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null and (#{symbol} is null or symbol=#{symbol})
+         where principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null
+        <if test="symbol != null and symbol != ''">
+           and symbol=#{symbol}
+        </if>
          order by period_end desc, id desc
     </select>
 </mapper>
