@@ -6,7 +6,7 @@ Produce an evidence-based BRD and implementation design for a complete personal 
 
 ## Current Phase
 
-Phase 6
+Phase 7
 
 ## Phases
 
@@ -61,7 +61,17 @@ Phase 6
 - [x] Commit the infrastructure feature with self-test results
 - **Status:** complete
 
-### Phase 7: Portfolio Implementation
+### Phase 7: Common Messaging Foundation
+
+- [ ] Add `cynexus-common-messaging` parent and `api`, `rabbit`, `outbox` submodules
+- [ ] Implement broker-neutral message envelope, destination, transport and error contracts
+- [ ] Implement Rabbit publisher-confirm transport, connection properties and topology SPI
+- [ ] Implement Outbox relay and Inbox idempotency SPI without owning business tables
+- [ ] Wire `cynexus-market` to the common modules and compile focused modules
+- [ ] Commit the enterprise messaging foundation with self-test results
+- **Status:** in_progress
+
+### Phase 8: Portfolio Implementation
 
 - [ ] Add portfolio persistence migration and domain model
 - [ ] Add RabbitMQ Outbox publisher and portfolio parse consumer
@@ -92,6 +102,8 @@ Resolved defaults:
 | Limit return claims to P&L and rates with valid denominators | Trade screenshots alone do not establish cash balance or external capital flows, so a complete account return would be misleading. |
 | Superseded: keep the async runner unselected until a focused POC | The user subsequently selected RabbitMQ as the shared business messaging platform. |
 | Use RabbitMQ for business commands and domain events | Known Cynexus needs are reliable tasks, routing, acknowledgements, retries, and dead letters; Kafka remains a future data-stream option only when replay/high-throughput requirements are proven. |
+| Add `cynexus-common-messaging` now | RabbitMQ is a cross-service platform capability; common contracts, publisher confirms, retry, tracing, and Outbox/Inbox reliability must not be reimplemented per bounded context. |
+| Split common messaging into `api`, `rabbit`, and `outbox` | Keeps broker-neutral contracts independent from Spring AMQP and keeps business-owned table schemas outside the platform module. |
 
 ## Errors Encountered
 
@@ -107,4 +119,4 @@ Resolved defaults:
 
 - Treat all pre-existing worktree changes as user-owned.
 - Do not start deprecated Dev or local source runtimes.
-- No business-code edits during the BRD/design phase.
+- No portfolio business-code edits yet; shared RabbitMQ infrastructure is complete and common messaging foundation is the active implementation phase.

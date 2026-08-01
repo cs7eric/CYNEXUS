@@ -241,30 +241,38 @@ Consumer 必须位于 `cynexus-market`。`cynexus-ai` 不消费 portfolio comman
 - 任务已 `READY_FOR_REVIEW` 或 `CONFIRMED` 时收到重复消息：直接 ACK，不重复调用 AI。
 - broker 可能在 outbox relay 写回 `QUEUED` 前交付消息；consumer 允许从 `PENDING_DISPATCH` claim，relay 只能条件更新仍为 `PENDING_DISPATCH` 的任务，禁止把 `PROCESSING` 回退为 `QUEUED`。
 
-## 10. 代码分层和依赖
+## 10. 公共模块和代码分层
 
-首个能力不创建大而全的通用 messaging 业务层。
+RabbitMQ 会被多个业务使用，因此公共能力正式落入 `cynexus-common-messaging`，但不把业务模型塞进 common。
 
 ```text
-domain
-  MessagePublisherPort / portfolio task state rules
+cynexus-common
+  cynexus-common-messaging
+    cynexus-common-messaging-api
+      MessageEnvelope / MessageDestination / MessageTransport
+    cynexus-common-messaging-rabbit
+      RabbitMessageTransport / connection / publisher-confirm / topology SPI
+    cynexus-common-messaging-outbox
+      OutboxRecord / OutboxStore / OutboxRelay / InboxStore SPI
 
-application-controller
-  PortfolioImportMessageListener -> PortfolioImportWorkerAppService
-
-infra
-  RabbitPortfolioCommandPublisher
-  PortfolioOutboxRepository
-  Rabbit topology/configuration adapter
-
-starter
-  connection, listener container, relay, health wiring
+cynexus-market
+  portfolio domain/application
+  portfolio outbox store and migration
+  portfolio Rabbit topology definition
+  portfolio command listener -> PortfolioImportWorkerAppService
 ```
 
-- Domain/Application DTO 不包含 RabbitMQ 类型。
-- `spring-boot-starter-amqp` 只进入需要 broker adapter 的模块。
-- 第二个服务接入后，再抽取稳定的 envelope、序列化、trace 和测试工具到合适的 `cynexus-common` 子模块。
-- 不在第一个场景中创建无法证明价值的通用消息框架。
+职责边界：
+
+- `api` 不依赖 Spring AMQP，提供版本化 envelope、destination、message type 和 broker-neutral transport port。
+- `rabbit` 封装 RabbitTemplate、publisher confirm、mandatory return、header propagation、listener factory、连接属性和 topology registration。
+- `outbox` 封装 claim lease、批量 relay、publish success/failure、退避和 inbox 幂等 SPI；不拥有任何业务表名。
+- 每个 bounded context 自己提供 outbox/inbox store、事务表和业务 routing key。
+- Domain 只依赖自己的 `PortfolioImportDispatchPort`，不依赖 common messaging 或 Rabbit 类型。
+- Application listener 负责把通用 envelope 映射为业务 command，再调用 application service。
+- Starter 负责启用模块、连接、队列、relay、health 和 metrics。
+
+公共模块禁止提供 `MqUtil.send()`、动态执行任意 routing key、跨业务共享 queue 或基于 Java 原生序列化的通用接口。公共模块提供的是可靠性和传输能力，不提供 portfolio 类型。
 
 ## 11. 配置与安全
 

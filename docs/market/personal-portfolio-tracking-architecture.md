@@ -50,6 +50,11 @@
 `cynexus-market` 内新增 feature-first 的 `portfolio` 包，不建立横跨整个 market 的通用“task”抽象。
 
 ```text
+cynexus-common-messaging
+  broker-neutral envelope and transport API
+  RabbitMQ transport/configuration
+  Outbox relay and Inbox idempotency SPI
+
 cynexus-market-api
   portfolio DTO / request / response contracts
 
@@ -73,7 +78,7 @@ cynexus-market-infra
   portfolio outbox persistence
 
 cynexus-market-starter
-  portfolio bean/runtime assembly only when implementation begins
+  portfolio bean/runtime assembly and common messaging wiring
 ```
 
 应用服务只处理身份、事务编排和 DTO 映射。下列规则必须属于 domain：
@@ -328,6 +333,7 @@ RabbitMQ 可能在 relay 写回 `QUEUED` 前交付消息，因此 consumer 允�
 - `PortfolioImportDispatchPort`：在业务事务内登记待发布 command。
 - `PortfolioScreenshotParsePort`：提交图片并返回结构化模型结果。
 - `PortfolioImportTaskRepository`：加载任务并执行状态迁移。
+- Outbox store、Rabbit topology 和 listener adapter 由 `cynexus-market-infra` 提供，可靠 relay/transport 由 `cynexus-common-messaging` 提供。
 
 RabbitMQ client、listener container、exchange/queue declaration 和 publisher confirm 均属于 infra/starter wiring。平台级约束见 `docs/messaging/rabbitmq-architecture.md`。
 
@@ -434,25 +440,29 @@ cynexus-ui/src/views/market/personal-portfolio/
 
 得到产品确认后再进入实现。每个提交只包含该子功能及对应测试，并在提交说明或进度记录中写明完成状态和自测结果。
 
-1. `docs(market): define personal portfolio MVP`
-   - BRD、技术方案、确认后的产品口径。
-2. `feat(messaging): add RabbitMQ release infrastructure`
+1. `docs(messaging): define RabbitMQ architecture`
+   - common messaging module boundary and broker conventions。
+2. `feat(messaging): add common messaging foundation`
+   - `api`、`rabbit`、`outbox` 子模块、契约、publisher-confirm transport、relay/inbox SPI。
+3. `feat(messaging): add RabbitMQ release infrastructure`
    - RabbitMQ、vhost/user/policy、health、配置和 Release smoke。
-3. `feat(market): add portfolio import persistence and outbox`
+4. `docs(market): define personal portfolio MVP`
+   - BRD、技术方案、确认后的产品口径。
+5. `feat(market): add portfolio import persistence and outbox`
    - migration、task/candidate domain、repository、图片校验、outbox 原子写入。
-4. `feat(ai): add portfolio screenshot parsing capability`
+6. `feat(ai): add portfolio screenshot parsing capability`
    - prompt、binding、vision adapter、结构化解析测试。
-5. `feat(market): add RabbitMQ portfolio parse consumer`
+7. `feat(market): add RabbitMQ portfolio parse consumer`
    - topology、publisher confirm、consumer、retry/DLQ、校对和恢复测试。
-6. `feat(market): complete portfolio import confirmation`
+8. `feat(market): complete portfolio import confirmation`
    - 候选校对、确认、幂等和更正入口。
-7. `feat(market): add portfolio ledger and returns`
+9. `feat(market): add portfolio ledger and returns`
    - trade ledger、成本/盈亏、更正、overview API。
-8. `feat(market): add trade markers and reviews`
+10. `feat(market): add trade markers and reviews`
    - 标的详情、买卖点、review domain/API。
-9. `feat(ui): add personal portfolio workflow`
+11. `feat(ui): add personal portfolio workflow`
    - services、route/sidebar、四个页面和 UI 测试。
-10. `chore(release): verify personal portfolio release`
+12. `chore(release): verify personal portfolio release`
    - 版本同步、migration bundle、编译、lint/build、Release workflow 验证。
 
 RabbitMQ 基础设施、Outbox 和 portfolio consumer 分开提交。每个阶段记录完成状态和实际自测结果，不把 broker、业务表和完整 UI 堆入同一提交。

@@ -75,6 +75,21 @@
   - `deploy/local/README.md`
   - `.gitignore`
 
+### Phase 7: Common Messaging Foundation
+
+- **Status:** in_progress
+- Actions taken:
+  - Re-evaluated the module boundary after the user requested enterprise-level reusable MQ implementation.
+  - Chose `cynexus-common-messaging` with `api`, `rabbit`, and `outbox` submodules.
+  - Kept portfolio commands, task state, routing keys, migrations, and business listeners in `cynexus-market`; common modules own only transport contracts and reliability mechanisms.
+  - Updated the RabbitMQ and portfolio architecture documents and delivery plan to reflect the common modules.
+- Files created/modified:
+  - `docs/messaging/rabbitmq-architecture.md`
+  - `docs/market/personal-portfolio-tracking-architecture.md`
+  - `.planning/2026-08-01-personal-portfolio-tracking/task_plan.md`
+  - `.planning/2026-08-01-personal-portfolio-tracking/findings.md`
+  - `.planning/2026-08-01-personal-portfolio-tracking/progress.md`
+
 ## Test Results
 
 | Test | Input | Expected | Actual | Status |
