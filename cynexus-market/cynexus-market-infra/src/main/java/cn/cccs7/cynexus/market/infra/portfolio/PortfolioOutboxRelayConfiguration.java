@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 @EnableScheduling
 @ConditionalOnProperty(prefix = "cynexus.market.portfolio.outbox", name = "enabled", havingValue = "true",
         matchIfMissing = true)
+@ConditionalOnProperty(prefix = "cynexus.messaging.rabbit", name = "enabled", havingValue = "true")
 public class PortfolioOutboxRelayConfiguration {
 
     @Bean
