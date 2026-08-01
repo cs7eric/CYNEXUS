@@ -10,6 +10,8 @@ public class RabbitMessagingProperties {
     private boolean enabled;
     private boolean mandatory = true;
     private Duration confirmTimeout = Duration.ofSeconds(5);
+    private int maxPayloadBytes = 64 * 1024;
+    private int maxHeaderBytes = 8 * 1024;
 
     public boolean isEnabled() {
         return enabled;
@@ -36,5 +38,27 @@ public class RabbitMessagingProperties {
             throw new IllegalArgumentException("confirmTimeout must be positive");
         }
         this.confirmTimeout = confirmTimeout;
+    }
+
+    public int getMaxPayloadBytes() {
+        return maxPayloadBytes;
+    }
+
+    public void setMaxPayloadBytes(int maxPayloadBytes) {
+        if (maxPayloadBytes < 1) {
+            throw new IllegalArgumentException("maxPayloadBytes must be positive");
+        }
+        this.maxPayloadBytes = maxPayloadBytes;
+    }
+
+    public int getMaxHeaderBytes() {
+        return maxHeaderBytes;
+    }
+
+    public void setMaxHeaderBytes(int maxHeaderBytes) {
+        if (maxHeaderBytes < 1) {
+            throw new IllegalArgumentException("maxHeaderBytes must be positive");
+        }
+        this.maxHeaderBytes = maxHeaderBytes;
     }
 }

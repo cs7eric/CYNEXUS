@@ -30,9 +30,11 @@ public class RabbitMessageTransport implements MessageTransport {
 
     @Override
     public MessagePublishReceipt publish(MessageDestination destination, MessageEnvelope envelope) {
+        byte[] payload = envelope.payloadJson().getBytes(StandardCharsets.UTF_8);
+        validateSize(envelope, payload);
         CorrelationData correlationData = new CorrelationData(envelope.messageId());
         MessageBuilderSupport<Message> builder = MessageBuilder
-                .withBody(envelope.payloadJson().getBytes(StandardCharsets.UTF_8))
+                .withBody(payload)
                 .setContentType("application/json")
                 .setMessageId(envelope.messageId())
                 .setCorrelationId(envelope.correlationId())
@@ -67,5 +69,21 @@ public class RabbitMessageTransport implements MessageTransport {
         } catch (ExecutionException | TimeoutException exception) {
             throw new MessageTransportException("RabbitMQ publisher confirm failed", exception);
         }
+    }
+
+    private void validateSize(MessageEnvelope envelope, byte[] payload) {
+        if (payload.length > properties.getMaxPayloadBytes()) {
+            throw new MessageTransportException("RabbitMQ message payload exceeds configured limit");
+        }
+        int headerBytes = envelope.headers().entrySet().stream()
+                .mapToInt(entry -> utf8Length(entry.getKey()) + utf8Length(entry.getValue()))
+                .sum();
+        if (headerBytes > properties.getMaxHeaderBytes()) {
+            throw new MessageTransportException("RabbitMQ message headers exceed configured limit");
+        }
+    }
+
+    private static int utf8Length(String value) {
+        return value == null ? 0 : value.getBytes(StandardCharsets.UTF_8).length;
     }
 }

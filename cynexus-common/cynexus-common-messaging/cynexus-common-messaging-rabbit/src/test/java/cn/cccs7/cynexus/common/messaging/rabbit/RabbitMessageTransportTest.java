@@ -84,6 +84,17 @@ class RabbitMessageTransportTest {
         assertTrue(exception.getMessage().contains("publish failed"));
     }
 
+    @Test
+    void rejectsOversizedPayloadBeforeOpeningBrokerCall() {
+        RabbitTemplate template = mock(RabbitTemplate.class);
+        RabbitMessagingProperties properties = new RabbitMessagingProperties();
+        properties.setMaxPayloadBytes(4);
+        RabbitMessageTransport transport = new RabbitMessageTransport(template, properties);
+
+        assertThrows(MessageTransportException.class,
+                () -> transport.publish(DESTINATION, envelope()));
+    }
+
     private static RabbitMessageTransport transport(RabbitTemplate template) {
         RabbitMessagingProperties properties = new RabbitMessagingProperties();
         properties.setConfirmTimeout(Duration.ofSeconds(1));
