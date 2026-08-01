@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioTradeMapper">
+    <insert id="insert">
+        insert into cynexus_appl_market.portfolio_trade
+        (id, principal_key, tenant_key, source_task_id, source_candidate_id, symbol, security_name, side,
+         traded_at, quantity, price, gross_amount, total_fee, status, confirmed_at, confirmed_by)
+        values (#{id}, #{principalKey}, #{tenantKey}, #{sourceTaskId}, #{sourceCandidateId}, #{symbol}, #{securityName}, #{side},
+                #{tradedAt}, #{quantity}, #{price}, #{grossAmount}, #{totalFee}, #{status}, #{confirmedAt}, #{confirmedBy})
+        on conflict (source_task_id, source_candidate_id) where status = 'ACTIVE' and deleted_at is null do nothing
+    </insert>
+</mapper>

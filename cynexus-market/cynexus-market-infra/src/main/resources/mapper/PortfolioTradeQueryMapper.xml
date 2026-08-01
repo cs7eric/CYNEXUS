@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioTradeQueryMapper">
+    <select id="list" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioTradePO">
+        select id, symbol, security_name, side, traded_at, quantity, price, total_fee, status
+          from cynexus_appl_market.portfolio_trade
+         where principal_key = #{principalKey} and tenant_key = #{tenantKey}
+           and deleted_at is null
+           and (#{symbol} is null or symbol = #{symbol})
+         order by traded_at, id
+    </select>
+</mapper>

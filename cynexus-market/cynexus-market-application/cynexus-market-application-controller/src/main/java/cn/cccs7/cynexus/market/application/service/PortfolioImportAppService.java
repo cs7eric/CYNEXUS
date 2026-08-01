@@ -1,9 +1,15 @@
 package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportCandidateDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportReviewDTO;
+import cn.cccs7.cynexus.market.api.request.PortfolioImportConfirmRequest;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateStore;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportConfirmationDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskBO;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,9 +20,14 @@ public class PortfolioImportAppService {
     private static final String DEFAULT_PRINCIPAL = "workspace-user";
     private static final String DEFAULT_TENANT = "default";
     private final PortfolioImportDomainService domainService;
+    private final PortfolioCandidateStore candidateStore;
+    private final PortfolioImportConfirmationDomainService confirmationService;
 
-    public PortfolioImportAppService(PortfolioImportDomainService domainService) {
+    public PortfolioImportAppService(PortfolioImportDomainService domainService, PortfolioCandidateStore candidateStore,
+                                    PortfolioImportConfirmationDomainService confirmationService) {
         this.domainService = domainService;
+        this.candidateStore = candidateStore;
+        this.confirmationService = confirmationService;
     }
 
     @Transactional
@@ -40,6 +51,26 @@ public class PortfolioImportAppService {
 
     public PortfolioImportTaskDTO get(long taskId) {
         return toDto(domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId));
+    }
+
+    public PortfolioImportReviewDTO review(long taskId) {
+        PortfolioImportTaskBO task = domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        List<PortfolioImportCandidateDTO> candidates = candidateStore.listByTaskId(taskId).stream()
+                .map(candidate -> PortfolioImportCandidateDTO.builder()
+                        .id(candidate.id()).rowNo(candidate.rowNo()).normalizedPayload(candidate.normalizedPayload().toString())
+                        .reviewStatus(candidate.reviewStatus()).version(candidate.version()).build())
+                .toList();
+        return PortfolioImportReviewDTO.builder().task(toDto(task)).candidates(candidates).build();
+    }
+
+    @Transactional
+    public PortfolioImportTaskDTO confirm(long taskId, PortfolioImportConfirmRequest request) {
+        PortfolioImportTaskBO task = domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        if (request != null && request.getVersion() != null && request.getVersion() != task.getVersion()) {
+            throw new IllegalStateException("portfolio import version is stale");
+        }
+        return toDto(confirmationService.confirm(task,
+                request == null ? null : request.getCandidateIds(), DEFAULT_PRINCIPAL, OffsetDateTime.now()));
     }
 
     private PortfolioImportTaskDTO toDto(PortfolioImportTaskBO task) {

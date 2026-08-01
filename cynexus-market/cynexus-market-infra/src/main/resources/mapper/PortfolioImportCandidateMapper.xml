@@ -12,4 +12,19 @@
         values (#{id}, #{taskId}, #{rowNo}, cast(#{rawPayload} as jsonb), cast(#{normalizedPayload} as jsonb),
                 #{confidence}, cast(#{warnings} as jsonb), #{reviewStatus}, #{version})
     </insert>
+
+    <select id="listByTaskId" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportCandidatePO">
+        select id, task_id, row_no, normalized_payload::text as normalized_payload,
+               review_status, version
+          from cynexus_appl_market.portfolio_import_candidate
+         where task_id = #{taskId} and deleted_at is null
+         order by row_no, id
+    </select>
+
+    <update id="markAccepted">
+        update cynexus_appl_market.portfolio_import_candidate
+           set review_status = 'ACCEPTED', version = version + 1, updated_at = now()
+         where id = #{candidateId} and version = #{expectedVersion}
+           and review_status = 'PENDING' and deleted_at is null
+    </update>
 </mapper>
