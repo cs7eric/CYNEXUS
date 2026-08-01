@@ -46,6 +46,38 @@ class ScenarioExecutionDomainServiceTest {
                 .isEqualTo("system" + System.lineSeparator() + "candidate=receipt candidates");
     }
 
+    @Test
+    void preparesPortfolioScreenshotScenarioWithDedicatedCapability() {
+        AiModelBO model = AiModelBO.builder()
+                .modelCode("vision-model").enabled(true)
+                .capability(ModelCapability.builder().visionSupported(true).structuredOutputSupported(true).build())
+                .build();
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(AiUsageBindingBO.builder().capability("portfolio_trade_screenshot_parse").enabled(true).build(), model),
+                emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+
+        var prepared = service.prepareVisionExecution("portfolio_trade_screenshot_parse", null, "image metadata");
+
+        assertThat(prepared.getScenario().getScenarioCode()).isEqualTo("portfolio_trade_screenshot_parse");
+        assertThat(prepared.getScenario().getScenarioName()).contains("Portfolio");
+        assertThat(prepared.getCapability()).isEqualTo("portfolio_trade_screenshot_parse");
+        assertThat(prepared.getModel()).isSameAs(model);
+    }
+
+    @Test
+    void usesPortfolioFallbackPromptWhenBoundPromptIsUnavailable() {
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(null, null), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+
+        String prompt = service.resolveVisionPrompt("portfolio_trade_screenshot_parse", "candidate context");
+
+        assertThat(prompt).contains("个人持仓交易截图解析器");
+        assertThat(prompt).contains("isTradeScreenshot");
+        assertThat(prompt).contains("BUY").contains("SELL");
+        assertThat(prompt).contains("candidate context");
+        assertThat(prompt).doesNotContain("transactionType");
+    }
+
     private ModelRouteDomainService unusedModelRoute() {
         return (scenario, preferredModelCode) -> null;
     }

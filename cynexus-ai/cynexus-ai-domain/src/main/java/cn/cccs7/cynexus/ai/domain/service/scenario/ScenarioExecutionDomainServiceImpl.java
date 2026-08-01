@@ -71,10 +71,12 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                                                                   String userInput) {
         String resolvedCode = scenarioCode == null || scenarioCode.isBlank()
                 ? "accounting_receipt_parse" : scenarioCode;
-        String capability = "accounting_receipt_parse";
+        String capability = "portfolio_trade_screenshot_parse".equals(resolvedCode)
+                ? "portfolio_trade_screenshot_parse" : "accounting_receipt_parse";
         AiScenarioBO scenario = AiScenarioBO.builder()
                 .scenarioCode(resolvedCode)
-                .scenarioName("Accounting Receipt Recognition")
+                .scenarioName("portfolio_trade_screenshot_parse".equals(capability)
+                        ? "Portfolio Trade Screenshot Recognition" : "Accounting Receipt Recognition")
                 .defaultModelCode(null)
                 .maxToolCalls(0)
                 .toolCallRequired(false)
@@ -163,7 +165,9 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 return prompt.getSystemPrompt() + System.lineSeparator() + userPrompt;
             }
         }
-        return defaultVisionPrompt(candidateContext);
+        return "portfolio_trade_screenshot_parse".equals(capability)
+                ? defaultPortfolioTradePrompt(candidateContext == null ? "" : candidateContext)
+                : defaultVisionPrompt(candidateContext);
     }
 
     private AiScenarioBO resolveScenario(String scenarioCode, boolean workspaceChat) {
@@ -199,5 +203,14 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 微信转账详情中的 Payment Method: Balance 表示微信余额，优先选择名称或备注包含微信、微信余额、微信钱包的账户；如果候选中没有对应账户，accountHint 必须返回“微信余额”。
                 只输出合法 JSON：{"items":[{"imageIndex":0,"transactionType":"expense","occurredAt":"2026-01-01T12:00:00+08:00","amount":12.50,"currency":"CNY","merchant":"","accountId":null,"accountHint":"","categoryId":null,"categoryHint":"餐饮","note":"","installmentCount":null,"installmentFee":null,"confidence":0.8,"rawText":""}]}。
                 """ + (candidateContext == null ? "" : candidateContext);
+    }
+
+    private String defaultPortfolioTradePrompt(String candidateContext) {
+        return """
+                你是 Cynexus 个人持仓交易截图解析器。只提取图片中明确可见的成交事实，不要猜测、补全或计算持仓收益。
+                一张图片可能包含多笔交易，必须拆分为 candidates 数组。side 只能是 BUY 或 SELL；证券代码、成交日期、成交价格、成交数量任一缺失时返回 null 并加入 warnings。
+                费用、证券名称、成交编号和成交时间只有在截图明确出现时填写；无法确认的值必须为 null。每个字段提供 confidence 和原始 evidence 文本。
+                只输出合法 JSON，不要 Markdown、思考过程或额外文字。格式：{"isTradeScreenshot":true,"candidates":[{"rowNo":1,"symbol":null,"securityName":null,"side":null,"tradedAt":null,"quantity":null,"price":null,"fee":null,"externalTradeNo":null,"confidence":0.0,"evidence":{},"warnings":[]}],"warnings":[]}。
+                """ + candidateContext;
     }
 }
