@@ -53,6 +53,9 @@
 - Existing market AI task code demonstrates useful persistence, claim, retry, and recovery patterns, but does not by itself decide which runner this feature should enable.
 - Market declares JobRunr but explicitly disables its scheduler/background server/dashboard and contains no indexed production enqueue API usage. Spring scheduling, JobRunr, Kafka, and new workflow engines remain unselected until the implementation POC proves what existing runtime abstraction can satisfy the required behavior.
 - Root Maven and UI package versions currently agree at `1.1.398-SNAPSHOT`; implementation must preserve synchronization after functional commits.
+- CodeGraph and repository searches found no current Kafka, RabbitMQ, RocketMQ, Spring AMQP, or Spring Cloud Stream integration; RabbitMQ is a new shared infrastructure capability, not a reuse of an existing broker.
+- The user selected RabbitMQ after comparing RabbitMQ, RocketMQ, and Kafka for future Cynexus messaging needs.
+- RabbitMQ should own work dispatch and domain-event delivery, while PostgreSQL remains the source of truth for portfolio task state; reliable cross-system publication requires Transactional Outbox and consumer idempotency.
 
 ## Technical Decisions
 
@@ -66,7 +69,9 @@
 | Market owns async task; AI owns model execution | This preserves the new `cynexus-market` business aggregate while reusing the dedicated AI provider/prompt/routing runtime and avoiding synchronous upload requests. |
 | One implicit personal ledger, no portfolio management | The requested value is import, tracking, markers, and review; account/portfolio administration is separate product scope. |
 | No complete account-level return percentage in MVP | Trade screenshots do not provide reliable starting capital, deposits, withdrawals, dividends, or cash balance. Show realized/unrealized/total P&L and only rates with explicit denominators. |
-| Async framework selection deferred to POC | The durable user-visible task contract is fixed, but enabling a scheduler or adding a framework is not necessary to approve the BRD. |
+| Superseded: async framework selection deferred to POC | The user approved RabbitMQ as the messaging platform after the alternatives were analyzed. |
+| RabbitMQ for portfolio parsing and reusable business messaging | It matches asynchronous work, routing, ACK/retry/DLQ, and moderate-throughput domain events. Kafka is deferred for future high-throughput replayable streams; RocketMQ has no current project-specific advantage. |
+| Market consumer owns portfolio processing | `cynexus-market` consumes the command, loads the owner-scoped task/image, calls `cynexus-ai`, validates candidates, and persists task state; AI must not consume portfolio commands or access market tables. |
 
 ## Issues Encountered
 

@@ -2,10 +2,10 @@
 
 ## 1. 方案状态
 
-- 状态：MVP 技术方案校正版，待产品范围确认
+- 状态：MVP 技术方案；RabbitMQ 异步方案已确认，待实现
 - 当前阶段：设计，不实施、不启用运行时组件
 - 核心约束：业务归属 `cynexus-market`，视觉模型调用复用 `cynexus-ai` 治理能力
-- 未决项：异步任务的实际执行适配器，需要在实现前完成小型 POC 后选择
+- 消息选型：RabbitMQ 承载截图解析 command；PostgreSQL task/outbox 承载业务状态和可靠发布
 
 本方案只服务于以下闭环：
 
@@ -56,6 +56,7 @@ cynexus-market-api
 cynexus-market-application
   portfolio controllers
   portfolio application services
+  portfolio RabbitMQ message listener
   DTO assemblers
 
 cynexus-market-domain
@@ -68,6 +69,8 @@ cynexus-market-infra
   screenshot asset adapter
   AI vision adapter
   existing market-data adapter
+  RabbitMQ publisher / topology adapter
+  portfolio outbox persistence
 
 cynexus-market-starter
   portfolio bean/runtime assembly only when implementation begins
@@ -89,16 +92,18 @@ cynexus-market-starter
 职责：管理一张截图从上传到确认的完整生命周期。
 
 ```text
-UPLOADED -> PROCESSING -> READY_FOR_REVIEW -> CONFIRMED
-    |            |               |
-    |            +-> FAILED      +-> CANCELLED
-    +---------------------------> CANCELLED
-FAILED -> PROCESSING (显式重试)
+PENDING_DISPATCH -> QUEUED -> PROCESSING -> READY_FOR_REVIEW -> CONFIRMED
+        |              ^          |        |              |
+        |              |          |        +-> FAILED     +-> CANCELLED
+        |              +-- RETRY_WAITING <-+
+        +-------------------------------------------> CANCELLED
+FAILED -> PENDING_DISPATCH (用户显式重试并创建新 command)
 ```
 
 约束：
 
 - 一个任务只有一张截图。
+- `PENDING_DISPATCH` 表示 outbox 尚未得到 broker confirm；`QUEUED` 表示 command 已可靠进入 RabbitMQ。
 - `CONFIRMED` 和 `CANCELLED` 是终态。
 - 只有 `READY_FOR_REVIEW` 可以确认。
 - 任务版本用于防止多个页面同时覆盖校对结果。
@@ -155,13 +160,13 @@ FAILED -> PROCESSING (显式重试)
 ### 5.2 `portfolio_import_task`
 
 - `id`, `principal_key`, `tenant_key`, `asset_id`
-- `status`, `version`, `attempt_count`
+- `status`, `version`, `attempt_count`, `queued_at`
 - `capability`, `prompt_version`, `provider_code`, `model_code`
 - `started_at`, `completed_at`, `confirmed_at`
 - `last_error_code`, `last_error_message`
 - `idempotency_key`, `created_at`, `updated_at`, `deleted_at`
 
-索引覆盖 owner + status + created_at。异步执行所需的 lease/next-attempt 字段只在选定具体执行适配器后加入，不提前把调度实现写进业务模型。
+索引覆盖 owner + status + created_at。任务状态是 UI 和业务恢复的事实来源；RabbitMQ delivery 状态不能替代它。
 
 ### 5.3 `portfolio_import_candidate`
 
@@ -195,7 +200,20 @@ FAILED -> PROCESSING (显式重试)
 - `status`, `completed_at`
 - `created_at`, `updated_at`, `deleted_at`
 
-首期不增加 account、cash event、performance snapshot、trade cycle 等表。它们只有进入经确认的后续产品范围时才设计。
+### 5.6 `portfolio_outbox_event`
+
+可靠发布 `portfolio.import.parse-requested.v1` command：
+
+- `id`, `message_id`, `aggregate_type`, `aggregate_id`
+- `message_type`, `event_name`, `schema_version`, `routing_key`
+- `payload`, `headers`, `status`
+- `attempt_count`, `available_at`, `claimed_at`, `claimed_by`
+- `published_at`, `last_error_code`, `last_error_message`
+- `created_at`, `updated_at`
+
+任务和 outbox 在同一个 PostgreSQL 事务内写入。`message_id` 唯一，待发布索引覆盖 `status + available_at`。完整平台规则见 `docs/messaging/rabbitmq-architecture.md`。
+
+首期不增加 account、cash event、performance snapshot、trade cycle 或通用 inbox 表。Portfolio consumer 使用任务状态机完成幂等；没有天然状态机的未来消费者再按需增加 inbox。
 
 ## 6. API 设计
 
@@ -243,40 +261,75 @@ POST   /api/market/portfolio/reviews/{reviewId}/complete
 
 控制器按任务边界拆分，不创建一个包含全部逻辑的 `PortfolioController` 或 `PortfolioAppService`。
 
-## 7. 异步解析方案
+## 7. RabbitMQ 异步解析方案
 
-### 7.1 已确定的是行为，不是框架
+### 7.1 消息边界
 
-业务已确定：上传不能等待模型；任务必须持久化；用户离开页面后仍可恢复；失败可重试；同一任务不能被重复确认。
+RabbitMQ 只负责把截图解析 command 可靠交给 `cynexus-market` consumer：
 
-当前没有确定启用 Spring scheduling，也没有确定启用 JobRunr。`@Scheduled + PostgreSQL queue` 只是候选实现，不是产品 scope，也不是已经批准的技术决定。
+```text
+Upload API
+  -> transaction: asset + task(PENDING_DISPATCH) + outbox
+  -> 202 taskId
+  -> outbox relay publishes command
+  -> Market consumer calls cynexus-ai
+  -> candidates + READY_FOR_REVIEW
+```
 
-### 7.2 实现前 POC
+用户校对、确认、交易写入和持仓/盈亏计算不进入 MQ，仍在同步数据库事务中完成。
 
-POC 只回答四个问题：
+### 7.2 拓扑
 
-1. 仓库现有 AI/后台执行模式能否接收任务 ID，并在请求返回后执行 vision call。
-2. 服务重启后，处于 `UPLOADED` 或 `PROCESSING` 的任务如何恢复。
-3. 多实例下如何保证同一任务同一时间只处理一次。
-4. 超时、重试和最终失败如何留下可查询状态。
+- Exchange：`cynexus.command`，topic、durable。
+- Routing key：`portfolio.import.parse-requested.v1`。
+- Main queue：`cynexus.market.portfolio-import-parse.v1`。
+- Retry queues：30 秒、2 分钟、10 分钟三级 TTL + dead-letter routing。
+- DLQ：`cynexus.market.portfolio-import-parse.dlq.v1`。
+- 生产使用 quorum queue；首期 consumer concurrency `2`、prefetch `1`，均可配置。
 
-候选路径按优先级评估：
+消息只携带 `messageId`、schema/trace 元数据和 `taskId`。不携带图片、Base64、Prompt、候选值或 owner；consumer 从 owner-scoped 任务记录加载图片。
 
-1. 复用仓库已有且正在运行的后台执行抽象，只为 portfolio 增加 adapter。
-2. 若没有可复用抽象，采用 market 自有的持久任务 claim adapter；再评估触发方式。
-3. JobRunr、Kafka 或新工作流框架只有在前两项无法满足恢复和并发要求时才进入提案。
+### 7.3 Transactional Outbox
 
-进程内 `CompletableFuture` 或纯内存队列不能作为生产方案，因为服务重启会丢失任务。
+上传事务同时写 `portfolio_import_task` 和 `portfolio_outbox_event`，避免数据库成功但消息丢失。
 
-### 7.3 稳定端口
+Outbox relay 使用 `FOR UPDATE SKIP LOCKED` claim 待发布记录，通过 publisher confirm + mandatory routing 确认 broker 接收后才标记 `PUBLISHED`。事务提交后立即唤醒 relay；低频恢复扫描负责 broker 中断和应用重启后的补发。
 
-无论选择何种 runner，业务层只依赖：
+恢复扫描可以使用 Spring `TaskScheduler`，但它只转发 outbox，不消费 portfolio 业务任务、不调用 AI，也不构成 PostgreSQL 任务队列。未来如果引入 CDC，可替换 relay adapter，不改变业务事务和消息契约。
 
-- `PortfolioImportDispatchPort`：请求异步处理某个任务 ID。
+### 7.4 Consumer 与幂等
+
+`PortfolioImportMessageListener` 是 inbound adapter，只解析 envelope 并调用 `PortfolioImportWorkerAppService`。AppService 编排 task claim、图片加载、AI port 调用和结果保存；状态规则和候选校验属于 domain。
+
+Consumer 使用 manual ACK：
+
+1. 校验 message schema 和大小。
+2. 条件更新 `{PENDING_DISPATCH, QUEUED, RETRY_WAITING} -> PROCESSING`；终态或重复状态直接 ACK。
+3. 加载当前任务图片并调用 `PortfolioScreenshotParsePort`。
+4. 在事务中保存候选并更新 `READY_FOR_REVIEW`。
+5. 数据库提交成功后 ACK。
+
+系统采用 at-least-once。重复 delivery、ACK 丢失或 consumer 重启可能重复到达，但任务状态机保证不会重复创建候选或交易。AI 调用后、结果提交前崩溃可能导致再次调用模型，这是允许的成本，不影响账本正确性。
+
+RabbitMQ 可能在 relay 写回 `QUEUED` 前交付消息，因此 consumer 允许从 `PENDING_DISPATCH` claim；relay 在 publisher confirm 后只能把仍为 `PENDING_DISPATCH` 的任务条件更新为 `QUEUED`，不能把已经 `PROCESSING` 的任务回退。
+
+### 7.5 重试与失败
+
+- AI timeout、429、临时 5xx 和网络错误进入 30 秒/2 分钟/10 分钟重试。
+- 非交易截图、图片无法解码和结构永久非法直接更新任务 `FAILED` 并 ACK。
+- 消息 schema 不支持、envelope 缺失或超限进入 DLQ 并告警。
+- 重试超限后任务最终失败；用户显式重试会创建新的 outbox command 和 message ID。
+- 用户取消后 consumer 直接 ACK；AI 调用期间取消时允许调用完成，但保存结果前再次检查并丢弃结果。
+
+### 7.6 稳定端口
+
+业务层依赖：
+
+- `PortfolioImportDispatchPort`：在业务事务内登记待发布 command。
 - `PortfolioScreenshotParsePort`：提交图片并返回结构化模型结果。
 - `PortfolioImportTaskRepository`：加载任务并执行状态迁移。
 
-因此异步实现选择不会渗透到 controller、会计规则或 UI API。
+RabbitMQ client、listener container、exchange/queue declaration 和 publisher confirm 均属于 infra/starter wiring。平台级约束见 `docs/messaging/rabbitmq-architecture.md`。
 
 ## 8. AI 解析契约
 
@@ -365,6 +418,8 @@ cynexus-ui/src/views/market/personal-portfolio/
 - candidate 乐观锁、确认事务和重复请求。
 - AI 超时/失败后的可恢复状态。
 - 数据库约束、部分索引和 migration 幂等。
+- task + outbox 原子写入、publisher confirm、重复 delivery 和 manual ACK 边界。
+- RabbitMQ 中断、应用重启、三级 retry 和 DLQ/re-drive。
 
 ### 11.3 UI
 
@@ -381,22 +436,26 @@ cynexus-ui/src/views/market/personal-portfolio/
 
 1. `docs(market): define personal portfolio MVP`
    - BRD、技术方案、确认后的产品口径。
-2. `feat(market): add portfolio import persistence`
-   - migration、task/candidate domain、repository、图片校验。
-3. `feat(ai): add portfolio screenshot parsing capability`
+2. `feat(messaging): add RabbitMQ release infrastructure`
+   - RabbitMQ、vhost/user/policy、health、配置和 Release smoke。
+3. `feat(market): add portfolio import persistence and outbox`
+   - migration、task/candidate domain、repository、图片校验、outbox 原子写入。
+4. `feat(ai): add portfolio screenshot parsing capability`
    - prompt、binding、vision adapter、结构化解析测试。
-4. `feat(market): complete portfolio import confirmation`
-   - 异步 adapter、校对、确认、幂等和错误恢复。
-5. `feat(market): add portfolio ledger and returns`
+5. `feat(market): add RabbitMQ portfolio parse consumer`
+   - topology、publisher confirm、consumer、retry/DLQ、校对和恢复测试。
+6. `feat(market): complete portfolio import confirmation`
+   - 候选校对、确认、幂等和更正入口。
+7. `feat(market): add portfolio ledger and returns`
    - trade ledger、成本/盈亏、更正、overview API。
-6. `feat(market): add trade markers and reviews`
+8. `feat(market): add trade markers and reviews`
    - 标的详情、买卖点、review domain/API。
-7. `feat(ui): add personal portfolio workflow`
+9. `feat(ui): add personal portfolio workflow`
    - services、route/sidebar、四个页面和 UI 测试。
-8. `chore(release): verify personal portfolio release`
+10. `chore(release): verify personal portfolio release`
    - 版本同步、migration bundle、编译、lint/build、Release workflow 验证。
 
-异步 POC 的结论必须在第 2 个功能提交前记录；如需新框架，先补 ADR 并说明为什么现有能力不足，不在功能提交中顺手启用。
+RabbitMQ 基础设施、Outbox 和 portfolio consumer 分开提交。每个阶段记录完成状态和实际自测结果，不把 broker、业务表和完整 UI 堆入同一提交。
 
 ## 13. 首期技术完成定义
 
@@ -404,6 +463,7 @@ cynexus-ui/src/views/market/personal-portfolio/
 - 数据只落在 `cynexus_appl_market`，AI prompt/binding 仍遵循 AI schema 治理。
 - 上传、异步状态、校对、确认、持仓收益、买卖点和复盘端到端可用。
 - 未确认 AI 结果永远不能进入持仓计算。
-- 没有为了该功能启用未经评审的 scheduler/background server。
+- RabbitMQ、Outbox、幂等 consumer、三级重试和 DLQ 的失败恢复场景实际通过。
+- Spring scheduler 如被使用，仅用于 Outbox relay 的恢复扫描，不承担 AI 业务任务执行。
 - 后端 focused tests 与 compile、前端 lint/build、migration 和 Release workflow 均实际通过。
 - Maven 与 UI 版本保持同步。

@@ -6,7 +6,7 @@ Produce an evidence-based BRD and implementation design for a complete personal 
 
 ## Current Phase
 
-Phase 4
+Phase 5
 
 ## Phases
 
@@ -42,12 +42,24 @@ Phase 4
 - [x] Prepare BRD/design artifacts and unresolved product decisions for handoff
 - **Status:** complete
 
+### Phase 5: RabbitMQ Architecture Decision
+
+- [x] Compare RabbitMQ, RocketMQ, and Kafka against known Cynexus workloads
+- [x] Confirm the repository currently has no RabbitMQ/Kafka/RocketMQ integration
+- [x] Define reusable RabbitMQ topology, message contracts, delivery semantics, and ownership
+- [x] Replace the portfolio async-runner placeholder with the approved RabbitMQ design
+- [x] Define Outbox/Inbox, retry/DLQ, security, observability, deployment, and test gates
+- [x] Validate and prepare the design update for an independent commit
+- **Status:** complete
+
 ## Key Questions
 
-1. Does the user accept the MVP restriction to A-share, CNY, long-only trades?
-2. Should screenshot evidence default to a 30-day retention period or remain until user deletion?
-3. Should every sell create a review reminder, or should closed positions receive the primary reminder?
-4. Which existing background execution abstraction satisfies persistence, recovery, and single-processing guarantees in the implementation POC?
+Resolved defaults:
+
+1. MVP is A-share, CNY, and long-only.
+2. Screenshot evidence defaults to 30-day retention with early user deletion.
+3. Every sell creates a review reminder; a fully closed position receives higher priority.
+4. Release uses a single RabbitMQ node; production guidance uses a three-node cluster with quorum queues.
 
 ## Decisions Made
 
@@ -59,7 +71,8 @@ Phase 4
 | Accept one screenshot per asynchronous parse task | The user clarified the import contract; upload returns a task reference, processing happens asynchronously, and confirmed rows alone affect the ledger. |
 | Keep a single implicit personal ledger in MVP | Multiple portfolios and account administration do not contribute to the requested screenshot-to-return workflow. |
 | Limit return claims to P&L and rates with valid denominators | Trade screenshots alone do not establish cash balance or external capital flows, so a complete account return would be misleading. |
-| Keep the async runner unselected until a focused POC | Asynchronous behavior is required, but enabling Spring scheduling, JobRunr, or another task framework is an implementation choice rather than product scope. |
+| Superseded: keep the async runner unselected until a focused POC | The user subsequently selected RabbitMQ as the shared business messaging platform. |
+| Use RabbitMQ for business commands and domain events | Known Cynexus needs are reliable tasks, routing, acknowledgements, retries, and dead letters; Kafka remains a future data-stream option only when replay/high-throughput requirements are proven. |
 
 ## Errors Encountered
 
@@ -69,6 +82,7 @@ Phase 4
 | PowerShell line-count command conflicted with JavaScript template escaping | 1 | Reissued the read-only command without PowerShell backtick escapes. |
 | CodeGraph lookup for `StockChartQueryDomainServiceImpl.query` did not match a symbol | 1 | Used interface impact output, which revealed the actual methods such as `klines`; subsequent queries will use exact indexed method names. |
 | PowerShell did not expand an `rg` filename glob | 1 | Re-ran `rg` with a directory argument and `-g` include pattern. |
+| A scoped validation command repeated an unexpanded Windows glob | 2 | Used the already documented `rg <pattern> <directory> -g <glob>` form and confirmed no stale decision markers. |
 
 ## Notes
 

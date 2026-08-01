@@ -47,6 +47,20 @@
   - Confirmed that no runtime, migration, backend, or frontend implementation has been started.
   - Checked the five task-owned documents and verified that scheduler, broad portfolio, full-return, and Agent concepts appear only as explicit exclusions or unselected options.
 
+### Phase 5: RabbitMQ Architecture Decision
+
+- **Status:** complete
+- Actions taken:
+  - Compared RabbitMQ, RocketMQ, and Kafka and recorded the user-approved RabbitMQ decision.
+  - Confirmed no existing broker integration is present in the indexed repository or scoped dependency/configuration search.
+  - Added the reusable Cynexus RabbitMQ architecture covering topology, versioned contracts, Transactional Outbox, consumer idempotency, manual ACK, tiered retry, DLQ, security, observability, Release/production deployment, and Kafka reevaluation criteria.
+  - Replaced the portfolio async-runner placeholder with the concrete RabbitMQ command flow and resolved the publisher-confirm/early-consumer state race.
+  - Fixed MVP defaults to A-share/CNY/long-only, 30-day screenshot retention, and sell-triggered review reminders with closed-position priority.
+- Files created/modified:
+  - `docs/messaging/rabbitmq-architecture.md`
+  - `docs/market/personal-portfolio-tracking-architecture.md`
+  - `docs/market/personal-portfolio-tracking-brd.md`
+
 ## Test Results
 
 | Test | Input | Expected | Actual | Status |
@@ -54,6 +68,9 @@
 | CodeGraph CLI availability | `codegraph --help` | CLI command list | Command succeeded | pass |
 | Corrected document structure | BRD, architecture, and planning files | Files readable with expected Markdown sections | 5 files readable; BRD 19 and architecture 36 headings | pass |
 | Scope exclusion scan | scheduler/framework, multi-portfolio, TWR/XIRR, Agent terms | Terms occur only as exclusions or unselected choices | Confirmed by scoped `rg` output | pass |
+| RabbitMQ architecture completeness | topology, envelope, outbox, ACK, retry, DLQ, security, observability, deployment | Required sections and portfolio routing contract present | Required-term scan passed | pass |
+| Stale async decision scan | old POC/unselected markers | No obsolete decision remains | No stale decision markers found | pass |
+| Markdown diff hygiene | task-owned design files | No whitespace errors | `git diff --check` passed | pass |
 
 ## Error Log
 
@@ -63,13 +80,14 @@
 | 2026-08-01 | PowerShell count command string escaping failed | 1 | Removed the backtick escape sequence and reran the read-only count. |
 | 2026-08-01 | CodeGraph symbol `StockChartQueryDomainServiceImpl.query` not found | 1 | Used interface impact analysis and exact method names instead. |
 | 2026-08-01 | `rg` received an unexpanded Windows filename glob | 1 | Used `rg <pattern> docs/market -g <glob>` instead. |
+| 2026-08-01 | Validation repeated an unexpanded Windows filename glob | 2 | Re-ran with a directory plus `-g` and confirmed no stale decisions. |
 
 ## 5-Question Reboot Check
 
 | Question | Answer |
 |----------|--------|
-| Where am I? | Design handoff complete; implementation is gated on product scope confirmation |
-| Where am I going? | Product confirmation, async runner POC, then feature-sized implementation commits |
+| Where am I? | Product, portfolio architecture, and RabbitMQ messaging design are complete; implementation has not started |
+| Where am I going? | Feature-sized RabbitMQ infrastructure, outbox, portfolio backend, AI, and UI implementation commits |
 | What's the goal? | Design a complete personal portfolio and return-tracking workflow for Cynexus |
 | What have I learned? | The worktree is heavily modified and CodeGraph CLI is available |
-| What have I done? | Completed and corrected the BRD, architecture, delivery sequence, and scope exclusions |
+| What have I done? | Completed the BRD, portfolio architecture, reusable RabbitMQ architecture, and delivery sequence |
