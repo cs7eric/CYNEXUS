@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioReviewMapper">
+    <insert id="insert">
+        insert into cynexus_appl_market.portfolio_review
+        (id, principal_key, tenant_key, symbol, period_start, period_end, thesis, plan, execution, lessons,
+         next_action, tags, rating, metrics_snapshot, status)
+        values (#{id}, #{principalKey}, #{tenantKey}, #{symbol}, #{periodStart}, #{periodEnd}, #{thesis}, #{plan}, #{execution}, #{lessons},
+                #{nextAction}, cast(#{tags} as jsonb), #{rating}, cast(#{metricsSnapshot} as jsonb), #{status})
+    </insert>
+    <update id="update">
+        update cynexus_appl_market.portfolio_review set symbol=#{symbol}, period_start=#{periodStart}, period_end=#{periodEnd}, thesis=#{thesis}, plan=#{plan}, execution=#{execution}, lessons=#{lessons}, next_action=#{nextAction}, tags=cast(#{tags} as jsonb), rating=#{rating}, metrics_snapshot=cast(#{metricsSnapshot} as jsonb), status=#{status}, updated_at=now() where id=#{id} and principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null
+    </update>
+    <select id="findById" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioReviewPO">
+        select id, principal_key, tenant_key, symbol, period_start, period_end, thesis, plan, execution, lessons, next_action,
+               tags::text as tags, rating, metrics_snapshot::text as metrics_snapshot, status from cynexus_appl_market.portfolio_review
+         where id=#{id} and principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null
+    </select>
+    <select id="list" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioReviewPO">
+        select id, principal_key, tenant_key, symbol, period_start, period_end, thesis, plan, execution, lessons, next_action,
+               tags::text as tags, rating, metrics_snapshot::text as metrics_snapshot, status from cynexus_appl_market.portfolio_review
+         where principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null and (#{symbol} is null or symbol=#{symbol})
+         order by period_end desc, id desc
+    </select>
+</mapper>
