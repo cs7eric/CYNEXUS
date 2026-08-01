@@ -211,6 +211,16 @@ const AI_CAPABILITIES: AiCapability[] = [
     aliases: ["AI 记账", "小票识别", "Receipt recognition"],
   },
   {
+    code: "portfolio_trade_screenshot_parse",
+    label: "Portfolio trade screenshot parsing",
+    group: "Market / Personal Portfolio",
+    description: "Extract candidate A-share trades from one screenshot; user confirmation is required before posting.",
+    entry: "Personal Portfolio / Import Review",
+    reads_binding: true,
+    runtime: "ScenarioExecutionAppService.executeVision",
+    prompt_key: "portfolio_trade_screenshot_parse",
+  },
+  {
     code: "auction_analysis",
     label: "Auction AI analysis",
     group: "Stock AI",
