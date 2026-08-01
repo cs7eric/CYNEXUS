@@ -6,7 +6,7 @@ Produce an evidence-based BRD and implementation design for a complete personal 
 
 ## Current Phase
 
-Phase 5
+Phase 6
 
 ## Phases
 
@@ -51,6 +51,25 @@ Phase 5
 - [x] Define Outbox/Inbox, retry/DLQ, security, observability, deployment, and test gates
 - [x] Validate and prepare the design update for an independent commit
 - **Status:** complete
+
+### Phase 6: RabbitMQ Shared Local Infrastructure
+
+- [x] Add pinned RabbitMQ management image beside Redis in local Docker Compose
+- [x] Configure credentials, persisted data, AMQP/management ports, and health check
+- [x] Validate Compose configuration and start only RabbitMQ
+- [x] Verify health, diagnostics, management API, and shared Docker network membership
+- [x] Commit the infrastructure feature with self-test results
+- **Status:** complete
+
+### Phase 7: Portfolio Implementation
+
+- [ ] Add portfolio persistence migration and domain model
+- [ ] Add RabbitMQ Outbox publisher and portfolio parse consumer
+- [ ] Add AI vision capability and structured candidate validation
+- [ ] Add confirmation, ledger, returns, chart markers, reviews, and APIs
+- [ ] Add UI routes, services, pages, and complete workflow
+- [ ] Verify Release rebuild, migrations, backend/frontend tests, and version sync
+- **Status:** pending
 
 ## Key Questions
 

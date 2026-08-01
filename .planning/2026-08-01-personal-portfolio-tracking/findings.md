@@ -56,6 +56,7 @@
 - CodeGraph and repository searches found no current Kafka, RabbitMQ, RocketMQ, Spring AMQP, or Spring Cloud Stream integration; RabbitMQ is a new shared infrastructure capability, not a reuse of an existing broker.
 - The user selected RabbitMQ after comparing RabbitMQ, RocketMQ, and Kafka for future Cynexus messaging needs.
 - RabbitMQ should own work dispatch and domain-event delivery, while PostgreSQL remains the source of truth for portfolio task state; reliable cross-system publication requires Transactional Outbox and consumer idempotency.
+- RabbitMQ local infrastructure is now running from `deploy/local/docker-compose.yml` as `cynexus-rabbitmq` on `cynexus-dev_default`, with persisted bind storage at `deploy/local/rabbitmq/data`, AMQP port `5672`, management port `15672`, and image tag `rabbitmq:4.1-management-alpine`.
 
 ## Technical Decisions
 

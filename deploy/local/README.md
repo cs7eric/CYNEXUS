@@ -60,6 +60,25 @@ ClickHouse uses Docker named volumes `clickhouse-data` and `clickhouse-logs`.
 On Windows, a bind-mounted ClickHouse data directory can fail on MergeTree
 atomic renames during inserts, so it is intentionally not mounted like Redis.
 
+RabbitMQ is part of the shared local infrastructure and is available to the
+Release application through the external `cynexus-dev_default` network:
+
+- AMQP: `127.0.0.1:5672`
+- Management UI: `http://127.0.0.1:15672`
+- Hostname from Docker services: `rabbitmq` / `cynexus-rabbitmq`
+- Username: `cynexus`
+- Password: `C020611.`
+
+Start or inspect it without rebuilding application images:
+
+```powershell
+docker compose -f deploy/local/docker-compose.yml up -d rabbitmq
+docker compose -f deploy/local/docker-compose.yml ps rabbitmq
+docker exec cynexus-rabbitmq rabbitmq-diagnostics -q ping
+```
+
+RabbitMQ data is persisted under `deploy/local/rabbitmq/data`.
+
 DuckDB market detail tables can be loaded into ClickHouse with:
 
 ```powershell

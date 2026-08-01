@@ -61,6 +61,18 @@
   - `docs/market/personal-portfolio-tracking-architecture.md`
   - `docs/market/personal-portfolio-tracking-brd.md`
 
+### Phase 6: RabbitMQ Shared Local Infrastructure
+
+- **Status:** complete
+- Actions taken:
+  - Added `rabbitmq:4.1-management-alpine` beside Redis in `deploy/local/docker-compose.yml`.
+  - Configured the shared `cynexus` account, persisted bind storage, localhost-only AMQP/management ports, and a `rabbitmq-diagnostics -q ping` health check.
+  - Ran Compose validation and started only the RabbitMQ service; existing Release applications and shared stores were not restarted.
+  - Verified container health, `cynexus-dev_default` network aliases, AMQP diagnostics, management API authentication, and RabbitMQ server version `4.1.8`.
+- Files created/modified:
+  - `deploy/local/docker-compose.yml`
+  - `deploy/local/README.md`
+
 ## Test Results
 
 | Test | Input | Expected | Actual | Status |
@@ -71,6 +83,11 @@
 | RabbitMQ architecture completeness | topology, envelope, outbox, ACK, retry, DLQ, security, observability, deployment | Required sections and portfolio routing contract present | Required-term scan passed | pass |
 | Stale async decision scan | old POC/unselected markers | No obsolete decision remains | No stale decision markers found | pass |
 | Markdown diff hygiene | task-owned design files | No whitespace errors | `git diff --check` passed | pass |
+| Local RabbitMQ Compose validation | `docker compose -f deploy/local/docker-compose.yml config --quiet` | Compose resolves without errors | Command succeeded | pass |
+| RabbitMQ container health | `docker compose ... up -d rabbitmq`; `docker compose ... ps rabbitmq` | Container healthy without touching app stack | `cynexus-rabbitmq` healthy | pass |
+| RabbitMQ broker diagnostics | `docker exec cynexus-rabbitmq rabbitmq-diagnostics -q ping` | Broker responds | `Ping succeeded` | pass |
+| RabbitMQ management API | authenticated request to `127.0.0.1:15672/api/overview` | Management endpoint accessible | HTTP 200; version 4.1.8 | pass |
+| Shared network membership | `docker inspect cynexus-rabbitmq` | Release-shared network available | `cynexus-dev_default`, aliases `rabbitmq`/`cynexus-rabbitmq` | pass |
 
 ## Error Log
 
