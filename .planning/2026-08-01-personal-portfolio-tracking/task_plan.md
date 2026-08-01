@@ -6,7 +6,7 @@ Produce an evidence-based BRD and implementation design for a complete personal 
 
 ## Current Phase
 
-Phase 7
+Phase 8
 
 ## Phases
 
@@ -63,23 +63,24 @@ Phase 7
 
 ### Phase 7: Common Messaging Foundation
 
-- [ ] Add `cynexus-common-messaging` parent and `api`, `rabbit`, `outbox` submodules
-- [ ] Implement broker-neutral message envelope, destination, transport and error contracts
-- [ ] Implement Rabbit publisher-confirm transport, connection properties and topology SPI
-- [ ] Implement Outbox relay and Inbox idempotency SPI without owning business tables
-- [ ] Wire `cynexus-market` to the common modules and compile focused modules
-- [ ] Commit the enterprise messaging foundation with self-test results
-- **Status:** in_progress
+- [x] Add `cynexus-common-messaging` parent and `api`, `rabbit`, `outbox` submodules
+- [x] Implement broker-neutral message envelope, destination, transport and error contracts
+- [x] Implement Rabbit publisher-confirm transport, connection properties and message boundaries
+- [x] Implement Outbox relay and Inbox idempotency SPI without owning business tables
+- [x] Compile and test focused modules
+- [x] Commit the enterprise messaging foundation with self-test results
+- **Status:** complete
 
 ### Phase 8: Portfolio Implementation
 
-- [ ] Add portfolio persistence migration and domain model
+- [ ] Add portfolio persistence migration
+- [x] Add portfolio domain model and deterministic ledger rules
 - [ ] Add RabbitMQ Outbox publisher and portfolio parse consumer
 - [ ] Add AI vision capability and structured candidate validation
 - [ ] Add confirmation, ledger, returns, chart markers, reviews, and APIs
 - [ ] Add UI routes, services, pages, and complete workflow
 - [ ] Verify Release rebuild, migrations, backend/frontend tests, and version sync
-- **Status:** pending
+- **Status:** in_progress
 
 ## Key Questions
 

@@ -2,6 +2,19 @@
 
 ## Session: 2026-08-01
 
+### Phase 8: Portfolio Domain Foundation
+
+- **Status:** complete
+- Actions taken:
+  - Added the independent `portfolio` domain package under `cynexus-market`.
+  - Implemented import-task lifecycle transitions with terminal-state and explicit-retry rules.
+  - Implemented moving weighted average cost, realized/unrealized P&L, sell-over-position validation, and replacement-aware trade filtering.
+  - Added focused tests for state transitions, idempotent processing claims, retry behavior, and ledger calculations.
+- Verification:
+  - `mvn -pl cynexus-market/cynexus-market-domain -am test` passed with 47 tests.
+- Commit:
+  - `feat(market): add portfolio domain ledger foundation`
+
 ### Phase 1: Repository And Product Discovery
 
 - **Status:** complete
