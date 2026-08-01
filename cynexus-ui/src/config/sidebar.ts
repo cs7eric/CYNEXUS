@@ -105,6 +105,10 @@ export const sidebarConfig = {
           url: "/market/etf",
         },
         {
+          title: "market indicator",
+          url: "/market/indicator",
+        },
+        {
           title: "futures position",
           url: "/market/futures-position",
         },
@@ -240,6 +244,10 @@ export const sidebarConfig = {
         {
           title: "easy_tdx data lab",
           url: "/poc/easy-tdx",
+        },
+        {
+          title: "shadcn components",
+          url: "/poc/shadcn",
         },
       ],
     },

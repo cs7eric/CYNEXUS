@@ -39,6 +39,10 @@ import FinanceLedgerPage from "../views/finance/ledger"
 import FinanceTransactionsPage from "../views/finance/transactions"
 import FinanceAccountsPage from "../views/finance/accounts"
 import FinanceAiCapturePage from "../views/finance/ai-capture"
+import PersonalPortfolioPage from "../views/market/personal-portfolio"
+import PersonalPortfolioImportReviewPage from "../views/market/personal-portfolio/import-review"
+import PersonalPortfolioReviewEditorPage from "../views/market/personal-portfolio/review-editor"
+import PersonalPortfolioStockDetailPage from "../views/market/personal-portfolio/stock-detail"
 
 export const router = createBrowserRouter([
   {
@@ -120,6 +124,22 @@ export const router = createBrowserRouter([
       {
         path: "market/futures-position",
         element: <MarketFuturesPositionPage />,
+      },
+      {
+        path: "personal-portfolio",
+        element: <PersonalPortfolioPage />,
+      },
+      {
+        path: "personal-portfolio/imports/:taskId",
+        element: <PersonalPortfolioImportReviewPage />,
+      },
+      {
+        path: "personal-portfolio/reviews/:reviewId",
+        element: <PersonalPortfolioReviewEditorPage />,
+      },
+      {
+        path: "personal-portfolio/stocks/:symbol",
+        element: <PersonalPortfolioStockDetailPage />,
       },
       {
         path: "information",
