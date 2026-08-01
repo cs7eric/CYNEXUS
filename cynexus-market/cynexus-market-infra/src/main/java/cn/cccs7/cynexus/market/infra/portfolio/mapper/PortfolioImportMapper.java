@@ -9,7 +9,11 @@ import org.apache.ibatis.annotations.Param;
 public interface PortfolioImportMapper {
     int insertAsset(PortfolioImportAssetPO asset);
 
+    PortfolioImportAssetPO findAssetById(long assetId);
+
     int insertTask(PortfolioImportTaskPO task);
+
+    int updateTask(PortfolioImportTaskPO task);
 
     PortfolioImportTaskPO findTaskByOwnerAndId(@Param("principalKey") String principalKey,
                                                @Param("tenantKey") String tenantKey,

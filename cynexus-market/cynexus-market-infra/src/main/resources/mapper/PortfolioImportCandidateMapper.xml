@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportCandidateMapper">
+    <delete id="deleteByTaskId">
+        delete from cynexus_appl_market.portfolio_import_candidate where task_id = #{taskId}
+    </delete>
+    <insert id="insert">
+        insert into cynexus_appl_market.portfolio_import_candidate
+        (id, task_id, row_no, raw_payload, normalized_payload, confidence, warnings, review_status, version)
+        values (#{id}, #{taskId}, #{rowNo}, cast(#{rawPayload} as jsonb), cast(#{normalizedPayload} as jsonb),
+                #{confidence}, cast(#{warnings} as jsonb), #{reviewStatus}, #{version})
+    </insert>
+</mapper>

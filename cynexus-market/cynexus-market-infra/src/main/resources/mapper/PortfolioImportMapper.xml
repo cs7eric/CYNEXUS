@@ -11,6 +11,13 @@
                 #{contentSha256}, #{contentBytes}, #{retentionUntil})
     </insert>
 
+    <select id="findAssetById" parameterType="long" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportAssetPO">
+        select id, principal_key, tenant_key, file_name, content_type, byte_size,
+               content_sha256, content_bytes, retention_until
+          from cynexus_appl_market.portfolio_import_asset
+         where id = #{assetId} and deleted_at is null and purged_at is null
+    </select>
+
     <insert id="insertTask">
         insert into cynexus_appl_market.portfolio_import_task
         (id, principal_key, tenant_key, asset_id, status, version, attempt_count,
@@ -18,6 +25,15 @@
         values (#{id}, #{principalKey}, #{tenantKey}, #{assetId}, #{status}, #{version}, #{attemptCount},
                 #{idempotencyKey})
     </insert>
+
+    <update id="updateTask">
+        update cynexus_appl_market.portfolio_import_task
+           set status = #{status}, version = #{version}, attempt_count = #{attemptCount},
+               queued_at = #{queuedAt}, started_at = #{startedAt}, completed_at = #{completedAt},
+               confirmed_at = #{confirmedAt}, last_error_code = #{lastErrorCode},
+               last_error_message = #{lastErrorMessage}, updated_at = now()
+         where id = #{id} and version = #{version} - 1 and deleted_at is null
+    </update>
 
     <select id="findTaskByOwnerAndId" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportTaskPO">
         select id, principal_key, tenant_key, asset_id, idempotency_key, status, version, attempt_count,

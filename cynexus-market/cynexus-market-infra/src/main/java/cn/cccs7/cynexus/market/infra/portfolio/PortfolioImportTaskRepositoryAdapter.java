@@ -37,6 +37,24 @@ public class PortfolioImportTaskRepositoryAdapter implements PortfolioImportTask
     }
 
     @Override
+    public void update(PortfolioImportTaskBO task) {
+        PortfolioImportTaskPO po = new PortfolioImportTaskPO();
+        po.setId(task.getId());
+        po.setStatus(task.getStatus().name());
+        po.setVersion(task.getVersion());
+        po.setAttemptCount(task.getAttemptCount());
+        po.setQueuedAt(task.getQueuedAt());
+        po.setStartedAt(task.getStartedAt());
+        po.setCompletedAt(task.getCompletedAt());
+        po.setConfirmedAt(task.getConfirmedAt());
+        po.setLastErrorCode(task.getLastErrorCode());
+        po.setLastErrorMessage(task.getLastErrorMessage());
+        if (mapper.updateTask(po) != 1) {
+            throw new IllegalStateException("Portfolio import task was changed concurrently: " + task.getId());
+        }
+    }
+
+    @Override
     public Optional<PortfolioImportTaskBO> findByOwnerAndId(String principalKey, String tenantKey, long taskId) {
         return Optional.ofNullable(mapper.findTaskByOwnerAndId(principalKey, tenantKey, taskId)).map(this::toDomain);
     }

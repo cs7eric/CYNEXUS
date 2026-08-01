@@ -5,6 +5,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportAssetStorePort;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportAssetPO;
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportMapper;
 import org.springframework.stereotype.Repository;
+import java.util.Optional;
 
 @Repository
 public class PortfolioImportAssetStoreAdapter implements PortfolioImportAssetStorePort {
@@ -28,5 +29,12 @@ public class PortfolioImportAssetStoreAdapter implements PortfolioImportAssetSto
         po.setRetentionUntil(asset.retentionUntil());
         mapper.insertAsset(po);
         return asset.id();
+    }
+
+    @Override
+    public Optional<PortfolioImportAssetBO> findById(long assetId) {
+        return Optional.ofNullable(mapper.findAssetById(assetId)).map(po -> new PortfolioImportAssetBO(
+                po.getId(), po.getPrincipalKey(), po.getTenantKey(), po.getFileName(), po.getContentType(),
+                po.getByteSize(), po.getContentSha256(), po.getContentBytes(), po.getRetentionUntil()));
     }
 }

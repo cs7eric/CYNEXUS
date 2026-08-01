@@ -58,7 +58,17 @@ class PortfolioImportDomainServiceTest {
         }
 
         @Override
+        public Optional<PortfolioImportAssetBO> findById(long assetId) {
+            return Optional.ofNullable(assets.get(assetId));
+        }
+
+        @Override
         public void save(PortfolioImportTaskBO task) {
+            tasks.put(task.getIdempotencyKey(), task);
+        }
+
+        @Override
+        public void update(PortfolioImportTaskBO task) {
             tasks.put(task.getIdempotencyKey(), task);
         }
 
