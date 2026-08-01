@@ -73,7 +73,7 @@ Phase 8
 
 ### Phase 8: Portfolio Implementation
 
-- [ ] Add portfolio persistence migration
+- [x] Add portfolio persistence migration
 - [x] Add portfolio domain model and deterministic ledger rules
 - [ ] Add RabbitMQ Outbox publisher and portfolio parse consumer
 - [ ] Add AI vision capability and structured candidate validation

@@ -15,6 +15,18 @@
 - Commit:
   - `feat(market): add portfolio domain ledger foundation`
 
+### Phase 8: Portfolio Persistence Schema
+
+- **Status:** complete
+- Actions taken:
+  - Added idempotent `cynexus_appl_market` tables for screenshot assets, import tasks, candidates, confirmed trades, reviews, and portfolio outbox events.
+  - Added owner/status/time indexes and database checks for task states, candidate confidence, trade values, review ranges, and outbox lifecycle.
+  - Registered the migration in the Release market migration bundle.
+- Verification:
+  - Applied the migration inside a PostgreSQL transaction and rolled it back successfully with `ON_ERROR_STOP=1`.
+- Commit:
+  - `feat(market): add portfolio persistence schema`
+
 ### Phase 1: Repository And Product Discovery
 
 - **Status:** complete
