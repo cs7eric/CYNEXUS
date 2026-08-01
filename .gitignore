@@ -57,6 +57,7 @@ deploy/dev/.trusted-identity-secret
 deploy/local/nacos/data/
 deploy/local/nacos/logs/
 deploy/local/redis/data/
+deploy/local/rabbitmq/data/
 deploy/local/postgres/data/
 deploy/local/postgres-backups/
 deploy/local/clickhouse/data/
@@ -75,6 +76,7 @@ __pycache__/
 
 # --- repo hygiene: never commit agent/session scratch ---
 # root-only scratch scripts, jars, dumps (leading / = repository root)
+/.codegraph/
 /_*
 /.tmp-*
 /*.javap.txt

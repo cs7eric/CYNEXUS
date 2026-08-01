@@ -68,10 +68,12 @@
   - Added `rabbitmq:4.1-management-alpine` beside Redis in `deploy/local/docker-compose.yml`.
   - Configured the shared `cynexus` account, persisted bind storage, localhost-only AMQP/management ports, and a `rabbitmq-diagnostics -q ping` health check.
   - Ran Compose validation and started only the RabbitMQ service; existing Release applications and shared stores were not restarted.
-  - Verified container health, `cynexus-dev_default` network aliases, AMQP diagnostics, management API authentication, and RabbitMQ server version `4.1.8`.
+- Verified container health, `cynexus-dev_default` network aliases, AMQP diagnostics, management API authentication, and RabbitMQ server version `4.1.8`.
+- Added `deploy/local/rabbitmq/data/` to `.gitignore` after confirming the bind-mounted broker state is runtime data and must remain local.
 - Files created/modified:
   - `deploy/local/docker-compose.yml`
   - `deploy/local/README.md`
+  - `.gitignore`
 
 ## Test Results
 
