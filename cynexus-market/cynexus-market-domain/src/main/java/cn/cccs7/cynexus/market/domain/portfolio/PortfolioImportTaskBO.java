@@ -39,6 +39,22 @@ public final class PortfolioImportTaskBO {
         this.attemptCount = attemptCount;
     }
 
+    public static PortfolioImportTaskBO rehydrate(Long id, String principalKey, String tenantKey, Long assetId,
+                                                  String idempotencyKey, PortfolioImportStatus status, long version,
+                                                  int attemptCount, OffsetDateTime queuedAt, OffsetDateTime startedAt,
+                                                  OffsetDateTime completedAt, OffsetDateTime confirmedAt,
+                                                  String lastErrorCode, String lastErrorMessage) {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(id, principalKey, tenantKey, assetId,
+                idempotencyKey, status, version, attemptCount);
+        task.queuedAt = queuedAt;
+        task.startedAt = startedAt;
+        task.completedAt = completedAt;
+        task.confirmedAt = confirmedAt;
+        task.lastErrorCode = lastErrorCode;
+        task.lastErrorMessage = lastErrorMessage;
+        return task;
+    }
+
     public void markQueued(OffsetDateTime occurredAt) {
         requireStatus(PortfolioImportStatus.PENDING_DISPATCH, PortfolioImportStatus.RETRY_WAITING);
         this.status = PortfolioImportStatus.QUEUED;

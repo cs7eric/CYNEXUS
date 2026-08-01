@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioOutboxMapper">
+    <insert id="insert">
+        insert into cynexus_appl_market.portfolio_outbox_event
+        (id, message_id, aggregate_type, aggregate_id, message_type, event_name,
+         schema_version, routing_key, payload, headers, status, attempt_count, available_at)
+        values (#{id}, #{messageId}, #{aggregateType}, #{aggregateId}, #{messageType}, #{eventName},
+                #{schemaVersion}, #{routingKey}, cast(#{payload} as jsonb), cast(#{headers} as jsonb),
+                #{status}, #{attemptCount}, #{availableAt})
+    </insert>
+</mapper>

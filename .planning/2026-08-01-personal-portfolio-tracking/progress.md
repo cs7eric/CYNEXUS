@@ -27,6 +27,19 @@
 - Commit:
   - `feat(market): add portfolio persistence schema`
 
+### Phase 8: Portfolio Upload Task And Outbox Entry
+
+- **Status:** complete
+- Actions taken:
+  - Added Portfolio upload and task query API under `/api/market/portfolio/imports`.
+  - Added owner-scoped MyBatis persistence adapters for assets and import tasks.
+  - Added transactional outbox entry creation for `portfolio.import.parse-requested.v1`.
+  - Added server-side image type/size validation and idempotency handling.
+- Verification:
+  - `mvn -pl cynexus-market/cynexus-market-application/cynexus-market-application-controller,cynexus-market/cynexus-market-infra -am test` passed with 50 domain tests and 6 application tests.
+- Commit:
+  - `feat(market): add portfolio upload task and outbox entry`
+
 ### Phase 1: Repository And Product Discovery
 
 - **Status:** complete
