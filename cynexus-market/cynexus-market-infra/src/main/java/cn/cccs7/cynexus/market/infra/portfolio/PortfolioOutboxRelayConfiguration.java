@@ -6,7 +6,6 @@ import cn.cccs7.cynexus.common.messaging.outbox.OutboxStore;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,7 +19,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 public class PortfolioOutboxRelayConfiguration {
 
     @Bean
-    @ConditionalOnBean({OutboxStore.class, MessageTransport.class})
     public PortfolioOutboxRelay portfolioOutboxRelay(OutboxStore store, MessageTransport transport) {
         return new PortfolioOutboxRelay(new OutboxRelay(store, transport, 50, Duration.ofSeconds(60), 5));
     }
