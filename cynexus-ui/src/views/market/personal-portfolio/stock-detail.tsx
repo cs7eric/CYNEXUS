@@ -1,0 +1,16 @@
+import { useCallback, useEffect, useState } from "react"
+import { Link, useParams } from "react-router-dom"
+import { ArrowLeft, RefreshCw } from "lucide-react"
+import { WorkspaceShell } from "@/layout/workspace-shell"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { notification } from "@/components/ui/notification"
+import { fetchPortfolioTrades } from "@/services/market/portfolio/portfolio"
+import type { PortfolioTrade } from "@/services/market/portfolio/types"
+
+export default function PersonalPortfolioStockDetailPage() {
+  const { symbol } = useParams(); const [trades, setTrades] = useState<PortfolioTrade[]>([]); const [loading, setLoading] = useState(true)
+  const load = useCallback(async () => { setLoading(true); try { setTrades(await fetchPortfolioTrades(symbol)) } catch (cause) { notification.danger({ title: "Trade history load failed", description: cause instanceof Error ? cause.message : String(cause) }) } finally { setLoading(false) } }, [symbol])
+  useEffect(() => { const timer = window.setTimeout(() => { void load() }, 0); return () => window.clearTimeout(timer) }, [load])
+  return <WorkspaceShell sectionLabel="Stock Overview" pageTitle="Position Detail"><div className="flex w-full min-w-0 flex-col gap-6"><header className="flex flex-wrap items-end justify-between gap-4"><div><Link to="/personal-portfolio" className="text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="mr-1 inline size-3" />Portfolio</Link><h1 className="mt-2 font-mono text-2xl font-semibold tracking-tight">{symbol}</h1><p className="mt-1 text-sm text-muted-foreground">Confirmed buy and sell points from your ledger.</p></div><Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button></header>{loading ? <Skeleton className="h-72 rounded-lg" /> : <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><div className="border-b border-border/60 px-4 py-3"><h2 className="text-sm font-semibold">Trade markers</h2><p className="mt-1 text-xs text-muted-foreground">Prices are execution prices; market valuation is shown on the portfolio overview.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Marker</th><th className="px-4 py-3 text-right">Qty</th><th className="px-4 py-3 text-right">Price</th><th className="px-4 py-3 text-right">Fee</th></tr></thead><tbody className="divide-y divide-border/60">{trades.map((trade) => <tr key={trade.id}><td className="px-4 py-3">{trade.tradedAt}</td><td className="px-4 py-3"><span className={trade.side === "BUY" ? "text-rose-600" : "text-emerald-600"}>{trade.side === "BUY" ? "Buy point" : "Sell point"}</span></td><td className="px-4 py-3 text-right font-mono">{trade.quantity}</td><td className="px-4 py-3 text-right font-mono">{trade.price}</td><td className="px-4 py-3 text-right font-mono">{trade.totalFee}</td></tr>)}{!trades.length ? <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">No confirmed trades for this symbol.</td></tr> : null}</tbody></table></div></section>}</div></WorkspaceShell>
+}

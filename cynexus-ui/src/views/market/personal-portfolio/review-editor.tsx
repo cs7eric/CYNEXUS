@@ -1,0 +1,20 @@
+import { useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { Save } from "lucide-react"
+import { WorkspaceShell } from "@/layout/workspace-shell"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { notification } from "@/components/ui/notification"
+import { fetchPortfolioReviews, savePortfolioReview } from "@/services/market/portfolio/reviews"
+import type { PortfolioReview } from "@/services/market/portfolio/types"
+
+const emptyReview: PortfolioReview = { symbol: "", periodStart: new Date().toISOString().slice(0, 10), periodEnd: new Date().toISOString().slice(0, 10), status: "DRAFT" }
+
+export default function PersonalPortfolioReviewEditorPage() {
+  const { reviewId } = useParams(); const navigate = useNavigate(); const [review, setReview] = useState<PortfolioReview>(emptyReview); const [saving, setSaving] = useState(false)
+  useEffect(() => { if (!reviewId || reviewId === "new") return; void fetchPortfolioReviews().then((items) => { const found = items.find((item) => String(item.id) === reviewId); if (found) setReview(found) }).catch(() => undefined) }, [reviewId])
+  const set = (key: keyof PortfolioReview, value: string) => setReview((current) => ({ ...current, [key]: value }))
+  async function save() { setSaving(true); try { await savePortfolioReview(review); notification.success({ title: "Review saved", description: "Your review is stored with the portfolio." }); navigate("/personal-portfolio") } catch (cause) { notification.danger({ title: "Review save failed", description: cause instanceof Error ? cause.message : String(cause) }) } finally { setSaving(false) } }
+  return <WorkspaceShell sectionLabel="Stock Overview" pageTitle="Portfolio Review"><div className="mx-auto flex w-full max-w-3xl flex-col gap-6"><header className="flex items-end justify-between gap-4"><div><p className="text-xs text-muted-foreground">Decision journal</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Review a trade period</h1><p className="mt-1 text-sm text-muted-foreground">Capture thesis, execution, lessons, and the next action.</p></div><Button onClick={() => void save()} disabled={saving}><Save className="mr-2 size-4" />{saving ? "Saving..." : "Save review"}</Button></header><section className="grid gap-4 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2"><label className="space-y-1 text-xs text-muted-foreground">Symbol<Input value={review.symbol} onChange={(event) => set("symbol", event.target.value)} placeholder="600000" /></label><label className="space-y-1 text-xs text-muted-foreground">Start date<Input type="date" value={review.periodStart} onChange={(event) => set("periodStart", event.target.value)} /></label><label className="space-y-1 text-xs text-muted-foreground">End date<Input type="date" value={review.periodEnd} onChange={(event) => set("periodEnd", event.target.value)} /></label><label className="space-y-1 text-xs text-muted-foreground">Rating (1-5)<Input type="number" min={1} max={5} value={review.rating || ""} onChange={(event) => set("rating", event.target.value)} /></label><label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">Thesis<Textarea value={review.thesis || ""} onChange={(event) => set("thesis", event.target.value)} rows={4} /></label><label className="space-y-1 text-xs text-muted-foreground">Execution<Textarea value={review.execution || ""} onChange={(event) => set("execution", event.target.value)} rows={4} /></label><label className="space-y-1 text-xs text-muted-foreground">Lessons<Textarea value={review.lessons || ""} onChange={(event) => set("lessons", event.target.value)} rows={4} /></label><label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">Next action<Textarea value={review.nextAction || ""} onChange={(event) => set("nextAction", event.target.value)} rows={3} /></label></section></div></WorkspaceShell>
+}
