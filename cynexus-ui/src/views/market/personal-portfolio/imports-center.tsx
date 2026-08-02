@@ -29,7 +29,7 @@ export default function PersonalPortfolioImportsCenterPage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [refreshSignal, setRefreshSignal] = useState(0)
 
   const load = useCallback(async (showLoading = false) => {
@@ -72,9 +72,9 @@ export default function PersonalPortfolioImportsCenterPage() {
       const task = await uploadPortfolioScreenshot(file, `ui-${crypto.randomUUID()}`)
       const nextTasks = await fetchPortfolioImports()
       setTasks((current) => sameTasks(current, nextTasks) ? current : nextTasks)
-      setExpandedTaskId(task.id)
+      setSelectedTaskId(task.id)
       setRefreshSignal((current) => current + 1)
-      notification.success({ title: "Screenshot queued", description: "The processing chain is expanded below and updates while it runs." })
+      notification.success({ title: "Screenshot queued", description: "The processing record is open in the right drawer and updates while it runs." })
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
@@ -107,8 +107,8 @@ export default function PersonalPortfolioImportsCenterPage() {
         tasks={tasks}
         loading={loading}
         onRefresh={() => void load(true)}
-        expandedTaskId={expandedTaskId}
-        onExpandedTaskChange={setExpandedTaskId}
+        selectedTaskId={selectedTaskId}
+        onSelectedTaskChange={setSelectedTaskId}
         refreshSignal={refreshSignal}
       />
     </div>
