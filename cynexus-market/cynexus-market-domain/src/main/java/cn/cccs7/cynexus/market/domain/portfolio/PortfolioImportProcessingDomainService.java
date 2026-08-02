@@ -59,21 +59,43 @@ public class PortfolioImportProcessingDomainService {
 
     private JsonNode normalize(JsonNode candidate) {
         var normalized = objectMapper.createObjectNode();
-        normalized.put("symbol", textOrNull(candidate, "symbol"));
+        normalized.put("symbol", textOrNull(candidate, "symbol", "securityCode"));
         normalized.put("instrumentType", instrumentTypeOrDefault(candidate));
         normalized.put("side", textOrNull(candidate, "side"));
-        normalized.put("tradedAt", textOrNull(candidate, "tradedAt"));
-        normalized.put("quantity", textOrNull(candidate, "quantity"));
-        normalized.put("price", textOrNull(candidate, "price"));
+        normalized.put("tradedAt", tradedAtOrNull(candidate));
+        normalized.put("quantity", textOrNull(candidate, "quantity", "executionQuantity"));
+        normalized.put("price", textOrNull(candidate, "price", "executionPrice"));
         normalized.put("fee", textOrNull(candidate, "fee"));
         normalized.put("securityName", textOrNull(candidate, "securityName"));
-        normalized.put("externalTradeNo", textOrNull(candidate, "externalTradeNo"));
+        normalized.put("externalTradeNo", textOrNull(candidate, "externalTradeNo", "tradeId"));
         return normalized;
     }
 
-    private String textOrNull(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText();
+    private String tradedAtOrNull(JsonNode candidate) {
+        String direct = textOrNull(candidate, "tradedAt", "executionAt");
+        if (direct != null) return direct;
+        String date = textOrNull(candidate, "tradeDate", "executionDate");
+        String time = textOrNull(candidate, "tradeTime", "executionTime");
+        if (date == null) return null;
+        return time == null ? date : date + "T" + time;
+    }
+
+    private String textOrNull(JsonNode node, String... fields) {
+        for (String field : fields) {
+            JsonNode value = node.get(field);
+            String text = scalarText(value);
+            if (text != null) return text;
+        }
+        return null;
+    }
+
+    private String scalarText(JsonNode value) {
+        if (value != null && value.isObject() && value.has("value")) {
+            return scalarText(value.get("value"));
+        }
+        if (value == null || value.isNull() || value.isContainerNode()) return null;
+        String text = value.asText();
+        return text == null || text.isBlank() ? null : text;
     }
 
     private String instrumentTypeOrDefault(JsonNode candidate) {

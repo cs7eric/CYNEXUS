@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,37 @@ class PortfolioImportProcessingDomainServiceTest {
         assertTrue(candidates.values.getFirst().warnings().stream()
                 .anyMatch(warning -> warning.contains("did not positively classify")));
         assertEquals("ETF", candidates.values.getFirst().normalizedPayload().path("instrumentType").asText());
+    }
+
+    @Test
+    void normalizesVisionFieldEvidenceWrappersAndBrokerAliases() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        RecordingTasks tasks = new RecordingTasks();
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), tasks, candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{"
+                + "\"securityCode\":{\"value\":\"159796\"},"
+                + "\"instrumentType\":{\"value\":\"ETF\"},"
+                + "\"side\":{\"value\":\"BUY\"},"
+                + "\"tradeDate\":{\"value\":\"2026-07-31\"},"
+                + "\"tradeTime\":{\"value\":\"11:24:58\"},"
+                + "\"executionQuantity\":{\"value\":\"200\"},"
+                + "\"executionPrice\":{\"value\":\"0.84\"},"
+                + "\"securityName\":{\"value\":\"电池\"},"
+                + "\"tradeId\":{\"value\":\"T-1\"}}]}", OffsetDateTime.now());
+
+        JsonNode normalized = candidates.values.getFirst().normalizedPayload();
+        assertEquals("159796", normalized.path("symbol").asText());
+        assertEquals("ETF", normalized.path("instrumentType").asText());
+        assertEquals("BUY", normalized.path("side").asText());
+        assertEquals("2026-07-31T11:24:58", normalized.path("tradedAt").asText());
+        assertEquals("200", normalized.path("quantity").asText());
+        assertEquals("0.84", normalized.path("price").asText());
+        assertEquals("电池", normalized.path("securityName").asText());
+        assertEquals("T-1", normalized.path("externalTradeNo").asText());
     }
 
     private static final class RecordingTasks implements PortfolioImportTaskRepository {
