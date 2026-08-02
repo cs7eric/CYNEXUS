@@ -9,6 +9,8 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportFailureDecision;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportFailurePolicy;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeVisionGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -95,28 +97,31 @@ public class PortfolioImportMessageListener {
             channel.basicAck(deliveryTag, false);
         } catch (Exception exception) {
             int retryCount = retryCount(message);
+            PortfolioImportFailureDecision decision = PortfolioImportFailurePolicy.decide(exception, retryCount);
             if (processingTask != null && processingTask.getStatus() == PortfolioImportStatus.PROCESSING) {
-                if (retryCount >= 3) {
-                    processingTask.markFailed("PORTFOLIO_PARSE_FAILED", exception.getMessage(), OffsetDateTime.now());
+                if (!decision.retry()) {
+                    processingTask.markFailed(decision.errorCode(), decision.errorMessage(), OffsetDateTime.now());
                     append(processingTask, PortfolioImportProcessEventType.AI_REQUEST_FAILED, PortfolioImportStatus.PROCESSING.name(),
-                            PortfolioImportStatus.FAILED.name(), message, "PORTFOLIO_PARSE_FAILED", exception.getMessage());
+                            PortfolioImportStatus.FAILED.name(), message, decision.errorCode(), decision.errorMessage());
                     append(processingTask, PortfolioImportProcessEventType.TASK_FAILED, PortfolioImportStatus.PROCESSING.name(),
-                            PortfolioImportStatus.FAILED.name(), message, "PORTFOLIO_PARSE_FAILED", exception.getMessage());
+                            PortfolioImportStatus.FAILED.name(), message, decision.errorCode(), decision.errorMessage());
                 } else {
-                    processingTask.markRetryWaiting("PORTFOLIO_PARSE_RETRY", exception.getMessage());
+                    processingTask.markRetryWaiting(decision.errorCode(), decision.errorMessage());
                     append(processingTask, PortfolioImportProcessEventType.AI_REQUEST_FAILED, PortfolioImportStatus.PROCESSING.name(),
-                            PortfolioImportStatus.RETRY_WAITING.name(), message, "PORTFOLIO_PARSE_RETRY", exception.getMessage());
+                            PortfolioImportStatus.RETRY_WAITING.name(), message, decision.errorCode(), decision.errorMessage());
                     append(processingTask, PortfolioImportProcessEventType.RETRY_SCHEDULED, PortfolioImportStatus.PROCESSING.name(),
-                            PortfolioImportStatus.RETRY_WAITING.name(), message, "PORTFOLIO_PARSE_RETRY", exception.getMessage());
+                            PortfolioImportStatus.RETRY_WAITING.name(), message, decision.errorCode(), decision.errorMessage());
                 }
                 taskRepository.update(processingTask);
             }
-            dispatchRetry(message, exception);
+            if (decision.retry()) {
+                dispatchRetry(message, decision.errorMessage());
+            }
             channel.basicAck(deliveryTag, false);
         }
     }
 
-    private void dispatchRetry(Message message, Exception exception) {
+    private void dispatchRetry(Message message, String errorMessage) {
         int count = retryCount(message);
         if (count >= 3) {
             rabbitTemplate.send(PortfolioRabbitTopologyConfiguration.DEAD_EXCHANGE, "portfolio.import.failed.v1",
@@ -126,7 +131,7 @@ public class PortfolioImportMessageListener {
         String key = count == 0 ? "retry.30s" : count == 1 ? "retry.2m" : "retry.10m";
         message.getMessageProperties().setHeader("x-portfolio-retry-count", count + 1);
         message.getMessageProperties().setHeader("x-portfolio-last-error",
-                truncate(exception.getMessage()));
+                truncate(errorMessage));
         rabbitTemplate.send(PortfolioRabbitTopologyConfiguration.RETRY_EXCHANGE, key, message);
     }
 
@@ -156,7 +161,7 @@ public class PortfolioImportMessageListener {
     }
 
     private static String truncate(String value) {
-        if (value == null) return "unknown processing error";
+        if (value == null) return null;
         return value.length() <= 500 ? value : value.substring(0, 500);
     }
 

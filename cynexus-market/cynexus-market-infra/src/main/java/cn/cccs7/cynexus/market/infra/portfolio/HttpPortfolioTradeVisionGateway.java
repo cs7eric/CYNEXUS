@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.market.infra.portfolio;
 import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportAssetBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeVisionGateway;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeVisionException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -52,13 +53,16 @@ public class HttpPortfolioTradeVisionGateway implements PortfolioTradeVisionGate
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("AI vision request failed: HTTP " + response.statusCode());
+                throw providerFailure(response.statusCode(), response.body());
             }
             JsonNode data = objectMapper.readTree(response.body()).path("data");
             if (!"SUCCEEDED".equalsIgnoreCase(data.path("status").asText())) {
-                throw new IllegalStateException("AI vision execution did not succeed");
+                throw new PortfolioTradeVisionException("PORTFOLIO_AI_EXECUTION_FAILED",
+                        "AI vision execution did not succeed.", true);
             }
             return data.path("content").asText(null);
+        } catch (PortfolioTradeVisionException exception) {
+            throw exception;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("AI vision request interrupted", exception);
@@ -71,5 +75,37 @@ public class HttpPortfolioTradeVisionGateway implements PortfolioTradeVisionGate
         String result = value == null || value.isBlank() ? "http://127.0.0.1:18081" : value.trim();
         while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
         return result;
+    }
+
+    private PortfolioTradeVisionException providerFailure(int statusCode, String body) {
+        String providerCode = null;
+        String providerMessage = null;
+        try {
+            JsonNode payload = objectMapper.readTree(body);
+            providerCode = text(payload, "code");
+            providerMessage = text(payload, "message");
+            JsonNode data = payload.path("data");
+            if (providerCode == null) providerCode = text(data, "code");
+            if (providerMessage == null) providerMessage = text(data, "message");
+        } catch (Exception ignored) {
+            // Provider body is intentionally not exposed when it is not a recognized API error payload.
+        }
+        boolean retryable = statusCode == 408 || statusCode == 429 || statusCode >= 500;
+        String code = "GROUP_DISABLED".equals(providerCode) ? "PORTFOLIO_AI_GROUP_DISABLED"
+                : statusCode == 401 || statusCode == 403 ? "PORTFOLIO_AI_PROVIDER_UNAUTHORIZED"
+                : retryable ? "PORTFOLIO_AI_SERVICE_UNAVAILABLE" : "PORTFOLIO_AI_PROVIDER_REJECTED";
+        String detail = providerCode == null ? "" : " " + providerCode + ".";
+        if (providerMessage != null) detail += " " + truncate(providerMessage, 360);
+        return new PortfolioTradeVisionException(code,
+                "AI provider rejected the vision request (HTTP " + statusCode + ")." + detail, retryable);
+    }
+
+    private static String text(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.get(field);
+        return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText().trim();
+    }
+
+    private static String truncate(String value, int length) {
+        return value.length() <= length ? value : value.substring(0, length);
     }
 }
