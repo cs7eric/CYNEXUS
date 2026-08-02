@@ -85,9 +85,13 @@ export const sidebarConfig = {
     },
     {
       title: "market",
-      url: "/market/pulse",
+      url: "/market/overview",
       icon: Activity,
       items: [
+        {
+          title: "market overview",
+          url: "/market/overview",
+        },
         {
           title: "market pulse",
           url: "/market/pulse",
@@ -157,6 +161,10 @@ export const sidebarConfig = {
         {
           title: "personal portfolio",
           url: "/personal-portfolio",
+        },
+        {
+          title: "portfolio imports",
+          url: "/personal-portfolio/imports",
         },
         {
           title: "portfolio reviews",

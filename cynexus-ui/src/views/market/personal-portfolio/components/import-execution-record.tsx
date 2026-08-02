@@ -1,4 +1,6 @@
-import { ChevronDown, ChevronRight, CircleAlert, FileCheck2 } from "lucide-react"
+import { ChevronDown, ChevronRight, CircleAlert, FileCheck2, Pencil } from "lucide-react"
+import { Link } from "react-router-dom"
+import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PortfolioImportProcessHistory, PortfolioImportProcessHistoryEvent, PortfolioImportTask } from "@/services/market/portfolio/types"
@@ -9,6 +11,9 @@ interface ImportExecutionRecordProps {
   candidateCount?: number | null
   loading: boolean
   error: string | null
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  reviewHref?: string
 }
 
 const EVENT_COPY: Record<string, { title: string; description: string }> = {
@@ -98,7 +103,7 @@ function statusClass(status: string) {
   return "bg-muted text-muted-foreground"
 }
 
-export function ImportExecutionRecord({ task, history, candidateCount, loading, error }: ImportExecutionRecordProps) {
+export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref }: ImportExecutionRecordProps) {
   const events = history?.events ?? []
   const attempts = Math.max(task.attemptCount, ...events.map((event) => event.attemptNo))
   const latestEvent = events.at(-1)
@@ -118,7 +123,7 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
     return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><p className="border-t border-border/60 p-4 text-sm text-muted-foreground">This upload has not created an execution record yet.</p></section>
   }
 
-  return <Collapsible className="overflow-hidden rounded-lg border border-border/60 bg-card">
+  return <Collapsible className="overflow-hidden rounded-lg border border-border/60 bg-card" open={open} onOpenChange={onOpenChange}>
     <CollapsibleTrigger asChild>
       <button type="button" className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div>
@@ -127,6 +132,10 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
       </button>
     </CollapsibleTrigger>
     <CollapsibleContent className="border-t border-border/60">
+      {reviewHref && task.status === "READY_FOR_REVIEW" ? <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/25 px-4 py-2.5">
+        <p className="text-xs text-muted-foreground">Candidates are ready. Review and confirm them before updating holdings.</p>
+        <Link to={reviewHref} className="shrink-0"><Button size="sm" variant="outline"><Pencil className="mr-1.5 size-3.5" />Review candidates</Button></Link>
+      </div> : null}
       {!events.length ? <p className="px-4 py-3 text-xs text-muted-foreground">No execution events have been recorded yet.</p> : <ol className="divide-y divide-border/60 px-4 py-2">{attemptChains.map((chain) => <AttemptEventChain key={chain.attemptNo} chain={chain} />)}</ol>}
     </CollapsibleContent>
   </Collapsible>

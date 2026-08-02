@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom"
+import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
 import App from "../App"
 import ApplicationAnalysisPage from "../views/application-analysis"
 import DashboardPage from "../views/dashboard"
@@ -23,13 +23,16 @@ import MarketPulsePage from "../views/market/market-pulse"
 import MarketSentimentPage from "../views/market/market-sentiment"
 import MarketMarginTradingPage from "../views/market/market-margin-trading"
 import MarketEtfPage from "../views/market/market-etf"
+import MarketIndicatorPage from "../views/market/market-indicator"
 import MarketFuturesPositionPage from "../views/market/market-futures-position"
+import MarketOverviewPage from "../views/market/market-overview"
 import MarketInformationPage, { MarketInformationAnalyzedPage } from "../views/information"
 import PocPage from "../views/poc"
 import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
 import AiPocPage from "../views/poc/ai"
 import MarkdownRenderPocPage from "../views/poc/markdown-render"
 import EasyTdxPocPage from "../views/poc/easy-tdx/page"
+import ShadcnPocPage from "../views/poc/shadcn"
 import StockReviewPage from "../views/stock-review"
 import KnowledgeBasePage from "../views/knowledge-base"
 import KnowledgeBaseWritingPage from "../views/knowledge-base/writing"
@@ -40,9 +43,15 @@ import FinanceTransactionsPage from "../views/finance/transactions"
 import FinanceAccountsPage from "../views/finance/accounts"
 import FinanceAiCapturePage from "../views/finance/ai-capture"
 import PersonalPortfolioPage from "../views/market/personal-portfolio"
+import PersonalPortfolioImportsCenterPage from "../views/market/personal-portfolio/imports-center"
 import PersonalPortfolioImportReviewPage from "../views/market/personal-portfolio/import-review"
 import PersonalPortfolioReviewEditorPage from "../views/market/personal-portfolio/review-editor"
 import PersonalPortfolioStockDetailPage from "../views/market/personal-portfolio/stock-detail"
+
+function LegacyPortfolioImportRoute() {
+  const { taskId } = useParams()
+  return <Navigate to={`/personal-portfolio/imports/${taskId}/review`} replace />
+}
 
 export const router = createBrowserRouter([
   {
@@ -106,6 +115,10 @@ export const router = createBrowserRouter([
         element: <StockOverviewMarketPulsePage />,
       },
       {
+        path: "market/overview",
+        element: <MarketOverviewPage />,
+      },
+      {
         path: "market/pulse",
         element: <MarketPulsePage />,
       },
@@ -122,6 +135,10 @@ export const router = createBrowserRouter([
         element: <MarketEtfPage />,
       },
       {
+        path: "market/indicator",
+        element: <MarketIndicatorPage />,
+      },
+      {
         path: "market/futures-position",
         element: <MarketFuturesPositionPage />,
       },
@@ -130,8 +147,16 @@ export const router = createBrowserRouter([
         element: <PersonalPortfolioPage />,
       },
       {
-        path: "personal-portfolio/imports/:taskId",
+        path: "personal-portfolio/imports",
+        element: <PersonalPortfolioImportsCenterPage />,
+      },
+      {
+        path: "personal-portfolio/imports/:taskId/review",
         element: <PersonalPortfolioImportReviewPage />,
+      },
+      {
+        path: "personal-portfolio/imports/:taskId",
+        element: <LegacyPortfolioImportRoute />,
       },
       {
         path: "personal-portfolio/reviews/:reviewId",
@@ -172,6 +197,10 @@ export const router = createBrowserRouter([
       {
         path: "poc/easy-tdx",
         element: <EasyTdxPocPage />,
+      },
+      {
+        path: "poc/shadcn",
+        element: <ShadcnPocPage />,
       },
       {
         path: "knowledge-base",

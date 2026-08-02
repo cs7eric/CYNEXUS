@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ArrowUpRight, ClipboardCheck, CircleAlert, RefreshCw, Upload, WalletCards } from "lucide-react"
 import { WorkspaceShell } from "@/layout/workspace-shell"
@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { notification } from "@/components/ui/notification"
 import { fetchPortfolioOverview } from "@/services/market/portfolio/portfolio"
-import { fetchPortfolioImports, uploadPortfolioScreenshot } from "@/services/market/portfolio/imports"
 import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
-import type { PortfolioImportTask, PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
+import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
-import { ImportHistoryList } from "./components/import-history-list"
 
 const money = (value: number | null | undefined) => value == null ? "--" : value.toFixed(2)
 const percent = (value: number | null | undefined) => value == null ? "--" : `${(value * 100).toFixed(2)}%`
@@ -25,23 +23,19 @@ function positionValue(position: PortfolioPosition, key: "marketValue" | "costBa
 }
 
 export default function PersonalPortfolioPage() {
-  const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const [overview, setOverview] = useState<PortfolioOverview | null>(null)
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
-  const [imports, setImports] = useState<PortfolioImportTask[]>([])
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [nextOverview, nextReviews, nextImports] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews(), fetchPortfolioImports()])
+      const [nextOverview, nextReviews] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews()])
       setOverview(nextOverview)
       setReviews(nextReviews)
-      setImports(nextImports)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
@@ -55,26 +49,6 @@ export default function PersonalPortfolioPage() {
     const timer = window.setTimeout(() => { void load() }, 0)
     return () => window.clearTimeout(timer)
   }, [load])
-
-  async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ""
-    if (!file) return
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
-      notification.warn({ title: "Unsupported screenshot", description: "Use PNG, JPEG, or WebP." })
-      return
-    }
-    setUploading(true)
-    try {
-      const task = await uploadPortfolioScreenshot(file, `ui-${crypto.randomUUID()}`)
-      notification.success({ title: "Screenshot queued", description: "AI parsing is running in the background." })
-      navigate(`/personal-portfolio/imports/${task.id}`)
-    } catch (cause) {
-      notification.danger({ title: "Upload failed", description: cause instanceof Error ? cause.message : String(cause) })
-    } finally {
-      setUploading(false)
-    }
-  }
 
   const positions = useMemo(() => overview?.positions ?? [], [overview])
   const costBasis = overview?.costBasis ?? positions.reduce((sum, position) => sum + positionValue(position, "costBasis"), 0)
@@ -96,8 +70,7 @@ export default function PersonalPortfolioPage() {
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Track confirmed positions, execution P&L, buy/sell context, and the reviews that explain each decision.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onFileChange} />
-            <Button onClick={() => inputRef.current?.click()} disabled={uploading}><Upload className="mr-2 size-4" />{uploading ? "Uploading..." : "Import screenshot"}</Button>
+            <Button onClick={() => navigate("/personal-portfolio/imports")}><Upload className="mr-2 size-4" />Import center</Button>
             <Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button>
           </div>
         </header>
@@ -139,8 +112,6 @@ export default function PersonalPortfolioPage() {
                 </table>
               </div>
             </section>
-
-            <ImportHistoryList tasks={imports} loading={loading} onRefresh={() => void load()} />
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
               <PortfolioReturnBreakdown overview={overview} />
