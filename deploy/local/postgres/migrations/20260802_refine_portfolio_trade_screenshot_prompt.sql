@@ -40,6 +40,7 @@ ON CONFLICT (prompt_key, prompt_version) WHERE deleted_at IS NULL DO UPDATE SET
 
 UPDATE cynexus_appl_ai.ai_usage_bindings binding
    SET prompt_id = prompt.id,
+       model_override = 'gpt-5.4',
        params = COALESCE(binding.params, '{}'::jsonb) || '{"prompt_version":"v2"}'::jsonb,
        updated_at = now()
   FROM cynexus_appl_ai.ai_prompt prompt
