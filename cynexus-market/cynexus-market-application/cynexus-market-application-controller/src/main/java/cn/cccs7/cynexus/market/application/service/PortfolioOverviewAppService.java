@@ -41,8 +41,9 @@ public class PortfolioOverviewAppService {
         PortfolioLedgerResultBO result = ledgerService.calculate(trades, latestPrices);
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
+        Map<String, String> securityNames = loadSecurityNames(result.positions());
         return PortfolioOverviewDTO.builder()
-                .positions(result.positions().stream().map(this::toPosition).toList())
+                .positions(result.positions().stream().map(position -> toPosition(position, securityNames)).toList())
                 .dataQualityWarnings(result.warnings().stream().map(warning -> PortfolioLedgerWarningDTO.builder()
                         .code(warning.code()).symbol(warning.symbol())
                         .unmatchedQuantity(warning.unmatchedQuantity()).message(warning.message()).build()).toList())
@@ -59,11 +60,29 @@ public class PortfolioOverviewAppService {
                 .totalFee(trade.totalFee()).status(trade.status().name()).build()).toList();
     }
 
-    private PortfolioPositionDTO toPosition(cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO value) {
-        return PortfolioPositionDTO.builder().symbol(value.symbol()).instrumentType(value.instrumentType().name()).quantity(value.quantity())
+    private PortfolioPositionDTO toPosition(cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO value,
+                                             Map<String, String> securityNames) {
+        return PortfolioPositionDTO.builder().symbol(value.symbol()).securityName(securityNames.get(value.symbol()))
+                .instrumentType(value.instrumentType().name()).quantity(value.quantity())
                 .averageCost(value.averageCost()).costBasis(value.costBasis()).realizedPnl(value.realizedPnl())
                 .latestPrice(value.latestPrice()).marketValue(value.marketValue()).unrealizedPnl(value.unrealizedPnl())
                 .unrealizedReturnRate(value.unrealizedReturnRate()).build();
+    }
+
+    private Map<String, String> loadSecurityNames(List<PortfolioPositionBO> positions) {
+        Map<String, String> names = new HashMap<>();
+        for (PortfolioPositionBO position : positions) {
+            try {
+                var meta = stockChartQueryDomainService.stockMeta(position.symbol());
+                if (meta != null && meta.getName() != null && !meta.getName().isBlank()
+                        && !meta.getName().equals(position.symbol())) {
+                    names.put(position.symbol(), meta.getName());
+                }
+            } catch (RuntimeException exception) {
+                log.warn("Unable to load portfolio security name for symbol={}", position.symbol(), exception);
+            }
+        }
+        return names;
     }
 
     private Map<String, BigDecimal> loadLatestPrices(List<PortfolioPositionBO> positions) {

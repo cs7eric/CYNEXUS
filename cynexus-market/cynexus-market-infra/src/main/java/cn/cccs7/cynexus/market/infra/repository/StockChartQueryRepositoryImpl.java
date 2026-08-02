@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.infra.repository;
 
 import cn.cccs7.cynexus.market.domain.entity.IndustryApplicationBO;
 import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
+import cn.cccs7.cynexus.market.domain.repository.MarketEtfQueryRepository;
 import cn.cccs7.cynexus.market.domain.repository.StockChartQueryRepository;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockBasicPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockFundFlowSnapshotPO;
@@ -36,6 +37,7 @@ import org.springframework.stereotype.Repository;
 public class StockChartQueryRepositoryImpl implements StockChartQueryRepository {
 
     private final StockBasicBasicService stockBasicBasicService;
+    private final MarketEtfQueryRepository marketEtfQueryRepository;
     private final StockFundFlowSnapshotBasicService stockFundFlowSnapshotBasicService;
     private final StockTurnoverSeriesSnapshotBasicService stockTurnoverSeriesSnapshotBasicService;
     private final StockSectorMapper stockSectorMapper;
@@ -46,6 +48,7 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StockChartQueryRepositoryImpl(StockBasicBasicService stockBasicBasicService,
+                                         MarketEtfQueryRepository marketEtfQueryRepository,
                                          StockFundFlowSnapshotBasicService stockFundFlowSnapshotBasicService,
                                          StockTurnoverSeriesSnapshotBasicService stockTurnoverSeriesSnapshotBasicService,
                                          StockSectorMapper stockSectorMapper,
@@ -54,6 +57,7 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                                          HttpStockChartF10DataClient stockChartF10DataClient,
                                          PostgresAStockSkillDataClient postgresAStockSkillDataClient) {
         this.stockBasicBasicService = stockBasicBasicService;
+        this.marketEtfQueryRepository = marketEtfQueryRepository;
         this.stockFundFlowSnapshotBasicService = stockFundFlowSnapshotBasicService;
         this.stockTurnoverSeriesSnapshotBasicService = stockTurnoverSeriesSnapshotBasicService;
         this.stockSectorMapper = stockSectorMapper;
@@ -213,16 +217,17 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     @Override
     public StockChartBO.StockMeta stockMeta(String symbol) {
         String code = normalizeCode(symbol);
+        String etfName = marketEtfQueryRepository.findName(code).orElse(null);
         StockBasicPO row = stockBasicBasicService.findByCodeForStockChart(code);
         if (row == null) {
             return StockChartBO.StockMeta.builder()
                     .symbol(code)
-                    .name(code)
+                    .name(etfName == null ? code : etfName)
                     .build();
         }
         return StockChartBO.StockMeta.builder()
                 .symbol(row.getCode())
-                .name(row.getName())
+                .name(etfName == null ? row.getName() : etfName)
                 .totalMarketCap(row.getTotalMarketCap())
                 .circMarketCap(row.getFloatMarketCap())
                 .industry(row.getIndustry())

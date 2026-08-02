@@ -5,9 +5,9 @@ import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { notification } from "@/components/ui/notification"
-import { fetchPortfolioOverview, fetchPortfolioTrades } from "@/services/market/portfolio/portfolio"
+import { fetchPortfolioOverview } from "@/services/market/portfolio/portfolio"
 import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
-import type { PortfolioOverview, PortfolioPosition, PortfolioReview, PortfolioTrade } from "@/services/market/portfolio/types"
+import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 
@@ -27,7 +27,6 @@ export default function PersonalPortfolioPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [overview, setOverview] = useState<PortfolioOverview | null>(null)
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
-  const [trades, setTrades] = useState<PortfolioTrade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const importDrawerOpen = searchParams.get("imports") === "1"
@@ -43,10 +42,9 @@ export default function PersonalPortfolioPage() {
     setLoading(true)
     setError(null)
     try {
-      const [nextOverview, nextReviews, nextTrades] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews(), fetchPortfolioTrades()])
+      const [nextOverview, nextReviews] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews()])
       setOverview(nextOverview)
       setReviews(nextReviews)
-      setTrades(nextTrades)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
@@ -62,18 +60,6 @@ export default function PersonalPortfolioPage() {
   }, [load])
 
   const positions = useMemo(() => overview?.positions ?? [], [overview])
-  const securityNames = useMemo(() => {
-    const bySymbol = new Map<string, { name: string; tradedAt: string }>()
-    for (const trade of trades) {
-      const name = trade.securityName?.trim()
-      if (!name) continue
-      const current = bySymbol.get(trade.symbol)
-      if (!current || trade.tradedAt > current.tradedAt) {
-        bySymbol.set(trade.symbol, { name, tradedAt: trade.tradedAt })
-      }
-    }
-    return bySymbol
-  }, [trades])
   const costBasis = overview?.costBasis ?? positions.reduce((sum, position) => sum + positionValue(position, "costBasis"), 0)
   const marketValue = overview?.marketValue ?? positions.reduce((sum, position) => sum + positionValue(position, "marketValue"), 0)
   const totalPnl = overview?.totalPnl ?? 0
@@ -108,7 +94,7 @@ export default function PersonalPortfolioPage() {
               <h2 id="holdings-summary" className="sr-only">Holdings summary</h2>
               <Metric label="Market value" value={money(marketValue)} detail={overview?.valuationStatus === "LATEST_PRICE_UNAVAILABLE" ? "Latest prices unavailable" : "Latest available quote"} />
               <Metric label="Cost basis" value={money(costBasis)} detail="Confirmed buy cost + fees" />
-              <Metric label="Total P&L" value={money(totalPnl)} detail="Realized + unrealized" valueClassName={pnlTone(totalPnl)} />
+              <Metric label="总收益" value={money(totalPnl)} detail={`已实现 ${money(overview?.realizedPnl)} + 持仓浮动 ${money(overview?.unrealizedPnl)}`} valueClassName={pnlTone(totalPnl)} />
               <Metric label="Open positions" value={String(positions.filter((position) => Number(position.quantity) > 0).length)} detail={`${positions.length} symbols in ledger`} />
               <Metric label="Reviews to finish" value={String(reviewDue)} detail={reviewDue ? "Open the review center" : "No open review"} valueClassName={reviewDue ? "text-amber-600" : undefined} />
             </section>
@@ -116,14 +102,14 @@ export default function PersonalPortfolioPage() {
             <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="positions-heading">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
                 <div><h2 id="positions-heading" className="text-sm font-semibold">Current positions</h2><p className="mt-1 text-xs text-muted-foreground">Holdings are derived only from trades you confirmed. Market values use the latest available quote.</p></div>
-                <div className="text-right text-xs text-muted-foreground">{largestPosition ? `最大持仓：${securityNames.get(largestPosition.symbol)?.name ?? largestPosition.symbol}` : "暂无已确认持仓"}</div>
+                <div className="text-right text-xs text-muted-foreground">{largestPosition ? `最大持仓：${largestPosition.securityName ?? largestPosition.symbol}` : "暂无已确认持仓"}</div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-sm">
                   <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">标的</th><th className="px-4 py-3 text-right">持仓数量</th><th className="px-4 py-3 text-right">平均成本</th><th className="px-4 py-3 text-right">最新价</th><th className="px-4 py-3 text-right">市值</th><th className="px-4 py-3 text-right">未实现盈亏</th><th className="px-4 py-3 text-right">收益率</th><th className="px-4 py-3" /></tr></thead>
                   <tbody className="divide-y divide-border/60">
                     {positions.map((position) => <tr key={position.symbol} className="hover:bg-muted/35">
-                      <td className="px-4 py-3"><div className="flex min-w-0 items-center gap-2"><Link className="font-mono font-medium text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}?instrumentType=${position.instrumentType}`}>{position.symbol}</Link><span className="truncate text-muted-foreground">{securityNames.get(position.symbol)?.name ?? "名称待补充"}</span><span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span></div></td>
+                      <td className="px-4 py-3"><div className="flex min-w-0 items-center gap-2"><Link className="font-mono font-medium text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}?instrumentType=${position.instrumentType}`}>{position.symbol}</Link><span className="truncate text-muted-foreground">{position.securityName ?? "名称待补充"}</span><span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span></div></td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{position.quantity}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.averageCost)}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.latestPrice)}</td>

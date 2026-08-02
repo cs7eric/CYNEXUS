@@ -64,6 +64,7 @@ export interface PortfolioImportProcessHistory {
 
 export interface PortfolioPosition {
   symbol: string
+  securityName?: string | null
   instrumentType: "STOCK" | "ETF"
   quantity: number
   averageCost: number

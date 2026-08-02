@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -131,6 +132,25 @@ public class MarketEtfQueryRepositoryImpl implements MarketEtfQueryRepository {
                 .breadth(breadth(breadth))
                 .mapping(mapping(mappingStats, mappingDimensions, mappingTags))
                 .build();
+    }
+
+    @Override
+    public Optional<String> findName(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return jdbcTemplate.query(
+                """
+                SELECT name
+                  FROM market_etf_catalog
+                 WHERE code = ?
+                   AND is_active = TRUE
+                   AND deleted_at IS NULL
+                 ORDER BY updated_at DESC
+                 LIMIT 1
+                """,
+                resultSet -> resultSet.next() ? Optional.ofNullable(resultSet.getString("name")) : Optional.empty(),
+                code.trim());
     }
 
     private MarketEtfDataBO.MappingSummary mapping(Map<String, Object> stats,
