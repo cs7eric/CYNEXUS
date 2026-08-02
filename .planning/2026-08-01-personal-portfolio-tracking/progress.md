@@ -172,6 +172,12 @@
 - Each retry attempt is independently expandable, while setup events remain grouped separately; expanded attempts show the event chain with concise metadata and errors.
 - Self-test: focused ESLint, `pnpm build`, release UI rebuild, HTTP 200 route check, and version synchronization passed.
 
+### Phase 11: Restore Portfolio Upload Persistence
+
+- **Status:** completed
+- Fixed the PostgreSQL `jsonb_build_object` binding used when a history event contains nullable metadata. PostgreSQL could not infer the type of a null JSON argument, which rolled back the upload transaction before the task and its history record were committed.
+- Self-test: market reactor compile, Release market rebuild, real screenshot upload (`202 Accepted`), history retrieval with setup and first-attempt events, and version synchronization passed.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
