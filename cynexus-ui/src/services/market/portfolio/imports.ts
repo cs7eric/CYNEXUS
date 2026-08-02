@@ -22,9 +22,9 @@ export async function fetchPortfolioImportReview(taskId: number): Promise<Portfo
   return cynexusResult<PortfolioImportReview>(response)
 }
 
-export async function fetchPortfolioImportHistory(taskId: number): Promise<PortfolioImportProcessHistory[]> {
+export async function fetchPortfolioImportHistory(taskId: number): Promise<PortfolioImportProcessHistory> {
   const response = await fetchWithRetry(`${BASE}/${taskId}/history`, { cache: "no-store" })
-  return cynexusResult<PortfolioImportProcessHistory[]>(response)
+  return cynexusResult<PortfolioImportProcessHistory>(response)
 }
 
 export interface PortfolioCandidateEdit {

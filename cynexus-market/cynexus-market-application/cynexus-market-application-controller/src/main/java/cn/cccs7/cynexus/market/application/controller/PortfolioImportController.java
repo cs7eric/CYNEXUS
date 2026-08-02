@@ -50,7 +50,7 @@ public class PortfolioImportController {
     }
 
     @GetMapping("/{taskId}/history")
-    public Result<java.util.List<PortfolioImportProcessHistoryDTO>> history(@PathVariable long taskId) {
+    public Result<PortfolioImportProcessHistoryDTO> history(@PathVariable long taskId) {
         return Result.success(service.history(taskId));
     }
 

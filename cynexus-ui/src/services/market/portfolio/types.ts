@@ -27,9 +27,8 @@ export interface PortfolioImportReview {
   candidates: PortfolioCandidate[]
 }
 
-export interface PortfolioImportProcessHistory {
+export interface PortfolioImportProcessHistoryEvent {
   id: number
-  taskId: number
   attemptNo: number
   eventType: string
   fromStatus?: string | null
@@ -43,6 +42,14 @@ export interface PortfolioImportProcessHistory {
   details?: string | null
   occurredAt: string
   durationMs?: number | null
+}
+
+export interface PortfolioImportProcessHistory {
+  id: number
+  taskId: number
+  createdAt?: string | null
+  updatedAt?: string | null
+  events: PortfolioImportProcessHistoryEvent[]
 }
 
 export interface PortfolioPosition {

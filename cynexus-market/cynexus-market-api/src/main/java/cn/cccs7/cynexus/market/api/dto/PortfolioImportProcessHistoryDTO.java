@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.market.api.dto;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import lombok.Builder;
 import lombok.Value;
 
@@ -9,17 +10,7 @@ import lombok.Value;
 public class PortfolioImportProcessHistoryDTO {
     long id;
     long taskId;
-    int attemptNo;
-    String eventType;
-    String fromStatus;
-    String toStatus;
-    String messageId;
-    String correlationId;
-    String providerCode;
-    String modelCode;
-    String errorCode;
-    String errorMessage;
-    String details;
-    OffsetDateTime occurredAt;
-    Long durationMs;
+    OffsetDateTime createdAt;
+    OffsetDateTime updatedAt;
+    List<PortfolioImportProcessHistoryEventDTO> events;
 }

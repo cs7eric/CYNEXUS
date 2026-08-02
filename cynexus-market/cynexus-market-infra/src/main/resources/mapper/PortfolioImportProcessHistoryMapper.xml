@@ -3,22 +3,52 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportProcessHistoryMapper">
-    <insert id="insert">
+    <insert id="append">
         insert into cynexus_appl_market.portfolio_import_process_history
         (id, task_id, principal_key, tenant_key, attempt_no, event_type, from_status, to_status,
          message_id, correlation_id, provider_code, model_code, error_code, error_message, details,
-         occurred_at, duration_ms)
+         occurred_at, duration_ms, events, created_at, updated_at)
         values (#{id}, #{taskId}, #{principalKey}, #{tenantKey}, #{attemptNo}, #{eventType}, #{fromStatus}, #{toStatus},
                 #{messageId}, #{correlationId}, #{providerCode}, #{modelCode}, #{errorCode}, #{errorMessage},
-                cast(#{details} as jsonb), #{occurredAt}, #{durationMs})
+                cast(#{details} as jsonb), #{occurredAt}, #{durationMs},
+                jsonb_build_array(jsonb_build_object(
+                    'id', #{eventId},
+                    'attemptNo', #{attemptNo},
+                    'eventType', #{eventType},
+                    'fromStatus', #{fromStatus},
+                    'toStatus', #{toStatus},
+                    'messageId', #{messageId},
+                    'correlationId', #{correlationId},
+                    'providerCode', #{providerCode},
+                    'modelCode', #{modelCode},
+                    'errorCode', #{errorCode},
+                    'errorMessage', #{errorMessage},
+                    'details', cast(#{details} as jsonb),
+                    'occurredAt', #{occurredAt},
+                    'durationMs', #{durationMs}
+                )), now(), now())
+        on conflict (tenant_key, principal_key, task_id)
+        do update set events = cynexus_appl_market.portfolio_import_process_history.events || excluded.events,
+                      attempt_no = excluded.attempt_no,
+                      event_type = excluded.event_type,
+                      from_status = excluded.from_status,
+                      to_status = excluded.to_status,
+                      message_id = excluded.message_id,
+                      correlation_id = excluded.correlation_id,
+                      provider_code = excluded.provider_code,
+                      model_code = excluded.model_code,
+                      error_code = excluded.error_code,
+                      error_message = excluded.error_message,
+                      details = excluded.details,
+                      occurred_at = excluded.occurred_at,
+                      duration_ms = excluded.duration_ms,
+                      updated_at = now()
     </insert>
 
-    <select id="listByTaskId" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportProcessHistoryPO">
-        select id, task_id, principal_key, tenant_key, attempt_no, event_type, from_status, to_status,
-               message_id, correlation_id, provider_code, model_code, error_code, error_message,
-               details::text as details, occurred_at, duration_ms
+    <select id="findByTaskId" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportProcessHistoryPO">
+        select id, task_id, principal_key, tenant_key, events::text as events, created_at, updated_at
           from cynexus_appl_market.portfolio_import_process_history
          where task_id = #{taskId} and principal_key = #{principalKey} and tenant_key = #{tenantKey}
-         order by occurred_at, id
+         limit 1
     </select>
 </mapper>

@@ -9,6 +9,7 @@ public class PortfolioImportProcessHistoryPO {
     private Long taskId;
     private String principalKey;
     private String tenantKey;
+    private Long eventId;
     private Integer attemptNo;
     private String eventType;
     private String fromStatus;
@@ -22,4 +23,7 @@ public class PortfolioImportProcessHistoryPO {
     private String details;
     private OffsetDateTime occurredAt;
     private Long durationMs;
+    private String events;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

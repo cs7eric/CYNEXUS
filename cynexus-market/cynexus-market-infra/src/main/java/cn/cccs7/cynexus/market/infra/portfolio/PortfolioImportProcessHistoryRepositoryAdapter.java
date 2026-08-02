@@ -1,29 +1,40 @@
 package cn.cccs7.cynexus.market.infra.portfolio;
 
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryAggregateBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportProcessHistoryPO;
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportProcessHistoryMapper;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioIdGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class PortfolioImportProcessHistoryRepositoryAdapter implements PortfolioImportProcessHistoryRepository {
     private final PortfolioImportProcessHistoryMapper mapper;
     private final PortfolioIdGenerator idGenerator;
+    private final ObjectMapper objectMapper;
 
     public PortfolioImportProcessHistoryRepositoryAdapter(PortfolioImportProcessHistoryMapper mapper,
-                                                           PortfolioIdGenerator idGenerator) {
+                                                           PortfolioIdGenerator idGenerator,
+                                                           ObjectMapper objectMapper) {
         this.mapper = mapper;
         this.idGenerator = idGenerator;
+        this.objectMapper = objectMapper;
     }
 
     @Override
     public void append(PortfolioImportProcessHistoryBO history) {
         PortfolioImportProcessHistoryPO po = new PortfolioImportProcessHistoryPO();
-        po.setId(history.id() > 0 ? history.id() : idGenerator.nextId());
+        long eventId = history.id() > 0 ? history.id() : idGenerator.nextId();
+        po.setId(eventId);
+        po.setEventId(eventId);
         po.setTaskId(history.taskId());
         po.setPrincipalKey(history.principalKey());
         po.setTenantKey(history.tenantKey());
@@ -40,19 +51,44 @@ public class PortfolioImportProcessHistoryRepositoryAdapter implements Portfolio
         po.setDetails(history.details());
         po.setOccurredAt(history.occurredAt());
         po.setDurationMs(history.durationMs());
-        if (mapper.insert(po) != 1) throw new IllegalStateException("Unable to persist portfolio process history");
+        if (mapper.append(po) != 1) throw new IllegalStateException("Unable to persist portfolio process history");
     }
 
     @Override
-    public List<PortfolioImportProcessHistoryBO> listByTaskId(String principalKey, String tenantKey, long taskId) {
-        return mapper.listByTaskId(principalKey, tenantKey, taskId).stream().map(this::toDomain).toList();
+    public Optional<PortfolioImportProcessHistoryAggregateBO> findByTaskId(String principalKey, String tenantKey, long taskId) {
+        PortfolioImportProcessHistoryPO po = mapper.findByTaskId(principalKey, tenantKey, taskId);
+        if (po == null) return Optional.empty();
+        return Optional.of(new PortfolioImportProcessHistoryAggregateBO(po.getId(), po.getTaskId(),
+                po.getPrincipalKey(), po.getTenantKey(), toEvents(po), po.getCreatedAt(), po.getUpdatedAt()));
     }
 
-    private PortfolioImportProcessHistoryBO toDomain(PortfolioImportProcessHistoryPO po) {
-        return new PortfolioImportProcessHistoryBO(po.getId(), po.getTaskId(), po.getPrincipalKey(), po.getTenantKey(),
-                po.getAttemptNo(), PortfolioImportProcessEventType.valueOf(po.getEventType()), po.getFromStatus(),
-                po.getToStatus(), po.getMessageId(), po.getCorrelationId(), po.getProviderCode(), po.getModelCode(),
-                po.getErrorCode(), po.getErrorMessage(), po.getDetails() == null ? "{}" : po.getDetails(),
-                po.getOccurredAt(), po.getDurationMs());
+    private List<PortfolioImportProcessHistoryBO> toEvents(PortfolioImportProcessHistoryPO po) {
+        try {
+            JsonNode root = objectMapper.readTree(po.getEvents());
+            List<PortfolioImportProcessHistoryBO> events = new ArrayList<>();
+            if (root != null && root.isArray()) {
+                for (JsonNode event : root) {
+                    events.add(new PortfolioImportProcessHistoryBO(event.path("id").asLong(), po.getTaskId(),
+                            po.getPrincipalKey(), po.getTenantKey(), event.path("attemptNo").asInt(),
+                            PortfolioImportProcessEventType.valueOf(event.path("eventType").asText()),
+                            nullableText(event, "fromStatus"), nullableText(event, "toStatus"),
+                            nullableText(event, "messageId"), nullableText(event, "correlationId"),
+                            nullableText(event, "providerCode"), nullableText(event, "modelCode"),
+                            nullableText(event, "errorCode"), nullableText(event, "errorMessage"),
+                            event.path("details").isMissingNode() ? "{}" : event.path("details").toString(),
+                            OffsetDateTime.parse(event.path("occurredAt").asText()),
+                            event.path("durationMs").isNull() || event.path("durationMs").isMissingNode()
+                                    ? null : event.path("durationMs").asLong()));
+                }
+            }
+            return List.copyOf(events);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to read portfolio process history", exception);
+        }
+    }
+
+    private static String nullableText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : value.asText();
     }
 }

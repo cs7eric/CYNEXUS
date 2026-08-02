@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface PortfolioImportProcessHistoryMapper {
-    int insert(PortfolioImportProcessHistoryPO history);
+    int append(PortfolioImportProcessHistoryPO history);
 
-    List<PortfolioImportProcessHistoryPO> listByTaskId(String principalKey, String tenantKey, long taskId);
+    PortfolioImportProcessHistoryPO findByTaskId(String principalKey, String tenantKey, long taskId);
 }

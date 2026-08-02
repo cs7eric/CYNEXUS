@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportCandidateDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportReviewDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportProcessHistoryDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportProcessHistoryEventDTO;
 import cn.cccs7.cynexus.market.api.request.PortfolioCandidateEditRequest;
 import cn.cccs7.cynexus.market.api.request.PortfolioImportConfirmRequest;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateStore;
@@ -15,6 +16,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateRecord;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateEditPolicy;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryAggregateBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
@@ -56,7 +58,7 @@ public class PortfolioImportAppService {
                     : idempotencyKey;
             PortfolioImportTaskBO task = domainService.create(DEFAULT_PRINCIPAL, DEFAULT_TENANT,
                     file.getOriginalFilename(), file.getContentType(), file.getBytes(), key, OffsetDateTime.now());
-            if (historyRepository.listByTaskId(DEFAULT_PRINCIPAL, DEFAULT_TENANT, task.getId()).isEmpty()) {
+            if (historyRepository.findByTaskId(DEFAULT_PRINCIPAL, DEFAULT_TENANT, task.getId()).isEmpty()) {
                 append(task, PortfolioImportProcessEventType.TASK_CREATED, null, task.getStatus().name(), null, null, null,
                         null, null, null, "{}", null);
                 append(task, PortfolioImportProcessEventType.OUTBOX_CREATED, task.getStatus().name(), task.getStatus().name(),
@@ -85,16 +87,25 @@ public class PortfolioImportAppService {
         return PortfolioImportReviewDTO.builder().task(toDto(task)).candidates(candidates).build();
     }
 
-    public List<PortfolioImportProcessHistoryDTO> history(long taskId) {
+    public PortfolioImportProcessHistoryDTO history(long taskId) {
         domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
-        return historyRepository.listByTaskId(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId).stream()
-                .map(item -> PortfolioImportProcessHistoryDTO.builder().id(item.id()).taskId(item.taskId())
-                        .attemptNo(item.attemptNo()).eventType(item.eventType().name()).fromStatus(item.fromStatus())
-                        .toStatus(item.toStatus()).messageId(item.messageId()).correlationId(item.correlationId())
-                        .providerCode(item.providerCode()).modelCode(item.modelCode()).errorCode(item.errorCode())
-                        .errorMessage(item.errorMessage()).details(item.details()).occurredAt(item.occurredAt())
-                        .durationMs(item.durationMs()).build())
-                .toList();
+        return historyRepository.findByTaskId(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId)
+                .map(this::toHistoryDto)
+                .orElseGet(() -> PortfolioImportProcessHistoryDTO.builder().taskId(taskId).events(List.of()).build());
+    }
+
+    private PortfolioImportProcessHistoryDTO toHistoryDto(PortfolioImportProcessHistoryAggregateBO history) {
+        return PortfolioImportProcessHistoryDTO.builder().id(history.id()).taskId(history.taskId())
+                .createdAt(history.createdAt()).updatedAt(history.updatedAt())
+                .events(history.events().stream().map(this::toHistoryEventDto).toList()).build();
+    }
+
+    private PortfolioImportProcessHistoryEventDTO toHistoryEventDto(PortfolioImportProcessHistoryBO item) {
+        return PortfolioImportProcessHistoryEventDTO.builder().id(item.id()).attemptNo(item.attemptNo())
+                .eventType(item.eventType().name()).fromStatus(item.fromStatus()).toStatus(item.toStatus())
+                .messageId(item.messageId()).correlationId(item.correlationId()).providerCode(item.providerCode())
+                .modelCode(item.modelCode()).errorCode(item.errorCode()).errorMessage(item.errorMessage())
+                .details(item.details()).occurredAt(item.occurredAt()).durationMs(item.durationMs()).build();
     }
 
     @Transactional
