@@ -66,3 +66,14 @@ UPDATE cynexus_appl_market.portfolio_import_candidate
                 THEN raw_payload #>> '{tradeId,value}' ELSE raw_payload->>'tradeId' END)
    )
  WHERE review_status = 'PENDING';
+
+UPDATE cynexus_appl_market.portfolio_import_candidate candidate
+   SET normalized_payload = candidate.normalized_payload || jsonb_build_object('instrumentType', 'ETF')
+ WHERE candidate.review_status = 'PENDING'
+   AND EXISTS (
+       SELECT 1
+         FROM cynexus_appl_market.market_etf_catalog etf
+        WHERE etf.code = candidate.normalized_payload->>'symbol'
+          AND etf.deleted_at IS NULL
+          AND COALESCE(etf.is_active, true)
+   );
