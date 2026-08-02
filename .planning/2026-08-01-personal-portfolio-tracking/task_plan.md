@@ -6,7 +6,7 @@ Produce an evidence-based BRD and implementation design for a complete personal 
 
 ## Current Phase
 
-Phase 9
+Phase 10
 
 ## Phases
 
@@ -89,6 +89,14 @@ Phase 9
 - [x] Add a review center linked from overview and stock detail, with draft/completed states
 - [x] Verify empty, loading, stale, and error states against the current Release API
 - [x] Build, focused lint, release UI rebuild, and commit each feature-sized change
+- **Status:** completed
+
+### Phase 10: Compact Import Execution Record
+
+- [x] Collapse the execution record by default and move status, attempts, candidate count, and latest activity into one header row
+- [x] Group all events by parsing attempt and render each attempt as a compact event path
+- [x] Preserve the latest error in the collapsed and expanded views without repeating per-event descriptions
+- [x] Run focused lint and production build, then rebuild the Release UI
 - **Status:** completed
 
 ## Key Questions

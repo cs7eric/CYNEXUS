@@ -26,6 +26,21 @@ const EVENT_COPY: Record<string, { title: string; description: string }> = {
   TASK_FAILED: { title: "Import failed", description: "This import chain stopped and needs attention before a new upload." },
 }
 
+const EVENT_SHORT_LABEL: Record<string, string> = {
+  TASK_CREATED: "Accepted",
+  OUTBOX_CREATED: "Queued",
+  PROCESSING_STARTED: "Started",
+  AI_REQUEST_STARTED: "AI request",
+  AI_REQUEST_SUCCEEDED: "AI completed",
+  AI_REQUEST_FAILED: "AI failed",
+  RETRY_SCHEDULED: "Retry queued",
+  CANDIDATES_SAVED: "Trades saved",
+  CANDIDATE_EDITED: "Edited",
+  TASK_READY_FOR_REVIEW: "Ready",
+  TASK_CONFIRMED: "Confirmed",
+  TASK_FAILED: "Failed",
+}
+
 const STATUS_COPY: Record<string, string> = {
   PENDING_DISPATCH: "Waiting to queue",
   QUEUED: "Queued",
@@ -50,12 +65,33 @@ function eventCopy(event: PortfolioImportProcessHistoryEvent) {
   return EVENT_COPY[event.eventType] ?? { title: event.eventType, description: "Import record event." }
 }
 
+interface AttemptChain {
+  attemptNo: number
+  events: PortfolioImportProcessHistoryEvent[]
+}
+
+function groupByAttempt(events: PortfolioImportProcessHistoryEvent[]): AttemptChain[] {
+  const grouped = new Map<number, PortfolioImportProcessHistoryEvent[]>()
+  for (const event of events) {
+    const attemptNo = event.attemptNo || 1
+    grouped.set(attemptNo, [...(grouped.get(attemptNo) ?? []), event])
+  }
+  return [...grouped.entries()].map(([attemptNo, attemptEvents]) => ({ attemptNo, events: attemptEvents }))
+}
+
+function statusClass(status: string) {
+  if (status === "FAILED" || status === "CANCELLED") return "bg-rose-50 text-rose-700"
+  if (status === "READY_FOR_REVIEW" || status === "CONFIRMED") return "bg-emerald-50 text-emerald-700"
+  return "bg-muted text-muted-foreground"
+}
+
 export function ImportExecutionRecord({ task, history, candidateCount, loading, error }: ImportExecutionRecordProps) {
   const events = history?.events ?? []
   const attempts = Math.max(task.attemptCount, ...events.map((event) => event.attemptNo))
   const latestEvent = events.at(-1)
   const failure = [...events].reverse().find((event) => event.errorCode)
   const statusLabel = STATUS_COPY[task.status] ?? task.status
+  const attemptChains = groupByAttempt(events)
 
   if (loading) {
     return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><div className="space-y-3 border-t border-border/60 p-4"><Skeleton className="h-14 rounded-md" /><Skeleton className="h-20 rounded-md" /><Skeleton className="h-20 rounded-md" /></div></section>
@@ -69,25 +105,17 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
     return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><p className="border-t border-border/60 p-4 text-sm text-muted-foreground">This upload has not created an execution record yet.</p></section>
   }
 
-  return <Collapsible defaultOpen className="overflow-hidden rounded-lg border border-border/60 bg-card">
+  return <Collapsible className="overflow-hidden rounded-lg border border-border/60 bg-card">
     <CollapsibleTrigger asChild>
-      <button type="button" className="group flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div>
-        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-semibold">Screenshot import #{history.taskId}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{statusLabel}</span></div><p className="mt-1 text-xs text-muted-foreground">One record · {events.length} events · {candidateCount} candidate trades · click to {events.length ? "show or hide the event chain" : "view record details"}.</p></div>
+      <button type="button" className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div>
+        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h2 className="text-sm font-semibold">Import #{history.taskId}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{statusLabel}</span><span className="text-xs text-muted-foreground">{attempts} attempts</span><span className="text-xs text-muted-foreground">{candidateCount} trades</span><span className="text-xs text-muted-foreground">{formatTime(latestEvent?.occurredAt ?? history.updatedAt)}</span></div>{failure ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700"><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{failure.errorMessage || failure.errorCode}</span></p> : null}</div>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </button>
     </CollapsibleTrigger>
     <CollapsibleContent className="border-t border-border/60">
-      <div className="grid gap-px border-b border-border/60 bg-border/60 sm:grid-cols-2 xl:grid-cols-5">
-        <SummaryItem label="Record" value={`#${history.id}`} mono />
-        <SummaryItem label="Created" value={formatTime(history.createdAt)} />
-        <SummaryItem label="Attempts" value={String(attempts)} />
-        <SummaryItem label="Candidate trades" value={String(candidateCount)} />
-        <SummaryItem label="Latest activity" value={formatTime(latestEvent?.occurredAt ?? history.updatedAt)} />
-      </div>
-      {failure ? <div className="mx-4 mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-800"><div className="flex items-center gap-2 font-medium"><CircleAlert className="size-4" />{failure.errorCode}</div>{failure.errorMessage ? <p className="mt-1 text-xs leading-5">{failure.errorMessage}</p> : null}</div> : null}
-      <div className="px-4 pb-2 pt-4"><h3 className="text-sm font-semibold">Event chain</h3><p className="mt-1 text-xs text-muted-foreground">Events are rendered in order inside this single upload record.</p></div>
-      {!events.length ? <div className="px-4 pb-5 text-sm text-muted-foreground">No execution events have been recorded yet.</div> : <ol className="px-4 pb-4 pt-2">{events.map((event, index) => <TimelineEvent key={event.id} event={event} last={index === events.length - 1} />)}</ol>}
+      {failure ? <div className="mx-4 mt-3 flex items-start gap-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800"><CircleAlert className="mt-0.5 size-4 shrink-0" /><p className="min-w-0"><span className="font-mono font-medium">{failure.errorCode}</span>{failure.errorMessage ? ` · ${failure.errorMessage}` : null}</p></div> : null}
+      {!events.length ? <p className="px-4 py-3 text-xs text-muted-foreground">No execution events have been recorded yet.</p> : <ol className="divide-y divide-border/60 px-4 py-2">{attemptChains.map((chain) => <AttemptEventChain key={chain.attemptNo} chain={chain} />)}</ol>}
     </CollapsibleContent>
   </Collapsible>
 }
@@ -96,18 +124,15 @@ function RecordHeading({ task, history, statusLabel, eventCount }: { task: Portf
   return <div className="flex items-center gap-3 px-4 py-4"><div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div><div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">Screenshot import #{history?.taskId ?? task.id}</h2><p className="mt-1 text-xs text-muted-foreground">{statusLabel} · {eventCount} events</p></div></div>
 }
 
-function SummaryItem({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return <div className="min-w-0 bg-card px-4 py-3"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-1 truncate text-sm text-foreground ${mono ? "font-mono tabular-nums" : ""}`}>{value}</p></div>
-}
+function AttemptEventChain({ chain }: { chain: AttemptChain }) {
+  const latest = chain.events.at(-1)
+  const failure = [...chain.events].reverse().find((event) => event.errorCode)
+  const duration = chain.events.map((event) => event.durationMs ?? 0).reduce((sum, value) => sum + value, 0)
+  const labels = chain.events.map((event) => EVENT_SHORT_LABEL[event.eventType] ?? eventCopy(event).title)
 
-function TimelineEvent({ event, last }: { event: PortfolioImportProcessHistoryEvent; last: boolean }) {
-  const copy = eventCopy(event)
-  const duration = formatDuration(event.durationMs)
-  const metadata = [
-    `Attempt ${event.attemptNo || 1}`,
-    duration,
-    event.providerCode ? `Provider ${event.providerCode}` : null,
-    event.modelCode ? `Model ${event.modelCode}` : null,
-  ].filter((item): item is string => item !== null)
-  return <li className="relative flex gap-3 pb-5 last:pb-0"><div className="relative flex w-5 shrink-0 justify-center"><span className="z-10 mt-1 size-2.5 rounded-full border-2 border-background bg-muted-foreground" />{!last ? <span className="absolute left-1/2 top-3 h-[calc(100%+0.25rem)] w-px -translate-x-1/2 bg-border" /> : null}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-medium">{copy.title}</p>{event.toStatus ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{STATUS_COPY[event.toStatus] ?? event.toStatus}</span> : null}</div><p className="mt-1 text-xs text-muted-foreground">{copy.description}</p><div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>{formatTime(event.occurredAt)}</span>{metadata.map((item) => <span key={item}>{item}</span>)}</div>{event.errorCode ? <div className="mt-2 text-xs text-rose-700"><span className="font-mono">{event.errorCode}</span>{event.errorMessage ? ` · ${event.errorMessage}` : ""}</div> : null}</div></li>
+  return <li className="grid gap-1 py-2.5 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:items-start sm:gap-3">
+    <span className="font-mono text-xs font-medium tabular-nums text-foreground">Attempt {chain.attemptNo}</span>
+    <div className="min-w-0"><p className="flex flex-wrap items-center gap-x-1 text-xs leading-5 text-foreground">{labels.map((label, index) => <span key={`${label}-${index}`} className="inline-flex items-center">{index ? <span className="mx-1 text-muted-foreground">→</span> : null}{label}</span>)}</p>{failure ? <p className="mt-0.5 truncate font-mono text-[11px] text-rose-700">{failure.errorCode}</p> : null}</div>
+    <div className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground sm:justify-end"><span>{formatTime(latest?.occurredAt)}</span>{duration ? <span>{formatDuration(duration)}</span> : null}</div>
+  </li>
 }

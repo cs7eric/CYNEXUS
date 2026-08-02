@@ -164,6 +164,13 @@
 - Completed: added the holdings dashboard, return breakdown, qfq K-line trade markers, trade ledger, review center/editor workflow, and latest-price valuation states.
 - Self-test: focused domain test passed (5 tests), market application compile passed, UI build and focused ESLint passed, version sync passed, and Release `market,ui` rebuilt and restarted successfully.
 
+### Phase 10: Compact Import Execution Record
+
+- **Status:** completed
+- Replaced the expanded five-column record shell with a single compact summary row that carries status, attempts, candidate count, latest activity, and the latest error.
+- Replaced the tall per-event timeline with one compact, ordered event path per attempt; all events remain visible inside the same upload record when expanded.
+- Self-test: focused ESLint and `pnpm build` passed. Release UI rebuild is pending this feature commit.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
