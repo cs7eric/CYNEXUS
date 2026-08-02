@@ -11,6 +11,7 @@ import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/se
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
+import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
 
 const money = (value: number | null | undefined) => value == null ? "--" : value.toFixed(2)
 const percent = (value: number | null | undefined) => value == null ? "--" : `${(value * 100).toFixed(2)}%`
@@ -33,6 +34,9 @@ export default function PersonalPortfolioPage() {
   const importDrawerOpen = searchParams.get("imports") === "1"
   const selectedSymbol = searchParams.get("stock")
   const selectedInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
+  const reviewDrawerOpen = searchParams.get("review") === "new"
+  const reviewSymbol = searchParams.get("symbol")
+  const reviewInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
 
   function setImportDrawerOpen(open: boolean) {
     const next = new URLSearchParams(searchParams)
@@ -48,6 +52,17 @@ export default function PersonalPortfolioPage() {
       next.set("instrumentType", selectedInstrumentType)
     } else {
       next.delete("stock")
+      next.delete("instrumentType")
+    }
+    setSearchParams(next, { replace: true })
+  }
+
+  function setReviewDrawerOpen(open: boolean) {
+    const next = new URLSearchParams(searchParams)
+    if (open) next.set("review", "new")
+    else {
+      next.delete("review")
+      next.delete("symbol")
       next.delete("instrumentType")
     }
     setSearchParams(next, { replace: true })
@@ -148,6 +163,7 @@ export default function PersonalPortfolioPage() {
         )}
         <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={setImportDrawerOpen} />
         <PortfolioPositionDrawer open={Boolean(selectedSymbol)} symbol={selectedSymbol} instrumentType={selectedInstrumentType} onOpenChange={setPositionDrawerOpen} />
+        <PortfolioReviewDrawer key={`review-${reviewDrawerOpen ? reviewSymbol ?? "new" : "closed"}`} open={reviewDrawerOpen} symbol={reviewSymbol} instrumentType={reviewInstrumentType} onOpenChange={setReviewDrawerOpen} onSaved={() => void load()} />
       </div>
     </WorkspaceShell>
   )

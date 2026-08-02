@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
+import { createBrowserRouter, Navigate, useParams, useSearchParams } from "react-router-dom"
 import App from "../App"
 import ApplicationAnalysisPage from "../views/application-analysis"
 import DashboardPage from "../views/dashboard"
@@ -50,6 +50,13 @@ import PersonalPortfolioStockDetailPage from "../views/market/personal-portfolio
 function LegacyPortfolioImportRoute() {
   const { taskId } = useParams()
   return <Navigate to={`/personal-portfolio/imports/${taskId}/review`} replace />
+}
+
+function LegacyPortfolioNewReviewRoute() {
+  const [searchParams] = useSearchParams()
+  const next = new URLSearchParams(searchParams)
+  next.set("review", "new")
+  return <Navigate to={`/personal-portfolio?${next.toString()}`} replace />
 }
 
 export const router = createBrowserRouter([
@@ -156,6 +163,10 @@ export const router = createBrowserRouter([
       {
         path: "personal-portfolio/imports/:taskId",
         element: <LegacyPortfolioImportRoute />,
+      },
+      {
+        path: "personal-portfolio/reviews/new",
+        element: <LegacyPortfolioNewReviewRoute />,
       },
       {
         path: "personal-portfolio/reviews/:reviewId",
