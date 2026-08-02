@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Check, CircleAlert, Loader2, Pencil, RefreshCw, Save } from "lucide-react"
 import { WorkspaceShell } from "@/layout/workspace-shell"
@@ -19,6 +19,36 @@ import { ImportExecutionRecord } from "./components/import-execution-record"
 
 const terminal = new Set(["READY_FOR_REVIEW", "CONFIRMED", "FAILED", "CANCELLED"])
 type Draft = PortfolioCandidateEdit
+
+function sameTask(left: PortfolioImportReview["task"], right: PortfolioImportReview["task"]) {
+  return left.id === right.id
+    && left.status === right.status
+    && left.version === right.version
+    && left.attemptCount === right.attemptCount
+    && left.assetId === right.assetId
+    && left.queuedAt === right.queuedAt
+    && left.startedAt === right.startedAt
+    && left.completedAt === right.completedAt
+    && left.confirmedAt === right.confirmedAt
+    && left.lastErrorCode === right.lastErrorCode
+    && left.lastErrorMessage === right.lastErrorMessage
+}
+
+function sameHistory(left: PortfolioImportProcessHistory | null, right: PortfolioImportProcessHistory) {
+  if (!left || left.id !== right.id || left.taskId !== right.taskId || left.updatedAt !== right.updatedAt
+    || left.events.length !== right.events.length) return false
+  return left.events.every((event, index) => event.id === right.events[index]?.id)
+}
+
+function sameReview(left: PortfolioImportReview | null, right: PortfolioImportReview) {
+  if (!left || !sameTask(left.task, right.task) || left.candidates.length !== right.candidates.length) return false
+  return left.candidates.every((candidate, index) => {
+    const next = right.candidates[index]
+    if (!next) return false
+    return candidate.id === next.id && candidate.version === next.version
+      && candidate.reviewStatus === next.reviewStatus && candidate.normalizedPayload === next.normalizedPayload
+  })
+}
 
 function toDraft(payload: string, version: number): Draft {
   let data: Record<string, unknown> = {}
@@ -45,6 +75,7 @@ export default function PersonalPortfolioImportReviewPage() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null); const [confirming, setConfirming] = useState(false)
   const [selected, setSelected] = useState<number[]>([]); const [error, setError] = useState<string | null>(null)
+  const pollInFlight = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -56,27 +87,54 @@ export default function PersonalPortfolioImportReviewPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) } finally { setLoading(false) }
   }, [id])
 
-  const loadHistory = useCallback(async () => {
-    setHistoryLoading(true); setHistoryError(null)
+  const loadHistory = useCallback(async (showLoading = false) => {
+    if (showLoading) setHistoryLoading(true)
+    setHistoryError(null)
     try { setHistory(await fetchPortfolioImportHistory(id)) } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setHistoryError(message)
       notification.danger({ title: "Process history unavailable", description: message })
-    } finally { setHistoryLoading(false) }
+    } finally {
+      if (showLoading) setHistoryLoading(false)
+    }
   }, [id])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); void loadHistory() }, 0)
+    const timer = window.setTimeout(() => { void load(); void loadHistory(true) }, 0)
     return () => window.clearTimeout(timer)
   }, [load, loadHistory])
   const status = review?.task.status
+
+  const refreshProgress = useCallback(async () => {
+    if (pollInFlight.current) return
+    pollInFlight.current = true
+    try {
+      const task = await fetchPortfolioImport(id)
+      const nextHistory = await fetchPortfolioImportHistory(id)
+      setReview((current) => current && sameTask(current.task, task) ? current : current ? ({ ...current, task }) : current)
+      setHistory((current) => sameHistory(current, nextHistory) ? current : nextHistory)
+
+      if (task.status === "READY_FOR_REVIEW") {
+        const nextReview = await fetchPortfolioImportReview(id)
+        setReview((current) => sameReview(current, nextReview) ? current : nextReview)
+        setSelected((current) => current.length ? current : nextReview.candidates
+          .filter((candidate) => candidate.reviewStatus === "PENDING").map((candidate) => candidate.id))
+        setDrafts((current) => Object.keys(current).length ? current : Object.fromEntries(
+          nextReview.candidates.map((candidate) => [candidate.id, toDraft(candidate.normalizedPayload, candidate.version)]),
+        ))
+      }
+    } catch {
+      // Keep the last successful event chain on screen during a transient poll failure.
+    } finally {
+      pollInFlight.current = false
+    }
+  }, [id])
+
   useEffect(() => {
     if (!status || terminal.has(status)) return
-    const timer = window.setInterval(() => {
-      void fetchPortfolioImport(id).then((task) => { setReview((current) => current ? ({ ...current, task }) : current); void loadHistory() }).catch(() => undefined)
-    }, 2500)
+    const timer = window.setInterval(() => { void refreshProgress() }, 1500)
     return () => window.clearInterval(timer)
-  }, [id, status, loadHistory])
+  }, [status, refreshProgress])
 
   const pending = useMemo(() => review?.candidates.filter((candidate) => candidate.reviewStatus === "PENDING") ?? [], [review])
   const updateDraft = (candidateId: number, key: keyof Draft, value: string) => setDrafts((current) => ({ ...current, [candidateId]: { ...current[candidateId], [key]: value } }))
