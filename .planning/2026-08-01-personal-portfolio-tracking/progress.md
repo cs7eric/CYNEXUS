@@ -178,6 +178,13 @@
 - Fixed the PostgreSQL `jsonb_build_object` binding used when a history event contains nullable metadata. PostgreSQL could not infer the type of a null JSON argument, which rolled back the upload transaction before the task and its history record were committed.
 - Self-test: market reactor compile, Release market rebuild, real screenshot upload (`202 Accepted`), history retrieval with setup and first-attempt events, and version synchronization passed.
 
+### Phase 12: Incremental Import Event Updates
+
+- **Status:** completed
+- Kept the import review shell and event chain mounted while processing is active. Polling now compares task/history snapshots, updates only changed state, retains the last successful chain during transient failures, and hydrates candidates when the task becomes ready.
+- Reduced polling to one in-flight request at a time with a 1.5 second interval; new events are appended through normal React reconciliation instead of replacing the history record with a loading skeleton.
+- Self-test: focused ESLint, `pnpm build`, Release UI rebuild, and HTTP 200 route check passed.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
