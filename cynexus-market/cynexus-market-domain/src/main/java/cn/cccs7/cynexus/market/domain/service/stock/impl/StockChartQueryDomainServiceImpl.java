@@ -55,6 +55,8 @@ public class StockChartQueryDomainServiceImpl implements StockChartQueryDomainSe
                     && "qfq".equalsIgnoreCase(normalizedAdjust);
             source = clickHouseQfq
                     ? source("clickhouse.daily_qfq", rows)
+                    : "etf".equalsIgnoreCase(normalizedTargetType)
+                    ? source("clickhouse.daily_raw.etf", rows)
                     : source("java-tdx-local", rows);
         } else {
             int periodMinutes = rules.periodMinutes(normalizedPeriod);

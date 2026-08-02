@@ -119,6 +119,21 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
             bars.forEach(bar -> bar.setTurnoverRate(turnoverRatesByDate.get(bar.getTradeDate())));
             return bars;
         }
+        if ("etf".equalsIgnoreCase(normalizedTargetType)) {
+            MarketSymbol marketSymbol = normalizeMarketSymbol(normalizedTargetType, symbol);
+            return clickHouseStockChartClient.listRawDailyBars(marketSymbol.market(), marketSymbol.symbol(), limit,
+                            BigDecimal.TEN).stream()
+                    .map(row -> StockChartBO.Bar.builder()
+                            .tradeDate(row.getTradeDate())
+                            .open(row.getOpen())
+                            .high(row.getHigh())
+                            .low(row.getLow())
+                            .close(row.getClose())
+                            .volume(row.getVolume())
+                            .turnover(row.getAmount())
+                            .build())
+                    .toList();
+        }
         String resolvedSymbol = normalizeTdxSymbol(targetType, symbol);
         return tdxLocalDayKlineClient.readDailyBars(resolvedSymbol, limit).stream()
                 .map(this::dailyBar)

@@ -364,6 +364,68 @@ public class ClickHouseStockChartClient {
                 .toList();
     }
 
+    /**
+     * Reads the latest raw daily bars for a symbol from the wide market table.
+     * ETF day files are stored by the TDX ingest with a ten-times price scale;
+     * the scale is normalized here so callers receive broker/display prices.
+     */
+    public List<DailyBar> listRawDailyBars(String market, String symbol, int limit, BigDecimal priceScale) {
+        if (market == null || market.isBlank() || symbol == null || symbol.isBlank()) {
+            return List.of();
+        }
+        int resolvedLimit = Math.max(limit, 1);
+        BigDecimal resolvedScale = priceScale == null || priceScale.signum() == 0
+                ? BigDecimal.ONE : priceScale;
+        String sql = """
+                WITH daily AS
+                (
+                    SELECT
+                        trade_date,
+                        max(open) AS open,
+                        max(high) AS high,
+                        min(low) AS low,
+                        max(close) AS close,
+                        max(volume) AS volume,
+                        max(amount) AS amount
+                    FROM daily_raw
+                    WHERE market = '%s'
+                      AND symbol = '%s'
+                    GROUP BY trade_date
+                )
+                SELECT
+                    toString(trade_date) AS tradeDate,
+                    open,
+                    high,
+                    low,
+                    close,
+                    volume,
+                    amount
+                FROM daily
+                ORDER BY trade_date DESC
+                LIMIT %d
+                FORMAT JSONEachRow
+                """.formatted(escapeSql(market.toUpperCase(Locale.ROOT)), escapeSql(symbol), resolvedLimit);
+        List<DailyBar> rows = query(sql, DailyBarRow.class).stream()
+                .map(row -> DailyBar.builder()
+                        .tradeDate(row.tradeDate() == null ? null : LocalDate.parse(row.tradeDate()))
+                        .open(scale(row.open(), resolvedScale))
+                        .high(scale(row.high(), resolvedScale))
+                        .low(scale(row.low(), resolvedScale))
+                        .close(scale(row.close(), resolvedScale))
+                        .volume(row.volume())
+                        .amount(row.amount())
+                        .build())
+                .toList();
+        List<DailyBar> ordered = new ArrayList<>(rows);
+        ordered.sort((left, right) -> {
+            if (left.getTradeDate() == null && right.getTradeDate() == null) return 0;
+            if (left.getTradeDate() == null) return -1;
+            if (right.getTradeDate() == null) return 1;
+            return left.getTradeDate().compareTo(right.getTradeDate());
+        });
+        return ordered;
+    }
+
     public List<DailyBar> listQfqDailyBars(String symbol, int limit) {
         if (symbol == null || symbol.isBlank()) {
             return List.of();
@@ -429,6 +491,10 @@ public class ClickHouseStockChartClient {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("ClickHouse query interrupted", ex);
         }
+    }
+
+    private BigDecimal scale(BigDecimal value, BigDecimal divisor) {
+        return value == null ? null : value.divide(divisor, 8, java.math.RoundingMode.HALF_UP).stripTrailingZeros();
     }
 
     private <T> List<T> parseJsonEachRow(String body, Class<T> rowType) throws JsonProcessingException {
