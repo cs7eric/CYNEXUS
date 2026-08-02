@@ -11,11 +11,12 @@ class PortfolioCandidateEditPolicyTest {
 
     @Test
     void normalizesAndValidatesEditableTradeFields() {
-        var normalized = PortfolioCandidateEditPolicy.normalize(mapper, "600000", "Example", "sell",
+        var normalized = PortfolioCandidateEditPolicy.normalize(mapper, "600000", "Example", "stock", "sell",
                 "2026-08-02", "100", "12.50", "1.25", "T-1");
 
         assertEquals("600000", normalized.path("symbol").asText());
         assertEquals("SELL", normalized.path("side").asText());
+        assertEquals("STOCK", normalized.path("instrumentType").asText());
         assertEquals("100", normalized.path("quantity").asText());
         assertEquals("1.25", normalized.path("fee").asText());
     }
@@ -23,8 +24,10 @@ class PortfolioCandidateEditPolicyTest {
     @Test
     void rejectsInvalidValues() {
         assertThrows(IllegalArgumentException.class, () -> PortfolioCandidateEditPolicy.normalize(mapper,
-                "60000", null, "BUY", "2026-08-02", "100", "12.50", "0", null));
+                "60000", null, "ETF", "BUY", "2026-08-02", "100", "12.50", "0", null));
         assertThrows(IllegalArgumentException.class, () -> PortfolioCandidateEditPolicy.normalize(mapper,
-                "600000", null, "BUY", "2026-08-02", "0", "12.50", "0", null));
+                "600000", null, "ETF", "BUY", "2026-08-02", "0", "12.50", "0", null));
+        assertThrows(IllegalArgumentException.class, () -> PortfolioCandidateEditPolicy.normalize(mapper,
+                "159629", null, "FUND", "BUY", "2026-08-02", "100", "2.99", "0", null));
     }
 }

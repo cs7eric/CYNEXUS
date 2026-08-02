@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 public record PortfolioPositionBO(
         String symbol,
+        PortfolioInstrumentType instrumentType,
         BigDecimal quantity,
         BigDecimal averageCost,
         BigDecimal costBasis,

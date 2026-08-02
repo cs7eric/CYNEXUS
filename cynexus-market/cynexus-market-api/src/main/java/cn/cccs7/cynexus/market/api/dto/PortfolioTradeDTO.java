@@ -11,6 +11,7 @@ public class PortfolioTradeDTO {
     long id;
     String symbol;
     String securityName;
+    String instrumentType;
     String side;
     OffsetDateTime tradedAt;
     BigDecimal quantity;

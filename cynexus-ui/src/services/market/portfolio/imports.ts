@@ -36,6 +36,7 @@ export interface PortfolioCandidateEdit {
   version: number
   symbol: string
   securityName?: string
+  instrumentType: "STOCK" | "ETF"
   side: "BUY" | "SELL"
   tradedAt: string
   quantity: string

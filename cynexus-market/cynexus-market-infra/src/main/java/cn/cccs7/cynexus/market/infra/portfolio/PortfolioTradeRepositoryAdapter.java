@@ -29,6 +29,7 @@ public class PortfolioTradeRepositoryAdapter implements PortfolioTradeRepository
         po.setSourceCandidateId(sourceCandidateId);
         po.setSymbol(trade.symbol());
         po.setSecurityName(trade.securityName());
+        po.setInstrumentType(trade.instrumentType().name());
         po.setSide(trade.side().name());
         po.setTradedAt(trade.tradedAt());
         po.setQuantity(trade.quantity());

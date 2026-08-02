@@ -20,7 +20,8 @@ public final class PortfolioLedgerDomainService {
 
         BigDecimal realizedPnl = BigDecimal.ZERO;
         for (PortfolioTradeBO trade : ordered) {
-            PositionAccumulator position = positions.computeIfAbsent(trade.symbol(), PositionAccumulator::new);
+            PositionAccumulator position = positions.computeIfAbsent(trade.symbol(),
+                    ignored -> new PositionAccumulator(trade.symbol(), trade.instrumentType()));
             if (trade.side() == TradeSide.BUY) {
                 position.buy(trade.quantity(), trade.price(), trade.totalFee());
             } else {
@@ -78,12 +79,14 @@ public final class PortfolioLedgerDomainService {
 
     private static final class PositionAccumulator {
         private final String symbol;
+        private final PortfolioInstrumentType instrumentType;
         private BigDecimal quantity = BigDecimal.ZERO;
         private BigDecimal costBasis = BigDecimal.ZERO;
         private BigDecimal realizedPnl = BigDecimal.ZERO;
 
-        private PositionAccumulator(String symbol) {
+        private PositionAccumulator(String symbol, PortfolioInstrumentType instrumentType) {
             this.symbol = symbol;
+            this.instrumentType = instrumentType;
         }
 
         private void buy(BigDecimal quantity, BigDecimal price, BigDecimal fee) {
@@ -118,7 +121,7 @@ public final class PortfolioLedgerDomainService {
             BigDecimal unrealized = latestPrice == null ? BigDecimal.ZERO : marketValue.subtract(costBasis);
             BigDecimal returnRate = costBasis.signum() == 0 ? BigDecimal.ZERO
                     : unrealized.divide(costBasis, MONEY_SCALE, RoundingMode.HALF_UP);
-            return new PortfolioPositionBO(symbol, quantity, money(averageCost), money(costBasis), money(realizedPnl),
+            return new PortfolioPositionBO(symbol, instrumentType, quantity, money(averageCost), money(costBasis), money(realizedPnl),
                     latestPrice, money(marketValue), money(unrealized), returnRate);
         }
     }

@@ -51,7 +51,8 @@ public class PortfolioImportConfirmationDomainService {
     private PortfolioTradeBO toTrade(PortfolioCandidateRecord candidate) {
         JsonNode node = candidate.normalizedPayload();
         String symbol = required(node, "symbol");
-        if (!symbol.matches("\\d{6}")) throw new IllegalArgumentException("invalid A-share symbol");
+        if (!symbol.matches("\\d{6}")) throw new IllegalArgumentException("invalid mainland stock or ETF symbol");
+        PortfolioInstrumentType instrumentType = PortfolioInstrumentType.fromPayload(optionalText(node, "instrumentType"));
         TradeSide side;
         try { side = TradeSide.valueOf(required(node, "side")); }
         catch (IllegalArgumentException exception) { throw new IllegalArgumentException("invalid trade side", exception); }
@@ -60,7 +61,7 @@ public class PortfolioImportConfirmationDomainService {
         BigDecimal price = positive(node, "price");
         BigDecimal fee = optional(node, "fee");
         String name = optionalText(node, "securityName");
-        return new PortfolioTradeBO(0L, symbol, name, side, tradedAt, quantity, price, fee, TradeStatus.ACTIVE);
+        return new PortfolioTradeBO(0L, symbol, name, instrumentType, side, tradedAt, quantity, price, fee, TradeStatus.ACTIVE);
     }
 
     private OffsetDateTime parseTime(String value) {

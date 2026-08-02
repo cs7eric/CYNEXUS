@@ -107,14 +107,14 @@ export default function PersonalPortfolioPage() {
                   <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">Symbol</th><th className="px-4 py-3 text-right">Qty</th><th className="px-4 py-3 text-right">Avg cost</th><th className="px-4 py-3 text-right">Latest</th><th className="px-4 py-3 text-right">Market value</th><th className="px-4 py-3 text-right">Unrealized P&L</th><th className="px-4 py-3 text-right">Return</th><th className="px-4 py-3" /></tr></thead>
                   <tbody className="divide-y divide-border/60">
                     {positions.map((position) => <tr key={position.symbol} className="hover:bg-muted/35">
-                      <td className="px-4 py-3"><Link className="font-mono font-medium text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}`}>{position.symbol}</Link></td>
+                      <td className="px-4 py-3"><Link className="font-mono font-medium text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}?instrumentType=${position.instrumentType}`}>{position.symbol}</Link><span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{position.instrumentType}</span></td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{position.quantity}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.averageCost)}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.latestPrice)}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.marketValue)}</td>
                       <td className={`px-4 py-3 text-right font-mono tabular-nums ${pnlTone(position.unrealizedPnl)}`}>{money(position.unrealizedPnl)}</td>
                       <td className={`px-4 py-3 text-right font-mono tabular-nums ${pnlTone(position.unrealizedReturnRate)}`}>{percent(position.unrealizedReturnRate)}</td>
-                      <td className="px-4 py-3 text-right"><Link className="text-xs text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}`}>Chart <ArrowUpRight className="inline size-3" /></Link></td>
+                      <td className="px-4 py-3 text-right"><Link className="text-xs text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}?instrumentType=${position.instrumentType}`}>Chart <ArrowUpRight className="inline size-3" /></Link></td>
                     </tr>)}
                     {!positions.length ? <tr><td colSpan={8} className="px-4 py-14 text-center"><p className="text-sm font-medium">No confirmed positions yet</p><p className="mt-1 text-xs text-muted-foreground">Import a screenshot, correct the candidates, and confirm the trades to populate this dashboard.</p></td></tr> : null}
                   </tbody>

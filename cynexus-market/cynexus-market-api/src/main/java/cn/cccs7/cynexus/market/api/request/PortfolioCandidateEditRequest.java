@@ -7,6 +7,7 @@ public class PortfolioCandidateEditRequest {
     private Long version;
     private String symbol;
     private String securityName;
+    private String instrumentType;
     private String side;
     private String tradedAt;
     private String quantity;

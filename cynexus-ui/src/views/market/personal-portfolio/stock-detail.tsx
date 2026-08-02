@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, BookOpen, CircleAlert, RefreshCw } from "lucide-react"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ function pnlTone(value: number | null | undefined) {
 
 export default function PersonalPortfolioStockDetailPage() {
   const { symbol = "" } = useParams()
+  const [searchParams] = useSearchParams()
   const [trades, setTrades] = useState<PortfolioTrade[]>([])
   const [bars, setBars] = useState<StockKlineBar[]>([])
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
@@ -34,6 +35,7 @@ export default function PersonalPortfolioStockDetailPage() {
   const [marketLoading, setMarketLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
+  const requestedInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
 
   const load = useCallback(async () => {
     if (!symbol) return
@@ -42,23 +44,31 @@ export default function PersonalPortfolioStockDetailPage() {
     setError(null)
     setMarketError(null)
 
-    const [tradeResult, overviewResult, reviewResult, chartResult] = await Promise.allSettled([
+    const [tradeResult, overviewResult, reviewResult] = await Promise.allSettled([
       fetchPortfolioTrades(symbol),
       fetchPortfolioOverview(),
       fetchPortfolioReviews(symbol),
-      fetchStockKlines({ targetType: "stock", symbol, period: "1d", adjust: "qfq" }),
     ])
 
     if (tradeResult.status === "fulfilled") setTrades(tradeResult.value)
     else setError(tradeResult.reason instanceof Error ? tradeResult.reason.message : String(tradeResult.reason))
     if (overviewResult.status === "fulfilled") setOverview(overviewResult.value)
     if (reviewResult.status === "fulfilled") setReviews(reviewResult.value)
+    const instrumentType = tradeResult.status === "fulfilled"
+      ? tradeResult.value[0]?.instrumentType ?? requestedInstrumentType
+      : requestedInstrumentType
+    const chartResult = await Promise.resolve(fetchStockKlines({
+      targetType: instrumentType === "ETF" ? "etf" : "stock",
+      symbol,
+      period: "1d",
+      adjust: "qfq",
+    })).then((value) => ({ status: "fulfilled" as const, value }), (reason) => ({ status: "rejected" as const, reason }))
     if (chartResult.status === "fulfilled") setBars(chartResult.value.items ?? [])
     else setMarketError(chartResult.reason instanceof Error ? chartResult.reason.message : String(chartResult.reason))
 
     setLoading(false)
     setMarketLoading(false)
-  }, [symbol])
+  }, [requestedInstrumentType, symbol])
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load() }, 0)
@@ -66,6 +76,7 @@ export default function PersonalPortfolioStockDetailPage() {
   }, [load])
 
   const position = overview?.positions.find((item) => item.symbol === symbol)
+  const instrumentType = position?.instrumentType ?? trades[0]?.instrumentType ?? requestedInstrumentType
   const stats = useMemo(() => trades.reduce((result, trade) => {
     const quantity = Number(trade.quantity)
     const notional = quantity * Number(trade.price)
@@ -87,8 +98,8 @@ export default function PersonalPortfolioStockDetailPage() {
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <Link to="/personal-portfolio" className="text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="mr-1 inline size-3" />Portfolio dashboard</Link>
-            <h1 className="mt-2 font-mono text-2xl font-semibold tracking-tight">{symbol}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Your confirmed execution points over the adjusted daily K-line.</p>
+            <h1 className="mt-2 font-mono text-2xl font-semibold tracking-tight">{symbol} <span className="align-middle rounded-full bg-muted px-2 py-0.5 font-sans text-xs font-medium text-muted-foreground">{instrumentType}</span></h1>
+            <p className="mt-1 text-sm text-muted-foreground">Your confirmed execution points over the adjusted daily {instrumentType === "ETF" ? "ETF" : "stock"} K-line.</p>
           </div>
           <div className="flex flex-wrap gap-2"><Link to={`/personal-portfolio/reviews/new?symbol=${encodeURIComponent(symbol)}`}><Button variant="outline"><BookOpen className="mr-2 size-4" />New review</Button></Link><Button variant="outline" onClick={() => void load()} disabled={loading || marketLoading}><RefreshCw className="mr-2 size-4" />Refresh</Button></div>
         </header>
@@ -105,7 +116,7 @@ export default function PersonalPortfolioStockDetailPage() {
         </section>
 
         <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="trade-chart-heading">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3"><div><h2 id="trade-chart-heading" className="text-sm font-semibold">Buy / sell points</h2><p className="mt-1 text-xs text-muted-foreground">Red B markers are buys and green S markers are sells. Prices are execution prices; the chart uses qfq market bars.</p></div><div className="flex items-center gap-3 text-xs text-muted-foreground"><span><span className="mr-1 inline-block size-2 rounded-full bg-rose-600" />Buy</span><span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-600" />Sell</span><span className="rounded-full bg-muted px-2 py-0.5">{bars.length ? `${bars.length} daily bars` : "No market bars"}</span></div></div>
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3"><div><h2 id="trade-chart-heading" className="text-sm font-semibold">Buy / sell points</h2><p className="mt-1 text-xs text-muted-foreground">Red B markers are buys and green S markers are sells. Prices are execution prices; the chart uses qfq {instrumentType === "ETF" ? "ETF" : "stock"} market bars.</p></div><div className="flex items-center gap-3 text-xs text-muted-foreground"><span><span className="mr-1 inline-block size-2 rounded-full bg-rose-600" />Buy</span><span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-600" />Sell</span><span className="rounded-full bg-muted px-2 py-0.5">{bars.length ? `${bars.length} daily bars` : "No market bars"}</span></div></div>
           {marketLoading ? <div className="p-4"><Skeleton className="h-[420px] rounded-md" /></div> : marketError ? <div className="flex items-start gap-2 px-4 py-12 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Market chart unavailable</p><p className="mt-1 text-xs">{marketError}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => void load()}>Retry chart</Button></div></div> : bars.length ? <div className="p-2 sm:p-4"><PortfolioTradeChart symbol={symbol} bars={bars} trades={trades} /></div> : <div className="flex min-h-[420px] items-center justify-center px-4 py-12 text-center"><div><p className="text-sm font-medium">No market bars for this symbol</p><p className="mt-1 text-xs text-muted-foreground">The confirmed trade rows remain available below; try refreshing when the market data source is back.</p></div></div>}
         </section>
 

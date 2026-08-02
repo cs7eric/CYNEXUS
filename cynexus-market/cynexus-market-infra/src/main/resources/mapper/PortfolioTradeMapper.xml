@@ -5,9 +5,9 @@
 <mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioTradeMapper">
     <insert id="insert">
         insert into cynexus_appl_market.portfolio_trade
-        (id, principal_key, tenant_key, source_task_id, source_candidate_id, symbol, security_name, side,
+        (id, principal_key, tenant_key, source_task_id, source_candidate_id, symbol, security_name, instrument_type, side,
          traded_at, quantity, price, gross_amount, total_fee, status, confirmed_at, confirmed_by)
-        values (#{id}, #{principalKey}, #{tenantKey}, #{sourceTaskId}, #{sourceCandidateId}, #{symbol}, #{securityName}, #{side},
+        values (#{id}, #{principalKey}, #{tenantKey}, #{sourceTaskId}, #{sourceCandidateId}, #{symbol}, #{securityName}, #{instrumentType}, #{side},
                 #{tradedAt}, #{quantity}, #{price}, #{grossAmount}, #{totalFee}, #{status}, #{confirmedAt}, #{confirmedBy})
         on conflict (source_task_id, source_candidate_id) where status = 'ACTIVE' and deleted_at is null do nothing
     </insert>

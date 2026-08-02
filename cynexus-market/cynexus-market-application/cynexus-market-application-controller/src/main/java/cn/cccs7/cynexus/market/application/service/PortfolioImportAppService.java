@@ -136,7 +136,7 @@ public class PortfolioImportAppService {
                 .orElseThrow(() -> new IllegalArgumentException("portfolio candidate not found"));
         if (current.version() != request.getVersion()) throw new IllegalStateException("portfolio candidate version is stale");
         var normalized = PortfolioCandidateEditPolicy.normalize(objectMapper, request.getSymbol(), request.getSecurityName(),
-                request.getSide(), request.getTradedAt(), request.getQuantity(), request.getPrice(), request.getTotalFee(),
+                request.getInstrumentType(), request.getSide(), request.getTradedAt(), request.getQuantity(), request.getPrice(), request.getTotalFee(),
                 request.getExternalTradeNo());
         try {
             String payload = objectMapper.writeValueAsString(normalized);

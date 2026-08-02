@@ -13,6 +13,7 @@ public class PortfolioTradePO {
     private Long sourceCandidateId;
     private String symbol;
     private String securityName;
+    private String instrumentType;
     private String side;
     private OffsetDateTime tradedAt;
     private BigDecimal quantity;

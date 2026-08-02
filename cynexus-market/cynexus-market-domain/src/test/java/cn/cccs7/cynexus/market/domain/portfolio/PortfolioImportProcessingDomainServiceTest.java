@@ -21,10 +21,11 @@ class PortfolioImportProcessingDomainServiceTest {
         PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
                 new ObjectMapper(), tasks, candidates);
 
-        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{\"rowNo\":1,\"symbol\":\"600000\",\"side\":\"BUY\",\"confidence\":0.9,\"warnings\":[]}]}", OffsetDateTime.now());
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{\"rowNo\":1,\"symbol\":\"600000\",\"instrumentType\":\"STOCK\",\"side\":\"BUY\",\"confidence\":0.9,\"warnings\":[]}]}", OffsetDateTime.now());
 
         assertEquals(1, candidates.values.size());
         assertEquals("600000", candidates.values.getFirst().normalizedPayload().path("symbol").asText());
+        assertEquals("STOCK", candidates.values.getFirst().normalizedPayload().path("instrumentType").asText());
         assertEquals(PortfolioImportStatus.READY_FOR_REVIEW, task.getStatus());
         assertSame(task, tasks.updated);
     }
@@ -38,11 +39,12 @@ class PortfolioImportProcessingDomainServiceTest {
         PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
                 new ObjectMapper(), tasks, candidates);
 
-        service.complete(task, "{\"isTradeScreenshot\":false,\"candidates\":[{\"rowNo\":1,\"symbol\":\"159629\",\"securityName\":\"1000ETF\",\"side\":\"SELL\",\"confidence\":0.9,\"warnings\":[]}]}", OffsetDateTime.now());
+        service.complete(task, "{\"isTradeScreenshot\":false,\"candidates\":[{\"rowNo\":1,\"symbol\":\"159629\",\"securityName\":\"1000ETF\",\"instrumentType\":\"ETF\",\"side\":\"SELL\",\"confidence\":0.9,\"warnings\":[]}]}", OffsetDateTime.now());
 
         assertEquals(PortfolioImportStatus.READY_FOR_REVIEW, task.getStatus());
         assertTrue(candidates.values.getFirst().warnings().stream()
                 .anyMatch(warning -> warning.contains("did not positively classify")));
+        assertEquals("ETF", candidates.values.getFirst().normalizedPayload().path("instrumentType").asText());
     }
 
     private static final class RecordingTasks implements PortfolioImportTaskRepository {

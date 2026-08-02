@@ -60,6 +60,7 @@ public class PortfolioImportProcessingDomainService {
     private JsonNode normalize(JsonNode candidate) {
         var normalized = objectMapper.createObjectNode();
         normalized.put("symbol", textOrNull(candidate, "symbol"));
+        normalized.put("instrumentType", instrumentTypeOrDefault(candidate));
         normalized.put("side", textOrNull(candidate, "side"));
         normalized.put("tradedAt", textOrNull(candidate, "tradedAt"));
         normalized.put("quantity", textOrNull(candidate, "quantity"));
@@ -73,5 +74,10 @@ public class PortfolioImportProcessingDomainService {
     private String textOrNull(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText();
+    }
+
+    private String instrumentTypeOrDefault(JsonNode candidate) {
+        String value = textOrNull(candidate, "instrumentType");
+        return PortfolioInstrumentType.fromPayload(value).name();
     }
 }

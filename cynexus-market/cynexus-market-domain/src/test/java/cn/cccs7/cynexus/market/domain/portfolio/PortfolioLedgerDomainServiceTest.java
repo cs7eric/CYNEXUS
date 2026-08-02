@@ -40,7 +40,7 @@ class PortfolioLedgerDomainServiceTest {
 
     @Test
     void ignoresNonActiveTrades() {
-        PortfolioTradeBO replaced = new PortfolioTradeBO(1L, "600000", "Demo", TradeSide.BUY, DAY_ONE,
+        PortfolioTradeBO replaced = new PortfolioTradeBO(1L, "600000", "Demo", PortfolioInstrumentType.STOCK, TradeSide.BUY, DAY_ONE,
                 decimal("10"), decimal("10"), BigDecimal.ZERO, TradeStatus.REPLACED);
         assertEquals(0, service.calculate(List.of(replaced), Map.of()).positions().size());
     }
@@ -49,7 +49,7 @@ class PortfolioLedgerDomainServiceTest {
     void reportsPartialMarketDataWhenOnlySomeOpenPositionsHavePrices() {
         List<PortfolioTradeBO> trades = List.of(
                 trade(1L, TradeSide.BUY, "10", "10", "0"),
-                new PortfolioTradeBO(2L, "000001", "Demo", TradeSide.BUY, DAY_ONE.plusMinutes(2),
+                new PortfolioTradeBO(2L, "000001", "Demo", PortfolioInstrumentType.STOCK, TradeSide.BUY, DAY_ONE.plusMinutes(2),
                         decimal("10"), decimal("20"), BigDecimal.ZERO, TradeStatus.ACTIVE)
         );
         PortfolioLedgerResultBO result = service.calculate(trades, Map.of("600000", decimal("12")));
@@ -61,13 +61,24 @@ class PortfolioLedgerDomainServiceTest {
     }
 
     @Test
+    void retainsEtfTypeForPositionValuationAndChartRouting() {
+        PortfolioTradeBO etf = new PortfolioTradeBO(1L, "159629", "1000ETF", PortfolioInstrumentType.ETF,
+                TradeSide.BUY, DAY_ONE, decimal("100"), decimal("2.99"), BigDecimal.ZERO, TradeStatus.ACTIVE);
+
+        PortfolioPositionBO position = service.calculate(List.of(etf), Map.of("159629", decimal("3.01"))).positions().getFirst();
+
+        assertEquals(PortfolioInstrumentType.ETF, position.instrumentType());
+        assertEquals("etf", position.instrumentType().chartTargetType());
+    }
+
+    @Test
     void reportsNoConfirmedTradesForEmptyOrInactiveLedger() {
         assertEquals(PortfolioValuationStatus.NO_CONFIRMED_TRADES,
                 service.valuationStatus(List.of(), service.calculate(List.of(), Map.of()), Map.of()));
     }
 
     private static PortfolioTradeBO trade(long id, TradeSide side, String quantity, String price, String fee) {
-        return new PortfolioTradeBO(id, "600000", "Demo", side, DAY_ONE.plusMinutes(id),
+        return new PortfolioTradeBO(id, "600000", "Demo", PortfolioInstrumentType.STOCK, side, DAY_ONE.plusMinutes(id),
                 decimal(quantity), decimal(price), decimal(fee), TradeStatus.ACTIVE);
     }
 

@@ -11,14 +11,15 @@ public final class PortfolioCandidateEditPolicy {
     private PortfolioCandidateEditPolicy() {
     }
 
-    public static ObjectNode normalize(ObjectMapper mapper, String symbol, String securityName, String side,
+    public static ObjectNode normalize(ObjectMapper mapper, String symbol, String securityName, String instrumentType, String side,
                                        String tradedAt, String quantity, String price, String totalFee,
                                        String externalTradeNo) {
         ObjectNode result = mapper.createObjectNode();
         putRequired(result, "symbol", symbol == null ? null : symbol.trim());
         if (!result.path("symbol").asText().matches("\\d{6}")) {
-            throw new IllegalArgumentException("symbol must be a 6 digit A-share code");
+            throw new IllegalArgumentException("symbol must be a 6 digit mainland stock or ETF code");
         }
+        result.put("instrumentType", PortfolioInstrumentType.fromPayload(instrumentType).name());
         String normalizedSide = required(side, "side").toUpperCase();
         if (!"BUY".equals(normalizedSide) && !"SELL".equals(normalizedSide)) {
             throw new IllegalArgumentException("side must be BUY or SELL");

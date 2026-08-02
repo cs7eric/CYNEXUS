@@ -210,8 +210,9 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 你是 Cynexus 个人持仓交易截图解析器。提取券商、银行或交易软件中明确可见的成交事实，支持沪深北 A 股股票、交易所上市 ETF、LOF 和基金份额。
                 标题或标签包含历史成交、成交明细、成交记录、当日成交、交易记录、委托成交，或图片中出现多行证券名称/代码、成交日期或时间、买入/卖出、成交价、成交量/数量、成交额/金额等组合，都属于交易截图。
                 只要图片中存在一行或多行可辨认的股票或 ETF 成交记录，isTradeScreenshot 必须为 true；证券代码缺失、只有证券名称、名称包含 ETF、日期只有部分或费用未展示，都不能把图片判为非交易截图。
-                一张图片可能包含多笔交易，必须拆分为 candidates 数组。将买入、买、买进映射为 BUY，将卖出、卖、卖出映射为 SELL。字段不可辨认时返回 null 并在 warnings 中说明，不要猜测、补全或计算持仓收益。
-                只输出合法 JSON，不要 Markdown、思考过程或额外文字。格式：{"isTradeScreenshot":true,"candidates":[{"rowNo":1,"symbol":null,"securityName":null,"side":null,"tradedAt":null,"quantity":null,"price":null,"fee":null,"externalTradeNo":null,"confidence":0.0,"evidence":{},"warnings":[]}],"warnings":[]}。
+                一张图片可能包含多笔交易，必须拆分为 candidates 数组。每条都必须给出 instrumentType：普通 A 股股票为 STOCK；交易所上市 ETF（即使名称没有“ETF”字样，例如科创、消费电子、电池等主题 ETF）为 ETF。不要根据六位代码前缀猜测类别，优先使用证券名称和券商页面的基金/ETF 标识；无法可靠判断时使用 null 并在 warnings 中说明。
+                将买入、买、买进映射为 BUY，将卖出、卖、卖出映射为 SELL。字段不可辨认时返回 null 并在 warnings 中说明，不要猜测、补全或计算持仓收益。
+                只输出合法 JSON，不要 Markdown、思考过程或额外文字。格式：{"isTradeScreenshot":true,"candidates":[{"rowNo":1,"symbol":null,"securityName":null,"instrumentType":"STOCK","side":null,"tradedAt":null,"quantity":null,"price":null,"fee":null,"externalTradeNo":null,"confidence":0.0,"evidence":{},"warnings":[]}],"warnings":[]}。
                 """ + (candidateContext == null ? "" : candidateContext);
     }
 }

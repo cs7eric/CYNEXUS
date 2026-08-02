@@ -50,13 +50,13 @@ public class PortfolioOverviewAppService {
 
     public List<PortfolioTradeDTO> trades(String symbol) {
         return tradeRepository.list(PRINCIPAL, TENANT, symbol).stream().map(trade -> PortfolioTradeDTO.builder()
-                .id(trade.id()).symbol(trade.symbol()).securityName(trade.securityName()).side(trade.side().name())
+                .id(trade.id()).symbol(trade.symbol()).securityName(trade.securityName()).instrumentType(trade.instrumentType().name()).side(trade.side().name())
                 .tradedAt(trade.tradedAt()).quantity(trade.quantity()).price(trade.price())
                 .totalFee(trade.totalFee()).status(trade.status().name()).build()).toList();
     }
 
     private PortfolioPositionDTO toPosition(cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO value) {
-        return PortfolioPositionDTO.builder().symbol(value.symbol()).quantity(value.quantity())
+        return PortfolioPositionDTO.builder().symbol(value.symbol()).instrumentType(value.instrumentType().name()).quantity(value.quantity())
                 .averageCost(value.averageCost()).costBasis(value.costBasis()).realizedPnl(value.realizedPnl())
                 .latestPrice(value.latestPrice()).marketValue(value.marketValue()).unrealizedPnl(value.unrealizedPnl())
                 .unrealizedReturnRate(value.unrealizedReturnRate()).build();
@@ -69,7 +69,7 @@ public class PortfolioOverviewAppService {
                 continue;
             }
             try {
-                var result = stockChartQueryDomainService.klines("stock", position.symbol(), "1d", "qfq");
+                var result = stockChartQueryDomainService.klines(position.instrumentType().chartTargetType(), position.symbol(), "1d", "qfq");
                 result.items().stream()
                         .filter(bar -> bar.getClose() != null)
                         .max((left, right) -> {

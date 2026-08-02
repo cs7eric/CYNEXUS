@@ -8,6 +8,7 @@ import lombok.Value;
 @Builder
 public class PortfolioPositionDTO {
     String symbol;
+    String instrumentType;
     BigDecimal quantity;
     BigDecimal averageCost;
     BigDecimal costBasis;

@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.market.infra.portfolio;
 
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioInstrumentType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeQueryRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.TradeSide;
 import cn.cccs7.cynexus.market.domain.portfolio.TradeStatus;
@@ -23,7 +24,8 @@ public class PortfolioTradeQueryRepositoryAdapter implements PortfolioTradeQuery
     }
 
     private PortfolioTradeBO toDomain(PortfolioTradePO po) {
-        return new PortfolioTradeBO(po.getId(), po.getSymbol(), po.getSecurityName(), TradeSide.valueOf(po.getSide()),
+        return new PortfolioTradeBO(po.getId(), po.getSymbol(), po.getSecurityName(),
+                PortfolioInstrumentType.fromPayload(po.getInstrumentType()), TradeSide.valueOf(po.getSide()),
                 po.getTradedAt(), po.getQuantity(), po.getPrice(), po.getTotalFee(), TradeStatus.valueOf(po.getStatus()));
     }
 }

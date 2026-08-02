@@ -24,6 +24,7 @@ $migrationFiles = @(
     "20260728_schedule_market_indicator_refresh.sql",
     "20260729_normalize_scheduler_job_catalog.sql",
     "20260801_create_personal_portfolio_tables.sql",
+    "20260802_add_portfolio_instrument_type.sql",
     "20260802_add_portfolio_process_history.sql",
     "20260803_aggregate_portfolio_process_history.sql"
 )

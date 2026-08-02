@@ -62,6 +62,7 @@ $migrationFiles = @(
     ,"20260801_seed_portfolio_trade_screenshot_prompt.sql"
     ,"20260802_normalize_ai_capability_labels.sql"
     ,"20260802_refine_portfolio_trade_screenshot_prompt.sql"
+    ,"20260802_refine_portfolio_trade_screenshot_prompt_v3.sql"
 )
 
 foreach ($file in $migrationFiles) {

@@ -7,6 +7,7 @@ public record PortfolioTradeBO(
         Long id,
         String symbol,
         String securityName,
+        PortfolioInstrumentType instrumentType,
         TradeSide side,
         OffsetDateTime tradedAt,
         BigDecimal quantity,
@@ -15,7 +16,7 @@ public record PortfolioTradeBO(
         TradeStatus status
 ) {
     public PortfolioTradeBO {
-        if (id == null || symbol == null || symbol.isBlank() || side == null || tradedAt == null
+        if (id == null || symbol == null || symbol.isBlank() || instrumentType == null || side == null || tradedAt == null
                 || quantity == null || quantity.signum() <= 0 || price == null || price.signum() <= 0
                 || totalFee == null || totalFee.signum() < 0 || status == null) {
             throw new IllegalArgumentException("invalid portfolio trade");

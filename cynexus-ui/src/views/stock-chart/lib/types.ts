@@ -1,4 +1,4 @@
-export type StockTargetType = "stock" | "index" | "sector"
+export type StockTargetType = "stock" | "index" | "sector" | "etf"
 export type StockPeriod = "1m" | "5m" | "15m" | "30m" | "60m" | "120m" | "1d" | "1w"
 export type StockAdjust = "none" | "qfq" | "hfq"
 
