@@ -33,4 +33,5 @@ SELECT (task.id * 1000000) + 1, task.id, task.principal_key, task.tenant_key, ta
  WHERE NOT EXISTS (
      SELECT 1 FROM cynexus_appl_market.portfolio_import_process_history history
       WHERE history.task_id = task.id AND history.event_type = 'TASK_CREATED'
- );
+ )
+ON CONFLICT DO NOTHING;
