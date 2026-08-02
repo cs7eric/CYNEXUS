@@ -158,10 +158,11 @@
 
 ### Phase 9: Complete Portfolio User Workflow
 
-- **Status:** in_progress
+- **Status:** completed
 - Audit result: the current release exposes upload/history, a basic positions table, and a review editor, but does not provide the requested holdings dashboard, buy/sell K-line, or trade-context review flow.
 - Confirmed current market API and frontend service can be reused for K-lines; portfolio trade API remains the source of confirmed markers.
-- Next: implement feature-sized UI changes, then verify against the Release stack.
+- Completed: added the holdings dashboard, return breakdown, qfq K-line trade markers, trade ledger, review center/editor workflow, and latest-price valuation states.
+- Self-test: focused domain test passed (5 tests), market application compile passed, UI build and focused ESLint passed, version sync passed, and Release `market,ui` rebuilt and restarted successfully.
 
 ## 5-Question Reboot Check
 
