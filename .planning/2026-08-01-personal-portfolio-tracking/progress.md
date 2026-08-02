@@ -169,7 +169,8 @@
 - **Status:** completed
 - Replaced the expanded five-column record shell with a single compact summary row that carries status, attempts, candidate count, latest activity, and the latest error.
 - Replaced the tall per-event timeline with one compact, ordered event path per attempt; all events remain visible inside the same upload record when expanded.
-- Self-test: focused ESLint and `pnpm build` passed. Release UI rebuild is pending this feature commit.
+- Each retry attempt is independently expandable, while setup events remain grouped separately; expanded attempts show the event chain with concise metadata and errors.
+- Self-test: focused ESLint, `pnpm build`, release UI rebuild, HTTP 200 route check, and version synchronization passed.
 
 ## 5-Question Reboot Check
 
