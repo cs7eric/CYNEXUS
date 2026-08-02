@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.market.domain.portfolio;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -66,7 +67,12 @@ public class PortfolioImportConfirmationDomainService {
 
     private OffsetDateTime parseTime(String value) {
         try { return OffsetDateTime.parse(value); }
-        catch (Exception ignored) { return LocalDate.parse(value).atStartOfDay().atOffset(ZoneOffset.UTC); }
+        catch (Exception ignored) {
+            try { return LocalDateTime.parse(value).atOffset(ZoneOffset.UTC); }
+            catch (Exception localDateTimeIgnored) {
+                return LocalDate.parse(value).atStartOfDay().atOffset(ZoneOffset.UTC);
+            }
+        }
     }
 
     private BigDecimal positive(JsonNode node, String field) {

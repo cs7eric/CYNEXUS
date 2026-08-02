@@ -22,6 +22,14 @@ class PortfolioCandidateEditPolicyTest {
     }
 
     @Test
+    void acceptsLocalDateTimeWithoutOffsetFromVisionImport() {
+        var normalized = PortfolioCandidateEditPolicy.normalize(mapper, "159796", "电池", "ETF", "BUY",
+                "2026-07-31T09:30:10", "200", "0.84", "0", null);
+
+        assertEquals("2026-07-31T09:30:10Z", normalized.path("tradedAt").asText());
+    }
+
+    @Test
     void rejectsInvalidValues() {
         assertThrows(IllegalArgumentException.class, () -> PortfolioCandidateEditPolicy.normalize(mapper,
                 "60000", null, "ETF", "BUY", "2026-08-02", "100", "12.50", "0", null));

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
@@ -30,9 +31,13 @@ public final class PortfolioCandidateEditPolicy {
             normalizedTime = OffsetDateTime.parse(normalizedTime).toString();
         } catch (Exception ignored) {
             try {
-                normalizedTime = LocalDate.parse(normalizedTime).atStartOfDay().atOffset(ZoneOffset.UTC).toString();
+                normalizedTime = LocalDateTime.parse(normalizedTime).atOffset(ZoneOffset.UTC).toString();
             } catch (Exception exception) {
-                throw new IllegalArgumentException("tradedAt must be an ISO date or timestamp", exception);
+                try {
+                    normalizedTime = LocalDate.parse(normalizedTime).atStartOfDay().atOffset(ZoneOffset.UTC).toString();
+                } catch (Exception dateException) {
+                    throw new IllegalArgumentException("tradedAt must be an ISO date or timestamp", dateException);
+                }
             }
         }
         result.put("tradedAt", normalizedTime);
