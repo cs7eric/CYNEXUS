@@ -32,6 +32,24 @@ class PortfolioLedgerDomainServiceTest {
     }
 
     @Test
+    void appliesRealizedPnlBaselineWithoutChangingOpenPositionValuation() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, TradeSide.BUY, "10", "10", "1"),
+                trade(2L, TradeSide.BUY, "10", "14", "0"),
+                trade(3L, TradeSide.SELL, "8", "20", "2")
+        );
+
+        PortfolioLedgerResultBO raw = service.calculate(trades, Map.of("600000", decimal("18")));
+        PortfolioLedgerResultBO reset = service.applyRealizedPnlBaselines(raw, Map.of("600000", raw.realizedPnl()));
+
+        assertEquals(BigDecimal.ZERO, reset.realizedPnl());
+        assertEquals(decimal("71.4"), reset.unrealizedPnl());
+        assertEquals(decimal("71.4"), reset.totalPnl());
+        assertEquals(BigDecimal.ZERO, reset.positions().getFirst().realizedPnl());
+        assertEquals(decimal("12"), reset.positions().getFirst().quantity());
+    }
+
+    @Test
     void keepsOverviewAvailableWhenImportedHistoryStartsWithSell() {
         PortfolioLedgerResultBO result = service.calculate(
                 List.of(trade(1L, TradeSide.SELL, "1", "10", "0")), Map.of());

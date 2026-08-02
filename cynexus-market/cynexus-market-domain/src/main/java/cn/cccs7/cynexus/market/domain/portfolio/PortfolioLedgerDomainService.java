@@ -82,6 +82,27 @@ public final class PortfolioLedgerDomainService {
                 : PortfolioValuationStatus.PARTIAL_MARKET_DATA;
     }
 
+    public PortfolioLedgerResultBO applyRealizedPnlBaselines(PortfolioLedgerResultBO result,
+                                                               Map<String, BigDecimal> baselines) {
+        if (result == null || baselines == null || baselines.isEmpty()) {
+            return result;
+        }
+        List<PortfolioPositionBO> positions = result.positions().stream()
+                .map(position -> {
+                    BigDecimal baseline = baselines.getOrDefault(position.symbol(), BigDecimal.ZERO);
+                    BigDecimal realized = money(position.realizedPnl().subtract(baseline));
+                    return new PortfolioPositionBO(position.symbol(), position.instrumentType(), position.quantity(),
+                            position.averageCost(), position.costBasis(), realized, position.latestPrice(),
+                            position.marketValue(), position.unrealizedPnl(), position.unrealizedReturnRate());
+                })
+                .filter(position -> position.quantity().signum() > 0 || position.realizedPnl().signum() != 0)
+                .toList();
+        BigDecimal realizedPnl = positions.stream().map(PortfolioPositionBO::realizedPnl)
+                .filter(value -> value != null).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new PortfolioLedgerResultBO(positions, money(realizedPnl), result.unrealizedPnl(),
+                money(realizedPnl.add(result.unrealizedPnl())), result.warnings());
+    }
+
     private static BigDecimal money(BigDecimal value) {
         return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
     }

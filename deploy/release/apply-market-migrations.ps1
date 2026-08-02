@@ -27,7 +27,8 @@ $migrationFiles = @(
     "20260802_add_portfolio_instrument_type.sql",
     "20260802_add_portfolio_process_history.sql",
     "20260802_backfill_portfolio_candidate_payload.sql",
-    "20260803_aggregate_portfolio_process_history.sql"
+    "20260803_aggregate_portfolio_process_history.sql",
+    "20260803_reset_personal_portfolio_realized_pnl.sql"
 )
 
 foreach ($file in $migrationFiles) {

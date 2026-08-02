@@ -7,6 +7,7 @@ import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealizedPnlBaselineRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeQueryRepository;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import java.math.BigDecimal;
@@ -23,22 +24,28 @@ public class PortfolioOverviewAppService {
     private static final String PRINCIPAL = "workspace-user";
     private static final String TENANT = "default";
     private final PortfolioTradeQueryRepository tradeRepository;
+    private final PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository;
     private final PortfolioLedgerDomainService ledgerService;
     private final StockChartQueryDomainService stockChartQueryDomainService;
 
     public PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
+                                       PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository,
                                        PortfolioLedgerDomainService ledgerService,
                                        StockChartQueryDomainService stockChartQueryDomainService) {
         this.tradeRepository = tradeRepository;
+        this.realizedPnlBaselineRepository = realizedPnlBaselineRepository;
         this.ledgerService = ledgerService;
         this.stockChartQueryDomainService = stockChartQueryDomainService;
     }
 
     public PortfolioOverviewDTO overview() {
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
-        var preliminary = ledgerService.calculate(trades, Map.of());
+        var baselines = realizedPnlBaselineRepository.list(PRINCIPAL, TENANT);
+        var preliminary = ledgerService.applyRealizedPnlBaselines(
+                ledgerService.calculate(trades, Map.of()), baselines);
         Map<String, BigDecimal> latestPrices = loadLatestPrices(preliminary.positions());
-        PortfolioLedgerResultBO result = ledgerService.calculate(trades, latestPrices);
+        PortfolioLedgerResultBO result = ledgerService.applyRealizedPnlBaselines(
+                ledgerService.calculate(trades, latestPrices), baselines);
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         Map<String, String> securityNames = loadSecurityNames(result.positions());
