@@ -3,7 +3,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import type { PortfolioOverview } from "@/services/market/portfolio/types"
 
 const chartConfig = {
-  value: { label: "P&L" },
+  value: { label: "盈亏" },
 } satisfies ChartConfig
 
 const COLORS = {
@@ -24,9 +24,9 @@ export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownP
   const hasTrades = (overview?.tradeCount ?? 0) > 0
   const data = overview
     ? [
-        { key: "realized", label: "Realized", value: overview.realizedPnl ?? 0 },
-        { key: "unrealized", label: "Unrealized", value: overview.unrealizedPnl ?? 0 },
-        { key: "total", label: "Total", value: overview.totalPnl ?? 0 },
+        { key: "realized", label: "已实现", value: overview.realizedPnl ?? 0 },
+        { key: "unrealized", label: "持仓浮动", value: overview.unrealizedPnl ?? 0 },
+        { key: "total", label: "累计账户", value: overview.totalPnl ?? 0 },
       ]
     : []
 
@@ -34,9 +34,9 @@ export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownP
     <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold">Return tracking</h2>
+          <h2 className="text-sm font-semibold">盈亏拆分</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Confirmed trades only. Account-level return rate is intentionally not estimated without cash-flow data.
+            当前持仓盈亏反映仍持有仓位；已实现盈亏只统计已经卖出的部分；累计账户盈亏为两者之和。
           </p>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
@@ -57,9 +57,9 @@ export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownP
             </BarChart>
           </ChartContainer>
           <dl className="grid gap-3 rounded-md bg-muted/35 p-3">
-            <div><dt className="text-xs text-muted-foreground">Realized P&L</dt><dd className="mt-1 font-mono text-sm tabular-nums">{amount(overview?.realizedPnl)}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Unrealized P&L</dt><dd className="mt-1 font-mono text-sm tabular-nums">{amount(overview?.unrealizedPnl)}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Total P&L</dt><dd className="mt-1 font-mono text-base font-semibold tabular-nums">{amount(overview?.totalPnl)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">已实现盈亏</dt><dd className="mt-1 font-mono text-sm tabular-nums">{amount(overview?.realizedPnl)}</dd><p className="mt-1 text-[11px] text-muted-foreground">卖出成交后已落袋的盈亏</p></div>
+            <div><dt className="text-xs text-muted-foreground">当前持仓盈亏</dt><dd className="mt-1 font-mono text-sm tabular-nums">{amount(overview?.unrealizedPnl)}</dd><p className="mt-1 text-[11px] text-muted-foreground">当前市值减持仓成本</p></div>
+            <div><dt className="text-xs text-muted-foreground">累计账户盈亏</dt><dd className="mt-1 font-mono text-base font-semibold tabular-nums">{amount(overview?.totalPnl)}</dd><p className="mt-1 text-[11px] text-muted-foreground">已实现 + 当前持仓</p></div>
           </dl>
         </div>
       ) : (

@@ -10,6 +10,7 @@ import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
 import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
+import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
 
 const money = (value: number | null | undefined) => value == null ? "--" : value.toFixed(2)
 const percent = (value: number | null | undefined) => value == null ? "--" : `${(value * 100).toFixed(2)}%`
@@ -30,11 +31,25 @@ export default function PersonalPortfolioPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const importDrawerOpen = searchParams.get("imports") === "1"
+  const selectedSymbol = searchParams.get("stock")
+  const selectedInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
 
   function setImportDrawerOpen(open: boolean) {
     const next = new URLSearchParams(searchParams)
     if (open) next.set("imports", "1")
     else next.delete("imports")
+    setSearchParams(next, { replace: true })
+  }
+
+  function setPositionDrawerOpen(open: boolean) {
+    const next = new URLSearchParams(searchParams)
+    if (open && selectedSymbol) {
+      next.set("stock", selectedSymbol)
+      next.set("instrumentType", selectedInstrumentType)
+    } else {
+      next.delete("stock")
+      next.delete("instrumentType")
+    }
     setSearchParams(next, { replace: true })
   }
 
@@ -62,7 +77,7 @@ export default function PersonalPortfolioPage() {
   const positions = useMemo(() => overview?.positions ?? [], [overview])
   const costBasis = overview?.costBasis ?? positions.reduce((sum, position) => sum + positionValue(position, "costBasis"), 0)
   const marketValue = overview?.marketValue ?? positions.reduce((sum, position) => sum + positionValue(position, "marketValue"), 0)
-  const totalPnl = overview?.totalPnl ?? 0
+  const unrealizedPnl = overview?.unrealizedPnl ?? 0
   const reviewDue = reviews.filter((review) => (review.status ?? "DRAFT") !== "COMPLETED").length
   const largestPosition = useMemo(() => positions.reduce<PortfolioPosition | null>((largest, position) => {
     if (!largest || positionValue(position, "marketValue") > positionValue(largest, "marketValue")) return position
@@ -88,13 +103,14 @@ export default function PersonalPortfolioPage() {
 
         {!loading && overview?.dataQualityWarnings?.length ? <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Partial trade history</p><div className="mt-1 space-y-1 text-xs">{overview.dataQualityWarnings.map((warning, index) => <p key={`${warning.code}-${warning.symbol}-${index}`}>{warning.symbol}: {warning.message}</p>)}</div></div></div> : null}
 
-        {loading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-24 rounded-lg" />)}</div> : (
+        {loading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-24 rounded-lg" />)}</div> : (
           <>
-            <section aria-labelledby="holdings-summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <section aria-labelledby="holdings-summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
               <h2 id="holdings-summary" className="sr-only">Holdings summary</h2>
               <Metric label="Market value" value={money(marketValue)} detail={overview?.valuationStatus === "LATEST_PRICE_UNAVAILABLE" ? "Latest prices unavailable" : "Latest available quote"} />
               <Metric label="Cost basis" value={money(costBasis)} detail="Confirmed buy cost + fees" />
-              <Metric label="总收益" value={money(totalPnl)} detail={`已实现 ${money(overview?.realizedPnl)} + 持仓浮动 ${money(overview?.unrealizedPnl)}`} valueClassName={pnlTone(totalPnl)} />
+              <Metric label="当前持仓盈亏" value={money(unrealizedPnl)} detail="当前市值 - 当前持仓成本" valueClassName={pnlTone(unrealizedPnl)} />
+              <Metric label="已实现盈亏" value={money(overview?.realizedPnl)} detail="已卖出部分产生的盈亏" valueClassName={pnlTone(overview?.realizedPnl)} />
               <Metric label="Open positions" value={String(positions.filter((position) => Number(position.quantity) > 0).length)} detail={`${positions.length} symbols in ledger`} />
               <Metric label="Reviews to finish" value={String(reviewDue)} detail={reviewDue ? "Open the review center" : "No open review"} valueClassName={reviewDue ? "text-amber-600" : undefined} />
             </section>
@@ -109,14 +125,14 @@ export default function PersonalPortfolioPage() {
                   <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">标的</th><th className="px-4 py-3 text-right">持仓数量</th><th className="px-4 py-3 text-right">平均成本</th><th className="px-4 py-3 text-right">最新价</th><th className="px-4 py-3 text-right">市值</th><th className="px-4 py-3 text-right">未实现盈亏</th><th className="px-4 py-3 text-right">收益率</th><th className="px-4 py-3" /></tr></thead>
                   <tbody className="divide-y divide-border/60">
                     {positions.map((position) => <tr key={position.symbol} className="hover:bg-muted/35">
-                      <td className="px-4 py-3"><div className="flex min-w-0 items-center gap-2"><Link className="font-mono font-medium text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}?instrumentType=${position.instrumentType}`}>{position.symbol}</Link><span className="truncate text-muted-foreground">{position.securityName ?? "名称待补充"}</span><span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span></div></td>
+                      <td className="px-4 py-3"><div className="flex min-w-0 items-center gap-2"><Link className="font-mono font-medium text-blue-600 hover:underline" to={`/personal-portfolio?stock=${encodeURIComponent(position.symbol)}&instrumentType=${position.instrumentType}`}>{position.symbol}</Link><span className="truncate text-muted-foreground">{position.securityName ?? "名称待补充"}</span><span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span></div></td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{position.quantity}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.averageCost)}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.latestPrice)}</td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">{money(position.marketValue)}</td>
                       <td className={`px-4 py-3 text-right font-mono tabular-nums ${pnlTone(position.unrealizedPnl)}`}>{money(position.unrealizedPnl)}</td>
                       <td className={`px-4 py-3 text-right font-mono tabular-nums ${pnlTone(position.unrealizedReturnRate)}`}>{percent(position.unrealizedReturnRate)}</td>
-                      <td className="px-4 py-3 text-right"><Link className="text-xs text-blue-600 hover:underline" to={`/personal-portfolio/stocks/${position.symbol}?instrumentType=${position.instrumentType}`}>Chart <ArrowUpRight className="inline size-3" /></Link></td>
+                      <td className="px-4 py-3 text-right"><Link className="text-xs text-blue-600 hover:underline" to={`/personal-portfolio?stock=${encodeURIComponent(position.symbol)}&instrumentType=${position.instrumentType}`}>Chart <ArrowUpRight className="inline size-3" /></Link></td>
                     </tr>)}
                     {!positions.length ? <tr><td colSpan={8} className="px-4 py-14 text-center"><p className="text-sm font-medium">暂无已确认持仓</p><p className="mt-1 text-xs text-muted-foreground">上传截图、校正识别结果并确认交易后，持仓会显示在这里。</p></td></tr> : null}
                   </tbody>
@@ -131,6 +147,7 @@ export default function PersonalPortfolioPage() {
           </>
         )}
         <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={setImportDrawerOpen} />
+        <PortfolioPositionDrawer open={Boolean(selectedSymbol)} symbol={selectedSymbol} instrumentType={selectedInstrumentType} onOpenChange={setPositionDrawerOpen} />
       </div>
     </WorkspaceShell>
   )

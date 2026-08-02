@@ -19,6 +19,7 @@ export default function PersonalPortfolioReviewEditorPage() {
   const { reviewId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const instrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
   const [review, setReview] = useState<PortfolioReview>(() => defaultReview(searchParams.get("symbol") ?? ""))
   const [loading, setLoading] = useState(Boolean(reviewId && reviewId !== "new"))
   const [saving, setSaving] = useState(false)
@@ -49,7 +50,7 @@ export default function PersonalPortfolioReviewEditorPage() {
       const saved = await savePortfolioReview({ ...review, symbol: review.symbol.trim().toUpperCase(), status })
       setReview(saved)
       notification.success({ title: status === "COMPLETED" ? "Review completed" : "Review saved", description: "The decision journal is stored with your portfolio." })
-      if (status === "COMPLETED") navigate(`/personal-portfolio/stocks/${encodeURIComponent(saved.symbol)}`)
+      if (status === "COMPLETED") navigate(`/personal-portfolio?stock=${encodeURIComponent(saved.symbol)}&instrumentType=${instrumentType}`)
       else if (reviewId === "new") navigate(`/personal-portfolio/reviews/${saved.id}`)
     } catch (cause) {
       notification.danger({ title: "Review save failed", description: cause instanceof Error ? cause.message : String(cause) })
