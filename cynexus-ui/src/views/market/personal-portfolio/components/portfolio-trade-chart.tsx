@@ -25,7 +25,7 @@ export function PortfolioTradeChart({ symbol, bars, trades }: PortfolioTradeChar
     .filter((signal) => Number.isFinite(signal.timestamp) && Number.isFinite(signal.price))
 
   return (
-    <div className="h-[420px] min-h-0 w-full">
+    <div className="h-[340px] min-h-0 w-full">
       <ChartPanel
         bars={bars}
         annotations={[]}
