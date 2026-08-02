@@ -15,17 +15,17 @@
                     'id', #{eventId},
                     'attemptNo', #{attemptNo},
                     'eventType', #{eventType},
-                    'fromStatus', #{fromStatus},
-                    'toStatus', #{toStatus},
-                    'messageId', #{messageId},
-                    'correlationId', #{correlationId},
-                    'providerCode', #{providerCode},
-                    'modelCode', #{modelCode},
-                    'errorCode', #{errorCode},
-                    'errorMessage', #{errorMessage},
+                    'fromStatus', cast(#{fromStatus,jdbcType=VARCHAR} as text),
+                    'toStatus', cast(#{toStatus,jdbcType=VARCHAR} as text),
+                    'messageId', cast(#{messageId,jdbcType=VARCHAR} as text),
+                    'correlationId', cast(#{correlationId,jdbcType=VARCHAR} as text),
+                    'providerCode', cast(#{providerCode,jdbcType=VARCHAR} as text),
+                    'modelCode', cast(#{modelCode,jdbcType=VARCHAR} as text),
+                    'errorCode', cast(#{errorCode,jdbcType=VARCHAR} as text),
+                    'errorMessage', cast(#{errorMessage,jdbcType=VARCHAR} as text),
                     'details', cast(#{details} as jsonb),
                     'occurredAt', #{occurredAt},
-                    'durationMs', #{durationMs}
+                    'durationMs', cast(#{durationMs,jdbcType=BIGINT} as bigint)
                 )), now(), now())
         on conflict (tenant_key, principal_key, task_id)
         do update set events = cynexus_appl_market.portfolio_import_process_history.events || excluded.events,
