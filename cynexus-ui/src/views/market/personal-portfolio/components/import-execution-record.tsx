@@ -1,4 +1,4 @@
-import { ChevronDown, CircleAlert, FileCheck2 } from "lucide-react"
+import { ChevronDown, ChevronRight, CircleAlert, FileCheck2 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PortfolioImportProcessHistory, PortfolioImportProcessHistoryEvent, PortfolioImportTask } from "@/services/market/portfolio/types"
@@ -56,6 +56,10 @@ function formatTime(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "--"
 }
 
+function formatClock(value?: string | null) {
+  return value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--"
+}
+
 function formatDuration(value?: number | null) {
   if (value == null) return null
   return value < 1_000 ? `${value} ms` : `${(value / 1_000).toFixed(1)} s`
@@ -63,6 +67,11 @@ function formatDuration(value?: number | null) {
 
 function eventCopy(event: PortfolioImportProcessHistoryEvent) {
   return EVENT_COPY[event.eventType] ?? { title: event.eventType, description: "Import record event." }
+}
+
+function meaningfulDetails(value?: string | null) {
+  if (!value || value === "{}" || value === "null") return null
+  return value
 }
 
 interface AttemptChain {
@@ -73,10 +82,14 @@ interface AttemptChain {
 function groupByAttempt(events: PortfolioImportProcessHistoryEvent[]): AttemptChain[] {
   const grouped = new Map<number, PortfolioImportProcessHistoryEvent[]>()
   for (const event of events) {
-    const attemptNo = event.attemptNo || 1
+    const attemptNo = event.attemptNo ?? 0
     grouped.set(attemptNo, [...(grouped.get(attemptNo) ?? []), event])
   }
   return [...grouped.entries()].map(([attemptNo, attemptEvents]) => ({ attemptNo, events: attemptEvents }))
+}
+
+function attemptLabel(attemptNo: number) {
+  return attemptNo === 0 ? "Setup" : `Attempt ${attemptNo}`
 }
 
 function statusClass(status: string) {
@@ -114,7 +127,6 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
       </button>
     </CollapsibleTrigger>
     <CollapsibleContent className="border-t border-border/60">
-      {failure ? <div className="mx-4 mt-3 flex items-start gap-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800"><CircleAlert className="mt-0.5 size-4 shrink-0" /><p className="min-w-0"><span className="font-mono font-medium">{failure.errorCode}</span>{failure.errorMessage ? ` · ${failure.errorMessage}` : null}</p></div> : null}
       {!events.length ? <p className="px-4 py-3 text-xs text-muted-foreground">No execution events have been recorded yet.</p> : <ol className="divide-y divide-border/60 px-4 py-2">{attemptChains.map((chain) => <AttemptEventChain key={chain.attemptNo} chain={chain} />)}</ol>}
     </CollapsibleContent>
   </Collapsible>
@@ -129,10 +141,45 @@ function AttemptEventChain({ chain }: { chain: AttemptChain }) {
   const failure = [...chain.events].reverse().find((event) => event.errorCode)
   const duration = chain.events.map((event) => event.durationMs ?? 0).reduce((sum, value) => sum + value, 0)
   const labels = chain.events.map((event) => EVENT_SHORT_LABEL[event.eventType] ?? eventCopy(event).title)
+  const latestStatus = latest?.toStatus ? STATUS_COPY[latest.toStatus] ?? latest.toStatus : null
 
-  return <li className="grid gap-1 py-2.5 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:items-start sm:gap-3">
-    <span className="font-mono text-xs font-medium tabular-nums text-foreground">Attempt {chain.attemptNo}</span>
-    <div className="min-w-0"><p className="flex flex-wrap items-center gap-x-1 text-xs leading-5 text-foreground">{labels.map((label, index) => <span key={`${label}-${index}`} className="inline-flex items-center">{index ? <span className="mx-1 text-muted-foreground">→</span> : null}{label}</span>)}</p>{failure ? <p className="mt-0.5 truncate font-mono text-[11px] text-rose-700">{failure.errorCode}</p> : null}</div>
-    <div className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground sm:justify-end"><span>{formatTime(latest?.occurredAt)}</span>{duration ? <span>{formatDuration(duration)}</span> : null}</div>
+  return <li className="py-0.5">
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <button type="button" className="group flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[state=open]:rotate-90" />
+          <span className="w-[68px] shrink-0 font-mono text-xs font-medium tabular-nums text-foreground">{attemptLabel(chain.attemptNo)}</span>
+          <span className="min-w-0 flex-1 truncate text-xs text-foreground">{labels.join(" → ")}</span>
+          {failure ? <span className="hidden max-w-[180px] truncate font-mono text-[11px] text-rose-700 md:inline">{failure.errorCode}</span> : null}
+          {latestStatus ? <span className={`hidden rounded-full px-2 py-0.5 text-[11px] sm:inline ${statusClass(latest?.toStatus ?? "")}`}>{latestStatus}</span> : null}
+          <span className="shrink-0 text-[11px] text-muted-foreground">{formatTime(latest?.occurredAt)}</span>
+          {duration ? <span className="hidden shrink-0 text-[11px] text-muted-foreground lg:inline">{formatDuration(duration)}</span> : null}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="ml-[22px] border-l border-border/70 py-1 pl-3">
+          {chain.events.map((event) => <EventDetail key={event.id} event={event} />)}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   </li>
+}
+
+function EventDetail({ event }: { event: PortfolioImportProcessHistoryEvent }) {
+  const copy = eventCopy(event)
+  const details = meaningfulDetails(event.details)
+  const metadata = [
+    formatClock(event.occurredAt),
+    event.durationMs == null ? null : formatDuration(event.durationMs),
+    event.providerCode ? `Provider ${event.providerCode}` : null,
+    event.modelCode ? `Model ${event.modelCode}` : null,
+  ].filter((item): item is string => Boolean(item))
+
+  return <div className="py-2 first:pt-1 last:pb-1">
+    <div className="flex flex-wrap items-center gap-2"><p className="text-xs font-medium text-foreground">{copy.title}</p>{event.toStatus ? <span className={`rounded-full px-2 py-0.5 text-[11px] ${statusClass(event.toStatus)}`}>{STATUS_COPY[event.toStatus] ?? event.toStatus}</span> : null}</div>
+    <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{copy.description}</p>
+    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">{metadata.map((item) => <span key={item}>{item}</span>)}</div>
+    {event.errorCode ? <p className="mt-1 break-words text-[11px] text-rose-700"><span className="font-mono font-medium">{event.errorCode}</span>{event.errorMessage ? ` · ${event.errorMessage}` : null}</p> : null}
+    {details ? <p className="mt-1 break-words text-[11px] leading-4 text-muted-foreground">{details}</p> : null}
+  </div>
 }
