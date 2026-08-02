@@ -14,6 +14,7 @@ interface ImportExecutionRecordProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   reviewHref?: string
+  embedded?: boolean
 }
 
 const EVENT_COPY: Record<string, { title: string; description: string }> = {
@@ -103,27 +104,28 @@ function statusClass(status: string) {
   return "bg-muted text-muted-foreground"
 }
 
-export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref }: ImportExecutionRecordProps) {
+export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref, embedded = false }: ImportExecutionRecordProps) {
   const events = history?.events ?? []
   const attempts = Math.max(task.attemptCount, ...events.map((event) => event.attemptNo))
   const latestEvent = events.at(-1)
   const failure = [...events].reverse().find((event) => event.errorCode)
   const statusLabel = STATUS_COPY[task.status] ?? task.status
   const attemptChains = groupByAttempt(events)
+  const recordSurface = embedded ? "overflow-hidden bg-card" : "overflow-hidden rounded-lg border border-border/60 bg-card"
 
   if (loading) {
-    return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><div className="space-y-3 border-t border-border/60 p-4"><Skeleton className="h-14 rounded-md" /><Skeleton className="h-20 rounded-md" /><Skeleton className="h-20 rounded-md" /></div></section>
+    return <section className={recordSurface}><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><div className="space-y-3 border-t border-border/60 p-4"><Skeleton className="h-14 rounded-md" /><Skeleton className="h-20 rounded-md" /><Skeleton className="h-20 rounded-md" /></div></section>
   }
 
   if (error) {
-    return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><div className="border-t border-border/60 p-4"><div className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Execution record unavailable</p><p className="mt-1 text-xs">{error}</p></div></div></div></section>
+    return <section className={recordSurface}><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><div className="border-t border-border/60 p-4"><div className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Execution record unavailable</p><p className="mt-1 text-xs">{error}</p></div></div></div></section>
   }
 
   if (!history) {
-    return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><p className="border-t border-border/60 p-4 text-sm text-muted-foreground">This upload has not created an execution record yet.</p></section>
+    return <section className={recordSurface}><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><p className="border-t border-border/60 p-4 text-sm text-muted-foreground">This upload has not created an execution record yet.</p></section>
   }
 
-  return <Collapsible className="overflow-hidden rounded-lg border border-border/60 bg-card" open={open} onOpenChange={onOpenChange}>
+  return <Collapsible className={recordSurface} open={open} onOpenChange={onOpenChange}>
     <CollapsibleTrigger asChild>
       <button type="button" className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div>

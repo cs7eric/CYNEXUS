@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { CircleAlert, Loader2, RefreshCw, Upload } from "lucide-react"
+import { ChevronLeft, ChevronRight, CircleAlert, Loader2, RefreshCw, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { notification } from "@/components/ui/notification"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { fetchPortfolioImports, uploadPortfolioScreenshot } from "@/services/market/portfolio/imports"
-import type { PortfolioImportTask } from "@/services/market/portfolio/types"
+import type { PortfolioImportTask, PortfolioImportTaskPage } from "@/services/market/portfolio/types"
 import { ImportHistoryList } from "./import-history-list"
 
 const ACTIVE_STATUSES = new Set(["PENDING_DISPATCH", "QUEUED", "PROCESSING", "RETRY_WAITING"])
+const PAGE_SIZE = 10
 
 function sameTasks(left: PortfolioImportTask[], right: PortfolioImportTask[]) {
   return left.length === right.length && left.every((task, index) => {
@@ -31,17 +32,20 @@ interface PortfolioImportDrawerProps {
 export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDrawerProps) {
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [tasks, setTasks] = useState<PortfolioImportTask[]>([])
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState<PortfolioImportTaskPage | null>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null)
   const [refreshSignal, setRefreshSignal] = useState(0)
 
-  const load = useCallback(async (showLoading = false) => {
+  const load = useCallback(async (targetPage = page, showLoading = false) => {
     if (showLoading) setLoading(true)
     try {
-      const nextTasks = await fetchPortfolioImports()
-      setTasks((current) => sameTasks(current, nextTasks) ? current : nextTasks)
+      const result = await fetchPortfolioImports(targetPage, PAGE_SIZE)
+      setTasks((current) => sameTasks(current, result.items) ? current : result.items)
+      setPagination(result)
       setError(null)
       setRefreshSignal((current) => current + 1)
     } catch (cause) {
@@ -51,10 +55,10 @@ export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDra
     } finally {
       if (showLoading) setLoading(false)
     }
-  }, [])
+  }, [page])
 
   useEffect(() => {
-    if (open) void load(true)
+    if (open) void load(page, true)
   }, [load, open])
 
   useEffect(() => {
@@ -74,8 +78,10 @@ export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDra
     setUploading(true)
     try {
       const task = await uploadPortfolioScreenshot(file, `ui-${crypto.randomUUID()}`)
-      const nextTasks = await fetchPortfolioImports()
-      setTasks((current) => sameTasks(current, nextTasks) ? current : nextTasks)
+      const result = await fetchPortfolioImports(1, PAGE_SIZE)
+      setTasks((current) => sameTasks(current, result.items) ? current : result.items)
+      setPagination(result)
+      setPage(1)
       setExpandedTaskId(task.id)
       setRefreshSignal((current) => current + 1)
       notification.success({ title: "Screenshot queued", description: "The processing chain is expanded below and updates while it runs." })
@@ -93,12 +99,13 @@ export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDra
       <SheetHeader className="border-b border-border/60 px-5 py-4 pr-12">
         <SheetTitle>Portfolio imports</SheetTitle>
         <SheetDescription>Upload a transaction screenshot and review its processing record here.</SheetDescription>
-        <div className="mt-3 flex flex-wrap gap-2"><input ref={uploadInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onFileChange} /><Button size="sm" onClick={() => uploadInputRef.current?.click()} disabled={uploading}><Upload className="mr-2 size-4" />{uploading ? "Uploading..." : "Import screenshot"}</Button><Button size="sm" variant="outline" onClick={() => void load(true)} disabled={loading || uploading}><RefreshCw className="mr-2 size-4" />Refresh</Button></div>
+        <div className="mt-3 flex flex-wrap gap-2"><input ref={uploadInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onFileChange} /><Button size="sm" onClick={() => uploadInputRef.current?.click()} disabled={uploading}><Upload className="mr-2 size-4" />{uploading ? "Uploading..." : "Import screenshot"}</Button><Button size="sm" variant="outline" onClick={() => void load(page, true)} disabled={loading || uploading}><RefreshCw className="mr-2 size-4" />Refresh</Button></div>
       </SheetHeader>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        {error ? <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div className="min-w-0"><p className="font-medium">Import center unavailable</p><p className="mt-1 break-words text-xs">{error}</p></div><Button variant="outline" size="sm" className="ml-auto" onClick={() => void load(true)}>Retry</Button></div> : null}
+        {error ? <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div className="min-w-0"><p className="font-medium">Import center unavailable</p><p className="mt-1 break-words text-xs">{error}</p></div><Button variant="outline" size="sm" className="ml-auto" onClick={() => void load(page, true)}>Retry</Button></div> : null}
         {!loading && tasks.some((task) => ACTIVE_STATUSES.has(task.status)) ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/35 px-3 py-2.5 text-xs text-muted-foreground"><Loader2 className="size-4 animate-spin" />Active imports update in place.</div> : null}
-        <ImportHistoryList tasks={tasks} loading={loading} onRefresh={() => void load(true)} selectedTaskId={expandedTaskId} onSelectedTaskChange={setExpandedTaskId} refreshSignal={refreshSignal} showHeader={false} />
+        <ImportHistoryList tasks={tasks} loading={loading} onRefresh={() => void load(page, true)} selectedTaskId={expandedTaskId} onSelectedTaskChange={setExpandedTaskId} refreshSignal={refreshSignal} showHeader={false} />
+        {pagination && pagination.totalPages > 1 ? <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3"><span className="font-mono text-xs tabular-nums text-muted-foreground">Page {pagination.page} / {pagination.totalPages} · {pagination.total} imports</span><div className="flex items-center gap-1"><Button size="icon-sm" variant="outline" aria-label="Previous import page" title="Previous page" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={!pagination.hasPrevious}><ChevronLeft className="size-4" /></Button><Button size="icon-sm" variant="outline" aria-label="Next import page" title="Next page" onClick={() => setPage((current) => current + 1)} disabled={!pagination.hasNext}><ChevronRight className="size-4" /></Button></div></div> : null}
       </div>
     </SheetContent>
   </Sheet>

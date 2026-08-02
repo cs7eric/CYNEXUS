@@ -27,4 +27,12 @@ public interface PortfolioImportMapper {
     List<PortfolioImportTaskPO> findRecentTasks(@Param("principalKey") String principalKey,
                                                 @Param("tenantKey") String tenantKey,
                                                 @Param("limit") int limit);
+
+    List<PortfolioImportTaskPO> findTasksByOwner(@Param("principalKey") String principalKey,
+                                                  @Param("tenantKey") String tenantKey,
+                                                  @Param("offset") int offset,
+                                                  @Param("limit") int limit);
+
+    long countTasksByOwner(@Param("principalKey") String principalKey,
+                           @Param("tenantKey") String tenantKey);
 }

@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.application.controller;
 
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskPageDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportReviewDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportProcessHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportCandidateDTO;
@@ -21,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/market/portfolio/imports")
@@ -41,8 +41,10 @@ public class PortfolioImportController {
     }
 
     @GetMapping
-    public Result<List<PortfolioImportTaskDTO>> list(@RequestParam(value = "limit", defaultValue = "20") int limit) {
-        return Result.success(service.list(limit));
+    public Result<PortfolioImportTaskPageDTO> list(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
+        return Result.success(service.list(page, pageSize));
     }
 
     @GetMapping("/{taskId}")

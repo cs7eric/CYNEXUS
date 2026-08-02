@@ -45,6 +45,18 @@ class PortfolioImportDomainServiceTest {
                 "application/pdf", new byte[]{1}, "request-1", OffsetDateTime.now()));
     }
 
+    @Test
+    void boundsImportPageRequestsBeforeQueryingTheRepository() {
+        dependencies.tasks.put("first", new PortfolioImportTaskBO(1L, "user", "tenant", 1L, "first",
+                PortfolioImportStatus.FAILED, 0, 1));
+
+        PortfolioImportTaskPageBO page = service.list("user", "tenant", 0, 100);
+
+        assertEquals(1, page.page());
+        assertEquals(50, page.pageSize());
+        assertEquals(1, page.total());
+    }
+
     private static final class RecordingDependencies implements PortfolioImportAssetStorePort,
             PortfolioImportTaskRepository, PortfolioImportDispatchPort {
         private long nextId = 1;
@@ -86,6 +98,12 @@ class PortfolioImportDomainServiceTest {
         @Override
         public List<PortfolioImportTaskBO> findRecentByOwner(String principalKey, String tenantKey, int limit) {
             return tasks.values().stream().limit(limit).toList();
+        }
+
+        @Override
+        public PortfolioImportTaskPageBO findPageByOwner(String principalKey, String tenantKey, int page, int pageSize) {
+            List<PortfolioImportTaskBO> values = tasks.values().stream().skip((long) (page - 1) * pageSize).limit(pageSize).toList();
+            return new PortfolioImportTaskPageBO(values, tasks.size(), page, pageSize);
         }
 
         @Override

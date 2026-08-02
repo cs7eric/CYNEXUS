@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskPageDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportCandidateDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportReviewDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportProcessHistoryDTO;
@@ -18,7 +19,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryAggregateBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
-import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskPageBO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -32,19 +33,17 @@ public class PortfolioImportAppService {
     private static final String DEFAULT_PRINCIPAL = "workspace-user";
     private static final String DEFAULT_TENANT = "default";
     private final PortfolioImportDomainService domainService;
-    private final PortfolioImportTaskRepository taskRepository;
     private final PortfolioCandidateStore candidateStore;
     private final PortfolioImportConfirmationDomainService confirmationService;
     private final PortfolioImportProcessHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
 
-    public PortfolioImportAppService(PortfolioImportDomainService domainService, PortfolioImportTaskRepository taskRepository,
+    public PortfolioImportAppService(PortfolioImportDomainService domainService,
                                     PortfolioCandidateStore candidateStore,
                                     PortfolioImportConfirmationDomainService confirmationService,
                                     PortfolioImportProcessHistoryRepository historyRepository,
                                     ObjectMapper objectMapper) {
         this.domainService = domainService;
-        this.taskRepository = taskRepository;
         this.candidateStore = candidateStore;
         this.confirmationService = confirmationService;
         this.historyRepository = historyRepository;
@@ -80,10 +79,17 @@ public class PortfolioImportAppService {
         return toDto(domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId));
     }
 
-    public List<PortfolioImportTaskDTO> list(int limit) {
-        int boundedLimit = Math.max(1, Math.min(limit, 50));
-        return taskRepository.findRecentByOwner(DEFAULT_PRINCIPAL, DEFAULT_TENANT, boundedLimit)
-                .stream().map(this::toDto).toList();
+    public PortfolioImportTaskPageDTO list(int page, int pageSize) {
+        PortfolioImportTaskPageBO result = domainService.list(DEFAULT_PRINCIPAL, DEFAULT_TENANT, page, pageSize);
+        return PortfolioImportTaskPageDTO.builder()
+                .items(result.items().stream().map(this::toDto).toList())
+                .total(result.total())
+                .page(result.page())
+                .pageSize(result.pageSize())
+                .totalPages(result.totalPages())
+                .hasPrevious(result.hasPrevious())
+                .hasNext(result.hasNext())
+                .build();
     }
 
     public PortfolioImportReviewDTO review(long taskId) {

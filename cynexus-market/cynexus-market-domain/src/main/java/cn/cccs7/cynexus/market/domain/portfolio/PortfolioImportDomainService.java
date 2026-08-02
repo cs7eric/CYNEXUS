@@ -56,6 +56,14 @@ public final class PortfolioImportDomainService {
                 .orElseThrow(() -> new IllegalArgumentException("portfolio import task not found"));
     }
 
+    public PortfolioImportTaskPageBO list(String principalKey, String tenantKey, int page, int pageSize) {
+        requireText(principalKey, "principalKey");
+        requireText(tenantKey, "tenantKey");
+        int safePage = Math.max(1, page);
+        int safePageSize = Math.max(1, Math.min(pageSize, 50));
+        return taskRepository.findPageByOwner(principalKey, tenantKey, safePage, safePageSize);
+    }
+
     private static void validateContent(String contentType, byte[] content) {
         if (content == null || content.length == 0 || content.length > MAX_IMAGE_BYTES) {
             throw new IllegalArgumentException("portfolio screenshot must be between 1 byte and 10 MiB");

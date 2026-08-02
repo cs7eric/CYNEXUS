@@ -1,7 +1,7 @@
 import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
-import type { PortfolioCandidate, PortfolioImportProcessHistory, PortfolioImportReview, PortfolioImportTask } from "./types"
+import type { PortfolioCandidate, PortfolioImportProcessHistory, PortfolioImportReview, PortfolioImportTask, PortfolioImportTaskPage } from "./types"
 
 const BASE = `${SERVICE_PREFIX.market}/portfolio/imports`
 
@@ -12,9 +12,9 @@ export async function uploadPortfolioScreenshot(file: File, idempotencyKey: stri
   return cynexusResult<PortfolioImportTask>(response)
 }
 
-export async function fetchPortfolioImports(limit = 20): Promise<PortfolioImportTask[]> {
-  const response = await fetchWithRetry(`${BASE}?limit=${limit}`, { cache: "no-store" })
-  return cynexusResult<PortfolioImportTask[]>(response)
+export async function fetchPortfolioImports(page = 1, pageSize = 10): Promise<PortfolioImportTaskPage> {
+  const response = await fetchWithRetry(`${BASE}?page=${page}&pageSize=${pageSize}`, { cache: "no-store" })
+  return cynexusResult<PortfolioImportTaskPage>(response)
 }
 
 export async function fetchPortfolioImport(taskId: number): Promise<PortfolioImportTask> {

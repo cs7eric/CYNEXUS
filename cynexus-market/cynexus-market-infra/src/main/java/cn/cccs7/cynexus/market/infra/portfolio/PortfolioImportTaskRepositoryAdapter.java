@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.market.infra.portfolio;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportStatus;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskPageBO;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportTaskPO;
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportMapper;
 import java.util.Optional;
@@ -69,6 +70,16 @@ public class PortfolioImportTaskRepositoryAdapter implements PortfolioImportTask
     public List<PortfolioImportTaskBO> findRecentByOwner(String principalKey, String tenantKey, int limit) {
         return mapper.findRecentTasks(principalKey, tenantKey, Math.max(1, Math.min(limit, 50))).stream()
                 .map(this::toDomain).toList();
+    }
+
+    @Override
+    public PortfolioImportTaskPageBO findPageByOwner(String principalKey, String tenantKey, int page, int pageSize) {
+        int safePage = Math.max(1, page);
+        int safePageSize = Math.max(1, Math.min(pageSize, 50));
+        int offset = (safePage - 1) * safePageSize;
+        List<PortfolioImportTaskBO> items = mapper.findTasksByOwner(principalKey, tenantKey, offset, safePageSize).stream()
+                .map(this::toDomain).toList();
+        return new PortfolioImportTaskPageBO(items, mapper.countTasksByOwner(principalKey, tenantKey), safePage, safePageSize);
     }
 
     private PortfolioImportTaskBO toDomain(PortfolioImportTaskPO po) {

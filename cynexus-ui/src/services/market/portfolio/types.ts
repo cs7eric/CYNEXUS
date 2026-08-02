@@ -12,6 +12,16 @@ export interface PortfolioImportTask {
   lastErrorMessage?: string | null
 }
 
+export interface PortfolioImportTaskPage {
+  items: PortfolioImportTask[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasPrevious: boolean
+  hasNext: boolean
+}
+
 export interface PortfolioCandidate {
   id: number
   rowNo: number

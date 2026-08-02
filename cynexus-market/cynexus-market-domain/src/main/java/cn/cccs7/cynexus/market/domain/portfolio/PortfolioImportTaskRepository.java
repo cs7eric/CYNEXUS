@@ -13,4 +13,6 @@ public interface PortfolioImportTaskRepository {
     Optional<PortfolioImportTaskBO> findByIdempotencyKey(String principalKey, String tenantKey, String idempotencyKey);
 
     List<PortfolioImportTaskBO> findRecentByOwner(String principalKey, String tenantKey, int limit);
+
+    PortfolioImportTaskPageBO findPageByOwner(String principalKey, String tenantKey, int page, int pageSize);
 }
