@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportProcessHistoryMapper">
+    <insert id="insert">
+        insert into cynexus_appl_market.portfolio_import_process_history
+        (id, task_id, principal_key, tenant_key, attempt_no, event_type, from_status, to_status,
+         message_id, correlation_id, provider_code, model_code, error_code, error_message, details,
+         occurred_at, duration_ms)
+        values (#{id}, #{taskId}, #{principalKey}, #{tenantKey}, #{attemptNo}, #{eventType}, #{fromStatus}, #{toStatus},
+                #{messageId}, #{correlationId}, #{providerCode}, #{modelCode}, #{errorCode}, #{errorMessage},
+                cast(#{details} as jsonb), #{occurredAt}, #{durationMs})
+    </insert>
+
+    <select id="listByTaskId" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportProcessHistoryPO">
+        select id, task_id, principal_key, tenant_key, attempt_no, event_type, from_status, to_status,
+               message_id, correlation_id, provider_code, model_code, error_code, error_message,
+               details::text as details, occurred_at, duration_ms
+          from cynexus_appl_market.portfolio_import_process_history
+         where task_id = #{taskId} and principal_key = #{principalKey} and tenant_key = #{tenantKey}
+         order by occurred_at, id
+    </select>
+</mapper>
