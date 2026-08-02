@@ -9,6 +9,8 @@ import lombok.Value;
 @Builder
 public class PortfolioOverviewDTO {
     List<PortfolioPositionDTO> positions;
+    BigDecimal costBasis;
+    BigDecimal marketValue;
     BigDecimal realizedPnl;
     BigDecimal unrealizedPnl;
     BigDecimal totalPnl;

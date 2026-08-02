@@ -45,6 +45,27 @@ class PortfolioLedgerDomainServiceTest {
         assertEquals(0, service.calculate(List.of(replaced), Map.of()).positions().size());
     }
 
+    @Test
+    void reportsPartialMarketDataWhenOnlySomeOpenPositionsHavePrices() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, TradeSide.BUY, "10", "10", "0"),
+                new PortfolioTradeBO(2L, "000001", "Demo", TradeSide.BUY, DAY_ONE.plusMinutes(2),
+                        decimal("10"), decimal("20"), BigDecimal.ZERO, TradeStatus.ACTIVE)
+        );
+        PortfolioLedgerResultBO result = service.calculate(trades, Map.of("600000", decimal("12")));
+
+        assertEquals(PortfolioValuationStatus.PARTIAL_MARKET_DATA,
+                service.valuationStatus(trades, result, Map.of("600000", decimal("12"))));
+        assertEquals(PortfolioValuationStatus.LATEST_PRICE_UNAVAILABLE,
+                service.valuationStatus(trades, result, Map.of()));
+    }
+
+    @Test
+    void reportsNoConfirmedTradesForEmptyOrInactiveLedger() {
+        assertEquals(PortfolioValuationStatus.NO_CONFIRMED_TRADES,
+                service.valuationStatus(List.of(), service.calculate(List.of(), Map.of()), Map.of()));
+    }
+
     private static PortfolioTradeBO trade(long id, TradeSide side, String quantity, String price, String fee) {
         return new PortfolioTradeBO(id, "600000", "Demo", side, DAY_ONE.plusMinutes(id),
                 decimal(quantity), decimal(price), decimal(fee), TradeStatus.ACTIVE);

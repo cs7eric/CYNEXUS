@@ -43,6 +43,35 @@ public final class PortfolioLedgerDomainService {
                 money(realizedPnl.add(unrealizedPnl)));
     }
 
+    public PortfolioValuationStatus valuationStatus(List<PortfolioTradeBO> trades,
+                                                     PortfolioLedgerResultBO result,
+                                                     Map<String, BigDecimal> latestPrices) {
+        boolean hasActiveTrades = trades != null && trades.stream()
+                .anyMatch(trade -> trade != null && trade.status() == TradeStatus.ACTIVE);
+        if (!hasActiveTrades) {
+            return PortfolioValuationStatus.NO_CONFIRMED_TRADES;
+        }
+
+        long openPositions = result == null ? 0 : result.positions().stream()
+                .filter(position -> position.quantity() != null && position.quantity().signum() > 0)
+                .count();
+        if (openPositions == 0) {
+            return PortfolioValuationStatus.CURRENT_MARKET;
+        }
+
+        long pricedPositions = result.positions().stream()
+                .filter(position -> position.quantity() != null && position.quantity().signum() > 0)
+                .filter(position -> latestPrices != null
+                        && latestPrices.get(position.symbol()) != null)
+                .count();
+        if (pricedPositions == 0) {
+            return PortfolioValuationStatus.LATEST_PRICE_UNAVAILABLE;
+        }
+        return pricedPositions == openPositions
+                ? PortfolioValuationStatus.CURRENT_MARKET
+                : PortfolioValuationStatus.PARTIAL_MARKET_DATA;
+    }
+
     private static BigDecimal money(BigDecimal value) {
         return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
     }
