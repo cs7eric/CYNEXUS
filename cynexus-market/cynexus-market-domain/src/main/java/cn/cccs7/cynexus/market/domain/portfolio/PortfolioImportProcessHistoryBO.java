@@ -22,7 +22,8 @@ public record PortfolioImportProcessHistoryBO(
         Long durationMs
 ) {
     public PortfolioImportProcessHistoryBO {
-        if (id <= 0 || taskId <= 0 || principalKey == null || principalKey.isBlank()
+        // A zero id represents a new history event; the persistence adapter allocates it.
+        if (id < 0 || taskId <= 0 || principalKey == null || principalKey.isBlank()
                 || tenantKey == null || tenantKey.isBlank() || attemptNo < 0 || eventType == null
                 || details == null || occurredAt == null || durationMs != null && durationMs < 0) {
             throw new IllegalArgumentException("invalid portfolio process history");
