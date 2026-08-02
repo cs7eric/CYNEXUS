@@ -3,13 +3,17 @@ package cn.cccs7.cynexus.market.application.controller;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportReviewDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportProcessHistoryDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportCandidateDTO;
 import cn.cccs7.cynexus.market.api.request.PortfolioImportConfirmRequest;
+import cn.cccs7.cynexus.market.api.request.PortfolioCandidateEditRequest;
 import cn.cccs7.cynexus.market.application.service.PortfolioImportAppService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,6 +47,18 @@ public class PortfolioImportController {
     @GetMapping("/{taskId}/review")
     public Result<PortfolioImportReviewDTO> review(@PathVariable long taskId) {
         return Result.success(service.review(taskId));
+    }
+
+    @GetMapping("/{taskId}/history")
+    public Result<java.util.List<PortfolioImportProcessHistoryDTO>> history(@PathVariable long taskId) {
+        return Result.success(service.history(taskId));
+    }
+
+    @PatchMapping("/{taskId}/candidates/{candidateId}")
+    public Result<PortfolioImportCandidateDTO> editCandidate(@PathVariable long taskId,
+                                                              @PathVariable long candidateId,
+                                                              @RequestBody PortfolioCandidateEditRequest request) {
+        return Result.success(service.editCandidate(taskId, candidateId, request));
     }
 
     @PostMapping("/{taskId}/confirm")

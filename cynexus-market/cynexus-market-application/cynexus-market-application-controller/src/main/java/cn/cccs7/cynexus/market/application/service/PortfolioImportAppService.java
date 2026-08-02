@@ -3,11 +3,20 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportTaskDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportCandidateDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioImportReviewDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioImportProcessHistoryDTO;
+import cn.cccs7.cynexus.market.api.request.PortfolioCandidateEditRequest;
 import cn.cccs7.cynexus.market.api.request.PortfolioImportConfirmRequest;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateStore;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportConfirmationDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportStatus;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateRecord;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCandidateEditPolicy;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -22,12 +31,18 @@ public class PortfolioImportAppService {
     private final PortfolioImportDomainService domainService;
     private final PortfolioCandidateStore candidateStore;
     private final PortfolioImportConfirmationDomainService confirmationService;
+    private final PortfolioImportProcessHistoryRepository historyRepository;
+    private final ObjectMapper objectMapper;
 
     public PortfolioImportAppService(PortfolioImportDomainService domainService, PortfolioCandidateStore candidateStore,
-                                    PortfolioImportConfirmationDomainService confirmationService) {
+                                    PortfolioImportConfirmationDomainService confirmationService,
+                                    PortfolioImportProcessHistoryRepository historyRepository,
+                                    ObjectMapper objectMapper) {
         this.domainService = domainService;
         this.candidateStore = candidateStore;
         this.confirmationService = confirmationService;
+        this.historyRepository = historyRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -41,6 +56,12 @@ public class PortfolioImportAppService {
                     : idempotencyKey;
             PortfolioImportTaskBO task = domainService.create(DEFAULT_PRINCIPAL, DEFAULT_TENANT,
                     file.getOriginalFilename(), file.getContentType(), file.getBytes(), key, OffsetDateTime.now());
+            if (historyRepository.listByTaskId(DEFAULT_PRINCIPAL, DEFAULT_TENANT, task.getId()).isEmpty()) {
+                append(task, PortfolioImportProcessEventType.TASK_CREATED, null, task.getStatus().name(), null, null, null,
+                        null, null, null, "{}", null);
+                append(task, PortfolioImportProcessEventType.OUTBOX_CREATED, task.getStatus().name(), task.getStatus().name(),
+                        null, null, null, null, null, null, "{}", null);
+            }
             return toDto(task);
         } catch (IllegalArgumentException exception) {
             throw exception;
@@ -58,19 +79,82 @@ public class PortfolioImportAppService {
         List<PortfolioImportCandidateDTO> candidates = candidateStore.listByTaskId(taskId).stream()
                 .map(candidate -> PortfolioImportCandidateDTO.builder()
                         .id(candidate.id()).rowNo(candidate.rowNo()).normalizedPayload(candidate.normalizedPayload().toString())
-                        .reviewStatus(candidate.reviewStatus()).version(candidate.version()).build())
+                        .reviewStatus(candidate.reviewStatus()).version(candidate.version()).confidence(candidate.confidence())
+                        .warnings(candidate.warnings()).build())
                 .toList();
         return PortfolioImportReviewDTO.builder().task(toDto(task)).candidates(candidates).build();
+    }
+
+    public List<PortfolioImportProcessHistoryDTO> history(long taskId) {
+        domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        return historyRepository.listByTaskId(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId).stream()
+                .map(item -> PortfolioImportProcessHistoryDTO.builder().id(item.id()).taskId(item.taskId())
+                        .attemptNo(item.attemptNo()).eventType(item.eventType().name()).fromStatus(item.fromStatus())
+                        .toStatus(item.toStatus()).messageId(item.messageId()).correlationId(item.correlationId())
+                        .providerCode(item.providerCode()).modelCode(item.modelCode()).errorCode(item.errorCode())
+                        .errorMessage(item.errorMessage()).details(item.details()).occurredAt(item.occurredAt())
+                        .durationMs(item.durationMs()).build())
+                .toList();
+    }
+
+    @Transactional
+    public PortfolioImportCandidateDTO editCandidate(long taskId, long candidateId, PortfolioCandidateEditRequest request) {
+        PortfolioImportTaskBO task = domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        if (task.getStatus() != cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportStatus.READY_FOR_REVIEW) {
+            throw new IllegalStateException("portfolio candidates can only be edited while ready for review");
+        }
+        if (request == null || request.getVersion() == null) throw new IllegalArgumentException("candidate version is required");
+        PortfolioCandidateRecord current = candidateStore.listByTaskId(taskId).stream()
+                .filter(candidate -> candidate.id() == candidateId).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("portfolio candidate not found"));
+        if (current.version() != request.getVersion()) throw new IllegalStateException("portfolio candidate version is stale");
+        var normalized = PortfolioCandidateEditPolicy.normalize(objectMapper, request.getSymbol(), request.getSecurityName(),
+                request.getSide(), request.getTradedAt(), request.getQuantity(), request.getPrice(), request.getTotalFee(),
+                request.getExternalTradeNo());
+        try {
+            String payload = objectMapper.writeValueAsString(normalized);
+            if (!candidateStore.updateNormalized(taskId, candidateId, current.version(), payload)) {
+                throw new IllegalStateException("portfolio candidate was changed concurrently: " + candidateId);
+            }
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("unable to serialize portfolio candidate", exception);
+        }
+        append(task, PortfolioImportProcessEventType.CANDIDATE_EDITED, task.getStatus().name(), task.getStatus().name(),
+                null, null, null, null, null, null, "{\"candidateId\":" + candidateId + "}", null);
+        return candidateStore.listByTaskId(taskId).stream().filter(candidate -> candidate.id() == candidateId)
+                .findFirst().map(this::toCandidateDto).orElseThrow();
     }
 
     @Transactional
     public PortfolioImportTaskDTO confirm(long taskId, PortfolioImportConfirmRequest request) {
         PortfolioImportTaskBO task = domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        PortfolioImportStatus previousStatus = task.getStatus();
         if (request != null && request.getVersion() != null && request.getVersion() != task.getVersion()) {
             throw new IllegalStateException("portfolio import version is stale");
         }
-        return toDto(confirmationService.confirm(task,
-                request == null ? null : request.getCandidateIds(), DEFAULT_PRINCIPAL, OffsetDateTime.now()));
+        PortfolioImportTaskBO confirmed = confirmationService.confirm(task,
+                request == null ? null : request.getCandidateIds(), DEFAULT_PRINCIPAL, OffsetDateTime.now());
+        if (previousStatus == PortfolioImportStatus.READY_FOR_REVIEW) {
+            append(confirmed, PortfolioImportProcessEventType.TASK_CONFIRMED, previousStatus.name(),
+                    confirmed.getStatus().name(), null, null, null, null, null, null, "{}", null);
+        }
+        return toDto(confirmed);
+    }
+
+    private PortfolioImportCandidateDTO toCandidateDto(PortfolioCandidateRecord candidate) {
+        return PortfolioImportCandidateDTO.builder().id(candidate.id()).rowNo(candidate.rowNo())
+                .normalizedPayload(candidate.normalizedPayload().toString()).reviewStatus(candidate.reviewStatus())
+                .version(candidate.version()).confidence(candidate.confidence()).warnings(candidate.warnings()).build();
+    }
+
+    private void append(PortfolioImportTaskBO task, PortfolioImportProcessEventType eventType, String fromStatus,
+                       String toStatus, String messageId, String correlationId, String providerCode, String modelCode,
+                       String errorCode, String errorMessage, String details, Long durationMs) {
+        historyRepository.append(new PortfolioImportProcessHistoryBO(0, task.getId(), task.getPrincipalKey(), task.getTenantKey(),
+                task.getAttemptCount(), eventType, fromStatus, toStatus, messageId, correlationId, providerCode, modelCode,
+                errorCode, errorMessage, details == null ? "{}" : details, OffsetDateTime.now(), durationMs));
     }
 
     private PortfolioImportTaskDTO toDto(PortfolioImportTaskBO task) {

@@ -27,6 +27,24 @@ export interface PortfolioImportReview {
   candidates: PortfolioCandidate[]
 }
 
+export interface PortfolioImportProcessHistory {
+  id: number
+  taskId: number
+  attemptNo: number
+  eventType: string
+  fromStatus?: string | null
+  toStatus?: string | null
+  messageId?: string | null
+  correlationId?: string | null
+  providerCode?: string | null
+  modelCode?: string | null
+  errorCode?: string | null
+  errorMessage?: string | null
+  details?: string | null
+  occurredAt: string
+  durationMs?: number | null
+}
+
 export interface PortfolioPosition {
   symbol: string
   quantity: number

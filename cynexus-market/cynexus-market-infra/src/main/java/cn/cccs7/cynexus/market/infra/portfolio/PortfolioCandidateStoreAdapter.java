@@ -25,6 +25,11 @@ public class PortfolioCandidateStoreAdapter implements PortfolioCandidateStore {
     }
 
     @Override
+    public boolean updateNormalized(long taskId, long candidateId, long expectedVersion, String normalizedPayload) {
+        return mapper.updateNormalized(taskId, candidateId, expectedVersion, normalizedPayload) == 1;
+    }
+
+    @Override
     public boolean markAccepted(long candidateId, long expectedVersion) {
         return mapper.markAccepted(candidateId, expectedVersion) == 1;
     }
@@ -32,8 +37,11 @@ public class PortfolioCandidateStoreAdapter implements PortfolioCandidateStore {
     private PortfolioCandidateRecord toRecord(PortfolioImportCandidatePO po) {
         try {
             JsonNode normalized = objectMapper.readTree(po.getNormalizedPayload());
+            List<String> warnings = po.getWarnings() == null || po.getWarnings().isBlank()
+                    ? List.of() : objectMapper.readValue(po.getWarnings(), objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, String.class));
             return new PortfolioCandidateRecord(po.getId(), po.getTaskId(), po.getRowNo(), normalized,
-                    po.getReviewStatus(), po.getVersion());
+                    po.getReviewStatus(), po.getVersion(), po.getConfidence(), warnings);
         } catch (Exception exception) {
             throw new IllegalStateException("Invalid portfolio candidate payload " + po.getId(), exception);
         }

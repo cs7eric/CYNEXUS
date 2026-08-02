@@ -12,5 +12,7 @@ public interface PortfolioImportCandidateMapper {
 
     List<PortfolioImportCandidatePO> listByTaskId(long taskId);
 
+    int updateNormalized(long taskId, long candidateId, long expectedVersion, String normalizedPayload);
+
     int markAccepted(long candidateId, long expectedVersion);
 }

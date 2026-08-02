@@ -15,11 +15,18 @@
 
     <select id="listByTaskId" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportCandidatePO">
         select id, task_id, row_no, normalized_payload::text as normalized_payload,
-               review_status, version
+               review_status, version, confidence, warnings::text as warnings
           from cynexus_appl_market.portfolio_import_candidate
          where task_id = #{taskId} and deleted_at is null
          order by row_no, id
     </select>
+
+    <update id="updateNormalized">
+        update cynexus_appl_market.portfolio_import_candidate
+           set normalized_payload = cast(#{normalizedPayload} as jsonb), version = version + 1, updated_at = now()
+         where id = #{candidateId} and task_id = #{taskId} and version = #{expectedVersion}
+           and review_status = 'PENDING' and deleted_at is null
+    </update>
 
     <update id="markAccepted">
         update cynexus_appl_market.portfolio_import_candidate

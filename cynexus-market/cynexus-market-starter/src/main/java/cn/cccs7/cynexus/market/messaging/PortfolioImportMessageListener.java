@@ -6,6 +6,9 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessingDomainS
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportStatus;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeVisionGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,18 +30,21 @@ public class PortfolioImportMessageListener {
     private final PortfolioImportProcessingDomainService processingService;
     private final PortfolioTradeVisionGateway visionGateway;
     private final RabbitTemplate rabbitTemplate;
+    private final PortfolioImportProcessHistoryRepository historyRepository;
 
     public PortfolioImportMessageListener(ObjectMapper objectMapper, PortfolioImportTaskRepository taskRepository,
                                           PortfolioImportAssetStorePort assetStore,
                                           PortfolioImportProcessingDomainService processingService,
                                           PortfolioTradeVisionGateway visionGateway,
-                                          RabbitTemplate rabbitTemplate) {
+                                          RabbitTemplate rabbitTemplate,
+                                          PortfolioImportProcessHistoryRepository historyRepository) {
         this.objectMapper = objectMapper;
         this.taskRepository = taskRepository;
         this.assetStore = assetStore;
         this.processingService = processingService;
         this.visionGateway = visionGateway;
         this.rabbitTemplate = rabbitTemplate;
+        this.historyRepository = historyRepository;
     }
 
     @RabbitListener(queues = PortfolioRabbitTopologyConfiguration.PARSE_QUEUE,
@@ -60,19 +66,31 @@ public class PortfolioImportMessageListener {
                 return;
             }
             if (task.getStatus() != PortfolioImportStatus.PROCESSING) {
+                PortfolioImportStatus previous = task.getStatus();
                 task.claimForProcessing(OffsetDateTime.now());
                 taskRepository.update(task);
+                append(task, PortfolioImportProcessEventType.PROCESSING_STARTED, previous.name(), task.getStatus().name(), message);
             }
             processingTask = task;
             PortfolioImportAssetBO asset = assetStore.findById(task.getAssetId())
                     .orElseThrow(() -> new IllegalArgumentException("portfolio screenshot asset not found"));
+            append(task, PortfolioImportProcessEventType.AI_REQUEST_STARTED, task.getStatus().name(), task.getStatus().name(), message);
             String result = visionGateway.parse(asset);
+            append(task, PortfolioImportProcessEventType.AI_REQUEST_SUCCEEDED, task.getStatus().name(), task.getStatus().name(), message);
             processingService.complete(task, result, OffsetDateTime.now());
+            append(task, PortfolioImportProcessEventType.CANDIDATES_SAVED, PortfolioImportStatus.PROCESSING.name(),
+                    PortfolioImportStatus.READY_FOR_REVIEW.name(), message);
+            append(task, PortfolioImportProcessEventType.TASK_READY_FOR_REVIEW, PortfolioImportStatus.PROCESSING.name(),
+                    PortfolioImportStatus.READY_FOR_REVIEW.name(), message);
             channel.basicAck(deliveryTag, false);
         } catch (IllegalArgumentException exception) {
             if (processingTask != null && processingTask.getStatus() == PortfolioImportStatus.PROCESSING) {
                 processingTask.markFailed("PORTFOLIO_PARSE_INVALID", exception.getMessage(), OffsetDateTime.now());
                 taskRepository.update(processingTask);
+                append(processingTask, PortfolioImportProcessEventType.AI_REQUEST_FAILED, PortfolioImportStatus.PROCESSING.name(),
+                        PortfolioImportStatus.FAILED.name(), message, "PORTFOLIO_PARSE_INVALID", exception.getMessage());
+                append(processingTask, PortfolioImportProcessEventType.TASK_FAILED, PortfolioImportStatus.PROCESSING.name(),
+                        PortfolioImportStatus.FAILED.name(), message, "PORTFOLIO_PARSE_INVALID", exception.getMessage());
             }
             channel.basicAck(deliveryTag, false);
         } catch (Exception exception) {
@@ -80,8 +98,16 @@ public class PortfolioImportMessageListener {
             if (processingTask != null && processingTask.getStatus() == PortfolioImportStatus.PROCESSING) {
                 if (retryCount >= 3) {
                     processingTask.markFailed("PORTFOLIO_PARSE_FAILED", exception.getMessage(), OffsetDateTime.now());
+                    append(processingTask, PortfolioImportProcessEventType.AI_REQUEST_FAILED, PortfolioImportStatus.PROCESSING.name(),
+                            PortfolioImportStatus.FAILED.name(), message, "PORTFOLIO_PARSE_FAILED", exception.getMessage());
+                    append(processingTask, PortfolioImportProcessEventType.TASK_FAILED, PortfolioImportStatus.PROCESSING.name(),
+                            PortfolioImportStatus.FAILED.name(), message, "PORTFOLIO_PARSE_FAILED", exception.getMessage());
                 } else {
                     processingTask.markRetryWaiting("PORTFOLIO_PARSE_RETRY", exception.getMessage());
+                    append(processingTask, PortfolioImportProcessEventType.AI_REQUEST_FAILED, PortfolioImportStatus.PROCESSING.name(),
+                            PortfolioImportStatus.RETRY_WAITING.name(), message, "PORTFOLIO_PARSE_RETRY", exception.getMessage());
+                    append(processingTask, PortfolioImportProcessEventType.RETRY_SCHEDULED, PortfolioImportStatus.PROCESSING.name(),
+                            PortfolioImportStatus.RETRY_WAITING.name(), message, "PORTFOLIO_PARSE_RETRY", exception.getMessage());
                 }
                 taskRepository.update(processingTask);
             }
@@ -132,5 +158,18 @@ public class PortfolioImportMessageListener {
     private static String truncate(String value) {
         if (value == null) return "unknown processing error";
         return value.length() <= 500 ? value : value.substring(0, 500);
+    }
+
+    private void append(PortfolioImportTaskBO task, PortfolioImportProcessEventType eventType, String fromStatus,
+                        String toStatus, Message message) {
+        append(task, eventType, fromStatus, toStatus, message, null, null);
+    }
+
+    private void append(PortfolioImportTaskBO task, PortfolioImportProcessEventType eventType, String fromStatus,
+                        String toStatus, Message message, String errorCode, String errorMessage) {
+        String messageId = message.getMessageProperties().getMessageId();
+        historyRepository.append(new PortfolioImportProcessHistoryBO(0, task.getId(), task.getPrincipalKey(), task.getTenantKey(),
+                task.getAttemptCount(), eventType, fromStatus, toStatus, messageId, messageId, null, null, errorCode,
+                truncate(errorMessage), "{}", OffsetDateTime.now(), null));
     }
 }
