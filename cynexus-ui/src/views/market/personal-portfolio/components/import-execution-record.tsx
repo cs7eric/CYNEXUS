@@ -109,6 +109,8 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
   const attempts = Math.max(task.attemptCount, ...events.map((event) => event.attemptNo))
   const latestEvent = events.at(-1)
   const failure = [...events].reverse().find((event) => event.errorCode)
+  const failureCode = failure?.errorCode ?? task.lastErrorCode
+  const failureMessage = failure?.errorMessage ?? task.lastErrorMessage ?? failureCode
   const statusLabel = STATUS_COPY[task.status] ?? task.status
   const attemptChains = groupByAttempt(events)
   const recordSurface = embedded ? "overflow-hidden bg-card" : "overflow-hidden rounded-lg border border-border/60 bg-card"
@@ -129,7 +131,7 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
     <CollapsibleTrigger asChild>
       <button type="button" className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div>
-        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h2 className="text-sm font-semibold">Import #{history.taskId}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{statusLabel}</span><span className="text-xs text-muted-foreground">{attempts} attempts</span>{candidateCount != null ? <span className="text-xs text-muted-foreground">{candidateCount} trades</span> : null}<span className="text-xs text-muted-foreground">{formatTime(latestEvent?.occurredAt ?? history.updatedAt)}</span></div>{failure ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700"><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{failure.errorMessage || failure.errorCode}</span></p> : null}</div>
+        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h2 className="text-sm font-semibold">Import #{history.taskId}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{statusLabel}</span><span className="text-xs text-muted-foreground">{attempts} attempts</span>{candidateCount != null ? <span className="text-xs text-muted-foreground">{candidateCount} trades</span> : null}<span className="text-xs text-muted-foreground">{formatTime(latestEvent?.occurredAt ?? history.updatedAt)}</span></div>{failureMessage ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700" title={failureCode ? `${failureCode}: ${failureMessage}` : failureMessage}><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{failureCode ? `${failureCode}: ` : null}{failureMessage}</span></p> : null}</div>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </button>
     </CollapsibleTrigger>
