@@ -1580,10 +1580,34 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     }
 
     private ProviderHttpException providerHttpFailure(int statusCode, String responseBody) {
-        String detail = responseBody == null ? "" : responseBody.replaceAll("[\\r\\n\\t]+", " ").trim();
-        if (detail.length() > 240) detail = detail.substring(0, 240);
+        String detail = safeProviderErrorDetail(responseBody);
         LOGGER.warn("AI provider {} returned HTTP {} with safe detail: {}", providerCode(), statusCode, detail);
-        return new ProviderHttpException(statusCode);
+        return new ProviderHttpException(statusCode, detail);
+    }
+
+    private String safeProviderErrorDetail(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) return "No provider error detail returned.";
+        try {
+            JsonNode payload = objectMapper.readTree(responseBody);
+            String code = optionalTextValue(payload, "code");
+            String message = optionalTextValue(payload, "message");
+            if (message == null) message = optionalTextValue(payload, "error");
+            JsonNode error = payload.path("error");
+            if (code == null) code = optionalTextValue(error, "code");
+            if (message == null) message = optionalTextValue(error, "message");
+            if (message == null) return "Provider returned a structured error without a message.";
+            String result = code == null ? message : code + ": " + message;
+            return result.length() <= 240 ? result : result.substring(0, 240);
+        } catch (JsonProcessingException ignored) {
+            return "Provider returned an unstructured error response.";
+        }
+    }
+
+    private static String optionalTextValue(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.get(field);
+        if (value == null || value.isNull()) return null;
+        String text = value.asText();
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     private void logProviderFailure(String operation, AiModelBO model, Exception exception) {
@@ -1602,8 +1626,9 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
     private static final class ProviderHttpException extends IllegalStateException {
         private final int statusCode;
 
-        private ProviderHttpException(int statusCode) {
-            super("AI provider returned HTTP " + statusCode);
+        private ProviderHttpException(int statusCode, String detail) {
+            super("AI provider returned HTTP " + statusCode
+                    + (detail == null || detail.isBlank() ? "" : ": " + detail));
             this.statusCode = statusCode;
         }
     }
