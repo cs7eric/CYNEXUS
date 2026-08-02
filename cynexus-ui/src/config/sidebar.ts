@@ -154,6 +154,14 @@ export const sidebarConfig = {
           title: "self-selected",
           url: "/stock-overview/self-selected",
         },
+        {
+          title: "personal portfolio",
+          url: "/personal-portfolio",
+        },
+        {
+          title: "portfolio reviews",
+          url: "/personal-portfolio/reviews/new",
+        },
       ],
     },
     {

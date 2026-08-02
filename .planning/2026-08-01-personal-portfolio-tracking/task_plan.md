@@ -6,7 +6,7 @@ Produce an evidence-based BRD and implementation design for a complete personal 
 
 ## Current Phase
 
-Phase 8
+Phase 9
 
 ## Phases
 
@@ -80,6 +80,15 @@ Phase 8
 - [ ] Add confirmation, ledger, returns, chart markers, reviews, and APIs
 - [ ] Add UI routes, services, pages, and complete workflow
 - [ ] Verify Release rebuild, migrations, backend/frontend tests, and version sync
+- **Status:** in_progress
+
+### Phase 9: Complete Portfolio User Workflow
+
+- [ ] Add a visible holdings dashboard with valuation, allocation, and return trend states
+- [ ] Add a stock detail K-line with confirmed buy/sell markers and transaction context
+- [ ] Add a review center linked from overview and stock detail, with draft/completed states
+- [ ] Verify empty, loading, stale, and error states against the current Release API
+- [ ] Build, focused lint, release UI rebuild, and commit each feature-sized change
 - **Status:** in_progress
 
 ## Key Questions

@@ -66,6 +66,8 @@ export interface PortfolioPosition {
 
 export interface PortfolioOverview {
   positions: PortfolioPosition[]
+  costBasis?: number | null
+  marketValue?: number | null
   realizedPnl: number
   unrealizedPnl: number
   totalPnl: number

@@ -11,6 +11,11 @@ export async function fetchPortfolioReviews(symbol?: string): Promise<PortfolioR
   return cynexusResult<PortfolioReview[]>(response)
 }
 
+export async function fetchPortfolioReview(reviewId: number): Promise<PortfolioReview> {
+  const response = await fetchWithRetry(`${BASE}/${reviewId}`, { cache: "no-store" })
+  return cynexusResult<PortfolioReview>(response)
+}
+
 export async function savePortfolioReview(review: PortfolioReview): Promise<PortfolioReview> {
   const response = await fetchWithRetry(BASE, {
     method: "POST",

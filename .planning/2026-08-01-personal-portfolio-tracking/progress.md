@@ -154,6 +154,15 @@
 | 2026-08-01 | `rg` received an unexpanded Windows filename glob | 1 | Used `rg <pattern> docs/market -g <glob>` instead. |
 | 2026-08-01 | Validation repeated an unexpanded Windows filename glob | 2 | Re-ran with a directory plus `-g` and confirmed no stale decisions. |
 
+## Session: 2026-08-02
+
+### Phase 9: Complete Portfolio User Workflow
+
+- **Status:** in_progress
+- Audit result: the current release exposes upload/history, a basic positions table, and a review editor, but does not provide the requested holdings dashboard, buy/sell K-line, or trade-context review flow.
+- Confirmed current market API and frontend service can be reused for K-lines; portfolio trade API remains the source of confirmed markers.
+- Next: implement feature-sized UI changes, then verify against the Release stack.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
