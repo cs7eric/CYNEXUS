@@ -185,6 +185,12 @@
 - Reduced polling to one in-flight request at a time with a 1.5 second interval; new events are appended through normal React reconciliation instead of replacing the history record with a loading skeleton.
 - Self-test: focused ESLint, `pnpm build`, Release UI rebuild, and HTTP 200 route check passed.
 
+### Phase 13: Concurrent Screenshot Upload During Retry
+
+- **Status:** completed
+- Added an `Import another` action to the import review header. A new screenshot can now be queued while the current task is processing or waiting for retry; the new task gets its own record and route while the previous task continues in RabbitMQ.
+- Self-test: focused ESLint, `pnpm build`, Release UI rebuild, and HTTP 200 route check passed.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
