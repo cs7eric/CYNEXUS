@@ -198,6 +198,15 @@
 - Made the portfolio process-history backfill migration idempotent so repeated Release startup does not fail on an already aggregated task.
 - Self-test: market reactor tests (61 domain tests passed), focused UI ESLint, `pnpm build`, Release `market,ui` rebuild, list API verification returned 8 records, dashboard HTTP 200, and version synchronization passed.
 
+### Phase 15: Import List And Actionable AI Failures
+
+- **Status:** completed
+- Added a compact recent-import list to the single-import review page. The active screenshot remains the detailed record, while every other screenshot remains visible and navigable as an independent record.
+- Added a persistent latest-processing-error panel and resilient response-body parsing, so API responses no longer collapse to a generic `500` message when a structured error is available.
+- Made the AI service return structured exception envelopes and propagated a sanitized provider `code/message` through the Market vision gateway into the portfolio processing record.
+- Root-cause verification: the active vision provider returns `HTTP 403`, `GROUP_DISABLED`, and `API Key 所属分组已停用`; this is now exposed to the caller and will be persisted on new import attempts.
+- Self-test: `pnpm build`, Market reactor compile, AI reactor compile, direct AI vision failure response verification, recent-import API verification, version synchronization, and Release `market,ui,ai` rebuild/restart passed. Repository-wide UI lint remains blocked by 105 pre-existing errors outside this feature.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
