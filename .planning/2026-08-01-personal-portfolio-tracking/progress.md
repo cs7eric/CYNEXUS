@@ -191,6 +191,13 @@
 - Added an `Import another` action to the import review header. A new screenshot can now be queued while the current task is processing or waiting for retry; the new task gets its own record and route while the previous task continues in RabbitMQ.
 - Self-test: focused ESLint, `pnpm build`, Release UI rebuild, and HTTP 200 route check passed.
 
+### Phase 14: Multiple Import Records
+
+- **Status:** completed
+- Added a recent-import query to `cynexus-market` and a dashboard history list. Each screenshot now renders as its own collapsible record with its own event chain; histories are fetched independently so one failed record does not hide the others.
+- Made the portfolio process-history backfill migration idempotent so repeated Release startup does not fail on an already aggregated task.
+- Self-test: market reactor tests (61 domain tests passed), focused UI ESLint, `pnpm build`, Release `market,ui` rebuild, list API verification returned 8 records, dashboard HTTP 200, and version synchronization passed.
+
 ## 5-Question Reboot Check
 
 | Question | Answer |
