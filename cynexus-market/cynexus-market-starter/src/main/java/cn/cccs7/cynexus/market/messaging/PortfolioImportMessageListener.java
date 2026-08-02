@@ -76,14 +76,22 @@ public class PortfolioImportMessageListener {
             }
             channel.basicAck(deliveryTag, false);
         } catch (Exception exception) {
+            int retryCount = retryCount(message);
+            if (processingTask != null && processingTask.getStatus() == PortfolioImportStatus.PROCESSING) {
+                if (retryCount >= 3) {
+                    processingTask.markFailed("PORTFOLIO_PARSE_FAILED", exception.getMessage(), OffsetDateTime.now());
+                } else {
+                    processingTask.markRetryWaiting("PORTFOLIO_PARSE_RETRY", exception.getMessage());
+                }
+                taskRepository.update(processingTask);
+            }
             dispatchRetry(message, exception);
             channel.basicAck(deliveryTag, false);
         }
     }
 
     private void dispatchRetry(Message message, Exception exception) {
-        int count = ((Number) message.getMessageProperties().getHeaders()
-                .getOrDefault("x-portfolio-retry-count", 0)).intValue();
+        int count = retryCount(message);
         if (count >= 3) {
             rabbitTemplate.send(PortfolioRabbitTopologyConfiguration.DEAD_EXCHANGE, "portfolio.import.failed.v1",
                     message);
@@ -94,6 +102,21 @@ public class PortfolioImportMessageListener {
         message.getMessageProperties().setHeader("x-portfolio-last-error",
                 truncate(exception.getMessage()));
         rabbitTemplate.send(PortfolioRabbitTopologyConfiguration.RETRY_EXCHANGE, key, message);
+    }
+
+    private static int retryCount(Message message) {
+        Object value = message.getMessageProperties().getHeaders().get("x-portfolio-retry-count");
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value != null) {
+            try {
+                return Integer.parseInt(value.toString());
+            } catch (NumberFormatException ignored) {
+                return 0;
+            }
+        }
+        return 0;
     }
 
     private static boolean isTerminal(PortfolioImportStatus status) {
