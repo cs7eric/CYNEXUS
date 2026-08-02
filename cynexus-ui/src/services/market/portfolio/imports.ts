@@ -12,6 +12,11 @@ export async function uploadPortfolioScreenshot(file: File, idempotencyKey: stri
   return cynexusResult<PortfolioImportTask>(response)
 }
 
+export async function fetchPortfolioImports(limit = 20): Promise<PortfolioImportTask[]> {
+  const response = await fetchWithRetry(`${BASE}?limit=${limit}`, { cache: "no-store" })
+  return cynexusResult<PortfolioImportTask[]>(response)
+}
+
 export async function fetchPortfolioImport(taskId: number): Promise<PortfolioImportTask> {
   const response = await fetchWithRetry(`${BASE}/${taskId}`, { cache: "no-store" })
   return cynexusResult<PortfolioImportTask>(response)

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { notification } from "@/components/ui/notification"
 import { fetchPortfolioOverview } from "@/services/market/portfolio/portfolio"
-import { uploadPortfolioScreenshot } from "@/services/market/portfolio/imports"
+import { fetchPortfolioImports, uploadPortfolioScreenshot } from "@/services/market/portfolio/imports"
 import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
-import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
+import type { PortfolioImportTask, PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
+import { ImportHistoryList } from "./components/import-history-list"
 
 const money = (value: number | null | undefined) => value == null ? "--" : value.toFixed(2)
 const percent = (value: number | null | undefined) => value == null ? "--" : `${(value * 100).toFixed(2)}%`
@@ -28,6 +29,7 @@ export default function PersonalPortfolioPage() {
   const navigate = useNavigate()
   const [overview, setOverview] = useState<PortfolioOverview | null>(null)
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
+  const [imports, setImports] = useState<PortfolioImportTask[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,9 +38,10 @@ export default function PersonalPortfolioPage() {
     setLoading(true)
     setError(null)
     try {
-      const [nextOverview, nextReviews] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews()])
+      const [nextOverview, nextReviews, nextImports] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews(), fetchPortfolioImports()])
       setOverview(nextOverview)
       setReviews(nextReviews)
+      setImports(nextImports)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
@@ -136,6 +139,8 @@ export default function PersonalPortfolioPage() {
                 </table>
               </div>
             </section>
+
+            <ImportHistoryList tasks={imports} loading={loading} onRefresh={() => void load()} />
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
               <PortfolioReturnBreakdown overview={overview} />
