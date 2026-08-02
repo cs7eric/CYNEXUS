@@ -55,7 +55,11 @@ public class HttpPortfolioTradeVisionGateway implements PortfolioTradeVisionGate
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw providerFailure(response.statusCode(), response.body());
             }
-            JsonNode data = objectMapper.readTree(response.body()).path("data");
+            JsonNode envelope = objectMapper.readTree(response.body());
+            if (envelope.path("success").isBoolean() && !envelope.path("success").asBoolean()) {
+                throw executionFailure(envelope);
+            }
+            JsonNode data = envelope.path("data");
             if (!"SUCCEEDED".equalsIgnoreCase(data.path("status").asText())) {
                 throw new PortfolioTradeVisionException("PORTFOLIO_AI_EXECUTION_FAILED",
                         "AI vision execution did not succeed.", true);
@@ -98,6 +102,31 @@ public class HttpPortfolioTradeVisionGateway implements PortfolioTradeVisionGate
         if (providerMessage != null) detail += " " + truncate(providerMessage, 360);
         return new PortfolioTradeVisionException(code,
                 "AI provider rejected the vision request (HTTP " + statusCode + ")." + detail, retryable);
+    }
+
+    private PortfolioTradeVisionException executionFailure(JsonNode envelope) {
+        String errorCode = text(envelope, "code");
+        String message = text(envelope, "message");
+        if (message == null) message = "AI vision execution failed before a result was produced.";
+        String combined = (errorCode == null ? "" : errorCode + ". ") + truncate(message, 360);
+        int providerStatus = providerStatus(message);
+        boolean retryable = providerStatus == 408 || providerStatus == 429 || providerStatus >= 500 || providerStatus == 0;
+        String code = providerStatus == 401 || providerStatus == 403
+                ? "PORTFOLIO_AI_PROVIDER_UNAUTHORIZED"
+                : retryable ? "PORTFOLIO_AI_SERVICE_UNAVAILABLE" : "PORTFOLIO_AI_PROVIDER_REJECTED";
+        return new PortfolioTradeVisionException(code, "AI vision execution failed. " + combined, retryable);
+    }
+
+    private static int providerStatus(String message) {
+        if (message == null) return 0;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\bHTTP\\s+(\\d{3})\\b")
+                .matcher(message);
+        if (!matcher.find()) return 0;
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
     }
 
     private static String text(JsonNode node, String field) {
