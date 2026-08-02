@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/market/portfolio/imports")
@@ -37,6 +38,11 @@ public class PortfolioImportController {
             @RequestParam("file") MultipartFile file,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         return Result.success(service.upload(file, idempotencyKey));
+    }
+
+    @GetMapping
+    public Result<List<PortfolioImportTaskDTO>> list(@RequestParam(value = "limit", defaultValue = "20") int limit) {
+        return Result.success(service.list(limit));
     }
 
     @GetMapping("/{taskId}")

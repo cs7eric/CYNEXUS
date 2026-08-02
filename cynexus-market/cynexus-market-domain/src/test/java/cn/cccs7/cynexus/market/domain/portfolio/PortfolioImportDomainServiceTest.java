@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,6 +81,11 @@ class PortfolioImportDomainServiceTest {
         @Override
         public Optional<PortfolioImportTaskBO> findByIdempotencyKey(String principalKey, String tenantKey, String idempotencyKey) {
             return Optional.ofNullable(tasks.get(idempotencyKey));
+        }
+
+        @Override
+        public List<PortfolioImportTaskBO> findRecentByOwner(String principalKey, String tenantKey, int limit) {
+            return tasks.values().stream().limit(limit).toList();
         }
 
         @Override

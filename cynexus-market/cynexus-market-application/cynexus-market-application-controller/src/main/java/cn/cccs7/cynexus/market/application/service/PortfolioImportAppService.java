@@ -18,6 +18,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryAggregateBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -31,16 +32,19 @@ public class PortfolioImportAppService {
     private static final String DEFAULT_PRINCIPAL = "workspace-user";
     private static final String DEFAULT_TENANT = "default";
     private final PortfolioImportDomainService domainService;
+    private final PortfolioImportTaskRepository taskRepository;
     private final PortfolioCandidateStore candidateStore;
     private final PortfolioImportConfirmationDomainService confirmationService;
     private final PortfolioImportProcessHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
 
-    public PortfolioImportAppService(PortfolioImportDomainService domainService, PortfolioCandidateStore candidateStore,
+    public PortfolioImportAppService(PortfolioImportDomainService domainService, PortfolioImportTaskRepository taskRepository,
+                                    PortfolioCandidateStore candidateStore,
                                     PortfolioImportConfirmationDomainService confirmationService,
                                     PortfolioImportProcessHistoryRepository historyRepository,
                                     ObjectMapper objectMapper) {
         this.domainService = domainService;
+        this.taskRepository = taskRepository;
         this.candidateStore = candidateStore;
         this.confirmationService = confirmationService;
         this.historyRepository = historyRepository;
@@ -74,6 +78,12 @@ public class PortfolioImportAppService {
 
     public PortfolioImportTaskDTO get(long taskId) {
         return toDto(domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId));
+    }
+
+    public List<PortfolioImportTaskDTO> list(int limit) {
+        int boundedLimit = Math.max(1, Math.min(limit, 50));
+        return taskRepository.findRecentByOwner(DEFAULT_PRINCIPAL, DEFAULT_TENANT, boundedLimit)
+                .stream().map(this::toDto).toList();
     }
 
     public PortfolioImportReviewDTO review(long taskId) {

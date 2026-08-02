@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportTaskPO;
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioImportMapper;
 import java.util.Optional;
+import java.util.List;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -62,6 +63,12 @@ public class PortfolioImportTaskRepositoryAdapter implements PortfolioImportTask
     @Override
     public Optional<PortfolioImportTaskBO> findByIdempotencyKey(String principalKey, String tenantKey, String idempotencyKey) {
         return Optional.ofNullable(mapper.findTaskByIdempotency(principalKey, tenantKey, idempotencyKey)).map(this::toDomain);
+    }
+
+    @Override
+    public List<PortfolioImportTaskBO> findRecentByOwner(String principalKey, String tenantKey, int limit) {
+        return mapper.findRecentTasks(principalKey, tenantKey, Math.max(1, Math.min(limit, 50))).stream()
+                .map(this::toDomain).toList();
     }
 
     private PortfolioImportTaskBO toDomain(PortfolioImportTaskPO po) {

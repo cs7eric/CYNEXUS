@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.infra.portfolio.mapper;
 
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportAssetPO;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportTaskPO;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -22,4 +23,8 @@ public interface PortfolioImportMapper {
     PortfolioImportTaskPO findTaskByIdempotency(@Param("principalKey") String principalKey,
                                                 @Param("tenantKey") String tenantKey,
                                                 @Param("idempotencyKey") String idempotencyKey);
+
+    List<PortfolioImportTaskPO> findRecentTasks(@Param("principalKey") String principalKey,
+                                                @Param("tenantKey") String tenantKey,
+                                                @Param("limit") int limit);
 }

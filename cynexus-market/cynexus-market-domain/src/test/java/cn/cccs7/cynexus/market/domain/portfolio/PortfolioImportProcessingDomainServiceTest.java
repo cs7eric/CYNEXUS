@@ -34,6 +34,7 @@ class PortfolioImportProcessingDomainServiceTest {
         @Override public void update(PortfolioImportTaskBO task) { updated = task; }
         @Override public Optional<PortfolioImportTaskBO> findByOwnerAndId(String p, String t, long id) { return Optional.empty(); }
         @Override public Optional<PortfolioImportTaskBO> findByIdempotencyKey(String p, String t, String k) { return Optional.empty(); }
+        @Override public List<PortfolioImportTaskBO> findRecentByOwner(String p, String t, int limit) { return List.of(); }
     }
 
     private static final class RecordingCandidates implements PortfolioImportCandidateRepository {
