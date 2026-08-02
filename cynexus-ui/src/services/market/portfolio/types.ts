@@ -77,6 +77,7 @@ export interface PortfolioPosition {
 
 export interface PortfolioOverview {
   positions: PortfolioPosition[]
+  dataQualityWarnings?: PortfolioLedgerWarning[]
   costBasis?: number | null
   marketValue?: number | null
   realizedPnl: number
@@ -84,6 +85,13 @@ export interface PortfolioOverview {
   totalPnl: number
   tradeCount: number
   valuationStatus: string
+}
+
+export interface PortfolioLedgerWarning {
+  code: string
+  symbol: string
+  unmatchedQuantity?: number | null
+  message: string
 }
 
 export interface PortfolioTrade {

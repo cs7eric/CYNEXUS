@@ -9,6 +9,7 @@ import lombok.Value;
 @Builder
 public class PortfolioOverviewDTO {
     List<PortfolioPositionDTO> positions;
+    List<PortfolioLedgerWarningDTO> dataQualityWarnings;
     BigDecimal costBasis;
     BigDecimal marketValue;
     BigDecimal realizedPnl;

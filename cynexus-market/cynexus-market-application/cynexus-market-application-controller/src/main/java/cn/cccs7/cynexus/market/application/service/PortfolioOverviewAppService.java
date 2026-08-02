@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.PortfolioOverviewDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioLedgerWarningDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPositionDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerDomainService;
@@ -42,6 +43,9 @@ public class PortfolioOverviewAppService {
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         return PortfolioOverviewDTO.builder()
                 .positions(result.positions().stream().map(this::toPosition).toList())
+                .dataQualityWarnings(result.warnings().stream().map(warning -> PortfolioLedgerWarningDTO.builder()
+                        .code(warning.code()).symbol(warning.symbol())
+                        .unmatchedQuantity(warning.unmatchedQuantity()).message(warning.message()).build()).toList())
                 .costBasis(costBasis).marketValue(marketValue)
                 .realizedPnl(result.realizedPnl()).unrealizedPnl(result.unrealizedPnl()).totalPnl(result.totalPnl())
                 .tradeCount(trades.size())

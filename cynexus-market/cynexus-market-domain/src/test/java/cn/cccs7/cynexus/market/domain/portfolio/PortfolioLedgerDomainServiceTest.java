@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PortfolioLedgerDomainServiceTest {
     private static final OffsetDateTime DAY_ONE = OffsetDateTime.parse("2026-08-01T09:30:00Z");
@@ -33,9 +32,28 @@ class PortfolioLedgerDomainServiceTest {
     }
 
     @Test
-    void rejectsSellingMoreThanCurrentPosition() {
-        assertThrows(IllegalStateException.class, () -> service.calculate(
-                List.of(trade(1L, TradeSide.SELL, "1", "10", "0")), Map.of()));
+    void keepsOverviewAvailableWhenImportedHistoryStartsWithSell() {
+        PortfolioLedgerResultBO result = service.calculate(
+                List.of(trade(1L, TradeSide.SELL, "1", "10", "0")), Map.of());
+
+        assertEquals(0, result.positions().size());
+        assertEquals(0, result.realizedPnl().signum());
+        assertEquals(1, result.warnings().size());
+        assertEquals("UNMATCHED_SELL", result.warnings().getFirst().code());
+        assertEquals(decimal("1"), result.warnings().getFirst().unmatchedQuantity());
+    }
+
+    @Test
+    void matchesAvailableQuantityAndOnlyWarnsForTheUnmatchedRemainder() {
+        PortfolioLedgerResultBO result = service.calculate(List.of(
+                trade(1L, TradeSide.BUY, "2", "10", "0"),
+                trade(2L, TradeSide.SELL, "3", "12", "0")
+        ), Map.of());
+
+        assertEquals(1, result.positions().size());
+        assertEquals(BigDecimal.ZERO, result.positions().getFirst().quantity());
+        assertEquals(decimal("4"), result.realizedPnl());
+        assertEquals(decimal("1"), result.warnings().getFirst().unmatchedQuantity());
     }
 
     @Test

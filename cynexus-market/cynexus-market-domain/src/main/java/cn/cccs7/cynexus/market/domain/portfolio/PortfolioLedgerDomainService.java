@@ -19,13 +19,22 @@ public final class PortfolioLedgerDomainService {
                 .toList();
 
         BigDecimal realizedPnl = BigDecimal.ZERO;
+        List<PortfolioLedgerWarningBO> warnings = new ArrayList<>();
         for (PortfolioTradeBO trade : ordered) {
             PositionAccumulator position = positions.computeIfAbsent(trade.symbol(),
                     ignored -> new PositionAccumulator(trade.symbol(), trade.instrumentType()));
             if (trade.side() == TradeSide.BUY) {
                 position.buy(trade.quantity(), trade.price(), trade.totalFee());
             } else {
-                realizedPnl = realizedPnl.add(position.sell(trade.quantity(), trade.price(), trade.totalFee()));
+                SaleResult sale = position.sell(trade.quantity(), trade.price(), trade.totalFee());
+                realizedPnl = realizedPnl.add(sale.realizedPnl());
+                if (sale.unmatchedQuantity().signum() > 0) {
+                    warnings.add(new PortfolioLedgerWarningBO(
+                            "UNMATCHED_SELL",
+                            trade.symbol(),
+                            money(sale.unmatchedQuantity()),
+                            "Sell quantity exceeds imported buy history; unmatched quantity was excluded from P&L."));
+                }
             }
         }
 
@@ -41,7 +50,7 @@ public final class PortfolioLedgerDomainService {
         }
         snapshots.sort(Comparator.comparing(PortfolioPositionBO::symbol));
         return new PortfolioLedgerResultBO(snapshots, money(realizedPnl), money(unrealizedPnl),
-                money(realizedPnl.add(unrealizedPnl)));
+                money(realizedPnl.add(unrealizedPnl)), warnings);
     }
 
     public PortfolioValuationStatus valuationStatus(List<PortfolioTradeBO> trades,
@@ -94,21 +103,26 @@ public final class PortfolioLedgerDomainService {
             this.costBasis = this.costBasis.add(quantity.multiply(price).add(fee));
         }
 
-        private BigDecimal sell(BigDecimal quantity, BigDecimal price, BigDecimal fee) {
-            if (quantity.compareTo(this.quantity) > 0) {
-                throw new IllegalStateException("sell quantity exceeds current position for " + symbol);
+        private SaleResult sell(BigDecimal quantity, BigDecimal price, BigDecimal fee) {
+            BigDecimal matchedQuantity = quantity.min(this.quantity);
+            BigDecimal unmatchedQuantity = quantity.subtract(matchedQuantity);
+            if (matchedQuantity.signum() == 0) {
+                return new SaleResult(BigDecimal.ZERO, unmatchedQuantity);
             }
             BigDecimal averageCost = averageCost();
-            BigDecimal saleNet = quantity.multiply(price).subtract(fee);
-            BigDecimal releasedCost = quantity.multiply(averageCost);
+            BigDecimal matchedFee = quantity.signum() == 0
+                    ? BigDecimal.ZERO
+                    : fee.multiply(matchedQuantity).divide(quantity, MONEY_SCALE, RoundingMode.HALF_UP);
+            BigDecimal saleNet = matchedQuantity.multiply(price).subtract(matchedFee);
+            BigDecimal releasedCost = matchedQuantity.multiply(averageCost);
             BigDecimal realized = saleNet.subtract(releasedCost);
-            this.quantity = this.quantity.subtract(quantity);
+            this.quantity = this.quantity.subtract(matchedQuantity);
             this.costBasis = this.costBasis.subtract(releasedCost);
             this.realizedPnl = this.realizedPnl.add(realized);
             if (this.quantity.signum() == 0) {
                 this.costBasis = BigDecimal.ZERO;
             }
-            return realized;
+            return new SaleResult(realized, unmatchedQuantity);
         }
 
         private BigDecimal averageCost() {
@@ -124,5 +138,8 @@ public final class PortfolioLedgerDomainService {
             return new PortfolioPositionBO(symbol, instrumentType, quantity, money(averageCost), money(costBasis), money(realizedPnl),
                     latestPrice, money(marketValue), money(unrealized), returnRate);
         }
+    }
+
+    private record SaleResult(BigDecimal realizedPnl, BigDecimal unmatchedQuantity) {
     }
 }

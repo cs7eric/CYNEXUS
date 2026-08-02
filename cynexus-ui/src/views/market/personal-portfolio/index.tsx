@@ -86,6 +86,8 @@ export default function PersonalPortfolioPage() {
 
         {error && !loading ? <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Portfolio data unavailable</p><p className="mt-1 text-xs">{error}</p></div><Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>Retry</Button></div> : null}
 
+        {!loading && overview?.dataQualityWarnings?.length ? <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Partial trade history</p><div className="mt-1 space-y-1 text-xs">{overview.dataQualityWarnings.map((warning, index) => <p key={`${warning.code}-${warning.symbol}-${index}`}>{warning.symbol}: {warning.message}</p>)}</div></div></div> : null}
+
         {loading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-24 rounded-lg" />)}</div> : (
           <>
             <section aria-labelledby="holdings-summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
