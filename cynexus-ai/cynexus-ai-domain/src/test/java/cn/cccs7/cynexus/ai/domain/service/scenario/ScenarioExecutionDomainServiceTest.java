@@ -74,6 +74,7 @@ class ScenarioExecutionDomainServiceTest {
         assertThat(prompt).contains("个人持仓交易截图解析器");
         assertThat(prompt).contains("isTradeScreenshot");
         assertThat(prompt).contains("BUY").contains("SELL");
+        assertThat(prompt).contains("ETF").contains("历史成交");
         assertThat(prompt).contains("candidate context");
         assertThat(prompt).doesNotContain("transactionType");
     }

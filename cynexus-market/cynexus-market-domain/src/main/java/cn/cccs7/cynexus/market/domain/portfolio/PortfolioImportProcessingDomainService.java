@@ -24,12 +24,14 @@ public class PortfolioImportProcessingDomainService {
     public void complete(PortfolioImportTaskBO task, String aiJson, OffsetDateTime completedAt) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
-            if (root == null || !root.path("isTradeScreenshot").asBoolean(false)) {
-                throw new IllegalArgumentException("AI response is not a trade screenshot");
-            }
+            if (root == null) throw new IllegalArgumentException("AI response is not valid JSON");
             JsonNode candidates = root.path("candidates");
             if (!candidates.isArray()) {
                 throw new IllegalArgumentException("AI response candidates must be an array");
+            }
+            boolean declaredTradeScreenshot = root.path("isTradeScreenshot").asBoolean(false);
+            if (!declaredTradeScreenshot && candidates.isEmpty()) {
+                throw new IllegalArgumentException("AI response is not a trade screenshot");
             }
             List<PortfolioImportCandidateBO> values = new ArrayList<>();
             int fallbackRow = 1;
@@ -39,6 +41,9 @@ public class PortfolioImportProcessingDomainService {
                         ? candidate.get("confidence").asDouble() : null;
                 List<String> warnings = new ArrayList<>();
                 candidate.path("warnings").forEach(item -> warnings.add(item.asText()));
+                if (!declaredTradeScreenshot) {
+                    warnings.add("AI did not positively classify the image as a trade screenshot; verify this candidate before confirming.");
+                }
                 values.add(new PortfolioImportCandidateBO(task.getId(), rowNo, candidate,
                         normalize(candidate), confidence, warnings));
             }

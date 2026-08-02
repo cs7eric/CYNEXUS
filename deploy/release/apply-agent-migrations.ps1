@@ -35,6 +35,7 @@ $migrationFiles = @(
     "20260724_seed_autonomous_agent_prompt.sql",
     "20260725_fix_autonomous_agent_markdown_prompt.sql",
     "20260726_optimize_autonomous_agent_prompt_cache_prefix.sql",
+    "20260731_update_autonomous_agent_prompt_v4.sql",
     "20260726_route_autonomous_agent_via_responses.sql",
     "20260726_enable_xhhai_responses_websocket.sql",
     "20260726_use_buffered_xhhai_responses_http.sql",
@@ -57,7 +58,10 @@ $migrationFiles = @(
     "20260727_update_agent_prompt_cache_architecture_kb_v9_zh.sql"
     "20260727_enable_xhhai_responses_sse.sql"
     "20260727_add_ai_agent_run_reasoning_effort.sql"
+    "20260801_seed_futures_position_ai_analysis_prompt.sql"
     ,"20260801_seed_portfolio_trade_screenshot_prompt.sql"
+    ,"20260802_normalize_ai_capability_labels.sql"
+    ,"20260802_refine_portfolio_trade_screenshot_prompt.sql"
 )
 
 foreach ($file in $migrationFiles) {

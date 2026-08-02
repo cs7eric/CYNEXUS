@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.domain.portfolio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
@@ -26,6 +27,22 @@ class PortfolioImportProcessingDomainServiceTest {
         assertEquals("600000", candidates.values.getFirst().normalizedPayload().path("symbol").asText());
         assertEquals(PortfolioImportStatus.READY_FOR_REVIEW, task.getStatus());
         assertSame(task, tasks.updated);
+    }
+
+    @Test
+    void keepsExtractedCandidatesForUncertainTradeClassification() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        RecordingTasks tasks = new RecordingTasks();
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), tasks, candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":false,\"candidates\":[{\"rowNo\":1,\"symbol\":\"159629\",\"securityName\":\"1000ETF\",\"side\":\"SELL\",\"confidence\":0.9,\"warnings\":[]}]}", OffsetDateTime.now());
+
+        assertEquals(PortfolioImportStatus.READY_FOR_REVIEW, task.getStatus());
+        assertTrue(candidates.values.getFirst().warnings().stream()
+                .anyMatch(warning -> warning.contains("did not positively classify")));
     }
 
     private static final class RecordingTasks implements PortfolioImportTaskRepository {
