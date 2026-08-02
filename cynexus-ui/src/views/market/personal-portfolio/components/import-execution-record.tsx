@@ -2,7 +2,6 @@ import { ChevronDown, ChevronRight, CircleAlert, FileCheck2, Pencil } from "luci
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PortfolioImportProcessHistory, PortfolioImportProcessHistoryEvent, PortfolioImportTask } from "@/services/market/portfolio/types"
 
@@ -15,7 +14,6 @@ interface ImportExecutionRecordProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   reviewHref?: string
-  presentation?: "collapsible" | "row"
 }
 
 const EVENT_COPY: Record<string, { title: string; description: string }> = {
@@ -105,21 +103,13 @@ function statusClass(status: string) {
   return "bg-muted text-muted-foreground"
 }
 
-export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref, presentation = "collapsible" }: ImportExecutionRecordProps) {
+export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref }: ImportExecutionRecordProps) {
   const events = history?.events ?? []
   const attempts = Math.max(task.attemptCount, ...events.map((event) => event.attemptNo))
   const latestEvent = events.at(-1)
   const failure = [...events].reverse().find((event) => event.errorCode)
   const statusLabel = STATUS_COPY[task.status] ?? task.status
   const attemptChains = groupByAttempt(events)
-
-  if (presentation === "row") {
-    return <button type="button" onClick={() => onOpenChange?.(true)} className="group flex w-full items-center gap-3 overflow-hidden rounded-lg border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><FileCheck2 className="size-4 text-muted-foreground" /></div>
-      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h2 className="text-sm font-semibold">Import #{history?.taskId ?? task.id}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{statusLabel}</span><span className="text-xs text-muted-foreground">{attempts} attempts</span>{candidateCount != null ? <span className="text-xs text-muted-foreground">{candidateCount} trades</span> : null}<span className="text-xs text-muted-foreground">{formatTime(latestEvent?.occurredAt ?? history?.updatedAt)}</span></div>{failure ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700"><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{failure.errorMessage || failure.errorCode}</span></p> : error ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700"><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{error}</span></p> : loading ? <p className="mt-1 text-xs text-muted-foreground">Loading execution events...</p> : null}</div>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-    </button>
-  }
 
   if (loading) {
     return <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><RecordHeading task={task} history={history} statusLabel={statusLabel} eventCount={0} /><div className="space-y-3 border-t border-border/60 p-4"><Skeleton className="h-14 rounded-md" /><Skeleton className="h-20 rounded-md" /><Skeleton className="h-20 rounded-md" /></div></section>
@@ -149,39 +139,6 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
       {!events.length ? <p className="px-4 py-3 text-xs text-muted-foreground">No execution events have been recorded yet.</p> : <ol className="divide-y divide-border/60 px-4 py-2">{attemptChains.map((chain) => <AttemptEventChain key={chain.attemptNo} chain={chain} />)}</ol>}
     </CollapsibleContent>
   </Collapsible>
-}
-
-interface ImportExecutionDrawerProps {
-  task: PortfolioImportTask | null
-  history: PortfolioImportProcessHistory | null
-  candidateCount?: number | null
-  loading: boolean
-  error: string | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  reviewHref?: string
-}
-
-export function ImportExecutionDrawer({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref }: ImportExecutionDrawerProps) {
-  if (!task) return null
-  const events = history?.events ?? []
-  const attemptChains = groupByAttempt(events)
-  const statusLabel = STATUS_COPY[task.status] ?? task.status
-  const failure = [...events].reverse().find((event) => event.errorCode)
-
-  return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side="right" className="w-full gap-0 p-0 md:w-[35vw] md:max-w-none">
-      <SheetHeader className="border-b border-border/60 px-5 py-4 pr-12">
-        <div className="flex flex-wrap items-center gap-2"><SheetTitle>Import #{history?.taskId ?? task.id}</SheetTitle><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{statusLabel}</span></div>
-        <SheetDescription>{candidateCount != null ? `${candidateCount} extracted trades` : "Screenshot processing record"}</SheetDescription>
-        {failure ? <p className="mt-2 flex min-w-0 items-start gap-1.5 text-xs text-rose-700"><CircleAlert className="mt-0.5 size-3.5 shrink-0" /><span className="break-words">{failure.errorMessage || failure.errorCode}</span></p> : null}
-      </SheetHeader>
-      {reviewHref && task.status === "READY_FOR_REVIEW" ? <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/25 px-5 py-3"><p className="text-xs text-muted-foreground">Candidate trades are ready for confirmation.</p><Link to={reviewHref} className="shrink-0" onClick={() => onOpenChange(false)}><Button size="sm" variant="outline"><Pencil className="mr-1.5 size-3.5" />Review candidates</Button></Link></div> : null}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        {loading ? <div className="space-y-3"><Skeleton className="h-14 rounded-md" /><Skeleton className="h-20 rounded-md" /><Skeleton className="h-20 rounded-md" /></div> : error ? <div className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Execution record unavailable</p><p className="mt-1 break-words text-xs">{error}</p></div></div> : !history ? <p className="text-sm text-muted-foreground">This upload has not created an execution record yet.</p> : !events.length ? <p className="text-sm text-muted-foreground">No execution events have been recorded yet.</p> : <ol className="divide-y divide-border/60">{attemptChains.map((chain) => <AttemptEventChain key={chain.attemptNo} chain={chain} />)}</ol>}
-      </div>
-    </SheetContent>
-  </Sheet>
 }
 
 function RecordHeading({ task, history, statusLabel, eventCount }: { task: PortfolioImportTask; history: PortfolioImportProcessHistory | null; statusLabel: string; eventCount: number }) {

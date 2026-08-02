@@ -163,10 +163,6 @@ export const sidebarConfig = {
           url: "/personal-portfolio",
         },
         {
-          title: "portfolio imports",
-          url: "/personal-portfolio/imports",
-        },
-        {
           title: "portfolio reviews",
           url: "/personal-portfolio/reviews/new",
         },

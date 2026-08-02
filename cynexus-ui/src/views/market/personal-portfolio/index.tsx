@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { ArrowUpRight, ClipboardCheck, CircleAlert, RefreshCw, Upload, WalletCards } from "lucide-react"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { fetchPortfolioOverview } from "@/services/market/portfolio/portfolio"
 import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
 import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
+import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 
 const money = (value: number | null | undefined) => value == null ? "--" : value.toFixed(2)
 const percent = (value: number | null | undefined) => value == null ? "--" : `${(value * 100).toFixed(2)}%`
@@ -23,11 +24,19 @@ function positionValue(position: PortfolioPosition, key: "marketValue" | "costBa
 }
 
 export default function PersonalPortfolioPage() {
-  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [overview, setOverview] = useState<PortfolioOverview | null>(null)
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const importDrawerOpen = searchParams.get("imports") === "1"
+
+  function setImportDrawerOpen(open: boolean) {
+    const next = new URLSearchParams(searchParams)
+    if (open) next.set("imports", "1")
+    else next.delete("imports")
+    setSearchParams(next, { replace: true })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -70,7 +79,7 @@ export default function PersonalPortfolioPage() {
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Track confirmed positions, execution P&L, buy/sell context, and the reviews that explain each decision.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => navigate("/personal-portfolio/imports")}><Upload className="mr-2 size-4" />Import center</Button>
+            <Button onClick={() => setImportDrawerOpen(true)}><Upload className="mr-2 size-4" />Import trades</Button>
             <Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button>
           </div>
         </header>
@@ -119,6 +128,7 @@ export default function PersonalPortfolioPage() {
             </div>
           </>
         )}
+        <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={setImportDrawerOpen} />
       </div>
     </WorkspaceShell>
   )

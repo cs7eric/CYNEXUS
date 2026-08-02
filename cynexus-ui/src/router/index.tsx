@@ -43,7 +43,6 @@ import FinanceTransactionsPage from "../views/finance/transactions"
 import FinanceAccountsPage from "../views/finance/accounts"
 import FinanceAiCapturePage from "../views/finance/ai-capture"
 import PersonalPortfolioPage from "../views/market/personal-portfolio"
-import PersonalPortfolioImportsCenterPage from "../views/market/personal-portfolio/imports-center"
 import PersonalPortfolioImportReviewPage from "../views/market/personal-portfolio/import-review"
 import PersonalPortfolioReviewEditorPage from "../views/market/personal-portfolio/review-editor"
 import PersonalPortfolioStockDetailPage from "../views/market/personal-portfolio/stock-detail"
@@ -148,7 +147,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "personal-portfolio/imports",
-        element: <PersonalPortfolioImportsCenterPage />,
+        element: <Navigate to="/personal-portfolio?imports=1" replace />,
       },
       {
         path: "personal-portfolio/imports/:taskId/review",

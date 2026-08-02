@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchPortfolioImportHistory } from "@/services/market/portfolio/imports"
 import type { PortfolioImportProcessHistory, PortfolioImportTask } from "@/services/market/portfolio/types"
-import { ImportExecutionDrawer, ImportExecutionRecord } from "./import-execution-record"
+import { ImportExecutionRecord } from "./import-execution-record"
 
 interface ImportHistoryListProps {
   tasks: PortfolioImportTask[]
@@ -13,9 +13,10 @@ interface ImportHistoryListProps {
   selectedTaskId?: number | null
   onSelectedTaskChange?: (taskId: number | null) => void
   refreshSignal?: number
+  showHeader?: boolean
 }
 
-export function ImportHistoryList({ tasks, loading, onRefresh, selectedTaskId, onSelectedTaskChange, refreshSignal = 0 }: ImportHistoryListProps) {
+export function ImportHistoryList({ tasks, loading, onRefresh, selectedTaskId, onSelectedTaskChange, refreshSignal = 0, showHeader = true }: ImportHistoryListProps) {
   const [historyByTask, setHistoryByTask] = useState<Record<number, PortfolioImportProcessHistory>>({})
   const [errorsByTask, setErrorsByTask] = useState<Record<number, string>>({})
 
@@ -46,14 +47,11 @@ export function ImportHistoryList({ tasks, loading, onRefresh, selectedTaskId, o
     return () => { cancelled = true }
   }, [tasks, refreshSignal])
 
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
-
-  return <section aria-labelledby="import-history-heading">
-    <div className="flex flex-wrap items-end justify-between gap-3">
+  return <section aria-labelledby={showHeader ? "import-history-heading" : undefined}>
+    {showHeader ? <div className="flex flex-wrap items-end justify-between gap-3">
       <div><h2 id="import-history-heading" className="text-base font-semibold">Import history</h2><p className="mt-1 text-xs text-muted-foreground">Every screenshot keeps its own processing record, including retries and review changes.</p></div>
       <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh history</Button>
-    </div>
-    {loading ? <div className="mt-3 space-y-3"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : !tasks.length ? <div className="mt-3 rounded-lg border border-dashed border-border/70 px-4 py-8 text-center"><p className="text-sm font-medium">No screenshot imports yet</p><p className="mt-1 text-xs text-muted-foreground">Import a trade screenshot to create the first processing record.</p></div> : <div className="mt-3 space-y-3">{tasks.map((task) => <ImportExecutionRecord key={task.id} task={task} history={historyByTask[task.id] ?? null} candidateCount={null} loading={!historyByTask[task.id] && !errorsByTask[task.id]} error={errorsByTask[task.id] ?? null} presentation="row" onOpenChange={(open) => onSelectedTaskChange?.(open ? task.id : null)} />)}</div>}
-    <ImportExecutionDrawer task={selectedTask} history={selectedTask ? historyByTask[selectedTask.id] ?? null : null} candidateCount={null} loading={selectedTask ? !historyByTask[selectedTask.id] && !errorsByTask[selectedTask.id] : false} error={selectedTask ? errorsByTask[selectedTask.id] ?? null : null} open={Boolean(selectedTask)} onOpenChange={(open) => { if (!open) onSelectedTaskChange?.(null) }} reviewHref={selectedTask ? `/personal-portfolio/imports/${selectedTask.id}/review` : undefined} />
+    </div> : null}
+    {loading ? <div className={`${showHeader ? "mt-3" : ""} space-y-3`}><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : !tasks.length ? <div className={`${showHeader ? "mt-3" : ""} rounded-lg border border-dashed border-border/70 px-4 py-8 text-center`}><p className="text-sm font-medium">No screenshot imports yet</p><p className="mt-1 text-xs text-muted-foreground">Import a trade screenshot to create the first processing record.</p></div> : <div className={`${showHeader ? "mt-3" : ""} space-y-3`}>{tasks.map((task) => <ImportExecutionRecord key={task.id} task={task} history={historyByTask[task.id] ?? null} candidateCount={null} loading={!historyByTask[task.id] && !errorsByTask[task.id]} error={errorsByTask[task.id] ?? null} open={selectedTaskId === task.id} onOpenChange={(open) => onSelectedTaskChange?.(open ? task.id : null)} reviewHref={`/personal-portfolio/imports/${task.id}/review`} />)}</div>}
   </section>
 }
