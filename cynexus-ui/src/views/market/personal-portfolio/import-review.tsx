@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Check, CircleAlert, Loader2, Pencil, RefreshCw, Save } from "lucide-react"
+import { Check, CircleAlert, Loader2, Pencil, RefreshCw, Save, Upload } from "lucide-react"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import {
   fetchPortfolioImport,
   fetchPortfolioImportHistory,
   fetchPortfolioImportReview,
+  uploadPortfolioScreenshot,
   updatePortfolioCandidate,
   type PortfolioCandidateEdit,
 } from "@/services/market/portfolio/imports"
@@ -76,6 +77,8 @@ export default function PersonalPortfolioImportReviewPage() {
   const [savingId, setSavingId] = useState<number | null>(null); const [confirming, setConfirming] = useState(false)
   const [selected, setSelected] = useState<number[]>([]); const [error, setError] = useState<string | null>(null)
   const pollInFlight = useRef(false)
+  const uploadInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -154,11 +157,29 @@ export default function PersonalPortfolioImportReviewPage() {
     catch (cause) { notification.danger({ title: "Confirmation failed", description: cause instanceof Error ? cause.message : String(cause) }) } finally { setConfirming(false) }
   }
 
+  async function importAnotherScreenshot(file: File) {
+    if (!file.type.startsWith("image/")) {
+      notification.warn({ title: "Unsupported screenshot", description: "Use PNG, JPEG, or WebP." })
+      return
+    }
+    setUploading(true)
+    try {
+      const task = await uploadPortfolioScreenshot(file, `ui-${crypto.randomUUID()}`)
+      notification.success({ title: "Screenshot queued", description: "The new screenshot is processing in the background." })
+      navigate(`/personal-portfolio/imports/${task.id}`)
+    } catch (cause) {
+      notification.danger({ title: "Upload failed", description: cause instanceof Error ? cause.message : String(cause) })
+    } finally {
+      setUploading(false)
+      if (uploadInputRef.current) uploadInputRef.current.value = ""
+    }
+  }
+
   return <WorkspaceShell sectionLabel="Stock Overview" pageTitle="Import Review">
     <div className="flex w-full min-w-0 flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0"><p className="text-xs text-muted-foreground">Import #{taskId}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Verify trade candidates</h1><p className="mt-1 text-sm text-muted-foreground">Review and correct AI output before it affects your portfolio ledger.</p></div>
-        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { void load(); void loadHistory() }} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button><Button onClick={() => void confirm()} disabled={confirming || !pending.length || review?.task.status !== "READY_FOR_REVIEW"}><Check className="mr-2 size-4" />{confirming ? "Confirming..." : `Confirm ${selected.length} trades`}</Button></div>
+        <div className="flex flex-wrap gap-2"><input ref={uploadInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importAnotherScreenshot(file) }} /><Button variant="outline" onClick={() => uploadInputRef.current?.click()} disabled={uploading}><Upload className="mr-2 size-4" />{uploading ? "Uploading..." : "Import another"}</Button><Button variant="outline" onClick={() => { void load(); void loadHistory(true) }} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button><Button onClick={() => void confirm()} disabled={confirming || !pending.length || review?.task.status !== "READY_FOR_REVIEW"}><Check className="mr-2 size-4" />{confirming ? "Confirming..." : `Confirm ${selected.length} trades`}</Button></div>
       </header>
       {loading ? <Skeleton className="h-72 rounded-lg" /> : error ? <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="size-4" />{error}<Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>Retry</Button></div> : <>
         <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/35 px-4 py-3 text-sm"><span className="font-medium">Status</span><span className="rounded-full bg-background px-2.5 py-1 text-xs">{review?.task.status}</span>{!terminal.has(review?.task.status || "") ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}</div>
