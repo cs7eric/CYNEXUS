@@ -16,8 +16,9 @@ export async function cynexusResult<T>(res: Response): Promise<T> {
   const text = await res.text()
   const data = parseJsonPreservingLongIds<CynexusResult<T>>(text)
   if (!res.ok || !data || data.success === false || data.failed === true) {
-    throw new Error(data?.message || `request failed: ${res.status}`)
+    const message = data?.message || (data as { error?: string } | null)?.error
+    const status = `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`
+    throw new Error(message ? `${message} (${status})` : `request failed: ${status}`)
   }
   return data.data as T
 }
-
