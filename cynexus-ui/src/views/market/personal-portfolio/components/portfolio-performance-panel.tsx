@@ -6,6 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchPortfolioPerformance } from "@/services/market/portfolio/portfolio"
 import type { PortfolioPerformance, PortfolioPerformancePoint, PortfolioPerformanceRange } from "@/services/market/portfolio/types"
+import { PortfolioIncomeCalendar } from "./portfolio-income-calendar"
 
 const chartConfig = {
   cumulativePnl: { label: "累计收益", color: "var(--chart-1)" },
@@ -34,6 +35,7 @@ function tone(value: number | null | undefined) {
 
 export function PortfolioPerformancePanel() {
   const [range, setRange] = useState<PortfolioPerformanceRange>("daily")
+  const [chartView, setChartView] = useState<"calendar" | "bars">("calendar")
   const [performance, setPerformance] = useState<PortfolioPerformance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -81,9 +83,9 @@ export function PortfolioPerformancePanel() {
           <div className="flex items-center gap-2"><ChartNoAxesCombined className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="performance-heading" className="text-base font-semibold">收益变化</h2></div>
           <p className="mt-1 text-xs text-muted-foreground">按日、周、月、年观察收益变化；面积为当前视图累计收益，柱体为对应周期收益，红涨绿跌。</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/50 p-1" role="group" aria-label="收益视图">
+        <div className="flex flex-wrap items-center gap-2"><div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/50 p-1" role="group" aria-label="收益视图">
           {(["daily", "weekly", "monthly", "yearly"] as PortfolioPerformanceRange[]).map((item) => <Button key={item} size="sm" variant={range === item ? "default" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setRange(item)}>{item === "daily" ? "日" : item === "weekly" ? "周" : item === "monthly" ? "月" : "年"}</Button>)}
-        </div>
+        </div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="图表类型"><Button size="sm" variant={chartView === "calendar" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setChartView("calendar")}>日历图</Button><Button size="sm" variant={chartView === "bars" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setChartView("bars")}>柱状图</Button></div></div>
       </div>
 
       {loading ? <div className="space-y-4 p-4"><div className="grid gap-3 sm:grid-cols-4"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div><Skeleton className="h-[280px] w-full" /></div> : error ? <div className="flex items-start gap-2 px-4 py-12 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">收益历史加载失败</p><p className="mt-1 break-words text-xs">{error}</p></div></div> : performance && performance.points.length ? <div className="p-4">
@@ -95,7 +97,7 @@ export function PortfolioPerformancePanel() {
           <Summary label="视图累计收益" value={money(viewCumulativePnl)} toneClass={tone(viewCumulativePnl)} detail={`${performance.tradingDays} 个交易周期`} />
         </div>
         <div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">{currentPeriodLabel}收益走势</p><p className="mt-0.5 text-[11px] text-muted-foreground">面积为当前视图累计收益，柱体为周期收益变化</p></div><span className="text-[11px] text-muted-foreground">数据点 {performance.points.length}</span></div>
-        <ChartContainer config={chartConfig} className="mt-2 h-[300px] w-full aspect-auto">
+        {chartView === "calendar" ? <div className="mt-2"><PortfolioIncomeCalendar points={performance.points} range={range} /></div> : <ChartContainer config={chartConfig} className="mt-2 h-[300px] w-full aspect-auto">
           <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} fontSize={10} />
@@ -107,7 +109,7 @@ export function PortfolioPerformancePanel() {
               {chartData.map((point) => <Cell key={point.tradeDate} className={Number(point.periodPnl) >= 0 ? "fill-rose-500" : "fill-emerald-500"} />)}
             </Bar>
           </ComposedChart>
-        </ChartContainer>
+        </ChartContainer>}
       </div> : <div className="flex min-h-[220px] items-center justify-center px-4 py-10 text-center"><div><Loader2 className="mx-auto size-4 text-muted-foreground" /><p className="mt-2 text-sm font-medium">暂无可计算的历史收益</p><p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">需要已确认的交易和对应标的的日线行情；导入并确认交易后会自动出现。</p></div></div>}
     </section>
   )
