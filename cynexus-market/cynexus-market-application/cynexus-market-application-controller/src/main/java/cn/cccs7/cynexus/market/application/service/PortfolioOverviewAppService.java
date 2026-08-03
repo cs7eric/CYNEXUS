@@ -71,11 +71,12 @@ public class PortfolioOverviewAppService {
         var preliminary = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, Map.of()), baselines);
         Map<String, BigDecimal> latestPrices = loadLatestPrices(preliminary.positions());
+        Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(preliminary.positions());
         PortfolioLedgerResultBO result = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, latestPrices), baselines);
         Map<String, List<PortfolioPricePointBO>> priceSeries = loadPortfolioPriceSeries(preliminary.positions());
         Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
-                trades, priceSeries, latestPrices, LocalDate.now(SHANGHAI));
+                trades, priceSeries, latestPrices, previousClosePrices, LocalDate.now(SHANGHAI));
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
@@ -121,6 +122,7 @@ public class PortfolioOverviewAppService {
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
         var openPositions = ledgerService.calculate(trades, Map.of()).positions();
         Map<String, BigDecimal> realtimePrices = realtimePriceGateway.latestPrices(openPositions);
+        Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(openPositions);
         Map<String, PortfolioInstrumentType> instruments = trades.stream()
                 .collect(Collectors.toMap(cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::symbol,
                         cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::instrumentType,
@@ -148,7 +150,7 @@ public class PortfolioOverviewAppService {
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
                 trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
                 requested.from(), requested.to(), requested.granularity());
-        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, today);
+        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, previousClosePrices, today);
         List<PortfolioPerformancePointDTO> points = result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
                 .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
                 .costBasis(point.costBasis()).totalPnl(point.totalPnl())

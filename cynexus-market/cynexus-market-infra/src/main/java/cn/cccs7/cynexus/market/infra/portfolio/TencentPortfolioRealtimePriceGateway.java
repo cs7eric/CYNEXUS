@@ -70,6 +70,37 @@ public class TencentPortfolioRealtimePriceGateway implements PortfolioRealtimePr
         }
     }
 
+    @Override
+    public Map<String, BigDecimal> previousClosePrices(List<PortfolioPositionBO> positions) {
+        if (positions == null || positions.isEmpty()) return Map.of();
+        List<String> symbols = positions.stream()
+                .filter(position -> position != null && position.quantity() != null && position.quantity().signum() > 0)
+                .map(PortfolioPositionBO::symbol)
+                .filter(symbol -> symbol != null && symbol.matches("\\d{6}"))
+                .distinct()
+                .toList();
+        if (symbols.isEmpty()) return Map.of();
+        String query = symbols.stream().map(symbol -> market(symbol) + symbol).reduce((left, right) -> left + "," + right).orElse("");
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint + query))
+                    .timeout(timeout)
+                    .header("Accept", "text/plain")
+                    .header("User-Agent", "CynexusMarket/1.0")
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 != 2) return Map.of();
+            return parsePreviousCloseResponse(response.body());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return Map.of();
+        } catch (Exception exception) {
+            log.warn("Previous-close portfolio quote request failed", exception);
+            return Map.of();
+        }
+    }
+
     static Map<String, BigDecimal> parseResponse(String body) {
         if (body == null || body.isBlank()) return Map.of();
         Map<String, BigDecimal> prices = new LinkedHashMap<>();
@@ -82,6 +113,23 @@ public class TencentPortfolioRealtimePriceGateway implements PortfolioRealtimePr
                 if (price.signum() >= 0) prices.put(matcher.group(2), price);
             } catch (NumberFormatException ignored) {
                 // Ignore a malformed quote and keep the other symbols usable.
+            }
+        }
+        return prices;
+    }
+
+    static Map<String, BigDecimal> parsePreviousCloseResponse(String body) {
+        if (body == null || body.isBlank()) return Map.of();
+        Map<String, BigDecimal> prices = new LinkedHashMap<>();
+        Matcher matcher = QUOTE.matcher(body);
+        while (matcher.find()) {
+            String[] fields = matcher.group(3).split("~", -1);
+            if (fields.length <= 4 || fields[4].isBlank()) continue;
+            try {
+                BigDecimal price = new BigDecimal(fields[4]);
+                if (price.signum() > 0) prices.put(matcher.group(2), price);
+            } catch (NumberFormatException ignored) {
+                // Keep other quote rows usable.
             }
         }
         return prices;

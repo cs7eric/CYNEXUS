@@ -11,4 +11,9 @@ import java.util.Map;
  */
 public interface PortfolioRealtimePriceGateway {
     Map<String, BigDecimal> latestPrices(List<PortfolioPositionBO> positions);
+
+    /** Returns the previous trading close when the quote provider supplies it. */
+    default Map<String, BigDecimal> previousClosePrices(List<PortfolioPositionBO> positions) {
+        return Map.of();
+    }
 }

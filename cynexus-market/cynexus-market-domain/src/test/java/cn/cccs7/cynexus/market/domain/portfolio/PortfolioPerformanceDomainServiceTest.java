@@ -80,11 +80,55 @@ class PortfolioPerformanceDomainServiceTest {
                 Map.of("600000", decimal("13")),
                 LocalDate.parse("2026-07-02"));
 
-        assertEquals(0, decimal("12.505").compareTo(todayPnl));
+        assertEquals(0, decimal("12.5").compareTo(todayPnl));
+    }
+
+    @Test
+    void keepsTodayPnlAccurateWhenDisplayedAverageCostIsRounded() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, "159796", TradeSide.BUY, "4100", "1.40608519", "2026-07-30T00:00:00Z"),
+                trade(2L, "159796", TradeSide.SELL, "1000", "0.840", "2026-07-31T09:30:43Z"),
+                trade(3L, "159796", TradeSide.SELL, "400", "0.850", "2026-07-31T09:48:44Z"),
+                trade(4L, "159796", TradeSide.BUY, "500", "0.840", "2026-07-31T10:38:17Z"),
+                trade(5L, "159796", TradeSide.BUY, "200", "0.840", "2026-07-31T11:24:58Z"),
+                trade(6L, "159796", TradeSide.BUY, "500", "0.833", "2026-08-03T00:00:00Z")
+        );
+
+        BigDecimal todayPnl = service.calculateTodayPnl(
+                trades,
+                Map.of("159796", List.of(price("2026-07-31", "0.837"))),
+                Map.of("159796", decimal("0.836")),
+                LocalDate.parse("2026-08-03"));
+
+        assertEquals(0, decimal("-1.9").compareTo(todayPnl));
+    }
+
+    @Test
+    void calculatesTodayPnlUsingOpeningQuantityAndTodayBuyPrice() {
+        PortfolioTradeBO openingTrade = new PortfolioTradeBO(1L, "159796", "Battery ETF", PortfolioInstrumentType.ETF,
+                TradeSide.BUY, DAY_ONE, decimal("3400"), decimal("0.84"), BigDecimal.ZERO, TradeStatus.ACTIVE);
+        PortfolioTradeBO todayTrade = new PortfolioTradeBO(2L, "159796", "Battery ETF", PortfolioInstrumentType.ETF,
+                TradeSide.BUY, OffsetDateTime.parse("2026-07-02T09:30:00Z"), decimal("500"), decimal("0.833"), BigDecimal.ZERO,
+                TradeStatus.ACTIVE);
+
+        BigDecimal todayPnl = service.calculateTodayPnl(
+                List.of(openingTrade, todayTrade),
+                Map.of("159796", List.of(price("2026-07-01", "0.837"))),
+                Map.of("159796", decimal("0.836")),
+                Map.of("159796", decimal("0.837")),
+                LocalDate.parse("2026-07-02"));
+
+        assertEquals(0, decimal("-1.9").compareTo(todayPnl));
     }
 
     private static PortfolioPricePointBO price(String date, String close) {
         return new PortfolioPricePointBO(LocalDate.parse(date), decimal(close));
+    }
+
+    private static PortfolioTradeBO trade(long id, String symbol, TradeSide side, String quantity, String price,
+                                          String tradedAt) {
+        return new PortfolioTradeBO(id, symbol, "电池", PortfolioInstrumentType.ETF, side,
+                OffsetDateTime.parse(tradedAt), decimal(quantity), decimal(price), BigDecimal.ZERO, TradeStatus.ACTIVE);
     }
 
     private static BigDecimal decimal(String value) {
