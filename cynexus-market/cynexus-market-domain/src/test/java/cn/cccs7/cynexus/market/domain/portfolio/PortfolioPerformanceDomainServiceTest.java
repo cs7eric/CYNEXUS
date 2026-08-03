@@ -121,6 +121,23 @@ class PortfolioPerformanceDomainServiceTest {
         assertEquals(0, decimal("-1.9").compareTo(todayPnl));
     }
 
+    @Test
+    void calculatesHistoricalDailyPointFromPreviousCloseAndSameDayTrades() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, "600000", TradeSide.BUY, "100", "10", "2026-07-30T09:30:00Z"),
+                trade(2L, "600000", TradeSide.BUY, "50", "12.5", "2026-08-03T09:30:00Z")
+        );
+
+        PortfolioPerformanceResultBO result = service.calculate(
+                trades,
+                Map.of("600000", List.of(price("2026-07-31", "12"), price("2026-08-03", "13"))),
+                Map.of(), BigDecimal.ZERO, LocalDate.parse("2026-08-03"), LocalDate.parse("2026-08-03"),
+                PortfolioPerformanceGranularity.DAILY);
+
+        assertEquals(0, decimal("125").compareTo(result.periodPnl()));
+        assertEquals(0, decimal("125").compareTo(result.points().getFirst().periodPnl()));
+    }
+
     private static PortfolioPricePointBO price(String date, String close) {
         return new PortfolioPricePointBO(LocalDate.parse(date), decimal(close));
     }
