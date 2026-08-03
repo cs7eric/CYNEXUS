@@ -108,19 +108,20 @@ export default function PersonalPortfolioPage() {
           <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="positions-heading">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5"><div><div className="flex items-center gap-2"><h2 id="positions-heading" className="text-base font-semibold">当前持仓</h2><span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{positions.length} 个标的</span></div><p className="mt-1 text-xs text-muted-foreground">点击任意一行打开详情 Drawer；行情使用市场数据源的最新可用价格。</p></div><div className="text-right text-xs text-muted-foreground">{largestPosition ? `最大持仓：${largestPosition.securityName ?? largestPosition.symbol}` : "暂无已确认持仓"}</div></div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px] text-sm">
-                <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">标的</th><th className="px-4 py-3 text-right">持仓</th><th className="px-4 py-3 text-right">成本 / 最新价</th><th className="px-4 py-3 text-right">市值</th><th className="px-4 py-3 text-right">当前盈亏</th><th className="px-4 py-3 text-right">收益率</th><th className="w-10 px-3 py-3" /></tr></thead>
+              <table className="w-full min-w-[1020px] text-sm">
+                <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">标的</th><th className="px-4 py-3 text-right">持仓</th><th className="px-4 py-3 text-right">成本 / 最新价</th><th className="px-4 py-3 text-right">市值</th><th className="px-4 py-3 text-right">今日盈亏</th><th className="px-4 py-3 text-right">当前盈亏</th><th className="px-4 py-3 text-right">收益率</th><th className="w-10 px-3 py-3" /></tr></thead>
                 <tbody className="divide-y divide-border/60">
                   {positions.map((position) => <tr key={`${position.instrumentType}-${position.symbol}`} role="button" tabIndex={0} aria-label={`打开 ${position.securityName ?? position.symbol} 持仓详情`} onClick={() => openPosition(position)} onKeyDown={(event) => handlePositionKeyDown(event, position)} className="group cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/50 focus-visible:outline-none">
                     <td className="px-4 py-3.5"><div className="flex min-w-0 items-center gap-3"><span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-[11px] font-semibold text-foreground">{position.instrumentType === "ETF" ? "E" : "S"}</span><div className="min-w-0"><p className="font-mono text-sm font-semibold text-foreground">{position.symbol}</p><p className="truncate text-xs text-muted-foreground">{position.securityName ?? "名称待补充"} <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span></p></div></div></td>
                     <td className="px-4 py-3.5 text-right font-mono tabular-nums">{position.quantity}</td>
                     <td className="px-4 py-3.5 text-right"><p className="font-mono tabular-nums">{price(position.averageCost)}</p><p className="mt-0.5 text-xs text-muted-foreground">{price(position.latestPrice)}</p></td>
                     <td className="px-4 py-3.5 text-right font-mono tabular-nums">{money(position.marketValue)}</td>
+                    <td className={`px-4 py-3.5 text-right font-mono font-semibold tabular-nums ${pnlTone(position.todayPnl)}`}>{signedMoney(position.todayPnl)}</td>
                     <td className={`px-4 py-3.5 text-right font-mono font-semibold tabular-nums ${pnlTone(position.unrealizedPnl)}`}>{signedMoney(position.unrealizedPnl)}</td>
                     <td className={`px-4 py-3.5 text-right font-mono tabular-nums ${pnlTone(position.unrealizedReturnRate)}`}>{percent(position.unrealizedReturnRate)}</td>
                     <td className="px-3 py-3.5 text-right"><ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></td>
                   </tr>)}
-                  {!positions.length ? <tr><td colSpan={7} className="px-4 py-14 text-center"><p className="text-sm font-medium">暂无已确认持仓</p><p className="mt-1 text-xs text-muted-foreground">导入截图、校正识别结果并确认交易后，持仓会显示在这里。</p></td></tr> : null}
+                  {!positions.length ? <tr><td colSpan={8} className="px-4 py-14 text-center"><p className="text-sm font-medium">暂无已确认持仓</p><p className="mt-1 text-xs text-muted-foreground">导入截图、校正识别结果并确认交易后，持仓会显示在这里。</p></td></tr> : null}
                 </tbody>
               </table>
             </div>

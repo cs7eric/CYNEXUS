@@ -72,13 +72,16 @@ public class PortfolioOverviewAppService {
         Map<String, BigDecimal> latestPrices = loadLatestPrices(preliminary.positions());
         PortfolioLedgerResultBO result = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, latestPrices), baselines);
+        Map<String, List<PortfolioPricePointBO>> priceSeries = loadPortfolioPriceSeries(preliminary.positions());
+        Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
+                trades, priceSeries, latestPrices, LocalDate.now(SHANGHAI));
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
         BigDecimal availableCash = account.availableCash();
         Map<String, String> securityNames = loadSecurityNames(result.positions());
         return PortfolioOverviewDTO.builder()
-                .positions(result.positions().stream().map(position -> toPosition(position, securityNames)).toList())
+                .positions(result.positions().stream().map(position -> toPosition(position, securityNames, todayPnlBySymbol)).toList())
                 .dataQualityWarnings(result.warnings().stream().map(warning -> PortfolioLedgerWarningDTO.builder()
                         .code(warning.code()).symbol(warning.symbol())
                         .unmatchedQuantity(warning.unmatchedQuantity()).message(warning.message()).build()).toList())
@@ -187,12 +190,31 @@ public class PortfolioOverviewAppService {
     }
 
     private PortfolioPositionDTO toPosition(cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO value,
-                                             Map<String, String> securityNames) {
+                                             Map<String, String> securityNames,
+                                             Map<String, BigDecimal> todayPnlBySymbol) {
         return PortfolioPositionDTO.builder().symbol(value.symbol()).securityName(securityNames.get(value.symbol()))
                 .instrumentType(value.instrumentType().name()).quantity(value.quantity())
                 .averageCost(value.averageCost()).costBasis(value.costBasis()).realizedPnl(value.realizedPnl())
                 .latestPrice(value.latestPrice()).marketValue(value.marketValue()).unrealizedPnl(value.unrealizedPnl())
+                .todayPnl(todayPnlBySymbol.get(value.symbol()))
                 .unrealizedReturnRate(value.unrealizedReturnRate()).build();
+    }
+
+    private Map<String, List<PortfolioPricePointBO>> loadPortfolioPriceSeries(List<PortfolioPositionBO> positions) {
+        Map<String, List<PortfolioPricePointBO>> prices = new LinkedHashMap<>();
+        for (PortfolioPositionBO position : positions) {
+            try {
+                var result = stockChartQueryDomainService.klines(position.instrumentType().chartTargetType(), position.symbol(), "1d", "qfq");
+                prices.put(position.symbol(), result.items().stream()
+                        .filter(bar -> bar.getTradeDate() != null && bar.getClose() != null)
+                        .map(bar -> new PortfolioPricePointBO(bar.getTradeDate(), bar.getClose()))
+                        .toList());
+            } catch (RuntimeException exception) {
+                log.warn("Unable to load portfolio daily prices for symbol={}", position.symbol(), exception);
+                prices.put(position.symbol(), List.of());
+            }
+        }
+        return prices;
     }
 
     private Map<String, String> loadSecurityNames(List<PortfolioPositionBO> positions) {

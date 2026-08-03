@@ -73,6 +73,7 @@ export interface PortfolioPosition {
   latestPrice?: number | null
   marketValue: number
   unrealizedPnl: number
+  todayPnl?: number | null
   unrealizedReturnRate: number
 }
 

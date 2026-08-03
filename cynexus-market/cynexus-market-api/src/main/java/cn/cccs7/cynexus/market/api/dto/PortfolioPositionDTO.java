@@ -17,5 +17,6 @@ public class PortfolioPositionDTO {
     BigDecimal latestPrice;
     BigDecimal marketValue;
     BigDecimal unrealizedPnl;
+    BigDecimal todayPnl;
     BigDecimal unrealizedReturnRate;
 }

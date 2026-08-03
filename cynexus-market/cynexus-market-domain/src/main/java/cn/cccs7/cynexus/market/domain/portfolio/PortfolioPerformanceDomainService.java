@@ -83,7 +83,15 @@ public final class PortfolioPerformanceDomainService {
                                         Map<String, List<PortfolioPricePointBO>> priceSeries,
                                         Map<String, BigDecimal> realtimePrices,
                                         LocalDate today) {
-        if (today == null || trades == null || trades.isEmpty()) return null;
+        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, today).values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public Map<String, BigDecimal> calculateTodayPnlBySymbol(List<PortfolioTradeBO> trades,
+                                                              Map<String, List<PortfolioPricePointBO>> priceSeries,
+                                                              Map<String, BigDecimal> realtimePrices,
+                                                              LocalDate today) {
+        if (today == null || trades == null || trades.isEmpty()) return Map.of();
         Map<String, List<PortfolioPricePointBO>> normalizedPrices = normalizePrices(priceSeries);
         Map<String, BigDecimal> previousPrices = new HashMap<>();
         Map<String, BigDecimal> currentPrices = new HashMap<>();
@@ -94,23 +102,36 @@ public final class PortfolioPerformanceDomainService {
                     .ifPresent(point -> currentPrices.put(symbol, point.close()));
         });
         if (realtimePrices != null) currentPrices.putAll(realtimePrices);
-        if (currentPrices.isEmpty() || previousPrices.isEmpty()) return null;
+        if (currentPrices.isEmpty() || previousPrices.isEmpty()) return Map.of();
 
-        List<PortfolioTradeBO> openingTrades = trades.stream()
-                .filter(Objects::nonNull)
-                .filter(trade -> !trade.tradedAt().toLocalDate().isAfter(today))
-                .filter(trade -> trade.tradedAt().toLocalDate().isBefore(today))
-                .toList();
-        List<PortfolioTradeBO> effectiveTrades = trades.stream()
-                .filter(Objects::nonNull)
-                .filter(trade -> !trade.tradedAt().toLocalDate().isAfter(today))
-                .toList();
-        PortfolioLedgerResultBO openingAtPreviousClose = ledgerService.calculate(openingTrades, previousPrices);
-        PortfolioLedgerResultBO openingAtCurrent = ledgerService.calculate(openingTrades, currentPrices);
-        PortfolioLedgerResultBO effectiveAtCurrent = ledgerService.calculate(effectiveTrades, currentPrices);
-        BigDecimal priceMove = openingAtCurrent.totalPnl().subtract(openingAtPreviousClose.totalPnl());
-        BigDecimal todayTradeImpact = effectiveAtCurrent.totalPnl().subtract(openingAtCurrent.totalPnl());
-        return money(priceMove.add(todayTradeImpact));
+        java.util.Set<String> symbols = new java.util.HashSet<>(previousPrices.keySet());
+        symbols.addAll(currentPrices.keySet());
+        trades.stream().filter(Objects::nonNull).map(PortfolioTradeBO::symbol).forEach(symbols::add);
+        Map<String, BigDecimal> result = new HashMap<>();
+        for (String symbol : symbols) {
+            BigDecimal previousPrice = previousPrices.get(symbol);
+            BigDecimal currentPrice = currentPrices.get(symbol);
+            if (previousPrice == null || currentPrice == null) continue;
+            List<PortfolioTradeBO> symbolTrades = trades.stream()
+                    .filter(Objects::nonNull)
+                    .filter(trade -> symbol.equals(trade.symbol()))
+                    .toList();
+            List<PortfolioTradeBO> openingTrades = symbolTrades.stream()
+                    .filter(trade -> trade.tradedAt().toLocalDate().isBefore(today))
+                    .toList();
+            List<PortfolioTradeBO> effectiveTrades = symbolTrades.stream()
+                    .filter(trade -> !trade.tradedAt().toLocalDate().isAfter(today))
+                    .toList();
+            Map<String, BigDecimal> previousPriceMap = Map.of(symbol, previousPrice);
+            Map<String, BigDecimal> currentPriceMap = Map.of(symbol, currentPrice);
+            PortfolioLedgerResultBO openingAtPreviousClose = ledgerService.calculate(openingTrades, previousPriceMap);
+            PortfolioLedgerResultBO openingAtCurrent = ledgerService.calculate(openingTrades, currentPriceMap);
+            PortfolioLedgerResultBO effectiveAtCurrent = ledgerService.calculate(effectiveTrades, currentPriceMap);
+            BigDecimal priceMove = openingAtCurrent.totalPnl().subtract(openingAtPreviousClose.totalPnl());
+            BigDecimal todayTradeImpact = effectiveAtCurrent.totalPnl().subtract(openingAtCurrent.totalPnl());
+            result.put(symbol, money(priceMove.add(todayTradeImpact)));
+        }
+        return result;
     }
 
     private DailySnapshot snapshot(LocalDate date,
