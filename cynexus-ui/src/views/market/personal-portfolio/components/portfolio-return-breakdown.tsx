@@ -5,12 +5,14 @@ import { TreemapChart } from "echarts/charts"
 import { TooltipComponent } from "echarts/components"
 import { CanvasRenderer } from "echarts/renderers"
 import { Button } from "@/components/ui/button"
-import type { PortfolioOverview } from "@/services/market/portfolio/types"
+import type { PortfolioOverview, PortfolioPerformance, PortfolioPerformanceRange } from "@/services/market/portfolio/types"
 
 echarts.use([TreemapChart, TooltipComponent, CanvasRenderer])
 
 interface PortfolioReturnBreakdownProps {
   overview: PortfolioOverview | null
+  performance?: PortfolioPerformance | null
+  range?: PortfolioPerformanceRange
 }
 
 type HoldingHeatmapNode = {
@@ -42,13 +44,15 @@ function DirectionIcon({ value }: { value: number | null | undefined }) {
   return value > 0 ? <ArrowUpRight className="size-3.5" aria-hidden="true" /> : <ArrowDownRight className="size-3.5" aria-hidden="true" />
 }
 
-export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownProps) {
+export function PortfolioReturnBreakdown({ overview, performance, range = "daily" }: PortfolioReturnBreakdownProps) {
   const [view, setView] = useState<"heatmap" | "list">("heatmap")
   const heatmapRef = useRef<HTMLDivElement | null>(null)
   const hasTrades = (overview?.tradeCount ?? 0) > 0
   const realized = overview?.realizedPnl ?? 0
   const unrealized = overview?.unrealizedPnl ?? 0
   const positions = (overview?.positions ?? []).filter((position) => Number(position.quantity) > 0)
+  const periodPnl = range === "daily" ? Number(performance?.todayPnl ?? performance?.periodPnl ?? overview?.todayPnl ?? 0) : performance?.periodPnl == null ? null : Number(performance.periodPnl)
+  const periodLabel = range === "daily" ? "今日收益" : range === "weekly" ? "本周收益" : range === "monthly" ? "本月收益" : "本年收益"
   const heatmapData = useMemo<HoldingHeatmapNode[]>(() => {
     const visiblePositions = positions
       .filter((position) => Number.isFinite(Number(position.unrealizedPnl)))
@@ -119,8 +123,8 @@ export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownP
 
       {hasTrades ? <div className="p-4">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">
-          <div><p className="text-xs text-muted-foreground">今日收益</p><p className={`mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums ${tone(overview?.todayPnl)}`}>{amount(overview?.todayPnl)}</p></div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-flex size-6 items-center justify-center rounded-full border border-border/70 bg-muted/35" aria-hidden="true"><DirectionIcon value={overview?.todayPnl} /></span><span>从今日开始重新统计，历史总盈亏不在此处展示</span></div>
+          <div><p className="text-xs text-muted-foreground">{periodLabel}</p><p className={`mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums ${tone(periodPnl)}`}>{amount(periodPnl)}</p></div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-flex size-6 items-center justify-center rounded-full border border-border/70 bg-muted/35" aria-hidden="true"><DirectionIcon value={periodPnl} /></span><span>{range === "daily" ? "从今日开始重新统计，历史总盈亏不在此处展示" : `按${periodLabel}统计，历史总盈亏不在此处展示`}</span></div>
         </div>
 
         {positions.length ? <div className="mt-4">

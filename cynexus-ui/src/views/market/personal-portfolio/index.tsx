@@ -107,7 +107,7 @@ export default function PersonalPortfolioPage() {
           {overview ? <PortfolioAssetSnapshot overview={overview} onSaved={() => void load()} /> : null}
           <div className="grid gap-5 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)]">
             <PortfolioPerformancePanel state={performanceState} />
-            {overview ? <PortfolioReturnBreakdown overview={overview} /> : null}
+            {overview ? <PortfolioReturnBreakdown overview={overview} performance={performanceState.performance} range={performanceState.range} /> : null}
             <PortfolioPerformanceSummary state={performanceState} />
           </div>
 
