@@ -4,6 +4,7 @@ import { Check, CircleAlert, Loader2, Pencil, RefreshCw, Save } from "lucide-rea
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { notification } from "@/components/ui/notification"
 import {
@@ -65,6 +66,62 @@ function toDraft(payload: string, version: number): Draft {
     totalFee: String(data.fee ?? data.totalFee ?? "0"),
     externalTradeNo: String(data.externalTradeNo ?? ""),
   }
+}
+
+function splitTradeDateTime(value: string) {
+  const text = value.trim()
+  if (!/^\d{4}-\d{2}-\d{2}/.test(text)) return { date: "", time: "" }
+  const date = text.slice(0, 10)
+  const timeMatch = text.match(/[T ](\d{2}:\d{2})/)
+  return { date, time: timeMatch?.[1] ?? "" }
+}
+
+function mergeTradeDateTime(date: string, time: string) {
+  if (!date) return ""
+  return time ? `${date}T${time}` : date
+}
+
+function localDateString(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  const day = String(value.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function TradeDateTimeEditor({
+  value,
+  editable,
+  onChange,
+  rowNo,
+}: {
+  value: string
+  editable: boolean
+  onChange: (value: string) => void
+  rowNo: number
+}) {
+  const parts = splitTradeDateTime(value)
+  return <div className="space-y-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
+      <DatePicker
+        value={parts.date}
+        onChange={(date) => onChange(mergeTradeDateTime(date ? localDateString(date) : "", parts.time))}
+        disableWeekends={false}
+        clearable
+        disabled={!editable}
+        placeholder="选择日期"
+        triggerClassName="w-[136px]"
+        aria-label={`Trade date row ${rowNo}`}
+      />
+      <Input
+        className="h-8 w-[100px] bg-background text-xs"
+        type="time"
+        value={parts.time}
+        disabled={!editable}
+        onChange={(event) => onChange(mergeTradeDateTime(parts.date, event.target.value))}
+        aria-label={`Trade time row ${rowNo}`}
+      />
+    </div>
+  </div>
 }
 
 export default function PersonalPortfolioImportReviewPage() {
@@ -191,7 +248,7 @@ export default function PersonalPortfolioImportReviewPage() {
       {loading ? <Skeleton className="h-72 rounded-lg" /> : error ? <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="size-4" />{error}<Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>Retry</Button></div> : <>
         <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/35 px-4 py-3 text-sm"><span className="font-medium">Status</span><span className="rounded-full bg-background px-2.5 py-1 text-xs">{review?.task.status}</span>{!terminal.has(review?.task.status || "") ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}</div>
         {review?.task.lastErrorMessage ? <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div className="min-w-0"><p className="font-medium">Latest processing error <span className="font-mono text-xs">{review.task.lastErrorCode}</span></p><p className="mt-1 break-words text-xs leading-5">{review.task.lastErrorMessage}</p></div></div> : null}
-        <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><div className="border-b border-border/60 px-4 py-3"><div className="flex items-center gap-2"><Pencil className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Candidate trades</h2></div><p className="mt-1 text-xs text-muted-foreground">Verify the instrument type before confirmation so the correct stock or ETF quote is used. Any warning below must be resolved before confirming that row.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[1280px] text-sm"><thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">Use</th><th className="px-4 py-3">Row</th><th className="px-4 py-3">Symbol</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Side</th><th className="px-4 py-3">Date / time</th><th className="px-4 py-3">Quantity</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">Fee</th><th className="px-4 py-3">Action</th></tr></thead><tbody className="divide-y divide-border/60">{review?.candidates.map((candidate) => { const draft = drafts[candidate.id]; const editable = candidate.reviewStatus === "PENDING" && review.task.status === "READY_FOR_REVIEW"; const checked = selected.includes(candidate.id); return <tr key={candidate.id} className="align-top hover:bg-muted/35"><td className="px-4 py-3"><input type="checkbox" checked={checked} disabled={!editable} onChange={() => setSelected((current) => checked ? current.filter((value) => value !== candidate.id) : [...current, candidate.id])} aria-label={`Select candidate ${candidate.rowNo}`} /></td><td className="px-4 py-3 font-mono">{candidate.rowNo}</td><td className="px-4 py-3"><Input className="w-24" value={draft?.symbol ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "symbol", event.target.value)} aria-label={`Symbol row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.instrumentType ?? "STOCK"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "instrumentType", event.target.value)} aria-label={`Instrument type row ${candidate.rowNo}`}><option value="STOCK">Stock</option><option value="ETF">ETF</option></select></td><td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.side ?? "BUY"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "side", event.target.value)} aria-label={`Side row ${candidate.rowNo}`}><option value="BUY">BUY</option><option value="SELL">SELL</option></select></td><td className="px-4 py-3"><div className="space-y-1"><Input className="w-44" value={draft?.tradedAt ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "tradedAt", event.target.value)} aria-label={`Trade time row ${candidate.rowNo}`} />{candidate.warnings?.length ? <div className="max-w-52 text-[11px] leading-4 text-amber-700">{candidate.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}</div></td><td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.quantity ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "quantity", event.target.value)} aria-label={`Quantity row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.price ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "price", event.target.value)} aria-label={`Price row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><Input className="w-24 font-mono" value={draft?.totalFee ?? "0"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "totalFee", event.target.value)} aria-label={`Fee row ${candidate.rowNo}`} /></td><td className="px-4 py-3">{editable ? <Button size="sm" variant="outline" onClick={() => void saveCandidate(candidate.id)} disabled={savingId === candidate.id}><Save className="mr-2 size-4" />{savingId === candidate.id ? "Saving..." : "Save"}</Button> : <span className="text-xs text-muted-foreground">{candidate.reviewStatus}</span>}</td></tr> })}</tbody></table></div></section>
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><div className="border-b border-border/60 px-4 py-3"><div className="flex items-center gap-2"><Pencil className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Candidate trades</h2></div><p className="mt-1 text-xs text-muted-foreground">Verify the instrument type before confirmation so the correct stock or ETF quote is used. Any warning below must be resolved before confirming that row.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[1280px] text-sm"><thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">Use</th><th className="px-4 py-3">Row</th><th className="px-4 py-3">Symbol</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Side</th><th className="px-4 py-3">Trade date / time</th><th className="px-4 py-3">Quantity</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">Fee</th><th className="px-4 py-3">Action</th></tr></thead><tbody className="divide-y divide-border/60">{review?.candidates.map((candidate) => { const draft = drafts[candidate.id]; const editable = candidate.reviewStatus === "PENDING" && review.task.status === "READY_FOR_REVIEW"; const checked = selected.includes(candidate.id); return <tr key={candidate.id} className="align-top hover:bg-muted/35"><td className="px-4 py-3"><input type="checkbox" checked={checked} disabled={!editable} onChange={() => setSelected((current) => checked ? current.filter((value) => value !== candidate.id) : [...current, candidate.id])} aria-label={`Select candidate ${candidate.rowNo}`} /></td><td className="px-4 py-3 font-mono">{candidate.rowNo}</td><td className="px-4 py-3"><Input className="w-24" value={draft?.symbol ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "symbol", event.target.value)} aria-label={`Symbol row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.instrumentType ?? "STOCK"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "instrumentType", event.target.value)} aria-label={`Instrument type row ${candidate.rowNo}`}><option value="STOCK">Stock</option><option value="ETF">ETF</option></select></td><td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.side ?? "BUY"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "side", event.target.value)} aria-label={`Side row ${candidate.rowNo}`}><option value="BUY">BUY</option><option value="SELL">SELL</option></select></td><td className="px-4 py-3"><TradeDateTimeEditor value={draft?.tradedAt ?? ""} editable={editable} onChange={(value) => updateDraft(candidate.id, "tradedAt", value)} rowNo={candidate.rowNo} />{candidate.warnings?.length ? <div className="mt-1 max-w-52 text-[11px] leading-4 text-amber-700">{candidate.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}</td><td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.quantity ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "quantity", event.target.value)} aria-label={`Quantity row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.price ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "price", event.target.value)} aria-label={`Price row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><Input className="w-24 font-mono" value={draft?.totalFee ?? "0"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "totalFee", event.target.value)} aria-label={`Fee row ${candidate.rowNo}`} /></td><td className="px-4 py-3">{editable ? <Button size="sm" variant="outline" onClick={() => void saveCandidate(candidate.id)} disabled={savingId === candidate.id}><Save className="mr-2 size-4" />{savingId === candidate.id ? "Saving..." : "Save"}</Button> : <span className="text-xs text-muted-foreground">{candidate.reviewStatus}</span>}</td></tr> })}</tbody></table></div></section>
         {review ? <ImportExecutionRecord task={review.task} history={history} candidateCount={review.candidates.length} loading={historyLoading} error={historyError} /> : null}
       </>}
     </div>

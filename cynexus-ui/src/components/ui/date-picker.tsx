@@ -22,6 +22,8 @@ interface DatePickerProps {
   triggerClassName?: string
   /** 是否显示清空按钮 (有值时). */
   clearable?: boolean
+  /** 禁用选择器. */
+  disabled?: boolean
   /** 是否禁用周末. 财务日期允许周末, 交易日期默认禁用周末. */
   disableWeekends?: boolean
   id?: string
@@ -45,6 +47,7 @@ export function DatePicker({
   trailing,
   triggerClassName,
   clearable = true,
+  disabled = false,
   disableWeekends = true,
   id,
   "aria-label": ariaLabel,
@@ -61,6 +64,7 @@ export function DatePicker({
           variant="outline"
           size="sm"
           aria-label={ariaLabel ?? placeholder}
+          disabled={disabled}
           className={cn(
             "h-8 justify-start gap-1.5 rounded-md bg-background px-2.5 text-xs font-normal tabular-nums",
             !selected && "text-muted-foreground",
