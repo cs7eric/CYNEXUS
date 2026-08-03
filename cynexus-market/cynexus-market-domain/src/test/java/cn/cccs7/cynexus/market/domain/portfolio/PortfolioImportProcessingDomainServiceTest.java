@@ -79,6 +79,22 @@ class PortfolioImportProcessingDomainServiceTest {
         assertEquals("T-1", normalized.path("externalTradeNo").asText());
     }
 
+    @Test
+    void normalizesCommonDateAndTimeAliasesWhenVisionUsesBrokerFieldNames() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        RecordingTasks tasks = new RecordingTasks();
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), tasks, candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{"
+                + "\"symbol\":\"600000\",\"side\":\"BUY\",\"date\":\"2026-07-31\","
+                + "\"time\":\"09:30:10\",\"quantity\":\"100\",\"price\":\"10\"}]}", OffsetDateTime.now());
+
+        assertEquals("2026-07-31T09:30:10", candidates.values.getFirst().normalizedPayload().path("tradedAt").asText());
+    }
+
     private static final class RecordingTasks implements PortfolioImportTaskRepository {
         private PortfolioImportTaskBO updated;
         @Override public void save(PortfolioImportTaskBO task) { }

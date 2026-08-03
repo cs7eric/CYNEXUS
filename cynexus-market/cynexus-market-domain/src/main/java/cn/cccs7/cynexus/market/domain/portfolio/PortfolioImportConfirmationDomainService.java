@@ -37,7 +37,12 @@ public class PortfolioImportConfirmationDomainService {
         for (PortfolioCandidateRecord candidate : candidates) {
             if (!selected.isEmpty() && !selected.contains(candidate.id())) continue;
             if (!"PENDING".equals(candidate.reviewStatus())) continue;
-            PortfolioTradeBO trade = toTrade(candidate);
+            PortfolioTradeBO trade;
+            try {
+                trade = toTrade(candidate);
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("candidate row " + candidate.rowNo() + " is invalid: " + exception.getMessage(), exception);
+            }
             tradeRepository.save(task.getPrincipalKey(), task.getTenantKey(), task.getId(), candidate.id(), trade,
                     confirmedBy);
             if (!candidateStore.markAccepted(candidate.id(), candidate.version())) {

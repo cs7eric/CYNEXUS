@@ -72,10 +72,13 @@ public class PortfolioImportProcessingDomainService {
     }
 
     private String tradedAtOrNull(JsonNode candidate) {
-        String direct = textOrNull(candidate, "tradedAt", "executionAt");
+        String direct = textOrNull(candidate, "tradedAt", "executionAt", "tradeDateTime", "executionDateTime",
+                "transactionAt", "datetime", "dateTime", "traded_at", "execution_at");
         if (direct != null) return direct;
-        String date = textOrNull(candidate, "tradeDate", "executionDate");
-        String time = textOrNull(candidate, "tradeTime", "executionTime");
+        String date = textOrNull(candidate, "tradeDate", "executionDate", "transactionDate", "date",
+                "trade_date", "execution_date", "transaction_date");
+        String time = textOrNull(candidate, "tradeTime", "executionTime", "transactionTime", "time",
+                "trade_time", "execution_time", "transaction_time");
         if (date == null) return null;
         return time == null ? date : date + "T" + time;
     }
