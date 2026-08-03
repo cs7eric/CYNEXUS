@@ -1,7 +1,7 @@
 import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
-import type { PortfolioAccount, PortfolioOverview, PortfolioTrade } from "./types"
+import type { PortfolioAccount, PortfolioOverview, PortfolioPerformance, PortfolioPerformanceRange, PortfolioTrade } from "./types"
 
 const BASE = `${SERVICE_PREFIX.market}/portfolio`
 
@@ -28,4 +28,12 @@ export async function updatePortfolioAccount(availableCash: number): Promise<Por
     body: JSON.stringify({ availableCash }),
   })
   return cynexusResult<PortfolioAccount>(response)
+}
+
+export async function fetchPortfolioPerformance(range: PortfolioPerformanceRange, from?: string, to?: string): Promise<PortfolioPerformance> {
+  const params = new URLSearchParams({ range })
+  if (from) params.set("from", from)
+  if (to) params.set("to", to)
+  const response = await fetchWithRetry(`${BASE}/performance?${params.toString()}`, { cache: "no-store" })
+  return cynexusResult<PortfolioPerformance>(response)
 }

@@ -91,6 +91,32 @@ export interface PortfolioOverview {
   valuationStatus: string
 }
 
+export type PortfolioPerformanceRange = "daily" | "monthly" | "custom"
+
+export interface PortfolioPerformancePoint {
+  tradeDate: string
+  marketValue: number
+  totalAssets: number
+  costBasis: number
+  totalPnl: number
+  periodPnl: number
+  returnRate: number
+}
+
+export interface PortfolioPerformance {
+  range: PortfolioPerformanceRange
+  from: string
+  to: string
+  periodPnl: number
+  periodReturnRate: number
+  startAssets: number
+  endAssets: number
+  bestPeriodPnl: number
+  worstPeriodPnl: number
+  tradingDays: number
+  points: PortfolioPerformancePoint[]
+}
+
 export interface PortfolioAccount {
   availableCash: number
   updatedAt?: string | null
