@@ -116,7 +116,7 @@ export default function PersonalPortfolioPage() {
             </div>
             <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
               <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} />
-              {overview ? <PortfolioReturnBreakdown overview={overview} performance={performanceState.performance} range={performanceState.range} embedded /> : <div className="min-w-0" />}
+              {overview ? <PortfolioReturnBreakdown overview={overview} embedded /> : <div className="min-w-0" />}
               <PortfolioPerformanceSummary state={performanceState} embedded />
             </div>
           </section>

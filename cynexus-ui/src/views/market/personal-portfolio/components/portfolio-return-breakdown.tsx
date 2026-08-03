@@ -5,14 +5,12 @@ import { TreemapChart } from "echarts/charts"
 import { TooltipComponent } from "echarts/components"
 import { CanvasRenderer } from "echarts/renderers"
 import { Button } from "@/components/ui/button"
-import type { PortfolioOverview, PortfolioPerformance, PortfolioPerformanceRange } from "@/services/market/portfolio/types"
+import type { PortfolioOverview } from "@/services/market/portfolio/types"
 
 echarts.use([TreemapChart, TooltipComponent, CanvasRenderer])
 
 interface PortfolioReturnBreakdownProps {
   overview: PortfolioOverview | null
-  performance?: PortfolioPerformance | null
-  range?: PortfolioPerformanceRange
   embedded?: boolean
 }
 
@@ -45,15 +43,13 @@ function DirectionIcon({ value }: { value: number | null | undefined }) {
   return value > 0 ? <ArrowUpRight className="size-3.5" aria-hidden="true" /> : <ArrowDownRight className="size-3.5" aria-hidden="true" />
 }
 
-export function PortfolioReturnBreakdown({ overview, performance, range = "daily", embedded = false }: PortfolioReturnBreakdownProps) {
+export function PortfolioReturnBreakdown({ overview, embedded = false }: PortfolioReturnBreakdownProps) {
   const [view, setView] = useState<"heatmap" | "list">("heatmap")
   const heatmapRef = useRef<HTMLDivElement | null>(null)
   const hasTrades = (overview?.tradeCount ?? 0) > 0
   const realized = overview?.realizedPnl ?? 0
   const unrealized = overview?.unrealizedPnl ?? 0
   const positions = (overview?.positions ?? []).filter((position) => Number(position.quantity) > 0)
-  const periodPnl = range === "daily" ? Number(performance?.todayPnl ?? performance?.periodPnl ?? overview?.todayPnl ?? 0) : performance?.periodPnl == null ? null : Number(performance.periodPnl)
-  const periodLabel = range === "daily" ? "今日收益" : range === "weekly" ? "本周收益" : range === "monthly" ? "本月收益" : "本年收益"
   const heatmapData = useMemo<HoldingHeatmapNode[]>(() => {
     const visiblePositions = positions
       .filter((position) => Number.isFinite(Number(position.unrealizedPnl)))
@@ -62,17 +58,18 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
     return visiblePositions.map((position) => {
       const pnl = Number(position.unrealizedPnl ?? 0)
       const color = holdingColor(pnl, maxAbs)
-      const label = `${position.symbol}\n${signedAmount(pnl)}`
+      const securityName = position.securityName ?? "名称待补充"
+      const label = `${position.symbol}\n${securityName}\n${signedAmount(pnl)}`
       return {
         name: position.symbol,
         symbol: position.symbol,
-        securityName: position.securityName ?? "名称待补充",
+        securityName,
         value: Math.max(Math.abs(pnl), 0.01),
         pnl,
         returnRate: Number(position.unrealizedReturnRate ?? 0),
         todayPnl: position.todayPnl == null ? null : Number(position.todayPnl),
         itemStyle: { color: color.background, borderColor: "#ffffff", borderWidth: 2, gapWidth: 4 },
-        label: { show: true, color: color.foreground, fontSize: 12, fontWeight: 700, lineHeight: 17, formatter: () => label },
+        label: { show: true, color: color.foreground, fontSize: 11, fontWeight: 700, lineHeight: 15, formatter: () => label },
       }
     })
   }, [positions])
@@ -116,14 +113,9 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
     <section className={embedded ? "min-w-0 overflow-hidden" : "overflow-hidden rounded-lg border border-border/60 bg-card"} aria-label="收益表现">
 
       {hasTrades ? <div className="p-4">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">
-          <div><p className="text-xs text-muted-foreground">{periodLabel}</p><p className={`mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums ${tone(periodPnl)}`}>{amount(periodPnl)}</p></div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-flex size-6 items-center justify-center rounded-full border border-border/70 bg-muted/35" aria-hidden="true"><DirectionIcon value={periodPnl} /></span><span>{range === "daily" ? "从今日开始重新统计，历史总盈亏不在此处展示" : `按${periodLabel}统计，历史总盈亏不在此处展示`}</span></div>
-        </div>
-
-        {positions.length ? <div className="mt-4">
+        {positions.length ? <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">当前持仓收益贡献</p><p className="mt-0.5 text-[11px] text-muted-foreground">热力图面积代表收益绝对值，颜色深浅代表贡献大小。</p></div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="持仓收益视图"><Button type="button" size="sm" variant={view === "heatmap" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("heatmap")}><Grid2X2 className="mr-1.5 size-3.5" />热力图</Button><Button type="button" size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("list")}><List className="mr-1.5 size-3.5" />列表</Button></div></div>
-          {view === "heatmap" ? <div ref={heatmapRef} aria-label="当前持仓收益热力图" className="h-[260px] w-full" /> : <HoldingPnlList positions={positions} />}
+          {view === "heatmap" ? <div ref={heatmapRef} aria-label="当前持仓收益热力图" className="h-[360px] w-full" /> : <HoldingPnlList positions={positions} />}
         </div> : <div className="flex min-h-[150px] items-center justify-center px-4 text-center text-xs text-muted-foreground">当前没有仍在持有的仓位，收益主要来自已实现盈亏。</div>}
 
         <dl className="mt-3 grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-3">
@@ -138,7 +130,7 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
 }
 
 function HoldingPnlList({ positions }: { positions: PortfolioOverview["positions"] }) {
-  return <div className="overflow-x-auto rounded-md border border-border/60"><table className="w-full min-w-[520px] text-xs"><thead className="bg-muted/45 text-left text-muted-foreground"><tr><th className="px-3 py-2 font-medium">标的</th><th className="px-3 py-2 text-right font-medium">持仓盈亏</th><th className="px-3 py-2 text-right font-medium">收益率</th><th className="px-3 py-2 text-right font-medium">今日盈亏</th></tr></thead><tbody className="divide-y divide-border/60">{positions.map((position) => <tr key={`${position.instrumentType}-${position.symbol}`} className="hover:bg-muted/30"><td className="px-3 py-2.5"><p className="font-mono font-medium">{position.symbol}</p><p className="mt-0.5 max-w-[220px] truncate text-[11px] text-muted-foreground">{position.securityName ?? "名称待补充"} · {position.instrumentType === "ETF" ? "ETF" : "股票"}</p></td><td className={`px-3 py-2.5 text-right font-mono font-semibold tabular-nums ${tone(position.unrealizedPnl)}`}>{amount(position.unrealizedPnl)}</td><td className={`px-3 py-2.5 text-right font-mono tabular-nums ${tone(position.unrealizedReturnRate)}`}>{signedPercent(Number(position.unrealizedReturnRate ?? 0))}</td><td className={`px-3 py-2.5 text-right font-mono tabular-nums ${tone(position.todayPnl)}`}>{position.todayPnl == null ? "--" : signedAmount(position.todayPnl)}</td></tr>)}</tbody></table></div>
+  return <div className="max-h-[360px] overflow-auto rounded-md border border-border/60"><table className="w-full min-w-[520px] text-xs"><thead className="sticky top-0 z-10 bg-muted text-left text-muted-foreground"><tr><th className="px-3 py-2 font-medium">标的</th><th className="px-3 py-2 text-right font-medium">持仓盈亏</th><th className="px-3 py-2 text-right font-medium">收益率</th><th className="px-3 py-2 text-right font-medium">今日盈亏</th></tr></thead><tbody className="divide-y divide-border/60">{positions.map((position) => <tr key={`${position.instrumentType}-${position.symbol}`} className="hover:bg-muted/30"><td className="px-3 py-2.5"><p className="font-mono font-medium">{position.symbol}</p><p className="mt-0.5 max-w-[220px] truncate text-[11px] text-muted-foreground">{position.securityName ?? "名称待补充"} · {position.instrumentType === "ETF" ? "ETF" : "股票"}</p></td><td className={`px-3 py-2.5 text-right font-mono font-semibold tabular-nums ${tone(position.unrealizedPnl)}`}>{amount(position.unrealizedPnl)}</td><td className={`px-3 py-2.5 text-right font-mono tabular-nums ${tone(position.unrealizedReturnRate)}`}>{signedPercent(Number(position.unrealizedReturnRate ?? 0))}</td><td className={`px-3 py-2.5 text-right font-mono tabular-nums ${tone(position.todayPnl)}`}>{position.todayPnl == null ? "--" : signedAmount(position.todayPnl)}</td></tr>)}</tbody></table></div>
 }
 
 function holdingColor(value: number, maxAbs: number) {
