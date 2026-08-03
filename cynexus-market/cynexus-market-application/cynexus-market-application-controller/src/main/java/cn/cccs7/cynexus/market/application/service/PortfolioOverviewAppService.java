@@ -141,15 +141,18 @@ public class PortfolioOverviewAppService {
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
                 trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
                 requested.from(), requested.to(), requested.granularity());
+        LocalDate today = LocalDate.now(SHANGHAI);
+        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, today);
         return PortfolioPerformanceDTO.builder()
                 .range(requested.range()).from(result.from()).to(result.to())
-                .periodPnl(result.periodPnl()).periodReturnRate(result.periodReturnRate())
+                .periodPnl(result.periodPnl()).todayPnl(todayPnl).periodReturnRate(result.periodReturnRate())
                 .startAssets(result.startAssets()).endAssets(result.endAssets())
                 .bestPeriodPnl(result.bestPeriodPnl()).worstPeriodPnl(result.worstPeriodPnl())
                 .tradingDays(result.tradingDays())
                 .points(result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
                         .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
-                        .costBasis(point.costBasis()).totalPnl(point.totalPnl()).periodPnl(point.periodPnl())
+                        .costBasis(point.costBasis()).totalPnl(point.totalPnl())
+                        .periodPnl(point.tradeDate().equals(today) && todayPnl != null ? todayPnl : point.periodPnl())
                         .returnRate(point.returnRate()).build()).toList())
                 .build();
     }

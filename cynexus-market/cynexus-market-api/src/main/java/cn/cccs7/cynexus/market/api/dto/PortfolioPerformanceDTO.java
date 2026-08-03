@@ -13,6 +13,7 @@ public class PortfolioPerformanceDTO {
     LocalDate from;
     LocalDate to;
     BigDecimal periodPnl;
+    BigDecimal todayPnl;
     BigDecimal periodReturnRate;
     BigDecimal startAssets;
     BigDecimal endAssets;

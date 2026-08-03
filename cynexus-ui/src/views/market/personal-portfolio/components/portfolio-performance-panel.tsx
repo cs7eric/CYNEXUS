@@ -72,7 +72,12 @@ export function PortfolioPerformancePanel() {
     ...point,
     label: range === "monthly" ? point.tradeDate.slice(0, 7) : point.tradeDate.slice(5),
   })), [performance, range])
-  const todayPoint = performance?.points.find((point) => point.tradeDate === today())
+  const todayDate = today()
+  const todayPoint = performance?.points.find((point) => point.tradeDate === todayDate)
+  const todayPnl = performance?.todayPnl ?? todayPoint?.periodPnl
+  const chartDataWithTodayPnl = useMemo(() => chartData.map((point) => point.tradeDate === todayDate && todayPnl != null
+    ? { ...point, periodPnl: todayPnl }
+    : point), [chartData, todayDate, todayPnl])
 
   return (
     <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="performance-heading">
@@ -93,7 +98,7 @@ export function PortfolioPerformancePanel() {
 
       {loading ? <div className="space-y-4 p-4"><div className="grid gap-3 sm:grid-cols-4"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div><Skeleton className="h-[280px] w-full" /></div> : error ? <div className="flex items-start gap-2 px-4 py-12 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">收益历史加载失败</p><p className="mt-1 break-words text-xs">{error}</p></div></div> : performance && performance.points.length ? <div className="p-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <Summary label="今日盈亏" value={money(todayPoint?.periodPnl)} toneClass={tone(todayPoint?.periodPnl)} detail={todayPoint ? "对比上一交易日收盘" : "等待今日实时行情"} />
+          <Summary label="今日盈亏" value={money(todayPnl)} toneClass={tone(todayPnl)} detail={todayPnl != null ? "对比上一交易日收盘，已剔除非今日资金变化" : "等待今日实时行情"} />
           <Summary label="区间收益" value={money(performance.periodPnl)} toneClass={tone(performance.periodPnl)} detail={`${performance.from} 至 ${performance.to}`} />
           <Summary label="区间收益率" value={percent(performance.periodReturnRate)} toneClass={tone(performance.periodReturnRate)} detail="以区间起始总资产为基准" />
           <Summary label="期末总资产" value={amount(performance.endAssets)} toneClass="text-foreground" detail={`期初 ${amount(performance.startAssets)}`} />
@@ -101,7 +106,7 @@ export function PortfolioPerformancePanel() {
         </div>
         <div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">收益变化</p><p className="mt-0.5 text-[11px] text-muted-foreground">面积为累计收益，虚线为当日 / 当月收益变化</p></div><span className="text-[11px] text-muted-foreground">数据点 {performance.points.length}</span></div>
         <ChartContainer config={chartConfig} className="mt-2 h-[300px] w-full aspect-auto">
-          <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <AreaChart data={chartDataWithTodayPnl} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} fontSize={10} />
             <YAxis tickLine={false} axisLine={false} width={52} fontSize={10} tickFormatter={(value) => Number(value).toFixed(0)} />

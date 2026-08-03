@@ -108,6 +108,7 @@ export interface PortfolioPerformance {
   from: string
   to: string
   periodPnl: number
+  todayPnl?: number | null
   periodReturnRate: number
   startAssets: number
   endAssets: number

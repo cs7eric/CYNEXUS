@@ -47,6 +47,23 @@ class PortfolioPerformanceDomainServiceTest {
         assertEquals(0, decimal("30").compareTo(result.periodPnl()));
     }
 
+    @Test
+    void calculatesTodayPnlFromPreviousCloseAndTodayTrades() {
+        PortfolioTradeBO openingTrade = new PortfolioTradeBO(1L, "600000", "Demo", PortfolioInstrumentType.STOCK,
+                TradeSide.BUY, DAY_ONE, decimal("10"), decimal("10"), BigDecimal.ZERO, TradeStatus.ACTIVE);
+        PortfolioTradeBO todayTrade = new PortfolioTradeBO(2L, "600000", "Demo", PortfolioInstrumentType.STOCK,
+                TradeSide.BUY, OffsetDateTime.parse("2026-07-02T09:30:00Z"), decimal("5"), decimal("12.5"), BigDecimal.ZERO,
+                TradeStatus.ACTIVE);
+
+        BigDecimal todayPnl = service.calculateTodayPnl(
+                List.of(openingTrade, todayTrade),
+                Map.of("600000", List.of(price("2026-07-01", "12"))),
+                Map.of("600000", decimal("13")),
+                LocalDate.parse("2026-07-02"));
+
+        assertEquals(0, decimal("12.505").compareTo(todayPnl));
+    }
+
     private static PortfolioPricePointBO price(String date, String close) {
         return new PortfolioPricePointBO(LocalDate.parse(date), decimal(close));
     }
