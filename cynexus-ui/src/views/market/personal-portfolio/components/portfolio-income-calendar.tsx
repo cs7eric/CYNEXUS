@@ -19,7 +19,7 @@ export function PortfolioIncomeCalendar({ points, range }: PortfolioIncomeCalend
   const maxAbs = Math.max(...points.map((point) => Math.abs(Number(point.periodPnl ?? 0))), 1)
   const periodLabel = range === "daily" ? "日收益" : range === "weekly" ? "周收益" : range === "monthly" ? "月收益" : range === "yearly" ? "年收益" : "阶段收益"
 
-  return <div className="rounded-md border border-border/60 bg-muted/15 p-3 sm:p-4">
+  return <div className="p-3 sm:p-4">
     <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">{lastDate.getFullYear()}年{lastDate.getMonth() + 1}月</p><p className="mt-0.5 text-[11px] text-muted-foreground">按交易日展示{periodLabel}，空白日期表示无可用行情。</p></div><div className="flex items-center gap-2 text-[10px] text-muted-foreground"><span>亏损</span><span className="size-3 rounded-sm bg-emerald-500" /><span className="size-3 rounded-sm bg-muted" /><span className="size-3 rounded-sm bg-rose-500" /><span>盈利</span></div></div>
     <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] text-muted-foreground">{["日", "一", "二", "三", "四", "五", "六"].map((label) => <span key={label} className="pb-1">{label}</span>)}
       {days.map((date) => {

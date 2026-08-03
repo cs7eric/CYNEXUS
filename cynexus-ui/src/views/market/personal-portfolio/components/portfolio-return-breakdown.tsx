@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowDownRight, ArrowUpRight, CircleHelp, Equal, Grid2X2, List, ReceiptText } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, CircleHelp, Equal, Grid2X2, List } from "lucide-react"
 import * as echarts from "echarts/core"
 import { TreemapChart } from "echarts/charts"
 import { TooltipComponent } from "echarts/components"
@@ -112,13 +112,7 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
   }, [heatmapData, view])
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="return-breakdown-heading">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">
-        <div>
-          <div className="flex items-center gap-2"><ReceiptText className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="return-breakdown-heading" className="text-base font-semibold">收益表现</h2></div>
-        </div>
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{hasTrades ? `${overview?.tradeCount ?? 0} 笔已确认交易` : "暂无交易记录"}</span>
-      </div>
+    <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-label="收益表现">
 
       {hasTrades ? <div className="p-4">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">

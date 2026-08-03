@@ -58,8 +58,7 @@ export function PortfolioPerformanceSummary({ state }: { state: PortfolioPerform
   const currentPeriodLabel = range === "daily" ? "今日收益" : range === "weekly" ? "本周收益" : range === "monthly" ? "本月收益" : "本年收益"
 
   return <section className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="performance-summary-heading">
-    <div className="border-b border-border/60 px-4 py-3.5"><h2 id="performance-summary-heading" className="text-base font-semibold">收益摘要</h2></div>
-    {loading ? <div className="space-y-3 p-4">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-[62px] w-full" />)}</div> : error ? <div className="px-4 py-8 text-xs leading-5 text-rose-700">收益摘要加载失败：{error}</div> : performance && performance.points.length ? <dl className="divide-y divide-border/60">
+    {loading ? <div className="space-y-3 p-4">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-[62px] w-full" />)}</div> : error ? <div className="px-4 py-8 text-xs leading-5 text-rose-700">收益摘要加载失败：{error}</div> : performance && performance.points.length ? <dl className="divide-y divide-border/60" aria-label="收益摘要">
       <SummaryRow label="今日收益" value={money(performance.todayPnl ?? currentPeriod?.periodPnl)} toneClass={tone(performance.todayPnl ?? currentPeriod?.periodPnl)} detail="对比上一交易日收盘" />
       <SummaryRow label={currentPeriodLabel} value={money(currentPeriod?.periodPnl)} toneClass={tone(currentPeriod?.periodPnl)} detail={currentPeriod?.tradeDate ?? "等待行情"} />
       <SummaryRow label="视图收益率" value={percent(currentPeriod?.returnRate)} toneClass={tone(currentPeriod?.returnRate)} detail="按当前视图周期计算" />
