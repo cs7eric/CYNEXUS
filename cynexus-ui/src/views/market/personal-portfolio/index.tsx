@@ -17,6 +17,7 @@ import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
 import { PortfolioPerformancePanel } from "./components/portfolio-performance-panel"
 
 const money = (value: number | null | undefined) => value == null ? "--" : Number(value).toFixed(2)
+const price = (value: number | null | undefined) => value == null ? "--" : Number(value).toFixed(3)
 const signedMoney = (value: number | null | undefined) => value == null ? "--" : `${value > 0 ? "+" : ""}${Number(value).toFixed(2)}`
 const percent = (value: number | null | undefined) => value == null ? "--" : `${(value * 100).toFixed(2)}%`
 
@@ -113,7 +114,7 @@ export default function PersonalPortfolioPage() {
                   {positions.map((position) => <tr key={`${position.instrumentType}-${position.symbol}`} role="button" tabIndex={0} aria-label={`打开 ${position.securityName ?? position.symbol} 持仓详情`} onClick={() => openPosition(position)} onKeyDown={(event) => handlePositionKeyDown(event, position)} className="group cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/50 focus-visible:outline-none">
                     <td className="px-4 py-3.5"><div className="flex min-w-0 items-center gap-3"><span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-[11px] font-semibold text-foreground">{position.instrumentType === "ETF" ? "E" : "S"}</span><div className="min-w-0"><p className="font-mono text-sm font-semibold text-foreground">{position.symbol}</p><p className="truncate text-xs text-muted-foreground">{position.securityName ?? "名称待补充"} <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span></p></div></div></td>
                     <td className="px-4 py-3.5 text-right font-mono tabular-nums">{position.quantity}</td>
-                    <td className="px-4 py-3.5 text-right"><p className="font-mono tabular-nums">{money(position.averageCost)}</p><p className="mt-0.5 text-xs text-muted-foreground">{money(position.latestPrice)}</p></td>
+                    <td className="px-4 py-3.5 text-right"><p className="font-mono tabular-nums">{price(position.averageCost)}</p><p className="mt-0.5 text-xs text-muted-foreground">{price(position.latestPrice)}</p></td>
                     <td className="px-4 py-3.5 text-right font-mono tabular-nums">{money(position.marketValue)}</td>
                     <td className={`px-4 py-3.5 text-right font-mono font-semibold tabular-nums ${pnlTone(position.unrealizedPnl)}`}>{signedMoney(position.unrealizedPnl)}</td>
                     <td className={`px-4 py-3.5 text-right font-mono tabular-nums ${pnlTone(position.unrealizedReturnRate)}`}>{percent(position.unrealizedReturnRate)}</td>

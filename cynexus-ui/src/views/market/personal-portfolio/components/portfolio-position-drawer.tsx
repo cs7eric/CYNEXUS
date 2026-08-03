@@ -22,6 +22,10 @@ function money(value: number | null | undefined) {
   return value == null ? "--" : Number(value).toFixed(2)
 }
 
+function price(value: number | null | undefined) {
+  return value == null ? "--" : Number(value).toFixed(3)
+}
+
 function signedMoney(value: number | null | undefined) {
   if (value == null) return "--"
   const amount = Number(value)
@@ -132,8 +136,8 @@ export function PortfolioPositionDrawer({ open, symbol, instrumentType: requeste
             <div className="grid grid-cols-2 divide-x divide-y divide-border/60 sm:grid-cols-4 sm:divide-y-0">
               <SummaryValue label="持仓数量" value={position ? String(position.quantity) : "--"} detail="当前持有" />
               <SummaryValue label="持仓市值" value={money(position?.marketValue)} detail="数量 × 最新价" />
-              <SummaryValue label="最新价" value={money(position?.latestPrice)} detail="市场行情" />
-              <SummaryValue label="平均成本" value={money(position?.averageCost)} detail="含手续费" />
+              <SummaryValue label="最新价" value={price(position?.latestPrice)} detail="市场行情" />
+              <SummaryValue label="平均成本" value={price(position?.averageCost)} detail="持仓成本价" />
             </div>
           </section>
 
@@ -164,7 +168,7 @@ function SummaryValue({ label, value, detail }: { label: string; value: string; 
 function TradeLedger({ trades }: { trades: PortfolioTrade[] }) {
   return <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="portfolio-trade-ledger-heading">
     <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3"><div><h2 id="portfolio-trade-ledger-heading" className="text-sm font-semibold">交易明细</h2><p className="mt-1 text-xs text-muted-foreground">共 {trades.length} 笔确认交易</p></div><span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">买卖记录</span></div>
-    <div className="max-h-[255px] overflow-auto"><table className="w-full min-w-[420px] text-sm"><thead className="sticky top-0 bg-muted/95 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-2.5">日期</th><th className="px-4 py-2.5">方向</th><th className="px-4 py-2.5 text-right">数量</th><th className="px-4 py-2.5 text-right">价格</th><th className="px-4 py-2.5 text-right">成交额</th></tr></thead><tbody className="divide-y divide-border/60">{trades.map((trade) => <tr key={trade.id} className="hover:bg-muted/35"><td className="px-4 py-2.5 font-mono text-xs">{dateOnly(trade.tradedAt)}</td><td className={`px-4 py-2.5 font-medium ${trade.side === "BUY" ? "text-rose-600" : "text-emerald-600"}`}>{trade.side === "BUY" ? "买入" : "卖出"}</td><td className="px-4 py-2.5 text-right font-mono tabular-nums">{trade.quantity}</td><td className="px-4 py-2.5 text-right font-mono tabular-nums">{money(trade.price)}</td><td className="px-4 py-2.5 text-right font-mono tabular-nums">{money(Number(trade.quantity) * Number(trade.price))}</td></tr>)}{!trades.length ? <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-muted-foreground">暂无已确认交易</td></tr> : null}</tbody></table></div>
+    <div className="max-h-[255px] overflow-auto"><table className="w-full min-w-[420px] text-sm"><thead className="sticky top-0 bg-muted/95 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-2.5">日期</th><th className="px-4 py-2.5">方向</th><th className="px-4 py-2.5 text-right">数量</th><th className="px-4 py-2.5 text-right">价格</th><th className="px-4 py-2.5 text-right">成交额</th></tr></thead><tbody className="divide-y divide-border/60">{trades.map((trade) => <tr key={trade.id} className="hover:bg-muted/35"><td className="px-4 py-2.5 font-mono text-xs">{dateOnly(trade.tradedAt)}</td><td className={`px-4 py-2.5 font-medium ${trade.side === "BUY" ? "text-rose-600" : "text-emerald-600"}`}>{trade.side === "BUY" ? "买入" : "卖出"}</td><td className="px-4 py-2.5 text-right font-mono tabular-nums">{trade.quantity}</td><td className="px-4 py-2.5 text-right font-mono tabular-nums">{price(trade.price)}</td><td className="px-4 py-2.5 text-right font-mono tabular-nums">{money(Number(trade.quantity) * Number(trade.price))}</td></tr>)}{!trades.length ? <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-muted-foreground">暂无已确认交易</td></tr> : null}</tbody></table></div>
   </section>
 }
 

@@ -108,6 +108,23 @@ class PortfolioLedgerDomainServiceTest {
     }
 
     @Test
+    void valuesOpenPositionFromThreeDecimalDisplayedAverageCost() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, TradeSide.BUY, "400", "0.855", "0"),
+                trade(2L, TradeSide.BUY, "300", "0.851", "0"),
+                trade(3L, TradeSide.BUY, "100", "0.851", "0"),
+                trade(4L, TradeSide.BUY, "100", "0.851", "0")
+        );
+
+        PortfolioPositionBO position = service.calculate(trades, Map.of("600000", decimal("0.857")))
+                .positions().getFirst();
+
+        assertEquals(decimal("0.853"), position.averageCost());
+        assertEquals(decimal("767.7"), position.costBasis());
+        assertEquals(decimal("3.6"), position.unrealizedPnl());
+    }
+
+    @Test
     void reportsNoConfirmedTradesForEmptyOrInactiveLedger() {
         assertEquals(PortfolioValuationStatus.NO_CONFIRMED_TRADES,
                 service.valuationStatus(List.of(), service.calculate(List.of(), Map.of()), Map.of()));

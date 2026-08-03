@@ -10,6 +10,13 @@ import java.util.Map;
 
 public final class PortfolioLedgerDomainService {
     private static final int MONEY_SCALE = 8;
+    /**
+     * Brokerage screens expose the average cost at three decimal places and
+     * calculate the open-position P&L from that displayed unit cost. Keep the
+     * same valuation precision so a position such as 0.852777... is shown and
+     * valued as 0.853, rather than producing a hidden two-tenths difference.
+     */
+    private static final int POSITION_PRICE_SCALE = 3;
 
     public PortfolioLedgerResultBO calculate(List<PortfolioTradeBO> trades, Map<String, BigDecimal> latestPrices) {
         Map<String, PositionAccumulator> positions = new HashMap<>();
@@ -151,12 +158,13 @@ public final class PortfolioLedgerDomainService {
         }
 
         private PortfolioPositionBO snapshot(BigDecimal latestPrice) {
-            BigDecimal averageCost = averageCost();
+            BigDecimal averageCost = averageCost().setScale(POSITION_PRICE_SCALE, RoundingMode.HALF_UP);
+            BigDecimal valuationCostBasis = quantity.multiply(averageCost);
             BigDecimal marketValue = latestPrice == null ? BigDecimal.ZERO : quantity.multiply(latestPrice);
-            BigDecimal unrealized = latestPrice == null ? BigDecimal.ZERO : marketValue.subtract(costBasis);
-            BigDecimal returnRate = costBasis.signum() == 0 ? BigDecimal.ZERO
-                    : unrealized.divide(costBasis, MONEY_SCALE, RoundingMode.HALF_UP);
-            return new PortfolioPositionBO(symbol, instrumentType, quantity, money(averageCost), money(costBasis), money(realizedPnl),
+            BigDecimal unrealized = latestPrice == null ? BigDecimal.ZERO : marketValue.subtract(valuationCostBasis);
+            BigDecimal returnRate = valuationCostBasis.signum() == 0 ? BigDecimal.ZERO
+                    : unrealized.divide(valuationCostBasis, MONEY_SCALE, RoundingMode.HALF_UP);
+            return new PortfolioPositionBO(symbol, instrumentType, quantity, money(averageCost), money(valuationCostBasis), money(realizedPnl),
                     latestPrice, money(marketValue), money(unrealized), returnRate);
         }
     }

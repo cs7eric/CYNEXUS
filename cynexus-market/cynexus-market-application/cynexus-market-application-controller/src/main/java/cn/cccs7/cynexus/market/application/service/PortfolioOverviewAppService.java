@@ -20,6 +20,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceDomainServic
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceGranularity;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPricePointBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealtimePriceGateway;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,6 +45,7 @@ public class PortfolioOverviewAppService {
     private final PortfolioAccountDomainService accountDomainService;
     private final PortfolioLedgerDomainService ledgerService;
     private final StockChartQueryDomainService stockChartQueryDomainService;
+    private final PortfolioRealtimePriceGateway realtimePriceGateway;
     private final PortfolioPerformanceDomainService performanceDomainService;
 
     public PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
@@ -51,12 +53,14 @@ public class PortfolioOverviewAppService {
                                        PortfolioAccountDomainService accountDomainService,
                                        PortfolioLedgerDomainService ledgerService,
                                        StockChartQueryDomainService stockChartQueryDomainService,
+                                       PortfolioRealtimePriceGateway realtimePriceGateway,
                                        PortfolioPerformanceDomainService performanceDomainService) {
         this.tradeRepository = tradeRepository;
         this.realizedPnlBaselineRepository = realizedPnlBaselineRepository;
         this.accountDomainService = accountDomainService;
         this.ledgerService = ledgerService;
         this.stockChartQueryDomainService = stockChartQueryDomainService;
+        this.realtimePriceGateway = realtimePriceGateway;
         this.performanceDomainService = performanceDomainService;
     }
 
@@ -196,9 +200,12 @@ public class PortfolioOverviewAppService {
     }
 
     private Map<String, BigDecimal> loadLatestPrices(List<PortfolioPositionBO> positions) {
-        Map<String, BigDecimal> latestPrices = new HashMap<>();
+        Map<String, BigDecimal> latestPrices = new HashMap<>(realtimePriceGateway.latestPrices(positions));
         for (PortfolioPositionBO position : positions) {
             if (position.quantity() == null || position.quantity().signum() <= 0) {
+                continue;
+            }
+            if (latestPrices.containsKey(position.symbol())) {
                 continue;
             }
             try {
