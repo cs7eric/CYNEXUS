@@ -3,15 +3,17 @@ import { CheckCircle2, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { notification } from "@/components/ui/notification"
 import { savePortfolioReview } from "@/services/market/portfolio/reviews"
-import type { PortfolioReview } from "@/services/market/portfolio/types"
+import type { PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 
 interface PortfolioReviewDrawerProps {
   open: boolean
   symbol?: string | null
   instrumentType: "ETF" | "STOCK"
+  positions: PortfolioPosition[]
   onOpenChange: (open: boolean) => void
   onSaved?: (review: PortfolioReview) => void
 }
@@ -21,7 +23,7 @@ function defaultReview(symbol: string) {
   return { symbol, periodStart: today, periodEnd: today, status: "DRAFT" } satisfies PortfolioReview
 }
 
-export function PortfolioReviewDrawer({ open, symbol, instrumentType, onOpenChange, onSaved }: PortfolioReviewDrawerProps) {
+export function PortfolioReviewDrawer({ open, symbol, instrumentType, positions, onOpenChange, onSaved }: PortfolioReviewDrawerProps) {
   const [review, setReview] = useState<PortfolioReview>(() => defaultReview(symbol ?? ""))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,8 +33,9 @@ export function PortfolioReviewDrawer({ open, symbol, instrumentType, onOpenChan
   }
 
   async function save(status: "DRAFT" | "COMPLETED") {
-    if (!review.symbol.trim()) {
-      const message = "请先填写要复盘的标的代码。"
+    const selectedSymbol = (review.symbol || symbol || positions[0]?.symbol || "").trim()
+    if (!selectedSymbol) {
+      const message = "请先从当前持仓选择要复盘的标的。"
       setError(message)
       notification.warn({ title: "无法保存复盘", description: message })
       return
@@ -42,7 +45,7 @@ export function PortfolioReviewDrawer({ open, symbol, instrumentType, onOpenChan
     try {
       const saved = await savePortfolioReview({
         ...review,
-        symbol: review.symbol.trim().toUpperCase(),
+        symbol: selectedSymbol.toUpperCase(),
         status,
       })
       setReview(saved)
@@ -74,7 +77,19 @@ export function PortfolioReviewDrawer({ open, symbol, instrumentType, onOpenChan
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {error ? <div className="mb-4 break-words rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">{error}</div> : null}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="标的代码"><Input value={review.symbol} onChange={(event) => set("symbol", event.target.value)} placeholder="例如 159155" /></Field>
+            <Field label="复盘标的">
+              <Select value={(review.symbol || symbol || positions[0]?.symbol) || undefined} onValueChange={(value) => set("symbol", value)} disabled={!positions.length}>
+                <SelectTrigger className="w-full" aria-label="选择复盘标的">
+                  <SelectValue placeholder={positions.length ? "从当前持仓选择" : "暂无可用持仓"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {positions.map((position) => <SelectItem key={`${position.instrumentType}-${position.symbol}`} value={position.symbol}>
+                    <span className="font-mono">{position.symbol}</span><span className="ml-2 text-muted-foreground">{position.securityName ?? "名称待补充"}</span><span className="ml-2 text-[11px] text-muted-foreground">{position.instrumentType === "ETF" ? "ETF" : "股票"}</span>
+                  </SelectItem>)}
+                </SelectContent>
+              </Select>
+              {!positions.length ? <p className="pt-1 text-[11px] text-amber-700">请先确认一笔交易，持仓标的才会出现在这里。</p> : null}
+            </Field>
             <Field label="复盘状态"><select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground" value={review.status ?? "DRAFT"} onChange={(event) => set("status", event.target.value)}><option value="DRAFT">草稿</option><option value="COMPLETED">已完成</option></select></Field>
             <Field label="开始日期"><Input type="date" value={review.periodStart} onChange={(event) => set("periodStart", event.target.value)} /></Field>
             <Field label="结束日期"><Input type="date" value={review.periodEnd} onChange={(event) => set("periodEnd", event.target.value)} /></Field>

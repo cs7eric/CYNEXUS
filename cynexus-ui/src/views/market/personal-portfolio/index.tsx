@@ -146,7 +146,7 @@ export default function PersonalPortfolioPage() {
 
         <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={(open) => setQueryState({ imports: open ? "1" : null })} />
         <PortfolioPositionDrawer open={Boolean(selectedSymbol)} symbol={selectedSymbol} instrumentType={selectedInstrumentType} onOpenChange={(open) => setQueryState(open && selectedSymbol ? { stock: selectedSymbol, instrumentType: selectedInstrumentType } : { stock: null, instrumentType: null })} />
-        <PortfolioReviewDrawer key={`review-${reviewDrawerOpen ? reviewSymbol ?? "new" : "closed"}`} open={reviewDrawerOpen} symbol={reviewSymbol} instrumentType={reviewInstrumentType} onOpenChange={(open) => setQueryState(open ? { review: "new" } : { review: null, symbol: null, instrumentType: null })} onSaved={() => void load()} />
+        <PortfolioReviewDrawer key={`review-${reviewDrawerOpen ? reviewSymbol ?? "new" : "closed"}`} open={reviewDrawerOpen} symbol={reviewSymbol} instrumentType={reviewInstrumentType} positions={positions} onOpenChange={(open) => setQueryState(open ? { review: "new" } : { review: null, symbol: null, instrumentType: null })} onSaved={() => void load()} />
       </div>
     </WorkspaceShell>
   )
