@@ -1,6 +1,10 @@
 package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.PortfolioOverviewDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioAccountDTO;
+import cn.cccs7.cynexus.market.api.request.PortfolioAccountUpdateRequest;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountDomainService;
 import cn.cccs7.cynexus.market.api.dto.PortfolioLedgerWarningDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPositionDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
@@ -25,15 +29,18 @@ public class PortfolioOverviewAppService {
     private static final String TENANT = "default";
     private final PortfolioTradeQueryRepository tradeRepository;
     private final PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository;
+    private final PortfolioAccountDomainService accountDomainService;
     private final PortfolioLedgerDomainService ledgerService;
     private final StockChartQueryDomainService stockChartQueryDomainService;
 
     public PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
                                        PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository,
+                                       PortfolioAccountDomainService accountDomainService,
                                        PortfolioLedgerDomainService ledgerService,
                                        StockChartQueryDomainService stockChartQueryDomainService) {
         this.tradeRepository = tradeRepository;
         this.realizedPnlBaselineRepository = realizedPnlBaselineRepository;
+        this.accountDomainService = accountDomainService;
         this.ledgerService = ledgerService;
         this.stockChartQueryDomainService = stockChartQueryDomainService;
     }
@@ -48,6 +55,8 @@ public class PortfolioOverviewAppService {
                 ledgerService.calculate(trades, latestPrices), baselines);
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
+        PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
+        BigDecimal availableCash = account.availableCash();
         Map<String, String> securityNames = loadSecurityNames(result.positions());
         return PortfolioOverviewDTO.builder()
                 .positions(result.positions().stream().map(position -> toPosition(position, securityNames)).toList())
@@ -55,9 +64,22 @@ public class PortfolioOverviewAppService {
                         .code(warning.code()).symbol(warning.symbol())
                         .unmatchedQuantity(warning.unmatchedQuantity()).message(warning.message()).build()).toList())
                 .costBasis(costBasis).marketValue(marketValue)
+                .availableCash(availableCash).totalAssets(marketValue.add(availableCash))
+                .accountUpdatedAt(account.updatedAt())
                 .realizedPnl(result.realizedPnl()).unrealizedPnl(result.unrealizedPnl()).totalPnl(result.totalPnl())
                 .tradeCount(trades.size())
                 .valuationStatus(ledgerService.valuationStatus(trades, result, latestPrices).name()).build();
+    }
+
+    public PortfolioAccountDTO account() {
+        PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
+        return PortfolioAccountDTO.builder().availableCash(account.availableCash()).updatedAt(account.updatedAt()).build();
+    }
+
+    public PortfolioAccountDTO updateAccount(PortfolioAccountUpdateRequest request) {
+        if (request == null) throw new IllegalArgumentException("portfolio account update is required");
+        PortfolioAccountBO account = accountDomainService.updateAvailableCash(PRINCIPAL, TENANT, request.getAvailableCash());
+        return PortfolioAccountDTO.builder().availableCash(account.availableCash()).updatedAt(account.updatedAt()).build();
     }
 
     public List<PortfolioTradeDTO> trades(String symbol) {

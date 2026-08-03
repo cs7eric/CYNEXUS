@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioAccountMapper">
+    <select id="find" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioAccountPO">
+        select principal_key, tenant_key, available_cash, updated_at
+          from cynexus_appl_market.portfolio_account
+         where principal_key = #{principalKey}
+           and tenant_key = #{tenantKey}
+           and deleted_at is null
+    </select>
+
+    <insert id="upsert">
+        insert into cynexus_appl_market.portfolio_account
+            (principal_key, tenant_key, available_cash, updated_at)
+        values (#{principalKey}, #{tenantKey}, #{availableCash}, #{updatedAt})
+        on conflict (principal_key, tenant_key) where deleted_at is null
+        do update set available_cash = excluded.available_cash,
+                      updated_at = excluded.updated_at
+    </insert>
+</mapper>
