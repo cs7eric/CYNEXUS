@@ -32,6 +32,7 @@ export function PortfolioAssetSnapshot({ overview, onSaved }: PortfolioAssetSnap
   const availableCash = Number(overview.availableCash ?? 0)
   const totalAssets = Number(overview.totalAssets ?? marketValue + availableCash)
   const cashRatio = totalAssets > 0 ? (availableCash / totalAssets) * 100 : 0
+  const holdingsRatio = Math.max(0, 100 - cashRatio)
 
   function startEditing() {
     setCashDraft(availableCash.toFixed(2))
@@ -81,8 +82,8 @@ export function PortfolioAssetSnapshot({ overview, onSaved }: PortfolioAssetSnap
             <p className="mt-1 text-[11px] text-muted-foreground">手动维护，不从交易截图推断</p>
           </div>
           <div className="border-t border-border/60 px-4 py-4 sm:col-span-2">
-            <div className="flex items-center justify-between gap-3 text-xs"><span className="text-muted-foreground">资金结构</span><span className="font-mono tabular-nums text-muted-foreground">持仓 {100 - cashRatio < 0 ? 0 : 100 - cashRatio}% · 现金 {cashRatio.toFixed(1)}%</span></div>
-            <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted" aria-label={`持仓 ${100 - cashRatio}%、现金 ${cashRatio.toFixed(1)}%`}><span className="bg-primary" style={{ width: `${Math.max(0, Math.min(100, 100 - cashRatio))}%` }} /><span className="bg-muted-foreground/40" style={{ width: `${Math.max(0, Math.min(100, cashRatio))}%` }} /></div>
+            <div className="flex items-center justify-between gap-3 text-xs"><span className="text-muted-foreground">资金结构</span><span className="font-mono tabular-nums text-muted-foreground">持仓 {holdingsRatio.toFixed(1)}% · 现金 {cashRatio.toFixed(1)}%</span></div>
+            <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted" aria-label={`持仓 ${holdingsRatio.toFixed(1)}%、现金 ${cashRatio.toFixed(1)}%`}><span className="bg-primary" style={{ width: `${Math.max(0, Math.min(100, holdingsRatio))}%` }} /><span className="bg-muted-foreground/40" style={{ width: `${Math.max(0, Math.min(100, cashRatio))}%` }} /></div>
           </div>
         </div>
       </div>
