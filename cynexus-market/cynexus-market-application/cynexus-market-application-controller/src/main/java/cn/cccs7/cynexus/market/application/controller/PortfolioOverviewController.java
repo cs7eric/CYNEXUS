@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.PortfolioOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioAccountDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceDTO;
 import cn.cccs7.cynexus.market.api.request.PortfolioAccountUpdateRequest;
 import cn.cccs7.cynexus.market.application.service.PortfolioOverviewAppService;
 import java.util.List;
@@ -41,5 +42,12 @@ public class PortfolioOverviewController {
     @GetMapping("/trades")
     public Result<List<PortfolioTradeDTO>> trades(@RequestParam(required = false) String symbol) {
         return Result.success(service.trades(symbol));
+    }
+
+    @GetMapping("/performance")
+    public Result<PortfolioPerformanceDTO> performance(@RequestParam(required = false) String range,
+                                                      @RequestParam(required = false) String from,
+                                                      @RequestParam(required = false) String to) {
+        return Result.success(service.performance(range, from, to));
     }
 }

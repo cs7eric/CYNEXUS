@@ -8,16 +8,27 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountDomainService;
 import cn.cccs7.cynexus.market.api.dto.PortfolioLedgerWarningDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPositionDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioPerformancePointDTO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealizedPnlBaselineRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeQueryRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioInstrumentType;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceDomainService;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceGranularity;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceResultBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPricePointBO;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,22 +38,26 @@ public class PortfolioOverviewAppService {
     private static final Logger log = LoggerFactory.getLogger(PortfolioOverviewAppService.class);
     private static final String PRINCIPAL = "workspace-user";
     private static final String TENANT = "default";
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private final PortfolioTradeQueryRepository tradeRepository;
     private final PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository;
     private final PortfolioAccountDomainService accountDomainService;
     private final PortfolioLedgerDomainService ledgerService;
     private final StockChartQueryDomainService stockChartQueryDomainService;
+    private final PortfolioPerformanceDomainService performanceDomainService;
 
     public PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
                                        PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository,
                                        PortfolioAccountDomainService accountDomainService,
                                        PortfolioLedgerDomainService ledgerService,
-                                       StockChartQueryDomainService stockChartQueryDomainService) {
+                                       StockChartQueryDomainService stockChartQueryDomainService,
+                                       PortfolioPerformanceDomainService performanceDomainService) {
         this.tradeRepository = tradeRepository;
         this.realizedPnlBaselineRepository = realizedPnlBaselineRepository;
         this.accountDomainService = accountDomainService;
         this.ledgerService = ledgerService;
         this.stockChartQueryDomainService = stockChartQueryDomainService;
+        this.performanceDomainService = performanceDomainService;
     }
 
     public PortfolioOverviewDTO overview() {
@@ -87,6 +102,72 @@ public class PortfolioOverviewAppService {
                 .id(trade.id()).symbol(trade.symbol()).securityName(trade.securityName()).instrumentType(trade.instrumentType().name()).side(trade.side().name())
                 .tradedAt(trade.tradedAt()).quantity(trade.quantity()).price(trade.price())
                 .totalFee(trade.totalFee()).status(trade.status().name()).build()).toList();
+    }
+
+    public PortfolioPerformanceDTO performance(String range, String fromValue, String toValue) {
+        PerformanceRange requested = resolveRange(range, fromValue, toValue);
+        var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
+        Map<String, PortfolioInstrumentType> instruments = trades.stream()
+                .collect(Collectors.toMap(cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::symbol,
+                        cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::instrumentType,
+                        (left, right) -> left, LinkedHashMap::new));
+        Map<String, List<PortfolioPricePointBO>> prices = new LinkedHashMap<>();
+        for (Map.Entry<String, PortfolioInstrumentType> entry : instruments.entrySet()) {
+            try {
+                var kline = stockChartQueryDomainService.klines(entry.getValue().chartTargetType(), entry.getKey(), "1d", "qfq");
+                prices.put(entry.getKey(), kline.items().stream()
+                        .filter(bar -> bar.getTradeDate() != null && bar.getClose() != null)
+                        .map(bar -> new PortfolioPricePointBO(bar.getTradeDate(), bar.getClose()))
+                        .toList());
+            } catch (RuntimeException exception) {
+                log.warn("Unable to load portfolio performance prices for symbol={}", entry.getKey(), exception);
+                prices.put(entry.getKey(), List.of());
+            }
+        }
+        PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
+        PortfolioPerformanceResultBO result = performanceDomainService.calculate(
+                trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
+                requested.from(), requested.to(), requested.granularity());
+        return PortfolioPerformanceDTO.builder()
+                .range(requested.range()).from(result.from()).to(result.to())
+                .periodPnl(result.periodPnl()).periodReturnRate(result.periodReturnRate())
+                .startAssets(result.startAssets()).endAssets(result.endAssets())
+                .bestPeriodPnl(result.bestPeriodPnl()).worstPeriodPnl(result.worstPeriodPnl())
+                .tradingDays(result.tradingDays())
+                .points(result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
+                        .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
+                        .costBasis(point.costBasis()).totalPnl(point.totalPnl()).periodPnl(point.periodPnl())
+                        .returnRate(point.returnRate()).build()).toList())
+                .build();
+    }
+
+    private PerformanceRange resolveRange(String range, String fromValue, String toValue) {
+        String normalized = range == null || range.isBlank() ? "daily" : range.trim().toLowerCase();
+        LocalDate today = LocalDate.now(SHANGHAI);
+        return switch (normalized) {
+            case "daily", "day" -> new PerformanceRange("daily", today.minusDays(29), today,
+                    PortfolioPerformanceGranularity.DAILY);
+            case "monthly", "month" -> new PerformanceRange("monthly", today.withDayOfMonth(1).minusMonths(11), today,
+                    PortfolioPerformanceGranularity.MONTHLY);
+            case "custom" -> {
+                if (fromValue == null || fromValue.isBlank() || toValue == null || toValue.isBlank()) {
+                    throw new IllegalArgumentException("custom performance range requires from and to");
+                }
+                LocalDate from = LocalDate.parse(fromValue);
+                LocalDate to = LocalDate.parse(toValue);
+                if (from.isAfter(to)) throw new IllegalArgumentException("performance from must not be after to");
+                if (from.isBefore(today.minusDays(520))) {
+                    throw new IllegalArgumentException("custom performance range is limited to the latest 520 days");
+                }
+                yield new PerformanceRange("custom", from, to.isAfter(today) ? today : to,
+                        PortfolioPerformanceGranularity.DAILY);
+            }
+            default -> throw new IllegalArgumentException("range must be daily, monthly, or custom");
+        };
+    }
+
+    private record PerformanceRange(String range, LocalDate from, LocalDate to,
+                                    PortfolioPerformanceGranularity granularity) {
     }
 
     private PortfolioPositionDTO toPosition(cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO value,

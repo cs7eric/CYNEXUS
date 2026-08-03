@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportDispatchPort;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerDomainService;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceDomainService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,6 +15,11 @@ public class PortfolioDomainServiceConfiguration {
     @Bean
     public PortfolioLedgerDomainService portfolioLedgerDomainService() {
         return new PortfolioLedgerDomainService();
+    }
+    @Bean
+    public PortfolioPerformanceDomainService portfolioPerformanceDomainService(
+            PortfolioLedgerDomainService ledgerService) {
+        return new PortfolioPerformanceDomainService(ledgerService);
     }
     @Bean
     public PortfolioImportDomainService portfolioImportDomainService(
