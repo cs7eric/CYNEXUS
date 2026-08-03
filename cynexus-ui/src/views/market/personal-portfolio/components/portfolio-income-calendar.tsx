@@ -67,9 +67,23 @@ function formatDate(value: Date) {
 }
 
 function periodLabelFor(value: string, range: PortfolioPerformanceRange) {
-  if (range === "weekly") return `${value.slice(5)} 周`
-  if (range === "monthly") return `${value.slice(0, 4)}年${Number(value.slice(5, 7))}月`
-  return `${value.slice(0, 4)}年`
+  const date = parseDate(value)
+  if (range === "weekly") {
+    const start = new Date(date)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    return `${compactDate(start)}-${compactDate(end)}`
+  }
+  if (range === "monthly") {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1)
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    return `${compactDate(start)}-${compactDate(end)}`
+  }
+  return `${date.getFullYear()}年`
+}
+
+function compactDate(value: Date) {
+  return `${String(value.getMonth() + 1).padStart(2, "0")}${String(value.getDate()).padStart(2, "0")}`
 }
 
 function signed(value: number) {

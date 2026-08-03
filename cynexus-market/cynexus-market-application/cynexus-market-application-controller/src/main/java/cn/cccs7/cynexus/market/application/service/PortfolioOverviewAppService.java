@@ -185,6 +185,28 @@ public class PortfolioOverviewAppService {
     private PerformanceRange resolveRange(String range, String fromValue, String toValue, LocalDate trackingStartDate) {
         String normalized = range == null || range.isBlank() ? "daily" : range.trim().toLowerCase();
         LocalDate today = LocalDate.now(SHANGHAI);
+        if (fromValue != null || toValue != null) {
+            if (fromValue == null || fromValue.isBlank() || toValue == null || toValue.isBlank()) {
+                throw new IllegalArgumentException("performance range requires both from and to");
+            }
+            LocalDate from = LocalDate.parse(fromValue);
+            LocalDate to = LocalDate.parse(toValue);
+            if (from.isAfter(to)) throw new IllegalArgumentException("performance from must not be after to");
+            PortfolioPerformanceGranularity granularity = switch (normalized) {
+                case "daily", "day", "custom" -> PortfolioPerformanceGranularity.DAILY;
+                case "weekly", "week" -> PortfolioPerformanceGranularity.WEEKLY;
+                case "monthly", "month" -> PortfolioPerformanceGranularity.MONTHLY;
+                case "yearly", "year" -> PortfolioPerformanceGranularity.YEARLY;
+                default -> throw new IllegalArgumentException("range must be daily, weekly, monthly, yearly, or custom");
+            };
+            from = max(from, trackingStartDate);
+            to = min(to, today);
+            if (from.isAfter(to)) throw new IllegalArgumentException("performance range is before the tracking start date");
+            if (normalized.equals("custom") && from.isBefore(today.minusDays(520))) {
+                throw new IllegalArgumentException("custom performance range is limited to the latest 520 days");
+            }
+            return new PerformanceRange(normalized, from, to, granularity);
+        }
         return switch (normalized) {
             case "daily", "day" -> new PerformanceRange("daily", max(today.minusDays(29), trackingStartDate), today,
                     PortfolioPerformanceGranularity.DAILY);

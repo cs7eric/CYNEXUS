@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, ReferenceLine, XAxis, YAxis } from "recharts"
-import { ChartNoAxesCombined, CircleAlert, Loader2 } from "lucide-react"
+import { ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleAlert, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,9 +21,14 @@ interface PortfolioPerformanceToolbarProps {
   chartView: PortfolioChartView
   onChartViewChange: (view: PortfolioChartView) => void
   showChartView?: boolean
+  periodLabel?: string | null
+  canGoPrevious?: boolean
+  canGoNext?: boolean
+  onPreviousPeriod?: () => void
+  onNextPeriod?: () => void
 }
 
-export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, onChartViewChange, showChartView = true }: PortfolioPerformanceToolbarProps) {
+export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, onChartViewChange, showChartView = true, periodLabel, canGoPrevious = true, canGoNext = false, onPreviousPeriod, onNextPeriod }: PortfolioPerformanceToolbarProps) {
   return <div className="flex flex-wrap items-center gap-2" aria-label="收益筛选与视图">
     <div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/50 p-1" role="group" aria-label="收益视图">
       {(["daily", "weekly", "monthly", "yearly"] as PortfolioPerformanceRange[]).map((item) => <Button key={item} type="button" size="sm" variant={range === item ? "default" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onRangeChange(item)}>{item === "daily" ? "日" : item === "weekly" ? "周" : item === "monthly" ? "月" : "年"}</Button>)}
@@ -31,6 +36,11 @@ export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, o
     {showChartView ? <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="图表类型">
       <Button type="button" size="sm" variant={chartView === "calendar" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("calendar")}>日历图</Button>
       <Button type="button" size="sm" variant={chartView === "bars" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("bars")}>柱状图</Button>
+    </div> : null}
+    {range !== "daily" && range !== "custom" && onPreviousPeriod && onNextPeriod ? <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" aria-label="收益周期切换">
+      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={onPreviousPeriod} disabled={!canGoPrevious} aria-label="上一个周期" title={range === "monthly" ? "上个月" : "上一个周期"}><ChevronLeft className="size-3.5" />{range === "monthly" ? "上个月" : "上一个周期"}</Button>
+      <span className="min-w-[92px] text-center text-xs font-medium tabular-nums">{periodLabel ?? "当前周期"}</span>
+      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={onNextPeriod} disabled={!canGoNext} aria-label="下一个周期" title={range === "monthly" ? "下个月" : "下一个周期"}>{range === "monthly" ? "下个月" : "下一个周期"}<ChevronRight className="size-3.5" /></Button>
     </div> : null}
   </div>
 }
@@ -101,8 +111,34 @@ function SummaryRow({ label, value, toneClass, detail }: { label: string; value:
 function buildChartData(performance: PortfolioPerformance | null, range: PortfolioPerformanceRange) {
   return (performance?.points ?? []).reduce<Array<PortfolioPerformancePoint & { cumulativePnl: number; label: string }>>((items, point) => {
     const cumulative = (items.at(-1)?.cumulativePnl ?? 0) + Number(point.periodPnl ?? 0)
-    return [...items, { ...point, cumulativePnl: cumulative, label: range === "yearly" ? point.tradeDate.slice(0, 4) : range === "monthly" ? point.tradeDate.slice(0, 7) : range === "weekly" ? `${point.tradeDate.slice(5)} 周` : point.tradeDate.slice(5) }]
+    return [...items, { ...point, cumulativePnl: cumulative, label: performanceLabel(point.tradeDate, range) }]
   }, [])
+}
+
+function performanceLabel(value: string, range: PortfolioPerformanceRange) {
+  const date = parseDate(value)
+  if (range === "weekly") {
+    const start = new Date(date)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    return `${compactDate(start)}-${compactDate(end)}`
+  }
+  if (range === "monthly") {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1)
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    return `${compactDate(start)}-${compactDate(end)}`
+  }
+  if (range === "yearly") return `${date.getFullYear()}年`
+  return value.slice(5)
+}
+
+function parseDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number)
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+function compactDate(value: Date) {
+  return `${String(value.getMonth() + 1).padStart(2, "0")}${String(value.getDate()).padStart(2, "0")}`
 }
 
 function rangeLabel(range: PortfolioPerformanceRange) {

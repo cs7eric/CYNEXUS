@@ -114,7 +114,7 @@ export default function PersonalPortfolioPage() {
                 <div className="flex items-center gap-2"><ChartNoAxesCombined className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="performance-heading" className="text-base font-semibold">今日收益走势</h2></div>
                 <p className="mt-1 text-xs text-muted-foreground">{isDailyPerformanceView ? "查看当前持仓、今日收益和持仓快照。" : "面积为当前视图累计收益，柱体为周期收益变化，红涨绿跌。"}</p>
               </div>
-              <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} showChartView={!isDailyPerformanceView} />
+              <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} showChartView={!isDailyPerformanceView} periodLabel={performanceState.periodLabel} canGoPrevious={performanceState.canGoPrevious} canGoNext={performanceState.canGoNext} onPreviousPeriod={performanceState.goPrevious} onNextPeriod={performanceState.goNext} />
             </div>
             <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
               {!isDailyPerformanceView ? <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} /> : null}
