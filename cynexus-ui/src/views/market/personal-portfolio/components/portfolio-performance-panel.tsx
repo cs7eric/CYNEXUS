@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, ReferenceLine, XAxis, YAxis } from "recharts"
 import { ChartNoAxesCombined, CircleAlert, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,22 +13,47 @@ const chartConfig = {
   periodPnl: { label: "周期收益", color: "var(--chart-2)" },
 } satisfies ChartConfig
 
-export function PortfolioPerformancePanel({ state }: { state: PortfolioPerformanceState }) {
+export type PortfolioChartView = "calendar" | "bars"
+
+interface PortfolioPerformanceToolbarProps {
+  range: PortfolioPerformanceRange
+  onRangeChange: (range: PortfolioPerformanceRange) => void
+  chartView: PortfolioChartView
+  onChartViewChange: (view: PortfolioChartView) => void
+}
+
+export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, onChartViewChange }: PortfolioPerformanceToolbarProps) {
+  return <div className="flex flex-wrap items-center gap-2" aria-label="收益筛选与视图">
+    <div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/50 p-1" role="group" aria-label="收益视图">
+      {(["daily", "weekly", "monthly", "yearly"] as PortfolioPerformanceRange[]).map((item) => <Button key={item} type="button" size="sm" variant={range === item ? "default" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onRangeChange(item)}>{item === "daily" ? "日" : item === "weekly" ? "周" : item === "monthly" ? "月" : "年"}</Button>)}
+    </div>
+    <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="图表类型">
+      <Button type="button" size="sm" variant={chartView === "calendar" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("calendar")}>日历图</Button>
+      <Button type="button" size="sm" variant={chartView === "bars" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("bars")}>柱状图</Button>
+    </div>
+  </div>
+}
+
+interface PortfolioPerformancePanelProps {
+  state: PortfolioPerformanceState
+  chartView: PortfolioChartView
+  embedded?: boolean
+  onChartViewChange: (view: PortfolioChartView) => void
+}
+
+export function PortfolioPerformancePanel({ state, chartView, embedded = false, onChartViewChange }: PortfolioPerformancePanelProps) {
   const { range, setRange, performance, loading, error } = state
-  const [chartView, setChartView] = useState<"calendar" | "bars">("calendar")
   const chartData = useMemo(() => buildChartData(performance, range), [performance, range])
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="performance-heading">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">
+    <section className={embedded ? "min-w-0" : "min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card"} aria-labelledby={embedded ? undefined : "performance-heading"} aria-label={embedded ? "收益走势" : undefined}>
+      {!embedded ? <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2"><ChartNoAxesCombined className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="performance-heading" className="text-base font-semibold">今日收益走势</h2></div>
           <p className="mt-1 text-xs text-muted-foreground">面积为当前视图累计收益，柱体为周期收益变化，红涨绿跌。</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2"><div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/50 p-1" role="group" aria-label="收益视图">
-          {(["daily", "weekly", "monthly", "yearly"] as PortfolioPerformanceRange[]).map((item) => <Button key={item} type="button" size="sm" variant={range === item ? "default" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setRange(item)}>{item === "daily" ? "日" : item === "weekly" ? "周" : item === "monthly" ? "月" : "年"}</Button>)}
-        </div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="图表类型"><Button type="button" size="sm" variant={chartView === "calendar" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setChartView("calendar")}>日历图</Button><Button type="button" size="sm" variant={chartView === "bars" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setChartView("bars")}>柱状图</Button></div></div>
-      </div>
+        <PortfolioPerformanceToolbar range={range} onRangeChange={setRange} chartView={chartView} onChartViewChange={onChartViewChange} />
+      </div> : null}
 
       {loading ? <div className="space-y-4 p-4"><Skeleton className="h-9 w-2/3" /><Skeleton className="h-[300px] w-full" /></div> : error ? <div className="flex items-start gap-2 px-4 py-12 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">收益历史加载失败</p><p className="mt-1 break-words text-xs">{error}</p></div></div> : performance && performance.points.length ? <div className="p-4">
         {chartView === "calendar" ? <PortfolioIncomeCalendar points={performance.points} range={range} /> : <ChartContainer config={chartConfig} className="h-[348px] w-full aspect-auto">
@@ -50,14 +75,14 @@ export function PortfolioPerformancePanel({ state }: { state: PortfolioPerforman
   )
 }
 
-export function PortfolioPerformanceSummary({ state }: { state: PortfolioPerformanceState }) {
+export function PortfolioPerformanceSummary({ state, embedded = false }: { state: PortfolioPerformanceState; embedded?: boolean }) {
   const { range, performance, loading, error } = state
   const currentPeriod = performance?.points.at(-1)
   const chartData = useMemo(() => buildChartData(performance, range), [performance, range])
   const viewCumulativePnl = chartData.at(-1)?.cumulativePnl ?? 0
   const currentPeriodLabel = range === "daily" ? "今日收益" : range === "weekly" ? "本周收益" : range === "monthly" ? "本月收益" : "本年收益"
 
-  return <section className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="performance-summary-heading">
+  return <section className={embedded ? "min-w-0" : "min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card"} aria-labelledby="performance-summary-heading">
     {loading ? <div className="space-y-3 p-4">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-[62px] w-full" />)}</div> : error ? <div className="px-4 py-8 text-xs leading-5 text-rose-700">收益摘要加载失败：{error}</div> : performance && performance.points.length ? <dl className="divide-y divide-border/60" aria-label="收益摘要">
       <SummaryRow label="今日收益" value={money(performance.todayPnl ?? currentPeriod?.periodPnl)} toneClass={tone(performance.todayPnl ?? currentPeriod?.periodPnl)} detail="对比上一交易日收盘" />
       <SummaryRow label={currentPeriodLabel} value={money(currentPeriod?.periodPnl)} toneClass={tone(currentPeriod?.periodPnl)} detail={currentPeriod?.tradeDate ?? "等待行情"} />

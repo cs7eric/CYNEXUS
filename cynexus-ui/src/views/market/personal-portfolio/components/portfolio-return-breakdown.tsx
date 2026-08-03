@@ -13,6 +13,7 @@ interface PortfolioReturnBreakdownProps {
   overview: PortfolioOverview | null
   performance?: PortfolioPerformance | null
   range?: PortfolioPerformanceRange
+  embedded?: boolean
 }
 
 type HoldingHeatmapNode = {
@@ -44,7 +45,7 @@ function DirectionIcon({ value }: { value: number | null | undefined }) {
   return value > 0 ? <ArrowUpRight className="size-3.5" aria-hidden="true" /> : <ArrowDownRight className="size-3.5" aria-hidden="true" />
 }
 
-export function PortfolioReturnBreakdown({ overview, performance, range = "daily" }: PortfolioReturnBreakdownProps) {
+export function PortfolioReturnBreakdown({ overview, performance, range = "daily", embedded = false }: PortfolioReturnBreakdownProps) {
   const [view, setView] = useState<"heatmap" | "list">("heatmap")
   const heatmapRef = useRef<HTMLDivElement | null>(null)
   const hasTrades = (overview?.tradeCount ?? 0) > 0
@@ -112,7 +113,7 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
   }, [heatmapData, view])
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-label="收益表现">
+    <section className={embedded ? "min-w-0 overflow-hidden" : "overflow-hidden rounded-lg border border-border/60 bg-card"} aria-label="收益表现">
 
       {hasTrades ? <div className="p-4">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">

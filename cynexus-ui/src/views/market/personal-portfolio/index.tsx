@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { KeyboardEvent } from "react"
-import { ChevronRight, CircleAlert, ClipboardCheck, RefreshCw, Upload, WalletCards } from "lucide-react"
+import { ChartNoAxesCombined, ChevronRight, CircleAlert, ClipboardCheck, RefreshCw, Upload, WalletCards } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import { PortfolioAssetSnapshot } from "./components/portfolio-asset-snapshot"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
 import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
-import { PortfolioPerformancePanel, PortfolioPerformanceSummary } from "./components/portfolio-performance-panel"
+import { PortfolioPerformancePanel, PortfolioPerformanceSummary, PortfolioPerformanceToolbar, type PortfolioChartView } from "./components/portfolio-performance-panel"
 import { usePortfolioPerformance } from "./components/portfolio-performance-state"
 
 const money = (value: number | null | undefined) => value == null ? "--" : Number(value).toFixed(2)
@@ -37,6 +37,7 @@ export default function PersonalPortfolioPage() {
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [chartView, setChartView] = useState<PortfolioChartView>("calendar")
   const performanceState = usePortfolioPerformance()
   const importDrawerOpen = searchParams.get("imports") === "1"
   const selectedSymbol = searchParams.get("stock")
@@ -105,11 +106,20 @@ export default function PersonalPortfolioPage() {
 
         {loading ? <SnapshotSkeleton /> : <>
           {overview ? <PortfolioAssetSnapshot overview={overview} onSaved={() => void load()} /> : null}
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)]">
-            <PortfolioPerformancePanel state={performanceState} />
-            {overview ? <PortfolioReturnBreakdown overview={overview} performance={performanceState.performance} range={performanceState.range} /> : null}
-            <PortfolioPerformanceSummary state={performanceState} />
-          </div>
+          <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="performance-heading">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2"><ChartNoAxesCombined className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="performance-heading" className="text-base font-semibold">今日收益走势</h2></div>
+                <p className="mt-1 text-xs text-muted-foreground">面积为当前视图累计收益，柱体为周期收益变化，红涨绿跌。</p>
+              </div>
+              <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} />
+            </div>
+            <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
+              <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} />
+              {overview ? <PortfolioReturnBreakdown overview={overview} performance={performanceState.performance} range={performanceState.range} embedded /> : <div className="min-w-0" />}
+              <PortfolioPerformanceSummary state={performanceState} embedded />
+            </div>
+          </section>
 
           <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="positions-heading">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5"><div><div className="flex items-center gap-2"><h2 id="positions-heading" className="text-base font-semibold">当前持仓</h2><span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{positions.length} 个标的</span></div><p className="mt-1 text-xs text-muted-foreground">点击任意一行打开详情 Drawer；行情使用市场数据源的最新可用价格。</p></div><div className="text-right text-xs text-muted-foreground">{largestPosition ? `最大持仓：${largestPosition.securityName ?? largestPosition.symbol}` : "暂无已确认持仓"}</div></div>
