@@ -24,6 +24,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealtimePriceGateway;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -89,6 +90,7 @@ public class PortfolioOverviewAppService {
                 .availableCash(availableCash).totalAssets(marketValue.add(availableCash))
                 .accountUpdatedAt(account.updatedAt())
                 .realizedPnl(result.realizedPnl()).unrealizedPnl(result.unrealizedPnl()).totalPnl(result.totalPnl())
+                .todayPnl(todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add))
                 .tradeCount(trades.size())
                 .valuationStatus(ledgerService.valuationStatus(trades, result, latestPrices).name()).build();
     }
@@ -112,7 +114,10 @@ public class PortfolioOverviewAppService {
     }
 
     public PortfolioPerformanceDTO performance(String range, String fromValue, String toValue) {
-        PerformanceRange requested = resolveRange(range, fromValue, toValue);
+        LocalDate today = LocalDate.now(SHANGHAI);
+        OffsetDateTime latestResetAt = realizedPnlBaselineRepository.latestResetAt(PRINCIPAL, TENANT);
+        LocalDate trackingStartDate = latestResetAt == null ? today : latestResetAt.atZoneSameInstant(SHANGHAI).toLocalDate();
+        PerformanceRange requested = resolveRange(range, fromValue, toValue, trackingStartDate);
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
         var openPositions = ledgerService.calculate(trades, Map.of()).positions();
         Map<String, BigDecimal> realtimePrices = realtimePriceGateway.latestPrices(openPositions);
@@ -130,7 +135,6 @@ public class PortfolioOverviewAppService {
                         .toList();
                 BigDecimal realtimePrice = realtimePrices.get(entry.getKey());
                 if (realtimePrice != null) {
-                    LocalDate today = LocalDate.now(SHANGHAI);
                     series = series.stream().filter(point -> !point.tradeDate().equals(today)).collect(Collectors.toCollection(java.util.ArrayList::new));
                     series.add(new PortfolioPricePointBO(today, realtimePrice));
                 }
@@ -144,30 +148,43 @@ public class PortfolioOverviewAppService {
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
                 trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
                 requested.from(), requested.to(), requested.granularity());
-        LocalDate today = LocalDate.now(SHANGHAI);
         BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, today);
+        List<PortfolioPerformancePointDTO> points = result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
+                .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
+                .costBasis(point.costBasis()).totalPnl(point.totalPnl())
+                .periodPnl(point.tradeDate().equals(today) && todayPnl != null ? todayPnl : point.periodPnl())
+                .returnRate(point.returnRate()).build()).toList();
+        BigDecimal effectivePeriodPnl = points.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
+                .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal effectiveStartAssets = trackingStartDate.equals(today) && todayPnl != null
+                ? result.endAssets().subtract(todayPnl) : result.startAssets();
+        BigDecimal effectiveReturnRate = effectiveStartAssets.signum() > 0
+                ? effectivePeriodPnl.divide(effectiveStartAssets, 8, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        BigDecimal bestPeriodPnl = points.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
+                .filter(java.util.Objects::nonNull).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        BigDecimal worstPeriodPnl = points.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
+                .filter(java.util.Objects::nonNull).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
         return PortfolioPerformanceDTO.builder()
                 .range(requested.range()).from(result.from()).to(result.to())
-                .periodPnl(result.periodPnl()).todayPnl(todayPnl).periodReturnRate(result.periodReturnRate())
-                .startAssets(result.startAssets()).endAssets(result.endAssets())
-                .bestPeriodPnl(result.bestPeriodPnl()).worstPeriodPnl(result.worstPeriodPnl())
-                .tradingDays(result.tradingDays())
-                .points(result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
-                        .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
-                        .costBasis(point.costBasis()).totalPnl(point.totalPnl())
-                        .periodPnl(point.tradeDate().equals(today) && todayPnl != null ? todayPnl : point.periodPnl())
-                        .returnRate(point.returnRate()).build()).toList())
+                .periodPnl(effectivePeriodPnl).todayPnl(todayPnl).periodReturnRate(effectiveReturnRate)
+                .startAssets(effectiveStartAssets).endAssets(result.endAssets())
+                .bestPeriodPnl(bestPeriodPnl).worstPeriodPnl(worstPeriodPnl)
+                .tradingDays(points.size()).points(points)
                 .build();
     }
 
-    private PerformanceRange resolveRange(String range, String fromValue, String toValue) {
+    private PerformanceRange resolveRange(String range, String fromValue, String toValue, LocalDate trackingStartDate) {
         String normalized = range == null || range.isBlank() ? "daily" : range.trim().toLowerCase();
         LocalDate today = LocalDate.now(SHANGHAI);
         return switch (normalized) {
-            case "daily", "day" -> new PerformanceRange("daily", today.minusDays(29), today,
+            case "daily", "day" -> new PerformanceRange("daily", max(today.minusDays(29), trackingStartDate), today,
                     PortfolioPerformanceGranularity.DAILY);
-            case "monthly", "month" -> new PerformanceRange("monthly", today.withDayOfMonth(1).minusMonths(11), today,
+            case "weekly", "week" -> new PerformanceRange("weekly", max(today.minusWeeks(11).with(java.time.DayOfWeek.MONDAY), trackingStartDate), today,
+                    PortfolioPerformanceGranularity.WEEKLY);
+            case "monthly", "month" -> new PerformanceRange("monthly", max(today.withDayOfMonth(1).minusMonths(11), trackingStartDate), today,
                     PortfolioPerformanceGranularity.MONTHLY);
+            case "yearly", "year" -> new PerformanceRange("yearly", max(today.withDayOfYear(1).minusYears(4), trackingStartDate), today,
+                    PortfolioPerformanceGranularity.YEARLY);
             case "custom" -> {
                 if (fromValue == null || fromValue.isBlank() || toValue == null || toValue.isBlank()) {
                     throw new IllegalArgumentException("custom performance range requires from and to");
@@ -175,14 +192,25 @@ public class PortfolioOverviewAppService {
                 LocalDate from = LocalDate.parse(fromValue);
                 LocalDate to = LocalDate.parse(toValue);
                 if (from.isAfter(to)) throw new IllegalArgumentException("performance from must not be after to");
+                from = max(from, trackingStartDate);
+                to = min(to, today);
+                if (from.isAfter(to)) throw new IllegalArgumentException("performance range is before the tracking start date");
                 if (from.isBefore(today.minusDays(520))) {
                     throw new IllegalArgumentException("custom performance range is limited to the latest 520 days");
                 }
                 yield new PerformanceRange("custom", from, to.isAfter(today) ? today : to,
                         PortfolioPerformanceGranularity.DAILY);
             }
-            default -> throw new IllegalArgumentException("range must be daily, monthly, or custom");
+            default -> throw new IllegalArgumentException("range must be daily, weekly, monthly, yearly, or custom");
         };
+    }
+
+    private LocalDate max(LocalDate left, LocalDate right) {
+        return left.isAfter(right) ? left : right;
+    }
+
+    private LocalDate min(LocalDate left, LocalDate right) {
+        return left.isBefore(right) ? left : right;
     }
 
     private record PerformanceRange(String range, LocalDate from, LocalDate to,

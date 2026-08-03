@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealizedPnlBaselineRepo
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioRealizedPnlBaselineMapper;
 import java.math.BigDecimal;
 import java.util.Map;
+import java.time.OffsetDateTime;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
@@ -23,5 +24,10 @@ public class PortfolioRealizedPnlBaselineRepositoryAdapter implements PortfolioR
                         item -> item.getSymbol(),
                         item -> item.getRealizedPnl() == null ? BigDecimal.ZERO : item.getRealizedPnl(),
                         BigDecimal::add));
+    }
+
+    @Override
+    public OffsetDateTime latestResetAt(String principalKey, String tenantKey) {
+        return mapper.latestResetAt(principalKey, tenantKey);
     }
 }

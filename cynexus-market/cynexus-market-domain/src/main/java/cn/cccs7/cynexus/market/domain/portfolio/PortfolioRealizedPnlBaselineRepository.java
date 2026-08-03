@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.market.domain.portfolio;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 /**
@@ -10,4 +11,6 @@ import java.util.Map;
  */
 public interface PortfolioRealizedPnlBaselineRepository {
     Map<String, BigDecimal> list(String principalKey, String tenantKey);
+
+    OffsetDateTime latestResetAt(String principalKey, String tenantKey);
 }

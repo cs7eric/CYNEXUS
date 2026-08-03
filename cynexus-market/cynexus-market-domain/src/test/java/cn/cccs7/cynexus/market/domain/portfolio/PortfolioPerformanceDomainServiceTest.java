@@ -48,6 +48,25 @@ class PortfolioPerformanceDomainServiceTest {
     }
 
     @Test
+    void aggregatesWeeklyAndYearlyPoints() {
+        PortfolioTradeBO trade = new PortfolioTradeBO(1L, "600000", "Demo", PortfolioInstrumentType.STOCK,
+                TradeSide.BUY, DAY_ONE, decimal("10"), decimal("10"), BigDecimal.ZERO, TradeStatus.ACTIVE);
+        Map<String, List<PortfolioPricePointBO>> prices = Map.of("600000", List.of(
+                price("2026-07-01", "10"), price("2026-07-03", "11"),
+                price("2026-07-10", "12"), price("2026-12-31", "13")));
+
+        PortfolioPerformanceResultBO weekly = service.calculate(List.of(trade), prices, Map.of(), BigDecimal.ZERO,
+                LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-12"), PortfolioPerformanceGranularity.WEEKLY);
+        PortfolioPerformanceResultBO yearly = service.calculate(List.of(trade), prices, Map.of(), BigDecimal.ZERO,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), PortfolioPerformanceGranularity.YEARLY);
+
+        assertEquals(2, weekly.points().size());
+        assertEquals(1, yearly.points().size());
+        assertEquals(0, decimal("20").compareTo(weekly.periodPnl()));
+        assertEquals(0, decimal("30").compareTo(yearly.periodPnl()));
+    }
+
+    @Test
     void calculatesTodayPnlFromPreviousCloseAndTodayTrades() {
         PortfolioTradeBO openingTrade = new PortfolioTradeBO(1L, "600000", "Demo", PortfolioInstrumentType.STOCK,
                 TradeSide.BUY, DAY_ONE, decimal("10"), decimal("10"), BigDecimal.ZERO, TradeStatus.ACTIVE);

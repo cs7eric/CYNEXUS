@@ -19,6 +19,7 @@ public class PortfolioOverviewDTO {
     BigDecimal realizedPnl;
     BigDecimal unrealizedPnl;
     BigDecimal totalPnl;
+    BigDecimal todayPnl;
     int tradeCount;
     String valuationStatus;
 }

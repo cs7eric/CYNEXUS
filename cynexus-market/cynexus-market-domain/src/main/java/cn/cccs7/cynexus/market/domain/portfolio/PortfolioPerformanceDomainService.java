@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.DayOfWeek;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -55,9 +57,12 @@ public final class PortfolioPerformanceDomainService {
         if (snapshots.size() < 2 && snapshots.stream().noneMatch(item -> !item.date().isBefore(from))) {
             return empty(from, to, granularity);
         }
-        List<PortfolioPerformancePointBO> points = granularity == PortfolioPerformanceGranularity.MONTHLY
-                ? monthlyPoints(snapshots, from)
-                : dailyPoints(snapshots, from);
+        List<PortfolioPerformancePointBO> points = switch (granularity) {
+            case DAILY -> dailyPoints(snapshots, from);
+            case WEEKLY -> weeklyPoints(snapshots, from);
+            case MONTHLY -> monthlyPoints(snapshots, from);
+            case YEARLY -> yearlyPoints(snapshots, from);
+        };
         if (points.isEmpty()) {
             return empty(from, to, granularity);
         }
@@ -65,7 +70,8 @@ public final class PortfolioPerformanceDomainService {
                 .orElse(null);
         PortfolioPerformancePointBO last = points.getLast();
         BigDecimal startAssets = anchor == null ? points.getFirst().totalAssets() : anchor.totalAssets();
-        BigDecimal periodPnl = money(last.totalPnl().subtract(anchor == null ? BigDecimal.ZERO : anchor.totalPnl()));
+        BigDecimal periodPnl = money(points.stream().map(PortfolioPerformancePointBO::periodPnl)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
         BigDecimal periodReturnRate = rate(periodPnl, startAssets);
         BigDecimal best = points.stream().map(PortfolioPerformancePointBO::periodPnl).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
         BigDecimal worst = points.stream().map(PortfolioPerformancePointBO::periodPnl).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
@@ -181,6 +187,41 @@ public final class PortfolioPerformanceDomainService {
         List<PortfolioPerformancePointBO> points = new ArrayList<>();
         DailySnapshot previous = snapshots.stream().filter(item -> item.date().isBefore(from)).reduce((left, right) -> right).orElse(null);
         for (DailySnapshot snapshot : monthEnds.values()) {
+            BigDecimal delta = snapshot.totalPnl().subtract(previous == null ? BigDecimal.ZERO : previous.totalPnl());
+            points.add(point(snapshot, delta, rate(delta, previous == null ? snapshot.totalAssets() : previous.totalAssets())));
+            previous = snapshot;
+        }
+        return points;
+    }
+
+    private List<PortfolioPerformancePointBO> weeklyPoints(List<DailySnapshot> snapshots, LocalDate from) {
+        Map<LocalDate, DailySnapshot> weekEnds = new LinkedHashMap<>();
+        for (DailySnapshot snapshot : snapshots) {
+            if (!snapshot.date().isBefore(from)) {
+                LocalDate weekStart = snapshot.date().with(DayOfWeek.MONDAY);
+                weekEnds.put(weekStart, snapshot);
+            }
+        }
+        List<PortfolioPerformancePointBO> points = new ArrayList<>();
+        DailySnapshot previous = snapshots.stream().filter(item -> item.date().isBefore(from))
+                .reduce((left, right) -> right).orElse(null);
+        for (DailySnapshot snapshot : weekEnds.values()) {
+            BigDecimal delta = snapshot.totalPnl().subtract(previous == null ? BigDecimal.ZERO : previous.totalPnl());
+            points.add(point(snapshot, delta, rate(delta, previous == null ? snapshot.totalAssets() : previous.totalAssets())));
+            previous = snapshot;
+        }
+        return points;
+    }
+
+    private List<PortfolioPerformancePointBO> yearlyPoints(List<DailySnapshot> snapshots, LocalDate from) {
+        Map<Year, DailySnapshot> yearEnds = new LinkedHashMap<>();
+        for (DailySnapshot snapshot : snapshots) {
+            if (!snapshot.date().isBefore(from)) yearEnds.put(Year.from(snapshot.date()), snapshot);
+        }
+        List<PortfolioPerformancePointBO> points = new ArrayList<>();
+        DailySnapshot previous = snapshots.stream().filter(item -> item.date().isBefore(from))
+                .reduce((left, right) -> right).orElse(null);
+        for (DailySnapshot snapshot : yearEnds.values()) {
             BigDecimal delta = snapshot.totalPnl().subtract(previous == null ? BigDecimal.ZERO : previous.totalPnl());
             points.add(point(snapshot, delta, rate(delta, previous == null ? snapshot.totalAssets() : previous.totalAssets())));
             previous = snapshot;

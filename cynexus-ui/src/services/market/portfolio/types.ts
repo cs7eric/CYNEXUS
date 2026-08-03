@@ -88,11 +88,12 @@ export interface PortfolioOverview {
   realizedPnl: number
   unrealizedPnl: number
   totalPnl: number
+  todayPnl?: number | null
   tradeCount: number
   valuationStatus: string
 }
 
-export type PortfolioPerformanceRange = "daily" | "monthly" | "custom"
+export type PortfolioPerformanceRange = "daily" | "weekly" | "monthly" | "yearly" | "custom"
 
 export interface PortfolioPerformancePoint {
   tradeDate: string

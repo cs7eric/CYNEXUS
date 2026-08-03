@@ -28,7 +28,6 @@ function DirectionIcon({ value }: { value: number | null | undefined }) {
 
 export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownProps) {
   const hasTrades = (overview?.tradeCount ?? 0) > 0
-  const total = overview?.totalPnl ?? 0
   const realized = overview?.realizedPnl ?? 0
   const unrealized = overview?.unrealizedPnl ?? 0
   const positions = (overview?.positions ?? []).filter((position) => Number(position.quantity) > 0)
@@ -49,8 +48,8 @@ export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownP
 
       {hasTrades ? <div className="p-4">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">
-          <div><p className="text-xs text-muted-foreground">当前总盈亏</p><p className={`mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums ${tone(total)}`}>{amount(overview?.totalPnl)}</p></div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-flex size-6 items-center justify-center rounded-full border border-border/70 bg-muted/35" aria-hidden="true"><DirectionIcon value={total} /></span><span>已实现盈亏 + 当前持仓盈亏</span></div>
+          <div><p className="text-xs text-muted-foreground">今日收益</p><p className={`mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums ${tone(overview?.todayPnl)}`}>{amount(overview?.todayPnl)}</p></div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-flex size-6 items-center justify-center rounded-full border border-border/70 bg-muted/35" aria-hidden="true"><DirectionIcon value={overview?.todayPnl} /></span><span>从今日开始重新统计，历史总盈亏不在此处展示</span></div>
         </div>
 
         {chartData.length ? <div className="mt-4">
@@ -73,7 +72,7 @@ export function PortfolioReturnBreakdown({ overview }: PortfolioReturnBreakdownP
           <Metric label="已实现盈亏" value={realized} description="已卖出部分" />
           <Metric label="持仓成本" value={overview?.costBasis ?? null} description="买入成本 + 手续费" />
         </dl>
-        <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><CircleHelp className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><p>收益图展示当前持仓的浮动盈亏贡献；总盈亏仍按已实现盈亏 + 当前持仓盈亏计算。</p></div>
+        <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><CircleHelp className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><p>收益图展示当前持仓的浮动盈亏贡献；历史总盈亏不作为新的收益起点，后续收益从今日开始记录。</p></div>
       </div> : <div className="flex min-h-[210px] items-center justify-center px-4 py-10 text-center"><div><p className="text-sm font-medium">确认交易后，这里会显示收益表现</p><p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">导入截图并确认识别结果后，系统会按成交价格、手续费和最新行情计算收益。</p></div></div>}
     </section>
   )

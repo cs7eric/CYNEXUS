@@ -4,7 +4,14 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioRealizedPnlBaselineMapper">
     <select id="list" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioRealizedPnlBaselinePO">
-        select symbol, realized_pnl
+        select symbol, realized_pnl, reset_at
+          from cynexus_appl_market.portfolio_realized_pnl_baseline
+         where principal_key = #{principalKey}
+           and tenant_key = #{tenantKey}
+           and deleted_at is null
+    </select>
+    <select id="latestResetAt" resultType="java.time.OffsetDateTime">
+        select max(reset_at)
           from cynexus_appl_market.portfolio_realized_pnl_baseline
          where principal_key = #{principalKey}
            and tenant_key = #{tenantKey}

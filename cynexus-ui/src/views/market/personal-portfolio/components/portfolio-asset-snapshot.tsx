@@ -72,7 +72,7 @@ export function PortfolioAssetSnapshot({ overview, onSaved }: PortfolioAssetSnap
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Wallet className="size-4" aria-hidden="true" />资产总览</div>
           <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">{money(totalAssets)}</p>
           <p className="mt-1 text-xs text-muted-foreground">持仓市值 + 可用资金</p>
-          <div className="mt-5 flex items-center justify-between gap-3 border-t border-border/60 pt-3"><span className="text-xs text-muted-foreground">当前总盈亏</span><span className={`font-mono text-sm font-semibold tabular-nums ${pnlTone(overview.totalPnl)}`}>{signedMoney(overview.totalPnl)}</span></div>
+          <div className="mt-5 flex items-center justify-between gap-3 border-t border-border/60 pt-3"><span className="text-xs text-muted-foreground">今日收益</span><span className={`font-mono text-sm font-semibold tabular-nums ${pnlTone(overview.todayPnl)}`}>{signedMoney(overview.todayPnl)}</span></div>
         </div>
         <div className="grid sm:grid-cols-2">
           <AssetValue label="当前持仓市值" value={money(marketValue)} detail="按最新可用行情估值" />
