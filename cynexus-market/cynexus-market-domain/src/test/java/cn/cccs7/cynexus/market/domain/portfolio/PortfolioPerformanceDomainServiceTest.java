@@ -138,6 +138,40 @@ class PortfolioPerformanceDomainServiceTest {
         assertEquals(0, decimal("125").compareTo(result.points().getFirst().periodPnl()));
     }
 
+    @Test
+    void ignoresStaleRealtimeQuoteWhenMarketHasNotOpenedToday() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, "600000", TradeSide.BUY, "100", "10", "2026-07-30T09:30:00Z")
+        );
+
+        Map<String, BigDecimal> pnl = service.calculateTodayPnlBySymbol(
+                trades,
+                Map.of("600000", List.of(price("2026-07-31", "12"), price("2026-08-04", "12"))),
+                Map.of("600000", decimal("13")),
+                Map.of("600000", decimal("11")),
+                Map.of("600000", LocalDate.parse("2026-08-03")),
+                LocalDate.parse("2026-08-04"));
+
+        assertEquals(0, decimal("0").compareTo(pnl.get("600000")));
+    }
+
+    @Test
+    void reportsFlatPnlWhenOnlyPreviousSessionPricesAreAvailableBeforeOpen() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, "600000", TradeSide.BUY, "100", "10", "2026-07-30T09:30:00Z")
+        );
+
+        Map<String, BigDecimal> pnl = service.calculateTodayPnlBySymbol(
+                trades,
+                Map.of("600000", List.of(price("2026-08-03", "12"))),
+                Map.of("600000", decimal("12")),
+                Map.of("600000", decimal("11")),
+                Map.of("600000", LocalDate.parse("2026-08-03")),
+                LocalDate.parse("2026-08-04"));
+
+        assertEquals(0, decimal("0").compareTo(pnl.get("600000")));
+    }
+
     private static PortfolioPricePointBO price(String date, String close) {
         return new PortfolioPricePointBO(LocalDate.parse(date), decimal(close));
     }

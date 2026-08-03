@@ -72,11 +72,12 @@ public class PortfolioOverviewAppService {
                 ledgerService.calculate(trades, Map.of()), baselines);
         Map<String, BigDecimal> latestPrices = loadLatestPrices(preliminary.positions());
         Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(preliminary.positions());
+        Map<String, LocalDate> realtimePriceDates = realtimePriceGateway.latestPriceDates(preliminary.positions());
         PortfolioLedgerResultBO result = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, latestPrices), baselines);
         Map<String, List<PortfolioPricePointBO>> priceSeries = loadPortfolioPriceSeries(preliminary.positions());
         Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
-                trades, priceSeries, latestPrices, previousClosePrices, LocalDate.now(SHANGHAI));
+                trades, priceSeries, latestPrices, previousClosePrices, realtimePriceDates, LocalDate.now(SHANGHAI));
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
@@ -123,6 +124,7 @@ public class PortfolioOverviewAppService {
         var openPositions = ledgerService.calculate(trades, Map.of()).positions();
         Map<String, BigDecimal> realtimePrices = realtimePriceGateway.latestPrices(openPositions);
         Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(openPositions);
+        Map<String, LocalDate> realtimePriceDates = realtimePriceGateway.latestPriceDates(openPositions);
         Map<String, PortfolioInstrumentType> instruments = trades.stream()
                 .collect(Collectors.toMap(cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::symbol,
                         cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::instrumentType,
@@ -136,9 +138,14 @@ public class PortfolioOverviewAppService {
                         .map(bar -> new PortfolioPricePointBO(bar.getTradeDate(), bar.getClose()))
                         .toList();
                 BigDecimal realtimePrice = realtimePrices.get(entry.getKey());
-                if (realtimePrice != null) {
+                boolean hasFreshRealtimePrice = today.equals(realtimePriceDates.get(entry.getKey()));
+                if (realtimePrice != null && hasFreshRealtimePrice) {
                     series = series.stream().filter(point -> !point.tradeDate().equals(today)).collect(Collectors.toCollection(java.util.ArrayList::new));
                     series.add(new PortfolioPricePointBO(today, realtimePrice));
+                } else if (series.stream().noneMatch(point -> point.tradeDate().equals(today))) {
+                    PortfolioPricePointBO lastHistoricalPrice = series.stream().filter(point -> point.tradeDate().isBefore(today))
+                            .reduce((left, right) -> right).orElse(null);
+                    if (lastHistoricalPrice != null) series = appendPricePoint(series, today, lastHistoricalPrice.close());
                 }
                 prices.put(entry.getKey(), series);
             } catch (RuntimeException exception) {
@@ -150,7 +157,7 @@ public class PortfolioOverviewAppService {
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
                 trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
                 requested.from(), requested.to(), requested.granularity());
-        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, previousClosePrices, today);
+        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, previousClosePrices, realtimePriceDates, today);
         List<PortfolioPerformancePointDTO> points = result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
                 .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
                 .costBasis(point.costBasis()).totalPnl(point.totalPnl())
@@ -245,6 +252,14 @@ public class PortfolioOverviewAppService {
             }
         }
         return prices;
+    }
+
+    private List<PortfolioPricePointBO> appendPricePoint(List<PortfolioPricePointBO> series,
+                                                         LocalDate tradeDate,
+                                                         BigDecimal close) {
+        List<PortfolioPricePointBO> updated = new java.util.ArrayList<>(series);
+        updated.add(new PortfolioPricePointBO(tradeDate, close));
+        return updated;
     }
 
     private Map<String, String> loadSecurityNames(List<PortfolioPositionBO> positions) {

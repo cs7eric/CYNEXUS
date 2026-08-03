@@ -89,7 +89,7 @@ public final class PortfolioPerformanceDomainService {
                                         Map<String, List<PortfolioPricePointBO>> priceSeries,
                                         Map<String, BigDecimal> realtimePrices,
                                         LocalDate today) {
-        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, Map.of(), today).values().stream()
+        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, Map.of(), Map.of(), today).values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -98,7 +98,17 @@ public final class PortfolioPerformanceDomainService {
                                         Map<String, BigDecimal> realtimePrices,
                                         Map<String, BigDecimal> previousClosePrices,
                                         LocalDate today) {
-        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, previousClosePrices, today).values().stream()
+        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, previousClosePrices, Map.of(), today).values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal calculateTodayPnl(List<PortfolioTradeBO> trades,
+                                        Map<String, List<PortfolioPricePointBO>> priceSeries,
+                                        Map<String, BigDecimal> realtimePrices,
+                                        Map<String, BigDecimal> previousClosePrices,
+                                        Map<String, LocalDate> realtimePriceDates,
+                                        LocalDate today) {
+        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, previousClosePrices, realtimePriceDates, today).values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -106,13 +116,22 @@ public final class PortfolioPerformanceDomainService {
                                                               Map<String, List<PortfolioPricePointBO>> priceSeries,
                                                               Map<String, BigDecimal> realtimePrices,
                                                               LocalDate today) {
-        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, Map.of(), today);
+        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, Map.of(), Map.of(), today);
     }
 
     public Map<String, BigDecimal> calculateTodayPnlBySymbol(List<PortfolioTradeBO> trades,
                                                               Map<String, List<PortfolioPricePointBO>> priceSeries,
                                                               Map<String, BigDecimal> realtimePrices,
                                                               Map<String, BigDecimal> previousClosePrices,
+                                                              LocalDate today) {
+        return calculateTodayPnlBySymbol(trades, priceSeries, realtimePrices, previousClosePrices, Map.of(), today);
+    }
+
+    public Map<String, BigDecimal> calculateTodayPnlBySymbol(List<PortfolioTradeBO> trades,
+                                                              Map<String, List<PortfolioPricePointBO>> priceSeries,
+                                                              Map<String, BigDecimal> realtimePrices,
+                                                              Map<String, BigDecimal> previousClosePrices,
+                                                              Map<String, LocalDate> realtimePriceDates,
                                                               LocalDate today) {
         if (today == null || trades == null || trades.isEmpty()) return Map.of();
         Map<String, List<PortfolioPricePointBO>> normalizedPrices = normalizePrices(priceSeries);
@@ -124,8 +143,24 @@ public final class PortfolioPerformanceDomainService {
             series.stream().filter(point -> point.tradeDate().equals(today)).reduce((left, right) -> right)
                     .ifPresent(point -> currentPrices.put(symbol, point.close()));
         });
-        if (previousClosePrices != null) previousPrices.putAll(previousClosePrices);
-        if (realtimePrices != null) currentPrices.putAll(realtimePrices);
+        boolean hasQuoteDates = realtimePriceDates != null && !realtimePriceDates.isEmpty();
+        if (previousClosePrices != null) previousClosePrices.forEach((symbol, price) -> {
+            if (!hasQuoteDates || today.equals(realtimePriceDates.get(symbol))) previousPrices.put(symbol, price);
+        });
+        if (realtimePrices != null) realtimePrices.forEach((symbol, price) -> {
+            if (!hasQuoteDates || today.equals(realtimePriceDates.get(symbol))) currentPrices.put(symbol, price);
+        });
+        if (hasQuoteDates) {
+            // Before the market opens, the quote provider still returns the
+            // previous session's quote. Mark those symbols flat for today
+            // instead of leaving the overview without a per-position value.
+            realtimePriceDates.forEach((symbol, quoteDate) -> {
+                if (!today.equals(quoteDate) && !currentPrices.containsKey(symbol)) {
+                    BigDecimal previousPrice = previousPrices.get(symbol);
+                    if (previousPrice != null) currentPrices.put(symbol, previousPrice);
+                }
+            });
+        }
         if (currentPrices.isEmpty()) return Map.of();
 
         java.util.Set<String> symbols = new java.util.HashSet<>(previousPrices.keySet());

@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.market.domain.portfolio;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -11,6 +12,11 @@ import java.util.Map;
  */
 public interface PortfolioRealtimePriceGateway {
     Map<String, BigDecimal> latestPrices(List<PortfolioPositionBO> positions);
+
+    /** Returns the trading date associated with each latest quote when available. */
+    default Map<String, LocalDate> latestPriceDates(List<PortfolioPositionBO> positions) {
+        return Map.of();
+    }
 
     /** Returns the previous trading close when the quote provider supplies it. */
     default Map<String, BigDecimal> previousClosePrices(List<PortfolioPositionBO> positions) {

@@ -14,6 +14,7 @@ import { PortfolioAssetSnapshot } from "./components/portfolio-asset-snapshot"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
 import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
+import { PortfolioCurrentHoldingsPanel } from "./components/portfolio-current-holdings-panel"
 import { PortfolioPerformancePanel, PortfolioPerformanceSummary, PortfolioPerformanceToolbar, type PortfolioChartView } from "./components/portfolio-performance-panel"
 import { usePortfolioPerformance } from "./components/portfolio-performance-state"
 
@@ -45,6 +46,7 @@ export default function PersonalPortfolioPage() {
   const reviewDrawerOpen = searchParams.get("review") === "new"
   const reviewSymbol = searchParams.get("symbol")
   const reviewInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
+  const isDailyPerformanceView = performanceState.range === "daily"
 
   const setQueryState = useCallback((updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams)
@@ -110,13 +112,14 @@ export default function PersonalPortfolioPage() {
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">
               <div className="min-w-0">
                 <div className="flex items-center gap-2"><ChartNoAxesCombined className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="performance-heading" className="text-base font-semibold">今日收益走势</h2></div>
-                <p className="mt-1 text-xs text-muted-foreground">面积为当前视图累计收益，柱体为周期收益变化，红涨绿跌。</p>
+                <p className="mt-1 text-xs text-muted-foreground">{isDailyPerformanceView ? "查看当前持仓、今日收益和持仓快照。" : "面积为当前视图累计收益，柱体为周期收益变化，红涨绿跌。"}</p>
               </div>
-              <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} />
+              <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} showChartView={!isDailyPerformanceView} />
             </div>
             <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
-              <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} />
+              {!isDailyPerformanceView ? <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} /> : null}
               {overview ? <PortfolioReturnBreakdown overview={overview} embedded /> : <div className="min-w-0" />}
+              {isDailyPerformanceView ? <PortfolioCurrentHoldingsPanel positions={positions} /> : null}
               <PortfolioPerformanceSummary state={performanceState} embedded />
             </div>
           </section>

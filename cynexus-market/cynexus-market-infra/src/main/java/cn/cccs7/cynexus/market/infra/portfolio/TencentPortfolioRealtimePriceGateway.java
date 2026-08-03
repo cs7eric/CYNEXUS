@@ -8,6 +8,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +69,37 @@ public class TencentPortfolioRealtimePriceGateway implements PortfolioRealtimePr
             return Map.of();
         } catch (Exception exception) {
             log.warn("Realtime portfolio quote request failed", exception);
+            return Map.of();
+        }
+    }
+
+    @Override
+    public Map<String, LocalDate> latestPriceDates(List<PortfolioPositionBO> positions) {
+        if (positions == null || positions.isEmpty()) return Map.of();
+        List<String> symbols = positions.stream()
+                .filter(position -> position != null && position.quantity() != null && position.quantity().signum() > 0)
+                .map(PortfolioPositionBO::symbol)
+                .filter(symbol -> symbol != null && symbol.matches("\\d{6}"))
+                .distinct()
+                .toList();
+        if (symbols.isEmpty()) return Map.of();
+        String query = symbols.stream().map(symbol -> market(symbol) + symbol).reduce((left, right) -> left + "," + right).orElse("");
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint + query))
+                    .timeout(timeout)
+                    .header("Accept", "text/plain")
+                    .header("User-Agent", "CynexusMarket/1.0")
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 != 2) return Map.of();
+            return parseDateResponse(response.body());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return Map.of();
+        } catch (Exception exception) {
+            log.warn("Realtime portfolio quote date request failed", exception);
             return Map.of();
         }
     }
@@ -133,6 +167,22 @@ public class TencentPortfolioRealtimePriceGateway implements PortfolioRealtimePr
             }
         }
         return prices;
+    }
+
+    static Map<String, LocalDate> parseDateResponse(String body) {
+        if (body == null || body.isBlank()) return Map.of();
+        Map<String, LocalDate> dates = new LinkedHashMap<>();
+        Matcher matcher = QUOTE.matcher(body);
+        while (matcher.find()) {
+            String[] fields = matcher.group(3).split("~", -1);
+            if (fields.length <= 30 || fields[30].length() < 8) continue;
+            try {
+                dates.put(matcher.group(2), LocalDate.parse(fields[30].substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE));
+            } catch (DateTimeParseException ignored) {
+                // Keep other quote rows usable.
+            }
+        }
+        return dates;
     }
 
     private String market(String symbol) {
