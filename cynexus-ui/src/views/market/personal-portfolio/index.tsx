@@ -10,6 +10,7 @@ import { fetchPortfolioOverview } from "@/services/market/portfolio/portfolio"
 import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
 import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
 import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
+import { PortfolioAssetSnapshot } from "./components/portfolio-asset-snapshot"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
 import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
@@ -68,9 +69,6 @@ export default function PersonalPortfolioPage() {
   }, [load])
 
   const positions = useMemo(() => overview?.positions ?? [], [overview])
-  const totalAssets = overview?.marketValue ?? positions.reduce((sum, position) => sum + positionValue(position, "marketValue"), 0)
-  const costBasis = overview?.costBasis ?? positions.reduce((sum, position) => sum + positionValue(position, "costBasis"), 0)
-  const openPositions = positions.filter((position) => Number(position.quantity) > 0).length
   const largestPosition = useMemo(() => positions.reduce<PortfolioPosition | null>((largest, position) => {
     if (!largest || positionValue(position, "marketValue") > positionValue(largest, "marketValue")) return position
     return largest
@@ -102,23 +100,7 @@ export default function PersonalPortfolioPage() {
         {!loading && overview?.dataQualityWarnings?.length ? <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">交易历史存在缺口</p><div className="mt-1 space-y-1 text-xs">{overview.dataQualityWarnings.map((warning, index) => <p key={`${warning.code}-${warning.symbol}-${index}`}>{warning.symbol}：{warning.message}</p>)}</div></div></div> : null}
 
         {loading ? <SnapshotSkeleton /> : <>
-          <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="portfolio-snapshot-heading">
-            <h2 id="portfolio-snapshot-heading" className="sr-only">资产快照</h2>
-            <div className="grid lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,2.1fr)]">
-              <div className="border-b border-border/60 bg-muted/25 px-5 py-5 lg:border-b-0 lg:border-r">
-                <p className="text-xs font-medium text-muted-foreground">我的总资产</p>
-                <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">{money(totalAssets)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">当前已确认持仓市值 · 暂不含现金余额</p>
-                <div className="mt-5 flex items-center justify-between gap-3 border-t border-border/60 pt-3"><span className="text-xs text-muted-foreground">当前总盈亏</span><span className={`font-mono text-sm font-semibold tabular-nums ${pnlTone(overview?.totalPnl)}`}>{signedMoney(overview?.totalPnl)}</span></div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4">
-                <SnapshotStat label="持仓成本" value={money(costBasis)} detail="买入成本 + 手续费" />
-                <SnapshotStat label="当前持仓盈亏" value={signedMoney(overview?.unrealizedPnl)} detail="市值 - 持仓成本" tone={pnlTone(overview?.unrealizedPnl)} />
-                <SnapshotStat label="已实现盈亏" value={signedMoney(overview?.realizedPnl)} detail="重置后重新累计" tone={pnlTone(overview?.realizedPnl)} />
-                <SnapshotStat label="开放持仓" value={String(openPositions)} detail={`${positions.length} 个标的`} />
-              </div>
-            </div>
-          </section>
+          {overview ? <PortfolioAssetSnapshot overview={overview} onSaved={() => void load()} /> : null}
 
           <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="positions-heading">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5"><div><h2 id="positions-heading" className="text-base font-semibold">当前持仓</h2><p className="mt-1 text-xs text-muted-foreground">点击任意一行打开详情 Drawer；行情使用市场数据源的最新可用价格。</p></div><div className="text-right text-xs text-muted-foreground">{largestPosition ? `最大持仓：${largestPosition.securityName ?? largestPosition.symbol}` : "暂无已确认持仓"}</div></div>
@@ -154,10 +136,6 @@ export default function PersonalPortfolioPage() {
 
 function SnapshotSkeleton() {
   return <section className="grid gap-4 lg:grid-cols-[minmax(220px,0.9fr)_minmax(0,2.1fr)]"><Skeleton className="h-40 rounded-lg" /><Skeleton className="h-40 rounded-lg" /></section>
-}
-
-function SnapshotStat({ label, value, detail, tone }: { label: string; value: string; detail: string; tone?: string }) {
-  return <div className="border-b border-border/60 px-4 py-4 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-1.5 font-mono text-lg font-semibold tabular-nums ${tone ?? "text-foreground"}`}>{value}</p><p className="mt-1 text-[11px] text-muted-foreground">{detail}</p></div>
 }
 
 function ReviewCenter({ reviews }: { reviews: PortfolioReview[] }) {

@@ -81,11 +81,19 @@ export interface PortfolioOverview {
   dataQualityWarnings?: PortfolioLedgerWarning[]
   costBasis?: number | null
   marketValue?: number | null
+  availableCash?: number | null
+  totalAssets?: number | null
+  accountUpdatedAt?: string | null
   realizedPnl: number
   unrealizedPnl: number
   totalPnl: number
   tradeCount: number
   valuationStatus: string
+}
+
+export interface PortfolioAccount {
+  availableCash: number
+  updatedAt?: string | null
 }
 
 export interface PortfolioLedgerWarning {
