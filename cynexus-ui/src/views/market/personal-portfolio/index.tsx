@@ -72,7 +72,7 @@ export default function PersonalPortfolioPage() {
     return () => window.clearTimeout(timer)
   }, [load])
 
-  const positions = useMemo(() => overview?.positions ?? [], [overview])
+  const positions = useMemo(() => (overview?.positions ?? []).filter((position) => Number(position.quantity) > 0), [overview])
   const largestPosition = useMemo(() => positions.reduce<PortfolioPosition | null>((largest, position) => {
     if (!largest || positionValue(position, "marketValue") > positionValue(largest, "marketValue")) return position
     return largest
