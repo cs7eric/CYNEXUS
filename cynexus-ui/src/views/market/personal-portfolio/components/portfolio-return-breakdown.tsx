@@ -61,7 +61,7 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
     return visiblePositions.map((position) => {
       const pnl = Number(position.unrealizedPnl ?? 0)
       const color = holdingColor(pnl, maxAbs)
-      const label = position.securityName ? `${position.symbol}\n${position.securityName}` : position.symbol
+      const label = `${position.symbol}\n${signedAmount(pnl)}`
       return {
         name: position.symbol,
         symbol: position.symbol,
@@ -116,7 +116,6 @@ export function PortfolioReturnBreakdown({ overview, performance, range = "daily
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">
         <div>
           <div className="flex items-center gap-2"><ReceiptText className="size-4 text-muted-foreground" aria-hidden="true" /><h2 id="return-breakdown-heading" className="text-base font-semibold">收益表现</h2></div>
-          <p className="mt-1 text-xs text-muted-foreground">按当前持仓拆解浮动盈亏贡献，避免单个负柱吞掉整体信息。</p>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{hasTrades ? `${overview?.tradeCount ?? 0} 笔已确认交易` : "暂无交易记录"}</span>
       </div>
