@@ -6,6 +6,8 @@ interface PortfolioIncomeCalendarProps {
 }
 
 export function PortfolioIncomeCalendar({ points, range }: PortfolioIncomeCalendarProps) {
+  if (range !== "daily") return <PortfolioPeriodGrid points={points} range={range} />
+
   const lastDate = parseDate(points.at(-1)?.tradeDate ?? new Date().toISOString().slice(0, 10))
   const monthStart = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1)
   const monthEnd = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0)
@@ -34,6 +36,20 @@ export function PortfolioIncomeCalendar({ points, range }: PortfolioIncomeCalend
   </div>
 }
 
+function PortfolioPeriodGrid({ points, range }: PortfolioIncomeCalendarProps) {
+  const maxAbs = Math.max(...points.map((point) => Math.abs(Number(point.periodPnl ?? 0))), 1)
+  const periodLabel = range === "weekly" ? "周收益" : range === "monthly" ? "月收益" : "年收益"
+  return <div className="p-3 sm:p-4">
+    <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">{periodLabel}</p><p className="mt-0.5 text-[11px] text-muted-foreground">按{range === "weekly" ? "周" : range === "monthly" ? "月" : "年"}聚合显示，金额为该周期收益。</p></div><div className="flex items-center gap-2 text-[10px] text-muted-foreground"><span>亏损</span><span className="size-3 rounded-sm bg-emerald-500" /><span className="size-3 rounded-sm bg-muted" /><span className="size-3 rounded-sm bg-rose-500" /><span>盈利</span></div></div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">{points.map((point) => {
+      const value = Number(point.periodPnl ?? 0)
+      const label = periodLabelFor(point.tradeDate, range)
+      const tone = cellTone(value, maxAbs)
+      return <div key={`${range}-${point.tradeDate}`} title={`${label} ${signed(value)}`} className={`flex min-h-20 flex-col items-center justify-center rounded-sm px-2 py-2 ${tone}`}><span className="text-[11px]">{label}</span><span className="mt-1 font-mono text-sm font-semibold tabular-nums">{signed(value)}</span></div>
+    })}</div>
+  </div>
+}
+
 function cellTone(value: number, maxAbs: number) {
   const ratio = Math.min(Math.abs(value) / maxAbs, 1)
   if (value > 0) return ratio > 0.66 ? "bg-rose-500 text-white" : ratio > 0.33 ? "bg-rose-200 text-rose-900" : "bg-rose-100 text-rose-800"
@@ -48,6 +64,12 @@ function parseDate(value: string) {
 
 function formatDate(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
+}
+
+function periodLabelFor(value: string, range: PortfolioPerformanceRange) {
+  if (range === "weekly") return `${value.slice(5)} 周`
+  if (range === "monthly") return `${value.slice(0, 4)}年${Number(value.slice(5, 7))}月`
+  return `${value.slice(0, 4)}年`
 }
 
 function signed(value: number) {
