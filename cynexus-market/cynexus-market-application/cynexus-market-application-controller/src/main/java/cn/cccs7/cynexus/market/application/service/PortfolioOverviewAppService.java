@@ -111,6 +111,8 @@ public class PortfolioOverviewAppService {
     public PortfolioPerformanceDTO performance(String range, String fromValue, String toValue) {
         PerformanceRange requested = resolveRange(range, fromValue, toValue);
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
+        var openPositions = ledgerService.calculate(trades, Map.of()).positions();
+        Map<String, BigDecimal> realtimePrices = realtimePriceGateway.latestPrices(openPositions);
         Map<String, PortfolioInstrumentType> instruments = trades.stream()
                 .collect(Collectors.toMap(cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::symbol,
                         cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::instrumentType,
@@ -119,10 +121,17 @@ public class PortfolioOverviewAppService {
         for (Map.Entry<String, PortfolioInstrumentType> entry : instruments.entrySet()) {
             try {
                 var kline = stockChartQueryDomainService.klines(entry.getValue().chartTargetType(), entry.getKey(), "1d", "qfq");
-                prices.put(entry.getKey(), kline.items().stream()
+                List<PortfolioPricePointBO> series = kline.items().stream()
                         .filter(bar -> bar.getTradeDate() != null && bar.getClose() != null)
                         .map(bar -> new PortfolioPricePointBO(bar.getTradeDate(), bar.getClose()))
-                        .toList());
+                        .toList();
+                BigDecimal realtimePrice = realtimePrices.get(entry.getKey());
+                if (realtimePrice != null) {
+                    LocalDate today = LocalDate.now(SHANGHAI);
+                    series = series.stream().filter(point -> !point.tradeDate().equals(today)).collect(Collectors.toCollection(java.util.ArrayList::new));
+                    series.add(new PortfolioPricePointBO(today, realtimePrice));
+                }
+                prices.put(entry.getKey(), series);
             } catch (RuntimeException exception) {
                 log.warn("Unable to load portfolio performance prices for symbol={}", entry.getKey(), exception);
                 prices.put(entry.getKey(), List.of());
