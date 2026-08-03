@@ -16,6 +16,7 @@ import {
   type PortfolioCandidateEdit,
 } from "@/services/market/portfolio/imports"
 import type { PortfolioImportProcessHistory, PortfolioImportReview } from "@/services/market/portfolio/types"
+import { toLocalIso, todayLocal } from "@/lib/date-utils"
 import { ImportExecutionRecord } from "./components/import-execution-record"
 
 const terminal = new Set(["READY_FOR_REVIEW", "CONFIRMED", "FAILED", "CANCELLED"])
@@ -54,13 +55,15 @@ function sameReview(left: PortfolioImportReview | null, right: PortfolioImportRe
 function toDraft(payload: string, version: number): Draft {
   let data: Record<string, unknown> = {}
   try { data = JSON.parse(payload) } catch { /* validation is handled by the API */ }
+  const extractedTradeTime = String(data.tradedAt ?? "").trim()
+  const defaultTradeDate = toLocalIso(todayLocal())
   return {
     version,
     symbol: String(data.symbol ?? ""),
     securityName: String(data.securityName ?? ""),
     instrumentType: data.instrumentType === "ETF" ? "ETF" : "STOCK",
     side: data.side === "SELL" ? "SELL" : "BUY",
-    tradedAt: String(data.tradedAt ?? ""),
+    tradedAt: extractedTradeTime || defaultTradeDate,
     quantity: String(data.quantity ?? ""),
     price: String(data.price ?? ""),
     totalFee: String(data.fee ?? data.totalFee ?? "0"),
