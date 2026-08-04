@@ -62,61 +62,38 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
   }
 }
 
-const PERIOD_WINDOW_SIZE: Record<Exclude<PortfolioPerformanceRange, "daily" | "custom">, number> = {
-  weekly: 12,
-  monthly: 12,
-  yearly: 5,
-}
-
 function buildPeriodWindow(range: PortfolioPerformanceRange, offset: number) {
   if (range === "daily" || range === "custom") return null
   const today = new Date()
-  const currentStart = shiftPeriod(startOfPeriod(today, range), range, offset)
-  const windowStart = shiftPeriod(currentStart, range, -(PERIOD_WINDOW_SIZE[range] - 1))
-  const windowEnd = new Date(shiftPeriod(currentStart, range, 1))
-  windowEnd.setDate(windowEnd.getDate() - 1)
-  return {
-    from: toDateString(windowStart),
-    to: toDateString(windowEnd),
-    label: periodLabel(range === "weekly" ? shiftPeriod(new Date(), range, offset) : currentStart, range),
-  }
-}
-
-function startOfPeriod(value: Date, range: Exclude<PortfolioPerformanceRange, "daily" | "custom">) {
-  const result = new Date(value.getFullYear(), value.getMonth(), value.getDate())
   if (range === "weekly") {
-    const mondayOffset = (result.getDay() + 6) % 7
-    result.setDate(result.getDate() - mondayOffset)
-  } else if (range === "monthly") {
-    result.setDate(1)
-  } else {
-    result.setMonth(0, 1)
+    const monthStart = shiftMonths(new Date(today.getFullYear(), today.getMonth(), 1), offset)
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
+    return {
+      from: toDateString(monthStart),
+      to: toDateString(monthEnd),
+      label: `${monthStart.getFullYear()}年${String(monthStart.getMonth() + 1).padStart(2, "0")}月`,
+    }
   }
-  return result
+  if (range === "monthly") {
+    const year = today.getFullYear() + offset
+    return {
+      from: `${year}-01-01`,
+      to: `${year}-12-31`,
+      label: `${year}年`,
+    }
+  }
+  const centerYear = today.getFullYear() + offset
+  return {
+    from: `${centerYear - 2}-01-01`,
+    to: `${centerYear + 2}-12-31`,
+    label: `${centerYear - 2}-${centerYear + 2}`,
+  }
 }
 
-function shiftPeriod(value: Date, range: Exclude<PortfolioPerformanceRange, "daily" | "custom">, amount: number) {
-  const result = new Date(value)
-  if (range === "weekly") result.setDate(result.getDate() + amount * 7)
-  if (range === "monthly") result.setMonth(result.getMonth() + amount, 1)
-  if (range === "yearly") result.setFullYear(result.getFullYear() + amount, 0, 1)
-  return result
+function shiftMonths(value: Date, amount: number) {
+  return new Date(value.getFullYear(), value.getMonth() + amount, 1)
 }
 
 function toDateString(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
-}
-
-function periodLabel(value: Date, range: Exclude<PortfolioPerformanceRange, "daily" | "custom">) {
-  if (range === "weekly") {
-    const end = new Date(value)
-    end.setDate(end.getDate() + 6)
-    return `${compactDate(value)}-${compactDate(end)}`
-  }
-  if (range === "monthly") return `${value.getFullYear()}年${String(value.getMonth() + 1).padStart(2, "0")}月`
-  return `${value.getFullYear()}年`
-}
-
-function compactDate(value: Date) {
-  return `${String(value.getMonth() + 1).padStart(2, "0")}${String(value.getDate()).padStart(2, "0")}`
 }

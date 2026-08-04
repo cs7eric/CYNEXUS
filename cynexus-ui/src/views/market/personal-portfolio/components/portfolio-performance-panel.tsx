@@ -38,9 +38,9 @@ export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, o
       <Button type="button" size="sm" variant={chartView === "bars" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("bars")}>柱状图</Button>
     </div> : null}
     {range !== "daily" && range !== "custom" && onPreviousPeriod && onNextPeriod ? <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" aria-label="收益周期切换">
-      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={onPreviousPeriod} disabled={!canGoPrevious} aria-label="上一个周期" title={range === "monthly" ? "上个月" : "上一个周期"}><ChevronLeft className="size-3.5" />{range === "monthly" ? "上个月" : "上一个周期"}</Button>
+      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={onPreviousPeriod} disabled={!canGoPrevious} aria-label={previousPeriodLabel(range)} title={previousPeriodLabel(range)}><ChevronLeft className="size-3.5" />{previousPeriodLabel(range)}</Button>
       <span className="min-w-[92px] text-center text-xs font-medium tabular-nums">{periodLabel ?? "当前周期"}</span>
-      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={onNextPeriod} disabled={!canGoNext} aria-label="下一个周期" title={range === "monthly" ? "下个月" : "下一个周期"}>{range === "monthly" ? "下个月" : "下一个周期"}<ChevronRight className="size-3.5" /></Button>
+      <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={onNextPeriod} disabled={!canGoNext} aria-label={nextPeriodLabel(range)} title={nextPeriodLabel(range)}>{nextPeriodLabel(range)}<ChevronRight className="size-3.5" /></Button>
     </div> : null}
   </div>
 }
@@ -139,6 +139,14 @@ function parseDate(value: string) {
 
 function compactDate(value: Date) {
   return `${String(value.getMonth() + 1).padStart(2, "0")}${String(value.getDate()).padStart(2, "0")}`
+}
+
+function previousPeriodLabel(range: PortfolioPerformanceRange) {
+  return range === "weekly" ? "上个月" : "上一年"
+}
+
+function nextPeriodLabel(range: PortfolioPerformanceRange) {
+  return range === "weekly" ? "下个月" : "下一年"
 }
 
 function rangeLabel(range: PortfolioPerformanceRange) {
