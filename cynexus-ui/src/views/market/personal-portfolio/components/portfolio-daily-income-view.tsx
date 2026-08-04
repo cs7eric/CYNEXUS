@@ -1,4 +1,4 @@
-import { CircleHelp, TrendingDown, TrendingUp } from "lucide-react"
+import { CalendarDays, CircleHelp } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PortfolioOverview } from "@/services/market/portfolio/types"
 import type { PortfolioPerformanceState } from "./portfolio-performance-state"
@@ -10,7 +10,7 @@ export function PortfolioDailyIncomeView({ state, overview }: { state: Portfolio
   const todayPnl = overview?.todayPnl ?? state.performance?.todayPnl ?? todayPoint?.periodPnl ?? 0
 
   return <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_minmax(220px,0.55fr)] xl:divide-x xl:divide-y-0">
-    <DailyIncomeList points={points} loading={state.loading} />
+    <DailyIncomeCalendar points={points} loading={state.loading} />
     <section className="min-w-0" aria-labelledby="daily-income-heatmap-heading">
       {state.loading && !overview ? <HeatmapSkeleton /> : <PortfolioReturnBreakdown overview={overview} embedded mode="today" />}
     </section>
@@ -18,11 +18,16 @@ export function PortfolioDailyIncomeView({ state, overview }: { state: Portfolio
   </div>
 }
 
-function DailyIncomeList({ points, loading }: { points: NonNullable<PortfolioPerformanceState["performance"]>["points"]; loading: boolean }) {
-  const sorted = [...points].reverse()
+function DailyIncomeCalendar({ points, loading }: { points: NonNullable<PortfolioPerformanceState["performance"]>["points"]; loading: boolean }) {
+  const sorted = [...points].sort((left, right) => left.tradeDate.localeCompare(right.tradeDate))
+  const firstDate = sorted[0] ? parseDate(sorted[0].tradeDate) : null
+  const lastDate = sorted.at(-1) ? parseDate(sorted.at(-1)!.tradeDate) : null
+  const days = firstDate && lastDate ? calendarDays(firstDate, lastDate) : []
+  const pointsByDate = new Map(sorted.map((point) => [point.tradeDate, point]))
+  const maxAbs = Math.max(...sorted.map((point) => Math.abs(Number(point.periodPnl ?? 0))), 1)
   return <section className="min-w-0" aria-labelledby="daily-income-list-heading">
-    <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5"><div><h3 id="daily-income-list-heading" className="text-sm font-semibold">近一个月日收益</h3><p className="mt-1 text-[11px] text-muted-foreground">按交易日倒序展示</p></div><span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{points.length} 日</span></div>
-    {sorted.length ? <div className="max-h-[360px] overflow-auto"><div className="divide-y divide-border/60">{sorted.map((point) => <div key={point.tradeDate} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30"><div className="min-w-0"><p className="text-xs font-medium">{formatDateLabel(point.tradeDate)}</p><p className="mt-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">收益率 {(Number(point.returnRate ?? 0) * 100).toFixed(2)}%</p></div><div className={`flex items-center gap-1 font-mono text-sm font-semibold tabular-nums ${tone(point.periodPnl)}`}>{Number(point.periodPnl ?? 0) > 0 ? <TrendingUp className="size-3.5" /> : Number(point.periodPnl ?? 0) < 0 ? <TrendingDown className="size-3.5" /> : null}{signedMoney(point.periodPnl)}</div></div>)}</div></div> : loading ? <div className="space-y-2 p-4">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-10 w-full" />)}</div> : <EmptyDailyIncome />}
+    <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5"><div className="flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" /><div><h3 id="daily-income-list-heading" className="text-sm font-semibold">近一个月日收益</h3><p className="mt-1 text-[11px] text-muted-foreground">日历视图 · 金额为当日盈亏</p></div></div><span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{points.length} 日</span></div>
+    {sorted.length ? <div className="max-h-[360px] overflow-auto p-3"><div className="mb-2 grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground">{["日", "一", "二", "三", "四", "五", "六"].map((label) => <span key={label}>{label}</span>)}</div><div className="grid grid-cols-7 gap-1">{days.map((date) => { const key = formatDate(date); const point = pointsByDate.get(key); const value = Number(point?.periodPnl ?? 0); const inRange = date >= (firstDate ?? date) && date <= (lastDate ?? date); return <div key={key} title={point ? `${key} ${signedMoney(value)}` : key} className={`flex min-h-12 flex-col items-center justify-center rounded-sm border border-border/40 px-0.5 py-1 text-center ${point ? calendarTone(value, maxAbs) : "bg-muted/35 text-muted-foreground"} ${inRange ? "" : "opacity-35"}`}><span className="text-[10px]">{date.getMonth() + 1}/{date.getDate()}</span>{point ? <span className="mt-0.5 font-mono text-[10px] font-semibold tabular-nums">{signedMoney(value)}</span> : <span className="mt-0.5 text-[10px]">-</span>}</div>})}</div></div> : loading ? <div className="grid grid-cols-4 gap-2 p-4">{Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-12 rounded-sm" />)}</div> : <EmptyDailyIncome />}
   </section>
 }
 
@@ -41,10 +46,30 @@ function HeatmapSkeleton() {
   return <div className="grid grid-cols-7 gap-1.5 p-4">{Array.from({ length: 35 }, (_, index) => <Skeleton key={index} className="h-12 rounded-sm" />)}</div>
 }
 
-function formatDateLabel(value: string) {
+function calendarDays(first: Date, last: Date) {
+  const start = new Date(first)
+  start.setDate(start.getDate() - start.getDay())
+  const end = new Date(last)
+  end.setDate(end.getDate() + (6 - end.getDay()))
+  const days: Date[] = []
+  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) days.push(new Date(cursor))
+  return days
+}
+
+function parseDate(value: string) {
   const [year, month, day] = value.split("-").map(Number)
-  const date = new Date(year, (month || 1) - 1, day || 1)
-  return `${date.getMonth() + 1}月${date.getDate()}日 周${["日", "一", "二", "三", "四", "五", "六"][date.getDay()]}`
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+function formatDate(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
+}
+
+function calendarTone(value: number, maxAbs: number) {
+  const ratio = Math.min(Math.abs(value) / maxAbs, 1)
+  if (value > 0) return ratio > 0.66 ? "bg-rose-500 text-white" : ratio > 0.33 ? "bg-rose-200 text-rose-900" : "bg-rose-100 text-rose-800"
+  if (value < 0) return ratio > 0.66 ? "bg-emerald-500 text-white" : ratio > 0.33 ? "bg-emerald-200 text-emerald-900" : "bg-emerald-100 text-emerald-800"
+  return "bg-muted text-muted-foreground"
 }
 
 function signedMoney(value: number | null | undefined) {

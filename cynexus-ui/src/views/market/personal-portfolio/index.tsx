@@ -40,7 +40,7 @@ export default function PersonalPortfolioPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [chartView, setChartView] = useState<PortfolioChartView>("calendar")
-  const [dailyView, setDailyView] = useState<"holdings" | "income">("holdings")
+  const [dailyView, setDailyView] = useState<"holdings" | "income">("income")
   const performanceState = usePortfolioPerformance()
   const refreshPerformance = performanceState.refresh
   const importDrawerOpen = searchParams.get("imports") === "1"
