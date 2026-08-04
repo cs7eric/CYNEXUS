@@ -162,6 +162,13 @@ public final class PortfolioPerformanceDomainService {
         }
         if (currentPrices.isEmpty()) return Map.of();
 
+        LocalDate portfolioBaselineDate = trades.stream()
+                .filter(Objects::nonNull)
+                .filter(trade -> trade.status() == TradeStatus.ACTIVE)
+                .map(trade -> trade.tradedAt().toLocalDate())
+                .min(LocalDate::compareTo)
+                .orElse(null);
+
         java.util.Set<String> symbols = new java.util.HashSet<>(previousPrices.keySet());
         symbols.addAll(currentPrices.keySet());
         trades.stream().filter(Objects::nonNull).map(PortfolioTradeBO::symbol).forEach(symbols::add);
@@ -170,6 +177,7 @@ public final class PortfolioPerformanceDomainService {
             BigDecimal currentPrice = currentPrices.get(symbol);
             BigDecimal previousPrice = previousPrices.get(symbol);
             if (currentPrice == null) continue;
+            boolean portfolioBaselineDay = today.equals(portfolioBaselineDate);
             List<PortfolioTradeBO> symbolTrades = trades.stream()
                     .filter(Objects::nonNull)
                     .filter(trade -> trade.status() == TradeStatus.ACTIVE)
@@ -194,15 +202,12 @@ public final class PortfolioPerformanceDomainService {
                         BigDecimal quantity = trade.quantity();
                         BigDecimal impact;
                         if (trade.side() == TradeSide.BUY) {
-                            // A position opened for the first time today is a
-                            // portfolio baseline, not a gain/loss earned during
-                            // the session. Otherwise importing an existing
-                            // position would turn the difference between its
-                            // historical fill price and today's close into a
-                            // spurious one-day loss (or gain). Additional buys
-                            // into an already-open position still contribute
-                            // their execution-price impact for the day.
-                            if (openingQuantity.signum() <= 0) {
+                            // The first confirmed portfolio date is the import
+                            // baseline, not a gain/loss earned during that
+                            // session. A symbol first bought on a later date is
+                            // a real same-day trade and must still contribute
+                            // its execution-price impact.
+                            if (portfolioBaselineDay && openingQuantity.signum() <= 0) {
                                 // The import fee is part of the opening cost
                                 // basis as well; it must not become a loss on
                                 // the baseline day.

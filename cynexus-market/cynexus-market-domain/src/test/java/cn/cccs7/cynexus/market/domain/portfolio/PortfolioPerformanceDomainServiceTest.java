@@ -171,6 +171,24 @@ class PortfolioPerformanceDomainServiceTest {
     }
 
     @Test
+    void countsARealTradeForANewSymbolAfterTheImportBaseline() {
+        List<PortfolioTradeBO> trades = List.of(
+                trade(1L, "159796", TradeSide.BUY, "4100", "1.40608519", "2026-07-30T09:30:00Z"),
+                new PortfolioTradeBO(2L, "159029", "有色ETF", PortfolioInstrumentType.ETF, TradeSide.BUY,
+                        OffsetDateTime.parse("2026-08-03T09:30:00Z"), decimal("100"), decimal("0.850"),
+                        decimal("0.1"), TradeStatus.ACTIVE)
+        );
+
+        Map<String, BigDecimal> pnl = service.calculateTodayPnlBySymbol(
+                trades,
+                Map.of("159029", List.of(price("2026-07-31", "0.840"), price("2026-08-03", "0.860"))),
+                Map.of(),
+                LocalDate.parse("2026-08-03"));
+
+        assertEquals(0, decimal("0.9").compareTo(pnl.get("159029")));
+    }
+
+    @Test
     void ignoresStaleRealtimeQuoteWhenMarketHasNotOpenedToday() {
         List<PortfolioTradeBO> trades = List.of(
                 trade(1L, "600000", TradeSide.BUY, "100", "10", "2026-07-30T09:30:00Z")
