@@ -177,22 +177,27 @@ public class PortfolioOverviewAppService {
                 .costBasis(point.costBasis()).totalPnl(point.totalPnl())
                 .periodPnl(point.tradeDate().equals(today) && todayPnl != null ? todayPnl : point.periodPnl())
                 .returnRate(point.returnRate()).build()).toList();
-        BigDecimal effectivePeriodPnl = points.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
+        List<PortfolioPerformancePointDTO> summaryPoints = points.stream()
+                .filter(point -> !point.getTradeDate().isBefore(trackingStartDate))
+                .toList();
+        BigDecimal effectivePeriodPnl = summaryPoints.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
                 .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal effectiveStartAssets = trackingStartDate.equals(today) && todayPnl != null
-                ? result.endAssets().subtract(todayPnl) : result.startAssets();
+                ? result.endAssets().subtract(todayPnl)
+                : summaryPoints.isEmpty() ? result.startAssets()
+                : summaryPoints.getFirst().getTotalAssets().subtract(summaryPoints.getFirst().getPeriodPnl());
         BigDecimal effectiveReturnRate = effectiveStartAssets.signum() > 0
                 ? effectivePeriodPnl.divide(effectiveStartAssets, 8, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
-        BigDecimal bestPeriodPnl = points.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
+        BigDecimal bestPeriodPnl = summaryPoints.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
                 .filter(java.util.Objects::nonNull).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        BigDecimal worstPeriodPnl = points.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
+        BigDecimal worstPeriodPnl = summaryPoints.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
                 .filter(java.util.Objects::nonNull).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
         return PortfolioPerformanceDTO.builder()
                 .range(requested.range()).from(result.from()).to(result.to())
                 .periodPnl(effectivePeriodPnl).todayPnl(todayPnl).periodReturnRate(effectiveReturnRate)
                 .startAssets(effectiveStartAssets).endAssets(result.endAssets())
                 .bestPeriodPnl(bestPeriodPnl).worstPeriodPnl(worstPeriodPnl)
-                .tradingDays(points.size()).points(points)
+                .tradingDays(summaryPoints.size()).points(points)
                 .build();
     }
 
@@ -222,7 +227,7 @@ public class PortfolioOverviewAppService {
             return new PerformanceRange(normalized, from, to, granularity);
         }
         return switch (normalized) {
-            case "daily", "day" -> new PerformanceRange("daily", max(today.minusDays(29), trackingStartDate), today,
+            case "daily", "day" -> new PerformanceRange("daily", today.minusDays(29), today,
                     PortfolioPerformanceGranularity.DAILY);
             case "weekly", "week" -> new PerformanceRange("weekly", max(today.minusWeeks(11).with(java.time.DayOfWeek.MONDAY), trackingStartDate), today,
                     PortfolioPerformanceGranularity.WEEKLY);
