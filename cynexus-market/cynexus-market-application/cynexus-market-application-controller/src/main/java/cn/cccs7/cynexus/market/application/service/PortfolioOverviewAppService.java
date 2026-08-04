@@ -85,7 +85,8 @@ public class PortfolioOverviewAppService {
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
-        BigDecimal availableCash = account.availableCash();
+        BigDecimal availableCash = accountDomainService.availableCash(account, marketValue);
+        BigDecimal totalAssets = accountDomainService.totalAssets(account, marketValue);
         Map<String, String> securityNames = loadSecurityNames(result.positions());
         return PortfolioOverviewDTO.builder()
                 .positions(result.positions().stream().map(position -> toPosition(position, securityNames, todayPnlBySymbol)).toList())
@@ -93,7 +94,7 @@ public class PortfolioOverviewAppService {
                         .code(warning.code()).symbol(warning.symbol())
                         .unmatchedQuantity(warning.unmatchedQuantity()).message(warning.message()).build()).toList())
                 .costBasis(costBasis).marketValue(marketValue)
-                .availableCash(availableCash).totalAssets(marketValue.add(availableCash))
+                .availableCash(availableCash).totalAssets(totalAssets)
                 .accountUpdatedAt(account.updatedAt())
                 .realizedPnl(result.realizedPnl()).unrealizedPnl(result.unrealizedPnl()).totalPnl(result.totalPnl())
                 .todayPnl(todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add))
@@ -102,14 +103,22 @@ public class PortfolioOverviewAppService {
     }
 
     public PortfolioAccountDTO account() {
+        var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
+        BigDecimal marketValue = currentMarketValue(trades);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
-        return PortfolioAccountDTO.builder().availableCash(account.availableCash()).updatedAt(account.updatedAt()).build();
+        return PortfolioAccountDTO.builder()
+                .totalAssets(accountDomainService.totalAssets(account, marketValue))
+                .availableCash(accountDomainService.availableCash(account, marketValue))
+                .updatedAt(account.updatedAt()).build();
     }
 
     public PortfolioAccountDTO updateAccount(PortfolioAccountUpdateRequest request) {
         if (request == null) throw new IllegalArgumentException("portfolio account update is required");
-        PortfolioAccountBO account = accountDomainService.updateAvailableCash(PRINCIPAL, TENANT, request.getAvailableCash());
-        return PortfolioAccountDTO.builder().availableCash(account.availableCash()).updatedAt(account.updatedAt()).build();
+        PortfolioAccountBO account = accountDomainService.updateTotalAssets(PRINCIPAL, TENANT, request.getTotalAssets());
+        BigDecimal marketValue = currentMarketValue(tradeRepository.list(PRINCIPAL, TENANT, null));
+        return PortfolioAccountDTO.builder().totalAssets(accountDomainService.totalAssets(account, marketValue))
+                .availableCash(accountDomainService.availableCash(account, marketValue))
+                .updatedAt(account.updatedAt()).build();
     }
 
     public List<PortfolioTradeDTO> trades(String symbol) {
@@ -162,8 +171,11 @@ public class PortfolioOverviewAppService {
             }
         }
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
+        var currentLedger = ledgerService.calculate(trades, realtimePrices);
+        BigDecimal currentMarketValue = sum(currentLedger.positions(), PortfolioPositionBO::marketValue);
+        BigDecimal availableCash = accountDomainService.availableCash(account, currentMarketValue);
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
-                trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
+                trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), availableCash,
                 requested.from(), requested.to(), requested.granularity());
         // The overview's daily P&L is scoped to positions still held at the
         // current snapshot. Keep the performance summary and heatmap on the
@@ -348,6 +360,12 @@ public class PortfolioOverviewAppService {
             }
         }
         return latestPrices;
+    }
+
+    private BigDecimal currentMarketValue(List<PortfolioTradeBO> trades) {
+        var positions = ledgerService.calculate(trades, Map.of()).positions();
+        var valued = ledgerService.calculate(trades, loadLatestPrices(positions));
+        return sum(valued.positions(), PortfolioPositionBO::marketValue);
     }
 
     private BigDecimal sum(List<PortfolioPositionBO> positions,

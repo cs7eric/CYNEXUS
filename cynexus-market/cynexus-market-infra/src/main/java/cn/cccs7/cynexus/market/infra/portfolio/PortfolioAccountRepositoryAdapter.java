@@ -23,18 +23,18 @@ public class PortfolioAccountRepositoryAdapter implements PortfolioAccountReposi
     }
 
     @Override
-    public PortfolioAccountBO save(String principalKey, String tenantKey, BigDecimal availableCash,
+    public PortfolioAccountBO save(String principalKey, String tenantKey, BigDecimal totalAssets,
                                    OffsetDateTime updatedAt) {
         PortfolioAccountPO value = new PortfolioAccountPO();
         value.setPrincipalKey(principalKey);
         value.setTenantKey(tenantKey);
-        value.setAvailableCash(availableCash);
+        value.setTotalAssets(totalAssets);
         value.setUpdatedAt(updatedAt);
         mapper.upsert(value);
         return toBo(value);
     }
 
     private PortfolioAccountBO toBo(PortfolioAccountPO value) {
-        return new PortfolioAccountBO(value.getAvailableCash(), value.getUpdatedAt());
+        return new PortfolioAccountBO(value.getTotalAssets(), value.getAvailableCash(), value.getUpdatedAt());
     }
 }

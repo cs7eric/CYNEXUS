@@ -21,11 +21,11 @@ export async function fetchPortfolioAccount(): Promise<PortfolioAccount> {
   return cynexusResult<PortfolioAccount>(response)
 }
 
-export async function updatePortfolioAccount(availableCash: number): Promise<PortfolioAccount> {
+export async function updatePortfolioAccount(totalAssets: number): Promise<PortfolioAccount> {
   const response = await fetchWithRetry(`${BASE}/account`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ availableCash }),
+    body: JSON.stringify({ totalAssets }),
   })
   return cynexusResult<PortfolioAccount>(response)
 }

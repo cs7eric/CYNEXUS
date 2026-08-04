@@ -8,6 +8,7 @@ import lombok.Value;
 @Value
 @Builder
 public class PortfolioAccountDTO {
+    BigDecimal totalAssets;
     BigDecimal availableCash;
     OffsetDateTime updatedAt;
 }

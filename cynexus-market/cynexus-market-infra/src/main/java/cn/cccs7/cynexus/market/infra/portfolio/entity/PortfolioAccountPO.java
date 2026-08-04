@@ -9,5 +9,6 @@ public class PortfolioAccountPO {
     private String principalKey;
     private String tenantKey;
     private BigDecimal availableCash;
+    private BigDecimal totalAssets;
     private OffsetDateTime updatedAt;
 }

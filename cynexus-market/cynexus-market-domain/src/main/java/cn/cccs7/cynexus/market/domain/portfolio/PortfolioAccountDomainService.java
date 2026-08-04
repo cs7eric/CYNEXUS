@@ -16,14 +16,27 @@ public class PortfolioAccountDomainService {
 
     public PortfolioAccountBO get(String principalKey, String tenantKey) {
         PortfolioAccountBO account = repository.find(principalKey, tenantKey);
-        return account == null ? new PortfolioAccountBO(BigDecimal.ZERO, null) : account;
+        return account == null ? new PortfolioAccountBO(null, BigDecimal.ZERO, null) : account;
     }
 
-    public PortfolioAccountBO updateAvailableCash(String principalKey, String tenantKey, BigDecimal availableCash) {
-        if (availableCash == null || availableCash.signum() < 0) {
-            throw new IllegalArgumentException("available cash must be zero or greater");
+    public PortfolioAccountBO updateTotalAssets(String principalKey, String tenantKey, BigDecimal totalAssets) {
+        if (totalAssets == null || totalAssets.signum() < 0) {
+            throw new IllegalArgumentException("total assets must be zero or greater");
         }
-        BigDecimal normalized = availableCash.setScale(MONEY_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
+        BigDecimal normalized = totalAssets.setScale(MONEY_SCALE, RoundingMode.HALF_UP).stripTrailingZeros();
         return repository.save(principalKey, tenantKey, normalized, OffsetDateTime.now());
+    }
+
+    public BigDecimal totalAssets(PortfolioAccountBO account, BigDecimal marketValue) {
+        BigDecimal market = nonNegative(marketValue);
+        return account.totalAssets() == null ? market.add(account.legacyAvailableCash()) : account.totalAssets();
+    }
+
+    public BigDecimal availableCash(PortfolioAccountBO account, BigDecimal marketValue) {
+        return totalAssets(account, marketValue).subtract(nonNegative(marketValue));
+    }
+
+    private BigDecimal nonNegative(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

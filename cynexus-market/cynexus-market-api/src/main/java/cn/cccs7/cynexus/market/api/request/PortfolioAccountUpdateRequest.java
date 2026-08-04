@@ -5,5 +5,5 @@ import lombok.Data;
 
 @Data
 public class PortfolioAccountUpdateRequest {
-    private BigDecimal availableCash;
+    private BigDecimal totalAssets;
 }

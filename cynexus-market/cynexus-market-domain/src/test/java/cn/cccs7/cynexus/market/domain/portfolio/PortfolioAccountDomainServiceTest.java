@@ -12,26 +12,39 @@ class PortfolioAccountDomainServiceTest {
     void returnsZeroWhenAccountHasNotBeenConfigured() {
         PortfolioAccountDomainService service = new PortfolioAccountDomainService(new InMemoryRepository(null));
 
-        assertEquals(BigDecimal.ZERO, service.get("user", "tenant").availableCash());
+        PortfolioAccountBO account = service.get("user", "tenant");
+        assertEquals(BigDecimal.ZERO, account.legacyAvailableCash());
+        assertEquals(null, account.totalAssets());
     }
 
     @Test
-    void normalizesAndPersistsNonNegativeCash() {
+    void normalizesAndPersistsNonNegativeTotalAssets() {
         InMemoryRepository repository = new InMemoryRepository(null);
         PortfolioAccountDomainService service = new PortfolioAccountDomainService(repository);
 
-        PortfolioAccountBO result = service.updateAvailableCash("user", "tenant", new BigDecimal("123.456789123"));
+        PortfolioAccountBO result = service.updateTotalAssets("user", "tenant", new BigDecimal("123.456789123"));
 
-        assertEquals(new BigDecimal("123.45678912"), result.availableCash());
+        assertEquals(new BigDecimal("123.45678912"), result.totalAssets());
         assertEquals(result, repository.value);
     }
 
     @Test
-    void rejectsNegativeCash() {
+    void rejectsNegativeTotalAssets() {
         PortfolioAccountDomainService service = new PortfolioAccountDomainService(new InMemoryRepository(null));
 
         assertThrows(IllegalArgumentException.class,
-                () -> service.updateAvailableCash("user", "tenant", new BigDecimal("-0.01")));
+                () -> service.updateTotalAssets("user", "tenant", new BigDecimal("-0.01")));
+    }
+
+    @Test
+    void derivesAvailableCashFromTotalAssetsAndMarketValue() {
+        PortfolioAccountDomainService service = new PortfolioAccountDomainService(
+                new InMemoryRepository(new PortfolioAccountBO(new BigDecimal("10000"), BigDecimal.ZERO, null)));
+
+        PortfolioAccountBO account = service.get("user", "tenant");
+
+        assertEquals(new BigDecimal("10000"), service.totalAssets(account, new BigDecimal("7200")));
+        assertEquals(new BigDecimal("2800"), service.availableCash(account, new BigDecimal("7200")));
     }
 
     private static final class InMemoryRepository implements PortfolioAccountRepository {
@@ -47,9 +60,9 @@ class PortfolioAccountDomainServiceTest {
         }
 
         @Override
-        public PortfolioAccountBO save(String principalKey, String tenantKey, BigDecimal availableCash,
+        public PortfolioAccountBO save(String principalKey, String tenantKey, BigDecimal totalAssets,
                                        OffsetDateTime updatedAt) {
-            value = new PortfolioAccountBO(availableCash, updatedAt);
+            value = new PortfolioAccountBO(totalAssets, BigDecimal.ZERO, updatedAt);
             return value;
         }
     }

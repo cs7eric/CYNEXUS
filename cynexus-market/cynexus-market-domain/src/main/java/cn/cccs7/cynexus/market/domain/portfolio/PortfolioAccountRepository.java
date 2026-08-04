@@ -6,6 +6,6 @@ import java.time.OffsetDateTime;
 public interface PortfolioAccountRepository {
     PortfolioAccountBO find(String principalKey, String tenantKey);
 
-    PortfolioAccountBO save(String principalKey, String tenantKey, BigDecimal availableCash,
+    PortfolioAccountBO save(String principalKey, String tenantKey, BigDecimal totalAssets,
                              OffsetDateTime updatedAt);
 }

@@ -121,6 +121,7 @@ export interface PortfolioPerformance {
 }
 
 export interface PortfolioAccount {
+  totalAssets: number
   availableCash: number
   updatedAt?: string | null
 }
