@@ -15,6 +15,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealizedPnlBaselineRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeQueryRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioInstrumentType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceGranularity;
@@ -75,7 +76,10 @@ public class PortfolioOverviewAppService {
         Map<String, LocalDate> realtimePriceDates = realtimePriceGateway.latestPriceDates(preliminary.positions());
         PortfolioLedgerResultBO result = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, latestPrices), baselines);
-        Map<String, List<PortfolioPricePointBO>> priceSeries = loadPortfolioPriceSeries(preliminary.positions());
+        // Today's P&L must include trades that were fully closed today as well as
+        // still-open positions. Build the quote series from the complete active
+        // trade universe; the holdings table still filters zero-quantity positions.
+        Map<String, List<PortfolioPricePointBO>> priceSeries = loadPortfolioPriceSeries(trades);
         Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
                 trades, priceSeries, latestPrices, previousClosePrices, realtimePriceDates, LocalDate.now(SHANGHAI));
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
@@ -122,6 +126,10 @@ public class PortfolioOverviewAppService {
         PerformanceRange requested = resolveRange(range, fromValue, toValue, trackingStartDate);
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
         var openPositions = ledgerService.calculate(trades, Map.of()).positions();
+        var openSymbols = openPositions.stream()
+                .filter(position -> position.quantity() != null && position.quantity().signum() > 0)
+                .map(PortfolioPositionBO::symbol)
+                .collect(Collectors.toSet());
         Map<String, BigDecimal> realtimePrices = realtimePriceGateway.latestPrices(openPositions);
         Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(openPositions);
         Map<String, LocalDate> realtimePriceDates = realtimePriceGateway.latestPriceDates(openPositions);
@@ -157,7 +165,13 @@ public class PortfolioOverviewAppService {
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
                 trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), account.availableCash(),
                 requested.from(), requested.to(), requested.granularity());
-        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, prices, realtimePrices, previousClosePrices, realtimePriceDates, today);
+        // The overview's daily P&L is scoped to positions still held at the
+        // current snapshot. Keep the performance summary and heatmap on the
+        // same basis; closed trades remain available in realized P&L/history.
+        Map<String, List<PortfolioPricePointBO>> todayPrices = prices.entrySet().stream()
+                .filter(entry -> openSymbols.contains(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (left, right) -> left, LinkedHashMap::new));
+        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, todayPrices, realtimePrices, previousClosePrices, realtimePriceDates, today);
         List<PortfolioPerformancePointDTO> points = result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
                 .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
                 .costBasis(point.costBasis()).totalPnl(point.totalPnl())
@@ -259,18 +273,22 @@ public class PortfolioOverviewAppService {
                 .unrealizedReturnRate(value.unrealizedReturnRate()).build();
     }
 
-    private Map<String, List<PortfolioPricePointBO>> loadPortfolioPriceSeries(List<PortfolioPositionBO> positions) {
+    private Map<String, List<PortfolioPricePointBO>> loadPortfolioPriceSeries(List<PortfolioTradeBO> trades) {
+        Map<String, PortfolioInstrumentType> instruments = new LinkedHashMap<>();
+        for (PortfolioTradeBO trade : trades) {
+            instruments.putIfAbsent(trade.symbol(), trade.instrumentType());
+        }
         Map<String, List<PortfolioPricePointBO>> prices = new LinkedHashMap<>();
-        for (PortfolioPositionBO position : positions) {
+        for (Map.Entry<String, PortfolioInstrumentType> entry : instruments.entrySet()) {
             try {
-                var result = stockChartQueryDomainService.klines(position.instrumentType().chartTargetType(), position.symbol(), "1d", "qfq");
-                prices.put(position.symbol(), result.items().stream()
+                var result = stockChartQueryDomainService.klines(entry.getValue().chartTargetType(), entry.getKey(), "1d", "qfq");
+                prices.put(entry.getKey(), result.items().stream()
                         .filter(bar -> bar.getTradeDate() != null && bar.getClose() != null)
                         .map(bar -> new PortfolioPricePointBO(bar.getTradeDate(), bar.getClose()))
                         .toList());
             } catch (RuntimeException exception) {
-                log.warn("Unable to load portfolio daily prices for symbol={}", position.symbol(), exception);
-                prices.put(position.symbol(), List.of());
+                log.warn("Unable to load portfolio daily prices for symbol={}", entry.getKey(), exception);
+                prices.put(entry.getKey(), List.of());
             }
         }
         return prices;

@@ -12,6 +12,7 @@ export interface PortfolioPerformanceState {
   canGoNext: boolean
   goPrevious: () => void
   goNext: () => void
+  refresh: () => void
   performance: PortfolioPerformance | null
   loading: boolean
   error: string | null
@@ -23,6 +24,8 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
   const [performance, setPerformance] = useState<PortfolioPerformance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshToken, setRefreshToken] = useState(0)
+  const refresh = useCallback(() => setRefreshToken((value) => value + 1), [])
 
   const loadPerformance = useCallback(async (cancelledRef: { current: boolean }) => {
     setLoading(true)
@@ -42,7 +45,7 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
     const cancelledRef = { current: false }
     const timer = window.setTimeout(() => { void loadPerformance(cancelledRef) }, 0)
     return () => { cancelledRef.current = true; window.clearTimeout(timer) }
-  }, [loadPerformance])
+  }, [loadPerformance, refreshToken])
 
   const periodWindow = useMemo(() => buildPeriodWindow(range, periodOffset), [periodOffset, range])
   const updateRange = useCallback((nextRange: PortfolioPerformanceRange) => {
@@ -60,6 +63,7 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
     canGoNext: range !== "daily" && periodOffset < 0,
     goPrevious: () => setPeriodOffset((value) => value - 1),
     goNext: () => setPeriodOffset((value) => Math.min(value + 1, 0)),
+    refresh,
     performance,
     loading,
     error,

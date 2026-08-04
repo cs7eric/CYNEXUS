@@ -28,9 +28,10 @@ function sameTasks(left: PortfolioImportTask[], right: PortfolioImportTask[]) {
 interface PortfolioImportDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onLedgerChanged?: () => void
 }
 
-export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDrawerProps) {
+export function PortfolioImportDrawer({ open, onOpenChange, onLedgerChanged }: PortfolioImportDrawerProps) {
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [tasks, setTasks] = useState<PortfolioImportTask[]>([])
   const [page, setPage] = useState(1)
@@ -41,15 +42,22 @@ export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDra
   const [error, setError] = useState<string | null>(null)
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null)
   const [refreshSignal, setRefreshSignal] = useState(0)
+  const previousStatusesRef = useRef<Map<number, string>>(new Map())
+  const hasLoadedTasksRef = useRef(false)
 
   const load = useCallback(async (targetPage = page, showLoading = false, targetPageSize = pageSize) => {
     if (showLoading) setLoading(true)
     try {
       const result = await fetchPortfolioImports(targetPage, targetPageSize)
+      const previousStatuses = previousStatusesRef.current
+      const ledgerChanged = hasLoadedTasksRef.current && result.items.some((task) => task.status === "CONFIRMED" && previousStatuses.get(task.id) !== "CONFIRMED")
+      previousStatusesRef.current = new Map(result.items.map((task) => [task.id, task.status]))
+      hasLoadedTasksRef.current = true
       setTasks((current) => sameTasks(current, result.items) ? current : result.items)
       setPagination(result)
       setError(null)
       setRefreshSignal((current) => current + 1)
+      if (ledgerChanged) onLedgerChanged?.()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
@@ -57,7 +65,7 @@ export function PortfolioImportDrawer({ open, onOpenChange }: PortfolioImportDra
     } finally {
       if (showLoading) setLoading(false)
     }
-  }, [page, pageSize])
+  }, [onLedgerChanged, page, pageSize])
 
   useEffect(() => {
     if (open) void Promise.resolve().then(() => load(undefined, true))

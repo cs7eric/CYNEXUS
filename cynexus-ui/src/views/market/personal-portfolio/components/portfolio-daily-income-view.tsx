@@ -1,18 +1,18 @@
-import { CalendarDays, CircleHelp, TrendingDown, TrendingUp } from "lucide-react"
+import { CircleHelp, TrendingDown, TrendingUp } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { PortfolioOverview } from "@/services/market/portfolio/types"
 import type { PortfolioPerformanceState } from "./portfolio-performance-state"
-import { PortfolioIncomeCalendar } from "./portfolio-income-calendar"
+import { PortfolioReturnBreakdown } from "./portfolio-return-breakdown"
 
-export function PortfolioDailyIncomeView({ state }: { state: PortfolioPerformanceState }) {
+export function PortfolioDailyIncomeView({ state, overview }: { state: PortfolioPerformanceState; overview: PortfolioOverview | null }) {
   const points = state.performance?.points ?? []
   const todayPoint = points.at(-1)
-  const todayPnl = state.performance?.todayPnl ?? todayPoint?.periodPnl ?? 0
+  const todayPnl = overview?.todayPnl ?? state.performance?.todayPnl ?? todayPoint?.periodPnl ?? 0
 
   return <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_minmax(220px,0.55fr)] xl:divide-x xl:divide-y-0">
     <DailyIncomeList points={points} loading={state.loading} />
     <section className="min-w-0" aria-labelledby="daily-income-heatmap-heading">
-      <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3.5"><CalendarDays className="size-4 text-muted-foreground" /><h3 id="daily-income-heatmap-heading" className="text-sm font-semibold">日收益热力图</h3></div>
-      {state.loading && !points.length ? <HeatmapSkeleton /> : points.length ? <PortfolioIncomeCalendar points={points} range="daily" /> : <EmptyDailyIncome />}
+      {state.loading && !overview ? <HeatmapSkeleton /> : <PortfolioReturnBreakdown overview={overview} embedded mode="today" />}
     </section>
     <DailyIncomeSummary point={todayPoint} value={todayPnl} cumulativePnl={state.performance?.periodPnl} loading={state.loading} />
   </div>

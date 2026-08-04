@@ -42,6 +42,7 @@ export default function PersonalPortfolioPage() {
   const [chartView, setChartView] = useState<PortfolioChartView>("calendar")
   const [dailyView, setDailyView] = useState<"holdings" | "income">("holdings")
   const performanceState = usePortfolioPerformance()
+  const refreshPerformance = performanceState.refresh
   const importDrawerOpen = searchParams.get("imports") === "1"
   const selectedSymbol = searchParams.get("stock")
   const selectedInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
@@ -72,6 +73,11 @@ export default function PersonalPortfolioPage() {
       setLoading(false)
     }
   }, [])
+
+  const refreshPortfolioData = useCallback(() => {
+    void load()
+    refreshPerformance()
+  }, [load, refreshPerformance])
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load() }, 0)
@@ -119,7 +125,7 @@ export default function PersonalPortfolioPage() {
               </div>
               <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} showChartView={!isDailyPerformanceView} periodLabel={performanceState.periodLabel} canGoPrevious={performanceState.canGoPrevious} canGoNext={performanceState.canGoNext} onPreviousPeriod={performanceState.goPrevious} onNextPeriod={performanceState.goNext} dailyView={dailyView} onDailyViewChange={setDailyView} />
             </div>
-            {isDailyIncomeView ? <PortfolioDailyIncomeView state={performanceState} /> : <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
+            {isDailyIncomeView ? <PortfolioDailyIncomeView state={performanceState} overview={overview} /> : <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
               {!isDailyPerformanceView ? <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} /> : null}
               {overview ? <PortfolioReturnBreakdown overview={overview} embedded /> : <div className="min-w-0" />}
               {isDailyPerformanceView ? <PortfolioCurrentHoldingsPanel positions={positions} /> : null}
@@ -152,7 +158,7 @@ export default function PersonalPortfolioPage() {
           <ReviewCenter reviews={reviews} />
         </>}
 
-        <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={(open) => setQueryState({ imports: open ? "1" : null })} />
+        <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={(open) => setQueryState({ imports: open ? "1" : null })} onLedgerChanged={refreshPortfolioData} />
         <PortfolioPositionDrawer open={Boolean(selectedSymbol)} symbol={selectedSymbol} instrumentType={selectedInstrumentType} onOpenChange={(open) => setQueryState(open && selectedSymbol ? { stock: selectedSymbol, instrumentType: selectedInstrumentType } : { stock: null, instrumentType: null })} />
         <PortfolioReviewDrawer key={`review-${reviewDrawerOpen ? reviewSymbol ?? "new" : "closed"}`} open={reviewDrawerOpen} symbol={reviewSymbol} instrumentType={reviewInstrumentType} positions={positions} onOpenChange={(open) => setQueryState(open ? { review: "new" } : { review: null, symbol: null, instrumentType: null })} onSaved={() => void load()} />
       </div>
