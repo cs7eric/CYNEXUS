@@ -26,13 +26,19 @@ interface PortfolioPerformanceToolbarProps {
   canGoNext?: boolean
   onPreviousPeriod?: () => void
   onNextPeriod?: () => void
+  dailyView?: "holdings" | "income"
+  onDailyViewChange?: (view: "holdings" | "income") => void
 }
 
-export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, onChartViewChange, showChartView = true, periodLabel, canGoPrevious = true, canGoNext = false, onPreviousPeriod, onNextPeriod }: PortfolioPerformanceToolbarProps) {
+export function PortfolioPerformanceToolbar({ range, onRangeChange, chartView, onChartViewChange, showChartView = true, periodLabel, canGoPrevious = true, canGoNext = false, onPreviousPeriod, onNextPeriod, dailyView, onDailyViewChange }: PortfolioPerformanceToolbarProps) {
   return <div className="flex flex-wrap items-center gap-2" aria-label="收益筛选与视图">
     <div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/50 p-1" role="group" aria-label="收益视图">
       {(["daily", "weekly", "monthly", "yearly"] as PortfolioPerformanceRange[]).map((item) => <Button key={item} type="button" size="sm" variant={range === item ? "default" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onRangeChange(item)}>{item === "daily" ? "日" : item === "weekly" ? "周" : item === "monthly" ? "月" : "年"}</Button>)}
     </div>
+    {range === "daily" && onDailyViewChange ? <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="日视图内容">
+      <Button type="button" size="sm" variant={dailyView === "holdings" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onDailyViewChange("holdings")}>持仓</Button>
+      <Button type="button" size="sm" variant={dailyView === "income" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onDailyViewChange("income")}>日收益</Button>
+    </div> : null}
     {showChartView ? <div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="图表类型">
       <Button type="button" size="sm" variant={chartView === "calendar" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("calendar")}>日历图</Button>
       <Button type="button" size="sm" variant={chartView === "bars" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => onChartViewChange("bars")}>柱状图</Button>
