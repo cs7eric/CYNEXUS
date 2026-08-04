@@ -6,6 +6,8 @@ export interface PortfolioPerformanceState {
   range: PortfolioPerformanceRange
   setRange: (range: PortfolioPerformanceRange) => void
   periodLabel: string | null
+  periodFrom: string | null
+  periodTo: string | null
   canGoPrevious: boolean
   canGoNext: boolean
   goPrevious: () => void
@@ -52,6 +54,8 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
     range,
     setRange: updateRange,
     periodLabel: periodWindow?.label ?? null,
+    periodFrom: periodWindow?.from ?? null,
+    periodTo: periodWindow?.to ?? null,
     canGoPrevious: range !== "daily" && (!periodWindow || !performance || performance.from <= periodWindow.from),
     canGoNext: range !== "daily" && periodOffset < 0,
     goPrevious: () => setPeriodOffset((value) => value - 1),
