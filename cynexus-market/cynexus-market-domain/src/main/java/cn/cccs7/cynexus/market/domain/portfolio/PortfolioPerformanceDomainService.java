@@ -194,6 +194,20 @@ public final class PortfolioPerformanceDomainService {
                         BigDecimal quantity = trade.quantity();
                         BigDecimal impact;
                         if (trade.side() == TradeSide.BUY) {
+                            // A position opened for the first time today is a
+                            // portfolio baseline, not a gain/loss earned during
+                            // the session. Otherwise importing an existing
+                            // position would turn the difference between its
+                            // historical fill price and today's close into a
+                            // spurious one-day loss (or gain). Additional buys
+                            // into an already-open position still contribute
+                            // their execution-price impact for the day.
+                            if (openingQuantity.signum() <= 0) {
+                                // The import fee is part of the opening cost
+                                // basis as well; it must not become a loss on
+                                // the baseline day.
+                                return BigDecimal.ZERO;
+                            }
                             impact = currentPrice.subtract(trade.price()).multiply(quantity);
                         } else if (previousPrice != null) {
                             impact = trade.price().subtract(previousPrice).multiply(quantity);

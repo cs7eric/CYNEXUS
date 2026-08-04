@@ -154,6 +154,23 @@ class PortfolioPerformanceDomainServiceTest {
     }
 
     @Test
+    void doesNotTreatInitialImportedPositionAsSameDayPnl() {
+        List<PortfolioTradeBO> trades = List.of(
+                new PortfolioTradeBO(1L, "159796", "电池", PortfolioInstrumentType.ETF, TradeSide.BUY,
+                        OffsetDateTime.parse("2026-07-30T09:30:00Z"), decimal("4100"), decimal("1.40608519"),
+                        decimal("0.6"), TradeStatus.ACTIVE)
+        );
+
+        Map<String, BigDecimal> pnl = service.calculateTodayPnlBySymbol(
+                trades,
+                Map.of("159796", List.of(price("2026-07-29", "0.837"), price("2026-07-30", "0.829"))),
+                Map.of(),
+                LocalDate.parse("2026-07-30"));
+
+        assertEquals(0, decimal("0").compareTo(pnl.get("159796")));
+    }
+
+    @Test
     void ignoresStaleRealtimeQuoteWhenMarketHasNotOpenedToday() {
         List<PortfolioTradeBO> trades = List.of(
                 trade(1L, "600000", TradeSide.BUY, "100", "10", "2026-07-30T09:30:00Z")
