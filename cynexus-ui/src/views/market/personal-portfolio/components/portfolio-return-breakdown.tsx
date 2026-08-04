@@ -57,17 +57,23 @@ export function PortfolioReturnBreakdown({ overview, embedded = false, mode = "u
     const visiblePositions = displayPositions
       .filter((position) => Number.isFinite(Number(isTodayMode ? position.todayPnl : position.unrealizedPnl)))
       .sort((left, right) => Math.abs(Number(isTodayMode ? right.todayPnl : right.unrealizedPnl ?? 0)) - Math.abs(Number(isTodayMode ? left.todayPnl : left.unrealizedPnl ?? 0)))
-    const maxAbs = Math.max(...visiblePositions.map((position) => Math.abs(Number(isTodayMode ? position.todayPnl : position.unrealizedPnl ?? 0))), 1)
+    const maxAbs = Math.max(...visiblePositions.map((position) => Math.abs(Number(isTodayMode ? position.todayPnl : position.unrealizedPnl ?? 0))), 0)
+    const maxLogMagnitude = Math.log1p(maxAbs) || 1
     return visiblePositions.map((position) => {
       const pnl = Number(isTodayMode ? position.todayPnl : position.unrealizedPnl ?? 0)
       const color = holdingColor(pnl, maxAbs)
       const securityName = position.securityName ?? "名称待补充"
       const label = `${position.symbol}\n${securityName}\n${isTodayMode ? "今日 " : ""}${signedAmount(pnl)}`
+      // Raw P&L makes one outlier consume almost the entire treemap. A
+      // logarithmic weight keeps the ranking visible while reserving enough
+      // area for smaller positions to remain readable and clickable.
+      const normalizedMagnitude = Math.log1p(Math.abs(pnl)) / maxLogMagnitude
+      const areaWeight = 0.35 + normalizedMagnitude * 0.65
       return {
         name: position.symbol,
         symbol: position.symbol,
         securityName,
-        value: Math.max(Math.abs(pnl), 0.01),
+        value: Math.max(areaWeight, 0.35),
         pnl,
         returnRate: Number(position.unrealizedReturnRate ?? 0),
         todayPnl: position.todayPnl == null ? null : Number(position.todayPnl),
@@ -101,7 +107,8 @@ export function PortfolioReturnBreakdown({ overview, embedded = false, mode = "u
         roam: false,
         nodeClick: false,
         breadcrumb: { show: false },
-        nodeGap: 5,
+        nodeGap: 4,
+        squareRatio: 1.2,
         label: { show: true },
         labelLayout: { hideOverlap: true },
         data: heatmapData,
@@ -117,7 +124,7 @@ export function PortfolioReturnBreakdown({ overview, embedded = false, mode = "u
 
       {hasTrades ? <div className="p-4">
         {displayPositions.length ? <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">{isTodayMode ? "当日收益" : "当前持仓收益贡献"}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{isTodayMode ? "按今日盈亏拆解，热力图面积代表金额绝对值。" : "热力图面积代表收益绝对值，颜色深浅代表贡献大小。"}</p></div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="持仓收益视图"><Button type="button" size="sm" variant={view === "heatmap" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("heatmap")}><Grid2X2 className="mr-1.5 size-3.5" />热力图</Button><Button type="button" size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("list")}><List className="mr-1.5 size-3.5" />列表</Button></div></div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">{isTodayMode ? "当日收益" : "当前持仓收益贡献"}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{isTodayMode ? "按今日盈亏拆解，面积使用对数权重，避免大额标的吞没小项。" : "面积按收益金额压缩分配，颜色表示盈亏方向，具体金额见标签或悬停详情。"}</p></div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="持仓收益视图"><Button type="button" size="sm" variant={view === "heatmap" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("heatmap")}><Grid2X2 className="mr-1.5 size-3.5" />热力图</Button><Button type="button" size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("list")}><List className="mr-1.5 size-3.5" />列表</Button></div></div>
           {view === "heatmap" ? <div ref={heatmapRef} aria-label={isTodayMode ? "当日收益热力图" : "当前持仓收益热力图"} className="h-[360px] w-full" /> : <HoldingPnlList positions={displayPositions} mode={mode} />}
         </div> : <div className="flex min-h-[150px] items-center justify-center px-4 text-center text-xs text-muted-foreground">{isTodayMode ? "暂无可用的当日持仓收益数据。" : "当前没有仍在持有的仓位，收益主要来自已实现盈亏。"}</div>}
 
