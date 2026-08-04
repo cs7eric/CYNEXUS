@@ -67,6 +67,21 @@ class PortfolioPerformanceDomainServiceTest {
     }
 
     @Test
+    void aggregatesWeeklyPointsFromSundayThroughSaturday() {
+        PortfolioTradeBO trade = new PortfolioTradeBO(1L, "600000", "Demo", PortfolioInstrumentType.STOCK,
+                TradeSide.BUY, DAY_ONE, decimal("10"), decimal("10"), BigDecimal.ZERO, TradeStatus.ACTIVE);
+        PortfolioPerformanceResultBO result = service.calculate(
+                List.of(trade),
+                Map.of("600000", List.of(price("2026-08-01", "10"), price("2026-08-03", "12"), price("2026-08-07", "13"))),
+                Map.of(), BigDecimal.ZERO, LocalDate.parse("2026-08-01"), LocalDate.parse("2026-08-31"),
+                PortfolioPerformanceGranularity.WEEKLY);
+
+        assertEquals(2, result.points().size());
+        assertEquals(LocalDate.parse("2026-08-01"), result.points().getFirst().tradeDate());
+        assertEquals(LocalDate.parse("2026-08-07"), result.points().getLast().tradeDate());
+    }
+
+    @Test
     void calculatesTodayPnlFromPreviousCloseAndTodayTrades() {
         PortfolioTradeBO openingTrade = new PortfolioTradeBO(1L, "600000", "Demo", PortfolioInstrumentType.STOCK,
                 TradeSide.BUY, DAY_ONE, decimal("10"), decimal("10"), BigDecimal.ZERO, TradeStatus.ACTIVE);

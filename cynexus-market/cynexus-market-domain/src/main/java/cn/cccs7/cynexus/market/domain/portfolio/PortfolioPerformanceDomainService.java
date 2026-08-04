@@ -3,7 +3,6 @@ package cn.cccs7.cynexus.market.domain.portfolio;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -258,7 +257,7 @@ public final class PortfolioPerformanceDomainService {
         Map<LocalDate, List<PortfolioPerformancePointBO>> grouped = new LinkedHashMap<>();
         for (PortfolioPerformancePointBO point : dailyPoints) {
             LocalDate key = switch (granularity) {
-                case WEEKLY -> point.tradeDate().with(DayOfWeek.MONDAY);
+                case WEEKLY -> sundayWeekStart(point.tradeDate());
                 case MONTHLY -> point.tradeDate().withDayOfMonth(1);
                 case YEARLY -> point.tradeDate().withDayOfYear(1);
                 case DAILY -> point.tradeDate();
@@ -277,6 +276,10 @@ public final class PortfolioPerformanceDomainService {
             previousAssets = last.totalAssets();
         }
         return points;
+    }
+
+    private LocalDate sundayWeekStart(LocalDate date) {
+        return date.minusDays(date.getDayOfWeek().getValue() % 7L);
     }
 
     private PortfolioPerformancePointBO point(DailySnapshot snapshot, BigDecimal periodPnl, BigDecimal returnRate) {

@@ -70,6 +70,7 @@ function periodLabelFor(value: string, range: PortfolioPerformanceRange) {
   const date = parseDate(value)
   if (range === "weekly") {
     const start = new Date(date)
+    start.setDate(start.getDate() - start.getDay())
     const end = new Date(start)
     end.setDate(end.getDate() + 6)
     return `${compactDate(start)}-${compactDate(end)}`

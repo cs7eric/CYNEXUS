@@ -4,7 +4,7 @@ import { ChartNoAxesCombined, ChevronLeft, ChevronRight, CircleAlert, Loader2 } 
 import { Button } from "@/components/ui/button"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { PortfolioPerformance, PortfolioPerformancePoint, PortfolioPerformanceRange } from "@/services/market/portfolio/types"
+import type { PortfolioPerformancePoint, PortfolioPerformanceRange } from "@/services/market/portfolio/types"
 import { PortfolioIncomeCalendar } from "./portfolio-income-calendar"
 import type { PortfolioPerformanceState } from "./portfolio-performance-state"
 
@@ -53,8 +53,9 @@ interface PortfolioPerformancePanelProps {
 }
 
 export function PortfolioPerformancePanel({ state, chartView, embedded = false, onChartViewChange }: PortfolioPerformancePanelProps) {
-  const { range, setRange, performance, loading, error } = state
-  const chartData = useMemo(() => buildChartData(performance, range), [performance, range])
+  const { range, setRange, performance, periodFrom, periodTo, loading, error } = state
+  const displayPoints = useMemo(() => completePeriodPoints(performance?.points ?? [], range, periodFrom, periodTo), [performance?.points, periodFrom, periodTo, range])
+  const chartData = useMemo(() => buildChartData(displayPoints, range), [displayPoints, range])
 
   return (
     <section className={embedded ? "min-w-0" : "min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card"} aria-labelledby={embedded ? undefined : "performance-heading"} aria-label={embedded ? "收益走势" : undefined}>
@@ -67,7 +68,7 @@ export function PortfolioPerformancePanel({ state, chartView, embedded = false, 
       </div> : null}
 
       {loading ? <div className="space-y-4 p-4"><Skeleton className="h-9 w-2/3" /><Skeleton className="h-[300px] w-full" /></div> : error ? <div className="flex items-start gap-2 px-4 py-12 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">收益历史加载失败</p><p className="mt-1 break-words text-xs">{error}</p></div></div> : performance && performance.points.length ? <div className="p-4">
-        {chartView === "calendar" ? <PortfolioIncomeCalendar points={performance.points} range={range} /> : <ChartContainer config={chartConfig} className="h-[348px] w-full aspect-auto">
+        {chartView === "calendar" ? <PortfolioIncomeCalendar points={displayPoints} range={range} /> : <ChartContainer config={chartConfig} className="h-[348px] w-full aspect-auto">
           <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} fontSize={10} />
@@ -80,7 +81,7 @@ export function PortfolioPerformancePanel({ state, chartView, embedded = false, 
             </Bar>
           </ComposedChart>
         </ChartContainer>}
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground"><span>{rangeLabel(range)} · {performance.from} 至 {performance.to}</span><span>数据点 {performance.points.length}</span></div>
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground"><span>{rangeLabel(range)} · {periodFrom ?? performance.from} 至 {periodTo ?? performance.to}</span><span>数据点 {displayPoints.length}</span></div>
       </div> : <div className="flex min-h-[380px] items-center justify-center px-4 py-10 text-center"><div><Loader2 className="mx-auto size-4 text-muted-foreground" /><p className="mt-2 text-sm font-medium">暂无可计算的历史收益</p><p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">需要已确认的交易和对应标的的日线行情；导入并确认交易后会自动出现。</p></div></div>}
     </section>
   )
@@ -89,7 +90,7 @@ export function PortfolioPerformancePanel({ state, chartView, embedded = false, 
 export function PortfolioPerformanceSummary({ state, embedded = false }: { state: PortfolioPerformanceState; embedded?: boolean }) {
   const { range, performance, loading, error } = state
   const currentPeriod = performance?.points.at(-1)
-  const chartData = useMemo(() => buildChartData(performance, range), [performance, range])
+  const chartData = useMemo(() => buildChartData(performance?.points ?? [], range), [performance?.points, range])
   const viewCumulativePnl = chartData.at(-1)?.cumulativePnl ?? 0
   const currentPeriodLabel = range === "daily" ? "今日收益" : range === "weekly" ? "本周收益" : range === "monthly" ? "本月收益" : "本年收益"
 
@@ -108,17 +109,77 @@ function SummaryRow({ label, value, toneClass, detail }: { label: string; value:
   return <div className="px-4 py-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className={`mt-1 truncate font-mono text-lg font-semibold tabular-nums ${toneClass}`}>{value}</dd><p className="mt-0.5 truncate text-[11px] text-muted-foreground">{detail}</p></div>
 }
 
-function buildChartData(performance: PortfolioPerformance | null, range: PortfolioPerformanceRange) {
-  return (performance?.points ?? []).reduce<Array<PortfolioPerformancePoint & { cumulativePnl: number; label: string }>>((items, point) => {
+function buildChartData(points: PortfolioPerformancePoint[], range: PortfolioPerformanceRange) {
+  return points.reduce<Array<PortfolioPerformancePoint & { cumulativePnl: number; label: string }>>((items, point) => {
     const cumulative = (items.at(-1)?.cumulativePnl ?? 0) + Number(point.periodPnl ?? 0)
     return [...items, { ...point, cumulativePnl: cumulative, label: performanceLabel(point.tradeDate, range) }]
   }, [])
+}
+
+function completePeriodPoints(points: PortfolioPerformancePoint[], range: PortfolioPerformanceRange, from: string | null, to: string | null) {
+  if (range === "daily" || range === "custom" || !from || !to) return points
+  const starts = periodStarts(range, parseDate(from), parseDate(to))
+  const byPeriod = new Map(points.map((point) => [periodKey(point.tradeDate, range), point]))
+  let previous = points[0]
+  return starts.map((start) => {
+    const existing = byPeriod.get(periodKey(formatDate(start), range))
+    if (existing) {
+      previous = existing
+      return existing
+    }
+    return {
+      tradeDate: formatDate(start),
+      marketValue: previous?.marketValue ?? 0,
+      totalAssets: previous?.totalAssets ?? 0,
+      costBasis: previous?.costBasis ?? 0,
+      totalPnl: previous?.totalPnl ?? 0,
+      periodPnl: 0,
+      returnRate: 0,
+    }
+  })
+}
+
+function periodStarts(range: PortfolioPerformanceRange, from: Date, to: Date) {
+  const starts: Date[] = []
+  if (range === "weekly") {
+    const first = new Date(from)
+    first.setDate(first.getDate() - first.getDay())
+    const last = new Date(to)
+    last.setDate(last.getDate() - last.getDay())
+    for (const cursor = first; cursor <= last; cursor.setDate(cursor.getDate() + 7)) starts.push(new Date(cursor))
+    return starts
+  }
+  if (range === "monthly") {
+    const first = new Date(from.getFullYear(), from.getMonth(), 1)
+    const last = new Date(to.getFullYear(), to.getMonth(), 1)
+    for (const cursor = first; cursor <= last; cursor.setMonth(cursor.getMonth() + 1)) starts.push(new Date(cursor))
+    return starts
+  }
+  const first = new Date(from.getFullYear(), 0, 1)
+  const last = new Date(to.getFullYear(), 0, 1)
+  for (const cursor = first; cursor <= last; cursor.setFullYear(cursor.getFullYear() + 1)) starts.push(new Date(cursor))
+  return starts
+}
+
+function periodKey(value: string, range: PortfolioPerformanceRange) {
+  const date = parseDate(value)
+  if (range === "weekly") {
+    date.setDate(date.getDate() - date.getDay())
+    return formatDate(date)
+  }
+  if (range === "monthly") return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+  return String(date.getFullYear())
+}
+
+function formatDate(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
 }
 
 function performanceLabel(value: string, range: PortfolioPerformanceRange) {
   const date = parseDate(value)
   if (range === "weekly") {
     const start = new Date(date)
+    start.setDate(start.getDate() - start.getDay())
     const end = new Date(start)
     end.setDate(end.getDate() + 6)
     return `${compactDate(start)}-${compactDate(end)}`
