@@ -16,9 +16,14 @@ import java.util.Set;
 public final class SchedulerTriggerPolicy {
 
     private static final String MARKET_SENTIMENT_CHAIN_JOB_CODE = "market_sentiment_chain_refresh";
+    private static final Set<String> SOURCE_LATEST_DATA_JOB_KEYS = Set.of(
+            "sync_margin",
+            "sync_futures_position"
+    );
     private static final Set<String> PROGRESS_POLL_JOB_CODES = Set.of(
             MARKET_SENTIMENT_CHAIN_JOB_CODE,
-            "a_stock_fund_flow_history_bootstrap_120"
+            "a_stock_fund_flow_history_bootstrap_120",
+            "margin_stock_history_backfill"
     );
     private static final int MARKET_SENTIMENT_CHAIN_STEP_COUNT = 17;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -41,7 +46,9 @@ public final class SchedulerTriggerPolicy {
     public static Map<String, Object> triggerParams(
             SchedulerDataJobKeyResolver.ResolvedDataJob dataJob, String targetDate) {
         Map<String, Object> params = new LinkedHashMap<>(dataJob.defaultParams());
-        if (targetDate != null && !targetDate.isBlank()) {
+        if (targetDate != null
+                && !targetDate.isBlank()
+                && !SOURCE_LATEST_DATA_JOB_KEYS.contains(dataJob.jobKey())) {
             params.put("target_date", targetDate);
             params.putIfAbsent("trade_date", targetDate);
             params.putIfAbsent("snapshot_date", targetDate);

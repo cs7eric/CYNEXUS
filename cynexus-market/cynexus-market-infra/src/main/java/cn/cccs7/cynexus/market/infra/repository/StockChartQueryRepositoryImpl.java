@@ -8,6 +8,7 @@ import cn.cccs7.cynexus.market.infra.basic.entity.StockBasicPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockFundFlowSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorConstituentPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorJoinedPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.StockTurnoverSeriesSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.mapper.StockSectorMapper;
 import cn.cccs7.cynexus.market.infra.basic.service.StockBasicBasicService;
 import cn.cccs7.cynexus.market.infra.basic.service.StockFundFlowSnapshotBasicService;
@@ -223,18 +224,40 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
             return StockChartBO.StockMeta.builder()
                     .symbol(code)
                     .name(etfName == null ? code : etfName)
+                    .circMarketCap(resolveCirculatingMarketCap(code, null))
                     .build();
         }
         return StockChartBO.StockMeta.builder()
                 .symbol(row.getCode())
                 .name(etfName == null ? row.getName() : etfName)
                 .totalMarketCap(row.getTotalMarketCap())
-                .circMarketCap(row.getFloatMarketCap())
+                .circMarketCap(resolveCirculatingMarketCap(code, row.getFloatMarketCap()))
                 .industry(row.getIndustry())
                 .capStyle(row.getCapStyle())
                 .sectorIndexSymbol(row.getSectorIndexSymbol())
                 .sectorIndexName(row.getSectorIndexName())
                 .build();
+    }
+
+    private BigDecimal resolveCirculatingMarketCap(String code, BigDecimal marketCap) {
+        if (marketCap != null && marketCap.signum() > 0) {
+            return marketCap;
+        }
+        StockTurnoverSeriesSnapshotPO snapshot = stockTurnoverSeriesSnapshotBasicService.findBySymbol(code);
+        if (snapshot == null || snapshot.getCirculatingShares() == null
+                || snapshot.getCirculatingShares().signum() <= 0) {
+            return marketCap;
+        }
+        ClickHouseStockChartClient.MarketSymbol marketSymbol = new ClickHouseStockChartClient.MarketSymbol(
+                resolveMarket(null, code), code);
+        BigDecimal close = clickHouseStockChartClient.listLatestDailyQuotes(List.of(marketSymbol)).stream()
+                .findFirst()
+                .map(ClickHouseStockChartClient.DailyQuote::getClose)
+                .orElse(null);
+        if (close == null || close.signum() <= 0) {
+            return marketCap;
+        }
+        return snapshot.getCirculatingShares().multiply(close).setScale(2, RoundingMode.HALF_UP);
     }
 
     @Override

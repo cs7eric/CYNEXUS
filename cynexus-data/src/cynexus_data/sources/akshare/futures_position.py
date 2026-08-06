@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Callable, Iterable
 
 
@@ -57,6 +57,29 @@ def fetch_position_rows(
             # other exchange results and let capture-batch state expose EMPTY.
             output[exchange] = []
     return output
+
+
+def fetch_latest_position_date(
+    ak: Any,
+    *,
+    end_date: date | None = None,
+    exchanges: Iterable[str] | None = None,
+    varieties: Iterable[str] | None = None,
+    lookback_days: int = 10,
+) -> date | None:
+    """Find the newest publication date available from AkShare.
+
+    Exchange reports are often published after the trading day or become
+    available on the next trading day. The caller's current date is therefore
+    only the search anchor, never a required data date.
+    """
+    cursor = end_date or date.today()
+    for offset in range(max(0, int(lookback_days)) + 1):
+        candidate = cursor - timedelta(days=offset)
+        rows = fetch_position_rows(ak, candidate, exchanges=exchanges, varieties=varieties)
+        if any(rows.values()):
+            return candidate
+    return None
 
 
 def _records(raw: Any, requested_varieties: set[str]) -> list[dict[str, Any]]:

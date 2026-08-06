@@ -1,17 +1,6 @@
-import { Fragment } from "react"
-
 import type { MarginIndustrySummary, MarginRankingSort, MarginSortDirection } from "@/services/market/margin"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import {
   Select,
   SelectContent,
@@ -21,6 +10,7 @@ import {
 } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatNumber, formatYuanAsYi } from "../lib/format"
+import { RankingPagination } from "./ranking-pagination"
 import { SortableTableHead } from "./sortable-table-head"
 
 const SORT_OPTIONS: Array<{ value: MarginRankingSort; label: string }> = [
@@ -43,14 +33,10 @@ interface IndustryRankingTableProps {
   selectedIndustryCode?: string | null
   snapshotDate?: string | null
   onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
   onSortChange: (value: MarginRankingSort, direction?: MarginSortDirection) => void
   onIndustrySelect: (row: MarginIndustrySummary) => void
   onRefresh: () => void
-}
-
-function getPageItems(page: number, totalPages: number) {
-  const items = new Set([1, totalPages, page - 1, page, page + 1].filter((item) => item >= 1 && item <= totalPages))
-  return [...items].sort((left, right) => left - right)
 }
 
 export function IndustryRankingTable({
@@ -64,12 +50,12 @@ export function IndustryRankingTable({
   selectedIndustryCode,
   snapshotDate,
   onPageChange,
+  onPageSizeChange,
   onSortChange,
   onIndustrySelect,
   onRefresh,
 }: IndustryRankingTableProps) {
   const totalPages = Math.max(1, Math.ceil(count / pageSize))
-  const pageItems = getPageItems(page, totalPages)
   const handleSort = (column: MarginRankingSort) => {
     const nextDir: MarginSortDirection = sort === column && sortDir === "desc" ? "asc" : "desc"
     onSortChange(column, nextDir)
@@ -165,33 +151,14 @@ export function IndustryRankingTable({
           </TableBody>
         </Table>
       </div>
-      <Pagination className="mt-3 justify-end">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious disabled={page <= 1 || loading} onClick={() => onPageChange(Math.max(1, page - 1))} />
-          </PaginationItem>
-          {pageItems.map((item, index) => {
-            const previous = pageItems[index - 1]
-            return (
-              <Fragment key={item}>
-                {previous != null && item - previous > 1 ? (
-                  <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                ) : null}
-                <PaginationItem>
-                  <PaginationLink disabled={loading} isActive={item === page} onClick={() => onPageChange(item)}>
-                    {item}
-                  </PaginationLink>
-                </PaginationItem>
-              </Fragment>
-            )
-          })}
-          <PaginationItem>
-            <PaginationNext disabled={page >= totalPages || loading} onClick={() => onPageChange(Math.min(totalPages, page + 1))} />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+      <RankingPagination
+        page={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        loading={loading}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </section>
   )
 }

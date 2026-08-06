@@ -30,6 +30,26 @@ Build the Maven artifacts and Docker images first:
 .\deploy\release\start-release.ps1 -Build
 ```
 
+Deploy only the services that changed. Existing containers for all other
+services stay running:
+
+```powershell
+.\deploy\release\start-release.ps1 -Build -Services ui
+.\deploy\release\start-release.ps1 -Build -Services market,ui
+```
+
+`-Services` accepts `core`, `market`, `ai`, `gateway`, `knowledgebase`, `wechat`, and
+`ui`. Backend builds use Maven `-pl ... -am`, so shared Maven dependencies are
+built while unrelated services are left untouched. Use `-Changed` to select
+services from the current Git working tree:
+
+```powershell
+.\deploy\release\start-release.ps1 -Build -Changed
+```
+
+When neither `-Services` nor `-Changed` is supplied, the existing full Release
+deployment behavior is preserved.
+
 `-Version 1.1.1-ALPHA-260716-RELEASE` uses the matching `1.1.1-ALPHA-260716-SNAPSHOT` development artifacts and tags all Docker images as `1.1.1-ALPHA-260716-RELEASE`. When `-Version` is omitted, the script uses the current Maven base version and adds today's `YYMMDD` date when needed. Release is always Docker-managed. Development remains `1.1.1-ALPHA-260716-SNAPSHOT`.
 
 Stop the Release Docker stack:

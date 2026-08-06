@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { fetchPortfolioPerformance } from "@/services/market/portfolio/portfolio"
 import type { PortfolioPerformance, PortfolioPerformanceRange } from "@/services/market/portfolio/types"
 
@@ -15,6 +15,7 @@ export interface PortfolioPerformanceState {
   refresh: () => void
   performance: PortfolioPerformance | null
   loading: boolean
+  refreshing: boolean
   error: string | null
 }
 
@@ -23,12 +24,15 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
   const [periodOffset, setPeriodOffset] = useState(0)
   const [performance, setPerformance] = useState<PortfolioPerformance | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshToken, setRefreshToken] = useState(0)
+  const hasLoadedRef = useRef(false)
   const refresh = useCallback(() => setRefreshToken((value) => value + 1), [])
 
   const loadPerformance = useCallback(async (cancelledRef: { current: boolean }) => {
-    setLoading(true)
+    setLoading(!hasLoadedRef.current)
+    setRefreshing(true)
     setError(null)
     try {
       const window = buildPeriodWindow(range, periodOffset)
@@ -37,7 +41,11 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
     } catch (cause) {
       if (!cancelledRef.current) setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
-      if (!cancelledRef.current) setLoading(false)
+      if (!cancelledRef.current) {
+        hasLoadedRef.current = true
+        setLoading(false)
+        setRefreshing(false)
+      }
     }
   }, [periodOffset, range])
 
@@ -66,6 +74,7 @@ export function usePortfolioPerformance(): PortfolioPerformanceState {
     refresh,
     performance,
     loading,
+    refreshing,
     error,
   }
 }

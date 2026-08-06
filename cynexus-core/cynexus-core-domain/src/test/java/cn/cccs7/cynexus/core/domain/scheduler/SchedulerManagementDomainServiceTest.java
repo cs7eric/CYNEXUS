@@ -134,5 +134,9 @@ class SchedulerManagementDomainServiceTest {
         @Override public Map<String, Object> getDataJob(String jobKey) { return Map.of(); }
         @Override public DataJobTriggerResultBO triggerDataJob(String jobKey, DataJobTriggerRequestBO request) { return null; }
         @Override public Map<String, Object> getDataJobRun(String runId) { return Map.of(); }
+        @Override public Map<String, Object> startSocialLogin(String platform, String profileName) { return Map.of(); }
+        @Override public Map<String, Object> getSocialLogin(String sessionId) { return Map.of(); }
+        @Override public Map<String, Object> completeSocialLogin(String sessionId) { return Map.of(); }
+        @Override public Map<String, Object> closeSocialLogin(String sessionId) { return Map.of(); }
     }
 }

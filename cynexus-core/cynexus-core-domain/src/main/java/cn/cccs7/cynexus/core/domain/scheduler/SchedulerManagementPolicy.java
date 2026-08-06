@@ -160,8 +160,10 @@ public final class SchedulerManagementPolicy {
         if (Boolean.TRUE.equals(asBoolean(schedule.get("workday_only"))) && isWeekend(today)) {
             return 0;
         }
-        Integer everyMinutes = asInteger(schedule.get("every_minutes"));
-        if (everyMinutes != null && everyMinutes > 0) {
+        Integer everySeconds = asInteger(schedule.get("every_seconds"));
+        boolean secondCadence = everySeconds != null && everySeconds > 0;
+        Integer cadence = secondCadence ? everySeconds : asInteger(schedule.get("every_minutes"));
+        if (cadence != null && cadence > 0) {
             Object windows = schedule.get("intraday_windows");
             if (!(windows instanceof List<?> list) || list.isEmpty()) {
                 return null;
@@ -174,7 +176,10 @@ public final class SchedulerManagementPolicy {
                 LocalTime start = parseLocalTime(asString(window.get("start")));
                 LocalTime end = parseLocalTime(asString(window.get("end")));
                 if (start != null && end != null && end.isAfter(start)) {
-                    total += (int) (java.time.Duration.between(start, end).toMinutes() / everyMinutes);
+                    long interval = secondCadence
+                            ? java.time.Duration.between(start, end).getSeconds()
+                            : java.time.Duration.between(start, end).toMinutes();
+                    total += (int) (interval / cadence);
                 }
             }
             return total;

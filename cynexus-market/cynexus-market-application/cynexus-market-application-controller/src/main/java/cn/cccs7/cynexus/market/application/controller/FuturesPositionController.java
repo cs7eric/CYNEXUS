@@ -59,9 +59,10 @@ public class FuturesPositionController {
     public Result<List<FuturesPositionDTO.History>> history(@PathVariable String scopeType,
                                                              @PathVariable String exchangeCode,
                                                              @PathVariable String instrumentCode,
+                                                             @RequestParam(required = false) String tradeDate,
                                                              @RequestParam(defaultValue = "20") int top,
                                                              @RequestParam(defaultValue = "120") int limit) {
-        return Result.success(service.history(scopeType, exchangeCode, instrumentCode, top, limit));
+        return Result.success(service.history(tradeDate, scopeType, exchangeCode, instrumentCode, top, limit));
     }
 
     @GetMapping("/coverage")

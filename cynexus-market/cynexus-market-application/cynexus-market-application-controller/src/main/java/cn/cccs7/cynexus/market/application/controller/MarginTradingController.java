@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.market.application.controller;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustriesDTO;
+import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustryHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingLatestDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStocksDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStockHistoryDTO;
@@ -43,7 +44,7 @@ public class MarginTradingController {
                                                  @RequestParam(defaultValue = "desc") String sortDir,
                                                  @RequestParam(required = false) Integer page,
                                                  @RequestParam(required = false) Integer pageSize,
-                                                 @RequestParam(defaultValue = "100") int limit) {
+                                                 @RequestParam(defaultValue = "50") int limit) {
         return Result.success(marginTradingAppService.stocks(tradeDate, exchange, industryCode, sort, sortDir, page, pageSize, limit));
     }
 
@@ -60,5 +61,12 @@ public class MarginTradingController {
                                                          @RequestParam(required = false) Integer page,
                                                          @RequestParam(required = false) Integer pageSize) {
         return Result.success(marginTradingAppService.industries(tradeDate, sort, sortDir, page, pageSize));
+    }
+
+    @GetMapping("/industries/{industryCode}/history")
+    public Result<MarginTradingIndustryHistoryDTO> industryHistory(@PathVariable String industryCode,
+                                                                    @RequestParam(required = false) String tradeDate,
+                                                                    @RequestParam(defaultValue = "60") int limit) {
+        return Result.success(marginTradingAppService.industryHistory(industryCode, tradeDate, limit));
     }
 }

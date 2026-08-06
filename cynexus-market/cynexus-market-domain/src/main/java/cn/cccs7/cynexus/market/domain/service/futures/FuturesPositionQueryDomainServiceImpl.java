@@ -69,10 +69,12 @@ public class FuturesPositionQueryDomainServiceImpl implements FuturesPositionQue
     }
 
     @Override
-    public List<FuturesPositionQueryBO.History> history(String scopeType, String exchangeCode,
+    public List<FuturesPositionQueryBO.History> history(String tradeDate, String scopeType, String exchangeCode,
                                                          String instrumentCode, int top, int limit) {
+        LocalDate endDate = repository.findLatestTradeDate(policy.parseDate(tradeDate).orElse(null)).orElse(null);
+        if (endDate == null) return List.of();
         return repository.listHistory(policy.scope(scopeType), policy.exchange(exchangeCode),
-                policy.textCode(instrumentCode), policy.top(top), policy.limit(limit, 120));
+                policy.textCode(instrumentCode), policy.top(top), policy.limit(limit, 120), endDate);
     }
 
     @Override

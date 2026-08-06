@@ -2,6 +2,8 @@ package cn.cccs7.cynexus.market.infra.basic.service.impl;
 
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginAccountStatsPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustrySummaryPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryHistoryPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryConstituentPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginMarketSummaryPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginStockDetailPO;
 import cn.cccs7.cynexus.market.infra.basic.mapper.MarginTradingMapper;
@@ -63,5 +65,15 @@ public class MarginTradingBasicServiceImpl implements MarginTradingBasicService 
     @Override
     public int countIndustrySummaries(LocalDate tradeDate) {
         return marginTradingMapper.countIndustrySummaries(tradeDate);
+    }
+
+    @Override
+    public List<MarginIndustryConstituentPO> listIndustryConstituents(LocalDate tradeDate, List<String> industryCodes) {
+        return marginTradingMapper.listIndustryConstituents(tradeDate, industryCodes);
+    }
+
+    @Override
+    public List<MarginIndustryHistoryPO> listIndustryHistory(LocalDate tradeDate, String industryCode, int limit) {
+        return marginTradingMapper.listIndustryHistory(tradeDate, industryCode, limit);
     }
 }

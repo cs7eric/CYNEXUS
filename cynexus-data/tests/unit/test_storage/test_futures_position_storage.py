@@ -41,3 +41,14 @@ def test_begin_batch_keeps_selected_snapshot_until_replacement_succeeds() -> Non
 
     upsert = next(statement for statement in database.statements if "DO UPDATE SET" in statement)
     assert "selected = false" not in upsert
+
+
+def test_latest_selected_trade_date_reads_only_published_selected_batches() -> None:
+    database = _Database()
+    repository = FuturesPositionRepository(_Client(database))
+
+    assert repository.latest_selected_trade_date() == 123
+    statement = database.statements[-1]
+    assert "MAX(trade_date)" in statement
+    assert "selected IS TRUE" in statement
+    assert "status = 'SUCCEEDED'" in statement

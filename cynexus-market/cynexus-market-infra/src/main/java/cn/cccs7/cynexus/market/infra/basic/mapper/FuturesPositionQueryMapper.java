@@ -32,6 +32,6 @@ public interface FuturesPositionQueryMapper {
                                               @Param("rankType") String rankType, @Param("top") int top);
     List<FuturesPositionHistoryPO> listHistory(@Param("scopeType") String scopeType, @Param("exchangeCode") String exchangeCode,
                                                @Param("instrumentCode") String instrumentCode, @Param("top") int top,
-                                               @Param("limit") int limit);
+                                               @Param("limit") int limit, @Param("endDate") LocalDate endDate);
     List<FuturesPositionCoveragePO> listCoverage(@Param("tradeDate") LocalDate tradeDate);
 }

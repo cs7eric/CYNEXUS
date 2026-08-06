@@ -130,13 +130,37 @@ class PostgresClient:
         with self.session() as db:
             db.execute(text(f"DELETE FROM {self.schema}.task_job_lock WHERE lock_key=:lock_key AND owner=:owner"), {"lock_key": lock_key, "owner": owner})
 
-    def mark_interrupted_running_jobs(self, message: str) -> int:
+    def refresh_lock(self, lock_key: str, owner: str, expires_at: datetime) -> bool:
+        with self.session() as db:
+            row = db.execute(
+                text(
+                    f"""
+                    UPDATE {self.schema}.task_job_lock
+                       SET expires_at = :expires_at
+                     WHERE lock_key = :lock_key AND owner = :owner
+                    RETURNING lock_key
+                    """
+                ),
+                {"lock_key": lock_key, "owner": owner, "expires_at": expires_at},
+            ).first()
+            return row is not None
+
+    def mark_interrupted_running_jobs(self, message: str, job_keys: set[str] | None = None) -> int:
+        job_clause = ""
+        params: dict[str, Any] = {"message": message}
+        if job_keys:
+            placeholders = []
+            for index, job_key in enumerate(sorted(job_keys)):
+                name = f"job_key_{index}"
+                placeholders.append(f":{name}")
+                params[name] = job_key
+            job_clause = f" AND job_key IN ({', '.join(placeholders)})"
         with self.session() as db:
             rows = db.execute(
                 text(
                     f"""
                     UPDATE {self.schema}.task_job_run
-                       SET status = 'failed',
+                       SET status = 'expired',
                            success = false,
                            finished_at = now(),
                            errors = jsonb_build_array(CAST(:message AS text)),
@@ -145,10 +169,11 @@ class PostgresClient:
                            updated_at = now()
                      WHERE status = 'running'
                        AND finished_at IS NULL
+                       {job_clause}
                     RETURNING run_id
                     """
                 ),
-                {"message": message},
+                params,
             ).mappings().all()
             run_ids = [str(row["run_id"]) for row in rows]
             for run_id in run_ids:

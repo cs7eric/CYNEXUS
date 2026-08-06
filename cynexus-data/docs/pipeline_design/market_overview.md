@@ -33,6 +33,23 @@ This migration provides the PostgreSQL snapshot and merge behavior from the lega
 - If codes are omitted, the job reads active codes from `sec_stock_basic`.
 - The job summarizes total amount, total volume, rising/falling/flat counts, limit-up/down counts, and stock count.
 
+## Market indicator cache consistency
+
+The market indicator refresh pipeline stages each complete capture bundle in Redis
+before it is considered published. The bundle contains the snapshots, events,
+industry aggregates, candidate pool, capture timestamp, and schema version. A
+Redis transaction updates the immutable capture key, the pending-capture sorted
+set, and the trade-date latest pointer together.
+
+Redis capture keys expire after one day by default. PostgreSQL persistence is
+deferred until a capture is older than `persistence_interval_seconds` (default
+180 seconds). A capture is removed from the pending set only after
+`save_capture` commits successfully. Stable PostgreSQL identifiers make retries
+idempotent. Market query consumers should read the atomically published latest
+bundle first and use PostgreSQL as the durable fallback. If Redis is unavailable,
+the pipeline falls back to direct PostgreSQL persistence and reports a warning; it
+never publishes a partial Redis capture.
+
 ## Parameters
 
 - `trade_date`: optional date if not included in `fields`.

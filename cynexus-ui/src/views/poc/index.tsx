@@ -7,6 +7,7 @@
  *   3. 在 TABS_CONFIG 中加入一项即可出现在 Tab 列表
  */
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Link } from "react-router-dom"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { PocPageHeader } from "./components/poc-page-header"
 import { POC_TABS } from "./lib/tabs"
@@ -27,6 +28,13 @@ export default function PocPage() {
               {tab.label}
             </TabsTrigger>
           ))}
+          <TabsTrigger
+            value="shadcn"
+            asChild
+            className="inline-flex h-8 min-w-[140px] items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <Link to="/poc/shadcn">shadcn components</Link>
+          </TabsTrigger>
         </TabsList>
 
         {POC_TABS.map((tab) => {

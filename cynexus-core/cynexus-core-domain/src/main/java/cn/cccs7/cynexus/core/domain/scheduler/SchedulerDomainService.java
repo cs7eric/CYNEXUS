@@ -118,4 +118,12 @@ public interface SchedulerDomainService {
     DataJobTriggerResultBO triggerDataJob(String jobKey, DataJobTriggerRequestBO request);
 
     Map<String, Object> getDataJobRun(String runId);
+
+    Map<String, Object> startSocialLogin(String platform, String profileName);
+
+    Map<String, Object> getSocialLogin(String sessionId);
+
+    Map<String, Object> completeSocialLogin(String sessionId);
+
+    Map<String, Object> closeSocialLogin(String sessionId);
 }

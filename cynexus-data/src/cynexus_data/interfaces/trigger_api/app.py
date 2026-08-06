@@ -11,6 +11,7 @@ from cynexus_data.interfaces.trigger_api.f10_routes import router as f10_router
 from cynexus_data.interfaces.trigger_api.industry_application_routes import router as industry_application_router
 from cynexus_data.interfaces.trigger_api.information_content_routes import router as information_content_router
 from cynexus_data.interfaces.trigger_api.media_transcription_routes import router as media_transcription_router
+from cynexus_data.interfaces.trigger_api.social_routes import router as social_router
 from cynexus_data.interfaces.trigger_api.routes import router
 from cynexus_data.interfaces.trigger_api.routes import _context
 
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(industry_application_router)
     app.include_router(information_content_router)
     app.include_router(media_transcription_router)
+    app.include_router(social_router)
 
     @app.on_event("startup")
     def recover_interrupted_runs() -> None:

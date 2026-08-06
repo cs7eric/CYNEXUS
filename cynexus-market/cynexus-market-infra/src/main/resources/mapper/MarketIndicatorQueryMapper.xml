@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.basic.mapper.MarketIndicatorQueryMapper">
+    <sql id="candidateCtes">
+        latest_candidate_trade_date as (
+            select coalesce(#{tradeDate}, max(cp.trade_date)) as trade_date
+              from market_indicator_candidate_pool cp
+             where cp.deleted_at is null
+               and exists (
+                   select 1 from market_indicator_snapshots s
+                    where s.deleted_at is null and s.trade_date = cp.trade_date
+                      and s.captured_at = cp.captured_at and s.last_price > 0
+               )
+        ), latest_candidate_capture as (
+            select max(cp.captured_at) as captured_at
+              from market_indicator_candidate_pool cp
+             join latest_candidate_trade_date d on d.trade_date = cp.trade_date
+             where cp.deleted_at is null
+               and exists (
+                   select 1 from market_indicator_snapshots s
+                    where s.deleted_at is null and s.trade_date = cp.trade_date
+                      and s.captured_at = cp.captured_at and s.last_price > 0
+               )
+        ), candidate_codes as (
+            select distinct cp.code
+              from market_indicator_candidate_pool cp
+              join latest_candidate_trade_date d on d.trade_date = cp.trade_date
+              join latest_candidate_capture c on c.captured_at = cp.captured_at
+             where cp.deleted_at is null
+               and exists (
+                   select 1 from market_indicator_snapshots s
+                    where s.deleted_at is null and s.code = cp.code
+                      and s.trade_date = cp.trade_date and s.captured_at = cp.captured_at
+                      and s.last_price > 0
+               )
+        )
+    </sql>
+
+    <sql id="thsIndustryCtes">
+        latest_ths_date as (
+            select max(snapshot_date) as snapshot_date
+              from ths_industry_constituent_snapshot
+             where deleted_at is null
+        ), ths_mapping as (
+            select distinct on (ths_code) ths_code, ths_name, tdx_code6, tdx_name,
+                   confidence, priority
+              from tdx_ths_industry_mapping
+             where deleted_at is null
+             order by ths_code, is_primary desc nulls last, priority asc nulls last,
+                      confidence desc nulls last, tdx_code6
+        ), ths_membership as (
+            select distinct on (s.stock_code) s.stock_code as code,
+                   s.industry_code as ths_code, m.ths_name, m.tdx_code6, m.tdx_name,
+                   m.confidence
+              from ths_industry_constituent_snapshot s
+              join latest_ths_date d on d.snapshot_date = s.snapshot_date
+              left join ths_mapping m on m.ths_code = s.industry_code
+             where s.deleted_at is null
+               and s.stock_code is not null
+               and s.stock_code &lt;&gt; ''
+             order by s.stock_code, s.rank nulls last, s.industry_code
+        )
+    </sql>
+    <select id="listLatestSnapshots" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorSnapshotPO">
+        with <include refid="candidateCtes"/>, <include refid="thsIndustryCtes"/>, latest as (
+            select distinct on (s.code) s.id, s.code, s.name, s.market, s.last_price, s.prev_close, s.open_price, s.high_price, s.low_price,
+                   change_pct, amount, volume, turnover_rate, limit_up_price, limit_down_price,
+                   limit_status, source, s.captured_at
+              from market_indicator_snapshots s
+              join candidate_codes cp on cp.code = s.code
+              join latest_candidate_capture c on c.captured_at = s.captured_at
+             where s.deleted_at is null
+               and s.last_price > 0
+               and (s.change_pct is null or s.change_pct > -99.99)
+             order by s.code
+        )
+        select latest.id, latest.code, latest.name, coalesce(ths_membership.ths_name, '未分类') as industry,
+               latest.market, latest.last_price, latest.prev_close, latest.open_price, latest.high_price, latest.low_price,
+               latest.change_pct, latest.amount, latest.volume, latest.turnover_rate, latest.limit_up_price, latest.limit_down_price,
+               latest.limit_status, latest.source, latest.captured_at
+          from latest
+          left join ths_membership on ths_membership.code = latest.code
+         <if test="status != null">where limit_status = #{status}</if>
+         order by latest.captured_at desc, latest.code
+         limit #{limit}
+    </select>
+    <select id="listRecentEvents" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorEventPO">
+        with <include refid="candidateCtes"/>
+        select e.id, e.trade_date, e.code, e.name, e.market, e.event_type, e.event_at, e.signal_value, e.last_price, e.change_pct, e.limit_status, e.source
+          from market_indicator_events e
+          join candidate_codes cp on cp.code = e.code
+         where e.deleted_at is null
+           and e.last_price > 0
+           and e.change_pct > -99.99
+           and e.trade_date = (select trade_date from latest_candidate_trade_date)
+           <if test="eventType != null">and event_type = #{eventType}</if>
+         order by event_at desc
+         limit #{limit}
+    </select>
+    <select id="getBreadth" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorBreadthPO">
+        with <include refid="candidateCtes"/>, <include refid="thsIndustryCtes"/>, latest as (
+            select distinct on (s.code) s.change_pct, s.limit_status, s.captured_at
+              from market_indicator_snapshots s
+              join candidate_codes cp on cp.code = s.code
+              join latest_candidate_capture c on c.captured_at = s.captured_at
+             where s.deleted_at is null
+               and s.last_price > 0
+               and (s.change_pct is null or s.change_pct > -99.99)
+             order by s.code
+        ), events as (
+            select count(*) filter (where event_type = 'rapid_rise')::int as rapid_rise_count,
+                   count(*) filter (where event_type = 'rapid_fall')::int as rapid_fall_count
+              from market_indicator_events e
+              join candidate_codes cp on cp.code = e.code
+             where e.deleted_at is null
+               and e.trade_date = (select trade_date from latest_candidate_trade_date)
+        )
+        select count(*)::int as total_count,
+               count(*) filter (where change_pct > 0)::int as advancing_count,
+               count(*) filter (where change_pct &lt; 0)::int as declining_count,
+               count(*) filter (where change_pct is null or change_pct = 0)::int as flat_count,
+               count(*) filter (where limit_status = 'limit_up_sealed')::int as limit_up_count,
+               count(*) filter (where limit_status = 'limit_up_touch')::int as limit_up_touch_count,
+               count(*) filter (where limit_status = 'limit_down_sealed')::int as limit_down_count,
+               count(*) filter (where limit_status = 'limit_down_touch')::int as limit_down_touch_count,
+               max(captured_at) as captured_at,
+               max(events.rapid_rise_count) as rapid_rise_count,
+               max(events.rapid_fall_count) as rapid_fall_count
+          from latest cross join events
+    </select>
+    <select id="listLatestIndustries" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorIndustrySnapshotPO">
+        with <include refid="candidateCtes"/>, <include refid="thsIndustryCtes"/>, latest as (
+            select distinct on (industry_name) id, trade_date, captured_at, industry_code, industry_name, stock_count,
+                   advancing_count, declining_count, flat_count, limit_up_count, limit_up_touch_count,
+                   limit_down_count, limit_down_touch_count, rapid_rise_count, rapid_fall_count,
+                   first_limit_up_at, first_limit_up_code, first_limit_up_name, first_limit_up_change_pct,
+                   first_event_at, first_event_code, first_event_name, first_event_type,
+                   first_event_signal_value, source
+              from market_indicator_industry_snapshots
+             where deleted_at is null
+               and trade_date = (select trade_date from latest_candidate_trade_date)
+               and captured_at = (select captured_at from latest_candidate_capture)
+             order by industry_name, captured_at desc
+        ), first_limit as (
+            select distinct on (m.ths_name) m.ths_name as industry_name,
+                   e.event_at as first_limit_up_at, e.code as first_limit_up_code,
+                   e.name as first_limit_up_name, e.change_pct as first_limit_up_change_pct
+              from market_indicator_events e
+              join candidate_codes cp on cp.code = e.code
+              join ths_membership m on m.code = e.code
+             where e.deleted_at is null
+               and e.trade_date = (select trade_date from latest_candidate_trade_date)
+               and e.event_type in ('limit_up_touch', 'limit_up_sealed')
+             order by m.ths_name, e.event_at, e.code
+        ), first_event as (
+            select distinct on (m.ths_name) m.ths_name as industry_name,
+                   e.event_at as first_event_at, e.code as first_event_code,
+                   e.name as first_event_name, e.event_type as first_event_type,
+                   e.signal_value as first_event_signal_value
+              from market_indicator_events e
+              join candidate_codes cp on cp.code = e.code
+              join ths_membership m on m.code = e.code
+             where e.deleted_at is null
+               and e.trade_date = (select trade_date from latest_candidate_trade_date)
+             order by m.ths_name, e.event_at, e.code
+        )
+        select latest.id, latest.trade_date, latest.captured_at, latest.industry_code, latest.industry_name,
+               latest.stock_count, latest.advancing_count, latest.declining_count, latest.flat_count,
+               latest.limit_up_count, latest.limit_up_touch_count, latest.limit_down_count, latest.limit_down_touch_count,
+               latest.rapid_rise_count, latest.rapid_fall_count,
+               coalesce(first_limit.first_limit_up_at, latest.first_limit_up_at) as first_limit_up_at,
+               coalesce(first_limit.first_limit_up_code, latest.first_limit_up_code) as first_limit_up_code,
+               coalesce(first_limit.first_limit_up_name, latest.first_limit_up_name) as first_limit_up_name,
+               coalesce(first_limit.first_limit_up_change_pct, latest.first_limit_up_change_pct) as first_limit_up_change_pct,
+               coalesce(first_event.first_event_at, latest.first_event_at) as first_event_at,
+               coalesce(first_event.first_event_code, latest.first_event_code) as first_event_code,
+               coalesce(first_event.first_event_name, latest.first_event_name) as first_event_name,
+               coalesce(first_event.first_event_type, latest.first_event_type) as first_event_type,
+               coalesce(first_event.first_event_signal_value, latest.first_event_signal_value) as first_event_signal_value,
+               latest.source
+          from latest
+          left join first_limit on first_limit.industry_name = latest.industry_name
+          left join first_event on first_event.industry_name = latest.industry_name
+         order by limit_up_count desc, rapid_rise_count desc, declining_count desc, industry_name
+         limit #{limit}
+    </select>
+    <select id="listIndustryConstituents" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorSnapshotPO">
+        with <include refid="candidateCtes"/>, <include refid="thsIndustryCtes"/>, latest as (
+            select distinct on (s.code) s.id, s.code, s.name, s.market, s.last_price, s.prev_close, s.open_price, s.high_price, s.low_price,
+                   change_pct, amount, volume, turnover_rate, limit_up_price, limit_down_price,
+                   limit_status, source, s.captured_at
+              from market_indicator_snapshots s
+              join candidate_codes cp on cp.code = s.code
+              join latest_candidate_capture c on c.captured_at = s.captured_at
+             where s.deleted_at is null
+               and s.last_price > 0
+               and (s.change_pct is null or s.change_pct > -99.99)
+             order by s.code
+        )
+        select latest.id, latest.code, latest.name, coalesce(ths_membership.ths_name, '未分类') as industry, latest.market,
+               latest.last_price, latest.prev_close, latest.open_price, latest.high_price, latest.low_price,
+               latest.change_pct, latest.amount, latest.volume, latest.turnover_rate,
+               latest.limit_up_price, latest.limit_down_price, latest.limit_status, latest.source, latest.captured_at
+          from latest
+          join candidate_codes cp on cp.code = latest.code
+          join ths_membership on ths_membership.code = latest.code
+         where ths_membership.ths_code = #{industryCode}
+         order by abs(latest.change_pct) desc nulls last, latest.code
+         offset #{offset}
+         limit #{limit}
+    </select>
+    <select id="getIndustrySummary" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorIndustrySummaryPO">
+        with <include refid="candidateCtes"/>, <include refid="thsIndustryCtes"/>, latest as (
+            select distinct on (s.code) s.code, s.change_pct, s.captured_at
+              from market_indicator_snapshots s
+              join candidate_codes cp on cp.code = s.code
+              join latest_candidate_capture c on c.captured_at = s.captured_at
+             where s.deleted_at is null
+               and s.last_price > 0
+               and (s.change_pct is null or s.change_pct > -99.99)
+             order by s.code
+        )
+        select ths_mapping.ths_code as industry_code, ths_mapping.ths_name as industry_name, 'THS90' as category_label,
+               count(distinct latest.code)::int as total_count,
+               count(*) filter (where latest.change_pct > 0)::int as advancing_count,
+               count(*) filter (where latest.change_pct &lt; 0)::int as declining_count,
+               count(*) filter (where latest.change_pct is null or latest.change_pct = 0)::int as flat_count,
+               round(avg(latest.change_pct), 2) as average_change_pct,
+               max(latest.captured_at) as captured_at
+          from ths_mapping
+          join ths_membership membership on membership.ths_code = ths_mapping.ths_code
+          join latest on latest.code = membership.code
+         where ths_mapping.ths_code = #{industryCode}
+         group by ths_mapping.ths_code, ths_mapping.ths_name
+    </select>
+    <select id="listIndustryRelations" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorIndustryRelationPO">
+        with <include refid="candidateCtes"/>, <include refid="thsIndustryCtes"/>, latest as (
+            select distinct on (s.code) s.code, s.change_pct
+              from market_indicator_snapshots s
+              join candidate_codes cp on cp.code = s.code
+              join latest_candidate_capture c on c.captured_at = s.captured_at
+             where s.deleted_at is null
+               and s.last_price > 0
+               and (s.change_pct is null or s.change_pct > -99.99)
+             order by s.code
+        ), source_mapping as (
+            select tdx_code6
+              from ths_mapping
+             where ths_code = #{industryCode}
+        ), candidates as (
+            select related.ths_code, related.ths_name, related.confidence, related.tdx_code6
+              from ths_mapping related
+              join source_mapping source on source.tdx_code6 = related.tdx_code6
+             where related.ths_code &lt;&gt; #{industryCode}
+        ), target_stats as (
+            select candidates.ths_code, candidates.ths_name, candidates.confidence,
+                   count(distinct latest.code)::int as target_stock_count,
+                   count(*) filter (where latest.change_pct > 0)::int as advancing_count,
+                   count(*) filter (where latest.change_pct &lt; 0)::int as declining_count,
+                   count(*) filter (where latest.change_pct is null or latest.change_pct = 0)::int as flat_count,
+                   round(avg(latest.change_pct), 2) as average_change_pct
+              from candidates
+              join ths_membership membership on membership.ths_code = candidates.ths_code
+              left join latest on latest.code = membership.code
+             group by candidates.ths_code, candidates.ths_name, candidates.confidence
+            having count(distinct latest.code) > 0
+        )
+        select target_stats.ths_code as industry_code, target_stats.ths_name as industry_name,
+               'THS90 + TDX56' as category_label,
+               0::int as overlap_count,
+               (select count(distinct latest.code)::int
+                  from ths_membership source_members
+                  join latest on latest.code = source_members.code
+                 where source_members.ths_code = #{industryCode}) as source_stock_count,
+               target_stats.target_stock_count,
+               target_stats.advancing_count, target_stats.declining_count, target_stats.flat_count,
+               target_stats.average_change_pct, target_stats.confidence as average_relation_level
+          from target_stats
+         order by target_stats.target_stock_count desc, abs(target_stats.average_change_pct) desc nulls last, target_stats.ths_name
+         limit #{limit}
+    </select>
+
+    <select id="listTransmissionEpisodes" resultType="map">
+        select episode_id, trade_date, sector_type, sector_code, sector_name, direction, stage,
+               started_at, confirmed_at, last_evidence_at, eligible_count, observed_count, responded_count,
+               coverage_ratio, coverage_peak, median_lag_seconds, p75_lag_seconds,
+               sector_equal_return_pct, sector_median_return_pct, ex_leader_return_pct,
+               benchmark_excess_pct, breadth_delta_pct_point, confidence_score, confidence_level,
+               data_quality_grade, algorithm_version, payload::text as payload
+          from market_indicator_sector_episodes
+         where deleted_at is null
+           <if test="tradeDate != null">and trade_date = #{tradeDate}</if>
+         order by last_evidence_at desc, confidence_score desc nulls last
+         limit #{limit}
+    </select>
+
+    <select id="listTransmissionAdvice" resultType="map">
+        select advice_id, episode_id, target_type, target_code, target_name, position_state, action_class,
+               generated_at, as_of, valid_until, horizon, confidence, disclaimer_code, policy_version,
+               payload::text as payload
+          from market_indicator_trade_reference_advice
+         where deleted_at is null
+           <if test="tradeDate != null">and generated_at::date = #{tradeDate}</if>
+         order by generated_at desc, confidence desc nulls last
+         limit #{limit}
+    </select>
+
+    <select id="listTransmissionOutcomes" resultType="map">
+        select episode_id, anchor_type, evaluated_at, outcome, algorithm_version, payload::text as payload
+          from market_indicator_episode_outcomes
+         where deleted_at is null
+           <if test="tradeDate != null">and evaluated_at::date = #{tradeDate}</if>
+         order by evaluated_at desc
+         limit #{limit}
+    </select>
+</mapper>

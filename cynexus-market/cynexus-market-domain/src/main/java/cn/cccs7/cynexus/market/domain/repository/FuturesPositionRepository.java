@@ -23,7 +23,7 @@ public interface FuturesPositionRepository {
                                                     String rankType, int top);
 
     List<FuturesPositionQueryBO.History> listHistory(String scopeType, String exchangeCode,
-                                                     String instrumentCode, int top, int limit);
+                                                     String instrumentCode, int top, int limit, LocalDate endDate);
 
     List<FuturesPositionQueryBO.CoverageItem> listCoverage(LocalDate tradeDate);
 }

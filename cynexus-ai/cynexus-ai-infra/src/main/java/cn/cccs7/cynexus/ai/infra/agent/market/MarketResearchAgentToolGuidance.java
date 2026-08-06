@@ -24,8 +24,20 @@ final class MarketResearchAgentToolGuidance {
             "Do not use the refresh or target-configuration endpoints through the Agent.");
     static final String MARGIN = guidance(
             "Read bounded margin-trading summaries, rankings, and stock history.",
-            "Use when the user asks about margin balance, industry ranking, or a stock's margin history.",
+            "Use when the user asks about margin balance, industry ranking, or a stock or industry's margin history.",
             "Do not treat margin balance as a standalone buy or sell signal.");
+    static final String INDICATOR = guidance(
+            "Read full-market indicator snapshots when available, sector transmission episodes, replay outcomes, conditional trade references, and industry detail.",
+            "Use when the user asks who led a sector move, whether followers confirmed it, what market context accompanied the anomaly, or how an episode performed afterward.",
+            "Treat coverage, freshness, data quality, counter-evidence, and invalidation conditions as mandatory. Conditional references are auxiliary research only; never present them as guaranteed buy/sell instructions or automatic trading.");
+    static final String ETF = guidance(
+            "Read the bounded ETF market snapshot, trend, breadth, rotation, and flow proxies.",
+            "Use when the user asks about broad or sector ETF rotation, subscription proxies, premium, or ETF breadth.",
+            "Treat subscription and flow fields as proxies and do not present them as verified fund creations or trading signals.");
+    static final String FUTURES_POSITION = guidance(
+            "Read bounded futures-position aggregates, members, history, and data coverage.",
+            "Use when the user asks about IF, IH, IM, or IC position structure, member ranking, history, or source coverage.",
+            "Do not use this read tool to produce a buy or sell recommendation; use the separate facts-only analysis capability when grounded analysis is requested.");
     static final String PULSE = guidance(
             "Read market pulse snapshots, heatmaps, style-sector catalogs, and constituents.",
             "Use for market structure, sector rotation, heatmap, or index-return context.",

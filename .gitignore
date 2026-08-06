@@ -51,6 +51,7 @@ deploy/release/*.log
 deploy/release/*.error.log
 deploy/release/*.pids.json
 deploy/release/.trusted-identity-secret
+deploy/release/wechat-images/
 deploy/dev/.trusted-identity-secret
 
 # local docker infra data

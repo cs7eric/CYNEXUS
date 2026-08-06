@@ -71,16 +71,20 @@ class JobStore:
             return self._client.get_job_run(run_id)
         return self._runs.get(run_id)
 
-    def mark_interrupted_running_jobs(self, message: str) -> int:
+    def mark_interrupted_running_jobs(self, message: str, job_keys: set[str] | None = None) -> int:
         if self._client is not None:
             return int(self._client.mark_interrupted_running_jobs(message))
         count = 0
         now = datetime.now(timezone.utc)
         for record in self._runs.values():
-            if record.get("status") == "running" and record.get("finished_at") is None:
+            if (
+                record.get("status") == "running"
+                and record.get("finished_at") is None
+                and (not job_keys or record.get("job_key") in job_keys)
+            ):
                 record.update(
                     {
-                        "status": "failed",
+                        "status": "expired",
                         "success": False,
                         "finished_at": now,
                         "errors": [message],

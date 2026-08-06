@@ -1,0 +1,45 @@
+DO $$
+DECLARE
+    v_job_id bigint;
+BEGIN
+    SELECT id INTO v_job_id
+      FROM cynexus_appl_core.scheduler_jobs
+     WHERE code = 'market_indicator_refresh' AND deleted_at IS NULL
+     LIMIT 1;
+
+    IF v_job_id IS NULL THEN
+        RAISE EXCEPTION 'market_indicator_refresh scheduler job is missing; apply 20260727_schedule_market_indicator_refresh.sql first';
+    END IF;
+
+    UPDATE cynexus_appl_core.scheduler_jobs
+       SET description = '交易时段每 1 分钟刷新过去一年出现过涨停或跌停的去重股票池。',
+           extra = jsonb_build_object(
+               'job_name', 'market_indicator_refresh',
+               'data_job_key', 'market_indicator_refresh',
+               'schedule', jsonb_build_object(
+                   'every_minutes', 1, 'workday_only', true,
+                   'intraday_windows', jsonb_build_array(
+                       jsonb_build_object('start', '09:30', 'end', '11:30'),
+                       jsonb_build_object('start', '13:00', 'end', '15:05')
+                   )
+               ),
+               'default_params', jsonb_build_object(
+                   'create_table', true, 'limit_history_days', 365,
+                   'pool_size', 8, 'batch_size', 80, 'timeout', 8,
+                   'rapid_change_pct', 1.0, 'max_gap_minutes', 5
+               )
+           ),
+           updated_at = now(),
+           remark = 'migration:20260728_schedule_market_indicator_refresh'
+     WHERE id = v_job_id;
+
+    UPDATE cynexus_appl_core.scheduler_job_statuses
+       SET is_enabled = TRUE,
+           is_running = FALSE,
+           schedule = '{"every_minutes":1,"workday_only":true,"intraday_windows":[{"start":"09:30","end":"11:30"},{"start":"13:00","end":"15:05"}]}'::jsonb,
+           timezone_offset_hours = 8,
+           tick_seconds = 30,
+           updated_at = now(),
+           remark = 'migration:20260728_schedule_market_indicator_refresh'
+     WHERE job_id = v_job_id AND deleted_at IS NULL;
+END $$;

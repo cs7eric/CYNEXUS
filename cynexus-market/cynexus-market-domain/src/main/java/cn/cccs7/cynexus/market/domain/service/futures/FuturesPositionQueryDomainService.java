@@ -15,7 +15,7 @@ public interface FuturesPositionQueryDomainService {
                                                           String exchangeCode, String instrumentCode,
                                                           String rankType, int top);
 
-    java.util.List<FuturesPositionQueryBO.History> history(String scopeType, String exchangeCode,
+    java.util.List<FuturesPositionQueryBO.History> history(String tradeDate, String scopeType, String exchangeCode,
                                                             String instrumentCode, int top, int limit);
 
     FuturesPositionQueryBO.Coverage coverage(String tradeDate);

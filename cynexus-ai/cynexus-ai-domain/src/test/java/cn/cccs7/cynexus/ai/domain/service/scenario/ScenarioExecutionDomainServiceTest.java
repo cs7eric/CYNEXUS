@@ -76,7 +76,39 @@ class ScenarioExecutionDomainServiceTest {
         assertThat(prompt).contains("BUY").contains("SELL");
         assertThat(prompt).contains("ETF").contains("历史成交");
         assertThat(prompt).contains("instrumentType").contains("STOCK");
+        assertThat(prompt).contains("共享日期").contains("HH:mm:ss");
         assertThat(prompt).contains("candidate context");
+        assertThat(prompt).doesNotContain("transactionType");
+    }
+
+    @Test
+    void preparesWechatImageRouteScenarioWithDedicatedCapability() {
+        AiModelBO model = AiModelBO.builder()
+                .modelCode("vision-model").enabled(true)
+                .capability(ModelCapability.builder().visionSupported(true).structuredOutputSupported(true).build())
+                .build();
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(AiUsageBindingBO.builder().capability("wechat_image_route").enabled(true).build(), model),
+                emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+
+        var prepared = service.prepareVisionExecution("wechat_image_route", null, "image metadata");
+
+        assertThat(prepared.getScenario().getScenarioCode()).isEqualTo("wechat_image_route");
+        assertThat(prepared.getScenario().getScenarioName()).contains("WeChat");
+        assertThat(prepared.getCapability()).isEqualTo("wechat_image_route");
+        assertThat(prepared.getModel()).isSameAs(model);
+    }
+
+    @Test
+    void usesWechatRouteFallbackPromptWhenBoundPromptIsUnavailable() {
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(null, null), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+
+        String prompt = service.resolveVisionPrompt("wechat_image_route", "stored image metadata");
+
+        assertThat(prompt).contains("微信图片路由分类器");
+        assertThat(prompt).contains("ACCOUNTING_RECEIPT").contains("PORTFOLIO_TRADE").contains("UNKNOWN");
+        assertThat(prompt).contains("stored image metadata");
         assertThat(prompt).doesNotContain("transactionType");
     }
 

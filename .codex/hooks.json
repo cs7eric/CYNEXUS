@@ -1,0 +1,17 @@
+{
+  "description": "Cynexus lightweight workspace and version checks.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .codex/hooks/stop-check.ps1",
+            "statusMessage": "Checking Cynexus workspace invariants",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

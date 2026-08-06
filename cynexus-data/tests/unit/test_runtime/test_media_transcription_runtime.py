@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from cynexus_data.runtime.context import PipelineContext
-from cynexus_data.runtime.media_transcription_runtime import MediaTranscriptionRuntime
+from cynexus_data.runtime.media_transcription_runtime import (
+    MediaTranscriptionRuntime,
+    _build_download_filename,
+    _build_storage_filename,
+)
 
 
 class EchoTranscriber:
@@ -40,3 +44,14 @@ def test_media_transcription_runtime_completes_task(monkeypatch, tmp_path: Path)
     file_name, content = runtime.export_markdown("task-1")
     assert file_name == "Demo.md"
     assert "## Transcript" in content.decode("utf-8")
+
+
+def test_download_filename_is_utf8_byte_bounded_and_storage_name_is_task_scoped() -> None:
+    file_name = _build_download_filename(
+        "https://example.com/video.mp4",
+        "配置要分七层" * 80 + "😵‍💫",
+        "audio/mpeg",
+    )
+
+    assert len(file_name.encode("utf-8")) <= 120
+    assert _build_storage_filename("task-123", file_name) == "task-123.mp3"

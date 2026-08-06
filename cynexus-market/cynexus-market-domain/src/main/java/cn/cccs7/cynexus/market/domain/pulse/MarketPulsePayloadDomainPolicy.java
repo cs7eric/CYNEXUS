@@ -82,16 +82,19 @@ public final class MarketPulsePayloadDomainPolicy {
         } else {
             normalizeLimitBlock((ObjectNode) value.get("limitUp"), snapshot.getLimitUpCount());
         }
+        mergeStockNames(array((ObjectNode) value.get("limitUp"), "stocks"), limitUpStocks);
         if (!value.hasNonNull("limitDown")) {
             value.set("limitDown", limitBlock("跌停", snapshot.getLimitDownCount(), limitDownStocks));
         } else {
             normalizeLimitBlock((ObjectNode) value.get("limitDown"), snapshot.getLimitDownCount());
         }
+        mergeStockNames(array((ObjectNode) value.get("limitDown"), "stocks"), limitDownStocks);
         if (!value.hasNonNull("breakBoard")) {
             value.set("breakBoard", breakBoard(snapshot, brokenStocks));
         } else {
             ensureArray((ObjectNode) value.get("breakBoard"), "brokenStocks");
         }
+        mergeStockNames(array((ObjectNode) value.get("breakBoard"), "brokenStocks"), brokenStocks);
         ObjectNode streak = value.hasNonNull("streak") && value.get("streak").isObject()
                 ? (ObjectNode) value.get("streak") : mapper.createObjectNode();
         value.set("streak", streak);
@@ -102,12 +105,14 @@ public final class MarketPulsePayloadDomainPolicy {
             putNullable(streak, "maxHeight", snapshot.getMaxStreakHeight());
         }
         ensureArray(streak, "leaders");
+        mergeStockNames(array(streak, "leaders"), limitUpStocks);
         ArrayNode distribution = array(streak, "distribution");
         for (JsonNode rowNode : distribution) {
             if (rowNode.isObject()) {
                 ObjectNode row = (ObjectNode) rowNode;
                 copyIfMissing(row, "streak", "height");
                 ensureArray(row, "stocks");
+                mergeStockNames(array(row, "stocks"), limitUpStocks);
             }
         }
         fillDistributionStocks(streak, value.path("limitUp").path("stocks"));
@@ -129,6 +134,7 @@ public final class MarketPulsePayloadDomainPolicy {
             broken.put("highStreakBrokenCount", 0);
         }
         ensureArray(broken, "stocks");
+        mergeStockNames(array(broken, "stocks"), brokenStocks);
         ObjectNode sentiment = streak.hasNonNull("sentiment") && streak.get("sentiment").isObject()
                 ? (ObjectNode) streak.get("sentiment") : mapper.createObjectNode();
         streak.set("sentiment", sentiment);
@@ -182,6 +188,36 @@ public final class MarketPulsePayloadDomainPolicy {
             putNullable(block, "count", count);
         }
         ensureArray(block, "stocks");
+    }
+
+    private void mergeStockNames(ArrayNode target, List<MarketLimitDailyStockBO> source) {
+        if (target == null || source == null || source.isEmpty()) {
+            return;
+        }
+        Map<String, String> namesByCode = new LinkedHashMap<>();
+        for (MarketLimitDailyStockBO stock : source) {
+            if (stock == null
+                    || stock.getCode() == null
+                    || stock.getCode().isBlank()
+                    || stock.getName() == null
+                    || stock.getName().isBlank()) {
+                continue;
+            }
+            namesByCode.put(stock.getCode().trim(), stock.getName().trim());
+        }
+        for (JsonNode node : target) {
+            if (!node.isObject()) {
+                continue;
+            }
+            ObjectNode stock = (ObjectNode) node;
+            if (!blank(stock, "name")) {
+                continue;
+            }
+            String name = namesByCode.get(stock.path("code").asText().trim());
+            if (name != null) {
+                stock.put("name", name);
+            }
+        }
     }
 
     private void fillDistributionStocks(ObjectNode streak, JsonNode limitUpStocks) {

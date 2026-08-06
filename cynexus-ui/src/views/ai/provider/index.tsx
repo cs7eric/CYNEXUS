@@ -4,12 +4,13 @@ import {
   BrainCircuit,
   CheckCircle2,
   Database,
-  GitBranch,
   Plus,
   RefreshCw,
   Route,
   Save,
+  Search,
   Trash2,
+  Wrench,
   X,
 } from "lucide-react"
 
@@ -29,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { WorkspaceShell } from "@/layout/workspace-shell"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   type AiBindingItem,
   type AiCapability,
@@ -41,14 +43,20 @@ import {
   createAiProvider,
   deleteAiProvider,
   fetchAiBindings,
-  fetchAiCapabilities,
   fetchAiProviderTypes,
   fetchAiProviders,
+  buildAiCapabilitiesFromBindings,
   normalizeAiReasoningEffort,
   updateAiProvider,
   upsertAiBinding,
 } from "@/services/ai/provider"
-import { updateAgentCapabilityGovernance } from "@/services/ai/agent"
+import {
+  fetchAgentCapabilities,
+  fetchAgentTools,
+  type AgentCapability,
+  type AgentToolDefinition,
+  updateAgentCapabilityGovernance,
+} from "@/services/ai/agent"
 import { cn } from "@/lib/utils"
 import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
 
@@ -99,6 +107,76 @@ type BindingDraft = {
   promptId: string
   params: Record<string, unknown>
   reasoningEffort: AiReasoningEffort
+}
+
+type AgentRoutingRow = {
+  kind: "capability" | "tool" | "both"
+  code: string
+  name: string
+  module: string
+  description: string
+  routeGroup: string
+  runtimeEntry: string
+  readOnly: boolean
+  requiresConfirmation: boolean
+  availability: string
+  source: string
+  freshness: string
+}
+
+function agentCapabilityRow(item: AgentCapability): AgentRoutingRow {
+  return {
+    kind: "capability",
+    code: item.capabilityCode,
+    name: item.name,
+    module: item.module,
+    description: item.description,
+    routeGroup: item.routeGroup || `Agent / ${item.module}`,
+    runtimeEntry: item.runtimeEntry || "Agent runtime",
+    readOnly: item.readOnly,
+    requiresConfirmation: item.requiresConfirmation,
+    availability: item.availability || "UNKNOWN",
+    source: item.source || "registry",
+    freshness: item.freshness || "unknown",
+  }
+}
+
+function agentToolRow(item: AgentToolDefinition): AgentRoutingRow {
+  return {
+    kind: "tool",
+    code: item.code,
+    name: item.name,
+    module: item.module,
+    description: item.description,
+    routeGroup: item.routeGroup || `Agent / ${item.module}`,
+    runtimeEntry: item.runtimeEntry || "Agent runtime",
+    readOnly: item.readOnly,
+    requiresConfirmation: item.requiresConfirmation,
+    availability: item.availability || "UNKNOWN",
+    source: item.source || "catalog",
+    freshness: item.freshness || "unknown",
+  }
+}
+
+function mergeAgentRoutingRows(agentCapabilities: AgentCapability[], agentTools: AgentToolDefinition[]): AgentRoutingRow[] {
+  const rows = new Map<string, AgentRoutingRow>()
+  agentCapabilities.forEach((item) => rows.set(item.capabilityCode, agentCapabilityRow(item)))
+  agentTools.forEach((item) => {
+    const existing = rows.get(item.code)
+    if (!existing) {
+      rows.set(item.code, agentToolRow(item))
+      return
+    }
+    rows.set(item.code, {
+      ...existing,
+      kind: "both",
+      runtimeEntry: item.runtimeEntry || existing.runtimeEntry,
+      availability: item.availability || existing.availability,
+      source: item.source || existing.source,
+      freshness: item.freshness || existing.freshness,
+    })
+  })
+  return [...rows.values()].sort((a, b) => a.routeGroup.localeCompare(b.routeGroup) || a.name.localeCompare(b.name))
 }
 
 function normalizeBindingReasoning(params: Record<string, unknown>): AiReasoningEffort {
@@ -182,6 +260,8 @@ export default function AiProviderSettingsPage() {
   const [bindings, setBindings] = useState<AiBindingItem[]>([])
   const [prompts, setPrompts] = useState<AiPromptItem[]>([])
   const [capabilities, setCapabilities] = useState<AiCapability[]>([])
+  const [agentCapabilities, setAgentCapabilities] = useState<AgentCapability[]>([])
+  const [agentTools, setAgentTools] = useState<AgentToolDefinition[]>([])
   const [draft, setDraft] = useState<ProviderDraft>(emptyDraft)
   const [selectedProviderId, setSelectedProviderId] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -195,6 +275,10 @@ export default function AiProviderSettingsPage() {
   const [bindingDrafts, setBindingDrafts] = useState<Record<string, BindingDraft>>({})
   const [bindingSaveTimers, setBindingSaveTimers] = useState<Record<string, number>>({})
   const [savingGovernance, setSavingGovernance] = useState("")
+  const [routingView, setRoutingView] = useState<"ai" | "tools">("ai")
+  const [routingQuery, setRoutingQuery] = useState("")
+  const [routingGroup, setRoutingGroup] = useState("all")
+  const [routingScope, setRoutingScope] = useState<"all" | "attention">("all")
 
   const selectedProvider = useMemo(
     () => providers.find((item) => item.id === selectedProviderId) || null,
@@ -205,18 +289,21 @@ export default function AiProviderSettingsPage() {
     setLoading(true)
     setError("")
     try {
-      const [nextCapabilities, nextProviders, nextBindings, nextPrompts] = await Promise.all([
-        fetchAiCapabilities(),
+      const [nextProviders, nextBindings, nextPrompts, nextAgentCapabilities, nextTools] = await Promise.all([
         fetchAiProviders(),
         fetchAiBindings(),
         fetchAiPrompts({ status: "active" }),
+        fetchAgentCapabilities().catch(() => []),
+        fetchAgentTools().catch(() => []),
       ])
       const nextProviderTypes = await fetchAiProviderTypes()
-      setCapabilities(nextCapabilities)
+      setCapabilities(buildAiCapabilitiesFromBindings(nextBindings))
       setProviderTypes(nextProviderTypes)
       setProviders(nextProviders)
       setBindings(nextBindings)
       setPrompts(nextPrompts)
+      setAgentCapabilities(nextAgentCapabilities)
+      setAgentTools(nextTools)
       setBindingDrafts(
         Object.fromEntries(
           nextBindings.map((binding) => [
@@ -274,12 +361,50 @@ export default function AiProviderSettingsPage() {
       const issues = routeIssues(provider, effectiveModel)
       const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "") || promptId !== (binding?.prompt_id || "") || reasoningEffort !== normalizeBindingReasoning(binding?.params || {})
       return { capability, binding, providerId, provider, modelOverride, promptId, reasoningEffort, effectiveModel, issues, dirty }
-    }),
+    }).sort((a, b) => a.capability.group.localeCompare(b.capability.group) || a.capability.label.localeCompare(b.capability.label)),
     [bindingByCapability, bindingDrafts, capabilities, providerById],
   )
 
   const issueCount = routeRows.filter((row) => row.issues.length > 0).length
   const activeBindingCount = routeRows.filter((row) => row.binding?.is_enabled).length
+
+  const agentRoutingRows = useMemo(
+    () => mergeAgentRoutingRows(agentCapabilities, agentTools),
+    [agentCapabilities, agentTools],
+  )
+
+  const routingGroups = useMemo(
+    () => (routingView === "tools"
+      ? uniq(agentRoutingRows.map((tool) => tool.routeGroup))
+      : uniq(capabilities.map((capability) => capability.group))
+    ).sort((a, b) => a.localeCompare(b)),
+    [agentRoutingRows, capabilities, routingView],
+  )
+
+  const normalizedRoutingQuery = routingQuery.trim().toLowerCase()
+  const filteredRouteRows = useMemo(
+    () => routeRows.filter(({ capability, issues }) => {
+      const matchesGroup = routingGroup === "all" || capability.group === routingGroup
+      const haystack = [capability.label, capability.code, capability.group, capability.description, ...(capability.aliases || [])]
+        .join(" ")
+        .toLowerCase()
+      const matchesQuery = !normalizedRoutingQuery || haystack.includes(normalizedRoutingQuery)
+      const matchesAttention = routingView !== "ai" || routingScope === "all" || issues.length > 0
+      return matchesGroup && matchesQuery && matchesAttention
+    }),
+    [normalizedRoutingQuery, routeRows, routingGroup, routingScope, routingView],
+  )
+
+  const filteredAgentTools = useMemo(
+    () => agentRoutingRows.filter((tool) => {
+      const matchesGroup = routingGroup === "all" || tool.routeGroup === routingGroup
+      const haystack = [tool.name, tool.code, tool.routeGroup, tool.module, tool.description, tool.runtimeEntry]
+        .join(" ")
+        .toLowerCase()
+      return matchesGroup && (!normalizedRoutingQuery || haystack.includes(normalizedRoutingQuery))
+    }),
+    [agentRoutingRows, normalizedRoutingQuery, routingGroup],
+  )
 
   async function handleSaveProvider() {
     if (!draft.code.trim() || !draft.name.trim()) {
@@ -506,12 +631,12 @@ export default function AiProviderSettingsPage() {
         ) : null}
 
         <div className="space-y-4">
-          <section className="rounded-lg bg-[#f9f9f9] p-3">
+          <section className="rounded-lg bg-muted/40 p-3">
             <div className="grid gap-2 md:grid-cols-4">
-              <RouteStat icon={Route} label="Runtime bindings" value={`${activeBindingCount}/${capabilities.length}`} />
+              <RouteStat icon={BrainCircuit} label="AI capabilities" value={`${activeBindingCount}/${capabilities.length}`} />
+              <RouteStat icon={Wrench} label="Agent tools" value={String(agentRoutingRows.length)} />
               <RouteStat icon={Database} label="Providers" value={String(providers.length)} />
               <RouteStat icon={AlertTriangle} label="Needs attention" value={String(issueCount)} />
-              <RouteStat icon={GitBranch} label="Dynamic route" value="DB read" />
             </div>
           </section>
 
@@ -523,7 +648,7 @@ export default function AiProviderSettingsPage() {
               </div>
               <Badge variant="secondary">{providers.length}</Badge>
             </div>
-            <div className="overflow-hidden rounded-lg bg-[#f9f9f9]">
+            <div className="overflow-hidden rounded-lg bg-muted/40">
               {providers.length ? (
                 <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(150px,0.85fr)_minmax(160px,1fr)_100px_96px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
                   <div>Provider</div>
@@ -589,17 +714,68 @@ export default function AiProviderSettingsPage() {
             </div>
           </section>
 
-          <section className="rounded-lg bg-[#f9f9f9] p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <CheckCircle2 className="size-4" />
-                Capability routing
+          <section className="rounded-lg border border-border/60 bg-card p-3">
+            <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <CheckCircle2 className="size-4" />
+                  AI routing registry
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  AI 能力负责选择模型和 Prompt；Agent Tools 只是可被 Agent 调用的工具，两者分开管理。
+                </p>
               </div>
-              <Badge variant="secondary">{capabilities.length}</Badge>
+              <Tabs value={routingView} onValueChange={(value) => {
+                setRoutingView(value as "ai" | "tools")
+                setRoutingGroup("all")
+                setRoutingScope("all")
+              }}>
+                <TabsList>
+                  <TabsTrigger value="ai">
+                    <BrainCircuit className="size-3.5" />
+                    AI capabilities
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{capabilities.length}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="tools">
+                    <Wrench className="size-3.5" />
+                    Agent tools & capabilities
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{agentRoutingRows.length}</Badge>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-            <div className="overflow-x-auto rounded-lg bg-white/70">
-              <div className="sticky top-0 z-10 grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(130px,0.6fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] gap-3 border-b border-border/50 bg-white/95 px-3 py-2 text-xs font-medium text-muted-foreground">
-                <div>Capability</div>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={routingQuery}
+                  onChange={(event) => setRoutingQuery(event.target.value)}
+                  placeholder={routingView === "ai" ? "Search capability, code, group or entry" : "Search tool, code, module or runtime"}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
+              <Select value={routingGroup} onValueChange={setRoutingGroup}>
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[220px]"><SelectValue placeholder="All groups" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All groups</SelectItem>
+                  {routingGroups.map((group) => <SelectItem key={group} value={group}>{group}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {routingView === "ai" ? (
+                <Select value={routingScope} onValueChange={(value) => setRoutingScope(value as "all" | "attention")}>
+                  <SelectTrigger className="h-8 w-full text-xs sm:w-[160px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All routes</SelectItem>
+                    <SelectItem value="attention">Needs attention</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
+            </div>
+              <Tabs value={routingView} onValueChange={(value) => setRoutingView(value as "ai" | "tools")}>
+                <TabsContent value="ai">
+                <div className="overflow-x-auto rounded-lg bg-muted/25">
+              <div className="sticky top-0 z-10 grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(130px,0.6fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] gap-3 border-b border-border/50 bg-background/95 px-3 py-2 text-xs font-medium text-muted-foreground">
+                <div>AI capability</div>
                 <div>Group</div>
                 <div>Provider</div>
                 <div>Model</div>
@@ -609,7 +785,7 @@ export default function AiProviderSettingsPage() {
                 <div className="text-right">Governance</div>
               </div>
               <div className="divide-y divide-border/50">
-                {routeRows.map((row) => {
+                {filteredRouteRows.map((row) => {
                   const { capability, providerId, provider, modelOverride, promptId, reasoningEffort, issues, dirty } = row
                   const availableModels = uniq([...providerModelNames(provider), modelOverride].filter(Boolean))
                   return (
@@ -742,8 +918,65 @@ export default function AiProviderSettingsPage() {
                     </div>
                   )
                 })}
+                {!filteredRouteRows.length && !loading ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    No AI capabilities match the current filters.
+                  </div>
+                ) : null}
               </div>
-            </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="tools">
+                <div className="overflow-x-auto rounded-lg bg-muted/25">
+                  <div className="min-w-[980px]">
+                    <div className="grid grid-cols-[minmax(210px,1.1fr)_minmax(150px,0.8fr)_minmax(280px,1.6fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)] gap-3 border-b border-border/50 px-3 py-2 text-xs font-medium text-muted-foreground">
+                      <div>Agent tool</div>
+                      <div>Group</div>
+                      <div>Description</div>
+                      <div>Safety</div>
+                      <div>Runtime / source</div>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {filteredAgentTools.map((tool) => {
+                        return (
+                          <div key={`${tool.kind}-${tool.code}`} className="grid grid-cols-[minmax(210px,1.1fr)_minmax(150px,0.8fr)_minmax(280px,1.6fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)] items-start gap-3 px-3 py-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate font-medium">{tool.name}</span>
+                                <Badge variant="outline" className="shrink-0 text-[10px]">
+                                  {tool.kind === "both" ? "Tool · governed" : tool.kind === "capability" ? "Capability" : "Tool"}
+                                </Badge>
+                              </div>
+                              <div className="truncate font-mono text-xs text-muted-foreground">{tool.code}</div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm">{tool.routeGroup}</div>
+                              <div className="truncate text-xs text-muted-foreground">{tool.module}</div>
+                            </div>
+                            <div className="min-w-0 text-sm leading-5 text-muted-foreground">{tool.description}</div>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge variant={tool.readOnly ? "outline" : "secondary"}>{tool.readOnly ? "Read only" : "Writes data"}</Badge>
+                              {tool.requiresConfirmation ? <Badge variant="secondary">Confirmation</Badge> : null}
+                              <Badge variant={tool.availability === "AVAILABLE" ? "outline" : "secondary"}>{tool.availability || "UNKNOWN"}</Badge>
+                            </div>
+                            <div className="min-w-0 text-xs text-muted-foreground">
+                              <div className="truncate">{tool.runtimeEntry || "Agent runtime"}</div>
+                              <div className="mt-1 truncate">{tool.source}</div>
+                              <div className="mt-1">Freshness: {tool.freshness || "unknown"}</div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {!filteredAgentTools.length && !loading ? (
+                          <div className="p-6 text-center text-sm text-muted-foreground">
+                          No Agent tools or capabilities match the current filters.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </section>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

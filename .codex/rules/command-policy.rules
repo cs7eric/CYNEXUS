@@ -1,0 +1,36 @@
+# These are command-execution policies, not project architecture guidance.
+
+prefix_rule(
+    pattern = ["cmd.exe"],
+    decision = "forbidden",
+    justification = "Use PowerShell for repository work; cmd.exe is prohibited by project policy.",
+    match = ["cmd.exe /c echo test"],
+)
+
+prefix_rule(
+    pattern = ["vite"],
+    decision = "forbidden",
+    justification = "The Dev frontend runtime is deprecated. Use Release verification instead.",
+    match = ["vite"],
+)
+
+prefix_rule(
+    pattern = ["pnpm", "dev"],
+    decision = "forbidden",
+    justification = "Do not start the deprecated Vite Dev runtime.",
+    match = ["pnpm dev"],
+)
+
+prefix_rule(
+    pattern = ["deploy", "dev", "start-dev.ps1"],
+    decision = "forbidden",
+    justification = "The Dev application is deprecated. Use deploy/release/start-release.ps1.",
+    match = ["deploy dev start-dev.ps1"],
+)
+
+prefix_rule(
+    pattern = ["java"],
+    decision = "forbidden",
+    justification = "Do not start local Java application processes; use the versioned Release stack.",
+    match = ["java -version"],
+)

@@ -31,9 +31,13 @@ public class SchedulerTimingDomainService {
         if (hasText(cron)) {
             return isCronDue(cron, lastRunAt, now);
         }
+        Integer everySeconds = asInteger(schedule.get("every_seconds"));
+        if (everySeconds != null && everySeconds > 0) {
+            return isIntervalDue(schedule, lastRunAt, now, everySeconds, true);
+        }
         Integer everyMinutes = asInteger(schedule.get("every_minutes"));
         if (everyMinutes != null && everyMinutes > 0) {
-            return isIntervalDue(schedule, lastRunAt, now, everyMinutes);
+            return isIntervalDue(schedule, lastRunAt, now, everyMinutes, false);
         }
         String runTime = asString(schedule.get("run_time"));
         return hasText(runTime) && isRunTimeDue(runTime, schedule, lastRunAt, now);
@@ -51,9 +55,11 @@ public class SchedulerTimingDomainService {
     }
 
     private boolean isIntervalDue(Map<String, Object> schedule, OffsetDateTime lastRunAt,
-                                  OffsetDateTime now, int everyMinutes) {
+                                  OffsetDateTime now, int interval, boolean seconds) {
         return isWithinWindows(schedule, now.toLocalTime())
-                && (lastRunAt == null || Duration.between(lastRunAt, now).toMinutes() >= everyMinutes);
+                && (lastRunAt == null || (seconds
+                ? Duration.between(lastRunAt, now).getSeconds() >= interval
+                : Duration.between(lastRunAt, now).toMinutes() >= interval));
     }
 
     private boolean isRunTimeDue(String runTimeValue, Map<String, Object> schedule,

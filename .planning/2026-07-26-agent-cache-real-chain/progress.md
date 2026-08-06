@@ -1,0 +1,35 @@
+# Progress
+
+## 2026-07-26
+- Read repository operating rules and planning skill.
+- Started evidence-driven investigation of the deployed real Agent chain.
+- Confirmed the deployed protocol and captured safe upstream failure evidence from the Release AI container.
+- Queried real run/message persistence and proved encrypted reasoning state is absent from the streamed Agent outputs.
+- Ran a controlled stream/non-stream Responses A/B and confirmed the xhhai SSE response drops encrypted reasoning while non-stream preserves it.
+- Implemented validated buffered Responses HTTP mode, xhhai binding migration, UI buffered-delta emission, focused tests, and v6 Chinese knowledge-base documentation/migration.
+- Focused tests passed: 35 tests across runtime policy, adapter behavior, and migration contracts.
+- Synchronized all 41 Maven modules and UI to `1.1.294-SNAPSHOT`; full 41-module compile passed.
+- Applied migrations, built all Release artifacts/images, and recreated `1.1.294-260726-RELEASE`.
+- Completed the explicit-vs-automatic cache-key A/B: explicit keys grow cache hits across turns, while omitting the key yields zero cache hits on xhhai.
+- Deployed `1.1.295-260727-RELEASE` with safe prefix-boundary telemetry and ran a real six-turn Tool workflow. All replay prefixes matched exactly while cache stayed at 6,656, confirming shared 16-shard cache-key collisions as the root cause.
+- Implemented conversation-specific cache-key routing, then isolated a second provider-prefix issue with a real 22-Tool A/B.
+- Changed runtime-context replay from `system` to trailing `user`, bumped the cache contract to `v7`, synchronized versions to `1.1.297-SNAPSHOT`, updated/applied the v8 Chinese knowledge-base migration, and deployed healthy Release `1.1.297-260727-RELEASE`.
+- Focused tests passed: 32 across cache-key policy, reasoning policy, adapter behavior, and persistence contracts. The full 41-module Release build succeeded.
+- Verified real run `AGR-c8da91dc6de8`: cached input grew from 12,288 to 14,336 after the first turn, resolving the fixed 6,656 intra-run plateau.
+- Reproduced the remaining same-conversation next-Run failure with visible retry markers. Investigation is continuing at the cross-Run history boundary.
+- Added a Run-aware persisted-history projection: only successful or clarification Runs are eligible, and each is reduced to visible user/final-assistant messages. Failed/cancelled tails and all cross-Run native reasoning, Tool calls/results, runtime context, and provider output are excluded.
+- Updated the runtime/cache rules in `AGENTS.md` to match the verified trailing-user runtime-context contract and active-Run-only native replay boundary.
+- Focused domain tests passed: 11 tests across `AgentHistoryCollapsePolicyTest` and `AgentRunDomainServiceTest`, including completed prior Run projection, failed Run exclusion, and orphaned Tool-history removal.
+- Broader focused suite passed: 48 tests across domain history/extraction, Run service, Responses/Chat adapter, and Application workflow; all 21 selected reactor modules built successfully.
+- `git diff --check` passes; output contains only the repository's existing LF-to-CRLF warnings.
+- Added v9 Chinese architecture documentation and an idempotent knowledge-base migration that rebuilds chunks/index tasks with `documentVersion=v9-zh`; registered it in the Release migration list.
+- Bumped the prompt-cache routing contract to v8 and synchronized all 41 Maven POMs plus UI to `1.1.298-SNAPSHOT`.
+- Post-bump focused suite passed: 64 tests across cache/history policies, Run service, Adapter, persistence/migration contracts, and Application workflow.
+- Full `mvn -DskipTests compile` passed across all 41 modules at `1.1.298-SNAPSHOT`; UI version matches and `git diff --check` remains clean apart from line-ending notices.
+- Applied all Release Agent migrations including v9, rebuilt all Java artifacts and six Docker images, and deployed `1.1.298-260727-RELEASE`.
+- All Release application health endpoints are HTTP 200. Knowledge document `-202607260001` is `v9-zh` with 99 chunks and two pending index targets.
+- Real Release validation passed in conversation `AGC-75aef70a83d5`: first repaired cross-Run succeeded with three Tools and 89.6% turn-2 cache hit; the following Run succeeded with an 88.5% first-turn cross-Run hit (`11,776/13,306`).
+- Re-ran the final persisted telemetry query with `event_type='CACHE_USAGE'`: `AGR-bbd08e913118` reached `12,288/13,717` (89.6%) on turn 2 and `AGR-24aa9b2f6675` reached `11,776/13,306` (88.5%) on its first cross-Run turn.
+- Corrected the knowledge guide's cache-event SQL from `type` to `event_type`, made the v9 migration repair the persisted document idempotently, and re-applied it. The DB document remains `v9-zh`, contains no stale query, and has 99 chunks plus two index tasks.
+- Final checks passed: all Release health endpoints returned HTTP 200, all 41 Maven POMs and UI are synchronized at `1.1.298-SNAPSHOT`, `git diff --check` has no errors, no root scratch artifacts were found, and recent AI logs contain no provider failures.
+- Committed all task product changes as `9e68fc2c` (`fix(ai): stabilize agent prompt cache replay across runs`); `.planning` directories remain local and uncommitted by design.

@@ -59,8 +59,8 @@ public class FuturesPositionRepositoryImpl implements FuturesPositionRepository 
 
     @Override
     public List<FuturesPositionQueryBO.History> listHistory(String scopeType, String exchangeCode,
-                                                             String instrumentCode, int top, int limit) {
-        return service.listHistory(scopeType, exchangeCode, instrumentCode, top, limit)
+                                                             String instrumentCode, int top, int limit, LocalDate endDate) {
+        return service.listHistory(scopeType, exchangeCode, instrumentCode, top, limit, endDate)
                 .stream().map(this::history).toList();
     }
 

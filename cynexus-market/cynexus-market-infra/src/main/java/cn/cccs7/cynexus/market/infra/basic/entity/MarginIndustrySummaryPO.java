@@ -23,4 +23,5 @@ public class MarginIndustrySummaryPO {
     private BigDecimal securitiesLendingSellVolume;
     private BigDecimal securitiesLendingRepayVolume;
     private BigDecimal marginBalance;
+    private BigDecimal turnoverAmount;
 }

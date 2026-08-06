@@ -86,6 +86,19 @@ def test_build_limit_snapshot_rows_uses_stock_meta_threshold() -> None:
     assert by_code["000001"]["isLimitUp"] is False
 
 
+def test_build_limit_snapshot_rows_keeps_stock_name_from_meta() -> None:
+    rows = [
+        {"code": "600000", "open": 10, "high": 11, "low": 10, "close": 11, "preClose": 10},
+    ]
+
+    snapshots = build_limit_snapshot_rows(
+        rows,
+        stock_meta={"600000": {"name": "浦发银行", "limit_up_threshold": 0.10}},
+    )
+
+    assert snapshots[0]["name"] == "浦发银行"
+
+
 def test_build_limit_snapshot_rows_computes_historical_streaks() -> None:
     history = [
         {"code": "600000", "trade_date": "2026-06-23", "close": 11.0, "preClose": 10.0},

@@ -268,4 +268,24 @@ public class SchedulerDomainServiceImpl implements SchedulerDomainService {
     public Map<String, Object> getDataJobRun(String runId) {
         return dataJobExecutorClient.getJobRun(runId);
     }
+
+    @Override
+    public Map<String, Object> startSocialLogin(String platform, String profileName) {
+        return dataJobExecutorClient.startSocialLogin(platform, profileName);
+    }
+
+    @Override
+    public Map<String, Object> getSocialLogin(String sessionId) {
+        return dataJobExecutorClient.getSocialLogin(sessionId);
+    }
+
+    @Override
+    public Map<String, Object> completeSocialLogin(String sessionId) {
+        return dataJobExecutorClient.completeSocialLogin(sessionId);
+    }
+
+    @Override
+    public Map<String, Object> closeSocialLogin(String sessionId) {
+        return dataJobExecutorClient.closeSocialLogin(sessionId);
+    }
 }

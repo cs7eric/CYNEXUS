@@ -120,23 +120,51 @@ export function PortfolioReturnBreakdown({ overview, embedded = false, mode = "u
   }, [heatmapData, isTodayMode, view])
 
   return (
-    <section className={embedded ? "min-w-0 overflow-hidden" : "overflow-hidden rounded-lg border border-border/60 bg-card"} aria-label={isTodayMode ? "当日收益热力图" : "收益表现"}>
+    <section className={embedded ? "min-w-0 overflow-hidden" : "overflow-hidden rounded-lg border border-border/60 bg-card"} aria-label={isTodayMode ? "收益涨跌组成" : "收益表现"}>
 
-      {hasTrades ? <div className="p-4">
+      {hasTrades ? isTodayMode ? <GainLossComposition positions={displayPositions} /> : <div className="p-4">
         {displayPositions.length ? <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">{isTodayMode ? "当日收益" : "当前持仓收益贡献"}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{isTodayMode ? "按今日盈亏拆解，面积使用对数权重，避免大额标的吞没小项。" : "面积按收益金额压缩分配，颜色表示盈亏方向，具体金额见标签或悬停详情。"}</p></div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="持仓收益视图"><Button type="button" size="sm" variant={view === "heatmap" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("heatmap")}><Grid2X2 className="mr-1.5 size-3.5" />热力图</Button><Button type="button" size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("list")}><List className="mr-1.5 size-3.5" />列表</Button></div></div>
-          {view === "heatmap" ? <div ref={heatmapRef} aria-label={isTodayMode ? "当日收益热力图" : "当前持仓收益热力图"} className="h-[360px] w-full" /> : <HoldingPnlList positions={displayPositions} mode={mode} />}
-        </div> : <div className="flex min-h-[150px] items-center justify-center px-4 text-center text-xs text-muted-foreground">{isTodayMode ? "暂无可用的当日持仓收益数据。" : "当前没有仍在持有的仓位，收益主要来自已实现盈亏。"}</div>}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-medium text-muted-foreground">当前持仓收益贡献</p><p className="mt-0.5 text-[11px] text-muted-foreground">面积按收益金额压缩分配，颜色表示盈亏方向，具体金额见标签或悬停详情。</p></div><div className="flex items-center gap-1 rounded-md border border-border/60 bg-background p-1" role="group" aria-label="持仓收益视图"><Button type="button" size="sm" variant={view === "heatmap" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("heatmap")}><Grid2X2 className="mr-1.5 size-3.5" />热力图</Button><Button type="button" size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 px-2.5 text-xs" onClick={() => setView("list")}><List className="mr-1.5 size-3.5" />列表</Button></div></div>
+          {view === "heatmap" ? <div ref={heatmapRef} aria-label="当前持仓收益热力图" className="h-[360px] w-full" /> : <HoldingPnlList positions={displayPositions} mode={mode} />}
+        </div> : <div className="flex min-h-[150px] items-center justify-center px-4 text-center text-xs text-muted-foreground">当前没有仍在持有的仓位，收益主要来自已实现盈亏。</div>}
 
-        {!isTodayMode ? <dl className="mt-3 grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-3">
+        <dl className="mt-3 grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-3">
           <Metric label="当前持仓盈亏" value={unrealized} description="市值 − 持仓成本" />
           <Metric label="已实现盈亏" value={realized} description="已卖出部分" />
           <Metric label="持仓成本" value={overview?.costBasis ?? null} description="买入成本 + 手续费" />
-        </dl> : null}
-        {!isTodayMode ? <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><CircleHelp className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><p>收益图展示当前持仓的浮动盈亏贡献；历史总盈亏不作为新的收益起点，后续收益从今日开始记录。</p></div> : null}
+        </dl>
+        <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><CircleHelp className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><p>收益图展示当前持仓的浮动盈亏贡献；历史总盈亏不作为新的收益起点，后续收益从今日开始记录。</p></div>
       </div> : <div className="flex min-h-[210px] items-center justify-center px-4 py-10 text-center"><div><p className="text-sm font-medium">确认交易后，这里会显示收益表现</p><p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">导入截图并确认识别结果后，系统会按成交价格、手续费和最新行情计算收益。</p></div></div>}
     </section>
   )
+}
+
+function GainLossComposition({ positions }: { positions: PortfolioOverview["positions"] }) {
+  const values = positions.map((position) => Number(position.todayPnl)).filter(Number.isFinite)
+  if (!values.length) {
+    return <div className="flex min-h-[210px] items-center justify-center px-4 py-10 text-center text-xs text-muted-foreground">暂无可用的收益涨跌数据。</div>
+  }
+  const gains = values.filter((value) => value > 0).reduce((sum, value) => sum + value, 0)
+  const losses = Math.abs(values.filter((value) => value < 0).reduce((sum, value) => sum + value, 0))
+  const net = gains - losses
+  const gross = gains + losses
+  const gainWidth = gross > 0 ? `${(gains / gross) * 100}%` : "50%"
+  const lossWidth = gross > 0 ? `${(losses / gross) * 100}%` : "50%"
+  return <div className="p-4">
+    <div className="mb-4"><p className="text-xs font-medium text-muted-foreground">收益涨跌组成</p><p className="mt-0.5 text-[11px] text-muted-foreground">按今日收益拆分为上涨收益与下跌损失，不按持仓市值分配面积。</p></div>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <CompositionMetric label="上涨收益" value={gains} toneClass="text-rose-600" detail="正向收益合计" />
+      <CompositionMetric label="下跌损失" value={-losses} toneClass="text-emerald-600" detail="负向收益合计" />
+    </div>
+    <div className="mt-5">
+      <div className="flex h-3 overflow-hidden rounded-full bg-muted" aria-label={`上涨收益占比 ${gainWidth}，下跌损失占比 ${lossWidth}`}><span className="bg-rose-500" style={{ width: gainWidth }} /><span className="bg-emerald-500" style={{ width: lossWidth }} /></div>
+      <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-muted-foreground"><span>上涨收益 {gainWidth}</span><span>净收益 <strong className={tone(net)}>{signedAmount(net)}</strong></span><span>下跌损失 {lossWidth}</span></div>
+    </div>
+  </div>
+}
+
+function CompositionMetric({ label, value, toneClass, detail }: { label: string; value: number; toneClass: string; detail: string }) {
+  return <div className="rounded-md bg-muted/35 px-3 py-3"><p className="text-xs text-muted-foreground">{label}</p><p className={`mt-1.5 font-mono text-xl font-semibold tabular-nums ${toneClass}`}>{signedAmount(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">{detail}</p></div>
 }
 
 function HoldingPnlList({ positions, mode }: { positions: PortfolioOverview["positions"]; mode: "unrealized" | "today" }) {

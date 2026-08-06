@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from io import StringIO
 import re
 from typing import Any, Iterable
@@ -57,6 +57,30 @@ def fetch_dce_position_rows(
             # contracts returned for the same publication date.
             continue
     return rows
+
+
+def fetch_latest_position_date(
+    session: requests.Session,
+    *,
+    end_date: date | None = None,
+    varieties: Iterable[str] | None = None,
+    lookback_days: int = 10,
+    base_url: str = "https://vip.stock.finance.sina.com.cn",
+    timeout: float = 15,
+) -> date | None:
+    """Find the newest DCE publication date available from Sina."""
+    cursor = end_date or date.today()
+    for offset in range(max(0, int(lookback_days)) + 1):
+        candidate = cursor - timedelta(days=offset)
+        try:
+            rows = fetch_dce_position_rows(
+                session, candidate, varieties=varieties, base_url=base_url, timeout=timeout,
+            )
+        except Exception:  # noqa: BLE001
+            continue
+        if rows:
+            return candidate
+    return None
 
 
 def _contract_values(content: bytes, requested: set[str]) -> list[str]:

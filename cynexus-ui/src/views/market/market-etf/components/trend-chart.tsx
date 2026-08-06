@@ -1,6 +1,8 @@
+import { useState } from "react"
 import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from "recharts"
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { Button } from "@/components/ui/button"
 import type { MarketEtfTrend } from "@/services/market/etf"
 import { formatDate, formatPct, formatWan } from "../lib/format"
 
@@ -12,17 +14,19 @@ const config = {
 } satisfies ChartConfig
 
 export function EtfTrendChart({ data, loading }: { data: MarketEtfTrend[]; loading: boolean }) {
+  const [range, setRange] = useState<5 | 10>(10)
+  const visibleData = data.slice(-range)
   return (
     <section className="min-w-0 overflow-hidden rounded-lg bg-muted/35 p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">资金与交易趋势</h2>
-          <p className="text-xs text-muted-foreground">最近 10 个自然日 · 份额变化为净申购/赎回代理</p>
+          <p className="text-xs text-muted-foreground">最近 {range} 个交易日 · 份额变化为净申购/赎回代理</p>
         </div>
-        <span className="text-xs text-muted-foreground">{loading ? "加载中" : `${data.length} 个交易日`}</span>
+        <div className="flex items-center gap-1"><Button type="button" size="sm" variant={range === 5 ? "secondary" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setRange(5)}>5D</Button><Button type="button" size="sm" variant={range === 10 ? "secondary" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setRange(10)}>10D</Button><span className="ml-1 text-xs text-muted-foreground">{loading ? "加载中" : `${visibleData.length} 个交易日`}</span></div>
       </div>
       <ChartContainer config={config} className="h-[340px] w-full min-w-0">
-        <AreaChart data={data} margin={{ left: 0, right: 10, top: 12, bottom: 0 }}>
+        <AreaChart data={visibleData} margin={{ left: 0, right: 10, top: 12, bottom: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis dataKey="tradeDate" tickLine={false} axisLine={false} tickMargin={8} minTickGap={28} tickFormatter={formatDate} />
           <YAxis yAxisId="share" tickLine={false} axisLine={false} width={58} tickFormatter={(value) => formatWan(Number(value), 0)} />

@@ -36,14 +36,19 @@ public class HttpPortfolioTradeVisionGateway implements PortfolioTradeVisionGate
 
     @Override
     public String parse(PortfolioImportAssetBO asset) {
+        return parse(asset.fileName(), asset.contentType(), asset.contentBytes());
+    }
+
+    @Override
+    public String parse(String fileName, String contentType, byte[] content) {
         try {
-            String dataUrl = "data:" + asset.contentType() + ";base64,"
-                    + Base64.getEncoder().encodeToString(asset.contentBytes());
+            String dataUrl = "data:" + contentType + ";base64,"
+                    + Base64.getEncoder().encodeToString(content);
             String body = objectMapper.writeValueAsString(Map.of(
                     "scenarioCode", "portfolio_trade_screenshot_parse",
                     "userInput", "只解析截图中的交易成交事实，缺失字段返回 null。",
-                    "images", List.of(Map.of("fileName", asset.fileName() == null ? "trade.png" : asset.fileName(),
-                            "contentType", asset.contentType(), "dataUrl", dataUrl))));
+                    "images", List.of(Map.of("fileName", fileName == null ? "trade.png" : fileName,
+                            "contentType", contentType, "dataUrl", dataUrl))));
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/api/ai/executions/vision"))
                     .timeout(timeout)

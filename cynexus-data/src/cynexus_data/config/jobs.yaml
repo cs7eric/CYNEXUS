@@ -9,15 +9,25 @@ jobs:
     params:
       any: optional
 
+  margin_update_probe:
+    description: Probe exchange margin freshness every ten minutes and run the full margin sync only after a new trade date is available.
+    params:
+      providers: optional; defaults to exchange,akshare
+      datasets: optional; defaults to summary,detail,account
+      create_table: optional
+      enrich_detail: optional
+
   sync_futures_position:
     description: Sync exchange-published futures member volume, long, and short position rankings into PostgreSQL.
     params:
       trade_date: optional; YYYY-MM-DD or YYYYMMDD
-      providers: optional; defaults to akshare and is evaluated per exchange
+      providers: optional; defaults to akshare,sina and is evaluated per exchange
       exchanges: optional; CFFEX, SHFE, CZCE, DCE, GFEX, INE
       varieties: optional; comma-separated variety filters
       create_table: optional
       dry_run: optional
+      latest_source_data: optional; when true or trade_date is omitted, resolve the newest date returned by configured sources
+      lookback_days: optional; calendar-day search window for latest source data and short missing-date recovery, defaults to 10
 
   sync_metadata:
     description: Sync metadata bundle by delegating to stock-basic sync in this foundation pass.
@@ -463,10 +473,16 @@ jobs:
       provider_priority: optional
       datasets: optional
       create_table: optional
-      mode: optional; stock_history uses EastMoney Datacenter for watchlist history
+      mode: optional; stock_history uses EastMoney Datacenter for rotating stock history
       codes: optional
-      code_source: optional; self_selected/watchlist
-      limit_codes: optional
+      code_source: optional; self_selected/watchlist or all/active/stock_basic
+      limit_codes: optional; 0 or omitted means the full active A-share universe
+      batch_size: optional alias for limit_codes
+      history_days: optional; minimum historical trading rows per stock, defaults to 120
+      workers: optional; bounded concurrent EastMoney workers, defaults to 8
+      pool_size: optional alias for workers
+      request_interval: optional; per-worker EastMoney request interval in seconds, defaults to 0.35
+      enrich_detail: optional; fill missing exchange fields from EastMoney latest detail
       page_size: optional; defaults to 120
 
   build_sector_breadth:
@@ -578,6 +594,86 @@ jobs:
       urlopen_attempts: optional
       urlopen_backoff_seconds: optional
 
+  market_indicator_refresh:
+    description: Refresh full-market 30-second confirmation snapshots, sector transmission episodes, replay facts, and conditional trade references during trading hours.
+    params:
+      create_table: optional
+      universe_mode: optional; full_market by default, historical_limit for bounded fallback
+      pool_size: optional; default 8
+      batch_size: optional; default 240; TDX quote request batch, bounded fallback on failure
+      limit_history_days: optional; default 365 calendar days
+      limit_codes: optional; explicit test cap applied after historical-universe filtering
+      timeout: optional; default 8 seconds
+      quote_retry_attempts: optional; default 2 bounded provider retries
+      quote_retry_backoff_seconds: optional; default 0.25 seconds with jitter
+      quote_request_spacing_seconds: optional; default 0.02 seconds between batches
+      quote_fallback_batch_size: optional; default 80 when a large batch repeatedly fails
+      rapid_change_pct: optional; default 1 percentage point per capture
+      max_gap_minutes: optional; default 10 minutes for rapid-event comparisons
+      min_snapshot_ratio: optional; default 0.8; failed captures are not published
+      redis_cache: optional; default true; stage capture bundles in Redis before persistence
+      redis_ttl_seconds: optional; default 86400 seconds
+      persistence_interval_seconds: optional; default 180 seconds before PostgreSQL flush
+      max_persist_captures: optional; default 1 capture per run
+      target_cadence_seconds: optional; production scheduler default is 30 seconds after the full-market workflow benchmark; effective cadence is raised when end-to-end latency exceeds the target
+      signal_window_seconds: optional; default 5
+      transmission_rapid_return_pct: optional; default 0.8 percentage points
+      transmission_follower_return_pct: optional; default 0.3 percentage points
+      source: optional
+
+  market_indicator_priority_refresh:
+    description: Refresh the low-latency priority radar over the historical limit-up/down cohort; Redis-only partial output, never a complete industry confirmation.
+    params:
+      universe_mode: optional; historical_limit by default
+      limit_codes: optional; defaults to 1500 priority symbols
+      limit_history_days: optional; defaults to 365 calendar days
+      pool_size: optional; defaults to 8
+      batch_size: optional; defaults to 320
+      timeout: optional; defaults to 8 seconds
+      quote_retry_attempts: optional; defaults to 2 bounded provider retries
+      quote_retry_backoff_seconds: optional; defaults to 0.25 seconds with jitter
+      quote_request_spacing_seconds: optional; defaults to 0.02 seconds between batches
+      quote_fallback_batch_size: optional; defaults to 80 when a large batch repeatedly fails
+      target_cadence_seconds: optional; defaults to 10
+      redis_prefix: optional; defaults to cynexus:market-indicator:priority
+      persist_postgres: optional; defaults to false
+      full_confirmation_required: optional; defaults to true
+      scope: optional; defaults to priority
+
+  market_indicator_offline_validation:
+    description: Replay market indicator captures offline and validate canonical contracts and no-future-data leakage.
+    params:
+      captures: optional; JSON array of capture-row arrays
+      captures_json: optional; alias for captures
+
+  market_indicator_outcome_finalize:
+    description: Evaluate 5/15/30-minute and close outcomes for persisted sector transmission episodes.
+    params:
+      trade_date: optional; defaults to the current UTC date
+      limit: optional; maximum number of episodes to evaluate, defaults to 500
+
+  market_indicator_benchmark:
+    description: Measure real provider fetch plus indicator compute latency across 500/1500/3000/full-market universes.
+    params:
+      provider: optional; defaults to eltdx
+      universe_sizes: optional; comma-separated sizes or a JSON list
+      rounds: optional; defaults to 3, max 600
+      batch_size: optional; defaults to 160
+      pool_size: optional; defaults to 8
+      timeout: optional; defaults to 8 seconds
+      target_cadence_seconds: optional; defaults to 5
+      persist: optional; persist benchmark run report, defaults to true
+
+  market_indicator_intraday_session:
+    description: Run one sequential intraday session under a single lease and adapt cadence from measured end-to-end latency.
+    params:
+      duration_seconds: optional; defaults to 300
+      max_cycles: optional; safety cap for session cycles
+      target_cadence_seconds: optional; defaults to 5
+      universe_mode: optional; full_market by default
+      pool_size: optional; defaults to 8
+      batch_size: optional; defaults to 240
+
   rebuild_msi:
     description: Rebuild market sentiment index over a date range.
     params:
@@ -621,3 +717,24 @@ jobs:
       ffmpeg_path: optional
       transcriber: optional
       transcript_text: optional
+
+  social_creator_discovery:
+    description: Discover only public posts from authorized Xiaohongshu or Douyin creator profiles whose provider publish date is today in Asia/Shanghai.
+    params:
+      platform: required; douyin or xiaohongshu
+      creators: optional; JSON array of {creator_key, profile_url, display_name}
+      scope_key: optional; defaults to default
+      lookback_hours: optional; retained for compatibility; strict calendar-day filtering is always applied
+      create_table: optional
+      profile_name: optional; defaults to default
+
+  social_comment_sync:
+    description: Incrementally collect currently visible public comments and replies only for posts published today in Asia/Shanghai.
+    params:
+      platform: required; douyin or xiaohongshu
+      posts: optional; JSON array of {post_key, url, title}
+      scope_key: optional; defaults to default
+      active_post_days: optional; retained for compatibility; only today's posts are eligible
+      max_posts: optional; bounded post count per run
+      create_table: optional
+      profile_name: optional; defaults to default

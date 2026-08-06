@@ -21,4 +21,5 @@ public class PortfolioPerformanceDTO {
     BigDecimal worstPeriodPnl;
     int tradingDays;
     List<PortfolioPerformancePointDTO> points;
+    List<PortfolioPerformanceContributionDTO> contributions;
 }

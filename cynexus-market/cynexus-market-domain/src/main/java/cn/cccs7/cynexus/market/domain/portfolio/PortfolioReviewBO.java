@@ -11,5 +11,7 @@ public record PortfolioReviewBO(Long id, String principalKey, String tenantKey, 
                 || periodEnd.isBefore(periodStart) || rating != null && (rating < 1 || rating > 5)) {
             throw new IllegalArgumentException("invalid portfolio review");
         }
+        tags = PortfolioReviewContentPolicy.normalizeTags(tags);
+        metricsSnapshot = PortfolioReviewContentPolicy.normalizeMetricsSnapshot(metricsSnapshot);
     }
 }

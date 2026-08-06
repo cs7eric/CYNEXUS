@@ -10,7 +10,7 @@ from cynexus_data.sources.akshare.margin import (
     fetch_margin_market_summary,
     fetch_margin_stock_detail,
 )
-from cynexus_data.sources.akshare.futures_position import fetch_position_rows
+from cynexus_data.sources.akshare.futures_position import fetch_latest_position_date, fetch_position_rows
 
 
 class AkshareClient:
@@ -73,6 +73,14 @@ class AkshareClient:
 
     def fetch_futures_position_rows(self, trade_date: date, *, exchanges=None, varieties=None):
         return fetch_position_rows(self.require_module(), trade_date, exchanges=exchanges, varieties=varieties)
+
+    def fetch_latest_futures_position_trade_date(
+        self, end_date: date | None = None, *, exchanges=None, varieties=None, lookback_days: int = 10
+    ) -> date | None:
+        return fetch_latest_position_date(
+            self.require_module(), end_date=end_date, exchanges=exchanges,
+            varieties=varieties, lookback_days=lookback_days,
+        )
 
 
 def _summarize_spot(frame) -> dict[str, Any]:

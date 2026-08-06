@@ -93,6 +93,31 @@ class FuturesPositionQueryDomainServiceTest {
                 .members(null, "CONTRACT", "CFFEX", "IF2609", "net", 10));
     }
 
+    @Test
+    void historyUsesRequestedTradeDateAndSupportsThreeYearWindow() {
+        QueryArguments args = new QueryArguments();
+        FuturesPositionRepository repository = new EmptyRepository() {
+            @Override public Optional<LocalDate> findLatestTradeDate(LocalDate endDate) {
+                args.endDate = endDate;
+                return Optional.of(LocalDate.of(2026, 7, 30));
+            }
+
+            @Override public List<FuturesPositionQueryBO.History> listHistory(String scope, String exchange,
+                    String instrument, int top, int limit, LocalDate endDate) {
+                args.historyLimit = limit;
+                args.historyEndDate = endDate;
+                return List.of();
+            }
+        };
+
+        new FuturesPositionQueryDomainServiceImpl(repository)
+                .history("2026-07-30", "VARIETY", "CFFEX", "IF", 20, 1100);
+
+        assertEquals(LocalDate.of(2026, 7, 30), args.endDate);
+        assertEquals(LocalDate.of(2026, 7, 30), args.historyEndDate);
+        assertEquals(1100, args.historyLimit);
+    }
+
     private static class QueryArguments {
         private LocalDate endDate;
         private String scope;
@@ -101,6 +126,8 @@ class FuturesPositionQueryDomainServiceTest {
         private int top;
         private int offset;
         private int limit;
+        private int historyLimit;
+        private LocalDate historyEndDate;
     }
 
     private static class EmptyRepository implements FuturesPositionRepository {
@@ -113,7 +140,7 @@ class FuturesPositionQueryDomainServiceTest {
         @Override public List<FuturesPositionQueryBO.Member> listMembers(LocalDate date, String scope, String exchange,
                 String instrument, String rankType, int top) { return List.of(); }
         @Override public List<FuturesPositionQueryBO.History> listHistory(String scope, String exchange,
-                String instrument, int top, int limit) { return List.of(); }
+                String instrument, int top, int limit, LocalDate endDate) { return List.of(); }
         @Override public List<FuturesPositionQueryBO.CoverageItem> listCoverage(LocalDate date) { return List.of(); }
     }
 }

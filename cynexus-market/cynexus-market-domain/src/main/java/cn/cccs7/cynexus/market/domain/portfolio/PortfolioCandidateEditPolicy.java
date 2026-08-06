@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 
 public final class PortfolioCandidateEditPolicy {
@@ -36,14 +37,24 @@ public final class PortfolioCandidateEditPolicy {
                 try {
                     normalizedTime = LocalDate.parse(normalizedTime).atStartOfDay().atOffset(ZoneOffset.UTC).toString();
                 } catch (Exception dateException) {
+                    try {
+                        LocalTime.parse(normalizedTime);
+                        throw new IllegalArgumentException("tradedAt must include a date; time-only values cannot be confirmed");
+                    } catch (java.time.format.DateTimeParseException ignoredTimeOnly) {
+                        // Fall through to the stable validation message below.
+                    }
                     throw new IllegalArgumentException("tradedAt must be an ISO date or timestamp", dateException);
                 }
             }
         }
         result.put("tradedAt", normalizedTime);
-        result.put("quantity", positive(quantity, "quantity").toPlainString());
-        result.put("price", positive(price, "price").toPlainString());
-        result.put("fee", nonNegative(totalFee == null || totalFee.isBlank() ? "0" : totalFee, "totalFee").toPlainString());
+        BigDecimal normalizedQuantity = positive(quantity, "quantity");
+        BigDecimal normalizedPrice = positive(price, "price");
+        BigDecimal declaredFee = nonNegative(totalFee == null || totalFee.isBlank() ? "0" : totalFee, "totalFee");
+        result.put("quantity", normalizedQuantity.toPlainString());
+        result.put("price", normalizedPrice.toPlainString());
+        result.put("fee", PortfolioTradingFeePolicy.resolve(PortfolioInstrumentType.fromPayload(instrumentType),
+                normalizedQuantity, normalizedPrice, declaredFee).toPlainString());
         putNullable(result, "securityName", securityName);
         putNullable(result, "externalTradeNo", externalTradeNo);
         return result;

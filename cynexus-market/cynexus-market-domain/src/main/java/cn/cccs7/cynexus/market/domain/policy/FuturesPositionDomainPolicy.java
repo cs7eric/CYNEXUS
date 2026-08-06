@@ -66,7 +66,7 @@ public final class FuturesPositionDomainPolicy {
     }
 
     public int limit(int value, int defaultValue) {
-        return value < 1 ? defaultValue : Math.min(value, 500);
+        return value < 1 ? defaultValue : Math.min(value, 1200);
     }
 
     public record Page(int number, int size, int offset) {

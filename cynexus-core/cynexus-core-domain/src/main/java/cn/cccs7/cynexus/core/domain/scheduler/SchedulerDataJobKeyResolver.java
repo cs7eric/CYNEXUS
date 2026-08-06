@@ -63,6 +63,26 @@ public final class SchedulerDataJobKeyResolver {
             entry("ma_count_refresh", "build_ma_count"),
             entry("market_sentiment_index_refresh", "build_msi"),
             entry("market_sentiment_chain_refresh", "market_sentiment_chain_refresh"),
+            entry("market_indicator_refresh", "market_indicator_refresh", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("limit_history_days", 365),
+                    Map.entry("pool_size", 8),
+                    Map.entry("batch_size", 80),
+                    Map.entry("timeout", 8)
+            )),
+            entry("market_indicator_priority_refresh", "market_indicator_priority_refresh", Map.ofEntries(
+                    Map.entry("universe_mode", "historical_limit"),
+                    Map.entry("limit_codes", 1500),
+                    Map.entry("limit_history_days", 365),
+                    Map.entry("pool_size", 8),
+                    Map.entry("batch_size", 160),
+                    Map.entry("timeout", 8),
+                    Map.entry("target_cadence_seconds", 10),
+                    Map.entry("redis_prefix", "cynexus:market-indicator:priority"),
+                    Map.entry("persist_postgres", false),
+                    Map.entry("full_confirmation_required", true),
+                    Map.entry("scope", "priority")
+            )),
             entry("profit_effect_refresh", "build_profit_effect"),
             entry("risk_appetite_refresh", "build_risk_appetite"),
             entry("sector_breadth_refresh", "build_sector_breadth"),
@@ -242,10 +262,20 @@ public final class SchedulerDataJobKeyResolver {
             entry("margin_stock_history_backfill", "sync_margin", Map.ofEntries(
                     Map.entry("create_table", true),
                     Map.entry("mode", "stock_history"),
-                    Map.entry("code_source", "self_selected"),
-                    Map.entry("limit_codes", 1),
+                    Map.entry("code_source", "all"),
+                    Map.entry("limit_codes", 0),
+                    Map.entry("history_days", 120),
                     Map.entry("page_size", 120),
-                    Map.entry("providers", List.of("eastmoney", "exchange", "akshare"))
+                    Map.entry("workers", 8),
+                    Map.entry("request_interval", 0.35),
+                    Map.entry("providers", List.of("eastmoney"))
+            )),
+            entry("margin_sync_daily", "sync_margin", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("providers", List.of("exchange", "akshare")),
+                    Map.entry("provider_priority", List.of("exchange", "akshare")),
+                    Map.entry("datasets", List.of("summary", "detail", "account")),
+                    Map.entry("lock_scope", "margin")
             )),
             entry("a_stock_research_weekly", "sync_a_stock_dataset", Map.ofEntries(
                     Map.entry("create_table", true),

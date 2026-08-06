@@ -1,4 +1,5 @@
 import type { MarketEtfRow } from "@/services/market/etf"
+import { ChevronRight } from "lucide-react"
 import { formatNumber, formatPct, formatWan } from "../lib/format"
 
 function FlowCell({ value, ratio }: { value: number | null; ratio: number | null }) {
@@ -16,11 +17,13 @@ export function EtfTable({
   description,
   rows,
   loading,
+  onSelect,
 }: {
   title: string
   description: string
   rows: MarketEtfRow[]
   loading: boolean
+  onSelect?: (row: MarketEtfRow) => void
 }) {
   return (
     <section className="min-w-0 overflow-hidden rounded-lg bg-muted/35 p-4">
@@ -32,7 +35,7 @@ export function EtfTable({
         <span className="text-xs text-muted-foreground">{loading ? "加载中" : `${rows.length} 只`}</span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1500px] text-sm">
+        <table className="w-full min-w-[980px] text-sm">
           <thead>
             <tr className="border-b border-border/60 text-left text-xs text-muted-foreground">
               <th className="pb-2 font-medium">ETF</th>
@@ -41,19 +44,14 @@ export function EtfTable({
               <th className="pb-2 text-right font-medium">成交额</th>
               <th className="pb-2 text-right font-medium">折溢价</th>
               <th className="pb-2 text-right font-medium">换手</th>
-              <th className="pb-2 text-right font-medium">累计份额变化</th>
-              <th className="pb-2 text-right font-medium">累计申赎代理</th>
+              <th className="pb-2 text-right font-medium">份额变化</th>
               <th className="pb-2 text-right font-medium">主力净额/占比</th>
-              <th className="pb-2 text-right font-medium">超大单</th>
-              <th className="pb-2 text-right font-medium">大单</th>
-              <th className="pb-2 text-right font-medium">中单</th>
-              <th className="pb-2 text-right font-medium">小单</th>
-              <th className="pb-2 text-right font-medium">内盘/外盘</th>
+              <th className="pb-2 text-right font-medium">详情</th>
             </tr>
           </thead>
           <tbody>
             {rows.slice(0, 30).map((row) => (
-              <tr key={row.code} className="border-b border-border/35 last:border-0">
+              <tr key={row.code} aria-label={`查看 ${row.name || row.code} ETF 详情`} className="cursor-pointer border-b border-border/35 last:border-0 hover:bg-background/70 focus-within:bg-background/70" onClick={() => onSelect?.(row)} tabIndex={onSelect ? 0 : undefined} onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect(row) } }}>
                 <td className="py-3">
                   <div className="max-w-[220px] truncate font-medium">{row.name || "—"}</div>
                   <div className="text-xs text-muted-foreground">{row.code} · {row.theme || row.exchange || "ETF"}</div>
@@ -63,14 +61,9 @@ export function EtfTable({
                 <td className="py-3 text-right font-mono tabular-nums">{formatWan(row.amount)}</td>
                 <td className={`py-3 text-right font-mono tabular-nums ${row.premiumPct == null || row.premiumPct === 0 ? "text-muted-foreground" : row.premiumPct > 0 ? "text-red-600" : "text-emerald-600"}`}>{formatPct(row.premiumPct)}</td>
                 <td className="py-3 text-right font-mono tabular-nums">{formatPct(row.turnoverPct)}</td>
-                <td className="py-3 text-right font-mono tabular-nums">{formatWan(row.cumulativeShareDelta)}</td>
-                <td className="py-3 text-right font-mono tabular-nums">{formatWan(row.cumulativeNetSubscriptionProxy)}</td>
+                <td className="py-3 text-right font-mono tabular-nums">{formatWan(row.shareDelta)}</td>
                 <td className="py-3"><FlowCell value={row.mainNetInflow} ratio={row.mainNetRatio} /></td>
-                <td className="py-3"><FlowCell value={row.superLargeNetInflow} ratio={row.superLargeNetRatio} /></td>
-                <td className="py-3"><FlowCell value={row.largeNetInflow} ratio={row.largeNetRatio} /></td>
-                <td className="py-3"><FlowCell value={row.mediumNetInflow} ratio={row.mediumNetRatio} /></td>
-                <td className="py-3"><FlowCell value={row.smallNetInflow} ratio={row.smallNetRatio} /></td>
-                <td className="py-3 text-right font-mono tabular-nums text-muted-foreground">{formatNumber(row.insideVolume, 0)} / {formatNumber(row.outsideVolume, 0)}</td>
+                <td className="py-3 text-right"><ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></td>
               </tr>
             ))}
           </tbody>

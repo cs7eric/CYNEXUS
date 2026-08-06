@@ -473,6 +473,57 @@ public class ClickHouseStockChartClient {
         return ordered;
     }
 
+    public List<DailyAmount> listDailyAmounts(List<String> symbols, LocalDate startDate, LocalDate endDate) {
+        if (symbols == null || symbols.isEmpty()) {
+            return List.of();
+        }
+        String symbolCondition = symbols.stream()
+                .filter(symbol -> symbol != null && !symbol.isBlank())
+                .map(symbol -> "'" + escapeSql(symbol) + "'")
+                .distinct()
+                .reduce((left, right) -> left + ", " + right)
+                .orElse("");
+        if (symbolCondition.isBlank()) {
+            return List.of();
+        }
+        List<String> conditions = new ArrayList<>();
+        conditions.add("symbol IN (" + symbolCondition + ")");
+        if (startDate != null) {
+            conditions.add("trade_date >= toDate('" + startDate + "')");
+        }
+        if (endDate != null) {
+            conditions.add("trade_date <= toDate('" + endDate + "')");
+        }
+        String sql = """
+                WITH daily AS
+                (
+                    SELECT
+                        market,
+                        symbol,
+                        trade_date,
+                        max(amount) AS amount
+                    FROM daily_raw
+                    WHERE %s
+                    GROUP BY market, symbol, trade_date
+                )
+                SELECT
+                    symbol,
+                    toString(trade_date) AS tradeDate,
+                    sum(amount) AS amount
+                FROM daily
+                GROUP BY symbol, trade_date
+                ORDER BY trade_date ASC, symbol ASC
+                FORMAT JSONEachRow
+                """.formatted(String.join(" AND ", conditions));
+        return query(sql, DailyAmountRow.class).stream()
+                .map(row -> new DailyAmount(
+                        row.symbol(),
+                        row.tradeDate() == null ? null : LocalDate.parse(row.tradeDate()),
+                        row.amount()
+                ))
+                .toList();
+    }
+
     private <T> List<T> query(String sql, Class<T> rowType) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -611,6 +662,9 @@ public class ClickHouseStockChartClient {
         private BigDecimal amount;
     }
 
+    public record DailyAmount(String symbol, LocalDate tradeDate, BigDecimal amount) {
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record LatestTradeDateRow(String latestTradeDate) {
     }
@@ -690,6 +744,14 @@ public class ClickHouseStockChartClient {
             BigDecimal low,
             BigDecimal close,
             BigDecimal volume,
+            BigDecimal amount
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record DailyAmountRow(
+            String symbol,
+            String tradeDate,
             BigDecimal amount
     ) {
     }

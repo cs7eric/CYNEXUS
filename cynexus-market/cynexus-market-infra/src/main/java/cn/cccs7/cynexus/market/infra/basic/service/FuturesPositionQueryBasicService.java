@@ -20,6 +20,6 @@ public interface FuturesPositionQueryBasicService {
     List<FuturesPositionMemberPO> listMembers(LocalDate tradeDate, String scopeType, String exchangeCode,
                                               String instrumentCode, String rankType, int top);
     List<FuturesPositionHistoryPO> listHistory(String scopeType, String exchangeCode, String instrumentCode,
-                                               int top, int limit);
+                                               int top, int limit, LocalDate endDate);
     List<FuturesPositionCoveragePO> listCoverage(LocalDate tradeDate);
 }

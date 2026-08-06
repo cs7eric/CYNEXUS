@@ -2,12 +2,12 @@ import { cynexusResult } from "@/services/common/cynexus-result"
 import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 import { fetchAiPrompts, type AiPromptItem } from "@/services/ai/prompt"
-import { fetchAgentCapabilities } from "@/services/ai/agent"
 
 export const AI_REASONING_EFFORTS = ["low", "medium", "high"] as const
 export type AiReasoningEffort = typeof AI_REASONING_EFFORTS[number]
 export const DEFAULT_AI_REASONING_EFFORT: AiReasoningEffort = "low"
 export const AI_REASONING_EFFORT_PARAM = "reasoning_effort"
+export const AI_BINDING_CHANGED_EVENT = "cynexus:ai-binding-changed"
 
 export function normalizeAiReasoningEffort(value: unknown): AiReasoningEffort | null {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : ""
@@ -221,6 +221,17 @@ const AI_CAPABILITIES: AiCapability[] = [
     prompt_key: "portfolio_trade_screenshot_parse",
   },
   {
+    code: "wechat_image_route",
+    label: "WeChat image route classification",
+    group: "WeChat",
+    description: "Classify an uploaded WeChat image into a supported downstream processing route.",
+    entry: "Settings / WeChat history",
+    reads_binding: true,
+    runtime: "WechatImageRoutingWorker",
+    prompt_key: "wechat_image_route",
+    aliases: ["微信图片分类", "WeChat image routing"],
+  },
+  {
     code: "auction_analysis",
     label: "Auction AI analysis",
     group: "Stock AI",
@@ -251,6 +262,17 @@ const AI_CAPABILITIES: AiCapability[] = [
     runtime: "MarketInformationAiWorker",
     prompt_key: "market_information_daily_brief",
     aliases: ["Market brief", "Daily brief"],
+  },
+  {
+    code: "market_futures_position_analysis",
+    label: "Futures position structure analysis",
+    group: "Market / Futures Position",
+    description: "Facts-only member position structure analysis for IF, IH, IM, and IC.",
+    entry: "Market / Futures Position / AI Structure Analysis",
+    reads_binding: true,
+    runtime: "FuturesPositionAiAppService",
+    prompt_key: "market_futures_position_analysis",
+    aliases: ["market.futures_position_analysis", "期货持仓结构分析", "股指期货 AI 分析"],
   },
   {
     code: "knowledge_base_document_generate",
@@ -285,6 +307,70 @@ const AI_CAPABILITIES: AiCapability[] = [
     aliases: ["Agent", "自主分析 Agent"],
   },
 ]
+
+function firstBindingText(params: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = params[key]
+    if (typeof value === "string" && value.trim()) return value.trim()
+  }
+  return ""
+}
+
+function findCapabilityMetadata(code: string): AiCapability | undefined {
+  return AI_CAPABILITIES.find((item) => item.code === code || item.aliases?.includes(code))
+}
+
+/**
+ * The AI route catalog is database-backed: every returned row originates from
+ * an ai_usage_bindings record. The static entries above only provide optional
+ * UI metadata for a binding that has not stored its descriptive fields yet.
+ *
+ * Agent tools/capabilities are deliberately not accepted here. They have a
+ * separate API and a separate catalog in the Agent tab.
+ */
+export function buildAiCapabilitiesFromBindings(bindings: AiBindingItem[]): AiCapability[] {
+  const rows = new Map<string, AiCapability>()
+  bindings.forEach((binding) => {
+    const code = binding.capability?.trim()
+    if (!code) return
+
+    const metadata = findCapabilityMetadata(code)
+    const params = binding.params || {}
+    const label = binding.label?.trim() || metadata?.label || code
+    const group = firstBindingText(params, ["route_group", "routeGroup", "group"]) || metadata?.group || "AI / Other"
+    const description = firstBindingText(params, ["description"]) ||
+      binding.remark?.trim() ||
+      metadata?.description ||
+      `AI capability route for ${label}.`
+    const entry = firstBindingText(params, ["entry"]) || metadata?.entry || `AI / ${label}`
+    const runtime = firstBindingText(params, ["runtime_entry", "runtimeEntry", "runtime"]) ||
+      metadata?.runtime ||
+      "Binding-driven AI route"
+    const promptKey = binding.prompt?.prompt_key?.trim() ||
+      firstBindingText(params, ["prompt_key", "promptKey"]) ||
+      metadata?.prompt_key ||
+      code
+
+    rows.set(code, {
+      ...metadata,
+      code,
+      label,
+      group,
+      description,
+      entry,
+      reads_binding: true,
+      runtime,
+      prompt_key: promptKey,
+      aliases: Array.from(new Set([
+        ...(metadata?.aliases || []),
+        ...(metadata && metadata.code !== code ? [metadata.code] : []),
+      ])),
+      source: "ai_usage_bindings",
+      enabled: binding.is_enabled,
+    })
+  })
+  return [...rows.values()].sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label))
+}
 
 const AI_PROVIDER_TYPES: AiProviderType[] = [
   {
@@ -487,33 +573,7 @@ async function getAiProvider(id: string): Promise<AiProviderItem> {
 }
 
 export async function fetchAiCapabilities(): Promise<AiCapability[]> {
-  const governed = await fetchAgentCapabilities().catch(() => [])
-  const byCode = new Map(governed.map((item) => [item.capabilityCode, item]))
-  const dynamic = governed.map((item): AiCapability => ({
-    code: item.capabilityCode,
-    label: item.name,
-    group: item.routeGroup || `Agent / ${item.module}`,
-    description: item.description,
-    entry: item.runtimeEntry,
-    prompt_key: item.promptKey,
-    reads_binding: true,
-    runtime: item.runtimeEntry,
-    governed: true,
-    version: item.version,
-    input_schema_json: item.inputSchemaJson,
-    output_schema_json: item.outputSchemaJson,
-    source: item.source,
-    source_url: item.sourceUrl,
-    freshness: item.freshness,
-    availability: item.availability,
-    governance_availability: item.governanceAvailability,
-    enabled: item.enabled,
-    priority: item.priority,
-    last_seen_at: item.lastSeenAt,
-    stale_at: item.staleAt,
-  }))
-  const legacy = AI_CAPABILITIES.filter((item) => !byCode.has(item.code))
-  return [...legacy, ...dynamic]
+  return buildAiCapabilitiesFromBindings(await fetchAiBindings())
 }
 
 export async function fetchAiProviderTypes(): Promise<AiProviderType[]> {
@@ -576,7 +636,10 @@ export async function fetchAiBindings(): Promise<AiBindingItem[]> {
 export async function upsertAiBinding(payload: Partial<AiBindingItem>): Promise<AiBindingItem> {
   const existing = (await fetchAiBindings()).find((item) => item.capability === payload.capability)
   const method = existing ? "PUT" : "POST"
-  const savedPayload = existing ? { ...payload, id: existing.id } : payload
+  const definedPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  ) as Partial<AiBindingItem>
+  const savedPayload = existing ? { ...existing, ...definedPayload, id: existing.id } : payload
   const result = await cynexusResult<string | boolean>(
     await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/usage-bindings`, {
       method,
@@ -589,5 +652,13 @@ export async function upsertAiBinding(payload: Partial<AiBindingItem>): Promise<
     await fetchWithRetry(`${SERVICE_PREFIX.aiConfig}/usage-bindings/${encodeURIComponent(id)}`, { cache: "no-store" }),
   )
   const [providers, prompts] = await Promise.all([fetchAiProviders(), fetchAiPrompts({ status: "active" })])
-  return toAiBindingItem(dto, new Map(providers.map((provider) => [provider.id, provider])), new Map(prompts.map((prompt) => [prompt.id, prompt])))
+  const binding = toAiBindingItem(dto, new Map(providers.map((provider) => [provider.id, provider])), new Map(prompts.map((prompt) => [prompt.id, prompt])))
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent<AiBindingItem>(AI_BINDING_CHANGED_EVENT, { detail: binding }))
+  }
+  return binding
+}
+
+export async function updateAiBindingProvider(capability: string, providerId: string): Promise<AiBindingItem> {
+  return upsertAiBinding({ capability, provider_id: providerId })
 }

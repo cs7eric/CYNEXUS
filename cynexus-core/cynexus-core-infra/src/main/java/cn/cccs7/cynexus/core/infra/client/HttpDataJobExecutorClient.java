@@ -86,6 +86,31 @@ public class HttpDataJobExecutorClient implements DataJobExecutorClient {
         return getMap("/internal/job-runs/" + encodePath(runId));
     }
 
+    @Override
+    public Map<String, Object> startSocialLogin(String platform, String profileName) {
+        return postMap("/internal/social/login-sessions", Map.of(
+                "platform", platform,
+                "profile_name", profileName == null || profileName.isBlank() ? "default" : profileName));
+    }
+
+    @Override
+    public Map<String, Object> getSocialLogin(String sessionId) {
+        return getMap("/internal/social/login-sessions/" + encodePath(sessionId));
+    }
+
+    @Override
+    public Map<String, Object> completeSocialLogin(String sessionId) {
+        return postMap("/internal/social/login-sessions/" + encodePath(sessionId) + "/complete", Map.of());
+    }
+
+    @Override
+    public Map<String, Object> closeSocialLogin(String sessionId) {
+        HttpRequest request = baseRequest("/internal/social/login-sessions/" + encodePath(sessionId))
+                .method("DELETE", HttpRequest.BodyPublishers.noBody())
+                .build();
+        return sendForMap(request);
+    }
+
     private Map<String, Object> getMap(String path) {
         HttpRequest request = baseRequest(path).GET().build();
         return sendForMap(request);

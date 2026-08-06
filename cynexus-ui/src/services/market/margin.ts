@@ -79,6 +79,7 @@ export interface MarginIndustrySummary {
   securitiesLendingSellVolume: number | null
   securitiesLendingRepayVolume: number | null
   marginBalance: number | null
+  turnoverAmount: number | null
 }
 
 export interface MarginAccountStats {
@@ -157,6 +158,15 @@ export interface MarginIndustriesResponse {
   page?: number
   pageSize?: number
   limit: number
+  count: number
+  items: MarginIndustrySummary[]
+}
+
+export interface MarginIndustryHistoryResponse {
+  ok: boolean
+  error?: string | null
+  industryCode: string
+  tradeDate?: string | null
   count: number
   items: MarginIndustrySummary[]
 }
@@ -254,4 +264,20 @@ export async function fetchMarginIndustries(
   const suffix = queryString ? `?${queryString}` : ""
   const res = await fetchWithRetry(`${MARGIN_API_BASE}/industries${suffix}`, { cache: "no-store" })
   return cynexusResult<MarginIndustriesResponse>(res)
+}
+
+export async function fetchMarginIndustryHistory(
+  industryCode: string,
+  params: { tradeDate?: string; limit?: number } = {},
+): Promise<MarginIndustryHistoryResponse> {
+  const query = new URLSearchParams()
+  if (params.tradeDate) query.set("tradeDate", params.tradeDate)
+  if (params.limit != null) query.set("limit", String(params.limit))
+  const queryString = query.toString()
+  const suffix = queryString ? `?${queryString}` : ""
+  const res = await fetchWithRetry(
+    `${MARGIN_API_BASE}/industries/${encodeURIComponent(industryCode)}/history${suffix}`,
+    { cache: "no-store" },
+  )
+  return cynexusResult<MarginIndustryHistoryResponse>(res)
 }

@@ -12,6 +12,7 @@ from cynexus_data.storage.postgres.ids import next_bigint_id, stable_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260707_create_a_stock_data_tables.sql"
+SCREENING_DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260728_create_stock_screening_tables.sql"
 
 JSONB_COLUMNS = {
     "concepts",
@@ -24,6 +25,7 @@ TABLE_KEYS = {
     "sec_stock_basic": ["code"],
     "a_stock_research_report": ["source", "scope", "code", "industry_code", "report_id"],
     "a_stock_financial_statement": ["source", "code", "report_type", "report_date"],
+    "a_stock_financial_snapshot": ["source", "code", "report_type", "report_date"],
     "a_stock_announcement": ["source", "code", "announcement_id"],
     "a_stock_news": ["source", "code", "news_id"],
     "a_stock_investor_interaction": ["source", "code", "interaction_id"],
@@ -52,6 +54,10 @@ class AStockPostgresRepository:
         count = 0
         with self.client.engine.begin() as conn:
             for statement in _split_sql(path.read_text(encoding="utf-8")):
+                conn.execute(text(statement))
+                count += 1
+        with self.client.engine.begin() as conn:
+            for statement in _split_sql(SCREENING_DDL_PATH.read_text(encoding="utf-8")):
                 conn.execute(text(statement))
                 count += 1
         return count

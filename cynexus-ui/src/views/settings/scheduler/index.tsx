@@ -5,7 +5,7 @@
  * - Backend design: design/backend/scheduler-registry-runtime.md
  * - Change rule: review design before edits; sync design if registry/live status/action contract changes.
  */
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
   Activity,
@@ -31,6 +31,7 @@ import {
   PowerOff,
   RefreshCcw,
   RefreshCw,
+  Search,
   Settings2,
   Sparkles,
   Tags,
@@ -41,7 +42,6 @@ import {
 } from "lucide-react"
 
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,6 +56,15 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { notification } from "@/components/ui/notification"
 import {
   Dialog,
@@ -136,6 +145,9 @@ type TodayRunStatConfig = {
 // ---------------------------------------------------------------------------
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   activity: Activity,
+  calendar: CalendarDays,
+  check: CheckCircle2,
+  file: FileCode2,
   sparkles: Sparkles,
   database: Database,
   refresh: RefreshCcw,
@@ -189,6 +201,11 @@ function formatInteger(value: number | null | undefined): string {
   return new Intl.NumberFormat("zh-CN").format(value)
 }
 
+function displaySchedulerJobName(name: string): string {
+  const cleaned = name.replace(/\s*[（(][^）)]*[）)]\s*$/, "").trim()
+  return cleaned || name
+}
+
 function formatPercentValue(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—"
   return `${(value * 100).toFixed(1)}%`
@@ -231,6 +248,95 @@ function parseScheduleConfig(job: SchedulerJobItem): Record<string, unknown> {
     return rawSchedule as Record<string, unknown>
   }
   return {}
+}
+
+const WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+function formatScheduleClock(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
+  return `${String(hour).padStart(2, "0")}:${match[2]}`
+}
+
+function formatScheduleWeekday(value: unknown): string | null {
+  const weekday = typeof value === "number" ? value : Number(value)
+  return Number.isInteger(weekday) && weekday >= 0 && weekday < WEEKDAY_LABELS.length
+    ? WEEKDAY_LABELS[weekday]
+    : null
+}
+
+function formatCronSchedule(cron: string, dayLabel: string | null): string {
+  const parts = cron.trim().split(/\s+/)
+  const minute = parts[0]
+  const hour = parts[1]
+  if (parts.length >= 5 && /^\d+$/.test(minute) && /^\d+$/.test(hour)) {
+    const minuteValue = Number(minute)
+    const hourValue = Number(hour)
+    if (minuteValue >= 0 && minuteValue <= 59 && hourValue >= 0 && hourValue <= 23) {
+      const time = `${String(hourValue).padStart(2, "0")}:${String(minuteValue).padStart(2, "0")}`
+      const cronDay = parts[4].toLowerCase()
+      const resolvedDay = dayLabel
+        ?? (cronDay === "mon-fri" || cronDay === "1-5" ? "工作日" : cronDay === "*" ? "每日" : null)
+      return `${resolvedDay ? `${resolvedDay} ` : ""}${time}`
+    }
+  }
+  const everyMinutes = minute.match(/^\*\/(\d+)$/)
+  if (parts.length >= 5 && everyMinutes && (hour === "*" || hour === "?")) {
+    return `${dayLabel ? `${dayLabel} ` : ""}每${everyMinutes[1]}分钟`
+  }
+  return `Cron ${cron.trim()}`
+}
+
+function formatJobScheduleTime(job: SchedulerJobItem): string {
+  const schedule = parseScheduleConfig(job)
+  if (Object.keys(schedule).length === 0) return "未配置"
+
+  const weeklyLabel = schedule.run_once_per_week
+    ? formatScheduleWeekday(schedule.weekday)
+    : null
+  const dayLabel = weeklyLabel
+    ? `每${weeklyLabel}`
+    : schedule.run_once_per_week
+      ? "每周"
+    : schedule.trading_day_only
+      ? "交易日"
+      : schedule.workday_only
+        ? "工作日"
+        : schedule.run_once_per_day
+          ? "每日"
+          : null
+  const windows = Array.isArray(schedule.intraday_windows)
+    ? schedule.intraday_windows
+      .map((item) => {
+        if (!item || typeof item !== "object") return null
+        const record = item as Record<string, unknown>
+        const start = formatScheduleClock(record.start)
+        const end = formatScheduleClock(record.end)
+        return start && end ? `${start}-${end}` : null
+      })
+      .filter((value): value is string => Boolean(value))
+    : []
+  const everyMinutes = Number(schedule.every_minutes)
+  const scheduleParts: string[] = []
+  if (windows.length > 0) {
+    scheduleParts.push(`${windows.join("、")}${Number.isFinite(everyMinutes) && everyMinutes > 0 ? `，每${everyMinutes}分钟` : ""}`)
+  }
+  const runTime = formatScheduleClock(schedule.run_time)
+  if (runTime) scheduleParts.push(runTime)
+  const postCloseRun = formatScheduleClock(schedule.post_close_run)
+  if (postCloseRun) scheduleParts.push(`收盘后 ${postCloseRun}`)
+  if (scheduleParts.length > 0) return `${dayLabel ? `${dayLabel} ` : ""}${scheduleParts.join("；")}`
+  if (Number.isFinite(everyMinutes) && everyMinutes > 0) {
+    return `${dayLabel ? `${dayLabel} ` : ""}每${everyMinutes}分钟`
+  }
+  if (typeof schedule.cron === "string" && schedule.cron.trim()) {
+    return formatCronSchedule(schedule.cron, dayLabel)
+  }
+  return dayLabel || "已配置"
 }
 
 function buildScheduleWindows(jobs: SchedulerJobItem[]): ScheduleWindowSummary[] {
@@ -746,6 +852,7 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
   const expectedCount = job.today_stats?.expected_count ?? 0
   const actualCount = job.today_stats?.actual_count ?? 0
   const failedCount = job.today_stats?.failed_count ?? 0
+  const scheduleLabel = formatJobScheduleTime(job)
   const executionTone = failedCount > 0 ? "danger" : actualCount > 0 ? "success" : "default"
   const executionHint = failedCount > 0
     ? `失败 ${formatInteger(failedCount)} 次`
@@ -808,7 +915,15 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <CardTitle className="min-w-0 truncate text-base font-semibold leading-6">{job.name}</CardTitle>
+                <CardTitle className="min-w-0 truncate text-base font-semibold leading-6">{displaySchedulerJobName(job.name)}</CardTitle>
+                <div
+                  className="flex min-w-0 max-w-full items-center gap-1 text-[11px] text-muted-foreground"
+                  title={`执行时间 ${scheduleLabel}`}
+                >
+                  <Clock className="size-3 shrink-0" />
+                  <span className="shrink-0">执行时间</span>
+                  <span className="truncate font-medium text-foreground/80">{scheduleLabel}</span>
+                </div>
                 <Badge
                   variant="secondary"
                   className={cn("shrink-0 px-2 py-0 text-[10px]", jobStateClass(isRunning, job.config_enabled))}
@@ -831,7 +946,7 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
             </div>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             <TodayRunMetric
               icon={<CalendarDays className="size-3" />}
               label="今日预计"
@@ -942,7 +1057,7 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
           <DialogHeader>
             <DialogTitle className="flex min-w-0 flex-wrap items-center gap-2 pr-6 leading-6">
               <Settings2 className="size-4" />
-              <span className="min-w-0 break-words">{job.name}</span>
+              <span className="min-w-0 break-words">{displaySchedulerJobName(job.name)}</span>
               <span className="max-w-full break-all rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                 {job.id}
               </span>
@@ -993,7 +1108,8 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
           ) : null}
 
           {/* 统计网格 */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat icon={<Clock className="size-3.5" />} label="执行时间" value={scheduleLabel} />
             <Stat icon={<ListChecks className="size-3.5" />} label="累计运行" value={totalRuns ?? "—"} />
             <Stat icon={<TimerReset className="size-3.5" />} label="最后耗时" value={formatSeconds(lastDuration ?? null)} />
             <Stat icon={<Activity className="size-3.5" />} label="处理标的" value={lastTargets ?? "—"} />
@@ -1160,7 +1276,7 @@ function JobCard({ job, categories, pending, onAction, onUpdateCategories }: Job
 
             <DeleteJobButton
               jobId={job.id}
-              jobName={job.name}
+              jobName={displaySchedulerJobName(job.name)}
               pending={isActionPending("delete")}
               onConfirm={() => {
                 onAction(job.id, "delete")
@@ -1601,7 +1717,7 @@ function AddJobToCategoryButton({
       .filter((job) => !job.categories?.includes(categoryId))
       .filter((job) => {
         if (!lowerKeyword) return true
-        return `${job.id} ${job.name} ${job.description || ""}`.toLowerCase().includes(lowerKeyword)
+        return `${job.id} ${displaySchedulerJobName(job.name)} ${job.description || ""}`.toLowerCase().includes(lowerKeyword)
       })
   }, [categoryId, jobs, keyword])
 
@@ -1712,7 +1828,7 @@ function AddJobToCategoryButton({
                         className="mt-0.5"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-foreground">{job.name}</span>
+                        <span className="block truncate font-medium text-foreground">{displaySchedulerJobName(job.name)}</span>
                         <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
                           {job.id}
                         </span>
@@ -1991,9 +2107,11 @@ export default function SchedulerSettingsPage() {
   const [jobs, setJobs] = useState<SchedulerJobItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const notifiedLoadErrorRef = useRef<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [pending, setPending] = useState<ActionState>({})
   const [activeCategory, setActiveCategory] = useState<string>(ALL_TAB)
+  const [jobSearch, setJobSearch] = useState("")
   const [categories, setCategories] = useState<SchedulerCategory[]>([])
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [editingCategories, setEditingCategories] = useState(false)
@@ -2015,14 +2133,17 @@ export default function SchedulerSettingsPage() {
       if (jobsRes.ok) {
         setJobs(jobsRes.items || [])
         setError(null)
+        notifiedLoadErrorRef.current = null
         setLastUpdated(new Date())
       } else {
-        setError(jobsRes.error || "获取调度任务列表失败")
-        if (withSpinner) {
+        const loadError = jobsRes.error || "获取调度任务列表失败"
+        setError(loadError)
+        if (withSpinner || notifiedLoadErrorRef.current !== loadError) {
           notification.danger({
             title: "加载调度任务失败",
-            description: jobsRes.error || "请检查后端服务",
+            description: loadError,
           })
+          notifiedLoadErrorRef.current = loadError
         }
       }
       if (catRes.ok) {
@@ -2035,8 +2156,9 @@ export default function SchedulerSettingsPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "未知错误"
       setError(msg)
-      if (withSpinner) {
+      if (withSpinner || notifiedLoadErrorRef.current !== msg) {
         notification.danger({ title: "加载调度任务失败", description: msg })
+        notifiedLoadErrorRef.current = msg
       }
     } finally {
       if (withSpinner) setLoading(false)
@@ -2357,8 +2479,14 @@ export default function SchedulerSettingsPage() {
   // category id 来自后端 bigint, 前端必须按 string 处理, 避免 JS number 精度丢失.
   const jobsForCategory = useCallback(
     (key: string): SchedulerJobItem[] => {
-      if (key === ALL_TAB) return jobs
-      const filtered = jobs.filter((job) => (job.categories || []).includes(key))
+      const keyword = jobSearch.trim().toLocaleLowerCase()
+      const filtered = jobs.filter((job) => {
+        const inCategory = key === ALL_TAB || (job.categories || []).includes(key)
+        if (!inCategory || !keyword) return inCategory
+    return [job.id, displaySchedulerJobName(job.name), job.description]
+          .filter(Boolean)
+          .some((value) => value!.toLocaleLowerCase().includes(keyword))
+      })
       // 按 categorySortOrders 排序 (market_sentiment 等按执行顺序), 无 sortOrder 的放最后
       filtered.sort((a, b) => {
         const sa = a.categorySortOrders?.[key] ?? 999
@@ -2367,7 +2495,13 @@ export default function SchedulerSettingsPage() {
       })
       return filtered
     },
-    [jobs],
+    [jobSearch, jobs],
+  )
+
+  const visibleCategories = categories.slice(0, 5)
+  const overflowCategories = categories.slice(5)
+  const activeOverflowCategory = overflowCategories.find(
+    (category) => String(category.id) === activeCategory,
   )
 
   return (
@@ -2480,55 +2614,108 @@ export default function SchedulerSettingsPage() {
           每个 tab 一个 <TabsContent> 渲染对应 jobs. 不传 forceMount, 让 shadcn
           按 active tab 自动 mount/unmount. */}
       <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full min-w-0">
-        <div className="sticky top-0 z-20 -mx-3 flex w-[calc(100%+1.5rem)] items-center justify-between gap-2 overflow-hidden border-b border-border/40 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:-mx-6 md:w-[calc(100%+3rem)] md:px-6">
-          <div className="min-w-0 flex-1 overflow-x-auto">
-            <TabsList className="min-w-max">
-              {/* "全部" tab 固定第一个, 不来自 API */}
-              <TabsTrigger value={ALL_TAB}>
-                <LayoutGrid className="size-3.5" />
-                全部
-                <Badge
-                  variant={activeCategory === ALL_TAB ? "default" : "secondary"}
-                  className="ml-1 px-1.5 py-0 text-[10px]"
-                >
-                  {categoryCounts[ALL_TAB] ?? 0}
-                </Badge>
-              </TabsTrigger>
-              {categories.map((cat) => {
-                const Icon = iconFor(cat.icon_hint)
-                const count = categoryCounts[cat.id] ?? cat.count
-                const value = String(cat.id)
-                return (
-                  <div key={cat.id} className="inline-flex h-[calc(100%-1px)] items-center">
-                    <TabsTrigger
-                      value={value}
-                      title={cat.description}
-                      className={cn(editingCategories && "rounded-r-none pr-1.5")}
-                    >
-                      <Icon className="size-3.5" />
-                      {cat.label}
-                      <Badge
-                        variant={activeCategory === value ? "default" : "secondary"}
-                        className="ml-1 px-1.5 py-0 text-[10px]"
+        <div className="sticky top-0 z-20 -mx-3 w-[calc(100%+1.5rem)] border-b border-border/40 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:-mx-6 md:w-[calc(100%+3rem)] md:px-6">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex w-fit max-w-full flex-wrap items-center gap-1 self-start rounded-lg bg-muted/60 p-1">
+                <TabsList aria-label="Job 分类" className="flex h-auto max-w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+                  <TabsTrigger value={ALL_TAB} className="h-8 flex-none px-2.5 text-xs sm:px-3">
+                    <LayoutGrid className="size-3.5" />
+                    全部
+                    <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px]">
+                      {categoryCounts[ALL_TAB] ?? 0}
+                    </Badge>
+                  </TabsTrigger>
+                  {visibleCategories.map((cat) => {
+                    const Icon = iconFor(cat.icon_hint)
+                    const count = categoryCounts[cat.id] ?? cat.count
+                    const value = String(cat.id)
+                    return (
+                      <TabsTrigger
+                        key={cat.id}
+                        value={value}
+                        title={cat.description}
+                        className="h-8 min-w-0 flex-none max-w-full px-2.5 text-xs sm:px-3"
                       >
-                        {count}
-                      </Badge>
-                    </TabsTrigger>
-                    {editingCategories ? (
-                      <EditCategoryButton
-                        category={cat}
-                        count={count}
-                        pending={updatingCategoryId === cat.id || deletingCategoryId === cat.id}
-                        onSave={handleUpdateCategory}
-                        onDelete={(category) => void handleDeleteCategory(category)}
-                      />
-                    ) : null}
-                  </div>
-                )
-              })}
-            </TabsList>
-          </div>
-          <div className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-muted p-[3px]">
+                        <Icon className="size-3.5" />
+                        <span className="max-w-28 truncate">{cat.label}</span>
+                        <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px]">
+                          {count}
+                        </Badge>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+                {overflowCategories.length > 0 ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        aria-label="选择更多 Job 分类"
+                        className="h-8 min-w-28 max-w-44 gap-1.5 rounded-md bg-background/70 px-2.5 text-xs font-medium text-foreground hover:bg-background"
+                      >
+                      {activeOverflowCategory ? (
+                        <>
+                          {(() => {
+                            const Icon = iconFor(activeOverflowCategory.icon_hint)
+                            return <Icon className="size-3.5 shrink-0" />
+                          })()}
+                          <span className="min-w-0 flex-1 truncate">{activeOverflowCategory.label}</span>
+                          <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                            {categoryCounts[activeCategory] ?? activeOverflowCategory.count}
+                          </Badge>
+                        </>
+                      ) : (
+                        <>
+                          <Tags className="size-3.5 shrink-0" />
+                          <span>更多分类</span>
+                          <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                            {overflowCategories.length}
+                          </Badge>
+                        </>
+                      )}
+                        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      <DropdownMenuLabel>其他分类</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuRadioGroup
+                        value={activeOverflowCategory ? activeCategory : ""}
+                        onValueChange={setActiveCategory}
+                      >
+                        {overflowCategories.map((cat) => {
+                          const Icon = iconFor(cat.icon_hint)
+                          const count = categoryCounts[cat.id] ?? cat.count
+                          return (
+                            <DropdownMenuRadioItem key={cat.id} value={String(cat.id)}>
+                              <Icon className="size-3.5" />
+                              <span className="min-w-0 flex-1 truncate">{cat.label}</span>
+                              <Badge variant="secondary" className="ml-auto px-1.5 py-0 text-[10px]">
+                                {count}
+                              </Badge>
+                            </DropdownMenuRadioItem>
+                          )
+                        })}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-muted p-[3px]">
+            <div className="relative h-7 w-36 shrink-0 sm:w-48">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={jobSearch}
+                onChange={(event) => setJobSearch(event.target.value)}
+                placeholder="搜索 Job"
+                aria-label="搜索 Job"
+                className="h-7 border-0 bg-muted/60 pl-8 pr-2 text-xs shadow-none focus-visible:ring-1"
+              />
+            </div>
             <Button
               type="button"
               size="sm"
@@ -2548,15 +2735,29 @@ export default function SchedulerSettingsPage() {
             />
             <CreateCategoryButton pending={creatingCategory} onCreate={handleCreateCategory} />
           </div>
+          </div>
+          {editingCategories ? (
+            <div className="mt-2 flex max-h-24 flex-wrap items-center gap-1.5 overflow-y-auto border-t border-border/30 pt-2">
+              <span className="mr-0.5 text-[11px] font-medium text-muted-foreground">分类管理</span>
+              {categories.map((cat) => {
+                const count = categoryCounts[cat.id] ?? cat.count
+                return (
+                  <div key={cat.id} className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-xs">
+                    <span className="max-w-32 truncate">{cat.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{count}</span>
+                    <EditCategoryButton
+                      category={cat}
+                      count={count}
+                      pending={updatingCategoryId === cat.id || deletingCategoryId === cat.id}
+                      onSave={handleUpdateCategory}
+                      onDelete={(category) => void handleDeleteCategory(category)}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
-
-        {error ? (
-          <Alert variant="destructive">
-            <AlertTriangle className="size-4" />
-            <AlertTitle>拉取调度任务失败</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
 
         {loading && jobs.length === 0 ? (
           <DogLoader overlay size={25} label="正在加载调度任务..." />
@@ -2565,13 +2766,19 @@ export default function SchedulerSettingsPage() {
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
               <RefreshCw className="size-8 text-muted-foreground" />
               <div className="text-sm font-medium text-foreground">
-                jobs.json 中还没有注册任何调度任务
+                {error ? "调度任务暂时不可用" : "jobs.json 中还没有注册任何调度任务"}
               </div>
-              <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                启动一次 Flask 后，scheduler 会自动把 turnover / auction / application_analysis
-                三个内置 job 注册进去；或者手动编辑{" "}
-                <code className="rounded bg-muted px-1.5 py-0.5 text-xs">scheduler/jobs.json</code>。
-              </p>
+              {error ? (
+                <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                  请求失败，详细信息已通过通知提示。
+                </p>
+              ) : (
+                <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                  启动一次 Flask 后，scheduler 会自动把 turnover / auction / application_analysis
+                  三个内置 job 注册进去；或者手动编辑{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">scheduler/jobs.json</code>。
+                </p>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -2588,8 +2795,13 @@ export default function SchedulerSettingsPage() {
                     <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
                       <BarChart3 className="size-8 text-muted-foreground" />
                       <div className="text-sm font-medium text-foreground">
-                        还没有注册任何调度任务
+                        {jobSearch.trim() ? "没有匹配的 Job" : "还没有注册任何调度任务"}
                       </div>
+                      {jobSearch.trim() ? (
+                        <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                          请尝试搜索 Job 名称、Job ID 或描述。
+                        </p>
+                      ) : null}
                     </CardContent>
                   </Card>
                 }
@@ -2611,8 +2823,13 @@ export default function SchedulerSettingsPage() {
                         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
                           <BarChart3 className="size-8 text-muted-foreground" />
                           <div className="text-sm font-medium text-foreground">
-                            "{cat.label}" category 没有 job
+                            {jobSearch.trim() ? "没有匹配的 Job" : `"${cat.label}" category 没有 job`}
                           </div>
+                          {jobSearch.trim() ? (
+                            <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                              请尝试搜索 Job 名称、Job ID 或描述。
+                            </p>
+                          ) : null}
                         </CardContent>
                       </Card>
                     }
@@ -2989,7 +3206,7 @@ function TodayJobListItem({
       : null
   )
   const failureCopyText = [
-    `job name: ${job.name}`,
+    `job name: ${displaySchedulerJobName(job.name)}`,
     `job code: ${job.id}`,
     `错误信息: ${failureText || "本次失败记录没有返回错误信息"}`,
   ].join("\n")
@@ -2997,7 +3214,7 @@ function TodayJobListItem({
     event.stopPropagation()
     try {
       await navigator.clipboard.writeText(failureCopyText)
-      notification.success({ title: "已复制 Job 错误信息", description: job.name })
+      notification.success({ title: "已复制 Job 错误信息", description: displaySchedulerJobName(job.name) })
     } catch (error) {
       notification.danger({
         title: "复制失败",
@@ -3022,7 +3239,7 @@ function TodayJobListItem({
       <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="min-w-0 truncate text-sm font-semibold text-foreground">{job.name}</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-foreground">{displaySchedulerJobName(job.name)}</span>
             <Badge
               variant="secondary"
               className={cn("px-2 py-0 text-[10px]", jobStateClass(isRunning, job.config_enabled))}

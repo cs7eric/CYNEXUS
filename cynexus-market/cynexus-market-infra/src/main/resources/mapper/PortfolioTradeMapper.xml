@@ -9,6 +9,6 @@
          traded_at, quantity, price, gross_amount, total_fee, status, confirmed_at, confirmed_by)
         values (#{id}, #{principalKey}, #{tenantKey}, #{sourceTaskId}, #{sourceCandidateId}, #{symbol}, #{securityName}, #{instrumentType}, #{side},
                 #{tradedAt}, #{quantity}, #{price}, #{grossAmount}, #{totalFee}, #{status}, #{confirmedAt}, #{confirmedBy})
-        on conflict (source_task_id, source_candidate_id) where status = 'ACTIVE' and deleted_at is null do nothing
+        on conflict do nothing
     </insert>
 </mapper>

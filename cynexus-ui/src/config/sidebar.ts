@@ -17,6 +17,7 @@ import {
   WalletCards,
   Camera,
   Sparkles,
+  MessageSquareText,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -131,6 +132,10 @@ export const sidebarConfig = {
           title: "AI analyzed",
           url: "/information/analyzed",
         },
+        {
+          title: "Social Monitoring",
+          url: "/information/social-monitoring",
+        },
       ],
     },
     {
@@ -161,10 +166,6 @@ export const sidebarConfig = {
         {
           title: "personal portfolio",
           url: "/personal-portfolio",
-        },
-        {
-          title: "portfolio reviews",
-          url: "/personal-portfolio/reviews/new",
         },
       ],
     },
@@ -229,6 +230,10 @@ export const sidebarConfig = {
         {
           title: "Provider",
           url: "/settings/provider",
+        },
+        {
+          title: "微信历史事件",
+          url: "/settings/wechat-history",
         },
       ],
     },
@@ -389,6 +394,11 @@ export const sidebarConfig = {
       name: "Settings · Provider",
       url: "/settings/provider",
       icon: Server,
+    },
+    {
+      name: "Settings · 微信历史事件",
+      url: "/settings/wechat-history",
+      icon: MessageSquareText,
     },
     {
       name: "AI · Prompt",

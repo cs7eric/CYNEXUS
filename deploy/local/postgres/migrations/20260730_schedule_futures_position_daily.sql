@@ -3,7 +3,7 @@ DECLARE
     v_job_id bigint;
     v_status_id bigint;
     v_schedule jsonb := '{"run_time":"19:00","workday_only":true,"trading_day_only":true,"run_once_per_day":true}'::jsonb;
-    v_params jsonb := '{"create_table":true,"providers":["akshare"],"exchanges":["CFFEX","SHFE","CZCE","DCE","GFEX","INE"]}'::jsonb;
+    v_params jsonb := '{"create_table":true,"providers":["akshare","sina"],"exchanges":["CFFEX","SHFE","CZCE","DCE","GFEX","INE"]}'::jsonb;
 BEGIN
     SELECT id INTO v_job_id
       FROM cynexus_appl_core.scheduler_jobs

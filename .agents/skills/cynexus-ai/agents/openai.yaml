@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cynexus AI Features"
+  short_description: "Build complete Cynexus AI capability routes"
+  default_prompt: "Use $cynexus-ai to implement this AI feature with its prompt, provider, usage binding, runtime route, migration, validation, and tests."

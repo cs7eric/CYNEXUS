@@ -1,10 +1,10 @@
 package cn.cccs7.cynexus.ai.infra.basic.redis.agent;
 
+import cn.cccs7.cynexus.common.cache.redis.RedisCacheOperations;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
 import java.time.Duration;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
@@ -44,9 +44,9 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort, AgentRateL
                     + "  redis.call('hset', KEYS[1], 'open_until', now + tonumber(ARGV[3]), 'probe', '0') "
                     + "end redis.call('expire', KEYS[1], ARGV[4]) return failures", Long.class);
 
-    private final StringRedisTemplate redis;
+    private final RedisCacheOperations redis;
 
-    public RedisAgentRuntimeLease(StringRedisTemplate redis) {
+    public RedisAgentRuntimeLease(RedisCacheOperations redis) {
         this.redis = redis;
     }
 
@@ -56,7 +56,7 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort, AgentRateL
                 java.util.List.of(activeKey(ownerKey), leaseKey(runNo)),
                 String.valueOf(Math.max(1, maxActiveRuns)), String.valueOf(Math.max(30, ttlSeconds)));
         if (!Long.valueOf(1L).equals(result)) return false;
-        redis.opsForValue().set(ownerKey(runNo), ownerKey, Duration.ofSeconds(Math.max(30, ttlSeconds)));
+        redis.set(ownerKey(runNo), ownerKey, Duration.ofSeconds(Math.max(30, ttlSeconds)));
         return true;
     }
 
@@ -68,21 +68,21 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort, AgentRateL
 
     @Override
     public boolean requestCancellation(String ownerKey, String runNo, int ttlSeconds) {
-        if (!Boolean.TRUE.equals(redis.hasKey(leaseKey(runNo)))) return false;
-        String owner = redis.opsForValue().get(ownerKey(runNo));
+        if (!redis.exists(leaseKey(runNo))) return false;
+        String owner = redis.get(ownerKey(runNo));
         if (owner != null && !owner.equals(ownerKey)) return false;
-        redis.opsForValue().set(cancelKey(runNo), "1", Duration.ofSeconds(Math.max(30, ttlSeconds)));
+        redis.set(cancelKey(runNo), "1", Duration.ofSeconds(Math.max(30, ttlSeconds)));
         return true;
     }
 
     @Override
     public boolean isCancellationRequested(String runNo) {
-        return Boolean.TRUE.equals(redis.hasKey(cancelKey(runNo)));
+        return redis.exists(cancelKey(runNo));
     }
 
     @Override
     public boolean isLeaseActive(String runNo) {
-        return Boolean.TRUE.equals(redis.hasKey(leaseKey(runNo)));
+        return redis.exists(leaseKey(runNo));
     }
 
     @Override

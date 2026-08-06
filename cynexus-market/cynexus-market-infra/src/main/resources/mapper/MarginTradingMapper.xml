@@ -101,20 +101,36 @@
     </select>
 
     <select id="listStocks" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginStockDetailPO">
-        select <include refid="StockDetailColumns"/>
-          from margin_stock_detail
-         where deleted_at is null
-           and trade_date = #{tradeDate}
+        with ranked_stocks as (
+            select s.*,
+                   row_number() over (
+                       partition by s.stock_code
+                       order by case
+                           when s.source = 'eastmoney.datacenter.margin' then 0
+                           when s.source like 'exchange.%' then 1
+                           when s.source like 'akshare.%' then 2
+                           else 3
+                       end,
+                       s.updated_at desc nulls last,
+                       s.id desc
+                   ) as stock_rank
+              from margin_stock_detail s
+             where s.deleted_at is null
+               and s.trade_date = #{tradeDate}
         <if test="exchange != null and exchange != ''">
-           and exchange = #{exchange}
+               and s.exchange = #{exchange}
         </if>
+        )
+        select <include refid="StockDetailColumns"/>
+          from ranked_stocks s
+         where s.stock_rank = 1
         <if test="industryCode != null and industryCode != ''">
            and exists (
                 select 1
                   from ths_industry_constituent_snapshot c
                  where c.deleted_at is null
                    and c.industry_code = #{industryCode}
-                   and c.stock_code = margin_stock_detail.stock_code
+                   and c.stock_code = s.stock_code
                    and c.snapshot_date = coalesce(
                        (
                            select max(c1.snapshot_date)
@@ -126,64 +142,80 @@
                            select max(c2.snapshot_date)
                              from ths_industry_constituent_snapshot c2
                             where c2.deleted_at is null
-                       )
-                   )
+                        )
+                    )
            )
         </if>
          order by
         <choose>
             <when test="sort == 'stock_code'">
-                stock_code
+                s.stock_code
             </when>
             <when test="sort == 'stock_name'">
-                stock_name
+                s.stock_name
             </when>
             <when test="sort == 'exchange'">
-                exchange
+                s.exchange
             </when>
             <when test="sort == 'financing_balance'">
-                financing_balance
+                s.financing_balance
             </when>
             <when test="sort == 'financing_buy_amount'">
-                financing_buy_amount
+                s.financing_buy_amount
             </when>
             <when test="sort == 'financing_repay_amount'">
-                financing_repay_amount
+                s.financing_repay_amount
             </when>
             <when test="sort == 'securities_lending_balance'">
-                securities_lending_balance
+                s.securities_lending_balance
             </when>
             <when test="sort == 'securities_lending_balance_amount'">
-                securities_lending_balance_amount
+                s.securities_lending_balance_amount
             </when>
             <otherwise>
-                coalesce(margin_balance, coalesce(financing_balance, 0) + coalesce(securities_lending_balance_amount, 0))
+                coalesce(s.margin_balance, coalesce(s.financing_balance, 0) + coalesce(s.securities_lending_balance_amount, 0))
             </otherwise>
         </choose>
         <choose>
             <when test="sortDir == 'asc'">asc nulls last</when>
             <otherwise>desc nulls last</otherwise>
         </choose>
-        , stock_code asc
+        , s.stock_code asc
          offset #{offset}
          limit #{limit}
     </select>
 
     <select id="countStocks" resultType="int">
-        select count(1)
-          from margin_stock_detail
-         where deleted_at is null
-           and trade_date = #{tradeDate}
+        with ranked_stocks as (
+            select s.stock_code,
+                   row_number() over (
+                       partition by s.stock_code
+                       order by case
+                           when s.source = 'eastmoney.datacenter.margin' then 0
+                           when s.source like 'exchange.%' then 1
+                           when s.source like 'akshare.%' then 2
+                           else 3
+                       end,
+                       s.updated_at desc nulls last,
+                       s.id desc
+                   ) as stock_rank
+              from margin_stock_detail s
+             where s.deleted_at is null
+               and s.trade_date = #{tradeDate}
         <if test="exchange != null and exchange != ''">
-           and exchange = #{exchange}
+               and s.exchange = #{exchange}
         </if>
+        )
+        select count(1)
+          from ranked_stocks s
+         where s.stock_rank = 1
         <if test="industryCode != null and industryCode != ''">
            and exists (
                 select 1
                   from ths_industry_constituent_snapshot c
                  where c.deleted_at is null
                    and c.industry_code = #{industryCode}
-                   and c.stock_code = margin_stock_detail.stock_code
+                   and c.stock_code = s.stock_code
                    and c.snapshot_date = coalesce(
                        (
                            select max(c1.snapshot_date)
@@ -195,8 +227,8 @@
                            select max(c2.snapshot_date)
                              from ths_industry_constituent_snapshot c2
                             where c2.deleted_at is null
-                       )
-                   )
+                        )
+                    )
            )
         </if>
     </select>
@@ -206,6 +238,27 @@
           from margin_stock_detail
          where deleted_at is null
            and stock_code = #{stockCode}
+           and id in (
+                select id
+                  from (
+                       select id,
+                              row_number() over (
+                                  partition by trade_date
+                                  order by case
+                                      when source = 'eastmoney.datacenter.margin' then 0
+                                      when source like 'exchange.%' then 1
+                                      when source like 'akshare.%' then 2
+                                      else 3
+                                  end,
+                                  updated_at desc nulls last,
+                                  id desc
+                              ) as history_rank
+                         from margin_stock_detail
+                        where deleted_at is null
+                          and stock_code = #{stockCode}
+                  ) ranked
+                 where history_rank = 1
+           )
          order by trade_date desc, updated_at desc
          limit #{limit}
     </select>
@@ -234,6 +287,35 @@
               from ths_industry_constituent_snapshot c
               join snapshot_pick sp on sp.snapshot_date = c.snapshot_date
              where c.deleted_at is null
+        ),
+        latest_stocks as (
+            select stock_code,
+                   financing_balance,
+                   financing_buy_amount,
+                   financing_repay_amount,
+                   securities_lending_balance,
+                   securities_lending_balance_amount,
+                   securities_lending_sell_volume,
+                   securities_lending_repay_volume,
+                   margin_balance
+              from (
+                    select s.*,
+                           row_number() over (
+                               partition by s.stock_code
+                               order by case
+                                   when s.source = 'eastmoney.datacenter.margin' then 0
+                                   when s.source like 'exchange.%' then 1
+                                   when s.source like 'akshare.%' then 2
+                                   else 3
+                               end,
+                               s.updated_at desc nulls last,
+                               s.id desc
+                           ) as stock_rank
+                      from margin_stock_detail s
+                     where s.deleted_at is null
+                       and s.trade_date = #{tradeDate}
+                   ) ranked
+             where stock_rank = 1
         ),
         industry_mapping as (
             select tdx_code6, tdx_name, ths_code, ths_name
@@ -288,15 +370,13 @@
                    coalesce(sum(s.securities_lending_balance_amount), 0) as securities_lending_balance_amount,
                    coalesce(sum(s.securities_lending_sell_volume), 0) as securities_lending_sell_volume,
                    coalesce(sum(s.securities_lending_repay_volume), 0) as securities_lending_repay_volume,
-                   coalesce(sum(coalesce(s.margin_balance, coalesce(s.financing_balance, 0) + coalesce(s.securities_lending_balance_amount, 0))), 0) as margin_balance
+                   coalesce(sum(coalesce(s.margin_balance, coalesce(s.financing_balance, 0) + coalesce(s.securities_lending_balance_amount, 0))), 0) as margin_balance,
+                    null::numeric as turnover_amount
               from constituents c
               left join industry_mapping im on im.ths_code = c.industry_code
               left join ths_industry_names tn on tn.ths_code = c.industry_code
-              left join margin_stock_detail s
-                on s.deleted_at is null
-               and s.trade_date = #{tradeDate}
-               and s.stock_code = c.stock_code
-             group by c.snapshot_date, c.industry_code
+               left join latest_stocks s on s.stock_code = c.stock_code
+              group by c.snapshot_date, c.industry_code
         )
     </sql>
 
@@ -317,7 +397,8 @@
                securities_lending_balance_amount,
                securities_lending_sell_volume,
                securities_lending_repay_volume,
-               margin_balance
+               margin_balance,
+               turnover_amount
          from industry_agg
          order by
         <choose>
@@ -371,5 +452,123 @@
         <include refid="LatestIndustryConstituentsCte"/>
         select count(1)
           from industry_agg
+    </select>
+
+    <select id="listIndustryConstituents" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryConstituentPO">
+        with snapshot_pick as (
+            select coalesce(
+                (
+                    select max(snapshot_date)
+                      from ths_industry_constituent_snapshot
+                     where deleted_at is null
+                       and snapshot_date &lt;= #{tradeDate}
+                ),
+                (
+                    select max(snapshot_date)
+                      from ths_industry_constituent_snapshot
+                     where deleted_at is null
+                )
+            ) as snapshot_date
+        )
+        select distinct c.industry_code, c.stock_code
+          from ths_industry_constituent_snapshot c
+          join snapshot_pick sp on sp.snapshot_date = c.snapshot_date
+         where c.deleted_at is null
+           and c.industry_code in
+        <foreach collection="industryCodes" item="industryCode" open="(" separator="," close=")">
+            #{industryCode}
+        </foreach>
+    </select>
+
+    <select id="listIndustryHistory" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryHistoryPO">
+        with params as (
+            select #{tradeDate}::date as end_date
+        ),
+        snapshot_pick as (
+            select coalesce(
+                (
+                    select max(snapshot_date)
+                      from ths_industry_constituent_snapshot
+                     where deleted_at is null
+                       and industry_code = #{industryCode}
+                       and snapshot_date &lt;= (select end_date from params)
+                ),
+                (
+                    select max(snapshot_date)
+                      from ths_industry_constituent_snapshot
+                     where deleted_at is null
+                       and industry_code = #{industryCode}
+                )
+            ) as snapshot_date
+        ),
+        constituents as (
+            select distinct c.stock_code
+              from ths_industry_constituent_snapshot c
+              join snapshot_pick sp on sp.snapshot_date = c.snapshot_date
+             where c.deleted_at is null
+               and c.industry_code = #{industryCode}
+        ),
+        dates as (
+            select distinct s.trade_date
+              from margin_stock_detail s
+              join constituents c on c.stock_code = s.stock_code
+             where s.deleted_at is null
+               and s.trade_date &lt;= (select end_date from params)
+             order by s.trade_date desc
+             limit #{limit}
+        ),
+        ranked_stocks as (
+            select s.*,
+                   row_number() over (
+                       partition by s.trade_date, s.stock_code
+                       order by case
+                           when s.source = 'eastmoney.datacenter.margin' then 0
+                           when s.source like 'exchange.%' then 1
+                           when s.source like 'akshare.%' then 2
+                           else 3
+                       end,
+                       s.updated_at desc nulls last,
+                       s.id desc
+                   ) as stock_rank
+              from margin_stock_detail s
+              join constituents c on c.stock_code = s.stock_code
+              join dates d on d.trade_date = s.trade_date
+             where s.deleted_at is null
+        ),
+         industry_history as (
+            select s.trade_date,
+                   (select snapshot_date from snapshot_pick) as constituent_snapshot_date,
+                   #{industryCode} as industry_code,
+                   (select count(*)::int from constituents) as constituent_count,
+                   count(distinct s.stock_code)::int as matched_stock_count,
+                   coalesce(sum(s.financing_balance), 0) as financing_balance,
+                   coalesce(sum(s.financing_buy_amount), 0) as financing_buy_amount,
+                   coalesce(sum(s.financing_repay_amount), 0) as financing_repay_amount,
+                   coalesce(sum(s.securities_lending_balance), 0) as securities_lending_balance,
+                   coalesce(sum(s.securities_lending_balance_amount), 0) as securities_lending_balance_amount,
+                   coalesce(sum(s.securities_lending_sell_volume), 0) as securities_lending_sell_volume,
+                   coalesce(sum(s.securities_lending_repay_volume), 0) as securities_lending_repay_volume,
+                   coalesce(sum(coalesce(s.margin_balance, coalesce(s.financing_balance, 0) + coalesce(s.securities_lending_balance_amount, 0))), 0) as margin_balance,
+                    null::numeric as turnover_amount
+               from ranked_stocks s
+              where s.stock_rank = 1
+             group by s.trade_date
+        )
+        select trade_date,
+               constituent_snapshot_date,
+               industry_code,
+               constituent_count,
+               matched_stock_count,
+               financing_balance,
+               financing_buy_amount,
+               financing_repay_amount,
+               securities_lending_balance,
+               securities_lending_balance_amount,
+               securities_lending_sell_volume,
+               securities_lending_repay_volume,
+               margin_balance,
+               turnover_amount
+          from industry_history
+         order by trade_date asc
     </select>
 </mapper>

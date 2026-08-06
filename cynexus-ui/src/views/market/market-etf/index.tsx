@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useState } from "react"
+import { AlertCircle, Database } from "lucide-react"
 
-import { WorkspaceShell } from "@/layout/workspace-shell"
+import { Button } from "@/components/ui/button"
 import { notification } from "@/components/ui/notification"
 import { Skeleton } from "@/components/ui/skeleton"
+import { WorkspaceShell } from "@/layout/workspace-shell"
 import { fetchMarketEtf, type MarketEtfResponse } from "@/services/market/etf"
+import { EtfMarketTape } from "./components/market-tape"
 import { MarketEtfHeader } from "./components/page-header"
-import { EtfSummaryCards } from "./components/summary-cards"
-import { EtfTrendChart } from "./components/trend-chart"
-import { EtfBreadthPanel } from "./components/breadth-panel"
-import { RotationTable } from "./components/rotation-table"
-import { EtfTable } from "./components/etf-table"
-import { EtfMappingPanel } from "./components/mapping-panel"
+import { EtfResearchWorkbench } from "./components/research-workbench"
 
-function LoadingBlock({ className = "h-40" }: { className?: string }) {
-  return <Skeleton className={className} />
+function WorkbenchSkeleton() {
+  return <div className="space-y-4"><Skeleton className="h-[70px]" /><div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.75fr)]"><Skeleton className="h-[620px]" /><Skeleton className="h-[620px]" /></div></div>
 }
 
 export default function MarketEtfPage() {
@@ -24,7 +22,6 @@ export default function MarketEtfPage() {
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    setData(null)
     try {
       const response = await fetchMarketEtf({ historyDays: 10, rowLimit: 180 })
       if (!response.ok) throw new Error(response.error || "ETF 数据为空")
@@ -33,32 +30,10 @@ export default function MarketEtfPage() {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
       notification.danger({ title: "ETF 市场数据加载失败", description: message })
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void load() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [load])
+  useEffect(() => { const timer = window.setTimeout(() => { void load() }, 0); return () => window.clearTimeout(timer) }, [load])
 
-  return (
-    <WorkspaceShell sectionLabel="market" pageTitle="market-etf">
-      <MarketEtfHeader tradeDate={data?.tradeDate} fetchedAt={data?.fetchedAt} source={data?.source} loading={loading} onRefresh={() => void load()} />
-      {error && !loading ? <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">{error}</div> : null}
-      {loading ? (
-        <div className="space-y-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <LoadingBlock key={index} className="h-32" />)}</div><div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)]"><LoadingBlock className="h-[390px]" /><LoadingBlock className="h-[390px]" /></div><LoadingBlock className="h-[390px]" /><div className="grid gap-4 xl:grid-cols-2"><LoadingBlock className="h-[360px]" /><LoadingBlock className="h-[360px]" /></div></div>
-      ) : data ? (
-        <div className="min-w-0 space-y-4 overflow-hidden">
-          <EtfSummaryCards summary={data.summary} />
-          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)]"><EtfTrendChart data={data.history} loading={false} /><EtfBreadthPanel breadth={data.breadth} summary={data.summary} /></div>
-          <RotationTable rows={data.rotations} loading={false} />
-          <EtfMappingPanel mapping={data.mapping ?? null} />
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2"><EtfTable title="宽基 ETF" description="宽基指数的成交、价格、折溢价和份额变化" rows={data.broad} loading={false} /><EtfTable title="行业 ETF" description="行业主题的成交活跃度与资金轮动线索" rows={data.sectorRows} loading={false} /></div>
-          <div className="border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">数据口径：份额变化 = 当日总份额 - 前一交易日总份额；申赎金额代理 = 份额变化 × IOPV。免费行情源不提供完整的申购/赎回毛数据，主力净流入仅作为二级市场分类资金参考。ETF 行情分类覆盖：{data.summary?.classificationAuthorityCount ?? "—"} 只来自基金/指数目录，{data.summary?.classificationFallbackCount ?? "—"} 只使用名称规则兜底。</div>
-        </div>
-      ) : <div className="rounded-lg bg-muted/35 px-4 py-12 text-center text-sm text-muted-foreground">暂无 ETF 市场数据</div>}
-    </WorkspaceShell>
-  )
+  return <WorkspaceShell sectionLabel="market" pageTitle="market-etf"><MarketEtfHeader tradeDate={data?.tradeDate} fetchedAt={data?.fetchedAt} source={data?.source} loading={loading} onRefresh={() => void load()} />{error && !loading ? <section className="flex items-start justify-between gap-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3"><div className="flex min-w-0 gap-3"><AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" /><div><div className="text-sm font-medium">ETF 数据加载失败</div><p className="mt-1 break-words text-xs text-muted-foreground">{error}</p></div></div><Button type="button" size="sm" variant="outline" onClick={() => void load()}>重试</Button></section> : null}{loading && !data ? <WorkbenchSkeleton /> : data ? <><EtfMarketTape summary={data.summary} breadth={data.breadth} rotations={data.rotations} /><EtfResearchWorkbench data={data} /><footer className="flex flex-col gap-2 border-t border-border/60 pt-3 text-[11px] leading-5 text-muted-foreground md:flex-row md:items-start md:justify-between"><div className="flex max-w-4xl items-start gap-2"><Database className="mt-0.5 size-3.5 shrink-0" /><p>份额变化来自交易所份额数据；申赎金额为“份额变化 × IOPV”代理值，主力净额仅反映二级市场分单资金，不代表真实申购赎回。</p></div><div className="shrink-0 font-mono">分类覆盖 {data.summary?.classificationCoveragePct == null ? "—" : `${data.summary.classificationCoveragePct.toFixed(1)}%`}</div></footer></> : !loading ? <div className="grid min-h-[420px] place-items-center rounded-lg border border-dashed border-border/70"><div className="text-center"><Database className="mx-auto size-6 text-muted-foreground" /><div className="mt-3 text-sm font-medium">暂无 ETF 市场数据</div><p className="mt-1 text-xs text-muted-foreground">请确认同步任务和市场数据源状态</p></div></div> : null}</WorkspaceShell>
 }

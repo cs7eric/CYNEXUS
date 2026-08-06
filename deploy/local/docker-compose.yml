@@ -147,6 +147,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       CYNEXUS_DATA_INTERNAL_TOKEN: ${CYNEXUS_DATA_INTERNAL_TOKEN:-}
       EASTMONEY_QGQP_B_ID: ${EASTMONEY_QGQP_B_ID:-}
@@ -155,6 +157,11 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-C020611.}@postgres:5432/cynexus
       MARKET_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-C020611.}@postgres:5432/cynexus
       CORE_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-C020611.}@postgres:5432/cynexus
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-C020611.}
+      REDIS_DB: 0
+      REDIS_TIMEOUT: 2
       POSTGRES_SCHEMA: cynexus_appl_market
       POSTGRES_MARKET_SCHEMA: cynexus_appl_market
       POSTGRES_CORE_SCHEMA: cynexus_appl_core

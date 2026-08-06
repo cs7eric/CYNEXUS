@@ -10,4 +10,5 @@ export const SERVICE_PREFIX = {
   marketData: `${CYNEXUS_API_BASE}/api/market/data`,
   core: `${CYNEXUS_API_BASE}/api/core`,
   knowledgeBase: `${CYNEXUS_API_BASE}/api/knowledge-base`,
+  wechat: `${CYNEXUS_API_BASE}/api/wechat`,
 } as const

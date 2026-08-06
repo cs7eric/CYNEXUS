@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 import requests
 
-from cynexus_data.sources.sina.futures_position import fetch_dce_position_rows
+from cynexus_data.sources.sina.futures_position import fetch_dce_position_rows, fetch_latest_position_date
 
 
 @dataclass
@@ -29,4 +30,12 @@ class SinaClient:
             varieties=varieties,
             base_url=self.base_url,
             timeout=self.timeout,
+        )
+
+    def fetch_latest_futures_position_trade_date(
+        self, end_date: date | None = None, *, varieties=None, lookback_days: int = 10
+    ) -> date | None:
+        return fetch_latest_position_date(
+            self.session, end_date=end_date, varieties=varieties,
+            lookback_days=lookback_days, base_url=self.base_url, timeout=self.timeout,
         )

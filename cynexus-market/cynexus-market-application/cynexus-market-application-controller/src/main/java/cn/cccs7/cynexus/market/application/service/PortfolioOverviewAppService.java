@@ -9,6 +9,7 @@ import cn.cccs7.cynexus.market.api.dto.PortfolioLedgerWarningDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPositionDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceContributionDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformancePointDTO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerResultBO;
@@ -21,17 +22,22 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceDomainServic
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceGranularity;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPricePointBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioIntradayPricePointBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealtimePriceGateway;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -42,6 +48,7 @@ public class PortfolioOverviewAppService {
     private static final String PRINCIPAL = "workspace-user";
     private static final String TENANT = "default";
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final LocalTime MARKET_CLOSE = LocalTime.of(15, 0);
     private final PortfolioTradeQueryRepository tradeRepository;
     private final PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository;
     private final PortfolioAccountDomainService accountDomainService;
@@ -49,7 +56,9 @@ public class PortfolioOverviewAppService {
     private final StockChartQueryDomainService stockChartQueryDomainService;
     private final PortfolioRealtimePriceGateway realtimePriceGateway;
     private final PortfolioPerformanceDomainService performanceDomainService;
+    private final Clock clock;
 
+    @Autowired
     public PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
                                        PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository,
                                        PortfolioAccountDomainService accountDomainService,
@@ -57,6 +66,19 @@ public class PortfolioOverviewAppService {
                                        StockChartQueryDomainService stockChartQueryDomainService,
                                        PortfolioRealtimePriceGateway realtimePriceGateway,
                                        PortfolioPerformanceDomainService performanceDomainService) {
+        this(tradeRepository, realizedPnlBaselineRepository, accountDomainService, ledgerService,
+                stockChartQueryDomainService, realtimePriceGateway, performanceDomainService,
+                Clock.system(SHANGHAI));
+    }
+
+    PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
+                                PortfolioRealizedPnlBaselineRepository realizedPnlBaselineRepository,
+                                PortfolioAccountDomainService accountDomainService,
+                                PortfolioLedgerDomainService ledgerService,
+                                StockChartQueryDomainService stockChartQueryDomainService,
+                                PortfolioRealtimePriceGateway realtimePriceGateway,
+                                PortfolioPerformanceDomainService performanceDomainService,
+                                Clock clock) {
         this.tradeRepository = tradeRepository;
         this.realizedPnlBaselineRepository = realizedPnlBaselineRepository;
         this.accountDomainService = accountDomainService;
@@ -64,24 +86,37 @@ public class PortfolioOverviewAppService {
         this.stockChartQueryDomainService = stockChartQueryDomainService;
         this.realtimePriceGateway = realtimePriceGateway;
         this.performanceDomainService = performanceDomainService;
+        this.clock = clock == null ? Clock.system(SHANGHAI) : clock;
     }
 
     public PortfolioOverviewDTO overview() {
+        LocalDate today = today();
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
         var baselines = realizedPnlBaselineRepository.list(PRINCIPAL, TENANT);
         var preliminary = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, Map.of()), baselines);
-        Map<String, BigDecimal> latestPrices = loadLatestPrices(preliminary.positions());
-        Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(preliminary.positions());
-        Map<String, LocalDate> realtimePriceDates = realtimePriceGateway.latestPriceDates(preliminary.positions());
+        List<PortfolioPositionBO> quotePositions = quotePositions(trades, preliminary.positions());
+        Map<String, BigDecimal> latestPrices = loadLatestPrices(quotePositions);
+        Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(quotePositions);
+        Map<String, LocalDate> realtimePriceDates = new HashMap<>(realtimePriceGateway.latestPriceDates(quotePositions));
         PortfolioLedgerResultBO result = ledgerService.applyRealizedPnlBaselines(
                 ledgerService.calculate(trades, latestPrices), baselines);
         // Today's P&L must include trades that were fully closed today as well as
         // still-open positions. Build the quote series from the complete active
         // trade universe; the holdings table still filters zero-quantity positions.
         Map<String, List<PortfolioPricePointBO>> priceSeries = loadPortfolioPriceSeries(trades);
-        Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
-                trades, priceSeries, latestPrices, previousClosePrices, realtimePriceDates, LocalDate.now(SHANGHAI));
+        Map<String, List<PortfolioIntradayPricePointBO>> intradayPriceSeries =
+                loadPortfolioIntradayPriceSeries(trades, today);
+        Map<String, BigDecimal> latestIntradayPrices = latestIntradayPrices(intradayPriceSeries);
+        latestPrices.putAll(latestIntradayPrices);
+        latestIntradayPrices.keySet().forEach(symbol -> realtimePriceDates.put(symbol, today));
+        Map<String, BigDecimal> todayPnlBySymbol = isBeforeMarketClose()
+                ? performanceDomainService.calculateTodayPnlBySymbol(
+                        trades, priceSeries, latestPrices, previousClosePrices, realtimePriceDates,
+                        intradayPriceSeries, today)
+                : performanceDomainService.calculateTodayPnlBySymbol(
+                        trades, priceSeries, latestPrices, previousClosePrices, realtimePriceDates,
+                        intradayPriceSeries, today);
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
@@ -129,19 +164,23 @@ public class PortfolioOverviewAppService {
     }
 
     public PortfolioPerformanceDTO performance(String range, String fromValue, String toValue) {
-        LocalDate today = LocalDate.now(SHANGHAI);
-        OffsetDateTime latestResetAt = realizedPnlBaselineRepository.latestResetAt(PRINCIPAL, TENANT);
-        LocalDate trackingStartDate = latestResetAt == null ? today : latestResetAt.atZoneSameInstant(SHANGHAI).toLocalDate();
-        PerformanceRange requested = resolveRange(range, fromValue, toValue, trackingStartDate);
+        LocalDate today = today();
         var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
+        // The realized-P&L baseline is an accounting calibration point. It must
+        // not truncate the performance window: weekly/monthly/yearly views
+        // aggregate every available trading-day point inside the requested
+        // window.
+        PerformanceRange requested = resolveRange(range, fromValue, toValue);
         var openPositions = ledgerService.calculate(trades, Map.of()).positions();
-        var openSymbols = openPositions.stream()
-                .filter(position -> position.quantity() != null && position.quantity().signum() > 0)
-                .map(PortfolioPositionBO::symbol)
-                .collect(Collectors.toSet());
-        Map<String, BigDecimal> realtimePrices = realtimePriceGateway.latestPrices(openPositions);
-        Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(openPositions);
-        Map<String, LocalDate> realtimePriceDates = realtimePriceGateway.latestPriceDates(openPositions);
+        List<PortfolioPositionBO> quotePositions = quotePositions(trades, openPositions);
+        Map<String, BigDecimal> realtimePrices = new HashMap<>(realtimePriceGateway.latestPrices(quotePositions));
+        Map<String, BigDecimal> previousClosePrices = realtimePriceGateway.previousClosePrices(quotePositions);
+        Map<String, LocalDate> realtimePriceDates = new HashMap<>(realtimePriceGateway.latestPriceDates(quotePositions));
+        Map<String, List<PortfolioIntradayPricePointBO>> intradayPriceSeries =
+                loadPortfolioIntradayPriceSeries(trades, today);
+        Map<String, BigDecimal> latestIntradayPrices = latestIntradayPrices(intradayPriceSeries);
+        realtimePrices.putAll(latestIntradayPrices);
+        latestIntradayPrices.keySet().forEach(symbol -> realtimePriceDates.put(symbol, today));
         Map<String, PortfolioInstrumentType> instruments = trades.stream()
                 .collect(Collectors.toMap(cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::symbol,
                         cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeBO::instrumentType,
@@ -156,10 +195,19 @@ public class PortfolioOverviewAppService {
                         .toList();
                 BigDecimal realtimePrice = realtimePrices.get(entry.getKey());
                 boolean hasFreshRealtimePrice = today.equals(realtimePriceDates.get(entry.getKey()));
+                // A fresh quote remains the best value for today's point after
+                // the close as well. Keeping a stale kline value here made a
+                // weekly/monthly/yearly aggregate briefly show the live value
+                // and then revert on the next refresh.
                 if (realtimePrice != null && hasFreshRealtimePrice) {
                     series = series.stream().filter(point -> !point.tradeDate().equals(today)).collect(Collectors.toCollection(java.util.ArrayList::new));
                     series.add(new PortfolioPricePointBO(today, realtimePrice));
                 } else if (series.stream().noneMatch(point -> point.tradeDate().equals(today))) {
+                    if (realtimePrice != null && hasFreshRealtimePrice) {
+                        series = appendPricePoint(series, today, realtimePrice);
+                        prices.put(entry.getKey(), series);
+                        continue;
+                    }
                     PortfolioPricePointBO lastHistoricalPrice = series.stream().filter(point -> point.tradeDate().isBefore(today))
                             .reduce((left, right) -> right).orElse(null);
                     if (lastHistoricalPrice != null) series = appendPricePoint(series, today, lastHistoricalPrice.close());
@@ -173,28 +221,34 @@ public class PortfolioOverviewAppService {
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
         var currentLedger = ledgerService.calculate(trades, realtimePrices);
         BigDecimal currentMarketValue = sum(currentLedger.positions(), PortfolioPositionBO::marketValue);
-        BigDecimal availableCash = accountDomainService.availableCash(account, currentMarketValue);
+        BigDecimal currentTotalAssets = accountDomainService.totalAssets(account, currentMarketValue);
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
-                trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), availableCash,
+                trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), currentTotalAssets,
                 requested.from(), requested.to(), requested.granularity());
-        // The overview's daily P&L is scoped to positions still held at the
-        // current snapshot. Keep the performance summary and heatmap on the
-        // same basis; closed trades remain available in realized P&L/history.
-        Map<String, List<PortfolioPricePointBO>> todayPrices = prices.entrySet().stream()
-                .filter(entry -> openSymbols.contains(entry.getKey()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (left, right) -> left, LinkedHashMap::new));
-        BigDecimal todayPnl = performanceDomainService.calculateTodayPnl(trades, todayPrices, realtimePrices, previousClosePrices, realtimePriceDates, today);
+        // Use the complete trade universe so today's performance includes
+        // trades that were fully closed today, matching the overview metric.
+        Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
+                trades, prices, realtimePrices, previousClosePrices, realtimePriceDates, intradayPriceSeries, today);
+        BigDecimal todayPnl = todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean liveToday = isBeforeMarketClose();
+        boolean replaceDailyPointWithLivePnl = requested.granularity() == PortfolioPerformanceGranularity.DAILY
+                && liveToday;
         List<PortfolioPerformancePointDTO> points = result.points().stream().map(point -> PortfolioPerformancePointDTO.builder()
                 .tradeDate(point.tradeDate()).marketValue(point.marketValue()).totalAssets(point.totalAssets())
                 .costBasis(point.costBasis()).totalPnl(point.totalPnl())
-                .periodPnl(point.tradeDate().equals(today) && todayPnl != null ? todayPnl : point.periodPnl())
+                .periodPnl(point.tradeDate().equals(today) && replaceDailyPointWithLivePnl && todayPnl != null
+                        ? todayPnl : point.periodPnl())
                 .returnRate(point.returnRate()).build()).toList();
-        List<PortfolioPerformancePointDTO> summaryPoints = points.stream()
-                .filter(point -> !point.getTradeDate().isBefore(trackingStartDate))
-                .toList();
+        boolean includesToday = !requested.from().isAfter(today) && !requested.to().isBefore(today);
+        BigDecimal effectiveTodayPnl = !includesToday ? null : liveToday ? todayPnl : points.stream()
+                .filter(point -> point.getTradeDate().equals(today))
+                .map(PortfolioPerformancePointDTO::getPeriodPnl)
+                .findFirst()
+                .orElse(todayPnl);
+        List<PortfolioPerformancePointDTO> summaryPoints = points;
         BigDecimal effectivePeriodPnl = summaryPoints.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
                 .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal effectiveStartAssets = trackingStartDate.equals(today) && todayPnl != null
+        BigDecimal effectiveStartAssets = requested.from().equals(today) && todayPnl != null
                 ? result.endAssets().subtract(todayPnl)
                 : summaryPoints.isEmpty() ? result.startAssets()
                 : summaryPoints.getFirst().getTotalAssets().subtract(summaryPoints.getFirst().getPeriodPnl());
@@ -204,18 +258,44 @@ public class PortfolioOverviewAppService {
                 .filter(java.util.Objects::nonNull).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
         BigDecimal worstPeriodPnl = summaryPoints.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
                 .filter(java.util.Objects::nonNull).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        Map<String, BigDecimal> effectiveContributions = new LinkedHashMap<>(result.periodPnlBySymbol());
+        boolean replacesTodayContribution = replaceDailyPointWithLivePnl && result.points().stream()
+                .anyMatch(point -> point.tradeDate().equals(today));
+        if (replacesTodayContribution) {
+            result.lastDayPnlBySymbol().forEach((symbol, pnl) ->
+                    effectiveContributions.merge(symbol, pnl.negate(), BigDecimal::add));
+            todayPnlBySymbol.forEach((symbol, pnl) ->
+                    effectiveContributions.merge(symbol, pnl, BigDecimal::add));
+        }
+        Map<String, PortfolioTradeBO> contributionMetadata = trades.stream()
+                .collect(Collectors.toMap(PortfolioTradeBO::symbol, trade -> trade,
+                        (left, right) -> right, LinkedHashMap::new));
+        List<PortfolioPerformanceContributionDTO> contributions = effectiveContributions.entrySet().stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue().signum() != 0)
+                .sorted((left, right) -> right.getValue().abs().compareTo(left.getValue().abs()))
+                .map(entry -> {
+                    PortfolioTradeBO metadata = contributionMetadata.get(entry.getKey());
+                    return PortfolioPerformanceContributionDTO.builder()
+                            .symbol(entry.getKey())
+                            .securityName(metadata == null ? null : metadata.securityName())
+                            .instrumentType(metadata == null ? null : metadata.instrumentType().name())
+                            .periodPnl(entry.getValue())
+                            .build();
+                })
+                .toList();
         return PortfolioPerformanceDTO.builder()
                 .range(requested.range()).from(result.from()).to(result.to())
-                .periodPnl(effectivePeriodPnl).todayPnl(todayPnl).periodReturnRate(effectiveReturnRate)
+                .periodPnl(effectivePeriodPnl).todayPnl(effectiveTodayPnl).periodReturnRate(effectiveReturnRate)
                 .startAssets(effectiveStartAssets).endAssets(result.endAssets())
                 .bestPeriodPnl(bestPeriodPnl).worstPeriodPnl(worstPeriodPnl)
                 .tradingDays(summaryPoints.size()).points(points)
+                .contributions(contributions)
                 .build();
     }
 
-    private PerformanceRange resolveRange(String range, String fromValue, String toValue, LocalDate trackingStartDate) {
+    private PerformanceRange resolveRange(String range, String fromValue, String toValue) {
         String normalized = range == null || range.isBlank() ? "daily" : range.trim().toLowerCase();
-        LocalDate today = LocalDate.now(SHANGHAI);
+        LocalDate today = today();
         if (fromValue != null || toValue != null) {
             if (fromValue == null || fromValue.isBlank() || toValue == null || toValue.isBlank()) {
                 throw new IllegalArgumentException("performance range requires both from and to");
@@ -230,9 +310,8 @@ public class PortfolioOverviewAppService {
                 case "yearly", "year" -> PortfolioPerformanceGranularity.YEARLY;
                 default -> throw new IllegalArgumentException("range must be daily, weekly, monthly, yearly, or custom");
             };
-            from = max(from, trackingStartDate);
             to = min(to, today);
-            if (from.isAfter(to)) throw new IllegalArgumentException("performance range is before the tracking start date");
+            if (from.isAfter(to)) throw new IllegalArgumentException("performance range is after today");
             if (normalized.equals("custom") && from.isBefore(today.minusDays(520))) {
                 throw new IllegalArgumentException("custom performance range is limited to the latest 520 days");
             }
@@ -241,11 +320,11 @@ public class PortfolioOverviewAppService {
         return switch (normalized) {
             case "daily", "day" -> new PerformanceRange("daily", today.minusDays(29), today,
                     PortfolioPerformanceGranularity.DAILY);
-            case "weekly", "week" -> new PerformanceRange("weekly", max(today.minusWeeks(11).with(java.time.DayOfWeek.MONDAY), trackingStartDate), today,
+            case "weekly", "week" -> new PerformanceRange("weekly", today.minusWeeks(11).with(java.time.DayOfWeek.MONDAY), today,
                     PortfolioPerformanceGranularity.WEEKLY);
-            case "monthly", "month" -> new PerformanceRange("monthly", max(today.withDayOfMonth(1).minusMonths(11), trackingStartDate), today,
+            case "monthly", "month" -> new PerformanceRange("monthly", today.withDayOfMonth(1).minusMonths(11), today,
                     PortfolioPerformanceGranularity.MONTHLY);
-            case "yearly", "year" -> new PerformanceRange("yearly", max(today.withDayOfYear(1).minusYears(4), trackingStartDate), today,
+            case "yearly", "year" -> new PerformanceRange("yearly", today.withDayOfYear(1).minusYears(4), today,
                     PortfolioPerformanceGranularity.YEARLY);
             case "custom" -> {
                 if (fromValue == null || fromValue.isBlank() || toValue == null || toValue.isBlank()) {
@@ -254,9 +333,8 @@ public class PortfolioOverviewAppService {
                 LocalDate from = LocalDate.parse(fromValue);
                 LocalDate to = LocalDate.parse(toValue);
                 if (from.isAfter(to)) throw new IllegalArgumentException("performance from must not be after to");
-                from = max(from, trackingStartDate);
                 to = min(to, today);
-                if (from.isAfter(to)) throw new IllegalArgumentException("performance range is before the tracking start date");
+                if (from.isAfter(to)) throw new IllegalArgumentException("performance range is after today");
                 if (from.isBefore(today.minusDays(520))) {
                     throw new IllegalArgumentException("custom performance range is limited to the latest 520 days");
                 }
@@ -265,10 +343,6 @@ public class PortfolioOverviewAppService {
             }
             default -> throw new IllegalArgumentException("range must be daily, weekly, monthly, yearly, or custom");
         };
-    }
-
-    private LocalDate max(LocalDate left, LocalDate right) {
-        return left.isAfter(right) ? left : right;
     }
 
     private LocalDate min(LocalDate left, LocalDate right) {
@@ -317,6 +391,89 @@ public class PortfolioOverviewAppService {
         List<PortfolioPricePointBO> updated = new java.util.ArrayList<>(series);
         updated.add(new PortfolioPricePointBO(tradeDate, close));
         return updated;
+    }
+
+    private Map<String, List<PortfolioIntradayPricePointBO>> loadPortfolioIntradayPriceSeries(
+            List<PortfolioTradeBO> trades, LocalDate today) {
+        if (!usePostCloseMinuteData()) {
+            return Map.of();
+        }
+        Map<String, PortfolioInstrumentType> instruments = new LinkedHashMap<>();
+        for (PortfolioTradeBO trade : trades) {
+            if (trade != null) {
+                instruments.putIfAbsent(trade.symbol(), trade.instrumentType());
+            }
+        }
+        Map<String, List<PortfolioIntradayPricePointBO>> prices = new LinkedHashMap<>();
+        for (Map.Entry<String, PortfolioInstrumentType> entry : instruments.entrySet()) {
+            try {
+                var result = stockChartQueryDomainService.intraday(
+                        entry.getValue().chartTargetType(), entry.getKey(), entry.getKey(), "qfq",
+                        today.toString(), List.of("1m"));
+                if (result == null || !today.equals(result.tradeDate())) {
+                    continue;
+                }
+                List<PortfolioIntradayPricePointBO> points = result.timeshare().stream()
+                        .filter(point -> point.getTimestamp() != null && point.getPrice() != null)
+                        .map(point -> new PortfolioIntradayPricePointBO(
+                                LocalDateTime.ofInstant(Instant.ofEpochMilli(point.getTimestamp()), SHANGHAI),
+                                point.getPrice()))
+                        .toList();
+                if (points.isEmpty()) {
+                    points = result.minuteBars().getOrDefault("1m", List.of()).stream()
+                            .filter(point -> point.getTimestamp() != null && point.getClose() != null)
+                            .map(point -> new PortfolioIntradayPricePointBO(
+                                    LocalDateTime.ofInstant(Instant.ofEpochMilli(point.getTimestamp()), SHANGHAI),
+                                    point.getClose()))
+                            .toList();
+                }
+                if (!points.isEmpty()) {
+                    prices.put(entry.getKey(), points);
+                }
+            } catch (RuntimeException exception) {
+                log.warn("Unable to load portfolio intraday prices for symbol={} date={}", entry.getKey(), today, exception);
+            }
+        }
+        return prices;
+    }
+
+    private Map<String, BigDecimal> latestIntradayPrices(
+            Map<String, List<PortfolioIntradayPricePointBO>> intradayPriceSeries) {
+        if (intradayPriceSeries == null || intradayPriceSeries.isEmpty()) return Map.of();
+        Map<String, BigDecimal> latest = new HashMap<>();
+        intradayPriceSeries.forEach((symbol, points) -> points.stream()
+                .max(java.util.Comparator.comparing(PortfolioIntradayPricePointBO::tradedAt))
+                .ifPresent(point -> latest.put(symbol, point.price())));
+        return latest;
+    }
+
+    private List<PortfolioPositionBO> quotePositions(List<PortfolioTradeBO> trades,
+                                                      List<PortfolioPositionBO> valuedPositions) {
+        Map<String, PortfolioPositionBO> positions = new LinkedHashMap<>();
+        if (valuedPositions != null) {
+            valuedPositions.stream().filter(java.util.Objects::nonNull)
+                    .forEach(position -> positions.put(position.symbol(), position));
+        }
+        if (trades != null) {
+            trades.stream().filter(java.util.Objects::nonNull)
+                    .filter(trade -> trade.status() == cn.cccs7.cynexus.market.domain.portfolio.TradeStatus.ACTIVE)
+                    .forEach(trade -> positions.putIfAbsent(trade.symbol(), new PortfolioPositionBO(
+                            trade.symbol(), trade.instrumentType(), BigDecimal.ONE, null, null, null,
+                            null, null, null, null)));
+        }
+        return List.copyOf(positions.values());
+    }
+
+    private boolean usePostCloseMinuteData() {
+        return !java.time.LocalDateTime.now(clock).toLocalTime().isBefore(MARKET_CLOSE);
+    }
+
+    private boolean isBeforeMarketClose() {
+        return !usePostCloseMinuteData();
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(clock);
     }
 
     private Map<String, String> loadSecurityNames(List<PortfolioPositionBO> positions) {

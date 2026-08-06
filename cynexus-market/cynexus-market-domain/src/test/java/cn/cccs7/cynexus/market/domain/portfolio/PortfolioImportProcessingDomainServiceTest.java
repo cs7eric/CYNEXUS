@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.domain.portfolio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,6 +94,53 @@ class PortfolioImportProcessingDomainServiceTest {
                 + "\"time\":\"09:30:10\",\"quantity\":\"100\",\"price\":\"10\"}]}", OffsetDateTime.now());
 
         assertEquals("2026-07-31T09:30:10", candidates.values.getFirst().normalizedPayload().path("tradedAt").asText());
+    }
+
+    @Test
+    void combinesDirectTimeOnlyValueWithExtractedTradeDate() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), new RecordingTasks(), candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{"
+                + "\"symbol\":\"600000\",\"side\":\"BUY\",\"tradeDate\":\"2026-08-05\","
+                + "\"tradedAt\":\"10:41:17\",\"quantity\":\"100\",\"price\":\"10\"}]}", OffsetDateTime.now());
+
+        assertEquals("2026-08-05T10:41:17", candidates.values.getFirst().normalizedPayload().path("tradedAt").asText());
+    }
+
+    @Test
+    void combinesTradeTimeOnlyValueWithImportDateWhenScreenshotHasNoCalendarDate() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PENDING_DISPATCH, 1, 0);
+        task.markQueued(OffsetDateTime.parse("2026-08-05T02:00:00Z"));
+        task.claimForProcessing(OffsetDateTime.parse("2026-08-05T02:01:00Z"));
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), new RecordingTasks(), candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{"
+                + "\"symbol\":\"513330\",\"side\":\"SELL\",\"tradeTime\":\"10:41:17\","
+                + "\"quantity\":\"900\",\"price\":\"0.416\"}]}",
+                OffsetDateTime.parse("2026-08-05T02:02:00Z"));
+
+        assertEquals("2026-08-05T10:41:17", candidates.values.getFirst().normalizedPayload().path("tradedAt").asText());
+    }
+
+    @Test
+    void marksMalformedAiShapeAsRetryableVisionFailure() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), new RecordingTasks(), new RecordingCandidates());
+
+        PortfolioTradeVisionException exception = assertThrows(PortfolioTradeVisionException.class,
+                () -> service.complete(task, "{\"isTradeScreenshot\":true}", OffsetDateTime.now()));
+
+        assertEquals("PORTFOLIO_AI_RESPONSE_INVALID", exception.failureCode());
+        assertTrue(exception.retryable());
     }
 
     private static final class RecordingTasks implements PortfolioImportTaskRepository {

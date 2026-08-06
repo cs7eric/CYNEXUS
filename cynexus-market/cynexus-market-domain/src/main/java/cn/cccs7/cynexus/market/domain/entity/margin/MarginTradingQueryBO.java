@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.domain.entity.margin;
 
 import cn.cccs7.cynexus.market.domain.entity.MarginAccountStatsBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginIndustrySummaryBO;
+import cn.cccs7.cynexus.market.domain.entity.MarginIndustryHistoryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginMarketSummaryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginStockDetailBO;
 import java.time.LocalDate;
@@ -36,5 +37,9 @@ public final class MarginTradingQueryBO {
     public record Industries(boolean ok, LocalDate requestedTradeDate, LocalDate tradeDate,
                              LocalDate constituentSnapshotDate, String sort, String sortDir, Page page,
                              int count, List<MarginIndustrySummaryBO> items, String error) {
+    }
+
+    public record IndustryHistory(boolean ok, String industryCode, LocalDate tradeDate,
+                                  List<MarginIndustryHistoryBO> items, String error) {
     }
 }

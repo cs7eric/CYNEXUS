@@ -16,6 +16,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select"
 import {
   Drawer,
   DrawerContent,
@@ -888,7 +889,11 @@ export default function ApplicationAnalysisPage() {
                     <TabsTrigger className="h-7 shrink-0 gap-1.5 whitespace-nowrap px-2.5 text-[11px] xl:text-xs" value="profile"><BriefcaseBusiness className="size-3.5" />Profile</TabsTrigger>
                   </TabsList>
                 </div>
-                <div className="hidden flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-muted-foreground 2xl:flex 2xl:px-0">
+                <div className="flex flex-wrap items-center gap-1 px-1 text-[11px] text-muted-foreground 2xl:px-0">
+                  <span className="hidden sm:inline">AI</span>
+                  <AiBindingProviderSelect capability="application_analysis" label="Analysis provider" />
+                  <AiBindingProviderSelect capability="application_recent30" label="AI Direction provider" />
+                  <span className="hidden h-3 w-px bg-border sm:inline-block" />
                   <span>K 线 {bars.length}</span>
                   <span className="hidden h-3 w-px bg-border sm:inline-block" />
                   <span>{running ? "分析中" : result ? "已完成" : previewTarget ? "预览中" : "待执行"}</span>

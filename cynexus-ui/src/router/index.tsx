@@ -10,6 +10,7 @@ import Mp4ToWordPage from "../views/mp4-to-word"
 import Mp4HistoryPage from "../views/mp4-to-word/history"
 import Mp4ProcessHistoryPage from "../views/mp4-to-word/process-history"
 import SchedulerSettingsPage from "../views/settings/scheduler"
+import WechatHistoryPage from "../views/settings/wechat-history"
 import AiProviderSettingsPage from "../views/ai/provider"
 import DataSourceSettingsPage from "../views/settings/data-source"
 import ProviderSettingsPage from "../views/settings/provider"
@@ -27,6 +28,7 @@ import MarketIndicatorPage from "../views/market/market-indicator"
 import MarketFuturesPositionPage from "../views/market/market-futures-position"
 import MarketOverviewPage from "../views/market/market-overview"
 import MarketInformationPage, { MarketInformationAnalyzedPage } from "../views/information"
+import SocialMonitoringPage from "../views/information/social-monitoring"
 import PocPage from "../views/poc"
 import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
 import AiPocPage from "../views/poc/ai"
@@ -185,6 +187,10 @@ export const router = createBrowserRouter([
         element: <MarketInformationAnalyzedPage />,
       },
       {
+        path: "information/social-monitoring",
+        element: <SocialMonitoringPage />,
+      },
+      {
         path: "market/information",
         element: <Navigate to="/information" replace />,
       },
@@ -251,6 +257,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/scheduler",
         element: <SchedulerSettingsPage />,
+      },
+      {
+        path: "settings/wechat-history",
+        element: <WechatHistoryPage />,
       },
       {
         path: "ai",

@@ -15,7 +15,10 @@ import cn.cccs7.cynexus.ai.infra.agent.knowledge.KnowledgeSearchAgentToolHandler
 import cn.cccs7.cynexus.ai.infra.agent.market.ClickHouseDailyBarsAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketInformationFeedAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketDataFreshnessAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketEtfAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketFuturesPositionAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketIndustryAnalysisAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.MarketIndicatorAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketMarginTradingAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketOverviewAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketOverviewHistoryAgentToolHandler;
@@ -29,6 +32,7 @@ import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockResearchAgentToolHandle
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketSentimentAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketSkillDataAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockInformationAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.FuturesPositionAiAgentToolHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.Constructor;
@@ -52,7 +56,11 @@ class AgentToolDefinitionContractTest {
             MarketOverviewAgentToolHandler.class,
             MarketOverviewHistoryAgentToolHandler.class,
             MarketDataFreshnessAgentToolHandler.class,
+            MarketEtfAgentToolHandler.class,
+            MarketFuturesPositionAgentToolHandler.class,
+            FuturesPositionAiAgentToolHandler.class,
             MarketIndustryAnalysisAgentToolHandler.class,
+            MarketIndicatorAgentToolHandler.class,
             MarketMarginTradingAgentToolHandler.class,
             MarketPulseAgentToolHandler.class,
             MarketSectorRankAgentToolHandler.class,
@@ -73,7 +81,7 @@ class AgentToolDefinitionContractTest {
                 .map(AgentToolHandler::definition)
                 .toList();
 
-        assertThat(definitions).hasSize(23);
+        assertThat(definitions).hasSize(27);
         assertThat(definitions).extracting(AgentToolDefinition::getCode).doesNotHaveDuplicates();
         assertThat(definitions).allSatisfy(definition -> {
             assertThat(definition.getCode()).matches("[a-z0-9_]+\\.[a-z0-9_]+" );

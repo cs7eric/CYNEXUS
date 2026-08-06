@@ -1,17 +1,7 @@
-import { Fragment } from "react"
 import { X } from "lucide-react"
 
 import type { MarginExchange, MarginRankingSort, MarginSortDirection, MarginStockDetail } from "@/services/market/margin"
 import { Button } from "@/components/ui/button"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import {
   Select,
   SelectContent,
@@ -21,6 +11,7 @@ import {
 } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatNumber, formatYuanAsYi } from "../lib/format"
+import { RankingPagination } from "./ranking-pagination"
 import { SortableTableHead } from "./sortable-table-head"
 
 const SORT_OPTIONS: Array<{ value: MarginRankingSort; label: string }> = [
@@ -45,15 +36,12 @@ interface StockRankingTableProps {
   sort: MarginRankingSort
   sortDir: MarginSortDirection
   onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
   onExchangeChange: (value: "ALL" | MarginExchange) => void
   onSortChange: (value: MarginRankingSort, direction?: MarginSortDirection) => void
   onIndustryClear: () => void
+  onStockSelect: (row: MarginStockDetail) => void
   onRefresh: () => void
-}
-
-function getPageItems(page: number, totalPages: number) {
-  const items = new Set([1, totalPages, page - 1, page, page + 1].filter((item) => item >= 1 && item <= totalPages))
-  return [...items].sort((left, right) => left - right)
 }
 
 export function StockRankingTable({
@@ -68,13 +56,14 @@ export function StockRankingTable({
   sort,
   sortDir,
   onPageChange,
+  onPageSizeChange,
   onExchangeChange,
   onSortChange,
   onIndustryClear,
+  onStockSelect,
   onRefresh,
 }: StockRankingTableProps) {
   const totalPages = Math.max(1, Math.ceil(count / pageSize))
-  const pageItems = getPageItems(page, totalPages)
   const handleSort = (column: MarginRankingSort) => {
     const nextDir: MarginSortDirection = sort === column && sortDir === "desc" ? "asc" : "desc"
     onSortChange(column, nextDir)
@@ -82,8 +71,8 @@ export function StockRankingTable({
   }
 
   return (
-    <section className="min-w-0 rounded-lg bg-muted/35 p-4">
-      <div className="mb-3 space-y-2">
+    <section className="flex h-full min-h-0 min-w-0 flex-col rounded-lg bg-muted/35 p-4">
+      <div className="mb-3 shrink-0 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-base font-semibold">个股两融排名</h2>
           {selectedIndustryCode ? (
@@ -126,9 +115,9 @@ export function StockRankingTable({
           共 {count.toLocaleString("zh-CN")} 条，当前第 {page} / {totalPages} 页。
         </p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <Table className="min-w-[820px]">
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-muted/35">
             <TableRow>
               <TableHead className="w-12">#</TableHead>
               <TableHead>
@@ -156,7 +145,20 @@ export function StockRankingTable({
           </TableHeader>
           <TableBody>
             {rows.map((row, index) => (
-              <TableRow key={`${row.exchange}-${row.stockCode}`}>
+              <TableRow
+                key={`${row.exchange}-${row.stockCode}`}
+                className="cursor-pointer transition-colors hover:bg-background/70 focus-visible:bg-background/70 focus-visible:outline-none"
+                role="button"
+                tabIndex={0}
+                aria-label={`查看 ${row.stockName ?? row.stockCode} 的两融详情`}
+                onClick={() => onStockSelect(row)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    onStockSelect(row)
+                  }
+                }}
+              >
                 <TableCell className="text-muted-foreground">{(page - 1) * pageSize + index + 1}</TableCell>
                 <TableCell>
                   <div className="font-medium">{row.stockName ?? "-"}</div>
@@ -180,33 +182,14 @@ export function StockRankingTable({
           </TableBody>
         </Table>
       </div>
-      <Pagination className="mt-3 justify-end">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious disabled={page <= 1 || loading} onClick={() => onPageChange(Math.max(1, page - 1))} />
-          </PaginationItem>
-          {pageItems.map((item, index) => {
-            const previous = pageItems[index - 1]
-            return (
-              <Fragment key={item}>
-                {previous != null && item - previous > 1 ? (
-                  <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                ) : null}
-                <PaginationItem>
-                  <PaginationLink disabled={loading} isActive={item === page} onClick={() => onPageChange(item)}>
-                    {item}
-                  </PaginationLink>
-                </PaginationItem>
-              </Fragment>
-            )
-          })}
-          <PaginationItem>
-            <PaginationNext disabled={page >= totalPages || loading} onClick={() => onPageChange(Math.min(totalPages, page + 1))} />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+      <RankingPagination
+        page={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        loading={loading}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </section>
   )
 }

@@ -12,6 +12,8 @@
 !cynexus-market/cynexus-market-starter/target/*.jar
 !cynexus-knowledgebase/cynexus-knowledgebase-starter/target/
 !cynexus-knowledgebase/cynexus-knowledgebase-starter/target/*.jar
+!cynexus-wechat/cynexus-wechat-starter/target/
+!cynexus-wechat/cynexus-wechat-starter/target/*.jar
 deploy/local/nacos/data
 deploy/local/nacos/logs
 deploy/local/postgres/data

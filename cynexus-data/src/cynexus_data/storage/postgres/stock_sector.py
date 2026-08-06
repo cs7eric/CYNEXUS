@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
-from cynexus_data.storage.postgres.ids import next_bigint_id
+from cynexus_data.storage.postgres.ids import stable_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_stock_sector_tables.sql"
@@ -41,7 +41,7 @@ class StockSectorRepository:
                             updated_at = now()
                         """
                     ),
-                    {**mapping, "id": next_bigint_id()},
+                    {**mapping, "id": stable_bigint_id("sec_sector", mapping["sector_id"])},
                 )
                 db.execute(
                     text(
@@ -58,7 +58,7 @@ class StockSectorRepository:
                             updated_at = now()
                         """
                     ),
-                    {**mapping, "id": next_bigint_id()},
+                    {**mapping, "id": stable_bigint_id("sec_stock_sector", code, mapping["sector_id"])},
                 )
         return len(mappings)
 

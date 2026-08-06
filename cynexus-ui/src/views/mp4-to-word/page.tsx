@@ -17,6 +17,7 @@ import { AskSection } from "@/components/ask-section";
 import { FloatingAskBar } from "@/components/floating-ask-bar";
 import { ReaderModal } from "@/components/reader-modal";
 import { WorkspaceShell } from "@/layout/workspace-shell";
+import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1105,7 +1106,13 @@ export default function Mp4ToWordPage() {
               上传本地音视频或接收 Downloader 解析结果，完成转写、AI polish、summary、问答和历史归档。
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-0.5 rounded-md bg-muted/45 px-1 py-0.5" aria-label="MP4 AI provider routes">
+              <AiBindingProviderSelect capability="text_polish" label="Polish provider" />
+              <AiBindingProviderSelect capability="text_summary" label="Summary provider" />
+              <AiBindingProviderSelect capability="post_metadata" label="Metadata provider" />
+              <AiBindingProviderSelect capability="mp4_qa" label="Ask provider" />
+            </div>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <UploadCloud className="size-4" />
               Upload

@@ -12,9 +12,14 @@ export async function uploadPortfolioScreenshot(file: File, idempotencyKey: stri
   return cynexusResult<PortfolioImportTask>(response)
 }
 
-export async function fetchPortfolioImports(page = 1, pageSize = 10): Promise<PortfolioImportTaskPage> {
+export async function fetchPortfolioImports(page = 1, pageSize = 20): Promise<PortfolioImportTaskPage> {
   const response = await fetchWithRetry(`${BASE}?page=${page}&pageSize=${pageSize}`, { cache: "no-store" })
   return cynexusResult<PortfolioImportTaskPage>(response)
+}
+
+export async function retryPortfolioImport(taskId: number): Promise<PortfolioImportTask> {
+  const response = await fetchWithRetry(`${BASE}/${taskId}/retry`, { method: "POST" })
+  return cynexusResult<PortfolioImportTask>(response)
 }
 
 export async function fetchPortfolioImport(taskId: number): Promise<PortfolioImportTask> {

@@ -181,4 +181,26 @@ public class SchedulerController {
     public Result<Map<String, Object>> getDataJobRun(@PathVariable("runId") String runId) {
         return Result.success(schedulerAppService.getDataJobRun(runId));
     }
+
+    @PostMapping("/social/login-sessions")
+    public Result<Map<String, Object>> startSocialLogin(@RequestBody Map<String, Object> request) {
+        String platform = request == null ? null : String.valueOf(request.getOrDefault("platform", ""));
+        String profileName = request == null ? "default" : String.valueOf(request.getOrDefault("profile_name", "default"));
+        return Result.success(schedulerAppService.startSocialLogin(platform, profileName));
+    }
+
+    @GetMapping("/social/login-sessions/{sessionId}")
+    public Result<Map<String, Object>> getSocialLogin(@PathVariable("sessionId") String sessionId) {
+        return Result.success(schedulerAppService.getSocialLogin(sessionId));
+    }
+
+    @PostMapping("/social/login-sessions/{sessionId}/complete")
+    public Result<Map<String, Object>> completeSocialLogin(@PathVariable("sessionId") String sessionId) {
+        return Result.success(schedulerAppService.completeSocialLogin(sessionId));
+    }
+
+    @DeleteMapping("/social/login-sessions/{sessionId}")
+    public Result<Map<String, Object>> closeSocialLogin(@PathVariable("sessionId") String sessionId) {
+        return Result.success(schedulerAppService.closeSocialLogin(sessionId));
+    }
 }

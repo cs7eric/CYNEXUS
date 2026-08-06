@@ -19,8 +19,8 @@ public class PortfolioTradeRepositoryAdapter implements PortfolioTradeRepository
     }
 
     @Override
-    public void save(String principalKey, String tenantKey, long sourceTaskId, long sourceCandidateId,
-                     PortfolioTradeBO trade, String confirmedBy) {
+    public boolean save(String principalKey, String tenantKey, long sourceTaskId, long sourceCandidateId,
+                        PortfolioTradeBO trade, String confirmedBy) {
         PortfolioTradePO po = new PortfolioTradePO();
         po.setId(idGenerator.nextId());
         po.setPrincipalKey(principalKey);
@@ -39,6 +39,6 @@ public class PortfolioTradeRepositoryAdapter implements PortfolioTradeRepository
         po.setStatus(trade.status().name());
         po.setConfirmedAt(OffsetDateTime.now());
         po.setConfirmedBy(confirmedBy);
-        mapper.insert(po);
+        return mapper.insert(po) == 1;
     }
 }

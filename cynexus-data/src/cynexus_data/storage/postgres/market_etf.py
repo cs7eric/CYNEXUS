@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -86,8 +87,7 @@ class MarketEtfRepository:
                     {"code": row["code"], "trade_date": trade_date},
                 ).scalar_one_or_none()
                 total_shares = row.get("total_shares", row.get("latest_shares"))
-                share_delta = total_shares - previous if total_shares is not None and previous is not None else None
-                proxy = share_delta * row["iopv"] if share_delta is not None and row.get("iopv") is not None else None
+                share_delta, proxy = _calculate_share_values(total_shares, previous, row.get("iopv"))
                 db.execute(
                     text(
                         f"""
@@ -318,3 +318,27 @@ def _json_safe(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
     return value
+
+
+def _calculate_share_values(
+    total_shares: Any,
+    previous_shares: Any,
+    iopv: Any,
+) -> tuple[Decimal | None, Decimal | None]:
+    total = _decimal_or_none(total_shares)
+    previous = _decimal_or_none(previous_shares)
+    valuation = _decimal_or_none(iopv)
+    if total is None or previous is None:
+        return None, None
+    delta = total - previous
+    return delta, delta * valuation if valuation is not None else None
+
+
+def _decimal_or_none(value: Any) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return result if result.is_finite() else None

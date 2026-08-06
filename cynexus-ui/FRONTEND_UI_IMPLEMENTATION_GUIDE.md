@@ -190,7 +190,10 @@ export default function ExamplePage() {
 - 统一使用 `Table`，它已有横向滚动容器；宽表保留可读的 `min-w-*`，不要强行压缩列。
 - 表头小号、中等字重、muted；行用低对比 divider 和 `hover:bg-muted/50`。
 - 数值列右对齐，使用 `font-mono tabular-nums`；身份列可 sticky，但 sticky 背景必须与表格一致。
-- 图表所在 panel 必须有标题、单位、日期范围、数据源/刷新语义，以及 loading/empty/error 状态。
+- 图表首选使用 `src/components/ui/chart.tsx` 提供的 shadcn chart 组合：`ChartContainer` + `ChartConfig` + `ChartTooltipContent`，底层复用 Recharts 图元（`AreaChart`、`LineChart`、`BarChart`）。业务页面不要直接使用裸 `ResponsiveContainer`、`Tooltip` 或 `Legend`。
+- 时间序列优先用 `AreaChart` / `LineChart`，分类比较优先用 `BarChart`；多条业务序列必须通过 `ChartConfig` 命名，并使用 `ChartTooltip`、`ChartLegendContent` 保持统一的 tooltip 和图例样式。
+- 当时间序列需要保留全部日期类目、密集日期标签、双 Y 轴或数据缩放时，可以使用项目已安装的按需 ECharts 组合；必须复用 `ResizeObserver`、组件卸载时 `dispose`，并明确处理空数据、tooltip、图例和日期标签，不要全量引入 ECharts。
+- 图表所在 panel 必须有标题、单位、日期范围、数据源/刷新语义，以及 loading/empty/error 状态。日期范围切换在桌面可用 `ToggleGroup`，窄屏使用 `Select` 或可横向滚动的紧凑 tabs。
 - 查看行详情、成分股、历史记录优先 Drawer；创建/编辑/确认才用 Dialog。Dialog 必须有标题、稳定 footer、loading 和关闭路径。
 - 任何 portal/dropdown 不要放在会裁剪内容的 `overflow-hidden` 容器内手工定位，复用 Radix 组件的 portal。
 

@@ -64,6 +64,9 @@ $migrationFiles = @(
     ,"20260802_refine_portfolio_trade_screenshot_prompt.sql"
     ,"20260802_refine_portfolio_trade_screenshot_prompt_v3.sql"
     ,"20260802_refine_portfolio_trade_screenshot_prompt_v4.sql"
+    ,"20260803_seed_wechat_image_route_prompt.sql"
+    ,"20260805_refine_portfolio_trade_screenshot_prompt_v5.sql"
+    ,"20260805_refine_portfolio_trade_screenshot_prompt_v6.sql"
 )
 
 foreach ($file in $migrationFiles) {

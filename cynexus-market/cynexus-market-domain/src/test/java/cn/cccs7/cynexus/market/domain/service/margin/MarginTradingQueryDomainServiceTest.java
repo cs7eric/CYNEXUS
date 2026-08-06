@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import cn.cccs7.cynexus.market.domain.entity.MarginAccountStatsBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginIndustrySummaryBO;
+import cn.cccs7.cynexus.market.domain.entity.MarginIndustryHistoryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginMarketSummaryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginStockDetailBO;
 import cn.cccs7.cynexus.market.domain.repository.MarginTradingRepository;
@@ -50,6 +51,41 @@ class MarginTradingQueryDomainServiceTest {
         assertEquals("margin_balance", value.sort());
     }
 
+    @Test
+    void defaultsStockPageSizeToFiftyWhenLimitIsNotProvided() {
+        int[] limit = new int[1];
+        MarginTradingRepository repository = new FakeRepository() {
+            @Override public Optional<LocalDate> findLatestTradeDate(LocalDate endDate) { return Optional.of(endDate); }
+            @Override public List<MarginStockDetailBO> listStocks(LocalDate date, String exchange, String industry,
+                                                                  String sort, String sortDir, int offset, int requestedLimit) {
+                limit[0] = requestedLimit;
+                return List.of();
+            }
+        };
+
+        new MarginTradingQueryDomainServiceImpl(repository)
+                .stocks("2026-07-23", null, null, null, null, 1, null, 0);
+
+        assertEquals(50, limit[0]);
+    }
+
+    @Test
+    void clampsIndustryHistoryToConfiguredMaximum() {
+        int[] limit = new int[1];
+        MarginTradingRepository repository = new FakeRepository() {
+            @Override public Optional<LocalDate> findLatestTradeDate(LocalDate endDate) { return Optional.of(endDate); }
+            @Override public List<MarginIndustryHistoryBO> listIndustryHistory(LocalDate date, String industry, int requestedLimit) {
+                limit[0] = requestedLimit;
+                return List.of();
+            }
+        };
+
+        new MarginTradingQueryDomainServiceImpl(repository)
+                .industryHistory("881126", "2026-07-23", 9999);
+
+        assertEquals(500, limit[0]);
+    }
+
     private static class FakeRepository implements MarginTradingRepository {
         @Override public Optional<LocalDate> findLatestTradeDate(LocalDate endDate) { return Optional.empty(); }
         @Override public List<MarginMarketSummaryBO> listMarketSummaryByTradeDate(LocalDate tradeDate) { return List.of(); }
@@ -60,5 +96,6 @@ class MarginTradingQueryDomainServiceTest {
         @Override public List<MarginStockDetailBO> listStockHistory(String stockCode, int limit) { return List.of(); }
         @Override public List<MarginIndustrySummaryBO> listIndustrySummaries(LocalDate date, String sort, String sortDir, int offset, int limit) { return List.of(); }
         @Override public int countIndustrySummaries(LocalDate date) { return 0; }
+        @Override public List<MarginIndustryHistoryBO> listIndustryHistory(LocalDate date, String industry, int limit) { return List.of(); }
     }
 }

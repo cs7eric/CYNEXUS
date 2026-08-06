@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cn.cccs7</groupId>
+        <artifactId>cynexus</artifactId>
+        <version>1.1.398-SNAPSHOT</version>
+    </parent>
+    <artifactId>cynexus-wechat</artifactId>
+    <packaging>pom</packaging>
+    <name>cynexus-wechat</name>
+    <modules>
+        <module>cynexus-wechat-api</module>
+        <module>cynexus-wechat-common</module>
+        <module>cynexus-wechat-domain</module>
+        <module>cynexus-wechat-infra</module>
+        <module>cynexus-wechat-application</module>
+        <module>cynexus-wechat-starter</module>
+    </modules>
+</project>

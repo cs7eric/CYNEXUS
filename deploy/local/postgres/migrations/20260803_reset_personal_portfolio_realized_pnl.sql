@@ -29,7 +29,6 @@ VALUES
     (1785686000006, 'workspace-user', 'default', '588170', 0.00000000, 'portfolio-pnl-reset-20260803')
 ON CONFLICT (principal_key, tenant_key, symbol) DO UPDATE
     SET realized_pnl = EXCLUDED.realized_pnl,
-        reset_at = now(),
         reset_by = EXCLUDED.reset_by,
         updated_at = now(),
         deleted_at = NULL;

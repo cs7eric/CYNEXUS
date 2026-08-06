@@ -16,6 +16,7 @@
 
     <modules>
         <module>cynexus-common-core</module>
+        <module>cynexus-common-cache</module>
         <module>cynexus-common-web</module>
         <module>cynexus-common-security</module>
         <module>cynexus-common-db</module>

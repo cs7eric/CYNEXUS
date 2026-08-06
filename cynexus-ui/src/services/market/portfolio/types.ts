@@ -105,6 +105,13 @@ export interface PortfolioPerformancePoint {
   returnRate: number
 }
 
+export interface PortfolioPerformanceContribution {
+  symbol: string
+  securityName?: string | null
+  instrumentType: "STOCK" | "ETF"
+  periodPnl: number
+}
+
 export interface PortfolioPerformance {
   range: PortfolioPerformanceRange
   from: string
@@ -118,6 +125,7 @@ export interface PortfolioPerformance {
   worstPeriodPnl: number
   tradingDays: number
   points: PortfolioPerformancePoint[]
+  contributions: PortfolioPerformanceContribution[]
 }
 
 export interface PortfolioAccount {

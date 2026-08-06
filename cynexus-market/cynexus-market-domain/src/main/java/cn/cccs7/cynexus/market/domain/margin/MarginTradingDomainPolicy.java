@@ -14,8 +14,8 @@ import java.util.stream.Stream;
 public final class MarginTradingDomainPolicy {
 
     public static final int DEFAULT_TOP_STOCK_LIMIT = 20;
-    public static final int DEFAULT_STOCK_LIMIT = 100;
-    public static final int DEFAULT_RANKING_PAGE_SIZE = 20;
+    public static final int DEFAULT_STOCK_LIMIT = 50;
+    public static final int DEFAULT_RANKING_PAGE_SIZE = 50;
     public static final int MAX_STOCK_LIMIT = 500;
     public static final int DEFAULT_HISTORY_DAYS = 120;
 

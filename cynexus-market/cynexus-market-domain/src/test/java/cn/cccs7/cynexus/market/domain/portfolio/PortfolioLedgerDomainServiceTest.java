@@ -108,7 +108,7 @@ class PortfolioLedgerDomainServiceTest {
     }
 
     @Test
-    void valuesOpenPositionFromThreeDecimalDisplayedAverageCost() {
+    void keepsExactCostBasisSeparateFromThreeDecimalDisplayedAverageCost() {
         List<PortfolioTradeBO> trades = List.of(
                 trade(1L, TradeSide.BUY, "400", "0.855", "0"),
                 trade(2L, TradeSide.BUY, "300", "0.851", "0"),
@@ -120,8 +120,8 @@ class PortfolioLedgerDomainServiceTest {
                 .positions().getFirst();
 
         assertEquals(decimal("0.853"), position.averageCost());
-        assertEquals(decimal("767.7"), position.costBasis());
-        assertEquals(decimal("3.6"), position.unrealizedPnl());
+        assertEquals(decimal("767.5"), position.costBasis());
+        assertEquals(decimal("3.8"), position.unrealizedPnl());
     }
 
     @Test

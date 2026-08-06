@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, CircleAlert, FileCheck2, Pencil } from "lucide-react"
+import { ChevronDown, ChevronRight, CircleAlert, FileCheck2, Loader2, Pencil, RotateCcw } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -13,6 +13,8 @@ interface ImportExecutionRecordProps {
   error: string | null
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  onRetry?: () => void
+  retrying?: boolean
   reviewHref?: string
   embedded?: boolean
 }
@@ -29,7 +31,8 @@ const EVENT_COPY: Record<string, { title: string; description: string }> = {
   CANDIDATE_EDITED: { title: "Candidate trade edited", description: "A reviewer corrected an extracted trade." },
   TASK_READY_FOR_REVIEW: { title: "Ready for review", description: "Confirm or edit the candidate trades before posting them to the ledger." },
   TASK_CONFIRMED: { title: "Trades confirmed", description: "The selected trades were posted to the portfolio ledger." },
-  TASK_FAILED: { title: "Import failed", description: "This import chain stopped and needs attention before a new upload." },
+  TASK_FAILED: { title: "Import failed", description: "This import chain stopped and can be retried with the same screenshot." },
+  MANUAL_RETRY_REQUESTED: { title: "Manual retry requested", description: "The failed screenshot was sent back to the processing queue." },
 }
 
 const EVENT_SHORT_LABEL: Record<string, string> = {
@@ -45,6 +48,7 @@ const EVENT_SHORT_LABEL: Record<string, string> = {
   TASK_READY_FOR_REVIEW: "Ready",
   TASK_CONFIRMED: "Confirmed",
   TASK_FAILED: "Failed",
+  MANUAL_RETRY_REQUESTED: "Manual retry",
 }
 
 const STATUS_COPY: Record<string, string> = {
@@ -104,7 +108,7 @@ function statusClass(status: string) {
   return "bg-muted text-muted-foreground"
 }
 
-export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, reviewHref, embedded = false }: ImportExecutionRecordProps) {
+export function ImportExecutionRecord({ task, history, candidateCount, loading, error, open, onOpenChange, onRetry, retrying = false, reviewHref, embedded = false }: ImportExecutionRecordProps) {
   const events = history?.events ?? []
   const attempts = Math.max(task.attemptCount, ...events.map((event) => event.attemptNo))
   const latestEvent = events.at(-1)
@@ -136,6 +140,7 @@ export function ImportExecutionRecord({ task, history, candidateCount, loading, 
       </button>
     </CollapsibleTrigger>
     <CollapsibleContent className="border-t border-border/60">
+      {task.status === "FAILED" && onRetry ? <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-rose-50/60 px-4 py-2.5"><p className="text-xs text-rose-800">This attempt failed. You can send the same screenshot through the AI parser again.</p><Button size="sm" variant="outline" onClick={onRetry} disabled={retrying}><span className="mr-1.5">{retrying ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}</span>{retrying ? "Retrying..." : "Retry import"}</Button></div> : null}
       {reviewHref && task.status === "READY_FOR_REVIEW" ? <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/25 px-4 py-2.5">
         <p className="text-xs text-muted-foreground">Candidates are ready. Review and confirm them before updating holdings.</p>
         <Link to={reviewHref} className="shrink-0"><Button size="sm" variant="outline"><Pencil className="mr-1.5 size-3.5" />Review candidates</Button></Link>

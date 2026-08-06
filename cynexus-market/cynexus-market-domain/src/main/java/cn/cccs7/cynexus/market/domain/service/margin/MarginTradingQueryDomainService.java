@@ -15,4 +15,6 @@ public interface MarginTradingQueryDomainService {
 
     MarginTradingQueryBO.Industries industries(String tradeDate, String sort, String sortDir,
                                                Integer page, Integer pageSize);
+
+    MarginTradingQueryBO.IndustryHistory industryHistory(String industryCode, String tradeDate, int limit);
 }

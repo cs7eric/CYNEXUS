@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import ssl
 import struct
+import sys
 import zipfile
 from datetime import date
+from types import ModuleType
 from urllib.error import URLError
 
 import pytest
@@ -12,6 +14,7 @@ import cynexus_data.sources.tdx.hsjday as hsjday
 from cynexus_data.sources.tdx.hsjday import (
     HsjdayDownloadChallenge,
     inspect_zip_freshness,
+    replace_hsjday_root,
     safe_extract_hsjday_zip,
     verify_hsjday_root,
 )
@@ -78,6 +81,24 @@ def test_hsjday_zip_supports_backslash_members(tmp_path) -> None:
     assert zip_check.ok is True
     assert root_check.ok is True
     assert (extracted_root / "sh" / "lday" / "sh000001.day").exists()
+
+
+def test_replace_hsjday_root_does_not_depend_on_fixed_backup_path(tmp_path) -> None:
+    target_root = tmp_path / "hsjday"
+    (target_root / "sh" / "lday").mkdir(parents=True)
+    (target_root / "sh" / "lday" / "old.day").write_bytes(b"old")
+    legacy_backup = tmp_path / "hsjday.bak" / "sh" / "lday"
+    legacy_backup.mkdir(parents=True)
+    (legacy_backup / "stale.day").write_bytes(b"stale")
+
+    new_root = tmp_path / "hsjday-new"
+    (new_root / "sh" / "lday").mkdir(parents=True)
+    (new_root / "sh" / "lday" / "new.day").write_bytes(b"new")
+
+    replace_hsjday_root(new_root, target_root)
+
+    assert (target_root / "sh" / "lday" / "new.day").read_bytes() == b"new"
+    assert (tmp_path / "hsjday.bak").exists()
 
 
 class _FakeUrlopenResponse:
@@ -157,3 +178,67 @@ def test_download_hsjday_zip_auto_falls_back_to_playwright(monkeypatch, tmp_path
     assert result.bytes_downloaded == 7
     assert result.method == "playwright"
     assert calls == ["urlopen", "playwright"]
+
+
+def test_playwright_download_uses_configured_system_browser(monkeypatch, tmp_path) -> None:
+    launched_with: dict[str, object] = {}
+
+    class FakePage:
+        def goto(self, *args, **kwargs):
+            return None
+
+        def wait_for_timeout(self, *args, **kwargs):
+            return None
+
+    class FakeContext:
+        request = object()
+
+        def new_page(self):
+            return FakePage()
+
+        def close(self):
+            return None
+
+    class FakeBrowser:
+        def new_context(self, **kwargs):
+            return FakeContext()
+
+        def close(self):
+            return None
+
+    class FakeChromium:
+        def launch(self, **kwargs):
+            launched_with.update(kwargs)
+            return FakeBrowser()
+
+    class FakePlaywright:
+        chromium = FakeChromium()
+
+    class FakePlaywrightContext:
+        def __enter__(self):
+            return FakePlaywright()
+
+        def __exit__(self, exc_type, exc, traceback):
+            return None
+
+    monkeypatch.setenv("CYNEXUS_PLAYWRIGHT_EXECUTABLE_PATH", "/usr/bin/chromium")
+    playwright_package = ModuleType("playwright")
+    playwright_api = ModuleType("playwright.sync_api")
+    playwright_api.sync_playwright = lambda: FakePlaywrightContext()
+    monkeypatch.setitem(sys.modules, "playwright", playwright_package)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", playwright_api)
+
+    def fake_ranges(request_context, url, destination, **kwargs):
+        destination.write_bytes(b"PK fake")
+        return 7
+
+    monkeypatch.setattr(hsjday, "_download_hsjday_zip_playwright_ranges", fake_ranges)
+
+    result = hsjday._download_hsjday_zip_playwright(
+        "https://example.test/hsjday.zip",
+        tmp_path / "hsjday.zip",
+        wait_ms=0,
+    )
+
+    assert result == 7
+    assert launched_with == {"headless": True, "executable_path": "/usr/bin/chromium"}

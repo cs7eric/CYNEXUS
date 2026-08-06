@@ -23,6 +23,19 @@
   outline: none;
 }
 
+.cynexus-kb-markdown-fallback {
+  min-height: 100%;
+  margin: 0;
+  overflow: auto;
+  padding: 1.25rem 1.5rem 2rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
 .cynexus-kb-markdown-content h1 {
   margin: 0 0 1rem;
   color: var(--foreground);

@@ -32,9 +32,9 @@ public class FuturesPositionQueryAppService {
                 .stream().map(this::member).toList();
     }
 
-    public List<FuturesPositionDTO.History> history(String scopeType, String exchangeCode,
+    public List<FuturesPositionDTO.History> history(String tradeDate, String scopeType, String exchangeCode,
                                                      String instrumentCode, int top, int limit) {
-        return domainService.history(scopeType, exchangeCode, instrumentCode, top, limit)
+        return domainService.history(tradeDate, scopeType, exchangeCode, instrumentCode, top, limit)
                 .stream().map(this::history).toList();
     }
 

@@ -12,7 +12,10 @@ from cynexus_data.runtime.job_runner import JobRunner
 
 router = APIRouter()
 _context = PipelineContext.default(persist_job_state=True)
-ASYNC_TRIGGER_JOBS = {"market_sentiment_chain_refresh", "a_stock_fund_flow_history_backfill"}
+ASYNC_TRIGGER_JOBS = {
+    "market_sentiment_chain_refresh",
+    "a_stock_fund_flow_history_backfill",
+}
 
 
 @router.get("/internal/health")
@@ -43,7 +46,8 @@ def trigger_job(job_key: str, payload: TriggerRequest, background_tasks: Backgro
         dry_run=payload.dry_run,
         params=payload.params,
     )
-    if job_key in ASYNC_TRIGGER_JOBS:
+    is_margin_history = job_key == "sync_margin" and str(payload.params.get("mode") or "").strip().lower() == "stock_history"
+    if job_key in ASYNC_TRIGGER_JOBS or is_margin_history:
         result = runner.start(request)
         if result.status == "running":
             background_tasks.add_task(runner.run_started, request, result.run_id, result.started_at)

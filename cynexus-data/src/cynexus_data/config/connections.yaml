@@ -23,6 +23,14 @@ connections:
     url: ${CORE_DATABASE_URL:${DATABASE_URL:postgresql+psycopg://postgres:C020611.@127.0.0.1:25433/cynexus}}
     schema: ${POSTGRES_CORE_SCHEMA:cynexus_appl_core}
 
+  redis_default:
+    type: redis
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:C020611.}
+    database: ${REDIS_DB:0}
+    timeout: ${REDIS_TIMEOUT:2}
+
   duckdb_default:
     type: duckdb
     path: ${DUCKDB_PATH:var/market_data.duckdb}
@@ -76,3 +84,30 @@ connections:
     base_url: https://data.10jqka.com.cn
     timeout: 10
     retry: 3
+
+  social_browser:
+    type: browser
+    root_path: ${CYNEXUS_SOCIAL_PROFILE_ROOT:var}
+    timeout: ${CYNEXUS_SOCIAL_TIMEOUT_SECONDS:30}
+    extra:
+      headless: ${CYNEXUS_SOCIAL_HEADLESS:true}
+      wait_ms: 2500
+      scroll_rounds: 12
+      scroll_wait_ms: 900
+      executable_path: ${CYNEXUS_PLAYWRIGHT_EXECUTABLE_PATH:}
+      post_link_selectors:
+        xiaohongshu: "a[href*='/explore/'], a[href*='/discovery/item/']"
+        douyin: "a[href*='/video/'], a[href*='/note/']"
+      comment_selectors:
+        xiaohongshu: ".comment-item"
+        douyin: "[data-e2e='comment-item']"
+      opencli_package: "${CYNEXUS_OPENCLI_PACKAGE:@jackwener/opencli@1.8.6}"
+      opencli_timeout_seconds: ${CYNEXUS_OPENCLI_TIMEOUT_SECONDS:120}
+      opencli_login_timeout_seconds: ${CYNEXUS_OPENCLI_LOGIN_TIMEOUT_SECONDS:300}
+      opencli_post_limit: ${CYNEXUS_OPENCLI_POST_LIMIT:15}
+      opencli_comment_limit: ${CYNEXUS_OPENCLI_COMMENT_LIMIT:50}
+      opencli_publish_date_probe_wait_seconds: ${CYNEXUS_OPENCLI_PUBLISH_DATE_PROBE_WAIT_SECONDS:2}
+      opencli_executable: "${CYNEXUS_OPENCLI_EXECUTABLE:}"
+      cdp_host: ${CYNEXUS_SOCIAL_CDP_HOST:127.0.0.1}
+      cdp_port: ${CYNEXUS_SOCIAL_CDP_PORT:19221}
+      cdp_post_limit: ${CYNEXUS_SOCIAL_CDP_POST_LIMIT:20}

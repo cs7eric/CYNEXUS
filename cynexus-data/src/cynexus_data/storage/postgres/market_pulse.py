@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from cynexus_data.config.settings import PROJECT_ROOT
 from cynexus_data.storage.postgres.client import PostgresClient
-from cynexus_data.storage.postgres.ids import next_bigint_id
+from cynexus_data.storage.postgres.ids import stable_bigint_id
 
 
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260628_create_market_pulse_tables.sql"
@@ -97,12 +97,28 @@ class MarketPulseRepository:
                         :id, :trade_date, :source_kind, :status, :source_name, :row_count, :fetched_at,
                         CAST(:extra AS jsonb), now()
                     )
+                    ON CONFLICT (id) DO UPDATE SET
+                        trade_date = EXCLUDED.trade_date,
+                        source_kind = EXCLUDED.source_kind,
+                        status = EXCLUDED.status,
+                        source_name = EXCLUDED.source_name,
+                        row_count = EXCLUDED.row_count,
+                        fetched_at = EXCLUDED.fetched_at,
+                        extra = EXCLUDED.extra,
+                        updated_at = now(),
+                        deleted_at = NULL
                     RETURNING id
                     """
                 ),
                 {
                     "trade_date": trade_date,
-                    "id": next_bigint_id(),
+                    "id": stable_bigint_id(
+                        CAPTURE_TABLE,
+                        trade_date,
+                        source_kind,
+                        source_name,
+                        captured_at.isoformat(),
+                    ),
                     "source_kind": source_kind,
                     "status": status,
                     "source_name": source_name,
@@ -124,7 +140,7 @@ class MarketPulseRepository:
                             :inflow, :outflow, :main_net, :stock_count, :leading_stock, :leading_change_pct,
                             :leading_price, :source_kind, :source_name, :captured_at, CAST(:extra AS jsonb), now()
                         )
-                        ON CONFLICT (trade_date, sector_name) WHERE deleted_at IS NULL DO UPDATE SET
+                        ON CONFLICT (id) DO UPDATE SET
                             batch_id = EXCLUDED.batch_id,
                             sector_index = EXCLUDED.sector_index,
                             rank_by_change = EXCLUDED.rank_by_change,
@@ -168,7 +184,11 @@ class MarketPulseRepository:
 
 def _row_params(row: dict[str, Any], *, batch_id: Any, source_kind: str, source_name: str, captured_at: datetime) -> dict[str, Any]:
     payload = dict(row)
-    payload["id"] = next_bigint_id()
+    payload["id"] = stable_bigint_id(
+        SNAPSHOT_TABLE,
+        payload.get("trade_date"),
+        payload.get("sector_name"),
+    )
     payload["batch_id"] = batch_id
     payload["source_kind"] = source_kind
     payload["source_name"] = source_name

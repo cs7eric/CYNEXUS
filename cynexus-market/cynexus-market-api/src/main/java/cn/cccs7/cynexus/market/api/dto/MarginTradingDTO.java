@@ -76,6 +76,28 @@ public final class MarginTradingDTO {
         private BigDecimal securitiesLendingSellVolume;
         private BigDecimal securitiesLendingRepayVolume;
         private BigDecimal marginBalance;
+        private BigDecimal turnoverAmount;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class IndustryHistoryDTO {
+        private LocalDate tradeDate;
+        private LocalDate constituentSnapshotDate;
+        private String industryCode;
+        private Integer constituentCount;
+        private Integer matchedStockCount;
+        private BigDecimal financingBalance;
+        private BigDecimal financingBuyAmount;
+        private BigDecimal financingRepayAmount;
+        private BigDecimal securitiesLendingBalance;
+        private BigDecimal securitiesLendingBalanceAmount;
+        private BigDecimal securitiesLendingSellVolume;
+        private BigDecimal securitiesLendingRepayVolume;
+        private BigDecimal marginBalance;
+        private BigDecimal turnoverAmount;
     }
 
     @Data

@@ -1,0 +1,67 @@
+server:
+  port: 18085
+
+spring:
+  application:
+    name: cynexus-wechat
+  config:
+    import:
+      - optional:nacos:cynexus-wechat.yml
+      - optional:nacos:cynexus-common.yml
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:10848}
+      username: ${NACOS_USERNAME:}
+      password: ${NACOS_PASSWORD:}
+      discovery:
+        enabled: true
+        register-enabled: true
+        service: ${spring.application.name}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        cluster-name: ${NACOS_CLUSTER_NAME:DEFAULT}
+        ephemeral: true
+        metadata:
+          management.port: ${server.port}
+      config:
+        enabled: true
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yml
+  datasource:
+    url: "jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:${POSTGRES_PORT:25433}/${POSTGRES_DB_WECHAT:${POSTGRES_DB:cynexus}}?currentSchema=${POSTGRES_SCHEMA:cynexus_appl_wechat}"
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:C020611.}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:26379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+cynexus:
+  wechat:
+    token: ${CYNEXUS_WECHAT_TOKEN:}
+    app-id: ${CYNEXUS_WECHAT_APP_ID:}
+    app-secret: ${CYNEXUS_WECHAT_APP_SECRET:}
+    api-base-url: ${CYNEXUS_WECHAT_API_BASE_URL:https://api.weixin.qq.com}
+    timeout-ms: ${CYNEXUS_WECHAT_TIMEOUT_MS:10000}
+    access-token-cache-seconds: ${CYNEXUS_WECHAT_ACCESS_TOKEN_CACHE_SECONDS:6000}
+    welcome-reply: ${CYNEXUS_WECHAT_WELCOME_REPLY:欢迎关注 Cynexus！}
+    default-reply: ${CYNEXUS_WECHAT_DEFAULT_REPLY:已收到你的消息。}
+    image-reply: ${CYNEXUS_WECHAT_IMAGE_REPLY:图片已收到，正在判断处理类型。}
+    image-storage-dir: ${CYNEXUS_WECHAT_IMAGE_STORAGE_DIR:/data/cynexus/wechat/images}
+    image-max-bytes: ${CYNEXUS_WECHAT_IMAGE_MAX_BYTES:10485760}
+    routing:
+      poll-delay-ms: ${CYNEXUS_WECHAT_ROUTING_POLL_DELAY_MS:5000}

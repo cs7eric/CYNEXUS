@@ -66,6 +66,11 @@ class FakePostgresHook:
         return object()
 
 
+class FakeEastMoneyHook:
+    def get_session(self):
+        return object()
+
+
 class FakeHooks:
     exchange_margin = FakeExchangeHook()
     akshare = FakeAkshareHook()
@@ -76,6 +81,13 @@ class FakeHooksWithEmptyExchange:
     exchange_margin = EmptyExchangeHook()
     akshare = FakeAkshareHook()
     postgres = FakePostgresHook()
+
+
+class FakeHooksWithEastMoney:
+    exchange_margin = FakeExchangeHook()
+    akshare = FakeAkshareHook()
+    postgres = FakePostgresHook()
+    eastmoney = FakeEastMoneyHook()
 
 
 class FakeRepo:
@@ -173,3 +185,87 @@ def test_sync_margin_falls_back_to_akshare_when_exchange_has_no_rows(monkeypatch
 
     assert result["rows_written"] == 2
     assert result["provider_results"] == {"summary": "akshare", "detail": "akshare"}
+
+
+def test_sync_margin_enriches_exchange_detail_fields_from_eastmoney(monkeypatch) -> None:
+    FakeRepo.created = 0
+    FakeRepo.calls = []
+    monkeypatch.setattr(sync_margin, "MarginRepository", FakeRepo)
+    monkeypatch.setattr(sync_margin, "EastMoneyHttpClient", lambda session: object())
+    monkeypatch.setattr(
+        sync_margin,
+        "margin_trading_latest",
+        lambda client, trade_date: [{
+            "stock_code": "600000",
+            "rzye": 101,
+            "rzmre": 12,
+            "rzche": 3,
+            "rqyl": 4,
+            "rqye": 5,
+            "rqmcl": 6,
+            "rqchl": 7,
+            "rzrqye": 106,
+        }],
+    )
+
+    result = sync_margin.run(
+        PipelineContext(hooks=FakeHooksWithEastMoney()),
+        JobRequest(
+            job_key="sync_margin",
+            dry_run=False,
+            params={"trade_date": "2026-07-04", "datasets": "detail"},
+        ),
+    )
+
+    detail_rows = FakeRepo.calls[0][2]
+    assert result["provider_results"]["detail_enrichment"] == "eastmoney.datacenter.margin (1/1)"
+    assert detail_rows[0]["financing_repay_amount"] == 3
+    assert detail_rows[0]["securities_lending_balance"] == 4
+    assert detail_rows[0]["securities_lending_balance_amount"] == 5
+    assert detail_rows[0]["margin_balance"] == 106
+
+
+def test_margin_history_code_source_all_uses_active_stock_basic(monkeypatch) -> None:
+    class HistoryResult:
+        def all(self):
+            return [("600000",), ("000001",)]
+
+    class HistorySession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement, params):
+            self.statement = str(statement)
+            self.params = params
+            return HistoryResult()
+
+    class HistoryClient:
+        def __init__(self):
+            self.db = HistorySession()
+
+        def session(self):
+            return self.db
+
+    class HistoryPostgresHook:
+        def __init__(self):
+            self.client = HistoryClient()
+
+        def get_client(self):
+            return self.client
+
+    class HistoryHooks:
+        postgres = HistoryPostgresHook()
+
+    codes = sync_margin._margin_history_codes(
+        PipelineContext(hooks=HistoryHooks()),
+        {"code_source": "all", "limit_codes": 2, "history_days": 120},
+    )
+
+    session = HistoryHooks.postgres.client.db
+    assert codes == ["600000", "000001"]
+    assert "sec_stock_basic" in session.statement
+    assert "is_active = TRUE" in session.statement
+    assert session.params == {"history_days": 120, "limit": 2}

@@ -16,17 +16,17 @@ export function FuturesPositionPageHeader({ tradeDate, fallback, loading, onRefr
     <header className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
+          <Badge variant="outline" className="bg-muted/45 text-muted-foreground">
             <DatabaseZap className="size-3" />
-            EOD member positions
+            会员持仓快照
           </Badge>
           <span className="text-xs text-muted-foreground">交易日 {formatDate(tradeDate)}</span>
           {fallback ? <Badge variant="secondary" className="text-amber-700 dark:text-amber-300">已回退到最近有效日</Badge> : null}
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">期货多空持仓监控</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">多空持仓</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-            查看交易所披露的会员成交量、多头和空头排名。数值是选定 Top-N 会员汇总，不代表全市场账户净持仓。
+            快速发现持仓异动，观察多空结构变化，并穿透到具体席位。
           </p>
         </div>
       </div>

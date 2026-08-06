@@ -53,6 +53,45 @@ services:
       - "127.0.0.1:18084:18084"
     networks: [cynexus-shared]
 
+  wechat:
+    build:
+      context: ../..
+      dockerfile: deploy/local/Dockerfile.app
+      args:
+        MAVEN_PROJECT: cynexus-wechat/cynexus-wechat-starter
+        JAR_NAME: cynexus-wechat-starter-${CYNEXUS_MAVEN_VERSION:-1.1.1-ALPHA-260716-SNAPSHOT}.jar
+    image: cynexus-wechat:${CYNEXUS_RELEASE_VERSION:-1.1.1-ALPHA-260716-RELEASE}
+    container_name: cynexus-release-wechat
+    restart: unless-stopped
+    environment:
+      NACOS_SERVER_ADDR: cynexus-nacos:8848
+      POSTGRES_HOST: cynexus-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: cynexus
+      POSTGRES_SCHEMA: cynexus_appl_wechat
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: C020611.
+      REDIS_HOST: cynexus-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: C020611.
+      CYNEXUS_WECHAT_TOKEN: ${CYNEXUS_WECHAT_TOKEN:-}
+      CYNEXUS_WECHAT_APP_ID: ${CYNEXUS_WECHAT_APP_ID:-}
+      CYNEXUS_WECHAT_APP_SECRET: ${CYNEXUS_WECHAT_APP_SECRET:-}
+      CYNEXUS_WECHAT_API_BASE_URL: ${CYNEXUS_WECHAT_API_BASE_URL:-https://api.weixin.qq.com}
+      CYNEXUS_WECHAT_IMAGE_STORAGE_DIR: ${CYNEXUS_WECHAT_IMAGE_STORAGE_DIR:-/data/cynexus/wechat/images}
+      CYNEXUS_WECHAT_IMAGE_MAX_BYTES: ${CYNEXUS_WECHAT_IMAGE_MAX_BYTES:-10485760}
+      HTTP_PROXY: ${CYNEXUS_HTTP_PROXY:-}
+      HTTPS_PROXY: ${CYNEXUS_HTTPS_PROXY:-}
+      ALL_PROXY: ${CYNEXUS_HTTPS_PROXY:-}
+      NO_PROXY: ${CYNEXUS_NO_PROXY:-localhost,127.0.0.1,cynexus-postgres,cynexus-redis,cynexus-nacos,cynexus-ai}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:18085:18085"
+    volumes:
+      - ./wechat-images:/data/cynexus/wechat/images
+    networks: [cynexus-shared]
+
   market:
     build:
       context: ../..

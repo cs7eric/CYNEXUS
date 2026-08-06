@@ -7,12 +7,14 @@ from cynexus_data.hooks.sources.akshare import AkshareHook
 from cynexus_data.hooks.sources.eastmoney import EastMoneyHook
 from cynexus_data.hooks.sources.exchange_margin import ExchangeMarginHook
 from cynexus_data.hooks.sources.sina import SinaHook
+from cynexus_data.hooks.sources.social import SocialBrowserHook
 from cynexus_data.hooks.sources.tdx import TdxHook
 from cynexus_data.hooks.sources.tencent import TencentHook
 from cynexus_data.hooks.sources.ths import ThsHook
 from cynexus_data.hooks.storage.clickhouse import ClickHouseHook
 from cynexus_data.hooks.storage.duckdb import DuckDBHook
 from cynexus_data.hooks.storage.postgres import PostgresHook
+from cynexus_data.hooks.storage.redis import RedisHook
 from cynexus_data.runtime.checkpoints import CheckpointStore
 from cynexus_data.runtime.job_store import JobStore
 from cynexus_data.runtime.locks import LockManager
@@ -37,6 +39,10 @@ class HookBundle:
     @property
     def postgres_core(self) -> PostgresHook:
         return PostgresHook("postgres_core", self.registry)
+
+    @property
+    def redis(self) -> RedisHook:
+        return RedisHook("redis_default", self.registry)
 
     @property
     def duckdb(self) -> DuckDBHook:
@@ -73,6 +79,10 @@ class HookBundle:
     @property
     def ths(self) -> ThsHook:
         return ThsHook("ths_default", self.registry)
+
+    @property
+    def social(self) -> SocialBrowserHook:
+        return SocialBrowserHook("social_browser", self.registry)
 
 
 @dataclass

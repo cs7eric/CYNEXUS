@@ -32,6 +32,8 @@ DOWNLOAD_HEADERS = {
     "Referer": "https://www.google.com/",
 }
 
+MAX_DISPLAY_FILENAME_BYTES = 120
+
 
 @dataclass(frozen=True)
 class MediaTranscriptionConfig:
@@ -53,7 +55,7 @@ class MediaTranscriptionRuntime:
         task_id = str(uuid.uuid4())
         upload_dir = self._config().upload_root
         upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = upload_dir / f"{task_id}_{safe_name}"
+        file_path = upload_dir / _build_storage_filename(task_id, safe_name)
         with file_path.open("wb") as target:
             while True:
                 chunk = file.file.read(8 * 1024 * 1024)
@@ -206,7 +208,7 @@ class MediaTranscriptionRuntime:
                 resolved_name = _build_download_filename(source_url, title or str(metadata.get("title") or ""), response.headers.get("Content-Type"))
                 upload_dir = self._config().upload_root
                 upload_dir.mkdir(parents=True, exist_ok=True)
-                file_path = upload_dir / f"{task_id}_{resolved_name}"
+                file_path = upload_dir / _build_storage_filename(task_id, resolved_name)
                 total_size = int(response.headers.get("Content-Length") or 0)
                 downloaded = 0
                 started_at = time.time()
@@ -423,7 +425,18 @@ class MediaTranscriptionRuntime:
 def _sanitize_filename(name: str) -> str:
     cleaned = re.sub(r'[<>:"/\\\\|?*\x00-\x1f]+', "_", str(name or "").strip())
     cleaned = cleaned.replace(" ", "_")
-    return cleaned[:120] or "upload.bin"
+    return _truncate_utf8(cleaned, MAX_DISPLAY_FILENAME_BYTES) or "upload.bin"
+
+
+def _truncate_utf8(value: str, max_bytes: int) -> str:
+    return value.encode("utf-8")[:max_bytes].decode("utf-8", errors="ignore")
+
+
+def _build_storage_filename(task_id: str, file_name: str) -> str:
+    suffix = Path(file_name).suffix.lower()
+    if not re.fullmatch(r"\.[a-z0-9]{1,10}", suffix):
+        suffix = ".bin"
+    return f"{task_id}{suffix}"
 
 
 def _guess_extension_from_url(url: str) -> str:
@@ -439,5 +452,8 @@ def _build_download_filename(source_url: str, title: str | None, content_type: s
     if guessed_ext in {".mp4", ".mov", ".mkv", ".webm", ".avi", ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".aiff"}:
         ext = guessed_ext
     parsed = Path(urlparse(source_url).path).stem or "downloaded-media"
-    base = _sanitize_filename(title or parsed)
+    base = _truncate_utf8(
+        _sanitize_filename(title or parsed),
+        MAX_DISPLAY_FILENAME_BYTES - len(ext.encode("utf-8")),
+    )
     return f"{base}{ext}"

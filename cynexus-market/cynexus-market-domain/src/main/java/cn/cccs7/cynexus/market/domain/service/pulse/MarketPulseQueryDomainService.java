@@ -32,6 +32,7 @@ public final class MarketPulseQueryDomainService {
     private static final String CLOSE = "close";
     private static final String STYLES = "styles";
     private static final String DEFAULT_HEATMAP_KIND = "industries";
+    private static final int LIMIT_STOCK_DETAIL_LIMIT = 5000;
 
     private final MarketPulseQueryRepository repository;
     private final ThsIndustryConstituentSnapshotRepository constituentRepository;
@@ -105,9 +106,9 @@ public final class MarketPulseQueryDomainService {
         MarketLimitDailySnapshotBO row = repository.findLatestLimitEmotion().orElse(null);
         if (row == null) return new LimitEmotionQuery(null, List.of(), List.of(), List.of());
         return new LimitEmotionQuery(row,
-                safeList(repository.listLimitStocks(row.getTradeDate(), "limit_up", 80)),
-                safeList(repository.listLimitStocks(row.getTradeDate(), "limit_down", 80)),
-                safeList(repository.listLimitStocks(row.getTradeDate(), "broken", 80)));
+                safeList(repository.listLimitStocks(row.getTradeDate(), "limit_up", LIMIT_STOCK_DETAIL_LIMIT)),
+                safeList(repository.listLimitStocks(row.getTradeDate(), "limit_down", LIMIT_STOCK_DETAIL_LIMIT)),
+                safeList(repository.listLimitStocks(row.getTradeDate(), "broken", LIMIT_STOCK_DETAIL_LIMIT)));
     }
 
     private <T> List<T> safeList(List<T> values) {

@@ -34,4 +34,14 @@ class PortfolioImportFailurePolicyTest {
         assertFalse(decision.retry());
         assertTrue(decision.errorCode().equals("PORTFOLIO_AI_SERVICE_UNAVAILABLE"));
     }
+
+    @Test
+    void retriesInvalidAiResponseWithinBound() {
+        PortfolioImportFailureDecision decision = PortfolioImportFailurePolicy.decide(
+                new PortfolioTradeVisionException("PORTFOLIO_AI_RESPONSE_INVALID",
+                        "AI response candidates must be an array", true), 0);
+
+        assertTrue(decision.retry());
+        assertTrue(decision.errorCode().equals("PORTFOLIO_PARSE_RETRY"));
+    }
 }

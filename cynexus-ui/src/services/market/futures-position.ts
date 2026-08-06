@@ -139,13 +139,14 @@ export async function fetchFuturesPositionMembers(params: {
 }
 
 export async function fetchFuturesPositionHistory(params: {
+  tradeDate?: string
   scopeType: FuturesScopeType
   exchangeCode: string
   instrumentCode: string
   top?: number
   limit?: number
 }): Promise<FuturesPositionHistory[]> {
-  const query = queryString({ top: params.top, limit: params.limit })
+  const query = queryString({ tradeDate: params.tradeDate, top: params.top, limit: params.limit })
   const response = await fetchWithRetry(
     `${FUTURES_POSITION_API_BASE}/${params.scopeType}/${encodeURIComponent(params.exchangeCode)}/${encodeURIComponent(params.instrumentCode)}/history${query ? `?${query}` : ""}`,
     { cache: "no-store" },

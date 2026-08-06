@@ -11,6 +11,7 @@ Current code:
 - `market_overview.py`: optional `eltdx` A-share amount/breadth live capture.
 - `intraday.py`: optional `eltdx` auction point and historical 1m timeshare normalization.
 - `industry_quotes.py`: optional `eltdx` TDX 56 industry index quote snapshot source.
+- `indicator.py`: optional `eltdx 1.2.x` full-market quote snapshot adapter used by the live indicator monitor.
 - `sector_quote.py`: optional `eltdx` `f10.theme_market` parser/client helpers for TDX sector detail snapshots.
 - `stock_profile.py`: optional `eltdx` share-profile helper for stock turnover calculations.
 - `mootdx.py`: optional `mootdx` K-line fallback adapter used only when explicitly requested by provider fallback.
@@ -24,3 +25,7 @@ Online usage:
 - `sync_kline_daily` can use `easy_tdx` for direct qfq/hfq daily bars through the provider fallback.
 - `sync_tdx_intraday_detail --provider easy_tdx` uses easy_tdx for historical timeshare. Auction data continues to use the existing eltdx auction adapter; the default remains eltdx for compatibility.
 - Internal routes under `/internal/a-stock/tdx/*` expose easy_tdx fund-flow and board data.
+
+Market indicators use bounded full-market quote snapshots first. Depth and historical
+trade calls remain candidate enrichment APIs because eltdx exposes them per symbol.
+The package is research-only; do not use this collector as a commercial data feed.

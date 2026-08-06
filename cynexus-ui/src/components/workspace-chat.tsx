@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/input-group"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { Button } from "@/components/ui/button"
+import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Message, MessageContent } from "@/components/ui/message"
 import {
@@ -149,17 +150,20 @@ export function WorkspaceChat() {
               <h2 className="text-base font-medium">New Chat</h2>
               <p className="text-sm text-muted-foreground">How can I help you today?</p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              aria-label="Reset conversation"
-              title="Reset conversation"
-              onClick={resetConversation}
-              disabled={loading}
-            >
-              <RotateCw />
-            </Button>
+            <div className="flex items-center gap-1">
+              <AiBindingProviderSelect capability="workspace_chat" label="Chat provider" />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Reset conversation"
+                title="Reset conversation"
+                onClick={resetConversation}
+                disabled={loading}
+              >
+                <RotateCw />
+              </Button>
+            </div>
           </div>
           </div>
 

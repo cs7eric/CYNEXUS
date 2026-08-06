@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import random
 import shutil
 import ssl
@@ -11,6 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 
 TDX_HSJDAY_URL = "https://data.tdx.com.cn/vipdoc/hsjday.zip"
@@ -185,7 +187,11 @@ def _download_hsjday_zip_playwright(
 
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=headless)
+            launch_kwargs = {"headless": headless}
+            executable_path = _resolve_playwright_executable_path()
+            if executable_path:
+                launch_kwargs["executable_path"] = executable_path
+            browser = playwright.chromium.launch(**launch_kwargs)
             context = None
             try:
                 context = browser.new_context(
@@ -218,6 +224,17 @@ def _download_hsjday_zip_playwright(
 
     tmp_path.replace(destination)
     return total
+
+
+def _resolve_playwright_executable_path() -> str | None:
+    configured_path = os.getenv("CYNEXUS_PLAYWRIGHT_EXECUTABLE_PATH")
+    if configured_path:
+        return configured_path
+    for executable_name in ("chromium", "chromium-browser", "google-chrome"):
+        executable_path = shutil.which(executable_name)
+        if executable_path:
+            return executable_path
+    return None
 
 
 def _download_hsjday_zip_playwright_ranges(
@@ -399,9 +416,8 @@ def inspect_existing_hsjday_root(root: Path, target_date: date) -> dict[str, obj
 
 def replace_hsjday_root(new_root: Path, target_root: Path) -> None:
     target_root.parent.mkdir(parents=True, exist_ok=True)
-    backup = target_root.with_name(f"{target_root.name}.bak")
-    if backup.exists():
-        shutil.rmtree(backup)
+    # A fixed backup path can be left by another container/user.
+    backup = target_root.with_name(f"{target_root.name}.bak-{uuid4().hex}")
     if target_root.exists():
         target_root.rename(backup)
     try:
@@ -410,10 +426,13 @@ def replace_hsjday_root(new_root: Path, target_root: Path) -> None:
         if target_root.exists():
             shutil.rmtree(target_root)
         if backup.exists():
-            backup.rename(target_root)
+            try:
+                backup.rename(target_root)
+            except OSError:
+                pass
         raise
     if backup.exists():
-        shutil.rmtree(backup)
+        shutil.rmtree(backup, ignore_errors=True)
 
 
 def cleanup_old_hsjday_zips(download_base: Path, *, today: date | None = None, keep_days: int = 2) -> list[str]:

@@ -50,7 +50,9 @@ def normalize_dataset(dataset: str, payload: Any, params: dict[str, Any]) -> ASt
         put_pg("a_stock_research_report", [_ths_eps_row(item, code=code, index=index) for index, item in enumerate(_items(payload), start=1)])
     elif dataset == "sina_financial_report":
         report_type = str(params.get("report_type") or "lrb")
-        put_pg("a_stock_financial_statement", [_financial_row(item, code=code, report_type=report_type) for item in _items(payload)])
+        financial_rows = [_financial_row(item, code=code, report_type=report_type) for item in _items(payload)]
+        put_pg("a_stock_financial_statement", financial_rows)
+        put_pg("a_stock_financial_snapshot", [_financial_snapshot_row(item, code=code, report_type=report_type) for item in _items(payload)])
     elif dataset == "cninfo_announcements":
         put_pg("a_stock_announcement", [_announcement_row("cninfo", item, code=code) for item in _items(payload)])
     elif dataset == "cninfo_market_announcements":
@@ -222,6 +224,45 @@ def _ths_eps_row(item: dict[str, Any], *, code: str, index: int) -> dict[str, An
 def _financial_row(item: dict[str, Any], *, code: str, report_type: str) -> dict[str, Any]:
     report_date = _date(item.get("report_date") or item.get("date")) or date.today()
     return {"source": "sina.finance", "code": code, "report_type": report_type, "report_date": report_date, "fields": _jsonish(item), "raw_payload": _jsonish(item)}
+
+
+def _financial_snapshot_row(item: dict[str, Any], *, code: str, report_type: str) -> dict[str, Any]:
+    return {
+        "source": "sina.finance",
+        "code": code,
+        "report_type": report_type,
+        "report_date": _date(_pick(item, "report_date", "date", "报告期", "报告日期")) or date.today(),
+        "announced_date": _date(_pick(item, "announced_date", "公告日期", "publish_date")),
+        "revenue": _num(_pick(item, "revenue", "营业收入", "营业总收入")),
+        "revenue_yoy_pct": _num(_pick(item, "revenue_yoy_pct", "营业收入同比", "营业总收入同比")),
+        "net_profit": _num(_pick(item, "net_profit", "净利润")),
+        "net_profit_yoy_pct": _num(_pick(item, "net_profit_yoy_pct", "净利润同比")),
+        "net_profit_attributable": _num(_pick(item, "net_profit_attributable", "归母净利润", "归属于母公司股东的净利润")),
+        "deducted_net_profit": _num(_pick(item, "deducted_net_profit", "扣非净利润")),
+        "operating_cash_flow": _num(_pick(item, "operating_cash_flow", "经营现金流", "经营活动产生的现金流量净额")),
+        "total_assets": _num(_pick(item, "total_assets", "总资产")),
+        "total_liabilities": _num(_pick(item, "total_liabilities", "总负债")),
+        "total_equity": _num(_pick(item, "total_equity", "股东权益", "净资产")),
+        "eps": _num(_pick(item, "eps", "基本每股收益", "每股收益")),
+        "book_value_per_share": _num(_pick(item, "book_value_per_share", "每股净资产")),
+        "roe_pct": _num(_pick(item, "roe_pct", "净资产收益率", "ROE")),
+        "gross_margin_pct": _num(_pick(item, "gross_margin_pct", "销售毛利率", "毛利率")),
+        "net_margin_pct": _num(_pick(item, "net_margin_pct", "销售净利率", "净利率")),
+        "asset_liability_ratio_pct": _num(_pick(item, "asset_liability_ratio_pct", "资产负债率")),
+        "operating_cash_flow_per_share": _num(_pick(item, "operating_cash_flow_per_share", "每股经营现金流")),
+        "pe": _num(_pick(item, "pe", "市盈率")),
+        "pb": _num(_pick(item, "pb", "市净率")),
+        "dividend_yield_pct": _num(_pick(item, "dividend_yield_pct", "股息率")),
+        "fields": _jsonish(item),
+        "raw_payload": _jsonish(item),
+    }
+
+
+def _pick(item: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if item.get(key) not in (None, "", "-", "--"):
+            return item[key]
+    return None
 
 
 def _announcement_row(source: str, item: dict[str, Any], *, code: str) -> dict[str, Any]:

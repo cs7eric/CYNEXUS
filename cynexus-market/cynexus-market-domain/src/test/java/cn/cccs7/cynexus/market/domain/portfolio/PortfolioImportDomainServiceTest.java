@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PortfolioImportDomainServiceTest {
@@ -55,6 +56,22 @@ class PortfolioImportDomainServiceTest {
         assertEquals(1, page.page());
         assertEquals(50, page.pageSize());
         assertEquals(1, page.total());
+    }
+
+    @Test
+    void retriesFailedTaskAndDispatchesItAgain() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "user", "tenant", 2L, "request-1",
+                PortfolioImportStatus.PENDING_DISPATCH, 0, 0);
+        task.claimForProcessing(OffsetDateTime.parse("2026-08-01T00:00:00Z"));
+        task.markFailed("PORTFOLIO_AI_RESPONSE_INVALID", "invalid response",
+                OffsetDateTime.parse("2026-08-01T00:01:00Z"));
+        dependencies.tasks.put(task.getIdempotencyKey(), task);
+
+        PortfolioImportTaskBO retried = service.retry("user", "tenant", task.getId());
+
+        assertEquals(PortfolioImportStatus.PENDING_DISPATCH, retried.getStatus());
+        assertEquals(1, dependencies.dispatchCount);
+        assertNull(retried.getLastErrorMessage());
     }
 
     private static final class RecordingDependencies implements PortfolioImportAssetStorePort,

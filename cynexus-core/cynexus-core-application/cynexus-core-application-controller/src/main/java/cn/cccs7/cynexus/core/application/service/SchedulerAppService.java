@@ -248,6 +248,22 @@ public class SchedulerAppService {
         return schedulerDomainService.getDataJobRun(runId);
     }
 
+    public Map<String, Object> startSocialLogin(String platform, String profileName) {
+        return schedulerDomainService.startSocialLogin(platform, profileName);
+    }
+
+    public Map<String, Object> getSocialLogin(String sessionId) {
+        return schedulerDomainService.getSocialLogin(sessionId);
+    }
+
+    public Map<String, Object> completeSocialLogin(String sessionId) {
+        return schedulerDomainService.completeSocialLogin(sessionId);
+    }
+
+    public Map<String, Object> closeSocialLogin(String sessionId) {
+        return schedulerDomainService.closeSocialLogin(sessionId);
+    }
+
     public SchedulerManagementJobsResponseDTO listManagementJobs() {
         reconcileRunningDataJobRuns();
         List<SchedulerJobBO> jobs = schedulerDomainService.listJobs().stream()

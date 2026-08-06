@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { notification } from "@/components/ui/notification"
 import { WorkspaceShell } from "@/layout/workspace-shell"
+import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select"
 import {
   type KnowledgeCategory,
   type KnowledgeDocumentStatus,
@@ -566,6 +567,7 @@ export default function KnowledgeBaseWritingPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground"><span className="hidden sm:inline">AI route</span><AiBindingProviderSelect capability="knowledge_base_document_generate" /></div>
             <div className="inline-flex items-center gap-0.5 rounded-md bg-muted/55 p-0.5">
               <Button
                 size="sm"

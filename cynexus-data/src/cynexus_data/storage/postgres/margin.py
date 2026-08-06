@@ -22,6 +22,25 @@ class MarginRepository:
     def create_table(self) -> None:
         self.client.apply_sql_file(Path(DDL_PATH))
 
+    def latest_trade_dates(self) -> dict[str, date | None]:
+        result: dict[str, date | None] = {}
+        with self.client.session() as db:
+            for dataset, table in (
+                ("summary", "margin_market_summary"),
+                ("detail", "margin_stock_detail"),
+                ("account", "margin_account_stats"),
+            ):
+                result[dataset] = db.execute(
+                    text(
+                        f"""
+                        SELECT max(trade_date)
+                          FROM {self.client.schema}.{table}
+                         WHERE deleted_at IS NULL
+                        """
+                    )
+                ).scalar_one_or_none()
+        return result
+
     def replace_market_summary(self, *, trade_date: date, rows: list[dict[str, Any]]) -> int:
         if not rows:
             return 0
@@ -120,39 +139,37 @@ class MarginRepository:
     def upsert_stock_history(self, *, rows: list[dict[str, Any]]) -> int:
         if not rows:
             return 0
+        statement = text(
+            f"""
+            INSERT INTO {self.client.schema}.margin_stock_detail (
+                id, trade_date, exchange, stock_code, stock_name, source, financing_balance,
+                financing_buy_amount, financing_repay_amount, securities_lending_balance,
+                securities_lending_balance_amount, securities_lending_sell_volume,
+                securities_lending_repay_volume, margin_balance, extra, updated_at, deleted_at
+            ) VALUES (
+                :id, :trade_date, :exchange, :stock_code, :stock_name, :source, :financing_balance,
+                :financing_buy_amount, :financing_repay_amount, :securities_lending_balance,
+                :securities_lending_balance_amount, :securities_lending_sell_volume,
+                :securities_lending_repay_volume, :margin_balance, CAST(:extra AS jsonb), now(), NULL
+            )
+            ON CONFLICT (trade_date, exchange, stock_code, source) WHERE deleted_at IS NULL DO UPDATE SET
+                stock_name = EXCLUDED.stock_name,
+                financing_balance = EXCLUDED.financing_balance,
+                financing_buy_amount = EXCLUDED.financing_buy_amount,
+                financing_repay_amount = EXCLUDED.financing_repay_amount,
+                securities_lending_balance = EXCLUDED.securities_lending_balance,
+                securities_lending_balance_amount = EXCLUDED.securities_lending_balance_amount,
+                securities_lending_sell_volume = EXCLUDED.securities_lending_sell_volume,
+                securities_lending_repay_volume = EXCLUDED.securities_lending_repay_volume,
+                margin_balance = EXCLUDED.margin_balance,
+                extra = EXCLUDED.extra,
+                updated_at = now(),
+                deleted_at = NULL
+            """
+        )
+        params = [_stock_detail_params(row, trade_date=row["trade_date"]) for row in rows]
         with self.client.session() as db:
-            for row in rows:
-                db.execute(
-                    text(
-                        f"""
-                        INSERT INTO {self.client.schema}.margin_stock_detail (
-                            id, trade_date, exchange, stock_code, stock_name, source, financing_balance,
-                            financing_buy_amount, financing_repay_amount, securities_lending_balance,
-                            securities_lending_balance_amount, securities_lending_sell_volume,
-                            securities_lending_repay_volume, margin_balance, extra, updated_at, deleted_at
-                        ) VALUES (
-                            :id, :trade_date, :exchange, :stock_code, :stock_name, :source, :financing_balance,
-                            :financing_buy_amount, :financing_repay_amount, :securities_lending_balance,
-                            :securities_lending_balance_amount, :securities_lending_sell_volume,
-                            :securities_lending_repay_volume, :margin_balance, CAST(:extra AS jsonb), now(), NULL
-                        )
-                        ON CONFLICT (trade_date, exchange, stock_code, source) WHERE deleted_at IS NULL DO UPDATE SET
-                            stock_name = EXCLUDED.stock_name,
-                            financing_balance = EXCLUDED.financing_balance,
-                            financing_buy_amount = EXCLUDED.financing_buy_amount,
-                            financing_repay_amount = EXCLUDED.financing_repay_amount,
-                            securities_lending_balance = EXCLUDED.securities_lending_balance,
-                            securities_lending_balance_amount = EXCLUDED.securities_lending_balance_amount,
-                            securities_lending_sell_volume = EXCLUDED.securities_lending_sell_volume,
-                            securities_lending_repay_volume = EXCLUDED.securities_lending_repay_volume,
-                            margin_balance = EXCLUDED.margin_balance,
-                            extra = EXCLUDED.extra,
-                            updated_at = now(),
-                            deleted_at = NULL
-                        """
-                    ),
-                    _stock_detail_params(row, trade_date=row["trade_date"]),
-                )
+            db.execute(statement, params)
         return len(rows)
 
     def replace_account_stats(self, *, rows: list[dict[str, Any]]) -> int:

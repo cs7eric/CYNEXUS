@@ -23,6 +23,15 @@ class FuturesPositionRepository:
     def create_table(self) -> None:
         self.client.apply_sql_file(Path(DDL_PATH))
 
+    def latest_selected_trade_date(self) -> date | None:
+        with self.client.session() as db:
+            value = db.execute(text(f"""
+                SELECT MAX(trade_date)
+                  FROM {self.client.schema}.futures_position_capture_batch
+                 WHERE selected IS TRUE AND status = 'SUCCEEDED' AND deleted_at IS NULL
+            """)).scalar_one()
+        return value
+
     def begin_batch(self, *, trade_date: date, exchange_code: str, provider: str, expected_instrument_count: int = 0) -> int:
         with self.client.session() as db:
             batch_id = int(db.execute(text(f"SELECT nextval('{self.client.schema}.futures_position_id_seq')")).scalar_one())

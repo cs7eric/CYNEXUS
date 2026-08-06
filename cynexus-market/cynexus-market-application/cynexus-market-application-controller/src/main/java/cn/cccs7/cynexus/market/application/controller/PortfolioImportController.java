@@ -43,13 +43,18 @@ public class PortfolioImportController {
     @GetMapping
     public Result<PortfolioImportTaskPageDTO> list(
             @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
+            @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
         return Result.success(service.list(page, pageSize));
     }
 
     @GetMapping("/{taskId}")
     public Result<PortfolioImportTaskDTO> get(@PathVariable long taskId) {
         return Result.success(service.get(taskId));
+    }
+
+    @PostMapping("/{taskId}/retry")
+    public Result<PortfolioImportTaskDTO> retry(@PathVariable long taskId) {
+        return Result.success(service.retry(taskId));
     }
 
     @GetMapping("/{taskId}/review")

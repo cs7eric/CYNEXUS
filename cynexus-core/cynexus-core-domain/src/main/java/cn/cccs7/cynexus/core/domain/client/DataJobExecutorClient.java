@@ -17,4 +17,12 @@ public interface DataJobExecutorClient {
     DataJobTriggerResultBO triggerJob(String jobKey, DataJobTriggerRequestBO request);
 
     Map<String, Object> getJobRun(String runId);
+
+    Map<String, Object> startSocialLogin(String platform, String profileName);
+
+    Map<String, Object> getSocialLogin(String sessionId);
+
+    Map<String, Object> completeSocialLogin(String sessionId);
+
+    Map<String, Object> closeSocialLogin(String sessionId);
 }

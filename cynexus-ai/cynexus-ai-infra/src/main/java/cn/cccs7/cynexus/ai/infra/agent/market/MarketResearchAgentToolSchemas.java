@@ -63,19 +63,57 @@ final class MarketResearchAgentToolSchemas {
 
     static final String MARGIN = """
             {"type":"object","required":["operation"],"properties":{
-              "operation":{"type":"string","enum":["latest","summary_history","stocks","stock_history","industries"],"description":"Margin-trading query operation to run."},
+              "operation":{"type":"string","enum":["latest","summary_history","stocks","stock_history","industries","industry_history"],"description":"Margin-trading query operation to run."},
               "tradeDate":{"type":"string","format":"date","description":"Optional trading date in YYYY-MM-DD format."},
               "start":{"type":"string","format":"date","description":"Optional range start date for summary history."},
               "end":{"type":"string","format":"date","description":"Optional range end date for summary history."},
               "stockCode":{"type":"string","minLength":1,"maxLength":30,"description":"Required stock code for stock_history."},
+              "industryCode":{"type":"string","minLength":1,"maxLength":40,"description":"Required industry code for industry_history or optional industry filter for stocks."},
               "exchange":{"type":"string","maxLength":20,"description":"Optional exchange filter for stocks."},
-              "industryCode":{"type":"string","maxLength":40,"description":"Optional industry filter for stocks."},
               "sort":{"type":"string","maxLength":40,"description":"Sort field; defaults to margin_balance."},
               "sortDir":{"type":"string","enum":["asc","desc"],"description":"Sort direction; defaults to desc."},
               "page":{"type":"integer","minimum":1,"maximum":100,"description":"Optional result page."},
               "pageSize":{"type":"integer","minimum":1,"maximum":100,"description":"Optional page size."},
               "top":{"type":"integer","minimum":1,"maximum":50,"description":"Maximum latest ranking rows; defaults to 20."},
               "limit":{"type":"integer","minimum":1,"maximum":120,"description":"Maximum stock rows or history rows."}
+            },"additionalProperties":false}
+            """;
+
+    static final String INDICATOR = """
+            {"type":"object","required":["operation"],"properties":{
+              "operation":{"type":"string","enum":["latest","industry_detail","transmission"],"description":"Market-indicator query operation to run."},
+              "tradeDate":{"type":"string","format":"date","description":"Optional trading date in YYYY-MM-DD format."},
+              "status":{"type":"string","enum":["all","limit_up","limit_down","rapid_rise","rapid_fall"],"description":"Optional status filter within the recent historical limit-up/down pool."},
+              "eventType":{"type":"string","maxLength":40,"description":"Optional event type filter for latest."},
+              "limit":{"type":"integer","minimum":1,"maximum":300,"description":"Maximum rows to return from the historical limit-up/down pool."},
+              "industryCode":{"type":"string","minLength":1,"maxLength":40,"description":"Required industry code for industry_detail."},
+              "page":{"type":"integer","minimum":0,"maximum":100,"description":"Zero-based industry-detail page number."},
+              "pageSize":{"type":"integer","minimum":10,"maximum":100,"description":"Industry-detail page size."}
+            },"additionalProperties":false}
+            """;
+
+    static final String ETF = """
+            {"type":"object","properties":{
+              "historyDays":{"type":"integer","minimum":3,"maximum":30,"description":"Number of ETF trend days to return."},
+              "rowLimit":{"type":"integer","minimum":20,"maximum":300,"description":"Maximum ETF rows to return across broad and sector groups."}
+            },"additionalProperties":false}
+            """;
+
+    static final String FUTURES_POSITION = """
+            {"type":"object","required":["operation"],"properties":{
+              "operation":{"type":"string","enum":["latest","instruments","members","history","coverage"],"description":"Futures-position query operation to run."},
+              "tradeDate":{"type":"string","format":"date","description":"Optional requested trading date in YYYY-MM-DD format."},
+              "scopeType":{"type":"string","enum":["CONTRACT","VARIETY"],"description":"Position aggregation scope; defaults to CONTRACT."},
+              "exchangeCode":{"type":"string","enum":["CFFEX","SHFE","CZCE","DCE","GFEX","INE"],"description":"Exchange code; required for members and history."},
+              "varietyCode":{"type":"string","maxLength":30,"description":"Optional futures variety filter such as IF, IH, IM, or IC."},
+              "instrumentCode":{"type":"string","minLength":1,"maxLength":40,"description":"Required instrument code for members or history."},
+              "rankType":{"type":"string","enum":["VOLUME","LONG","SHORT"],"description":"Optional member ranking dimension."},
+              "top":{"type":"integer","enum":[5,10,15,20],"description":"Bounded top-row count; defaults to 10."},
+              "sort":{"type":"string","enum":["volume","longPosition","shortPosition","netPosition","ratio","instrumentCode"],"description":"Instrument sort field; defaults to netPosition."},
+              "sortDir":{"type":"string","enum":["asc","desc"],"description":"Instrument sort direction; defaults to desc."},
+              "page":{"type":"integer","minimum":1,"maximum":100,"description":"Optional one-based result page."},
+              "pageSize":{"type":"integer","minimum":1,"maximum":100,"description":"Optional result page size."},
+              "limit":{"type":"integer","minimum":1,"maximum":120,"description":"Maximum history rows for history."}
             },"additionalProperties":false}
             """;
 

@@ -25,6 +25,6 @@ public class FuturesPositionQueryBasicServiceImpl implements FuturesPositionQuer
     @Override public int countInstruments(LocalDate d, String s, String e, String v) { return mapper.countInstruments(d, s, e, v); }
     @Override public FuturesPositionAggregatePO aggregate(LocalDate d, String s, String e, String v, int t) { return mapper.aggregate(d, s, e, v, t); }
     @Override public List<FuturesPositionMemberPO> listMembers(LocalDate d, String s, String e, String i, String r, int t) { return mapper.listMembers(d, s, e, i, r, t); }
-    @Override public List<FuturesPositionHistoryPO> listHistory(String s, String e, String i, int t, int l) { return mapper.listHistory(s, e, i, t, l); }
+    @Override public List<FuturesPositionHistoryPO> listHistory(String s, String e, String i, int t, int l, LocalDate d) { return mapper.listHistory(s, e, i, t, l, d); }
     @Override public List<FuturesPositionCoveragePO> listCoverage(LocalDate d) { return mapper.listCoverage(d); }
 }

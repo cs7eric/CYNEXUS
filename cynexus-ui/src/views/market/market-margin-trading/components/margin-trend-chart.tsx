@@ -23,7 +23,7 @@ interface MarginTrendChartProps {
 
 export function MarginTrendChart({ data, loading }: MarginTrendChartProps) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-lg bg-muted/35 p-4">
+    <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg bg-muted/35 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">两融余额趋势</h2>
@@ -31,7 +31,7 @@ export function MarginTrendChart({ data, loading }: MarginTrendChartProps) {
         </div>
         <span className="text-xs text-muted-foreground">{loading ? "加载中" : `${data.length} 个交易日`}</span>
       </div>
-      <ChartContainer config={chartConfig} className="h-[360px] min-w-0 w-full">
+      <ChartContainer config={chartConfig} className="h-[360px] min-w-0 w-full xl:aspect-auto xl:min-h-0 xl:flex-1 xl:h-auto">
         <AreaChart data={data} margin={{ left: 0, right: 12, top: 16, bottom: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis

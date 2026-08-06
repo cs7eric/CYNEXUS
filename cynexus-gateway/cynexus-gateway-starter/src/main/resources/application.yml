@@ -49,6 +49,10 @@ spring:
               uri: lb://cynexus-market
               predicates:
                 - Path=/api/market/**
+            - id: cynexus-wechat
+              uri: lb://cynexus-wechat
+              predicates:
+                - Path=/api/wechat/**
             - id: cynexus-knowledgebase
               uri: lb://cynexus-knowledgebase
               predicates:

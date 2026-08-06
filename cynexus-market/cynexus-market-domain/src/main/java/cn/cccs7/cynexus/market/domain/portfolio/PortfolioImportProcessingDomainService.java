@@ -2,13 +2,16 @@ package cn.cccs7.cynexus.market.domain.portfolio;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PortfolioImportProcessingDomainService {
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private final ObjectMapper objectMapper;
     private final PortfolioImportTaskRepository taskRepository;
     private final PortfolioImportCandidateRepository candidateRepository;
@@ -24,14 +27,14 @@ public class PortfolioImportProcessingDomainService {
     public void complete(PortfolioImportTaskBO task, String aiJson, OffsetDateTime completedAt) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
-            if (root == null) throw new IllegalArgumentException("AI response is not valid JSON");
+            if (root == null) throw invalidAiResponse("AI response is not valid JSON");
             JsonNode candidates = root.path("candidates");
             if (!candidates.isArray()) {
-                throw new IllegalArgumentException("AI response candidates must be an array");
+                throw invalidAiResponse("AI response candidates must be an array");
             }
             boolean declaredTradeScreenshot = root.path("isTradeScreenshot").asBoolean(false);
             if (!declaredTradeScreenshot && candidates.isEmpty()) {
-                throw new IllegalArgumentException("AI response is not a trade screenshot");
+                throw invalidAiResponse("AI response is not a trade screenshot");
             }
             List<PortfolioImportCandidateBO> values = new ArrayList<>();
             int fallbackRow = 1;
@@ -45,24 +48,28 @@ public class PortfolioImportProcessingDomainService {
                     warnings.add("AI did not positively classify the image as a trade screenshot; verify this candidate before confirming.");
                 }
                 values.add(new PortfolioImportCandidateBO(task.getId(), rowNo, candidate,
-                        normalize(candidate), confidence, warnings));
+                        normalize(candidate, task), confidence, warnings));
             }
             candidateRepository.replace(task.getId(), values);
             task.markReadyForReview(completedAt);
             taskRepository.update(task);
-        } catch (IllegalArgumentException exception) {
+        } catch (PortfolioTradeVisionException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new IllegalArgumentException("AI response is not valid JSON", exception);
+            throw invalidAiResponse("AI response is not valid JSON");
         }
     }
 
-    private JsonNode normalize(JsonNode candidate) {
+    private PortfolioTradeVisionException invalidAiResponse(String message) {
+        return new PortfolioTradeVisionException("PORTFOLIO_AI_RESPONSE_INVALID", message, true);
+    }
+
+    private JsonNode normalize(JsonNode candidate, PortfolioImportTaskBO task) {
         var normalized = objectMapper.createObjectNode();
         normalized.put("symbol", textOrNull(candidate, "symbol", "securityCode"));
         normalized.put("instrumentType", instrumentTypeOrDefault(candidate));
         normalized.put("side", textOrNull(candidate, "side"));
-        normalized.put("tradedAt", tradedAtOrNull(candidate));
+        normalized.put("tradedAt", tradedAtOrNull(candidate, task));
         normalized.put("quantity", textOrNull(candidate, "quantity", "executionQuantity"));
         normalized.put("price", textOrNull(candidate, "price", "executionPrice"));
         normalized.put("fee", textOrNull(candidate, "fee"));
@@ -71,16 +78,31 @@ public class PortfolioImportProcessingDomainService {
         return normalized;
     }
 
-    private String tradedAtOrNull(JsonNode candidate) {
-        String direct = textOrNull(candidate, "tradedAt", "executionAt", "tradeDateTime", "executionDateTime",
-                "transactionAt", "datetime", "dateTime", "traded_at", "execution_at");
-        if (direct != null) return direct;
+    private String tradedAtOrNull(JsonNode candidate, PortfolioImportTaskBO task) {
         String date = textOrNull(candidate, "tradeDate", "executionDate", "transactionDate", "date",
                 "trade_date", "execution_date", "transaction_date");
+        String direct = textOrNull(candidate, "tradedAt", "executionAt", "tradeDateTime", "executionDateTime",
+                "transactionAt", "datetime", "dateTime", "traded_at", "execution_at");
         String time = textOrNull(candidate, "tradeTime", "executionTime", "transactionTime", "time",
                 "trade_time", "execution_time", "transaction_time");
-        if (date == null) return null;
-        return time == null ? date : date + "T" + time;
+        if (direct != null) return isTimeOnly(direct) ? combineWithImportDate(date, direct, task) : direct;
+        if (date != null) return time == null ? date : date + "T" + time;
+        return time == null ? null : combineWithImportDate(null, time, task);
+    }
+
+    private String combineWithImportDate(String date, String time, PortfolioImportTaskBO task) {
+        if (date != null) return date + "T" + time;
+        LocalDate importDate = importDate(task);
+        return importDate == null ? time : importDate + "T" + time;
+    }
+
+    private LocalDate importDate(PortfolioImportTaskBO task) {
+        OffsetDateTime importedAt = task.getQueuedAt() != null ? task.getQueuedAt() : task.getStartedAt();
+        return importedAt == null ? null : importedAt.atZoneSameInstant(SHANGHAI).toLocalDate();
+    }
+
+    private boolean isTimeOnly(String value) {
+        return value.matches("\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?)?");
     }
 
     private String textOrNull(JsonNode node, String... fields) {

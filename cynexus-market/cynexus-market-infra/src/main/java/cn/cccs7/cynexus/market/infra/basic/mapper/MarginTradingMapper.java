@@ -2,6 +2,8 @@ package cn.cccs7.cynexus.market.infra.basic.mapper;
 
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginAccountStatsPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustrySummaryPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryHistoryPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryConstituentPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginMarketSummaryPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginStockDetailPO;
 import java.time.LocalDate;
@@ -53,4 +55,15 @@ public interface MarginTradingMapper {
     );
 
     int countIndustrySummaries(@Param("tradeDate") LocalDate tradeDate);
+
+    List<MarginIndustryConstituentPO> listIndustryConstituents(
+            @Param("tradeDate") LocalDate tradeDate,
+            @Param("industryCodes") List<String> industryCodes
+    );
+
+    List<MarginIndustryHistoryPO> listIndustryHistory(
+            @Param("tradeDate") LocalDate tradeDate,
+            @Param("industryCode") String industryCode,
+            @Param("limit") int limit
+    );
 }

@@ -23,17 +23,20 @@ import {
   type MarginSortDirection,
   type MarginExchange,
   type MarginIndustrySummary,
+  type MarginStockDetail,
 } from "@/services/market/margin"
-import { buildTrend, changeFromPrevious } from "./lib/derive"
+import { buildTrend, changeFromPrevious, withMarketAggregate } from "./lib/derive"
 import { MarginTradingHeader } from "./components/page-header"
 import { SummaryCards } from "./components/summary-cards"
 import { MarginTrendChart } from "./components/margin-trend-chart"
+import { IndustryAnalysisPanel } from "./components/industry-analysis-panel"
 import { ExchangeSummaryTable } from "./components/exchange-summary-table"
 import { IndustryRankingTable } from "./components/industry-ranking-table"
-import { StockRankingTable } from "./components/stock-ranking-table"
+import { IndustryMarginDrawer } from "./components/industry-margin-drawer"
+import { StockMarginDrawer } from "./components/stock-margin-drawer"
+import { DEFAULT_RANKING_PAGE_SIZE } from "./lib/constants"
 
 const DEFAULT_TOP_STOCK_LIMIT = 30
-const DEFAULT_RANKING_PAGE_SIZE = 10
 
 function rangeStart(range: string) {
   if (range === "all") return "2012-09-27"
@@ -47,10 +50,12 @@ export default function MarketMarginTradingPage() {
   const [latest, setLatest] = useState<MarginLatestResponse | null>(null)
   const [stocks, setStocks] = useState<MarginStocksResponse | null>(null)
   const [industries, setIndustries] = useState<MarginIndustriesResponse | null>(null)
+  const [industryAnalysisRows, setIndustryAnalysisRows] = useState<MarginIndustrySummary[]>([])
   const [historyItems, setHistoryItems] = useState<Awaited<ReturnType<typeof fetchMarginSummaryHistory>>["items"]>([])
   const [loading, setLoading] = useState(true)
   const [stocksLoading, setStocksLoading] = useState(false)
   const [industriesLoading, setIndustriesLoading] = useState(false)
+  const [industryAnalysisLoading, setIndustryAnalysisLoading] = useState(false)
   const [range, setRange] = useState("1y")
   const [exchange, setExchange] = useState<"ALL" | MarginExchange>("ALL")
   const [sort, setSort] = useState<MarginRankingSort>("margin_balance")
@@ -59,7 +64,22 @@ export default function MarketMarginTradingPage() {
   const [industrySortDir, setIndustrySortDir] = useState<MarginSortDirection>("desc")
   const [stockPage, setStockPage] = useState(1)
   const [industryPage, setIndustryPage] = useState(1)
+  const [stockPageSize, setStockPageSize] = useState(DEFAULT_RANKING_PAGE_SIZE)
+  const [industryPageSize, setIndustryPageSize] = useState(DEFAULT_RANKING_PAGE_SIZE)
   const [selectedIndustry, setSelectedIndustry] = useState<MarginIndustrySummary | null>(null)
+  const [selectedStock, setSelectedStock] = useState<MarginStockDetail | null>(null)
+
+  const handleIndustrySelect = useCallback((row: MarginIndustrySummary) => {
+    setSelectedIndustry(row)
+    setSelectedStock(null)
+    setExchange("ALL")
+    setStockPage(1)
+  }, [])
+
+  const closeIndustryDrawer = useCallback(() => {
+    setSelectedIndustry(null)
+    setSelectedStock(null)
+  }, [])
 
   const loadLatest = useCallback(async () => {
     setLoading(true)
@@ -89,6 +109,10 @@ export default function MarketMarginTradingPage() {
   }, [latest?.tradeDate])
 
   const loadStocks = useCallback(async () => {
+    if (!selectedIndustry?.industryCode) {
+      setStocks(null)
+      return
+    }
     setStocksLoading(true)
     try {
       const payload = await fetchMarginStocks({
@@ -98,7 +122,7 @@ export default function MarketMarginTradingPage() {
         sort,
         sortDir,
         page: stockPage,
-        pageSize: DEFAULT_RANKING_PAGE_SIZE,
+        pageSize: stockPageSize,
       })
       setStocks(payload)
     } catch (error) {
@@ -106,7 +130,7 @@ export default function MarketMarginTradingPage() {
     } finally {
       setStocksLoading(false)
     }
-  }, [exchange, latest?.tradeDate, selectedIndustry?.industryCode, sort, sortDir, stockPage])
+  }, [exchange, latest?.tradeDate, selectedIndustry?.industryCode, sort, sortDir, stockPage, stockPageSize])
 
   const loadIndustries = useCallback(async () => {
     setIndustriesLoading(true)
@@ -116,7 +140,7 @@ export default function MarketMarginTradingPage() {
         sort: industrySort,
         sortDir: industrySortDir,
         page: industryPage,
-        pageSize: DEFAULT_RANKING_PAGE_SIZE,
+        pageSize: industryPageSize,
       })
       setIndustries(payload)
     } catch (error) {
@@ -124,7 +148,26 @@ export default function MarketMarginTradingPage() {
     } finally {
       setIndustriesLoading(false)
     }
-  }, [industryPage, industrySort, industrySortDir, latest?.tradeDate])
+  }, [industryPage, industryPageSize, industrySort, industrySortDir, latest?.tradeDate])
+
+  const loadIndustryAnalysis = useCallback(async () => {
+    if (!latest?.tradeDate) return
+    setIndustryAnalysisLoading(true)
+    try {
+      const payload = await fetchMarginIndustries({
+        tradeDate: latest.tradeDate,
+        sort: "margin_balance",
+        sortDir: "desc",
+        page: 1,
+        pageSize: 200,
+      })
+      setIndustryAnalysisRows(payload.items ?? [])
+    } catch (error) {
+      notification.danger({ title: "行业分析加载失败", description: error instanceof Error ? error.message : String(error) })
+    } finally {
+      setIndustryAnalysisLoading(false)
+    }
+  }, [latest?.tradeDate])
 
   useEffect(() => {
     void loadLatest()
@@ -136,17 +179,22 @@ export default function MarketMarginTradingPage() {
   }, [latest?.tradeDate, range, loadHistory])
 
   useEffect(() => {
-    if (!latest?.tradeDate) return
+    if (!latest?.tradeDate || !selectedIndustry?.industryCode) return
     void loadStocks()
-  }, [latest?.tradeDate, exchange, selectedIndustry?.industryCode, sort, sortDir, stockPage, loadStocks])
+  }, [latest?.tradeDate, selectedIndustry?.industryCode, loadStocks])
 
   useEffect(() => {
     if (!latest?.tradeDate) return
     void loadIndustries()
   }, [latest?.tradeDate, industrySort, industrySortDir, industryPage, loadIndustries])
 
+  useEffect(() => {
+    void loadIndustryAnalysis()
+  }, [loadIndustryAnalysis])
+
   const trend = useMemo(() => buildTrend(historyItems), [historyItems])
-  const cnChange = useMemo(() => changeFromPrevious(trend, "cn"), [trend])
+  const displaySummaries = useMemo(() => withMarketAggregate(latest?.summaries ?? []), [latest?.summaries])
+  const financingBuyChange = useMemo(() => changeFromPrevious(trend, "buyCn"), [trend])
 
   return (
     <WorkspaceShell sectionLabel="market" pageTitle="market-margin-trading">
@@ -159,11 +207,12 @@ export default function MarketMarginTradingPage() {
           void loadHistory(range)
           void loadStocks()
           void loadIndustries()
+          void loadIndustryAnalysis()
         }}
       />
 
       <div className="min-w-0 space-y-4 overflow-hidden">
-        <SummaryCards summaries={latest?.summaries ?? []} cnChange={cnChange} />
+        <SummaryCards summaries={displaySummaries} financingBuyChange={financingBuyChange} trend={trend} />
 
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/35 p-2">
           {[
@@ -183,62 +232,67 @@ export default function MarketMarginTradingPage() {
           ))}
         </div>
 
-        <MarginTrendChart data={trend} loading={loading} />
+        <div className="grid min-w-0 gap-4 xl:h-[560px] xl:grid-cols-[minmax(0,1.12fr)_minmax(380px,0.88fr)]">
+          <MarginTrendChart data={trend} loading={loading} />
+          <IndustryAnalysisPanel
+            rows={industryAnalysisRows}
+            loading={industryAnalysisLoading}
+            selectedIndustryCode={selectedIndustry?.industryCode}
+            onIndustrySelect={handleIndustrySelect}
+          />
+        </div>
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <div className="min-w-0 space-y-4">
           <IndustryRankingTable
             rows={industries?.items ?? []}
             count={industries?.count ?? 0}
             loading={industriesLoading}
             page={industryPage}
-            pageSize={industries?.pageSize ?? DEFAULT_RANKING_PAGE_SIZE}
+            pageSize={industryPageSize}
             sort={industrySort}
             sortDir={industrySortDir}
             selectedIndustryCode={selectedIndustry?.industryCode}
             snapshotDate={industries?.constituentSnapshotDate}
             onPageChange={setIndustryPage}
+            onPageSizeChange={(value) => {
+              setIndustryPageSize(value)
+            }}
             onSortChange={(value, direction = "desc") => {
               setIndustrySort(value)
               setIndustrySortDir(direction)
             }}
-            onIndustrySelect={(row) => {
-              setSelectedIndustry(row)
-              setExchange("ALL")
-              setStockPage(1)
-            }}
+            onIndustrySelect={handleIndustrySelect}
             onRefresh={() => void loadIndustries()}
-          />
-          <StockRankingTable
-            rows={stocks?.items ?? []}
-            count={stocks?.count ?? latest?.stockCount ?? 0}
-            loading={stocksLoading}
-            page={stockPage}
-            pageSize={stocks?.pageSize ?? DEFAULT_RANKING_PAGE_SIZE}
-            exchange={exchange}
-            selectedIndustryCode={selectedIndustry?.industryCode}
-            selectedIndustryName={selectedIndustry?.industryName ?? selectedIndustry?.tdxName}
-            sort={sort}
-            sortDir={sortDir}
-            onPageChange={setStockPage}
-            onExchangeChange={(value) => {
-              setExchange(value)
-              setStockPage(1)
-            }}
-            onSortChange={(value, direction = "desc") => {
-              setSort(value)
-              setSortDir(direction)
-              setStockPage(1)
-            }}
-            onIndustryClear={() => {
-              setSelectedIndustry(null)
-              setStockPage(1)
-            }}
-            onRefresh={() => void loadStocks()}
           />
         </div>
 
-        <ExchangeSummaryTable rows={latest?.summaries ?? []} />
+        <ExchangeSummaryTable rows={displaySummaries} />
       </div>
+      <IndustryMarginDrawer
+        industry={selectedIndustry}
+        stocks={stocks}
+        stocksLoading={stocksLoading}
+        stockPage={stockPage}
+        stockPageSize={stockPageSize}
+        exchange={exchange}
+        sort={sort}
+        sortDir={sortDir}
+        onClose={closeIndustryDrawer}
+        onPageChange={setStockPage}
+        onPageSizeChange={setStockPageSize}
+        onExchangeChange={(value) => {
+          setExchange(value)
+          setStockPage(1)
+        }}
+        onSortChange={(value, direction = "desc") => {
+          setSort(value)
+          setSortDir(direction)
+          setStockPage(1)
+        }}
+        onStockSelect={setSelectedStock}
+        onRefresh={() => void loadStocks()}
+      />
+      <StockMarginDrawer stock={selectedStock} onClose={() => setSelectedStock(null)} />
     </WorkspaceShell>
   )
 }

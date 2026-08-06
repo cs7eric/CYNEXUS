@@ -1,18 +1,17 @@
 import { CalendarDays, CircleHelp } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { PortfolioOverview } from "@/services/market/portfolio/types"
 import type { PortfolioPerformanceState } from "./portfolio-performance-state"
-import { PortfolioReturnBreakdown } from "./portfolio-return-breakdown"
+import { PortfolioPerformanceBreakdown } from "./portfolio-performance-breakdown"
 
-export function PortfolioDailyIncomeView({ state, overview }: { state: PortfolioPerformanceState; overview: PortfolioOverview | null }) {
+export function PortfolioDailyIncomeView({ state }: { state: PortfolioPerformanceState }) {
   const points = state.performance?.points ?? []
   const todayPoint = points.at(-1)
-  const todayPnl = overview?.todayPnl ?? state.performance?.todayPnl ?? todayPoint?.periodPnl ?? 0
+  const todayPnl = state.performance?.todayPnl ?? todayPoint?.periodPnl ?? 0
 
   return <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_minmax(220px,0.55fr)] xl:divide-x xl:divide-y-0">
     <DailyIncomeCalendar points={points} loading={state.loading} />
     <section className="min-w-0" aria-labelledby="daily-income-heatmap-heading">
-      {state.loading && !overview ? <HeatmapSkeleton /> : <PortfolioReturnBreakdown overview={overview} embedded mode="today" />}
+      {state.loading && !state.performance ? <HeatmapSkeleton /> : <PortfolioPerformanceBreakdown performance={state.performance} range="daily" loading={state.loading} embedded />}
     </section>
     <DailyIncomeSummary point={todayPoint} value={todayPnl} cumulativePnl={state.performance?.periodPnl} loading={state.loading} />
   </div>

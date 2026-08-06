@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { KeyboardEvent } from "react"
-import { ChartNoAxesCombined, ChevronRight, CircleAlert, ClipboardCheck, RefreshCw, Upload, WalletCards } from "lucide-react"
+import { ChartNoAxesCombined, ChevronRight, CircleAlert, ClipboardCheck, History, RefreshCw, Upload, WalletCards } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { Button } from "@/components/ui/button"
@@ -9,15 +9,35 @@ import { notification } from "@/components/ui/notification"
 import { fetchPortfolioOverview } from "@/services/market/portfolio/portfolio"
 import { fetchPortfolioReviews } from "@/services/market/portfolio/reviews"
 import type { PortfolioOverview, PortfolioPosition, PortfolioReview } from "@/services/market/portfolio/types"
-import { PortfolioReturnBreakdown } from "./components/portfolio-return-breakdown"
 import { PortfolioAssetSnapshot } from "./components/portfolio-asset-snapshot"
 import { PortfolioImportDrawer } from "./components/portfolio-import-drawer"
 import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
 import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
+import { PortfolioTradeDrawer } from "./components/portfolio-trade-drawer"
 import { PortfolioCurrentHoldingsPanel } from "./components/portfolio-current-holdings-panel"
 import { PortfolioDailyIncomeView } from "./components/portfolio-daily-income-view"
 import { PortfolioPerformancePanel, PortfolioPerformanceSummary, PortfolioPerformanceToolbar, type PortfolioChartView } from "./components/portfolio-performance-panel"
+import { PortfolioPerformanceBreakdown } from "./components/portfolio-performance-breakdown"
 import { usePortfolioPerformance } from "./components/portfolio-performance-state"
+
+const SHANGHAI_CLOCK = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Shanghai",
+  weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+})
+
+function isShanghaiTradingTime() {
+  const parts = SHANGHAI_CLOCK.formatToParts(new Date())
+  const weekday = parts.find((part) => part.type === "weekday")?.value
+  if (weekday === "Sat" || weekday === "Sun") return false
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0")
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0")
+  const totalMinutes = hour * 60 + minute
+  return (totalMinutes >= 9 * 60 + 30 && totalMinutes < 11 * 60 + 30)
+    || (totalMinutes >= 13 * 60 && totalMinutes < 15 * 60)
+}
 
 const money = (value: number | null | undefined) => value == null ? "--" : Number(value).toFixed(2)
 const price = (value: number | null | undefined) => value == null ? "--" : Number(value).toFixed(3)
@@ -38,12 +58,14 @@ export default function PersonalPortfolioPage() {
   const [overview, setOverview] = useState<PortfolioOverview | null>(null)
   const [reviews, setReviews] = useState<PortfolioReview[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [chartView, setChartView] = useState<PortfolioChartView>("calendar")
   const [dailyView, setDailyView] = useState<"holdings" | "income">("income")
   const performanceState = usePortfolioPerformance()
   const refreshPerformance = performanceState.refresh
   const importDrawerOpen = searchParams.get("imports") === "1"
+  const tradeDrawerOpen = searchParams.get("trades") === "1"
   const selectedSymbol = searchParams.get("stock")
   const selectedInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
   const reviewDrawerOpen = searchParams.get("review") === "new"
@@ -58,8 +80,9 @@ export default function PersonalPortfolioPage() {
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (initial = false) => {
+    if (initial) setLoading(true)
+    else setRefreshing(true)
     setError(null)
     try {
       const [nextOverview, nextReviews] = await Promise.all([fetchPortfolioOverview(), fetchPortfolioReviews()])
@@ -70,7 +93,8 @@ export default function PersonalPortfolioPage() {
       setError(message)
       notification.danger({ title: "持仓数据加载失败", description: message })
     } finally {
-      setLoading(false)
+      if (initial) setLoading(false)
+      else setRefreshing(false)
     }
   }, [])
 
@@ -80,9 +104,18 @@ export default function PersonalPortfolioPage() {
   }, [load, refreshPerformance])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load() }, 0)
+    const timer = window.setTimeout(() => { void load(true) }, 0)
     return () => window.clearTimeout(timer)
   }, [load])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible" && isShanghaiTradingTime()) {
+        refreshPortfolioData()
+      }
+    }, 10_000)
+    return () => window.clearInterval(timer)
+  }, [refreshPortfolioData])
 
   const positions = useMemo(() => (overview?.positions ?? []).filter((position) => Number(position.quantity) > 0), [overview])
   const largestPosition = useMemo(() => positions.reduce<PortfolioPosition | null>((largest, position) => {
@@ -109,7 +142,7 @@ export default function PersonalPortfolioPage() {
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">持仓看板</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">查看当前资产、持仓表现和交易复盘。点击任意持仓行查看买卖点与详情。</p>
           </div>
-          <div className="flex flex-wrap gap-2"><Button onClick={() => setQueryState({ imports: "1" })}><Upload className="mr-2 size-4" />导入交易</Button><Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`} />刷新</Button></div>
+        <div className="flex flex-wrap gap-2"><Button onClick={() => setQueryState({ imports: "1", trades: null })}><Upload className="mr-2 size-4" />导入交易</Button><Button variant="outline" onClick={() => setQueryState({ trades: "1", imports: null })}><History className="mr-2 size-4" />交易记录</Button><Button variant="outline" onClick={refreshPortfolioData} disabled={loading || refreshing}><RefreshCw className={`mr-2 size-4 ${loading || refreshing ? "animate-spin" : ""}`} />{refreshing ? "更新中" : "刷新"}</Button></div>
         </header>
 
         {error && !loading ? <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">持仓数据暂不可用</p><p className="mt-1 text-xs break-words">{error}</p></div><Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>重试</Button></div> : null}
@@ -125,9 +158,9 @@ export default function PersonalPortfolioPage() {
               </div>
               <PortfolioPerformanceToolbar range={performanceState.range} onRangeChange={performanceState.setRange} chartView={chartView} onChartViewChange={setChartView} showChartView={!isDailyPerformanceView} periodLabel={performanceState.periodLabel} canGoPrevious={performanceState.canGoPrevious} canGoNext={performanceState.canGoNext} onPreviousPeriod={performanceState.goPrevious} onNextPeriod={performanceState.goNext} dailyView={dailyView} onDailyViewChange={setDailyView} />
             </div>
-            {isDailyIncomeView ? <PortfolioDailyIncomeView state={performanceState} overview={overview} /> : <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
+            {isDailyIncomeView ? <PortfolioDailyIncomeView state={performanceState} /> : <div className="grid divide-y divide-border/60 xl:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(220px,2fr)] xl:divide-x xl:divide-y-0">
               {!isDailyPerformanceView ? <PortfolioPerformancePanel state={performanceState} chartView={chartView} embedded onChartViewChange={setChartView} /> : null}
-              {overview ? <PortfolioReturnBreakdown overview={overview} embedded /> : <div className="min-w-0" />}
+              <PortfolioPerformanceBreakdown performance={performanceState.performance} range={performanceState.range} loading={performanceState.loading} embedded />
               {isDailyPerformanceView ? <PortfolioCurrentHoldingsPanel positions={positions} /> : null}
               <PortfolioPerformanceSummary state={performanceState} embedded />
             </div>}
@@ -159,6 +192,7 @@ export default function PersonalPortfolioPage() {
         </>}
 
         <PortfolioImportDrawer open={importDrawerOpen} onOpenChange={(open) => setQueryState({ imports: open ? "1" : null })} onLedgerChanged={refreshPortfolioData} />
+        <PortfolioTradeDrawer open={tradeDrawerOpen} onOpenChange={(open) => setQueryState({ trades: open ? "1" : null })} />
         <PortfolioPositionDrawer open={Boolean(selectedSymbol)} symbol={selectedSymbol} instrumentType={selectedInstrumentType} onOpenChange={(open) => setQueryState(open && selectedSymbol ? { stock: selectedSymbol, instrumentType: selectedInstrumentType } : { stock: null, instrumentType: null })} />
         <PortfolioReviewDrawer key={`review-${reviewDrawerOpen ? reviewSymbol ?? "new" : "closed"}`} open={reviewDrawerOpen} symbol={reviewSymbol} instrumentType={reviewInstrumentType} positions={positions} onOpenChange={(open) => setQueryState(open ? { review: "new" } : { review: null, symbol: null, instrumentType: null })} onSaved={() => void load()} />
       </div>

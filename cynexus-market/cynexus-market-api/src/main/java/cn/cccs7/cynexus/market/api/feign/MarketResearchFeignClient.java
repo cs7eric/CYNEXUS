@@ -6,9 +6,13 @@ import cn.cccs7.cynexus.market.api.dto.DataSourceFreshnessDTO;
 import cn.cccs7.cynexus.market.api.dto.IndustryApplicationDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustriesDTO;
+import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustryHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingLatestDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStockHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStocksDTO;
+import cn.cccs7.cynexus.market.api.dto.FuturesPositionDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketEtfDTO;
+import cn.cccs7.cynexus.market.api.dto.MarketIndicatorDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseHeatmapDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseIndexKlineBatchDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketPulseIndexReturnsDTO;
@@ -35,6 +39,7 @@ import cn.cccs7.cynexus.market.api.dto.StockChartDTO;
 import cn.cccs7.cynexus.market.api.dto.StockInformationContentDTO;
 import cn.cccs7.cynexus.market.api.dto.StockInformationDTO;
 import java.util.List;
+import java.util.Map;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -250,6 +255,81 @@ public interface MarketResearchFeignClient {
             @RequestParam("sortDir") String sortDir,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "pageSize", required = false) Integer pageSize);
+
+    @GetMapping("/margin/industries/{industryCode}/history")
+    Result<MarginTradingIndustryHistoryDTO> getMarginIndustryHistory(
+            @PathVariable("industryCode") String industryCode,
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/indicator/latest")
+    Result<MarketIndicatorDTO.Overview> getMarketIndicatorLatest(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("status") String status,
+            @RequestParam("eventType") String eventType,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/indicator/industry/detail")
+    Result<MarketIndicatorDTO.IndustryDetail> getMarketIndicatorIndustryDetail(
+            @RequestParam("industryCode") String industryCode,
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("page") int page,
+            @RequestParam("pageSize") int pageSize);
+
+    @GetMapping("/indicator/transmission")
+    Result<Map<String, Object>> getMarketIndicatorTransmission(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/etf")
+    Result<MarketEtfDTO> getMarketEtf(@RequestParam("historyDays") int historyDays,
+                                      @RequestParam("rowLimit") int rowLimit);
+
+    @GetMapping("/futures-position/latest")
+    Result<FuturesPositionDTO.Latest> getFuturesPositionLatest(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("scopeType") String scopeType,
+            @RequestParam(value = "exchangeCode", required = false) String exchangeCode,
+            @RequestParam(value = "varietyCode", required = false) String varietyCode,
+            @RequestParam("top") int top,
+            @RequestParam("sort") String sort,
+            @RequestParam("sortDir") String sortDir,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize);
+
+    @GetMapping("/futures-position/instruments")
+    Result<FuturesPositionDTO.Latest> getFuturesPositionInstruments(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("scopeType") String scopeType,
+            @RequestParam(value = "exchangeCode", required = false) String exchangeCode,
+            @RequestParam(value = "varietyCode", required = false) String varietyCode,
+            @RequestParam("top") int top,
+            @RequestParam("sort") String sort,
+            @RequestParam("sortDir") String sortDir,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize);
+
+    @GetMapping("/futures-position/{scopeType}/{exchangeCode}/{instrumentCode}/members")
+    Result<List<FuturesPositionDTO.Member>> getFuturesPositionMembers(
+            @PathVariable("scopeType") String scopeType,
+            @PathVariable("exchangeCode") String exchangeCode,
+            @PathVariable("instrumentCode") String instrumentCode,
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam(value = "rankType", required = false) String rankType,
+            @RequestParam("top") int top);
+
+    @GetMapping("/futures-position/{scopeType}/{exchangeCode}/{instrumentCode}/history")
+    Result<List<FuturesPositionDTO.History>> getFuturesPositionHistory(
+            @PathVariable("scopeType") String scopeType,
+            @PathVariable("exchangeCode") String exchangeCode,
+            @PathVariable("instrumentCode") String instrumentCode,
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("top") int top,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/futures-position/coverage")
+    Result<FuturesPositionDTO.Coverage> getFuturesPositionCoverage(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate);
 
     @GetMapping("/pulse/sector-snapshot/latest")
     Result<MarketPulseSectorSnapshotDTO> getLatestSectorSnapshot();

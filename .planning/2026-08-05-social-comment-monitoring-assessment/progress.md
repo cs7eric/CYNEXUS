@@ -1,0 +1,68 @@
+# Progress: Social Comment Monitoring Feasibility Assessment
+
+## Session Log
+
+- Loaded the planning-with-files and Cynexus data workflow instructions.
+- Confirmed unrelated legacy root planning files exist and left them unchanged.
+- Created an isolated assessment plan under `.planning/2026-08-05-social-comment-monitoring-assessment`.
+- Started repository architecture and existing-pattern inspection.
+- Verified CodeGraph is available; the index has pending changes and must be synchronized before querying patterns.
+- Loaded CodeGraph usage rules and the `cynexus-data` ownership/layering boundaries.
+- Synchronized CodeGraph and loaded `cynexus-data/INFRA.md` for connection, hook, retry, checkpoint, and observability conventions.
+- Loaded the durable layering and migration boundary documents; confirmed Java/Python ownership and JobRunner reuse requirements.
+- Queried CodeGraph for JobRunner and checkpoint patterns; identified the concrete runtime and test locations.
+- Queried the centralized job registry and PipelineContext/pipeline conventions.
+- Read the exact job registry and runtime context implementation; confirmed the extension points for platform hooks and persistent checkpoint/lock reuse.
+- Queried CodeGraph for HTTP hook and source-client construction patterns; identified the need for a distinct browser hook.
+- Read checkpoint storage and a representative live-source pipeline; confirmed JSON cursor flexibility, strict dry-run behavior, and bounded paging conventions.
+- Loaded the Agent-tool workflow and Cynexus AI ownership guidance; defined read-only query exposure and excluded collector execution from autonomous tools.
+- Loaded Java DDD and persistence-placement guidance for the proposed monitor configuration and query APIs.
+- Queried existing scheduler and Java-to-data-executor boundaries; confirmed direct reuse of SchedulerDomainService and DataJobExecutorClient.
+- Read the exact scheduler/data-executor interfaces and mapped social progress metrics onto existing run/status contracts.
+- Inspected scheduler seed patterns and identified the required calendar-day/overlap differences for social monitoring.
+- Completed the feasibility assessment and wrote the rewritten solution in `proposal.md`, including architecture, data model, schedules, incremental algorithms, failure taxonomy, phased rollout, and acceptance criteria.
+- Verified the proposal contains all planned sections and is 246 lines.
+- Reviewed `git status`; the worktree contains extensive unrelated existing changes. This task only added the isolated `.planning/2026-08-05-social-comment-monitoring-assessment` directory and did not modify application code.
+- No compilation, tests, version synchronization, or Release deployment were run because this task produced an architecture assessment only.
+- Loaded Release runtime constraints; scoped browser execution to a versioned Docker service and ruled out source-tree automation.
+- Located and inspected Data Executor dependency/container definitions; corrected the initial assumption because Playwright and Chromium are already provisioned.
+- Queried CodeGraph for existing Playwright usage; no symbols were indexed under the expected names.
+- Exact text search and source inspection found existing persistent-browser patterns and tests; incorporated them into the optimized runtime design.
+- Confirmed persistent `/app/var` mounting and existing Playwright unit-test strategy.
+- User authorized implementation of the POC; changed the isolated plan from assessment-only to data-layer POC implementation.
+- Rechecked CodeGraph and confirmed the current JobCallable signature includes `run_id`.
+- Read the current connection registry and pipeline-job wrapper contracts.
+- Read connection model/resolver and the job catalog; confirmed `extra` is available for browser settings and `jobs.yaml` is descriptive configuration.
+- Read hook, Postgres client, repository ID, and storage patterns needed for the POC implementation.
+- First implementation patch partially applied before failing on a DDL context mismatch; switched to smaller targeted patches and retained the created source files for review.
+- `compileall` and `git diff --check` passed. Initial focused pytest invocation failed during collection because `cynexus_data` was not installed/on `PYTHONPATH`; rerun with `PYTHONPATH=src`.
+- Focused pytest passed: 11 tests passed with one existing Python deprecation warning.
+- Both POC Job CLI dry-runs passed for Xiaohongshu discovery and Douyin comment sync.
+- Connection registry/profile path and DDL placeholder checks passed.
+- Updated `proposal.md` with the current implementation scope and live-run prerequisites.
+- A verification pass caught an indentation error introduced while adding the 48-hour filter; corrected it and will rerun compile/tests.
+- Re-ran compileall and the focused test suite successfully: 11 tests passed with only existing deprecation warnings.
+- Re-ran both social Job CLI dry-runs successfully for Xiaohongshu discovery and Douyin comment synchronization.
+- Applied the POC DDL to the configured PostgreSQL market schema and verified `social_creator_monitor`, `social_post`, and `social_comment` exist.
+- Rebuilt and force-recreated the shared Data Executor container from the current source; the container is healthy.
+- Verified the deployed internal API health, job registry entries, and both social Job trigger routes with dry-run requests.
+- Real platform collection remains intentionally pending until an authorized browser profile and real creator/post URLs are supplied; no CAPTCHA, access-control bypass, or paid provider was used.
+- Added `cynexus-data/scripts/prepare_social_browser_profile.py` and operator instructions for one-time headed login; the saved host directories are already mounted into the Data Executor's `/app/var`.
+- Added the Information sub-route `/information/social-monitoring`, sidebar entry, UI service client, and page-level POC for platform login, creator configuration, discovery, and comment-sync triggers.
+- Added the in-UI login-session flow: the page starts a persistent Playwright session, displays the returned login screenshot, polls login state, confirms authentication, and closes temporary sessions.
+- Rebuilt and redeployed Data Executor, Release Core, and Release UI with version `1.1.398-260805-RELEASE`; all three relevant containers are running, and Data Executor reports healthy.
+- Release API smoke test passed: Xiaohongshu login session returned `waiting_login` with a screenshot, status lookup worked, and DELETE closed the session. UI route returned HTTP 200.
+- Full UI lint remains blocked by pre-existing repository lint errors outside this feature; targeted social-monitoring lint and the UI build passed in the prior verification pass.
+- Diagnosed the reported missing Xiaohongshu QR code: the platform returned its `website-login/error` page with error `300012` (`IP存在风险`), so no QR code was generated.
+- Updated login-session classification to return `blocked` with an actionable network message, and updated the dialog to stop presenting the blocked page as a scan workflow.
+- Cleared one stale Chromium profile lock left by a container restart without deleting profile data; rebuilt/restarted Data Executor and revalidated the Core proxy: `blocked`, the platform message, and a diagnostic screenshot are returned successfully.
+- Added a loopback-only local social agent at `127.0.0.1:18183`; it launches a visible local Chrome/Edge browser, shares the existing `cynexus-data/var/social-browser-profiles` directory with Docker, and exposes only login-session lifecycle endpoints.
+- Updated the UI login service to use the local agent instead of the blocked server-side browser. If the agent is not running, the UI now gives the exact PowerShell launch script path.
+- Added `cynexus-data/scripts/start_social_local_agent.ps1`, which selects an installed Chrome/Edge executable and starts the agent on loopback.
+- Local agent health check passed; real local-browser Xiaohongshu start test returned `waiting_login` with a screenshot and no `300012` network block. Release UI/Data Executor were rebuilt and redeployed.
+- Verified the user's three Xiaohongshu creators were submitted; the first run exposed a UI/Python payload naming mismatch (`creatorKey/profileUrl` versus `creator_key/profile_url`). Fixed the UI mapping and added backend compatibility for both formats.
+- Rebuilt/redeployed and reran discovery for all three creators. All three are now persisted in `social_creator_monitor`, but the run returned `partial_success` with 0 posts because the shared default Xiaohongshu browser Profile is not authenticated (`Authorized browser session is not logged in for xiaohongshu`).
+- After the user reported login completion, the Docker-side check still hit Xiaohongshu `300012`; the local-agent discovery path then ran successfully, but inspection showed the post page redirected to the Explore page with a login prompt, so the initial 30 discovered links must not be treated as valid creator results.
+- Added local-agent execution for `social_creator_discovery` and `social_comment_sync`, configured local collection to use a visible browser, and routed the UI's social job buttons to the loopback agent.
+- Added redirect/login-page guards in `SocialBrowserClient` to prevent Explore/home content from being stored as creator posts; rebuilt/restarted the Data Executor after the guard change.
+- Local comment-sync smoke test completed without runtime errors for 3 posts but collected 0 comments; valid authenticated post-page access still needs to be re-established before assessing the comment selectors.

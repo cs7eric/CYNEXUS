@@ -2,6 +2,8 @@ package cn.cccs7.cynexus.market.infra.basic.service;
 
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginAccountStatsPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustrySummaryPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryHistoryPO;
+import cn.cccs7.cynexus.market.infra.basic.entity.MarginIndustryConstituentPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginMarketSummaryPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarginStockDetailPO;
 import java.time.LocalDate;
@@ -27,4 +29,8 @@ public interface MarginTradingBasicService {
     List<MarginIndustrySummaryPO> listIndustrySummaries(LocalDate tradeDate, String sort, String sortDir, int offset, int limit);
 
     int countIndustrySummaries(LocalDate tradeDate);
+
+    List<MarginIndustryConstituentPO> listIndustryConstituents(LocalDate tradeDate, List<String> industryCodes);
+
+    List<MarginIndustryHistoryPO> listIndustryHistory(LocalDate tradeDate, String industryCode, int limit);
 }

@@ -10,13 +10,15 @@ interface ImportHistoryListProps {
   tasks: PortfolioImportTask[]
   loading: boolean
   onRefresh: () => void
+  onRetryTask?: (taskId: number) => void
+  retryingTaskId?: number | null
   selectedTaskId?: number | null
   onSelectedTaskChange?: (taskId: number | null) => void
   refreshSignal?: number
   showHeader?: boolean
 }
 
-export function ImportHistoryList({ tasks, loading, onRefresh, selectedTaskId, onSelectedTaskChange, refreshSignal = 0, showHeader = true }: ImportHistoryListProps) {
+export function ImportHistoryList({ tasks, loading, onRefresh, onRetryTask, retryingTaskId, selectedTaskId, onSelectedTaskChange, refreshSignal = 0, showHeader = true }: ImportHistoryListProps) {
   const [historyByTask, setHistoryByTask] = useState<Record<number, PortfolioImportProcessHistory>>({})
   const [errorsByTask, setErrorsByTask] = useState<Record<number, string>>({})
 
@@ -52,6 +54,6 @@ export function ImportHistoryList({ tasks, loading, onRefresh, selectedTaskId, o
       <div><h2 id="import-history-heading" className="text-base font-semibold">Import history</h2><p className="mt-1 text-xs text-muted-foreground">Every screenshot keeps its own processing record, including retries and review changes.</p></div>
       <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh history</Button>
     </div> : null}
-    {loading ? <div className={`${showHeader ? "mt-3" : ""} space-y-3`}><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : !tasks.length ? <div className={`${showHeader ? "mt-3" : ""} rounded-lg border border-dashed border-border/70 px-4 py-8 text-center`}><p className="text-sm font-medium">No screenshot imports yet</p><p className="mt-1 text-xs text-muted-foreground">Import a trade screenshot to create the first processing record.</p></div> : <div className={`${showHeader ? "mt-3" : ""} overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60`}>{tasks.map((task) => <ImportExecutionRecord key={task.id} task={task} history={historyByTask[task.id] ?? null} candidateCount={null} loading={!historyByTask[task.id] && !errorsByTask[task.id]} error={errorsByTask[task.id] ?? null} open={selectedTaskId === task.id} onOpenChange={(open) => onSelectedTaskChange?.(open ? task.id : null)} reviewHref={`/personal-portfolio/imports/${task.id}/review`} embedded />)}</div>}
+    {loading ? <div className={`${showHeader ? "mt-3" : ""} space-y-3`}><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : !tasks.length ? <div className={`${showHeader ? "mt-3" : ""} rounded-lg border border-dashed border-border/70 px-4 py-8 text-center`}><p className="text-sm font-medium">No screenshot imports yet</p><p className="mt-1 text-xs text-muted-foreground">Import a trade screenshot to create the first processing record.</p></div> : <div className={`${showHeader ? "mt-3" : ""} overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60`}>{tasks.map((task) => <ImportExecutionRecord key={task.id} task={task} history={historyByTask[task.id] ?? null} candidateCount={null} loading={!historyByTask[task.id] && !errorsByTask[task.id]} error={errorsByTask[task.id] ?? null} open={selectedTaskId === task.id} onOpenChange={(open) => onSelectedTaskChange?.(open ? task.id : null)} onRetry={onRetryTask ? () => onRetryTask(task.id) : undefined} retrying={retryingTaskId === task.id} reviewHref={`/personal-portfolio/imports/${task.id}/review`} embedded />)}</div>}
   </section>
 }

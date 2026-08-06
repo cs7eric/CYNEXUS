@@ -107,6 +107,20 @@ public class MarginTradingQueryDomainServiceImpl implements MarginTradingQueryDo
                 normalizedSortDir, slice, repository.countIndustrySummaries(serving), items, null);
     }
 
+    @Override
+    public MarginTradingQueryBO.IndustryHistory industryHistory(String industryCode, String tradeDate, int limit) {
+        LocalDate requested = policy.parseDate(tradeDate).orElse(null);
+        LocalDate serving = repository.findLatestTradeDate(requested).orElse(null);
+        String normalizedIndustry = policy.normalizeIndustryCode(industryCode);
+        int safeLimit = policy.clampLimit(limit, MarginTradingDomainPolicy.DEFAULT_HISTORY_DAYS);
+        if (serving == null || normalizedIndustry == null || normalizedIndustry.isBlank()) {
+            return new MarginTradingQueryBO.IndustryHistory(false, normalizedIndustry, serving, List.of(),
+                    "margin industry history data is empty");
+        }
+        return new MarginTradingQueryBO.IndustryHistory(true, normalizedIndustry, serving,
+                repository.listIndustryHistory(serving, normalizedIndustry, safeLimit), null);
+    }
+
     private MarginTradingQueryBO.Page page(Integer number, Integer size, int defaultSize, int maxSize) {
         int safeNumber = number == null || number <= 0 ? 1 : number;
         int requestedSize = size == null || size <= 0 ? defaultSize : size;

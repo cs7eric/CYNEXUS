@@ -22,6 +22,8 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRep
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskPageBO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class PortfolioImportAppService {
     private static final String DEFAULT_PRINCIPAL = "workspace-user";
     private static final String DEFAULT_TENANT = "default";
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private final PortfolioImportDomainService domainService;
     private final PortfolioCandidateStore candidateStore;
     private final PortfolioImportConfirmationDomainService confirmationService;
@@ -79,6 +82,14 @@ public class PortfolioImportAppService {
         return toDto(domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId));
     }
 
+    @Transactional
+    public PortfolioImportTaskDTO retry(long taskId) {
+        PortfolioImportTaskBO task = domainService.retry(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        append(task, PortfolioImportProcessEventType.MANUAL_RETRY_REQUESTED, PortfolioImportStatus.FAILED.name(),
+                task.getStatus().name(), null, null, null, null, null, null, "{}", null);
+        return toDto(task);
+    }
+
     public PortfolioImportTaskPageDTO list(int page, int pageSize) {
         PortfolioImportTaskPageBO result = domainService.list(DEFAULT_PRINCIPAL, DEFAULT_TENANT, page, pageSize);
         return PortfolioImportTaskPageDTO.builder()
@@ -94,7 +105,7 @@ public class PortfolioImportAppService {
 
     public PortfolioImportReviewDTO review(long taskId) {
         PortfolioImportTaskBO task = domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
-        List<PortfolioImportCandidateDTO> candidates = candidateStore.listByTaskId(taskId).stream()
+        List<PortfolioImportCandidateDTO> candidates = confirmationService.candidatesForReview(task, candidateStore.listByTaskId(taskId), today()).stream()
                 .map(candidate -> PortfolioImportCandidateDTO.builder()
                         .id(candidate.id()).rowNo(candidate.rowNo()).normalizedPayload(candidate.normalizedPayload().toString())
                         .reviewStatus(candidate.reviewStatus()).version(candidate.version()).confidence(candidate.confidence())
@@ -150,7 +161,7 @@ public class PortfolioImportAppService {
         }
         append(task, PortfolioImportProcessEventType.CANDIDATE_EDITED, task.getStatus().name(), task.getStatus().name(),
                 null, null, null, null, null, null, "{\"candidateId\":" + candidateId + "}", null);
-        return candidateStore.listByTaskId(taskId).stream().filter(candidate -> candidate.id() == candidateId)
+        return confirmationService.candidatesForReview(task, candidateStore.listByTaskId(taskId), today()).stream().filter(candidate -> candidate.id() == candidateId)
                 .findFirst().map(this::toCandidateDto).orElseThrow();
     }
 
@@ -162,7 +173,7 @@ public class PortfolioImportAppService {
             throw new IllegalStateException("portfolio import version is stale");
         }
         PortfolioImportTaskBO confirmed = confirmationService.confirm(task,
-                request == null ? null : request.getCandidateIds(), DEFAULT_PRINCIPAL, OffsetDateTime.now());
+                request == null ? null : request.getCandidateIds(), DEFAULT_PRINCIPAL, OffsetDateTime.now(), today());
         if (previousStatus == PortfolioImportStatus.READY_FOR_REVIEW) {
             append(confirmed, PortfolioImportProcessEventType.TASK_CONFIRMED, previousStatus.name(),
                     confirmed.getStatus().name(), null, null, null, null, null, null, "{}", null);
@@ -174,6 +185,10 @@ public class PortfolioImportAppService {
         return PortfolioImportCandidateDTO.builder().id(candidate.id()).rowNo(candidate.rowNo())
                 .normalizedPayload(candidate.normalizedPayload().toString()).reviewStatus(candidate.reviewStatus())
                 .version(candidate.version()).confidence(candidate.confidence()).warnings(candidate.warnings()).build();
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(SHANGHAI);
     }
 
     private void append(PortfolioImportTaskBO task, PortfolioImportProcessEventType eventType, String fromStatus,

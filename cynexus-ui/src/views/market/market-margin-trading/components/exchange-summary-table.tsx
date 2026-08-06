@@ -23,6 +23,7 @@ const EXCHANGE_COPY: Record<string, { label: string; description: string }> = {
 }
 
 const SOURCE_COPY: Record<string, string> = {
+  "derived.exchange_sum": "交易所汇总推导",
   "akshare.stock_margin_account_info": "融资融券账户统计",
   "akshare.stock_margin_sse": "上交所两融汇总",
   "akshare.stock_margin_szse": "深交所两融汇总",

@@ -40,6 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { WorkspaceShell } from "@/layout/workspace-shell";
+import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select";
 import {
   archiveFinanceAiCapture,
   fetchFinanceAccounts,
@@ -364,7 +365,10 @@ export default function FinanceAiCapturePage() {
                 <p className="mt-0.5 text-xs leading-5 text-muted-foreground">一张小票或账单，最大 10MB</p>
               </div>
             </div>
-            <Badge variant={files.length ? "secondary" : "outline"}>{files.length ? "已选择" : "待上传"}</Badge>
+             <div className="flex min-w-0 items-center gap-1">
+               <AiBindingProviderSelect capability="accounting_receipt_parse" />
+               <Badge variant={files.length ? "secondary" : "outline"}>{files.length ? "已选择" : "待上传"}</Badge>
+             </div>
           </div>
           <div className="space-y-4 p-4 sm:p-5">
             <label className="group flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/25 px-5 text-center transition-colors hover:border-primary/50 hover:bg-muted/50 focus-within:ring-2 focus-within:ring-ring">

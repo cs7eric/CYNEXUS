@@ -72,7 +72,7 @@ class StockBasicRepository:
             rows = db.execute(
                 text(
                     f"""
-                    SELECT code, market, is_st, limit_up_threshold
+                    SELECT code, name, market, is_st, limit_up_threshold
                       FROM {self.client.schema}.sec_stock_basic
                       {where}
                      ORDER BY code
@@ -81,9 +81,10 @@ class StockBasicRepository:
             ).all()
         return {
             str(row[0]).zfill(6): {
-                "market": str(row[1]).upper() if row[1] is not None else None,
-                "is_st": bool(row[2]),
-                "limit_up_threshold": float(row[3]) if row[3] is not None else None,
+                "name": str(row[1]).strip() if row[1] is not None else None,
+                "market": str(row[2]).upper() if row[2] is not None else None,
+                "is_st": bool(row[3]),
+                "limit_up_threshold": float(row[4]) if row[4] is not None else None,
             }
             for row in rows
         }

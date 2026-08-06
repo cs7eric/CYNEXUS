@@ -13,9 +13,14 @@
          and b.status in ('SUCCEEDED', 'PARTIAL')
        where m.deleted_at is null
          and m.trade_date = #{tradeDate}
-         <if test="scopeType != null and scopeType != ''">
-           and m.scope_type = #{scopeType}
-         </if>
+         <choose>
+             <when test="scopeType != null and scopeType == 'VARIETY'">
+               and m.scope_type = 'CONTRACT'
+             </when>
+             <when test="scopeType != null and scopeType != ''">
+               and m.scope_type = #{scopeType}
+             </when>
+         </choose>
          <if test="exchangeCode != null and exchangeCode != ''">
            and m.exchange_code = #{exchangeCode}
          </if>
@@ -41,7 +46,16 @@
                    m.rank_value, m.rank_change, m.selected_source
             <include refid="selectedFacts"/>
         ), aggregated as (
-            select exchange_code, instrument_code, max(variety_code) as variety_code, max(contract_code) as contract_code,
+            select exchange_code,
+                   <choose>
+                       <when test="scopeType == 'VARIETY'">variety_code</when>
+                       <otherwise>instrument_code</otherwise>
+                   </choose> as instrument_code,
+                   max(variety_code) as variety_code,
+                   <choose>
+                       <when test="scopeType == 'VARIETY'">cast(null as text)</when>
+                       <otherwise>max(contract_code)</otherwise>
+                   </choose> as contract_code,
                    sum(rank_value) filter (where rank_type = 'VOLUME' and rank_no &lt;= #{top}) as volume,
                    sum(rank_value) filter (where rank_type = 'LONG' and rank_no &lt;= #{top}) as long_position,
                    sum(rank_value) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_position,
@@ -49,7 +63,11 @@
                    sum(rank_change) filter (where rank_type = 'SHORT' and rank_no &lt;= #{top}) as short_change,
                    max(selected_source) as source
               from facts
-             group by exchange_code, instrument_code
+             group by exchange_code,
+             <choose>
+                 <when test="scopeType == 'VARIETY'">variety_code</when>
+                 <otherwise>instrument_code</otherwise>
+             </choose>
         )
         select exchange_code, instrument_code, variety_code, contract_code, volume, long_position, short_position,
                long_position - short_position as net_position,
@@ -75,7 +93,12 @@
     </select>
 
     <select id="countInstruments" resultType="int">
-        select count(distinct (m.exchange_code, m.instrument_code))::int
+        select count(distinct (m.exchange_code,
+        <choose>
+            <when test="scopeType == 'VARIETY'">m.variety_code</when>
+            <otherwise>m.instrument_code</otherwise>
+        </choose>
+        ))::int
         <include refid="selectedFacts"/>
     </select>
 
@@ -98,6 +121,42 @@
     </select>
 
     <select id="listMembers" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionMemberPO">
+        <choose>
+            <when test="scopeType == 'VARIETY'">
+                with grouped as (
+                    select m.trade_date, m.exchange_code, m.variety_code, m.rank_type, m.member_name,
+                           sum(m.rank_value) as rank_value,
+                           sum(coalesce(m.rank_change, 0)) as rank_change,
+                           max(m.selected_source) as source
+                      from cynexus_appl_market.futures_position_member_rank m
+                      join cynexus_appl_market.futures_position_capture_batch b
+                        on b.id = m.capture_batch_id
+                       and b.deleted_at is null
+                       and b.selected is true
+                       and b.status in ('SUCCEEDED', 'PARTIAL')
+                     where m.deleted_at is null
+                       and m.trade_date = #{tradeDate}
+                       and m.scope_type = 'CONTRACT'
+                       and m.exchange_code = #{exchangeCode}
+                       and m.variety_code = #{instrumentCode}
+                    <if test="rankType != null and rankType != ''">
+                       and m.rank_type = #{rankType}
+                    </if>
+                     group by m.trade_date, m.exchange_code, m.variety_code, m.rank_type, m.member_name
+                ), ranked as (
+                    select trade_date, exchange_code, variety_code, rank_type, member_name,
+                           row_number() over (partition by rank_type order by rank_value desc, member_name asc nulls last)::int as rank_no,
+                           rank_value, rank_change, source
+                      from grouped
+                )
+                select trade_date, exchange_code, 'VARIETY' as scope_type,
+                       variety_code as instrument_code, variety_code, cast(null as text) as contract_code,
+                       rank_type, rank_no, member_name, rank_value, rank_change, source
+                  from ranked
+                 where rank_no &lt;= #{top}
+                 order by rank_type asc, rank_no asc, member_name asc nulls last
+            </when>
+            <otherwise>
         select m.trade_date, m.exchange_code, m.scope_type, m.instrument_code, m.variety_code,
                m.contract_code, m.rank_type, m.rank_no, m.member_name, m.rank_value, m.rank_change,
                m.selected_source as source
@@ -117,25 +176,30 @@
            and m.rank_type = #{rankType}
         </if>
          order by m.rank_type asc, m.rank_no asc, m.member_name asc nulls last
+            </otherwise>
+        </choose>
     </select>
 
     <select id="listHistory" resultType="cn.cccs7.cynexus.market.infra.basic.entity.FuturesPositionHistoryPO">
         with dates as (
-            select distinct m.trade_date
-              from cynexus_appl_market.futures_position_member_rank m
-              join cynexus_appl_market.futures_position_capture_batch b
-                on b.id = m.capture_batch_id
-               and b.deleted_at is null
+            select b.trade_date
+              from cynexus_appl_market.futures_position_capture_batch b
+             where b.deleted_at is null
                and b.selected is true
                and b.status in ('SUCCEEDED', 'PARTIAL')
-             where m.deleted_at is null
-               and m.scope_type = #{scopeType}
-               and m.exchange_code = #{exchangeCode}
-               and m.instrument_code = #{instrumentCode}
-             order by m.trade_date desc
+               and b.exchange_code = #{exchangeCode}
+            <if test="endDate != null">
+               and b.trade_date &lt;= #{endDate}
+            </if>
+             order by b.trade_date desc
              limit #{limit}
         ), totals as (
-            select m.trade_date, m.instrument_code, max(m.variety_code) as variety_code,
+            select m.trade_date,
+                   <choose>
+                       <when test="scopeType == 'VARIETY'">m.variety_code</when>
+                       <otherwise>m.instrument_code</otherwise>
+                   </choose> as instrument_code,
+                   max(m.variety_code) as variety_code,
                    sum(m.rank_value) filter (where m.rank_type = 'VOLUME' and m.rank_no &lt;= #{top}) as volume,
                    sum(m.rank_value) filter (where m.rank_type = 'LONG' and m.rank_no &lt;= #{top}) as long_position,
                    sum(m.rank_value) filter (where m.rank_type = 'SHORT' and m.rank_no &lt;= #{top}) as short_position,
@@ -150,12 +214,28 @@
                and b.selected is true
                and b.status in ('SUCCEEDED', 'PARTIAL')
              where m.deleted_at is null
-               and m.scope_type = #{scopeType}
                and m.exchange_code = #{exchangeCode}
-               and m.instrument_code = #{instrumentCode}
-             group by m.trade_date, m.instrument_code
+            <choose>
+                <when test="scopeType == 'VARIETY'">
+                  and m.scope_type = 'CONTRACT'
+                  and m.variety_code = #{instrumentCode}
+                </when>
+                <otherwise>
+                  and m.scope_type = #{scopeType}
+                  and m.instrument_code = #{instrumentCode}
+                </otherwise>
+            </choose>
+             group by m.trade_date,
+            <choose>
+                <when test="scopeType == 'VARIETY'">m.variety_code</when>
+                <otherwise>m.instrument_code</otherwise>
+            </choose>
         )
-        select trade_date, instrument_code, variety_code, volume, long_position, short_position,
+        select trade_date,
+            <choose>
+                <when test="scopeType == 'VARIETY'">variety_code as instrument_code</when>
+                <otherwise>instrument_code</otherwise>
+            </choose>, variety_code, volume, long_position, short_position,
                long_position - short_position as net_position,
                long_position / nullif(short_position, 0) as long_short_ratio,
                long_change, short_change, source

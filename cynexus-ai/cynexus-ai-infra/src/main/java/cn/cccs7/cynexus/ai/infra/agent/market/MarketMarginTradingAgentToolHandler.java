@@ -43,6 +43,9 @@ public class MarketMarginTradingAgentToolHandler extends AbstractMarketResearchA
             case "industries" -> query(DEFINITION, () -> client().getMarginIndustries(
                     date(call, "tradeDate"), sort, sortDir, optionalInteger(call, "page", 1, 1, 100),
                     optionalInteger(call, "pageSize", 50, 1, 100)), "Read margin-trading industry rankings.");
+            case "industry_history" -> query(DEFINITION, () -> client().getMarginIndustryHistory(
+                    requiredString(call, "industryCode"), date(call, "tradeDate"),
+                    integer(call, "limit", 60, 1, 120)), "Read margin-trading history for one industry.");
             default -> throw new IllegalArgumentException("Unsupported margin-trading operation: " + operation(call));
         };
     }

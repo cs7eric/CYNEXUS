@@ -383,19 +383,62 @@ def lockup_expiry(client: EastMoneyHttpClient, code: str, trade_date: str, *, fo
 
 
 def margin_trading(client: EastMoneyHttpClient, code: str, *, page_size: int = 30) -> list[dict[str, Any]]:
-    return [
-        {
-            "date": str(row.get("DATE") or "")[:10],
-            "rzye": row.get("RZYE"),
-            "rzmre": row.get("RZMRE"),
-            "rzche": row.get("RZCHE"),
-            "rqye": row.get("RQYE"),
-            "rqmcl": row.get("RQMCL"),
-            "rqchl": row.get("RQCHL"),
-            "rzrqye": row.get("RZRQYE"),
-        }
-        for row in datacenter(client, "RPTA_WEB_RZRQ_GGMX", filter_str=f'(SCODE="{plain_code(code)}")', page_size=page_size, sort_columns="DATE")
-    ]
+    return [_normalize_margin_row(row) for row in datacenter(
+        client,
+        "RPTA_WEB_RZRQ_GGMX",
+        filter_str=f'(SCODE="{plain_code(code)}")',
+        page_size=page_size,
+        sort_columns="DATE",
+    )]
+
+
+def margin_trading_latest(
+    client: EastMoneyHttpClient,
+    trade_date: date,
+    *,
+    page_size: int = 500,
+    max_pages: int = 20,
+) -> list[dict[str, Any]]:
+    """Fetch one market-wide margin snapshot for field enrichment.
+
+    The report contains years of rows and its date-only ordering is not stable
+    across pages. Restricting the report to one date makes pagination stable
+    and prevents the same stock page from being returned repeatedly.
+    """
+    target = trade_date.isoformat()
+    rows: list[dict[str, Any]] = []
+    for page_number in range(1, max(1, max_pages) + 1):
+        page = datacenter(
+            client,
+            "RPTA_WEB_RZRQ_GGMX",
+            filter_str=f"(DATE>='{target}')(DATE<='{target}')",
+            page_size=min(max(1, page_size), 500),
+            page_number=page_number,
+            sort_columns="DATE",
+            sort_types="-1",
+        )
+        if not page:
+            break
+        rows.extend(_normalize_margin_row(row) for row in page if str(row.get("DATE") or "")[:10] == target)
+        if len(page) < min(max(1, page_size), 500):
+            break
+    return rows
+
+
+def _normalize_margin_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "date": str(row.get("DATE") or "")[:10],
+        "stock_code": plain_code(str(row.get("SCODE") or "")),
+        "stock_name": row.get("SECNAME"),
+        "rzye": row.get("RZYE"),
+        "rzmre": row.get("RZMRE"),
+        "rzche": row.get("RZCHE"),
+        "rqyl": row.get("RQYL"),
+        "rqye": row.get("RQYE"),
+        "rqmcl": row.get("RQMCL"),
+        "rqchl": row.get("RQCHL"),
+        "rzrqye": row.get("RZRQYE"),
+    }
 
 
 def block_trade(client: EastMoneyHttpClient, code: str, *, page_size: int = 20) -> list[dict[str, Any]]:

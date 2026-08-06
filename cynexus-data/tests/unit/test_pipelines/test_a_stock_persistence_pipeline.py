@@ -113,6 +113,21 @@ def test_normalize_sina_stock_news_to_postgres_with_viewable_url() -> None:
     assert row["url"] == "https://example.test/news"
 
 
+def test_normalize_sina_financial_report_to_statement_and_screening_snapshot() -> None:
+    batch = normalize_dataset(
+        "sina_financial_report",
+        [{"report_date": "2026-06-30", "营业收入": "120000", "净资产收益率": "8.5", "基本每股收益": "0.42"}],
+        {"code": "600519"},
+    )
+
+    snapshot = batch.postgres["a_stock_financial_snapshot"][0]
+    assert batch.postgres["a_stock_financial_statement"][0]["report_date"].isoformat() == "2026-06-30"
+    assert snapshot["code"] == "600519"
+    assert snapshot["revenue"] == 120000.0
+    assert snapshot["roe_pct"] == 8.5
+    assert snapshot["eps"] == 0.42
+
+
 def test_pipeline_dry_run_uses_payload_without_network_or_storage() -> None:
     request = JobRequest(
         job_key="sync_a_stock_dataset",

@@ -56,6 +56,14 @@ public final class PortfolioImportDomainService {
                 .orElseThrow(() -> new IllegalArgumentException("portfolio import task not found"));
     }
 
+    public PortfolioImportTaskBO retry(String principalKey, String tenantKey, long taskId) {
+        PortfolioImportTaskBO task = get(principalKey, tenantKey, taskId);
+        task.retry();
+        taskRepository.update(task);
+        dispatchPort.dispatch(task.getId(), task.getPrincipalKey(), task.getTenantKey());
+        return task;
+    }
+
     public PortfolioImportTaskPageBO list(String principalKey, String tenantKey, int page, int pageSize) {
         requireText(principalKey, "principalKey");
         requireText(tenantKey, "tenantKey");

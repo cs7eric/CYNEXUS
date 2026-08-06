@@ -3,11 +3,13 @@ package cn.cccs7.cynexus.market.application.service;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustriesDTO;
+import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustryHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingLatestDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStocksDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingStockHistoryDTO;
 import cn.cccs7.cynexus.market.domain.entity.MarginAccountStatsBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginIndustrySummaryBO;
+import cn.cccs7.cynexus.market.domain.entity.MarginIndustryHistoryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginMarketSummaryBO;
 import cn.cccs7.cynexus.market.domain.entity.MarginStockDetailBO;
 import cn.cccs7.cynexus.market.domain.entity.margin.MarginTradingQueryBO;
@@ -135,6 +137,21 @@ public class MarginTradingAppService {
                 .build();
     }
 
+    public MarginTradingIndustryHistoryDTO industryHistory(String industryCode, String tradeDate, int limit) {
+        MarginTradingQueryBO.IndustryHistory value = domainService.industryHistory(industryCode, tradeDate, limit);
+        List<MarginTradingDTO.IndustryHistoryDTO> items = value.items().stream()
+                .map(this::industryHistoryDTO)
+                .toList();
+        return MarginTradingIndustryHistoryDTO.builder()
+                .ok(value.ok())
+                .error(value.error())
+                .industryCode(value.industryCode())
+                .tradeDate(value.tradeDate() == null ? null : value.tradeDate().toString())
+                .count(items.size())
+                .items(items)
+                .build();
+    }
+
     private MarginTradingDTO.MarketSummaryDTO summaryDTO(MarginMarketSummaryBO row) {
         return MarginTradingDTO.MarketSummaryDTO.builder()
                 .tradeDate(row.getTradeDate())
@@ -191,6 +208,26 @@ public class MarginTradingAppService {
                 .securitiesLendingSellVolume(row.getSecuritiesLendingSellVolume())
                 .securitiesLendingRepayVolume(row.getSecuritiesLendingRepayVolume())
                 .marginBalance(row.getMarginBalance())
+                .turnoverAmount(row.getTurnoverAmount())
+                .build();
+    }
+
+    private MarginTradingDTO.IndustryHistoryDTO industryHistoryDTO(MarginIndustryHistoryBO row) {
+        return MarginTradingDTO.IndustryHistoryDTO.builder()
+                .tradeDate(row.getTradeDate())
+                .constituentSnapshotDate(row.getConstituentSnapshotDate())
+                .industryCode(row.getIndustryCode())
+                .constituentCount(row.getConstituentCount())
+                .matchedStockCount(row.getMatchedStockCount())
+                .financingBalance(row.getFinancingBalance())
+                .financingBuyAmount(row.getFinancingBuyAmount())
+                .financingRepayAmount(row.getFinancingRepayAmount())
+                .securitiesLendingBalance(row.getSecuritiesLendingBalance())
+                .securitiesLendingBalanceAmount(row.getSecuritiesLendingBalanceAmount())
+                .securitiesLendingSellVolume(row.getSecuritiesLendingSellVolume())
+                .securitiesLendingRepayVolume(row.getSecuritiesLendingRepayVolume())
+                .marginBalance(row.getMarginBalance())
+                .turnoverAmount(row.getTurnoverAmount())
                 .build();
     }
 

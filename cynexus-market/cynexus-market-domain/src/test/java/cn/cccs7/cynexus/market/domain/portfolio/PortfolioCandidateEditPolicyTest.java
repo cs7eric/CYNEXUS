@@ -27,6 +27,7 @@ class PortfolioCandidateEditPolicyTest {
                 "2026-07-31T09:30:10", "200", "0.84", "0", null);
 
         assertEquals("2026-07-31T09:30:10Z", normalized.path("tradedAt").asText());
+        assertEquals("0.1", normalized.path("fee").asText());
     }
 
     @Test
@@ -37,5 +38,13 @@ class PortfolioCandidateEditPolicyTest {
                 "600000", null, "ETF", "BUY", "2026-08-02", "0", "12.50", "0", null));
         assertThrows(IllegalArgumentException.class, () -> PortfolioCandidateEditPolicy.normalize(mapper,
                 "159629", null, "FUND", "BUY", "2026-08-02", "100", "2.99", "0", null));
+    }
+
+    @Test
+    void rejectsTimeOnlyTradeTimestampWithActionableMessage() {
+        var exception = assertThrows(IllegalArgumentException.class, () -> PortfolioCandidateEditPolicy.normalize(mapper,
+                "600000", null, "STOCK", "BUY", "10:41:17", "100", "12.50", "0", null));
+
+        assertEquals("tradedAt must include a date; time-only values cannot be confirmed", exception.getMessage());
     }
 }

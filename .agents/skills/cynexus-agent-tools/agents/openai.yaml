@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cynexus Agent Tools"
+  short_description: "Build governed Agent read and confirmed-write tools"
+  default_prompt: "Use $cynexus-agent-tools to expose this project data operation safely to the Cynexus Agent."
