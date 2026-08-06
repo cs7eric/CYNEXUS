@@ -7,6 +7,7 @@ from typing import Any
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.social.creator_discovery import _filter_posts_for_today
 from cynexus_data.runtime.context import PipelineContext
+from cynexus_data.sources.social.browser import SocialAccessError
 from cynexus_data.sources.social.models import SocialPost
 from cynexus_data.sources.social.parser import parse_datetime_value
 from cynexus_data.storage.postgres.ids import stable_bigint_id
@@ -27,6 +28,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         "dry_run": request.dry_run,
         "posts_requested": len(posts),
         "posts_succeeded": 0,
+        "posts_unavailable": 0,
         "comments_collected": 0,
         "errors": [],
     }
@@ -69,9 +71,10 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
 
     client = context.hooks.social.get_client(platform, profile_name=str(request.params.get("profile_name") or "default"))
     for post in posts:
+        post_id = stable_bigint_id("social_post", scope_key, post.platform, post.post_key)
         try:
             comments = client.fetch_comments(post)
-            post_id = stable_bigint_id("social_post", scope_key, post.platform, post.post_key)
+            repository.mark_post_available(post_id)
             # A comment fetch is a snapshot. Replace the previous malformed or
             # stale DOM rows so a parser correction is visible immediately.
             repository.upsert_comments(post_id, comments, scope_key=scope_key, replace=True)
@@ -88,6 +91,9 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
             result["posts_succeeded"] += 1
             result["comments_collected"] += len(comments)
         except Exception as exc:
+            if _is_post_unavailable(exc):
+                repository.mark_post_unavailable(post_id, str(exc))
+                result["posts_unavailable"] += 1
             result["errors"].append({"post_key": post.post_key, "error": str(exc)})
 
     result["rows_read"] = result["posts_requested"]
@@ -95,6 +101,14 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
     result["success"] = not result["errors"]
     result["status"] = "success" if result["success"] else "partial_success"
     return result
+
+
+def _is_post_unavailable(exc: Exception) -> bool:
+    return isinstance(exc, SocialAccessError) and exc.code in {
+        "POST_UNAVAILABLE",
+        "POST_NOT_AVAILABLE",
+        "POST_REDIRECTED",
+    }
 
 
 def _platform(value: Any) -> str:

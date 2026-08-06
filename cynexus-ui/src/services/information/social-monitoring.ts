@@ -40,6 +40,9 @@ export interface SocialPost {
   published_at?: string | null
   discovered_at?: string | null
   last_comment_sync_at?: string | null
+  availability_status?: "available" | "unavailable" | string | null
+  availability_checked_at?: string | null
+  availability_reason?: string | null
   creator_key?: string | null
   display_name?: string | null
   comment_count?: number | null

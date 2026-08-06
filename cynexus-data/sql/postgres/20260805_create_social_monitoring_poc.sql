@@ -25,11 +25,19 @@ CREATE TABLE IF NOT EXISTS {schema}.social_post (
     published_at TIMESTAMPTZ,
     discovered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_comment_sync_at TIMESTAMPTZ,
+    availability_status VARCHAR(32) NOT NULL DEFAULT 'available',
+    availability_checked_at TIMESTAMPTZ,
+    availability_reason TEXT,
     raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (scope_key, platform, post_key)
 );
+
+ALTER TABLE {schema}.social_post
+    ADD COLUMN IF NOT EXISTS availability_status VARCHAR(32) NOT NULL DEFAULT 'available',
+    ADD COLUMN IF NOT EXISTS availability_checked_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS availability_reason TEXT;
 
 CREATE TABLE IF NOT EXISTS {schema}.social_comment (
     id BIGINT PRIMARY KEY,

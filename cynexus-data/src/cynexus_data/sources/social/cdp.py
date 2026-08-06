@@ -540,6 +540,10 @@ class CdpSocialClient:
             body = ""
         if any(token in current_url.lower() for token in ("login", "passport", "account")):
             raise SocialAccessError("LOGIN_REQUIRED", f"{self.platform} 专用 Chrome 尚未登录")
+        if self.platform == "douyin" and any(
+            token in body for token in ("你要观看的视频不存在", "视频不存在", "作品不存在", "视频已下架", "作品已下架")
+        ):
+            raise SocialAccessError("POST_UNAVAILABLE", f"抖音帖子已不可用：{url}")
         if self.platform == "xiaohongshu" and ("300012" in current_url or "IP存在风险" in body):
             raise SocialAccessError("PLATFORM_BLOCKED", "小红书返回 300012（当前网络环境被平台拒绝）")
 

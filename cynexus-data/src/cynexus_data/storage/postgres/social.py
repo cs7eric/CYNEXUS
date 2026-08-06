@@ -96,13 +96,14 @@ class SocialRepository:
                 db.execute(
                     text(
                         f"""
-                        INSERT INTO {self.client.schema}.social_post (
-                            id, scope_key, creator_id, platform, post_key, url, title, published_at,
-                            discovered_at, last_comment_sync_at, raw_payload, created_at, updated_at
-                        ) VALUES (
-                            :id, :scope_key, :creator_id, :platform, :post_key, :url, :title, :published_at,
-                            now(), NULL, CAST(:raw_payload AS jsonb), now(), now()
-                        )
+                    INSERT INTO {self.client.schema}.social_post (
+                        id, scope_key, creator_id, platform, post_key, url, title, published_at,
+                            discovered_at, last_comment_sync_at, availability_status,
+                            availability_checked_at, availability_reason, raw_payload, created_at, updated_at
+                    ) VALUES (
+                        :id, :scope_key, :creator_id, :platform, :post_key, :url, :title, :published_at,
+                            now(), NULL, 'available', NULL, NULL, CAST(:raw_payload AS jsonb), now(), now()
+                    )
                         ON CONFLICT (scope_key, platform, post_key) DO UPDATE SET
                             creator_id = EXCLUDED.creator_id,
                             url = EXCLUDED.url,
@@ -150,7 +151,8 @@ class SocialRepository:
                 text(
                     f"""
                     SELECT p.id, p.platform, p.post_key, p.url, p.title, p.published_at,
-                           p.discovered_at, p.last_comment_sync_at, p.raw_payload,
+                           p.discovered_at, p.last_comment_sync_at, p.availability_status,
+                           p.availability_checked_at, p.availability_reason, p.raw_payload,
                            c.creator_key, COALESCE(c.display_name, c.creator_key) AS display_name,
                            COUNT(sc.id)::int AS comment_count
                       FROM {self.client.schema}.social_post p
@@ -181,7 +183,8 @@ class SocialRepository:
                 text(
                     f"""
                     SELECT p.id, p.platform, p.post_key, p.url, p.title, p.published_at,
-                           p.discovered_at, p.last_comment_sync_at, p.raw_payload,
+                           p.discovered_at, p.last_comment_sync_at, p.availability_status,
+                           p.availability_checked_at, p.availability_reason, p.raw_payload,
                            c.creator_key, COALESCE(c.display_name, c.creator_key) AS display_name,
                            COUNT(sc.id)::int AS comment_count
                       FROM {self.client.schema}.social_post p
@@ -310,6 +313,38 @@ class SocialRepository:
                     """
                 ),
                 {"post_id": post_id},
+            )
+
+    def mark_post_available(self, post_id: int) -> None:
+        with self.client.session() as db:
+            db.execute(
+                text(
+                    f"""
+                    UPDATE {self.client.schema}.social_post
+                       SET availability_status = 'available',
+                           availability_checked_at = now(),
+                           availability_reason = NULL,
+                           updated_at = now()
+                     WHERE id = :post_id
+                    """
+                ),
+                {"post_id": post_id},
+            )
+
+    def mark_post_unavailable(self, post_id: int, reason: str) -> None:
+        with self.client.session() as db:
+            db.execute(
+                text(
+                    f"""
+                    UPDATE {self.client.schema}.social_post
+                       SET availability_status = 'unavailable',
+                           availability_checked_at = now(),
+                           availability_reason = :reason,
+                           updated_at = now()
+                     WHERE id = :post_id
+                    """
+                ),
+                {"post_id": post_id, "reason": reason[:2_000]},
             )
 
 

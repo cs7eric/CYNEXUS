@@ -730,7 +730,7 @@ function CollectedPostsPanel({
           <TableHead className="min-w-[150px] text-xs text-muted-foreground">来源</TableHead>
           <TableHead className="w-40 text-xs text-muted-foreground">采集时间</TableHead>
           <TableHead className="w-24 text-right text-xs text-muted-foreground">评论数</TableHead>
-          <TableHead className="w-28 text-xs text-muted-foreground">评论同步</TableHead>
+          <TableHead className="w-32 text-xs text-muted-foreground">帖子状态</TableHead>
           <TableHead className="w-28 pr-5 text-right text-xs text-muted-foreground">操作</TableHead>
         </TableRow>
       </TableHeader>
@@ -748,7 +748,7 @@ function CollectedPostsPanel({
           <TableCell className="font-mono text-xs text-muted-foreground">{formatDateTime(post.discovered_at || post.published_at)}</TableCell>
           <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">{post.comment_count == null ? "—" : post.comment_count}</TableCell>
           <TableCell>
-            {post.last_comment_sync_at ? <div className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 className="size-3.5" />已同步</div> : <div className="flex items-center gap-1.5 text-xs text-amber-700"><Clock3 className="size-3.5" />待同步</div>}
+            {post.availability_status === "unavailable" ? <div className="flex items-center gap-1.5 text-xs text-destructive" title={post.availability_reason || undefined}><XCircle className="size-3.5" />不可用</div> : post.last_comment_sync_at ? <div className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 className="size-3.5" />可用 · 已同步</div> : <div className="flex items-center gap-1.5 text-xs text-amber-700"><Clock3 className="size-3.5" />待同步</div>}
           </TableCell>
           <TableCell className="pr-5 text-right"><Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => onOpenPost(post)}><MessageCircle className="size-3.5" />查看评论</Button></TableCell>
         </TableRow>)}

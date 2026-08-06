@@ -53,6 +53,37 @@ def test_douyin_post_verification_rejects_redirected_modal() -> None:
         raise AssertionError("redirected Douyin post should not be accepted")
 
 
+def test_douyin_gone_page_is_marked_unavailable() -> None:
+    client = _client("douyin")
+
+    class FakeBody:
+        def inner_text(self, timeout: int) -> str:
+            assert timeout == 1_000
+            return "你要观看的视频不存在"
+
+    class FakePage:
+        url = "https://www.douyin.com/video/gone-post"
+
+        def goto(self, url: str, wait_until: str, timeout: int) -> None:
+            assert url.endswith("gone-post")
+            assert wait_until == "domcontentloaded"
+            assert timeout == client.timeout_ms
+
+        def wait_for_timeout(self, milliseconds: int) -> None:
+            assert milliseconds == client.wait_ms
+
+        def locator(self, selector: str) -> FakeBody:
+            assert selector == "body"
+            return FakeBody()
+
+    try:
+        client._goto(FakePage(), "https://www.douyin.com/video/gone-post")  # noqa: SLF001
+    except Exception as exc:
+        assert getattr(exc, "code", None) == "POST_UNAVAILABLE"
+    else:
+        raise AssertionError("missing Douyin post should be marked unavailable")
+
+
 def test_xhs_date_parser_handles_today_yesterday_and_month_day() -> None:
     assert _parse_social_date("今天 10:30").date() == datetime.now().date()
     assert _parse_social_date("昨天 23:00") is not None
