@@ -29,6 +29,17 @@ const typeDescriptions: Record<ApiWorkflowProcess["workflowType"], string> = {
   FINANCE_AI_CAPTURE: "识别票据图片并生成待入账记录",
 }
 
+const managedCapabilities: Array<{
+  type: ApiWorkflowProcess["workflowType"]
+  key: string
+  input: string
+  result: string
+}> = [
+  { type: "MEDIA_TRANSCRIPTION", key: "media.transcription.url", input: "URL", result: "转写历史" },
+  { type: "PORTFOLIO_TRADE_IMPORT", key: "portfolio.trade.import.screenshot", input: "交易截图", result: "交易确认" },
+  { type: "FINANCE_AI_CAPTURE", key: "finance.ai_capture.image", input: "票据图片", result: "入账确认" },
+]
+
 const typeFilterOptions: Array<{ value: "all" | ApiWorkflowProcess["workflowType"]; label: string }> = [
   { value: "all", label: "全部类型" },
   { value: "MEDIA_TRANSCRIPTION", label: "URL 转写" },
@@ -212,6 +223,18 @@ export default function ApiWorkflowsPage() {
 
   return <WorkspaceShell sectionLabel="Settings" pageTitle="API Workflows">
     <div className="flex w-full min-w-0 flex-col gap-5">
+      <section aria-labelledby="managed-capabilities-heading">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><h1 id="managed-capabilities-heading" className="text-base font-semibold">当前接管能力</h1><p className="mt-1 text-xs text-muted-foreground">以下能力已接入统一 API workflow，请求会进入队列并保留完整处理记录。</p></div>
+          <Badge variant="secondary" className="font-normal text-muted-foreground">{managedCapabilities.length} 项能力</Badge>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {managedCapabilities.map((capability) => <div key={capability.type} className="min-w-0 rounded-lg border border-border/60 bg-card px-4 py-3">
+            <div className="flex items-start gap-3"><div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><WorkflowIcon type={capability.type} /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{typeLabels[capability.type]}</span><Badge variant="secondary" className="border-0 bg-muted px-1.5 py-0 text-[10px] font-medium text-muted-foreground">API</Badge></div><p className="mt-1 text-xs leading-5 text-muted-foreground">{typeDescriptions[capability.type]}</p></div></div>
+            <div className="mt-3 border-t border-border/60 pt-2 text-[11px] text-muted-foreground"><span className="font-mono text-foreground">{capability.key}</span><span className="mx-1.5 text-border">·</span>{capability.input} → {capability.result}</div>
+          </div>)}
+        </div>
+      </section>
       <section aria-labelledby="api-workflow-history-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h1 id="api-workflow-history-heading" className="text-base font-semibold">API workflow history</h1><p className="mt-1 text-xs text-muted-foreground">按类型和状态查看 API workflow 的处理记录。</p></div>
