@@ -68,7 +68,7 @@ public final class PortfolioImportDomainService {
         requireText(principalKey, "principalKey");
         requireText(tenantKey, "tenantKey");
         int safePage = Math.max(1, page);
-        int safePageSize = Math.max(1, Math.min(pageSize, 50));
+        int safePageSize = Math.max(1, Math.min(pageSize, 2_000));
         return taskRepository.findPageByOwner(principalKey, tenantKey, safePage, safePageSize);
     }
 

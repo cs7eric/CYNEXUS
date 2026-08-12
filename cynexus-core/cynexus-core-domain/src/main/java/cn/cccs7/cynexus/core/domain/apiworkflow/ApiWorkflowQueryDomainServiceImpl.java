@@ -25,26 +25,35 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
     }
 
     @Override
-    public List<ApiWorkflowProcessBO> list(int limit, ApiWorkflowType type, ApiWorkflowStatus status) {
-        int normalizedLimit = Math.max(1, Math.min(limit, 100));
+    public ApiWorkflowPageBO list(int page, int pageSize, ApiWorkflowType type, ApiWorkflowStatus status) {
+        int normalizedPage = Math.max(1, Math.min(page, 100));
+        int normalizedPageSize = Math.max(1, Math.min(pageSize, 2_000));
+        int requested = Math.min(2_000, Math.max(normalizedPageSize,
+                (int) Math.min(2_000L, (long) normalizedPage * normalizedPageSize)));
         List<ApiWorkflowProcessBO> result = new ArrayList<>();
         if (type == null || type == ApiWorkflowType.MEDIA_TRANSCRIPTION) {
-            mediaRepository.listActive(OWNER_KEY, normalizedLimit).stream()
+            mediaRepository.listActive(OWNER_KEY, requested).stream()
                     .map(this::media)
                     .filter(item -> status == null || item.status() == status)
                     .forEach(result::add);
         }
         if (type == null || type == ApiWorkflowType.FINANCE_AI_CAPTURE) {
-            financeRepository.listCaptures(OWNER_KEY, normalizedLimit, 0, "all").stream()
+            financeRepository.listCaptures(OWNER_KEY, requested, 0, "all").stream()
                     .map(this::finance)
                     .filter(item -> status == null || item.status() == status)
                     .forEach(result::add);
         }
-        return result.stream()
+        long total = 0;
+        if (type == null || type == ApiWorkflowType.MEDIA_TRANSCRIPTION) total += mediaRepository.countActive(OWNER_KEY);
+        if (type == null || type == ApiWorkflowType.FINANCE_AI_CAPTURE) total += financeRepository.countCaptures(OWNER_KEY, "all");
+        int offset = (normalizedPage - 1) * normalizedPageSize;
+        List<ApiWorkflowProcessBO> items = result.stream()
                 .sorted(Comparator.comparing(ApiWorkflowProcessBO::createdAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(normalizedLimit)
+                .skip(offset)
+                .limit(normalizedPageSize)
                 .toList();
+        return new ApiWorkflowPageBO(items, total, normalizedPage, normalizedPageSize);
     }
 
     private ApiWorkflowProcessBO media(MediaTranscriptionProcessBO process) {

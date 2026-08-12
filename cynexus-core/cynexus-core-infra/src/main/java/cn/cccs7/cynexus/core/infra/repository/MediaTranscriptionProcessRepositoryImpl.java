@@ -35,8 +35,21 @@ public class MediaTranscriptionProcessRepositoryImpl implements MediaTranscripti
 
     @Override
     public List<MediaTranscriptionProcessBO> listActive(String ownerKey, int limit) {
-        return jdbcTemplate.query(baseSelect(" AND owner_key = ? ORDER BY created_at DESC, id DESC LIMIT ?"),
-                this::row, ownerKey, Math.max(1, Math.min(limit, 100)));
+        return listActive(ownerKey, limit, 0);
+    }
+
+    @Override
+    public List<MediaTranscriptionProcessBO> listActive(String ownerKey, int limit, int offset) {
+        return jdbcTemplate.query(baseSelect(" AND owner_key = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"),
+                this::row, ownerKey, Math.max(1, Math.min(limit, 2_000)), Math.max(0, offset));
+    }
+
+    @Override
+    public long countActive(String ownerKey) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM media_transcription_process_history WHERE deleted_at IS NULL AND owner_key = ?",
+                Long.class, ownerKey);
+        return count == null ? 0 : count;
     }
 
     @Override

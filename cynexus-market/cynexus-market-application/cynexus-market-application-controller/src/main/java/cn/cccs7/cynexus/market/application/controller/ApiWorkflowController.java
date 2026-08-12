@@ -1,9 +1,8 @@
 package cn.cccs7.cynexus.market.application.controller;
 
 import cn.cccs7.cynexus.common.core.result.Result;
-import cn.cccs7.cynexus.market.api.dto.ApiWorkflowProcessDTO;
+import cn.cccs7.cynexus.market.api.dto.ApiWorkflowPageDTO;
 import cn.cccs7.cynexus.market.application.service.ApiWorkflowAppService;
-import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,7 +16,8 @@ public class ApiWorkflowController {
     public ApiWorkflowController(ApiWorkflowAppService service) { this.service = service; }
 
     @GetMapping
-    public Result<List<ApiWorkflowProcessDTO>> list(@RequestParam(defaultValue = "50") int limit) {
-        return Result.success(service.list(limit));
+    public Result<ApiWorkflowPageDTO> list(@RequestParam(defaultValue = "1") int page,
+                                           @RequestParam(defaultValue = "20") int pageSize) {
+        return Result.success(service.list(page, pageSize));
     }
 }

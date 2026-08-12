@@ -8,3 +8,4 @@
 - Core and Market now expose separate normalized projections so the UI does not create a cross-domain backend dependency.
 - No migration is needed for this projection phase: it reads the existing media process, finance capture, and portfolio import history tables.
 - The unified operational list is documented as unsuitable for autonomous Agent exposure; detailed business queries remain owned by their existing domains.
+- Core combines media transcription and finance capture records; Market projects portfolio imports. Because the Settings timeline spans both services, UI-level merging must happen before slicing the requested global page.

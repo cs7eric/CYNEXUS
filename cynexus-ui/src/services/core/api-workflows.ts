@@ -45,21 +45,37 @@ export interface ApiWorkflowProcess {
   events: ApiWorkflowEvent[]
 }
 
+export interface ApiWorkflowPage {
+  items: ApiWorkflowProcess[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasPrevious: boolean
+  hasNext: boolean
+}
+
 const CORE_API = `${SERVICE_PREFIX.core}/api-workflows`
 const MARKET_API = `${SERVICE_PREFIX.market}/api-workflows`
 
-export async function listApiWorkflows(limit = 50): Promise<ApiWorkflowProcess[]> {
+export async function listApiWorkflows(page = 1, pageSize = 20): Promise<ApiWorkflowPage> {
+  const safePage = Math.max(1, page)
+  const safePageSize = Math.max(1, pageSize)
+  const fetchSize = Math.min(2_000, safePage * safePageSize)
   const [coreResponse, marketResponse] = await Promise.all([
-    fetchWithRetry(`${CORE_API}?limit=${limit}`, { cache: "no-store" }),
-    fetchWithRetry(`${MARKET_API}?limit=${limit}`, { cache: "no-store" }),
+    fetchWithRetry(`${CORE_API}?page=1&pageSize=${fetchSize}`, { cache: "no-store" }),
+    fetchWithRetry(`${MARKET_API}?page=1&pageSize=${fetchSize}`, { cache: "no-store" }),
   ])
   const [core, market] = await Promise.all([
-    cynexusResult<ApiWorkflowProcess[]>(coreResponse),
-    cynexusResult<ApiWorkflowProcess[]>(marketResponse),
+    cynexusResult<ApiWorkflowPage>(coreResponse),
+    cynexusResult<ApiWorkflowPage>(marketResponse),
   ])
-  return [...core, ...market].sort((left, right) => {
+  const items = [...core.items, ...market.items].sort((left, right) => {
     return new Date(right.createdAt ?? 0).getTime() - new Date(left.createdAt ?? 0).getTime()
-  }).slice(0, limit)
+  }).slice((safePage - 1) * safePageSize, safePage * safePageSize)
+  const total = core.total + market.total
+  const totalPages = total === 0 ? 0 : Math.ceil(total / safePageSize)
+  return { items, total, page: safePage, pageSize: safePageSize, totalPages, hasPrevious: safePage > 1, hasNext: safePage < totalPages }
 }
 
 export async function retryApiWorkflow(item: ApiWorkflowProcess): Promise<void> {

@@ -75,7 +75,7 @@ public class PortfolioImportTaskRepositoryAdapter implements PortfolioImportTask
     @Override
     public PortfolioImportTaskPageBO findPageByOwner(String principalKey, String tenantKey, int page, int pageSize) {
         int safePage = Math.max(1, page);
-        int safePageSize = Math.max(1, Math.min(pageSize, 50));
+        int safePageSize = Math.max(1, Math.min(pageSize, 2_000));
         int offset = (safePage - 1) * safePageSize;
         List<PortfolioImportTaskBO> items = mapper.findTasksByOwner(principalKey, tenantKey, offset, safePageSize).stream()
                 .map(this::toDomain).toList();

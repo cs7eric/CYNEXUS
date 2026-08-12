@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { Fragment, useCallback, useEffect, useState } from "react"
 import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, FileClock, FileImage, FileVideo2, RefreshCw, RotateCcw, WalletCards } from "lucide-react"
 import { Link } from "react-router-dom"
 
@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import { notification } from "@/components/ui/notification"
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { WorkspaceShell } from "@/layout/workspace-shell"
 import { listApiWorkflows, retryApiWorkflow, type ApiWorkflowEvent, type ApiWorkflowProcess, type ApiWorkflowStatus } from "@/services/core/api-workflows"
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100]
 
 const statusLabels: Record<ApiWorkflowStatus, string> = {
   QUEUED: "已入队", RUNNING: "处理中", WAITING_REVIEW: "待确认", SUCCEEDED: "已完成", FAILED: "失败", CANCELLED: "已归档",
@@ -83,6 +87,11 @@ function attemptLabel(attemptNo: number) {
   return attemptNo === 0 ? "Setup" : `Attempt ${attemptNo}`
 }
 
+function pageItems(page: number, totalPages: number) {
+  return [...new Set([1, totalPages, page - 1, page, page + 1].filter((item) => item >= 1 && item <= totalPages))]
+    .sort((left, right) => left - right)
+}
+
 function EventDetail({ event }: { event: ApiWorkflowEvent }) {
   const details = meaningfulDetails(event.details)
   const metadata = [
@@ -149,27 +158,37 @@ function ApiWorkflowRecord({ item, open, onOpenChange, onRetry, retrying }: { it
 
 export default function ApiWorkflowsPage() {
   const [items, setItems] = useState<ApiWorkflowProcess[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [pagination, setPagination] = useState<{ total: number; page: number; pageSize: number; totalPages: number; hasPrevious: boolean; hasNext: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
 
-  const load = useCallback(async (background = false) => { if (background) setRefreshing(true); else setLoading(true); setError(null); try { setItems(await listApiWorkflows()) } catch (cause) { setError(cause instanceof Error ? cause.message : "加载 API workflow 失败") } finally { setLoading(false); setRefreshing(false) } }, [])
+  const load = useCallback(async (targetPage = page, targetPageSize = pageSize, background = false) => { if (background) setRefreshing(true); else setLoading(true); setError(null); try { const result = await listApiWorkflows(targetPage, targetPageSize); setItems(result.items); setPagination(result) } catch (cause) { setError(cause instanceof Error ? cause.message : "加载 API workflow 失败") } finally { setLoading(false); setRefreshing(false) } }, [page, pageSize])
   useEffect(() => { const timer = window.setTimeout(() => { void load() }, 0); return () => window.clearTimeout(timer) }, [load])
-  useEffect(() => { if (!items.some((item) => item.status === "QUEUED" || item.status === "RUNNING")) return; const timer = window.setInterval(() => void load(true), 3000); return () => window.clearInterval(timer) }, [items, load])
-  const retry = useCallback(async (item: ApiWorkflowProcess) => { setRetryingId(item.id); try { await retryApiWorkflow(item); await load(true); notification.success({ title: "已重新入队", description: "API workflow 将继续执行" }) } catch (cause) { notification.danger({ title: "重试失败", description: cause instanceof Error ? cause.message : "重试失败" }) } finally { setRetryingId(null) } }, [load])
+  useEffect(() => { if (!items.some((item) => item.status === "QUEUED" || item.status === "RUNNING")) return; const timer = window.setInterval(() => void load(page, pageSize, true), 3000); return () => window.clearInterval(timer) }, [items, load, page, pageSize])
+  const retry = useCallback(async (item: ApiWorkflowProcess) => { setRetryingId(item.id); try { await retryApiWorkflow(item); await load(page, pageSize, true); notification.success({ title: "已重新入队", description: "API workflow 将继续执行" }) } catch (cause) { notification.danger({ title: "重试失败", description: cause instanceof Error ? cause.message : "重试失败" }) } finally { setRetryingId(null) } }, [load, page, pageSize])
+
+  const pages = pageItems(pagination?.page ?? page, pagination?.totalPages ?? 1)
+  const start = pagination?.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0
+  const end = pagination ? Math.min(pagination.page * pagination.pageSize, pagination.total) : items.length
 
   return <WorkspaceShell sectionLabel="Settings" pageTitle="API Workflows">
     <div className="flex w-full min-w-0 flex-col gap-5">
       <section aria-labelledby="api-workflow-history-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h1 id="api-workflow-history-heading" className="text-base font-semibold">API workflow history</h1><p className="mt-1 text-xs text-muted-foreground">Every request keeps its own processing record, including retries and result navigation.</p></div>
-          <Button variant="outline" size="sm" onClick={() => void load(true)} disabled={refreshing}><RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />Refresh history</Button>
+          <Button variant="outline" size="sm" onClick={() => void load(page, pageSize, true)} disabled={refreshing}><RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />Refresh history</Button>
         </div>
       </section>
       {error ? <Alert variant="destructive"><AlertTitle>API workflow 加载失败</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-      {loading ? <div className="space-y-3"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : items.length ? <div className="overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60">{items.map((item) => <ApiWorkflowRecord key={item.id} item={item} open={openId === item.id} onOpenChange={(open) => setOpenId(open ? item.id : null)} onRetry={() => void retry(item)} retrying={retryingId === item.id} />)}</div> : <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center"><FileClock className="mx-auto size-7 text-muted-foreground/50" /><p className="mt-2 text-sm font-medium">还没有 API workflow 记录</p><p className="mt-1 text-xs text-muted-foreground">API 请求进入队列后，记录会出现在这里。</p></div>}
+      {loading ? <div className="space-y-3"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : items.length ? <>
+        <div className="overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60">{items.map((item) => <ApiWorkflowRecord key={item.id} item={item} open={openId === item.id} onOpenChange={(open) => setOpenId(open ? item.id : null)} onRetry={() => void retry(item)} retrying={retryingId === item.id} />)}</div>
+        {pagination ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3"><div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground"><span className="font-mono tabular-nums">Showing {start}-{end} of {pagination.total}</span><span className="hidden text-border sm:inline">·</span><span className="hidden sm:inline">Rows</span><Select value={String(pageSize)} onValueChange={(value) => { const next = Number(value); setPageSize(next); setPage(1) }}><SelectTrigger size="sm" aria-label="Workflows per page" className="h-7 w-[104px] border-0 bg-muted/45 px-2 text-xs shadow-none"><SelectValue /></SelectTrigger><SelectContent side="top">{PAGE_SIZE_OPTIONS.map((option) => <SelectItem key={option} value={String(option)}>{option} / page</SelectItem>)}</SelectContent></Select></div>{pagination.totalPages > 1 ? <Pagination className="mx-0 w-auto justify-end"><PaginationContent><PaginationItem><PaginationPrevious className="[&>span]:hidden" disabled={loading || !pagination.hasPrevious} onClick={() => setPage((current) => Math.max(1, current - 1))} /></PaginationItem>{pages.map((item, index) => { const previous = pages[index - 1]; return <Fragment key={item}>{previous != null && item - previous > 1 ? <PaginationItem><PaginationEllipsis /></PaginationItem> : null}<PaginationItem><PaginationLink disabled={loading} isActive={item === pagination.page} onClick={() => setPage(item)}>{item}</PaginationLink></PaginationItem></Fragment> })}<PaginationItem><PaginationNext className="[&>span]:hidden" disabled={loading || !pagination.hasNext} onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))} /></PaginationItem></PaginationContent></Pagination> : null}</div> : null}
+      </> : <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-center"><FileClock className="mx-auto size-7 text-muted-foreground/50" /><p className="mt-2 text-sm font-medium">还没有 API workflow 记录</p><p className="mt-1 text-xs text-muted-foreground">API 请求进入队列后，记录会出现在这里。</p></div>}
     </div>
   </WorkspaceShell>
 }

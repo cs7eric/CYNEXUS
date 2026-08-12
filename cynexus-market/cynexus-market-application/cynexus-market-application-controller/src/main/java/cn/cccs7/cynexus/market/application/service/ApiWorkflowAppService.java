@@ -2,12 +2,14 @@ package cn.cccs7.cynexus.market.application.service;
 
 import cn.cccs7.cynexus.market.api.dto.ApiWorkflowEventDTO;
 import cn.cccs7.cynexus.market.api.dto.ApiWorkflowProcessDTO;
+import cn.cccs7.cynexus.market.api.dto.ApiWorkflowPageDTO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessEventType;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryAggregateBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportStatus;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskPageBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportTaskRepository;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -27,11 +29,13 @@ public class ApiWorkflowAppService {
         this.historyRepository = historyRepository;
     }
 
-    public List<ApiWorkflowProcessDTO> list(int limit) {
-        int normalizedLimit = Math.max(1, Math.min(limit, 100));
-        return taskRepository.findRecentByOwner(PRINCIPAL, TENANT, normalizedLimit).stream()
+    public ApiWorkflowPageDTO list(int page, int pageSize) {
+        PortfolioImportTaskPageBO result = taskRepository.findPageByOwner(PRINCIPAL, TENANT, page, pageSize);
+        List<ApiWorkflowProcessDTO> items = result.items().stream()
                 .map(this::toDto)
                 .toList();
+        return ApiWorkflowPageDTO.builder().items(items).total(result.total()).page(result.page()).pageSize(result.pageSize())
+                .totalPages(result.totalPages()).hasPrevious(result.hasPrevious()).hasNext(result.hasNext()).build();
     }
 
     private ApiWorkflowProcessDTO toDto(PortfolioImportTaskBO task) {

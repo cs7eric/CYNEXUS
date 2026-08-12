@@ -11,3 +11,7 @@
 - Core and Market focused compilation passed; UI targeted ESLint and production build passed; `git diff --check` passed.
 - Release Core and Market images were built and the affected containers were recreated successfully with `1.1.398-260812-RELEASE`.
 - Kept the pre-existing untracked `artifacts/` directory out of the task commit.
+- 2026-08-12: Started pagination extension. Existing portfolio import pagination can be reused; Core media and finance repositories already support bounded list/count queries but the workflow projection needs a page DTO.
+- Added page DTOs and page metadata to Core/Market API workflow endpoints with default `page=1&pageSize=20`.
+- Added global Settings pagination with page-size selection and preserved current-page refresh/polling/retry behavior.
+- Core/Market Release images rebuilt and recreated successfully as `1.1.398-260812-RELEASE`; live endpoints returned paged responses. UI source build passed, but UI image rebuild was blocked because Docker Hub could not fetch `nginx:1.27-alpine`.

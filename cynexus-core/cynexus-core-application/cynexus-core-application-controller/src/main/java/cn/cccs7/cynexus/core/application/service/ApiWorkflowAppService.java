@@ -2,6 +2,8 @@ package cn.cccs7.cynexus.core.application.service;
 
 import cn.cccs7.cynexus.core.application.dto.ApiWorkflowEventDTO;
 import cn.cccs7.cynexus.core.application.dto.ApiWorkflowProcessDTO;
+import cn.cccs7.cynexus.core.application.dto.ApiWorkflowPageDTO;
+import cn.cccs7.cynexus.core.domain.apiworkflow.ApiWorkflowPageBO;
 import cn.cccs7.cynexus.core.domain.apiworkflow.ApiWorkflowProcessBO;
 import cn.cccs7.cynexus.core.domain.apiworkflow.ApiWorkflowQueryDomainService;
 import cn.cccs7.cynexus.core.domain.apiworkflow.ApiWorkflowStatus;
@@ -15,8 +17,11 @@ public class ApiWorkflowAppService {
 
     public ApiWorkflowAppService(ApiWorkflowQueryDomainService domainService) { this.domainService = domainService; }
 
-    public List<ApiWorkflowProcessDTO> list(int limit, String type, String status) {
-        return domainService.list(limit, parseType(type), parseStatus(status)).stream().map(this::toDto).toList();
+    public ApiWorkflowPageDTO list(int page, int pageSize, String type, String status) {
+        ApiWorkflowPageBO result = domainService.list(page, pageSize, parseType(type), parseStatus(status));
+        return ApiWorkflowPageDTO.builder().items(result.items().stream().map(this::toDto).toList()).total(result.total())
+                .page(result.page()).pageSize(result.pageSize()).totalPages(result.totalPages())
+                .hasPrevious(result.hasPrevious()).hasNext(result.hasNext()).build();
     }
 
     private ApiWorkflowProcessDTO toDto(ApiWorkflowProcessBO item) {
