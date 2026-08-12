@@ -173,7 +173,7 @@ function ApiWorkflowRecord({ item, open, onOpenChange, onRetry, retrying }: { it
         <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
         </button>
       </CollapsibleTrigger>
-      {item.resultRoute && (item.status === "SUCCEEDED" || item.status === "WAITING_REVIEW") ? <Link to={item.resultRoute} className="shrink-0"><Button size="sm" variant="secondary">查看结果<ArrowUpRight className="ml-1.5 size-3.5" /></Button></Link> : null}
+      {item.resultRoute && (item.status === "SUCCEEDED" || item.status === "WAITING_REVIEW") ? <Link to={item.resultRoute} className="shrink-0"><Button size="icon-sm" variant="secondary" aria-label="查看结果" title="查看结果"><ArrowUpRight className="size-4" /></Button></Link> : null}
     </div>
     <CollapsibleContent className="border-t border-border/60">
       {item.status === "FAILED" ? <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-rose-50/60 px-4 py-2.5"><p className="text-xs text-rose-800">本次 workflow 执行失败，可以使用相同输入重新排队。</p><Button size="sm" variant="outline" onClick={onRetry} disabled={retrying}><RotateCcw className={`mr-1.5 size-3.5 ${retrying ? "animate-spin" : ""}`} />{retrying ? "重试中" : "重试"}</Button></div> : null}
