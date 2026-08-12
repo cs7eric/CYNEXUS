@@ -1,0 +1,10 @@
+# Findings
+
+- CodeGraph is indexed and up to date.
+- Prior commit `3988bff49` added queued URL transcription process history and a media-specific Settings API Workflows page.
+- Existing trade import history is event-based in `portfolio_import_process_history`.
+- Finance AI capture has batch status and retry APIs but needs a normalized process projection.
+- Existing UI business-result routes must remain the source of detailed output.
+- Core and Market now expose separate normalized projections so the UI does not create a cross-domain backend dependency.
+- No migration is needed for this projection phase: it reads the existing media process, finance capture, and portfolio import history tables.
+- The unified operational list is documented as unsuitable for autonomous Agent exposure; detailed business queries remain owned by their existing domains.
