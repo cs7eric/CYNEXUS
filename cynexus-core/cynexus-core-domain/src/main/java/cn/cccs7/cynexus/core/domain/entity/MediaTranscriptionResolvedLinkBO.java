@@ -15,6 +15,8 @@ public class MediaTranscriptionResolvedLinkBO {
     private String platform;
     private Integer duration;
     private String noteType;
+    private String originDownloadVideoUrl;
+    private String originDownloadAudioUrl;
     private String downloadVideoUrl;
     private String downloadAudioUrl;
     private String originalUrl;

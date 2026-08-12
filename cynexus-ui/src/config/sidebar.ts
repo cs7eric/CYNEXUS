@@ -18,6 +18,7 @@ import {
   Camera,
   Sparkles,
   MessageSquareText,
+  Workflow,
 } from "lucide-react"
 
 export const sidebarConfig = {
@@ -249,6 +250,11 @@ export const sidebarConfig = {
         {
           title: "微信历史事件",
           url: "/settings/wechat-history",
+        },
+        {
+          title: "API Workflows",
+          url: "/settings/api-workflows",
+          icon: Workflow,
         },
       ],
     },

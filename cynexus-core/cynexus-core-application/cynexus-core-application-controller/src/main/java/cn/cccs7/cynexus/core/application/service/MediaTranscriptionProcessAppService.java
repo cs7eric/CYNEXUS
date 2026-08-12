@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.core.application.service;
 
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionProcessDTO;
+import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionEnqueueDTO;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionProcessRequest;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionProcessBO;
 import cn.cccs7.cynexus.core.domain.mediatranscription.MediaTranscriptionProcessDomainService;
@@ -38,6 +39,21 @@ public class MediaTranscriptionProcessAppService {
                 request == null ? null : request.getPlatform(),
                 request == null ? null : request.getNoteType());
         return toDto(process);
+    }
+
+    public MediaTranscriptionEnqueueDTO enqueue(MediaTranscriptionProcessRequest request, String idempotencyKey) {
+        MediaTranscriptionProcessBO process = domainService.submit(
+                request == null ? null : request.getUrl(),
+                idempotencyKey,
+                request == null ? null : request.getTitle(),
+                request == null ? null : request.getPlatform(),
+                request == null ? null : request.getNoteType());
+        return MediaTranscriptionEnqueueDTO.builder()
+                .accepted(true)
+                .message("已入队")
+                .processId(String.valueOf(process.getId()))
+                .status(process.getStatus())
+                .build();
     }
 
     public List<MediaTranscriptionProcessDTO> list(int limit) {

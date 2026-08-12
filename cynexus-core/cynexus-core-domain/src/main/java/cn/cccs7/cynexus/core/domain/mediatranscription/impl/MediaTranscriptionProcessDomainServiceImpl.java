@@ -189,8 +189,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
             return taskService.getTask(process.getWorkerTaskId());
         }
         MediaTranscriptionResolvedLinkBO resolved = linkResolver.resolve(process.getSourceUrl());
-        String downloadUrl = firstText(resolved == null ? null : resolved.getDownloadVideoUrl(),
-                resolved == null ? null : resolved.getDownloadAudioUrl(), process.getSourceUrl());
+        String downloadUrl = processPolicy.selectDownloadUrl(resolved, process.getSourceUrl());
         if (resolved != null) {
             if (process.getTitle() == null || process.getTitle().isBlank()) process.setTitle(resolved.getTitle());
             if (process.getPlatform() == null || process.getPlatform().isBlank()) process.setPlatform(resolved.getPlatform());
@@ -201,7 +200,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
         MediaTranscriptionTaskRefBO ref = taskService.remoteParse(MediaTranscriptionRemoteParseRequestBO.builder()
                 .downloadUrl(downloadUrl).title(process.getTitle()).sourceUrl(process.getSourceUrl())
                 .platform(process.getPlatform()).noteType(process.getNoteType())
-                .audioUrl(resolved == null ? null : resolved.getDownloadAudioUrl())
+                .audioUrl(processPolicy.selectAudioUrl(resolved))
                 .originalUrl(process.getSourceUrl()).build());
         if (ref == null || ref.getTaskId() == null || ref.getTaskId().isBlank()) {
             throw new IllegalStateException("视频转写任务创建失败");
@@ -282,9 +281,4 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
         }
     }
 
-    private String firstText(String first, String second, String fallback) {
-        if (first != null && !first.isBlank()) return first;
-        if (second != null && !second.isBlank()) return second;
-        return fallback;
-    }
 }

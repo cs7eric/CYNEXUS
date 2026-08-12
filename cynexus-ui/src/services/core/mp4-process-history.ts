@@ -2,6 +2,7 @@ import { fetchWithRetry } from "@/services/common/http"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 
 const API_BASE = `${SERVICE_PREFIX.core}/media-transcription/processes`
+const URL_TASK_API_BASE = `${SERVICE_PREFIX.core}/media-transcription/tasks/parse-url`
 
 export type MediaProcessStatus = "queued" | "running" | "succeeded" | "failed" | string
 
@@ -41,6 +42,13 @@ interface ProcessListResponse {
   items?: MediaProcessItem[]
 }
 
+export interface MediaProcessEnqueueResponse {
+  accepted: boolean
+  message: string
+  processId: string
+  status: MediaProcessStatus
+}
+
 async function readData<T>(response: Response, fallback: string): Promise<T> {
   const payload = (await response.json().catch(() => null)) as Envelope<T> | T | null
   if (!response.ok || !payload) {
@@ -68,4 +76,26 @@ export async function getMediaProcess(id: string): Promise<MediaProcessItem> {
 export async function retryMediaProcess(id: string): Promise<MediaProcessItem> {
   const response = await fetchWithRetry(`${API_BASE}/${encodeURIComponent(id)}/retry`, { method: "POST" })
   return readData<MediaProcessItem>(response, "重试自动化处理失败")
+}
+
+export interface ParseUrlRequest {
+  url: string
+  title?: string
+  platform?: string
+  noteType?: string
+}
+
+export async function parseUrlToMediaProcess(
+  request: ParseUrlRequest,
+  idempotencyKey?: string,
+): Promise<MediaProcessEnqueueResponse> {
+  const response = await fetchWithRetry(URL_TASK_API_BASE, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: JSON.stringify(request),
+  })
+  return readData<MediaProcessEnqueueResponse>(response, "提交 URL 转写任务失败")
 }

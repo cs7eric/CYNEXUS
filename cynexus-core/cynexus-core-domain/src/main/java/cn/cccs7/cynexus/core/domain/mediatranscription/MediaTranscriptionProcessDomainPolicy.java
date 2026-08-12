@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.core.domain.mediatranscription;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.common.constant.CoreConstants;
+import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionResolvedLinkBO;
 import java.net.URI;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,5 +64,26 @@ public class MediaTranscriptionProcessDomainPolicy {
             return 0;
         }
         return Math.max(0, Math.min(100, progress));
+    }
+
+    public String selectDownloadUrl(MediaTranscriptionResolvedLinkBO resolved, String fallback) {
+        if (resolved != null) {
+            String selected = firstText(resolved.getOriginDownloadAudioUrl(), resolved.getOriginDownloadVideoUrl(),
+                    resolved.getDownloadVideoUrl(), resolved.getDownloadAudioUrl());
+            if (!selected.isBlank()) return selected;
+        }
+        return fallback == null ? "" : fallback.trim();
+    }
+
+    public String selectAudioUrl(MediaTranscriptionResolvedLinkBO resolved) {
+        if (resolved == null) return "";
+        return firstText(resolved.getOriginDownloadAudioUrl(), resolved.getDownloadAudioUrl());
+    }
+
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) return value.trim();
+        }
+        return "";
     }
 }

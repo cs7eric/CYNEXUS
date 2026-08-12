@@ -15,6 +15,7 @@ const Mp4HistoryPage = lazy(() => import("../views/mp4-to-word/history"))
 const Mp4ProcessHistoryPage = lazy(() => import("../views/mp4-to-word/process-history"))
 const SchedulerSettingsPage = lazy(() => import("../views/settings/scheduler"))
 const WechatHistoryPage = lazy(() => import("../views/settings/wechat-history"))
+const ApiWorkflowsPage = lazy(() => import("../views/settings/api-workflows"))
 const AiProviderSettingsPage = lazy(() => import("../views/ai/provider"))
 const DataSourceSettingsPage = lazy(() => import("../views/settings/data-source"))
 const ProviderSettingsPage = lazy(() => import("../views/settings/provider"))
@@ -293,6 +294,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/wechat-history",
         element: pageElement(WechatHistoryPage),
+      },
+      {
+        path: "settings/api-workflows",
+        element: pageElement(ApiWorkflowsPage),
       },
       {
         path: "ai",

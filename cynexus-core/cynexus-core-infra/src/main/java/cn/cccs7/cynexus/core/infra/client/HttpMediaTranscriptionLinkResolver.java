@@ -61,9 +61,11 @@ public class HttpMediaTranscriptionLinkResolver implements MediaTranscriptionLin
                 return null;
             }
             Map<String, Object> data = asMap(envelope.get("data"));
+            String originVideoUrl = asString(data.get("originDownloadVideoUrl"));
+            String originAudioUrl = asString(data.get("originDownloadAudioUrl"));
             String videoUrl = asString(data.get("downloadVideoUrl"));
             String audioUrl = asString(data.get("downloadAudioUrl"));
-            if (videoUrl == null && audioUrl == null) {
+            if (originVideoUrl == null && originAudioUrl == null && videoUrl == null && audioUrl == null) {
                 return null;
             }
             return MediaTranscriptionResolvedLinkBO.builder()
@@ -71,6 +73,8 @@ public class HttpMediaTranscriptionLinkResolver implements MediaTranscriptionLin
                     .platform(asString(data.get("platform")))
                     .duration(asInteger(data.get("duration")))
                     .noteType(asString(data.get("noteType")))
+                    .originDownloadVideoUrl(originVideoUrl)
+                    .originDownloadAudioUrl(originAudioUrl)
                     .downloadVideoUrl(videoUrl)
                     .downloadAudioUrl(audioUrl)
                     .originalUrl(asString(data.get("url")))

@@ -8,6 +8,7 @@ import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionHistoryQaItemDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionTaskDetailDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionTaskRefDTO;
 import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionProcessDTO;
+import cn.cccs7.cynexus.core.application.dto.MediaTranscriptionEnqueueDTO;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionAskRequest;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionHistoryReorderRequest;
 import cn.cccs7.cynexus.core.application.request.MediaTranscriptionHistorySaveRequest;
@@ -57,6 +58,13 @@ public class MediaTranscriptionController {
     @PostMapping("/tasks/remote-parse")
     public Result<MediaTranscriptionTaskRefDTO> remoteParse(@RequestBody MediaTranscriptionRemoteParseRequest request) {
         return Result.success(mediaTranscriptionAppService.remoteParse(request));
+    }
+
+    @PostMapping("/tasks/parse-url")
+    public Result<MediaTranscriptionEnqueueDTO> parseUrl(
+            @RequestBody MediaTranscriptionProcessRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return Result.success(mediaTranscriptionProcessAppService.enqueue(request, idempotencyKey));
     }
 
     @PostMapping("/processes")
