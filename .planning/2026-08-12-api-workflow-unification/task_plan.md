@@ -12,7 +12,7 @@ Normalize URL transcription, AI trade import, and finance AI capture behind one 
 - [completed] Add focused tests, migration/docs, and verify versions
 - [completed] Build and deploy affected Release services, then commit the task changes
 - [completed] Add unified API workflow pagination with a default page size of 20
-- [in_progress] Add workflow type/status filters and explicit record identity labels
+- [completed] Add workflow type/status filters and explicit record identity labels
 
 ## Decisions
 
