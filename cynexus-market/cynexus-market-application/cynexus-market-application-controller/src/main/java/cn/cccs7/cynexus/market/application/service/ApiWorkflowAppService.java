@@ -29,13 +29,23 @@ public class ApiWorkflowAppService {
         this.historyRepository = historyRepository;
     }
 
-    public ApiWorkflowPageDTO list(int page, int pageSize) {
-        PortfolioImportTaskPageBO result = taskRepository.findPageByOwner(PRINCIPAL, TENANT, page, pageSize);
+    public ApiWorkflowPageDTO list(int page, int pageSize, String type, String status) {
+        String normalizedType = normalize(type);
+        String normalizedStatus = normalize(status);
+        if (normalizedType != null && !"PORTFOLIO_TRADE_IMPORT".equals(normalizedType)) {
+            return ApiWorkflowPageDTO.builder().items(List.of()).total(0).page(Math.max(1, page)).pageSize(Math.max(1, Math.min(pageSize, 2_000)))
+                    .totalPages(0).hasPrevious(false).hasNext(false).build();
+        }
+        PortfolioImportTaskPageBO result = taskRepository.findPageByOwner(PRINCIPAL, TENANT, page, pageSize, normalizedStatus);
         List<ApiWorkflowProcessDTO> items = result.items().stream()
                 .map(this::toDto)
                 .toList();
         return ApiWorkflowPageDTO.builder().items(items).total(result.total()).page(result.page()).pageSize(result.pageSize())
                 .totalPages(result.totalPages()).hasPrevious(result.hasPrevious()).hasNext(result.hasNext()).build();
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase();
     }
 
     private ApiWorkflowProcessDTO toDto(PortfolioImportTaskBO task) {

@@ -30,22 +30,24 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
         int normalizedPageSize = Math.max(1, Math.min(pageSize, 2_000));
         int requested = Math.min(2_000, Math.max(normalizedPageSize,
                 (int) Math.min(2_000L, (long) normalizedPage * normalizedPageSize)));
+        String mediaStatus = mediaStatus(status);
+        String financeStatus = financeStatus(status);
         List<ApiWorkflowProcessBO> result = new ArrayList<>();
         if (type == null || type == ApiWorkflowType.MEDIA_TRANSCRIPTION) {
-            mediaRepository.listActive(OWNER_KEY, requested).stream()
+            mediaRepository.listActive(OWNER_KEY, requested, 0, mediaStatus).stream()
                     .map(this::media)
                     .filter(item -> status == null || item.status() == status)
                     .forEach(result::add);
         }
         if (type == null || type == ApiWorkflowType.FINANCE_AI_CAPTURE) {
-            financeRepository.listCaptures(OWNER_KEY, requested, 0, "all").stream()
+            financeRepository.listCaptures(OWNER_KEY, requested, 0, financeStatus == null ? "all" : financeStatus).stream()
                     .map(this::finance)
                     .filter(item -> status == null || item.status() == status)
                     .forEach(result::add);
         }
         long total = 0;
-        if (type == null || type == ApiWorkflowType.MEDIA_TRANSCRIPTION) total += mediaRepository.countActive(OWNER_KEY);
-        if (type == null || type == ApiWorkflowType.FINANCE_AI_CAPTURE) total += financeRepository.countCaptures(OWNER_KEY, "all");
+        if (type == null || type == ApiWorkflowType.MEDIA_TRANSCRIPTION) total += mediaRepository.countActive(OWNER_KEY, mediaStatus);
+        if (type == null || type == ApiWorkflowType.FINANCE_AI_CAPTURE) total += financeRepository.countCaptures(OWNER_KEY, financeStatus == null ? "all" : financeStatus);
         int offset = (normalizedPage - 1) * normalizedPageSize;
         List<ApiWorkflowProcessBO> items = result.stream()
                 .sorted(Comparator.comparing(ApiWorkflowProcessBO::createdAt,
@@ -130,6 +132,29 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
         if (CoreConstants.STATUS_RUNNING.equalsIgnoreCase(status)) return ApiWorkflowStatus.RUNNING;
         if (CoreConstants.STATUS_FAILED.equalsIgnoreCase(status)) return ApiWorkflowStatus.FAILED;
         return ApiWorkflowStatus.SUCCEEDED;
+    }
+
+    private static String mediaStatus(ApiWorkflowStatus status) {
+        if (status == null) return null;
+        return switch (status) {
+            case QUEUED -> "queued";
+            case RUNNING -> "running";
+            case FAILED -> "failed";
+            case SUCCEEDED -> "succeeded";
+            default -> "__no_match__";
+        };
+    }
+
+    private static String financeStatus(ApiWorkflowStatus status) {
+        if (status == null) return null;
+        return switch (status) {
+            case QUEUED -> "uploaded";
+            case RUNNING -> "processing";
+            case WAITING_REVIEW -> "review";
+            case SUCCEEDED -> "confirmed";
+            case CANCELLED -> "archived";
+            case FAILED -> "failed";
+        };
     }
 
     private static String value(String value, String fallback) { return value == null || value.isBlank() ? fallback : value; }

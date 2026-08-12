@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useState } from "react"
-import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, FileClock, FileImage, FileVideo2, RefreshCw, RotateCcw, WalletCards } from "lucide-react"
+import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, FileClock, FileImage, FileVideo2, ListFilter, RefreshCw, RotateCcw, WalletCards } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,6 +22,29 @@ const statusLabels: Record<ApiWorkflowStatus, string> = {
 const typeLabels: Record<ApiWorkflowProcess["workflowType"], string> = {
   MEDIA_TRANSCRIPTION: "URL 转写", PORTFOLIO_TRADE_IMPORT: "AI Trade", FINANCE_AI_CAPTURE: "AI 入账",
 }
+
+const typeDescriptions: Record<ApiWorkflowProcess["workflowType"], string> = {
+  MEDIA_TRANSCRIPTION: "通过 URL 下载并转写媒体内容",
+  PORTFOLIO_TRADE_IMPORT: "识别交易截图并生成待确认交易",
+  FINANCE_AI_CAPTURE: "识别票据图片并生成待入账记录",
+}
+
+const typeFilterOptions: Array<{ value: "all" | ApiWorkflowProcess["workflowType"]; label: string }> = [
+  { value: "all", label: "全部类型" },
+  { value: "MEDIA_TRANSCRIPTION", label: "URL 转写" },
+  { value: "PORTFOLIO_TRADE_IMPORT", label: "AI Trade" },
+  { value: "FINANCE_AI_CAPTURE", label: "AI 入账" },
+]
+
+const statusFilterOptions: Array<{ value: "all" | ApiWorkflowStatus; label: string }> = [
+  { value: "all", label: "全部状态" },
+  { value: "QUEUED", label: "已入队" },
+  { value: "RUNNING", label: "处理中" },
+  { value: "WAITING_REVIEW", label: "待确认" },
+  { value: "SUCCEEDED", label: "已完成" },
+  { value: "FAILED", label: "失败" },
+  { value: "CANCELLED", label: "已归档" },
+]
 
 const eventShortLabels: Record<string, string> = {
   QUEUED: "Queued", DISPATCHED: "Queued", PROCESSING_STARTED: "Started", AI_STARTED: "AI request",
@@ -144,7 +168,7 @@ function ApiWorkflowRecord({ item, open, onOpenChange, onRetry, retrying }: { it
     <CollapsibleTrigger asChild>
       <button type="button" className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"><WorkflowIcon type={item.workflowType} /></div>
-        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h2 className="truncate text-sm font-semibold">{item.workflowType === "PORTFOLIO_TRADE_IMPORT" ? `Import #${item.sourceRef}` : item.title || typeLabels[item.workflowType]}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(item.status)}`}>{statusLabel}</span><span className="text-xs text-muted-foreground">{attempts} attempts</span><span className="text-xs text-muted-foreground">{formatTime(item.updatedAt || item.createdAt)}</span></div>{failure ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700" title={failure}><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{item.errorCode ? `${item.errorCode}: ` : null}{item.errorMessage || item.errorCode}</span></p> : null}</div>
+        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><Badge variant="secondary" className="shrink-0 border-0 bg-muted text-[11px] font-medium text-muted-foreground"><WorkflowIcon type={item.workflowType} />{typeLabels[item.workflowType]}</Badge><h2 className="truncate text-sm font-semibold">{item.workflowType === "PORTFOLIO_TRADE_IMPORT" ? `Import #${item.sourceRef}` : item.title || typeLabels[item.workflowType]}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(item.status)}`}>{statusLabel}</span><span className="text-xs text-muted-foreground">{attempts} attempts</span><span className="text-xs text-muted-foreground">{formatTime(item.updatedAt || item.createdAt)}</span></div><p className="mt-1 truncate text-xs text-muted-foreground">{typeDescriptions[item.workflowType]} · API workflow</p>{failure ? <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-rose-700" title={failure}><CircleAlert className="size-3.5 shrink-0" /><span className="truncate">{item.errorCode ? `${item.errorCode}: ` : null}{item.errorMessage || item.errorCode}</span></p> : null}</div>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
       </button>
     </CollapsibleTrigger>
@@ -160,6 +184,8 @@ export default function ApiWorkflowsPage() {
   const [items, setItems] = useState<ApiWorkflowProcess[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [typeFilter, setTypeFilter] = useState<"all" | ApiWorkflowProcess["workflowType"]>("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | ApiWorkflowStatus>("all")
   const [pagination, setPagination] = useState<{ total: number; page: number; pageSize: number; totalPages: number; hasPrevious: boolean; hasNext: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -167,10 +193,16 @@ export default function ApiWorkflowsPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
 
-  const load = useCallback(async (targetPage = page, targetPageSize = pageSize, background = false) => { if (background) setRefreshing(true); else setLoading(true); setError(null); try { const result = await listApiWorkflows(targetPage, targetPageSize); setItems(result.items); setPagination(result) } catch (cause) { setError(cause instanceof Error ? cause.message : "加载 API workflow 失败") } finally { setLoading(false); setRefreshing(false) } }, [page, pageSize])
+  const load = useCallback(async (targetPage = page, targetPageSize = pageSize, background = false) => { if (background) setRefreshing(true); else setLoading(true); setError(null); try { const result = await listApiWorkflows(targetPage, targetPageSize, typeFilter, statusFilter); setItems(result.items); setPagination(result) } catch (cause) { setError(cause instanceof Error ? cause.message : "加载 API workflow 失败") } finally { setLoading(false); setRefreshing(false) } }, [page, pageSize, statusFilter, typeFilter])
   useEffect(() => { const timer = window.setTimeout(() => { void load() }, 0); return () => window.clearTimeout(timer) }, [load])
   useEffect(() => { if (!items.some((item) => item.status === "QUEUED" || item.status === "RUNNING")) return; const timer = window.setInterval(() => void load(page, pageSize, true), 3000); return () => window.clearInterval(timer) }, [items, load, page, pageSize])
   const retry = useCallback(async (item: ApiWorkflowProcess) => { setRetryingId(item.id); try { await retryApiWorkflow(item); await load(page, pageSize, true); notification.success({ title: "已重新入队", description: "API workflow 将继续执行" }) } catch (cause) { notification.danger({ title: "重试失败", description: cause instanceof Error ? cause.message : "重试失败" }) } finally { setRetryingId(null) } }, [load, page, pageSize])
+
+  const applyFilter = (kind: "type" | "status", value: string) => {
+    if (kind === "type") setTypeFilter(value as typeof typeFilter)
+    else setStatusFilter(value as typeof statusFilter)
+    setPage(1)
+  }
 
   const pages = pageItems(pagination?.page ?? page, pagination?.totalPages ?? 1)
   const start = pagination?.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0
@@ -180,9 +212,10 @@ export default function ApiWorkflowsPage() {
     <div className="flex w-full min-w-0 flex-col gap-5">
       <section aria-labelledby="api-workflow-history-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h1 id="api-workflow-history-heading" className="text-base font-semibold">API workflow history</h1><p className="mt-1 text-xs text-muted-foreground">Every request keeps its own processing record, including retries and result navigation.</p></div>
+          <div><h1 id="api-workflow-history-heading" className="text-base font-semibold">API workflow history</h1><p className="mt-1 text-xs text-muted-foreground">按类型和状态查看 API workflow 的处理记录。</p></div>
           <Button variant="outline" size="sm" onClick={() => void load(page, pageSize, true)} disabled={refreshing}><RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />Refresh history</Button>
         </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3"><ListFilter className="size-4 text-muted-foreground" /><Select value={typeFilter} onValueChange={(value) => applyFilter("type", value)}><SelectTrigger size="sm" aria-label="Filter workflow type" className="h-8 w-[132px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{typeFilterOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select><Select value={statusFilter} onValueChange={(value) => applyFilter("status", value)}><SelectTrigger size="sm" aria-label="Filter workflow status" className="h-8 w-[132px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{statusFilterOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></div>
       </section>
       {error ? <Alert variant="destructive"><AlertTitle>API workflow 加载失败</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
       {loading ? <div className="space-y-3"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : items.length ? <>

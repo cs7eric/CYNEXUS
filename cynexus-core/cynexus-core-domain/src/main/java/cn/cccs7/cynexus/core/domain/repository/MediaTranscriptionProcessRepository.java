@@ -13,7 +13,11 @@ public interface MediaTranscriptionProcessRepository {
 
     List<MediaTranscriptionProcessBO> listActive(String ownerKey, int limit, int offset);
 
+    List<MediaTranscriptionProcessBO> listActive(String ownerKey, int limit, int offset, String status);
+
     long countActive(String ownerKey);
+
+    long countActive(String ownerKey, String status);
 
     Long create(MediaTranscriptionProcessBO process);
 

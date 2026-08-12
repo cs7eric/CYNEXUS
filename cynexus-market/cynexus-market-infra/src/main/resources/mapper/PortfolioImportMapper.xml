@@ -85,4 +85,41 @@
            and tenant_key = #{tenantKey}
            and deleted_at is null
     </select>
+
+    <select id="findTasksByOwnerStatus" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioImportTaskPO">
+        select id, principal_key, tenant_key, asset_id, idempotency_key, status, version, attempt_count, created_at,
+               queued_at, started_at, completed_at, confirmed_at, last_error_code, last_error_message
+          from cynexus_appl_market.portfolio_import_task
+         where principal_key = #{principalKey}
+           and tenant_key = #{tenantKey}
+           and deleted_at is null
+           <choose>
+             <when test="status == 'QUEUED'">and status in ('PENDING_DISPATCH', 'QUEUED', 'RETRY_WAITING')</when>
+             <when test="status == 'RUNNING'">and status = 'PROCESSING'</when>
+             <when test="status == 'WAITING_REVIEW'">and status = 'READY_FOR_REVIEW'</when>
+             <when test="status == 'SUCCEEDED'">and status = 'CONFIRMED'</when>
+             <when test="status == 'FAILED'">and status = 'FAILED'</when>
+             <when test="status == 'CANCELLED'">and status = 'CANCELLED'</when>
+             <otherwise>and 1 = 0</otherwise>
+           </choose>
+         order by created_at desc, id desc
+         limit #{limit} offset #{offset}
+    </select>
+
+    <select id="countTasksByOwnerStatus" resultType="long">
+        select count(1)
+          from cynexus_appl_market.portfolio_import_task
+         where principal_key = #{principalKey}
+           and tenant_key = #{tenantKey}
+           and deleted_at is null
+           <choose>
+             <when test="status == 'QUEUED'">and status in ('PENDING_DISPATCH', 'QUEUED', 'RETRY_WAITING')</when>
+             <when test="status == 'RUNNING'">and status = 'PROCESSING'</when>
+             <when test="status == 'WAITING_REVIEW'">and status = 'READY_FOR_REVIEW'</when>
+             <when test="status == 'SUCCEEDED'">and status = 'CONFIRMED'</when>
+             <when test="status == 'FAILED'">and status = 'FAILED'</when>
+             <when test="status == 'CANCELLED'">and status = 'CANCELLED'</when>
+             <otherwise>and 1 = 0</otherwise>
+           </choose>
+    </select>
 </mapper>

@@ -40,15 +40,33 @@ public class MediaTranscriptionProcessRepositoryImpl implements MediaTranscripti
 
     @Override
     public List<MediaTranscriptionProcessBO> listActive(String ownerKey, int limit, int offset) {
-        return jdbcTemplate.query(baseSelect(" AND owner_key = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"),
-                this::row, ownerKey, Math.max(1, Math.min(limit, 2_000)), Math.max(0, offset));
+        return listActive(ownerKey, limit, offset, null);
+    }
+
+    @Override
+    public List<MediaTranscriptionProcessBO> listActive(String ownerKey, int limit, int offset, String status) {
+        boolean filtered = status != null && !status.isBlank();
+        String suffix = " AND owner_key = ?" + (filtered ? " AND status = ?" : "")
+                + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
+        Object[] arguments = filtered
+                ? new Object[]{ownerKey, status, Math.max(1, Math.min(limit, 2_000)), Math.max(0, offset)}
+                : new Object[]{ownerKey, Math.max(1, Math.min(limit, 2_000)), Math.max(0, offset)};
+        return jdbcTemplate.query(baseSelect(suffix),
+                this::row, arguments);
     }
 
     @Override
     public long countActive(String ownerKey) {
+        return countActive(ownerKey, null);
+    }
+
+    @Override
+    public long countActive(String ownerKey, String status) {
+        boolean filtered = status != null && !status.isBlank();
+        String sql = "SELECT count(*) FROM media_transcription_process_history WHERE deleted_at IS NULL AND owner_key = ?"
+                + (filtered ? " AND status = ?" : "");
         Long count = jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM media_transcription_process_history WHERE deleted_at IS NULL AND owner_key = ?",
-                Long.class, ownerKey);
+                sql, Long.class, filtered ? new Object[]{ownerKey, status} : new Object[]{ownerKey});
         return count == null ? 0 : count;
     }
 

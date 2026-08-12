@@ -15,3 +15,4 @@
 - Added page DTOs and page metadata to Core/Market API workflow endpoints with default `page=1&pageSize=20`.
 - Added global Settings pagination with page-size selection and preserved current-page refresh/polling/retry behavior.
 - Core/Market Release images rebuilt and recreated successfully as `1.1.398-260812-RELEASE`; live endpoints returned paged responses. UI source build passed, but UI image rebuild was blocked because Docker Hub could not fetch `nginx:1.27-alpine`.
+- 2026-08-12: Added the filter/record identity phase. Type and status filters will be propagated through both workflow projections and rendered as explicit labels in each record.

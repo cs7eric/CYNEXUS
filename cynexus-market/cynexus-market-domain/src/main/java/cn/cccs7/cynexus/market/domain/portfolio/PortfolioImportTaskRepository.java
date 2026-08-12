@@ -15,4 +15,8 @@ public interface PortfolioImportTaskRepository {
     List<PortfolioImportTaskBO> findRecentByOwner(String principalKey, String tenantKey, int limit);
 
     PortfolioImportTaskPageBO findPageByOwner(String principalKey, String tenantKey, int page, int pageSize);
+
+    default PortfolioImportTaskPageBO findPageByOwner(String principalKey, String tenantKey, int page, int pageSize, String status) {
+        return findPageByOwner(principalKey, tenantKey, page, pageSize);
+    }
 }

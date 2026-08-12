@@ -58,13 +58,17 @@ export interface ApiWorkflowPage {
 const CORE_API = `${SERVICE_PREFIX.core}/api-workflows`
 const MARKET_API = `${SERVICE_PREFIX.market}/api-workflows`
 
-export async function listApiWorkflows(page = 1, pageSize = 20): Promise<ApiWorkflowPage> {
+export async function listApiWorkflows(page = 1, pageSize = 20, type = "all", status = "all"): Promise<ApiWorkflowPage> {
   const safePage = Math.max(1, page)
   const safePageSize = Math.max(1, pageSize)
   const fetchSize = Math.min(2_000, safePage * safePageSize)
+  const query = new URLSearchParams({ page: "1", pageSize: String(fetchSize) })
+  if (type !== "all") query.set("type", type)
+  if (status !== "all") query.set("status", status)
+  const queryString = query.toString()
   const [coreResponse, marketResponse] = await Promise.all([
-    fetchWithRetry(`${CORE_API}?page=1&pageSize=${fetchSize}`, { cache: "no-store" }),
-    fetchWithRetry(`${MARKET_API}?page=1&pageSize=${fetchSize}`, { cache: "no-store" }),
+    fetchWithRetry(`${CORE_API}?${queryString}`, { cache: "no-store" }),
+    fetchWithRetry(`${MARKET_API}?${queryString}`, { cache: "no-store" }),
   ])
   const [core, market] = await Promise.all([
     cynexusResult<ApiWorkflowPage>(coreResponse),

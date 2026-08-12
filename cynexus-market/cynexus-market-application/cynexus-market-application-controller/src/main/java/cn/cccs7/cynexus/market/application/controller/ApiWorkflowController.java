@@ -17,7 +17,9 @@ public class ApiWorkflowController {
 
     @GetMapping
     public Result<ApiWorkflowPageDTO> list(@RequestParam(defaultValue = "1") int page,
-                                           @RequestParam(defaultValue = "20") int pageSize) {
-        return Result.success(service.list(page, pageSize));
+                                           @RequestParam(defaultValue = "20") int pageSize,
+                                           @RequestParam(required = false) String type,
+                                           @RequestParam(required = false) String status) {
+        return Result.success(service.list(page, pageSize, type, status));
     }
 }

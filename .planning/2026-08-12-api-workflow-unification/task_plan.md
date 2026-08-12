@@ -12,6 +12,7 @@ Normalize URL transcription, AI trade import, and finance AI capture behind one 
 - [completed] Add focused tests, migration/docs, and verify versions
 - [completed] Build and deploy affected Release services, then commit the task changes
 - [completed] Add unified API workflow pagination with a default page size of 20
+- [in_progress] Add workflow type/status filters and explicit record identity labels
 
 ## Decisions
 
@@ -20,6 +21,7 @@ Normalize URL transcription, AI trade import, and finance AI capture behind one 
 - Expose result navigation metadata only; never expose transcription text, trade candidates, or ledger details in the workflow history response.
 - Preserve the existing `artifacts/` directory and do not add it to git.
 - API workflow pagination uses `page` and `pageSize` in each backend response. The UI merges the two service projections by creation time, then applies the global page window.
+- Workflow filters are applied before the global page window so filtered totals and page navigation remain consistent.
 
 ## Errors Encountered
 
