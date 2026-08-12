@@ -112,7 +112,8 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
 
     private static ApiWorkflowEventBO event(String type, String phase, ApiWorkflowStatus status, int progress,
                                              String message, String errorCode, String errorMessage, OffsetDateTime occurredAt) {
-        return new ApiWorkflowEventBO(type, phase, status, progress, message, errorCode, errorMessage, occurredAt);
+        return new ApiWorkflowEventBO(0, type, null, status == null ? null : status.name(), phase, status, progress,
+                message, null, null, errorCode, errorMessage, null, null, occurredAt);
     }
 
     private static ApiWorkflowStatus mapMediaStatus(String status) {

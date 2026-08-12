@@ -6,13 +6,20 @@ export type ApiWorkflowType = "MEDIA_TRANSCRIPTION" | "PORTFOLIO_TRADE_IMPORT" |
 export type ApiWorkflowStatus = "QUEUED" | "RUNNING" | "WAITING_REVIEW" | "SUCCEEDED" | "FAILED" | "CANCELLED"
 
 export interface ApiWorkflowEvent {
+  attemptNo?: number
   eventType: string
+  fromStatus?: string | null
+  toStatus?: string | null
   phase: string
   status: ApiWorkflowStatus
   progress: number
   message?: string | null
+  providerCode?: string | null
+  modelCode?: string | null
   errorCode?: string | null
   errorMessage?: string | null
+  details?: string | null
+  durationMs?: number | null
   occurredAt?: string | null
 }
 

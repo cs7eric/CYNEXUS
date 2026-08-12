@@ -53,9 +53,11 @@ public class ApiWorkflowAppService {
 
     private ApiWorkflowEventDTO event(PortfolioImportProcessHistoryBO item) {
         String status = mapStatus(item.toStatus());
-        return ApiWorkflowEventDTO.builder().eventType(mapEvent(item.eventType())).phase(phase(item.eventType())).status(status)
-                .progress(progress(null, item.eventType())).message(message(item.eventType())).errorCode(item.errorCode())
-                .errorMessage(item.errorMessage()).occurredAt(item.occurredAt()).build();
+        return ApiWorkflowEventDTO.builder().attemptNo(item.attemptNo()).eventType(mapEvent(item.eventType()))
+                .fromStatus(item.fromStatus()).toStatus(item.toStatus()).phase(phase(item.eventType())).status(status)
+                .progress(progress(null, item.eventType())).message(message(item.eventType())).providerCode(item.providerCode())
+                .modelCode(item.modelCode()).errorCode(item.errorCode()).errorMessage(item.errorMessage())
+                .details(item.details()).durationMs(item.durationMs()).occurredAt(item.occurredAt()).build();
     }
 
     private static String mapStatus(PortfolioImportStatus status) { return mapStatus(status == null ? null : status.name()); }

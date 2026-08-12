@@ -8,12 +8,19 @@ import lombok.Value;
 @Value
 @Builder
 public class ApiWorkflowEventDTO {
+    Integer attemptNo;
     String eventType;
+    String fromStatus;
+    String toStatus;
     String phase;
     ApiWorkflowStatus status;
     Integer progress;
     String message;
+    String providerCode;
+    String modelCode;
     String errorCode;
     String errorMessage;
+    String details;
+    Long durationMs;
     OffsetDateTime occurredAt;
 }

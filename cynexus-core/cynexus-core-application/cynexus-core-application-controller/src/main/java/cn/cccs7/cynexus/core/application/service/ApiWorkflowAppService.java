@@ -25,8 +25,11 @@ public class ApiWorkflowAppService {
                 .progress(item.progress()).attemptCount(item.attemptCount()).errorCode(item.errorCode()).errorMessage(item.errorMessage())
                 .resultRoute(item.resultRoute()).resultRef(item.resultRef()).createdAt(item.createdAt()).startedAt(item.startedAt())
                 .completedAt(item.completedAt()).updatedAt(item.updatedAt()).events(item.events().stream().map(event -> ApiWorkflowEventDTO.builder()
-                        .eventType(event.eventType()).phase(event.phase()).status(event.status()).progress(event.progress())
-                        .message(event.message()).errorCode(event.errorCode()).errorMessage(event.errorMessage()).occurredAt(event.occurredAt()).build()).toList()).build();
+                        .attemptNo(event.attemptNo()).eventType(event.eventType()).fromStatus(event.fromStatus()).toStatus(event.toStatus())
+                        .phase(event.phase()).status(event.status()).progress(event.progress()).message(event.message())
+                        .providerCode(event.providerCode()).modelCode(event.modelCode()).errorCode(event.errorCode())
+                        .errorMessage(event.errorMessage()).details(event.details()).durationMs(event.durationMs())
+                        .occurredAt(event.occurredAt()).build()).toList()).build();
     }
 
     private static ApiWorkflowType parseType(String value) {
