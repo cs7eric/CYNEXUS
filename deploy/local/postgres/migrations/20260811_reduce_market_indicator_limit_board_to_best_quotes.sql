@@ -1,0 +1,17 @@
+ALTER TABLE cynexus_appl_market.market_indicator_limit_board_snapshots
+    DROP COLUMN IF EXISTS bid_price_2,
+    DROP COLUMN IF EXISTS bid_volume_2,
+    DROP COLUMN IF EXISTS bid_price_3,
+    DROP COLUMN IF EXISTS bid_volume_3,
+    DROP COLUMN IF EXISTS bid_price_4,
+    DROP COLUMN IF EXISTS bid_volume_4,
+    DROP COLUMN IF EXISTS bid_price_5,
+    DROP COLUMN IF EXISTS bid_volume_5,
+    DROP COLUMN IF EXISTS ask_price_2,
+    DROP COLUMN IF EXISTS ask_volume_2,
+    DROP COLUMN IF EXISTS ask_price_3,
+    DROP COLUMN IF EXISTS ask_volume_3,
+    DROP COLUMN IF EXISTS ask_price_4,
+    DROP COLUMN IF EXISTS ask_volume_4,
+    DROP COLUMN IF EXISTS ask_price_5,
+    DROP COLUMN IF EXISTS ask_volume_5;

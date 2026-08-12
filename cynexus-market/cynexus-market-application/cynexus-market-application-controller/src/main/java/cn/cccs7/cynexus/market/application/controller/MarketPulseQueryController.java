@@ -134,8 +134,8 @@ public class MarketPulseQueryController {
     }
 
     @GetMapping("/limit-emotion")
-    public Result<MarketPulseLimitEmotionDTO> getLimitEmotion() {
-        return Result.success(marketPulseQueryAppService.getLimitEmotion());
+    public Result<MarketPulseLimitEmotionDTO> getLimitEmotion(@RequestParam(required = false) String date) {
+        return Result.success(marketPulseQueryAppService.getLimitEmotion(date == null || date.isBlank() ? null : LocalDate.parse(date)));
     }
 
     @PostMapping("/limit-emotion/refresh")

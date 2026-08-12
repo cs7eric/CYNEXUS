@@ -30,7 +30,6 @@ import { DailyActivityHeatmap } from "../components/daily-activity-heatmap";
 import { CashFlowChart } from "../components/cash-flow-chart";
 import { ExpenseHeatmap } from "../components/expense-heatmap";
 import { FinanceOverviewInsights } from "../components/finance-overview-insights";
-import { AccountSnapshot } from "../components/account-snapshot";
 import { FinancePageHeader } from "../components/page-header";
 import { formatMoney, monthBounds, trailingDaysBounds } from "../lib/format";
 
@@ -131,6 +130,12 @@ export default function FinanceOverviewPage() {
         description="从记账活跃度、现金流和账户结构，快速看清这一段时间的财务节奏。"
         onRefresh={() => void load()}
         loading={loading}
+        onManualEntrySaved={async () => {
+          await Promise.all([load(), loadActivity()]);
+        }}
+        onFinanceDataChanged={async () => {
+          await Promise.all([load(), loadActivity()]);
+        }}
       />
       <section className="rounded-xl border border-border/70 bg-muted/25 px-3 py-3 sm:px-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -303,9 +308,8 @@ function OverviewContent({
         <CashFlowChart overview={overview} />
         <ExpenseHeatmap overview={overview} />
       </div>
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <div className="grid min-w-0 items-start gap-4">
         <FinanceOverviewInsights overview={overview} />
-        <AccountSnapshot accounts={overview.accounts} />
       </div>
       <div className="flex items-start gap-2 border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
         <RefreshCw className="mt-0.5 size-3.5 shrink-0" />

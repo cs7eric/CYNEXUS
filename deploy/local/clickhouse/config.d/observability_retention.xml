@@ -1,0 +1,30 @@
+<clickhouse>
+    <!--
+      Trace-level logs and unbounded system log tables made routine market
+      ingestion needlessly write-heavy. Keep query diagnostics, but retain
+      only short operational windows and disable the two per-query profiling
+      streams that are not used by application behavior.
+    -->
+    <logger>
+        <level>information</level>
+    </logger>
+    <text_log>
+        <level>information</level>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </text_log>
+    <query_log>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
+    </query_log>
+    <trace_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </trace_log>
+    <metric_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </metric_log>
+    <asynchronous_metric_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </asynchronous_metric_log>
+    <part_log>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
+    </part_log>
+</clickhouse>

@@ -3,6 +3,8 @@ import { cynexusResult } from "@/services/common/cynexus-result"
 import { SERVICE_PREFIX } from "@/services/common/service-prefix"
 
 const STOCK_CHART_API_BASE = `${SERVICE_PREFIX.market}/stock-chart`
+const DATA_API_BASE = import.meta.env.VITE_CYNEXUS_DATA_API_BASE || "/data-api"
+const INTERNAL_TOKEN = import.meta.env.VITE_CYNEXUS_DATA_INTERNAL_TOKEN || ""
 
 export interface StockValuationRow {
   date: string
@@ -162,6 +164,16 @@ function toStr(value: unknown): string | null {
   return String(value)
 }
 
+/** Keep provider dates comparable with the UI's ISO trade-date key. */
+function normalizeDate(value: unknown): string {
+  const text = toStr(value)?.trim() ?? ""
+  if (!text) return ""
+  const compact = text.replace(/[年./]/g, "-").replace(/月/g, "-").replace(/日/g, "")
+  const match = compact.match(/^(\d{4})-?(\d{2})-?(\d{2})?/)
+  if (!match) return text
+  return `${match[1]}-${match[2]}${match[3] ? `-${match[3]}` : ""}`
+}
+
 function primitiveMap(raw: unknown): Record<string, number | string | null> {
   if (!raw || typeof raw !== "object") return {}
   return Object.fromEntries(
@@ -200,7 +212,7 @@ export async function fetchStockValuation(
     symbol: data.symbol,
     reqId: data.reqId,
     rows: (data.rows ?? []).slice(0, limit).map((item) => ({
-      date: toStr(item.date) ?? "",
+      date: normalizeDate(item.date),
       peTtm: toNum(item.peTtm),
       peBfw: toNum(item.peBfw),
       pbMrq: toNum(item.pbMrq),
@@ -229,11 +241,78 @@ export async function fetchStockFinanceReport(
     symbol: data.symbol,
     reportType,
     rows: (data.rows ?? []).map((row) => ({
-      rq: toStr(row.rq),
+      rq: normalizeDate(row.rq) || toStr(row.rq),
       fields: primitiveMap(row.fields),
     })),
     fetchedAt: toStr(data.fetchedAt),
     source: toStr(data.source) ?? "eltdx",
+  }
+}
+
+/**
+ * TDX occasionally returns only the report metadata for the income statement
+ * (no rows). Keep the TDX result as the primary source, but use the existing
+ * Sina report endpoint as a row-level fallback so one missing table does not
+ * make the financial research panel look incomplete.
+ */
+export async function fetchStockFinanceReportWithFallback(
+  symbol: string,
+  reportType: "zcfzb" | "lrb" | "xjllb" = "zcfzb",
+): Promise<StockFinanceReportResponse> {
+  let primary: StockFinanceReportResponse | null = null
+  let primaryError: unknown = null
+  try {
+    primary = await fetchStockFinanceReport(symbol, reportType)
+    if (primary.rows.length > 0) return primary
+  } catch (error) {
+    primaryError = error
+  }
+
+  const query = new URLSearchParams({
+    code: symbol,
+    report_type: reportType,
+    num: "8",
+  })
+  try {
+    const response = await fetchWithRetry(
+      `${DATA_API_BASE}/internal/a-stock/sina/financial-report?${query.toString()}`,
+      {
+        cache: "no-store",
+        headers: INTERNAL_TOKEN ? { "x-cynexus-internal-token": INTERNAL_TOKEN } : undefined,
+      },
+    )
+    if (!response.ok) {
+      if (primary) return primary
+      throw primaryError ?? new Error(`财务报表请求失败 (${response.status})`)
+    }
+    const payload = await response.json() as { items?: Array<Record<string, unknown>> }
+    const rows = (payload.items ?? [])
+      .map((item) => {
+        const rq = item.report_date ?? item.rq
+        if (rq == null || String(rq).trim() === "") return null
+        const fields = Object.fromEntries(
+          Object.entries(item).filter(([key]) => key !== "report_date" && key !== "rq"),
+        ) as Record<string, number | string | null>
+        return { rq: normalizeDate(rq) || String(rq), fields }
+      })
+      .filter((row): row is { rq: string; fields: Record<string, number | string | null> } => row !== null)
+    if (!rows.length) {
+      if (primary) return primary
+      throw primaryError ?? new Error("财务报表暂无可用数据")
+    }
+    return {
+      ...(primary ?? {
+        symbol,
+        reportType,
+        fetchedAt: null,
+        source: "sina-fallback",
+      }),
+      rows,
+      source: "sina-fallback",
+    }
+  } catch {
+    if (primary) return primary
+    throw primaryError ?? new Error("财务报表请求失败")
   }
 }
 
@@ -248,7 +327,7 @@ export async function fetchStockBusinessComposition(
   const limit = options.limit ?? data.items?.length ?? 0
   return {
     symbol: data.symbol,
-    reportDate: toStr(data.reportDate),
+    reportDate: normalizeDate(data.reportDate) || toStr(data.reportDate),
     items: (data.items ?? []).slice(0, limit).map((item) => ({
       category: toStr(item.category),
       subType: toStr(item.subType),
@@ -285,7 +364,7 @@ export async function fetchStockAnnouncements(symbol: string): Promise<StockAnno
   return {
     symbol: data.symbol,
     items: (data.items ?? []).map((item) => ({
-      issueDate: toStr(item.issueDate),
+      issueDate: normalizeDate(item.issueDate) || toStr(item.issueDate),
       title: toStr(item.title),
       typecode: toStr(item.typecode),
       typename: toStr(item.typename),
@@ -307,7 +386,7 @@ export async function fetchStockNews(symbol: string): Promise<StockNewsResponse>
   return {
     symbol: data.symbol,
     items: (data.items ?? []).map((item) => ({
-      issueDate: toStr(item.issueDate),
+      issueDate: normalizeDate(item.issueDate) || toStr(item.issueDate),
       title: toStr(item.title),
       recId: toStr(item.recId),
       tableid: toStr(item.tableid),
@@ -356,7 +435,7 @@ export async function fetchStockCompanyNews(
       rating: toStr(item.rating),
       analysts: toStr(item.analysts),
       recId: toStr(item.recId),
-      issueDate: toStr(item.issueDate),
+      issueDate: normalizeDate(item.issueDate) || toStr(item.issueDate),
       title: toStr(item.title),
       nflag: toStr(item.nflag),
       docHash: toStr(item.docHash),

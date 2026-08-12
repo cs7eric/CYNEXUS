@@ -1,3 +1,21 @@
+## Data Collector · Market Indicator
+
+- Route: `/data-collector/market-indicator`
+- Module: `cynexus-ui/src/views/data-collector/market-indicator/index.tsx`
+- Detail: `./market-indicator.detail.md`
+- Data Source: Market Indicator API snapshots, events, industry summaries, and replay data
+- APIs: `/api/market/indicator/latest`, `/api/market/indicator/transmission`, `/api/market/indicator/replay/*`
+- Components: `MarketContextStrip`, `TransmissionPanel`, `IndustryIndicatorTable`, `IndustryDetailPanel`, `LimitBoardList`, `IndicatorTable`, `EventFeed`, `ReplayTimeline`, `ReplayReviewPanel`
+
+## Data Collector · Limit Board Monitor
+
+- Route: `/data-collector/limit-board-monitor`
+- Module: `cynexus-ui/src/views/data-collector/limit-board-monitor/index.tsx`
+- Detail: `./limit-board-monitor.detail.md`
+- Data Source: PostgreSQL session summaries produced after the morning and afternoon 5-second capture windows
+- APIs: `/api/market/indicator/limit-board/summaries`
+- Components: `SummaryTable` (page-local)
+
 ## Market Information
 
 - Route: `/information`

@@ -227,8 +227,9 @@ export async function searchStockChart(query: string): Promise<StockSearchItem[]
   return data.items ?? []
 }
 
-export async function fetchStockSectors(code: string): Promise<StockSectorsResponse> {
+export async function fetchStockSectors(code: string, tradeDate?: string | null): Promise<StockSectorsResponse> {
   const query = new URLSearchParams({ symbol: code })
+  if (tradeDate) query.set("trade_date", tradeDate)
   const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/stock-sectors?${query.toString()}`, { cache: "no-store" })
   return cynexusResult(res)
 }
@@ -282,6 +283,12 @@ export async function fetchStockAuctionHistory(symbol: string, limit = 30): Prom
   return cynexusResult(res)
 }
 
+const INTRADAY_REQUEST_CACHE_TTL_MS = 15_000
+const intradayRequestCache = new Map<string, {
+  promise: Promise<StockIntradayResponse>
+  expiresAt: number
+}>()
+
 export async function fetchStockIntraday(params: {
   targetType: StockTargetType
   symbol: string
@@ -289,7 +296,9 @@ export async function fetchStockIntraday(params: {
   adjust: StockAdjust
   tradeDate?: string
   periods?: StockPeriod[]
+  strictDate?: boolean
 }): Promise<StockIntradayResponse> {
+  const periods = [...new Set(params.periods ?? [])].sort()
   const query = new URLSearchParams({
     target_type: params.targetType,
     symbol: params.symbol,
@@ -297,9 +306,28 @@ export async function fetchStockIntraday(params: {
     adjust: params.adjust,
   })
   if (params.tradeDate) query.set("trade_date", params.tradeDate)
-  if (params.periods?.length) query.set("periods", params.periods.join(","))
-  const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/intraday?${query.toString()}`, { cache: "no-store" })
-  return cynexusResult(res)
+  if (params.strictDate) query.set("strict_date", "true")
+  if (periods.length) query.set("periods", periods.join(","))
+  const cacheKey = query.toString()
+  const cached = intradayRequestCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.promise
+
+  const promise = (async () => {
+    const res = await fetchWithRetry(`${STOCK_CHART_API_BASE}/intraday?${cacheKey}`, { cache: "no-store" })
+    return cynexusResult<StockIntradayResponse>(res)
+  })()
+  intradayRequestCache.set(cacheKey, {
+    promise,
+    expiresAt: Date.now() + INTRADAY_REQUEST_CACHE_TTL_MS,
+  })
+  try {
+    return await promise
+  } catch (error) {
+    if (intradayRequestCache.get(cacheKey)?.promise === promise) {
+      intradayRequestCache.delete(cacheKey)
+    }
+    throw error
+  }
 }
 
 export async function fetchStockMeta(params: {

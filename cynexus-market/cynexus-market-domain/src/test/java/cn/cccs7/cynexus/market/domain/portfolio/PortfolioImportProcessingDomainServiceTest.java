@@ -112,6 +112,22 @@ class PortfolioImportProcessingDomainServiceTest {
     }
 
     @Test
+    void treatsModelAppendedZuluSuffixAsLocalScreenshotTime() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), new RecordingTasks(), candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{"
+                + "\"symbol\":\"600000\",\"side\":\"BUY\","
+                + "\"tradedAt\":\"2026-08-05T10:41:17Z\","
+                + "\"quantity\":\"100\",\"price\":\"10\"}]}", OffsetDateTime.now());
+
+        assertEquals("2026-08-05T10:41:17", candidates.values.getFirst().normalizedPayload().path("tradedAt").asText());
+    }
+
+    @Test
     void combinesTradeTimeOnlyValueWithImportDateWhenScreenshotHasNoCalendarDate() {
         PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
                 PortfolioImportStatus.PENDING_DISPATCH, 1, 0);
@@ -127,6 +143,22 @@ class PortfolioImportProcessingDomainServiceTest {
                 OffsetDateTime.parse("2026-08-05T02:02:00Z"));
 
         assertEquals("2026-08-05T10:41:17", candidates.values.getFirst().normalizedPayload().path("tradedAt").asText());
+    }
+
+    @Test
+    void normalizesGrossAmountMisreadAsFeeToConfiguredFee() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "u", "t", 2L, "k",
+                PortfolioImportStatus.PROCESSING, 1, 1);
+        RecordingCandidates candidates = new RecordingCandidates();
+        PortfolioImportProcessingDomainService service = new PortfolioImportProcessingDomainService(
+                new ObjectMapper(), new RecordingTasks(), candidates);
+
+        service.complete(task, "{\"isTradeScreenshot\":true,\"candidates\":[{"
+                + "\"symbol\":\"159796\",\"instrumentType\":\"ETF\",\"side\":\"SELL\","
+                + "\"tradedAt\":\"2026-08-07T22:55:00\",\"quantity\":\"500\","
+                + "\"price\":\"0.872\",\"fee\":\"436.00\"}]}", OffsetDateTime.now());
+
+        assertEquals("0.1", candidates.values.getFirst().normalizedPayload().path("fee").asText());
     }
 
     @Test

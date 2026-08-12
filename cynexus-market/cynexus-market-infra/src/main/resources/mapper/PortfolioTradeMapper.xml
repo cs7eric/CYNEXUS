@@ -11,4 +11,17 @@
                 #{tradedAt}, #{quantity}, #{price}, #{grossAmount}, #{totalFee}, #{status}, #{confirmedAt}, #{confirmedBy})
         on conflict do nothing
     </insert>
+
+    <update id="update">
+        update cynexus_appl_market.portfolio_trade
+           set symbol = #{trade.symbol}, security_name = #{trade.securityName},
+               instrument_type = #{trade.instrumentType}, side = #{trade.side},
+               traded_at = #{trade.tradedAt}, quantity = #{trade.quantity}, price = #{trade.price},
+               gross_amount = #{trade.grossAmount}, total_fee = #{trade.totalFee}, updated_at = now()
+         where id = #{trade.id}
+           and principal_key = #{principalKey}
+           and tenant_key = #{tenantKey}
+           and status = 'ACTIVE'
+           and deleted_at is null
+    </update>
 </mapper>

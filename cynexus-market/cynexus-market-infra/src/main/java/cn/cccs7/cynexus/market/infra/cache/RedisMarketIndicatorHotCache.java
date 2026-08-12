@@ -1,6 +1,5 @@
 package cn.cccs7.cynexus.market.infra.cache;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import cn.cccs7.cynexus.common.cache.redis.RedisJsonBundleCacheReader;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorBreadthPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorEventPO;
@@ -19,6 +18,7 @@ import java.util.Iterator;
 import java.util.stream.StreamSupport;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
 
 /** Reads the complete, atomically published Python capture bundle. */
 @Component
@@ -87,6 +87,16 @@ public class RedisMarketIndicatorHotCache {
         return transmission(tradeDate, "outcomes", limit);
     }
 
+    public Optional<Map<String, Object>> transmissionRuntime(LocalDate tradeDate) {
+        return transmissionBundle(tradeDate).map(root -> {
+            Map<String, Object> result = new LinkedHashMap<>();
+            JsonNode runtime = root.path("transmission").path("runtime");
+            runtime.properties().forEach(entry -> result.put(entry.getKey(), plainValue(entry.getValue())));
+            result.putIfAbsent("capturedAt", text(root, "captured_at"));
+            return result;
+        });
+    }
+
     private Optional<JsonNode> bundle(LocalDate requestedDate) {
         return bundleReader.readLatest(prefix, requestedDate);
     }
@@ -97,12 +107,12 @@ public class RedisMarketIndicatorHotCache {
             List<Map<String, Object>> result = new ArrayList<>();
             JsonNode runtime = root.path("transmission").path("runtime");
             if (values.isArray()) {
-                Iterator<JsonNode> iterator = values.elements();
+                Iterator<JsonNode> iterator = values.values().iterator();
                 while (iterator.hasNext() && result.size() < Math.max(1, limit)) {
                     JsonNode value = iterator.next();
                     if (!value.isObject()) continue;
                     Map<String, Object> row = new LinkedHashMap<>();
-                    value.fields().forEachRemaining(entry -> row.put(entry.getKey(), plainValue(entry.getValue())));
+                    value.properties().forEach(entry -> row.put(entry.getKey(), plainValue(entry.getValue())));
                     row.put("scope", text(runtime, "scope"));
                     row.put("universeMode", text(runtime, "universeMode"));
                     row.put("fullConfirmationRequired", runtime.path("fullConfirmationRequired").asBoolean(false));
@@ -115,7 +125,7 @@ public class RedisMarketIndicatorHotCache {
     }
 
     private Optional<JsonNode> transmissionBundle(LocalDate requestedDate) {
-        return bundleReader.readLatest(priorityPrefix, requestedDate).or(() -> bundle(requestedDate));
+        return bundle(requestedDate).or(() -> bundleReader.readLatest(priorityPrefix, requestedDate));
     }
 
     private MarketIndicatorSnapshotPO snapshot(JsonNode node, JsonNode root) {
@@ -180,7 +190,7 @@ public class RedisMarketIndicatorHotCache {
         }
         if (value.isObject()) {
             Map<String, Object> values = new LinkedHashMap<>();
-            value.fields().forEachRemaining(entry -> values.put(entry.getKey(), plainValue(entry.getValue())));
+            value.properties().forEach(entry -> values.put(entry.getKey(), plainValue(entry.getValue())));
             return values;
         }
         return value.toString();

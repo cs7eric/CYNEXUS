@@ -31,7 +31,12 @@ def test_required_jobs_are_registered() -> None:
         "sync_futures_position",
         "social_creator_discovery",
         "social_comment_sync",
+        "social_xiaohongshu_collection",
+        "social_douyin_collection",
         "market_indicator_priority_refresh",
+        "market_indicator_limit_board_capture",
+        "market_indicator_limit_board_finalize",
+        "rebuild_kline_1m_partitions",
     ]:
         assert key in JOB_REGISTRY
 

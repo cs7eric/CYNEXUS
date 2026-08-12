@@ -103,7 +103,16 @@ public final class MarketPulseQueryDomainService {
     }
 
     public LimitEmotionQuery latestLimitEmotion() {
-        MarketLimitDailySnapshotBO row = repository.findLatestLimitEmotion().orElse(null);
+        return limitEmotion(null);
+    }
+
+    public LimitEmotionQuery limitEmotion(LocalDate requestedTradeDate) {
+        MarketLimitDailySnapshotBO row = requestedTradeDate == null
+                ? repository.findLatestLimitEmotion().orElse(null)
+                : repository.findLimitEmotionByDate(requestedTradeDate)
+                        .or(() -> repository.findLimitEmotionBefore(requestedTradeDate))
+                        .or(() -> repository.findLatestLimitEmotion())
+                        .orElse(null);
         if (row == null) return new LimitEmotionQuery(null, List.of(), List.of(), List.of());
         return new LimitEmotionQuery(row,
                 safeList(repository.listLimitStocks(row.getTradeDate(), "limit_up", LIMIT_STOCK_DETAIL_LIMIT)),

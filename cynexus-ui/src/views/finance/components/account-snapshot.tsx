@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { accountTypeLabel, formatMoney } from "../lib/format";
+import { CreditAccountActions } from "./credit-account-actions";
 
 const accountTypes: Array<{
   value: FinanceAccount["accountType"];
@@ -50,7 +51,13 @@ const creditAccountTypes = new Set<FinanceAccount["accountType"]>([
   "douyin_monthly",
   "credit_card",
 ]);
-export function AccountSnapshot({ accounts }: { accounts: FinanceAccount[] }) {
+export function AccountSnapshot({
+  accounts,
+  onChanged,
+}: {
+  accounts: FinanceAccount[];
+  onChanged?: () => Promise<void> | void;
+}) {
   const isMobile = useIsMobile();
   const [overrides, setOverrides] = useState<Record<number, FinanceAccount>>(
     {},
@@ -197,7 +204,7 @@ export function AccountSnapshot({ accounts }: { accounts: FinanceAccount[] }) {
         direction={isMobile ? "bottom" : "right"}
       >
         {selected ? (
-          <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:sm:max-w-lg data-[vaul-drawer-direction=bottom]:max-h-[88vh]">
+          <DrawerContent className="data-[vaul-drawer-direction=right]:w-full data-[vaul-drawer-direction=right]:sm:max-w-xl data-[vaul-drawer-direction=bottom]:max-h-[88vh]">
             <DrawerHeader className="border-b border-border/60">
               <div className="flex items-start gap-3">
                 <AccountIcon account={selected} size="lg" />
@@ -217,10 +224,19 @@ export function AccountSnapshot({ accounts }: { accounts: FinanceAccount[] }) {
               {editing ? (
                 <AccountEditForm account={editing} onSubmit={save} />
               ) : (
-                <AccountDetails
-                  account={selected}
-                  onEdit={() => beginEdit(selected)}
-                />
+                <>
+                  <AccountDetails
+                    account={selected}
+                    onEdit={() => beginEdit(selected)}
+                  />
+                  {selected.nature === "credit" ? (
+                    <CreditAccountActions
+                      account={selected}
+                      accounts={active}
+                      onChanged={onChanged}
+                    />
+                  ) : null}
+                </>
               )}
             </ScrollArea>
             <DrawerFooter className="border-t border-border/60 bg-background/95 sm:flex-row sm:justify-end">

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.kline.aggregate_periods import run
 from cynexus_data.runtime.context import PipelineContext
@@ -63,3 +65,14 @@ def test_aggregate_periods_executes_clickhouse_insert_when_not_dry_run() -> None
     assert result["rows_written"] == 3
     assert result["period_results"] == [{"period": 5, "expected_rows": 3, "rows_written": 3}]
     assert client.command_count == 2
+
+
+def test_aggregate_periods_rejects_unbounded_replace_without_explicit_maintenance_flag() -> None:
+    client = FakeClickHouseClient()
+    context = PipelineContext(hooks=FakeHooks(client))
+
+    with pytest.raises(ValueError, match="requires trade_date/start_date/end_date or symbols"):
+        run(context, JobRequest(job_key="aggregate_kline_periods", dry_run=False, params={"periods": [5]}))
+
+    assert client.query_count == 0
+    assert client.command_count == 0

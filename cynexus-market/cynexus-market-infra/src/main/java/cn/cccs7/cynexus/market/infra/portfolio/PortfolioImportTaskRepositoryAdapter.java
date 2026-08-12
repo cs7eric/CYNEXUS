@@ -84,7 +84,7 @@ public class PortfolioImportTaskRepositoryAdapter implements PortfolioImportTask
 
     private PortfolioImportTaskBO toDomain(PortfolioImportTaskPO po) {
         return PortfolioImportTaskBO.rehydrate(po.getId(), po.getPrincipalKey(), po.getTenantKey(), po.getAssetId(),
-                po.getIdempotencyKey(), PortfolioImportStatus.valueOf(po.getStatus()), po.getVersion(), po.getAttemptCount(),
+                po.getIdempotencyKey(), PortfolioImportStatus.valueOf(po.getStatus()), po.getVersion(), po.getAttemptCount(), po.getCreatedAt(),
                 po.getQueuedAt(), po.getStartedAt(), po.getCompletedAt(), po.getConfirmedAt(),
                 po.getLastErrorCode(), po.getLastErrorMessage());
     }

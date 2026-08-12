@@ -26,7 +26,7 @@ class PortfolioCandidateEditPolicyTest {
         var normalized = PortfolioCandidateEditPolicy.normalize(mapper, "159796", "电池", "ETF", "BUY",
                 "2026-07-31T09:30:10", "200", "0.84", "0", null);
 
-        assertEquals("2026-07-31T09:30:10Z", normalized.path("tradedAt").asText());
+        assertEquals("2026-07-31T09:30:10+08:00", normalized.path("tradedAt").asText());
         assertEquals("0.1", normalized.path("fee").asText());
     }
 

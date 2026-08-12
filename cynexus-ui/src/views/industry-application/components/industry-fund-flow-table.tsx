@@ -218,7 +218,7 @@ function displaySource(source: string | null | undefined, sourceKind: string | n
 // ---------------------------------------------------------------------------
 // 主组件
 // ---------------------------------------------------------------------------
-export function IndustryFundFlowTable() {
+export function IndustryFundFlowTable({ tradeDate }: { tradeDate?: string } = {}) {
   const [data, setData] = useState<IndustryFundFlowResponse | null>(null)
   const [loading, setLoading] = useState(false)
   // 点击某行业行 -> 弹出该行业成分股 drawer
@@ -243,8 +243,8 @@ export function IndustryFundFlowTable() {
       }
       try {
         const payload = refresh
-          ? await refreshIndustryFundFlow()
-          : await fetchIndustryFundFlow(top ? { top } : {})
+          ? await refreshIndustryFundFlow({ tradeDate, ...(top ? { top } : {}) })
+          : await fetchIndustryFundFlow({ tradeDate, ...(top ? { top } : {}) })
         if (!payload.ok) {
           throw new Error(payload.error || "加载失败")
         }
@@ -259,11 +259,13 @@ export function IndustryFundFlowTable() {
         setRefreshing(false)
       }
     },
-    [top],
+    [top, tradeDate],
   )
 
   // 首次 / top 变化时拉一次 (refresh 走手动按钮)
   useEffect(() => {
+    // 数据加载函数在调用后会立即进入 loading 状态，这是该组件既有的加载契约。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(false)
   }, [load])
 

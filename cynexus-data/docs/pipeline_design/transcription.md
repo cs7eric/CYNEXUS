@@ -38,3 +38,22 @@ Out of scope:
 - Ask/Q&A.
 - Prompt management.
 - AI provider management.
+
+## Optional Alibaba URL Provider
+
+Alibaba Cloud DashScope Paraformer can be enabled for `remote_parse` without
+changing the existing local Faster Whisper provider:
+
+```text
+CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER=cynexus_data.pipelines.transcription.providers.aliyun_paraformer:AliyunParaformerTranscriber
+DASHSCOPE_API_KEY=<secret>
+DASHSCOPE_ENDPOINT=https://llm-0iqmce4s7al5sk6j.cn-beijing.maas.aliyuncs.com/api/v1
+DASHSCOPE_MODEL=paraformer-v2
+```
+
+When the remote provider variable is empty, the existing download and local
+transcription flow remains active. When it is set, `download_url` is submitted
+directly to Alibaba, so the executor does not download the media first. The
+URL must be publicly reachable by Alibaba and remain valid until the async
+task completes. Local uploads continue to use
+`CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER`.

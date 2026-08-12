@@ -219,7 +219,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 标题或标签包含历史成交、成交明细、成交记录、当日成交、交易记录、委托成交，或图片中出现多行证券名称/代码、成交日期或时间、买入/卖出、成交价、成交量/数量、成交额/金额等组合，都属于交易截图。
                 只要图片中存在一行或多行可辨认的股票或 ETF 成交记录，isTradeScreenshot 必须为 true；证券代码缺失、只有证券名称、名称包含 ETF、日期只有部分或费用未展示，都不能把图片判为非交易截图。
                 一张图片可能包含多笔交易，必须拆分为 candidates 数组。每条都必须给出 instrumentType：普通 A 股股票为 STOCK；交易所上市 ETF（即使名称没有“ETF”字样，例如科创、消费电子、电池等主题 ETF）为 ETF。不要根据六位代码前缀猜测类别，优先使用证券名称和券商页面的基金/ETF 标识；无法可靠判断时使用 null 并在 warnings 中说明。
-                将买入、买、买进映射为 BUY，将卖出、卖、卖出映射为 SELL。若页面顶部、页眉、筛选条件或表格标题出现一个适用于整张成交表的日期，即使每一行只显示成交时间，也必须把该共享日期应用到对应每一行，输出 tradedAt=YYYY-MM-DDTHH:mm:ss；不要因为日期没有在每行重复出现而只输出 HH:mm:ss。只有截图确实没有可确定的日期时，tradedAt 才可以只保留可见日期或返回 null，并在 warnings 中说明。字段不可辨认时返回 null 并在 warnings 中说明，不要猜测、补全或计算持仓收益。
+                将买入、买、买进映射为 BUY，将卖出、卖、卖出映射为 SELL。fee 只能填写明确位于“手续费”或“佣金”列且与当前行对齐的数值；“成交额”“成交金额”“金额”“发生金额”列的数值绝对不能写入 fee，无法确认手续费时返回 null。若页面顶部、页眉、筛选条件或表格标题出现一个适用于整张成交表的日期，即使每一行只显示成交时间，也必须把该共享日期应用到对应每一行，输出 tradedAt=YYYY-MM-DDTHH:mm:ss；不要因为日期没有在每行重复出现而只输出 HH:mm:ss。只有截图确实没有可确定的日期时，tradedAt 才可以只保留可见日期或返回 null，并在 warnings 中说明。字段不可辨认时返回 null 并在 warnings 中说明，不要猜测、补全或计算持仓收益。
                 只输出合法 JSON，不要 Markdown、思考过程或额外文字。格式：{"isTradeScreenshot":true,"candidates":[{"rowNo":1,"symbol":null,"securityName":null,"instrumentType":"STOCK","side":null,"tradedAt":null,"quantity":null,"price":null,"fee":null,"externalTradeNo":null,"confidence":0.0,"evidence":{},"warnings":[]}],"warnings":[]}。
                 """ + (candidateContext == null ? "" : candidateContext);
     }

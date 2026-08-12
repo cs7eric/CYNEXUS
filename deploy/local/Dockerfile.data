@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-live.txt
 
 COPY cynexus-data/pyproject.toml /app/pyproject.toml
-COPY cynexus-data/src /app/src
+COPY cynexus-data/src/ /app/src/
 COPY cynexus-data/sql /app/sql
 
 RUN --mount=type=cache,target=/root/.cache/pip \

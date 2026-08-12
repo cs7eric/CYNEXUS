@@ -17,6 +17,7 @@ import cn.cccs7.cynexus.market.infra.client.ClickHouseStockChartClient;
 import cn.cccs7.cynexus.market.infra.client.HttpStockChartF10DataClient;
 import cn.cccs7.cynexus.market.infra.client.PostgresAStockSkillDataClient;
 import cn.cccs7.cynexus.market.infra.client.TdxLocalDayKlineClient;
+import cn.cccs7.cynexus.market.infra.cache.RedisTradeReviewTimeshareCache;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -46,6 +47,8 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     private final ClickHouseStockChartClient clickHouseStockChartClient;
     private final HttpStockChartF10DataClient stockChartF10DataClient;
     private final PostgresAStockSkillDataClient postgresAStockSkillDataClient;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RedisTradeReviewTimeshareCache tradeReviewTimeshareCache;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StockChartQueryRepositoryImpl(StockBasicBasicService stockBasicBasicService,
@@ -146,6 +149,26 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     }
 
     @Override
+    public Optional<BigDecimal> findPreviousDailyClose(String targetType, String symbol, LocalDate tradeDate) {
+        if (tradeDate == null) {
+            return Optional.empty();
+        }
+        MarketSymbol marketSymbol = normalizeMarketSymbol(targetType, symbol);
+        BigDecimal priceScale = "etf".equalsIgnoreCase(targetType) ? BigDecimal.TEN : BigDecimal.ONE;
+        return clickHouseStockChartClient.listDailyBars(
+                        marketSymbol.market(),
+                        marketSymbol.symbol(),
+                        tradeDate.minusDays(21),
+                        tradeDate.minusDays(1))
+                .stream()
+                .filter(bar -> bar.getTradeDate() != null && bar.getTradeDate().isBefore(tradeDate))
+                .max(java.util.Comparator.comparing(ClickHouseStockChartClient.DailyBar::getTradeDate))
+                .map(ClickHouseStockChartClient.DailyBar::getClose)
+                .filter(value -> value != null && value.signum() > 0)
+                .map(value -> value.divide(priceScale));
+    }
+
+    @Override
     public Optional<LocalDate> findLatestMinuteDate(String targetType, String symbol, LocalDate requestedDate) {
         MarketSymbol marketSymbol = normalizeMarketSymbol(targetType, symbol);
         return clickHouseStockChartClient.findLatestMinuteDate(marketSymbol.market(), marketSymbol.symbol(), requestedDate);
@@ -171,6 +194,23 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     @Override
     public List<StockChartBO.IntradayPoint> listTimeshare(String targetType, String symbol, LocalDate tradeDate) {
         MarketSymbol marketSymbol = normalizeMarketSymbol(targetType, symbol);
+        if (tradeReviewTimeshareCache != null) {
+            var cached = tradeReviewTimeshareCache.get(targetType, marketSymbol.market(), marketSymbol.symbol(), tradeDate);
+            if (cached.isPresent()) {
+                return cached.get().stream()
+                        .map(row -> StockChartBO.IntradayPoint.builder()
+                                .timestamp(row.getTimestamp())
+                                .tradeDate(row.getTradeDate())
+                                .timeLabel(row.getTimeLabel())
+                                .price(row.getPrice())
+                                .open(row.getOpen())
+                                .avgPrice(row.getAvgPrice())
+                                .volume(row.getVolume())
+                                .turnover(row.getTurnover())
+                                .build())
+                        .toList();
+            }
+        }
         return clickHouseStockChartClient.listTimeshare(marketSymbol.market(), marketSymbol.symbol(), tradeDate).stream()
                 .map(row -> StockChartBO.IntradayPoint.builder()
                         .timestamp(row.getTimestamp())
@@ -261,18 +301,25 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
     }
 
     @Override
-    public StockChartBO.StockSectors stockSectors(String symbol) {
+    public StockChartBO.StockSectors stockSectors(String symbol, LocalDate tradeDate) {
         String code = normalizeCode(symbol);
         List<StockChartBO.SectorEntry> industries = new ArrayList<>();
         List<StockChartBO.SectorEntry> concepts = new ArrayList<>();
         List<StockChartBO.SectorEntry> styles = new ArrayList<>();
-        for (StockSectorJoinedPO row : stockSectorMapper.listJoinedByCode(code)) {
+        List<StockSectorJoinedPO> tdxRows = stockSectorMapper.listJoinedByCode(code, tradeDate);
+        List<StockSectorJoinedPO> thsRows = stockSectorMapper.listThsJoinedByCode(code, tradeDate);
+        List<StockSectorJoinedPO> joinedRows = concatDistinctSectorRows(tdxRows, thsRows);
+        Map<String, ClickHouseStockChartClient.DailyQuote> dailyQuotes = sectorDailyQuotes(joinedRows, tradeDate);
+        for (StockSectorJoinedPO row : joinedRows) {
+            ClickHouseStockChartClient.DailyQuote quote = dailyQuotes.get(sectorQuoteKey(sectorMarketSymbol(row)));
             StockChartBO.SectorEntry entry = StockChartBO.SectorEntry.builder()
                     .sectorId(row.getSectorId())
                     .name(row.getName())
                     .topicId(row.getTopicId())
                     .categoryRaw(row.getCategoryRaw())
-                    .changePercent(null)
+                    .changePercent(row.getChangePercent() != null
+                            ? row.getChangePercent()
+                            : quote == null ? null : quote.getChangePct())
                     .source(row.getSource())
                     .build();
             if (Integer.valueOf(0).equals(row.getCategoryRaw())) {
@@ -289,8 +336,63 @@ public class StockChartQueryRepositoryImpl implements StockChartQueryRepository 
                 .industries(industries)
                 .concepts(concepts)
                 .styles(styles)
-                .source(count == 0 ? "postgres.sec_stock_sector-empty" : "postgres.sec_stock_sector")
+                .source(count == 0
+                        ? "postgres.sec_stock_sector+ths_industry_constituent_snapshot-empty"
+                        : thsRows.isEmpty()
+                        ? "postgres.sec_stock_sector"
+                        : "postgres.sec_stock_sector+ths_industry_constituent_snapshot")
                 .build();
+    }
+
+    private Map<String, ClickHouseStockChartClient.DailyQuote> sectorDailyQuotes(
+            List<StockSectorJoinedPO> rows,
+            LocalDate tradeDate
+    ) {
+        List<ClickHouseStockChartClient.MarketSymbol> symbols = rows.stream()
+                .map(this::sectorMarketSymbol)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (symbols.isEmpty()) {
+            return Map.of();
+        }
+        return clickHouseStockChartClient.listLatestDailyQuotesOnOrBefore(symbols, tradeDate).stream()
+                .collect(Collectors.toMap(
+                        quote -> sectorQuoteKey(new ClickHouseStockChartClient.MarketSymbol(
+                                quote.getMarket(), quote.getSymbol())),
+                        Function.identity(),
+                        (left, right) -> left
+                ));
+    }
+
+
+    private ClickHouseStockChartClient.MarketSymbol sectorMarketSymbol(StockSectorJoinedPO row) {
+        String candidate = isSixDigitCode(row.getTopicId()) ? row.getTopicId() : row.getSectorId();
+        if (!isSixDigitCode(candidate)) {
+            return null;
+        }
+        String code = normalizeCode(candidate);
+        return new ClickHouseStockChartClient.MarketSymbol(code.startsWith("399") ? "SZ" : "SH", code);
+    }
+
+    private String sectorQuoteKey(ClickHouseStockChartClient.MarketSymbol symbol) {
+        return symbol == null ? "" : symbol.market() + ":" + symbol.symbol();
+    }
+
+    private boolean isSixDigitCode(String value) {
+        return value != null && value.trim().matches("\\d{6}");
+    }
+
+    private List<StockSectorJoinedPO> concatDistinctSectorRows(List<StockSectorJoinedPO> tdxRows,
+                                                               List<StockSectorJoinedPO> thsRows) {
+        Map<String, StockSectorJoinedPO> rows = new java.util.LinkedHashMap<>();
+        for (StockSectorJoinedPO row : tdxRows == null ? List.<StockSectorJoinedPO>of() : tdxRows) {
+            rows.putIfAbsent("tdx:" + row.getSectorId(), row);
+        }
+        for (StockSectorJoinedPO row : thsRows == null ? List.<StockSectorJoinedPO>of() : thsRows) {
+            rows.putIfAbsent("ths:" + row.getSectorId(), row);
+        }
+        return List.copyOf(rows.values());
     }
 
     @Override

@@ -301,14 +301,23 @@ def _market_context_from_request(
     if request.params.get("benchmark_return_pct") is not None:
         indices.setdefault("benchmarkReturnPct", float(request.params["benchmark_return_pct"]))
     now = captured_at
+    # Never mix a daily/weekly benchmark return into a seconds-level signal.
+    # Only an explicitly intraday (<=5 minute) benchmark may be used as the
+    # market-excess baseline.  Otherwise the signal remains unbenchmarked and
+    # the UI can surface that missing evidence honestly.
     stored_indices = dict(supplied.get("indices") or {})
     benchmark_return = None
     for key in ("000300", "000001", "SH000300", "399001"):
         candidate = stored_indices.get(key)
-        if isinstance(candidate, dict) and candidate.get("windowDays") in (None, 5):
+        if not isinstance(candidate, dict):
+            continue
+        window_minutes = candidate.get("windowMinutes")
+        window_days = candidate.get("windowDays")
+        intraday = window_minutes is not None and float(window_minutes) <= 5
+        zero_day = window_days is not None and float(window_days) == 0
+        if (intraday or zero_day) and candidate.get("returnPct") is not None:
             benchmark_return = candidate.get("returnPct")
-            if benchmark_return is not None:
-                break
+            break
     if benchmark_return is not None:
         indices.setdefault("benchmarkReturnPct", float(benchmark_return))
     sentiment_payload = dict(supplied.get("sentiment") or {})

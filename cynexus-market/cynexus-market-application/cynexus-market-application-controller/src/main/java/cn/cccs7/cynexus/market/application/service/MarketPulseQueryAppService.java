@@ -381,7 +381,13 @@ public class MarketPulseQueryAppService {
     }
 
     public MarketPulseLimitEmotionDTO getLimitEmotion() {
-        MarketPulseQueryDomainService.LimitEmotionQuery limit = queryDomainService.latestLimitEmotion();
+        return getLimitEmotion(null);
+    }
+
+    public MarketPulseLimitEmotionDTO getLimitEmotion(LocalDate requestedTradeDate) {
+        MarketPulseQueryDomainService.LimitEmotionQuery limit = requestedTradeDate == null
+                ? queryDomainService.latestLimitEmotion()
+                : queryDomainService.limitEmotion(requestedTradeDate);
         MarketLimitDailySnapshotBO row = limit.snapshot();
         if (row == null) {
             return MarketPulseLimitEmotionDTO.builder().ok(false).error("limit emotion is empty").build();

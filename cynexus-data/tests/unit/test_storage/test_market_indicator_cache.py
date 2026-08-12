@@ -57,6 +57,9 @@ class FakeRedis:
     def zrem(self, key, member):
         self.zsets.get(key, {}).pop(member, None)
 
+    def delete(self, key):
+        return self.values.pop(key, None) is not None
+
     def keys(self, pattern):
         prefix = pattern.removesuffix("*")
         return [key for key in self.zsets if key.startswith(prefix)]
@@ -119,6 +122,34 @@ def test_flush_acknowledges_only_after_repository_commit():
     assert result["snapshots"] == 1
     assert cache.pending_count(captured_at.date()) == 0
     assert len(repo.saved) == 1
+
+
+def test_flush_deletes_acked_nonlatest_capture_but_keeps_latest_bundle():
+    client = FakeRedis()
+    cache = MarketIndicatorCache(client)
+    first = datetime.now(timezone.utc) - timedelta(seconds=360)
+    latest = first + timedelta(seconds=60)
+    cache.stage_capture(
+        captured_at=first,
+        rows=[{"code": "000001", "captured_at": first}],
+        events=[],
+        industry_rows=[],
+        candidate_rows=[],
+        source="eltdx.quotes",
+    )
+    cache.stage_capture(
+        captured_at=latest,
+        rows=[{"code": "000001", "captured_at": latest}],
+        events=[],
+        industry_rows=[],
+        candidate_rows=[],
+        source="eltdx.quotes",
+    )
+
+    cache.flush_due(FakeRepository(), min_age_seconds=180, max_captures=1)
+
+    assert cache._capture_key(first.date().isoformat(), first.isoformat()) not in client.values
+    assert cache._capture_key(latest.date().isoformat(), latest.isoformat()) in client.values
 
 
 def test_flush_keeps_pending_capture_when_repository_fails():

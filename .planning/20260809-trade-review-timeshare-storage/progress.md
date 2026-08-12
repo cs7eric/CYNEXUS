@@ -1,0 +1,21 @@
+# Progress
+
+- 2026-08-09: Restored the existing trade-review workbench plan and confirmed its completed serving/UI foundation.
+- 2026-08-09: Verified live ClickHouse schemas. The 1m K fact does not contain turnover rate or volume ratio; the empty timeshare fact currently defines both.
+- 2026-08-09: Started an implementation-ready cross-module storage and cache design. No production code or runtime state has been changed.
+- 2026-08-09: Loaded backend, frontend, Agent-tool, and shared Redis guidance. Confirmed the design must use durable ClickHouse fallback and explicitly excludes raw timeshare Agent exposure.
+- 2026-08-09: Located existing source/pipeline, stock-chart timeshare DTO/BO, trade-review page, and common Redis primitives through CodeGraph.
+- 2026-08-09: Inspected the existing intraday-detail pipeline, job wrapper, direct trigger API, stock-chart DTO/client, and UI fallback call sites.
+- 2026-08-09: Found that the existing market "timeshare" SQL still reconstructs from 1m K. This is now a mandatory replacement point in the plan.
+- 2026-08-09: Confirmed available selection inputs: explicit limit pools, THS constituent snapshots, daily screening facts, and tenant-scoped portfolio trades. Identified the need for a dedicated post-close scheduler job.
+- 2026-08-09: Inspected source normalization and scheduler resolver defaults; identified provider-provenance and raw-payload cleanup requirements.
+- 2026-08-09: Probed live Easy-TDX and eltdx history-minute responses. Both returned 240 price/volume points but no usable average price or turnover amount, creating an explicit VWAP enrichment requirement.
+- 2026-08-09: Evaluated eltdx's recent-history average-price protocol and rejected it for v1 due to incorrect/empty date behavior. Selected deterministic minute-K amount enrichment without replacing raw timeshare prices.
+- 2026-08-09: Verified stock raw-timeshare/1m-K volume-unit alignment and confirmed industry codes have no raw historical-timeshare response. Split the durable design into stock/ETF raw timeshare and index/industry existing 1m K facts.
+- 2026-08-09: Verified the raw-timeshare/K-line timestamp convention mismatch and fixed the plan around a canonical minute-start replay grid.
+- 2026-08-09: Completed Redis producer/consumer boundary analysis. Chose new binary primitives in common cache and the Python Redis hook, avoiding changes to existing string-cache semantics.
+- 2026-08-09: Completed the implementation-ready solution covering selection, PostgreSQL lineage, compact ClickHouse facts, amount/VWAP enrichment, binary Redis, Java serving, UI cutover, health/reload, tests, rollout, and capacity.
+- 2026-08-09: Live archive execution exposed a per-target synchronous ClickHouse mutation bottleneck. The active optimization phase will batch cleanup, skip existing Redis series, and preserve canonical slot calculation while omitting per-target 1m amount lookups.
+- 2026-08-09: Implemented batch ClickHouse cleanup, insert-only per-target writes, Redis cache skipping, and BJ mapping for 920xxx symbols. Focused tests pass; Data Executor rebuilt/recreated and the optimized archive run is active.
+- 2026-08-09: Removed per-symbol TDX endpoint probing by reusing the persisted best host; this addresses the remaining five-second-per-symbol cadence caused by the locked `from_best_host()` path.
+- 2026-08-09: Rebuilt/recreated the Data Executor with batch cleanup plus cached-target skipping and restarted the archive using 16 workers. The optimized run is processing roughly 50+ targets per 20 seconds in live verification.

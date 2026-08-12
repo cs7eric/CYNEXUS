@@ -57,8 +57,8 @@ public class StockChartQueryAppService {
                 .build();
     }
 
-    public StockChartDTO.StockSectorsResponseDTO stockSectors(String symbol) {
-        StockChartBO.StockSectors value = queryDomainService.stockSectors(symbol);
+    public StockChartDTO.StockSectorsResponseDTO stockSectors(String symbol, String tradeDate) {
+        StockChartBO.StockSectors value = queryDomainService.stockSectors(symbol, tradeDate);
         List<StockChartDTO.StockSectorEntryDTO> industries = value.getIndustries() == null
                 ? List.of()
                 : value.getIndustries().stream().map(this::stockSectorEntry).toList();
@@ -133,8 +133,13 @@ public class StockChartQueryAppService {
 
     public StockChartDTO.IntradayDTO intraday(String targetType, String symbol, String name, String adjust,
                                               String tradeDate, List<String> periods) {
+        return intraday(targetType, symbol, name, adjust, tradeDate, periods, false);
+    }
+
+    public StockChartDTO.IntradayDTO intraday(String targetType, String symbol, String name, String adjust,
+                                              String tradeDate, List<String> periods, boolean strictDate) {
         StockChartQueryDomainService.IntradayResult result = queryDomainService.intraday(
-                targetType, symbol, name, adjust, tradeDate, periods);
+                targetType, symbol, name, adjust, tradeDate, periods, strictDate);
         return StockChartDTO.IntradayDTO.builder()
                 .ok(true)
                 .symbol(result.symbol())
@@ -146,6 +151,7 @@ public class StockChartQueryAppService {
                 .source(result.source())
                 .tradeDate(result.tradeDate())
                 .requestedTradeDate(result.requestedTradeDate())
+                .preClose(result.preClose())
                 .timeshare(result.timeshare().stream().map(this::intradayPoint).toList())
                 .minuteBars(minuteBars(result.minuteBars().entrySet().stream()
                         .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey,

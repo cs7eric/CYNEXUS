@@ -70,8 +70,62 @@ public final class MarketIndicatorDTO {
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class Overview {
         private Boolean ok; private String error; private LocalDate tradeDate;
-        private OffsetDateTime capturedAt; private String source; private Integer snapshotCount;
+        private OffsetDateTime capturedAt; private String source;
+        private String scope; private String universeMode; private Boolean fullConfirmationRequired;
+        private BigDecimal coverageRatio; private Integer observedCount; private Integer eligibleCount;
+        private Long freshnessMs; private String algorithmVersion; private Integer snapshotCount;
         private Breadth breadth; private List<Snapshot> snapshots; private List<Snapshot> limitUp;
         private List<Snapshot> limitDown; private List<Industry> industries; private List<Event> events;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ReplayTimeline {
+        private Boolean ok;
+        private String error;
+        private LocalDate tradeDate;
+        private LocalDate dataTradeDate;
+        private String dataStatus;
+        private String source;
+        private OffsetDateTime requestedFrom;
+        private OffsetDateTime requestedTo;
+        private Integer indexPointCount;
+        private Integer eventCount;
+        private Integer industryPointCount;
+        private List<ReplayIndexPoint> indexPoints;
+        private List<Event> events;
+        private List<ReplayIndustryPoint> industryPoints;
+        private String message;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ReplayIndexPoint {
+        private String time;
+        private Long timestamp;
+        private BigDecimal close;
+        private BigDecimal changePct;
+        private BigDecimal turnover;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ReplayIndustryPoint {
+        private OffsetDateTime capturedAt;
+        private String industryCode;
+        private String industryName;
+        private Integer stockCount;
+        private Integer advancingCount;
+        private Integer decliningCount;
+        private Integer limitUpCount;
+        private Integer limitUpTouchCount;
+        private Integer limitDownCount;
+        private Integer limitDownTouchCount;
+        private Integer rapidRiseCount;
+        private Integer rapidFallCount;
+        private OffsetDateTime firstLimitUpAt;
+        private String firstLimitUpCode;
+        private String firstLimitUpName;
+        private OffsetDateTime firstEventAt;
+        private String firstEventCode;
+        private String firstEventName;
+        private String firstEventType;
     }
 }

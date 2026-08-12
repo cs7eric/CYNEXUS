@@ -118,7 +118,11 @@ async function localSocialRequest<T>(path: string, init: RequestInit): Promise<T
 }
 
 export async function triggerSocialJob(
-  jobKey: "social_creator_discovery" | "social_comment_sync",
+  jobKey:
+    | "social_creator_discovery"
+    | "social_comment_sync"
+    | "social_xiaohongshu_collection"
+    | "social_douyin_collection",
   platform: SocialPlatform,
   params: Record<string, unknown> = {},
 ): Promise<SocialJobTriggerResult> {

@@ -5,11 +5,13 @@ import {
   LayoutDashboard,
   List,
   RefreshCw,
-  WalletCards,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { AccountsDrawer } from "./accounts-drawer";
+import { ManualEntryDialog } from "./manual-entry-dialog";
+import { FinanceSettingsDrawer } from "./settings-drawer";
 
 const tabs = [
   {
@@ -26,12 +28,6 @@ const tabs = [
     icon: List,
   },
   {
-    key: "accounts",
-    label: "账户",
-    href: "/finance/accounts",
-    icon: WalletCards,
-  },
-  {
     key: "ai-capture",
     label: "AI 入账",
     href: "/finance/ai-capture",
@@ -45,12 +41,16 @@ export function FinancePageHeader({
   updatedAt,
   onRefresh,
   loading,
+  onManualEntrySaved,
+  onFinanceDataChanged,
 }: {
   current: string;
   description: string;
   updatedAt?: string | null;
   onRefresh?: () => void;
   loading?: boolean;
+  onManualEntrySaved?: () => Promise<void> | void;
+  onFinanceDataChanged?: () => Promise<void> | void;
 }) {
   return (
     <header className="border-b border-border/70 pb-4">
@@ -92,6 +92,9 @@ export function FinancePageHeader({
               </Link>
             </Button>
           ))}
+          <AccountsDrawer onChanged={onFinanceDataChanged} />
+          <FinanceSettingsDrawer />
+          <ManualEntryDialog onSaved={onManualEntrySaved} />
           {onRefresh ? (
             <Button
               type="button"

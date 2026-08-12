@@ -24,6 +24,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     if provider not in {"easy_tdx", "eltdx"}:
         raise ValueError("provider must be easy_tdx or eltdx")
     batch_size = int(request.params.get("batch_size") or 50_000)
+    replace_existing = _truthy(request.params.get("replace_existing"))
     create_table = _truthy(request.params.get("create_table"))
     resume = _truthy(request.params.get("resume"))
     ignore_errors = _truthy(request.params.get("ignore_errors"))
@@ -49,6 +50,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "resume": resume,
         "skipped_checkpoints": 0,
         "ignore_errors": ignore_errors,
+        "replace_existing": replace_existing,
     }
     if request.dry_run:
         result["notes"] = [f"dry_run skipped {provider} and ClickHouse access"]
@@ -88,7 +90,11 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                     auction_payload = fetch_stock_auction(client, code, trade_date, target_type=target_type)
                     points = _filter_auction_points(auction_payload["points"], auction_phases)
                     frame = auction_points_to_frame(points)
-                    written = sink.insert_auction_points(frame, batch_size=batch_size)
+                    written = sink.insert_auction_points(
+                        frame,
+                        batch_size=batch_size,
+                        replace_existing=replace_existing,
+                    )
                     code_result["auction_rows"] = len(frame)
                 else:
                     if provider == "easy_tdx":
@@ -98,7 +104,11 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                             raise RuntimeError("eltdx intraday client is not initialized")
                         rows = fetch_stock_history_timeshare(client, code, trade_date, target_type=target_type)
                     frame = timeshare_to_frame(rows)
-                    written = sink.insert_timeshare(frame, batch_size=batch_size)
+                    written = sink.insert_timeshare(
+                        frame,
+                        batch_size=batch_size,
+                        replace_existing=replace_existing,
+                    )
                     code_result["timeshare_rows"] = len(frame)
             except Exception as exc:  # noqa: BLE001
                 code_result["status"] = "failed"

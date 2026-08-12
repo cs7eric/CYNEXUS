@@ -3,10 +3,10 @@ from __future__ import annotations
 
 def market_from_code(code: str) -> str:
     c = code.strip()
-    if c.startswith(("5", "6", "9")):
-        return "SH"
     if c.startswith(("8", "4", "920")):
         return "BJ"
+    if c.startswith(("5", "6", "9")):
+        return "SH"
     return "SZ"
 
 
@@ -32,15 +32,35 @@ def is_st_name(name: str | None) -> bool:
     return value.startswith("ST") or value.startswith("*ST") or "退" in name
 
 
-def limit_up_threshold(code: str, name: str | None = None) -> float:
-    if is_st_name(name):
-        return 0.05
+def limit_up_threshold(code: str, name: str | None = None, *, is_st: bool | None = None) -> float:
+    """Return the daily price-limit ratio for a listed stock.
+
+    ST status does not change the board rule. The exchange board determines
+    the limit for both ordinary and ST stocks.
+    """
     board = board_from_code(code)
     if board in {"chinext", "star"}:
         return 0.20
     if board == "bse":
         return 0.30
     return 0.10
+
+
+def effective_limit_up_threshold(code: str, meta: dict | None = None) -> float:
+    """Resolve a possibly stale metadata threshold against board rules.
+
+    Existing security-master rows may still contain the former blanket 5% ST
+    value. Board rules take precedence for ST rows, while a positive explicit
+    threshold remains available for non-ST special securities.
+    """
+    info = meta or {}
+    name = info.get("name")
+    is_st = is_st_name(name) or bool(info.get("is_st"))
+    board_threshold = limit_up_threshold(code, name, is_st=is_st)
+    if is_st:
+        return board_threshold
+    explicit = _optional_float(info.get("limit_up_threshold"))
+    return explicit if explicit is not None and explicit > 0 else board_threshold
 
 
 def cap_style_from_market_cap(float_market_cap: float | None) -> str | None:
@@ -62,13 +82,14 @@ def normalize_stock_basic_record(record: dict) -> dict:
     name = str(record.get("name") or "").strip()
     market = str(record.get("market") or market_from_code(code)).upper()
     float_market_cap = _optional_float(record.get("float_market_cap") or record.get("circ_market_cap") or record.get("circMarketCap"))
+    st = is_st_name(name)
     return {
         "code": code,
         "name": name,
         "market": market,
         "board": board_from_code(code),
-        "is_st": is_st_name(name),
-        "limit_up_threshold": limit_up_threshold(code, name),
+        "is_st": st,
+        "limit_up_threshold": limit_up_threshold(code, name, is_st=st),
         "is_active": bool(record.get("is_active", True)),
         "source": str(record.get("source") or "unknown"),
         "industry": _optional_text(record.get("industry")),

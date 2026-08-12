@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioReviewAnchorMapper">
+    <sql id="columns">id, principal_key, tenant_key, symbol, instrument_type, trade_id, review_id, anchor_type, side, occurred_at, price, note, tags::text as tags</sql>
+    <select id="list" resultType="cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioReviewAnchorPO">
+        select <include refid="columns"/> from cynexus_appl_market.portfolio_review_anchor
+         where principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null
+           and symbol=#{symbol}
+        <if test="tradeDate != null">
+           and occurred_at at time zone 'Asia/Shanghai' &gt;= #{tradeDate}::timestamp
+           and occurred_at at time zone 'Asia/Shanghai' &lt; #{tradeDate}::timestamp + interval '1 day'
+        </if>
+         order by occurred_at asc, id asc
+    </select>
+    <insert id="insert">
+        insert into cynexus_appl_market.portfolio_review_anchor
+        (id, principal_key, tenant_key, symbol, instrument_type, trade_id, review_id, anchor_type, side, occurred_at, price, note, tags)
+        values (#{id}, #{principalKey}, #{tenantKey}, #{symbol}, #{instrumentType}, #{tradeId}, #{reviewId}, #{anchorType}, #{side}, #{occurredAt}, #{price}, #{note}, cast(#{tags} as jsonb))
+    </insert>
+    <update id="update">
+        update cynexus_appl_market.portfolio_review_anchor
+           set review_id=#{reviewId}, side=#{side}, occurred_at=#{occurredAt}, price=#{price}, note=#{note}, tags=cast(#{tags} as jsonb), updated_at=now()
+         where id=#{id} and principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null
+    </update>
+    <update id="softDelete">
+        update cynexus_appl_market.portfolio_review_anchor set deleted_at=now(), updated_at=now()
+         where id=#{id} and principal_key=#{principalKey} and tenant_key=#{tenantKey} and deleted_at is null
+    </update>
+</mapper>

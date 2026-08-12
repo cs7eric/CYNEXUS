@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.kline.sync_index_daily_raw_from_daily_raw import run
 from cynexus_data.runtime.context import PipelineContext
@@ -69,3 +71,14 @@ def test_sync_index_daily_raw_from_daily_raw_dry_run_skips_clickhouse() -> None:
 
     assert result["rows_written"] == 0
     assert hooks.clickhouse.client.commands == []
+
+
+def test_sync_index_daily_raw_from_daily_raw_rejects_unbounded_replace() -> None:
+    hooks = FakeHooks()
+    context = PipelineContext(hooks=hooks)
+
+    with pytest.raises(ValueError, match="requires trade_date/start_date/end_date"):
+        run(context, JobRequest(job_key="sync_index_daily_raw_from_daily_raw", dry_run=False, params={}))
+
+    assert hooks.clickhouse.client.commands == []
+    assert hooks.clickhouse.client.query_one_calls == []

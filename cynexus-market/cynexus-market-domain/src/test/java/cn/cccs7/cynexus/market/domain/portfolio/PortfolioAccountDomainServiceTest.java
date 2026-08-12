@@ -47,6 +47,17 @@ class PortfolioAccountDomainServiceTest {
         assertEquals(new BigDecimal("2800"), service.availableCash(account, new BigDecimal("7200")));
     }
 
+    @Test
+    void addsAccumulatedPnlToTheManualAssetBaseline() {
+        PortfolioAccountDomainService service = new PortfolioAccountDomainService(
+                new InMemoryRepository(new PortfolioAccountBO(new BigDecimal("10000"), BigDecimal.ZERO, null)));
+
+        PortfolioAccountBO account = service.get("user", "tenant");
+
+        assertEquals(new BigDecimal("10050"), service.totalAssets(account, new BigDecimal("7200"), new BigDecimal("50")));
+        assertEquals(new BigDecimal("2850"), service.availableCash(account, new BigDecimal("7200"), new BigDecimal("50")));
+    }
+
     private static final class InMemoryRepository implements PortfolioAccountRepository {
         private PortfolioAccountBO value;
 

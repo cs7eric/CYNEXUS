@@ -65,6 +65,8 @@ public interface MarketPulseQueryMapper {
 
     MarketLimitDailySnapshotPO findLimitEmotionByDate(@Param("tradeDate") LocalDate tradeDate);
 
+    MarketLimitDailySnapshotPO findLimitEmotionBefore(@Param("tradeDate") LocalDate tradeDate);
+
     List<MarketLimitDailyStockPO> listLimitStocks(
             @Param("tradeDate") LocalDate tradeDate,
             @Param("category") String category,

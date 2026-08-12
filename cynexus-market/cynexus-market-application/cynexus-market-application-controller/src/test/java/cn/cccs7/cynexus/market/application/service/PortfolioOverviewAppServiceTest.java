@@ -29,6 +29,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -142,6 +143,31 @@ class PortfolioOverviewAppServiceTest {
     }
 
     @Test
+    void usesOnlyTheLatestDayContributionsForTheDailyView() {
+        LocalDate today = LocalDate.parse("2026-08-04");
+        Fixtures fixtures = fixturesAt(Instant.parse("2026-08-04T02:00:00Z"), today);
+        when(fixtures.performance().calculate(anyList(), anyMap(), anyMap(), any(), any(), any(), any()))
+                .thenReturn(new PortfolioPerformanceResultBO(
+                        PortfolioPerformanceGranularity.DAILY, today.minusDays(29), today,
+                        new BigDecimal("150"), new BigDecimal("0.15"), new BigDecimal("850"),
+                        new BigDecimal("1000"), new BigDecimal("150"), new BigDecimal("150"), 2,
+                        List.of(new PortfolioPerformancePointBO(today, new BigDecimal("1000"),
+                                new BigDecimal("1000"), new BigDecimal("850"), new BigDecimal("150"),
+                                new BigDecimal("4"), new BigDecimal("0.01"))),
+                        Map.of("600000", new BigDecimal("100"), "000001", new BigDecimal("50")),
+                        Map.of("600000", new BigDecimal("5"), "000001", new BigDecimal("-1"))));
+        when(fixtures.performance().calculateTodayPnlBySymbol(anyList(), anyMap(), anyMap(), anyMap(), anyMap(), anyMap(), eq(today)))
+                .thenReturn(Map.of("600000", new BigDecimal("6"), "000001", new BigDecimal("-2")));
+
+        PortfolioPerformanceDTO result = fixtures.service().performance("daily", null, null);
+
+        Map<String, BigDecimal> contributions = result.getContributions().stream()
+                .collect(Collectors.toMap(item -> item.getSymbol(), item -> item.getPeriodPnl()));
+        assertEquals(Map.of("600000", new BigDecimal("6"), "000001", new BigDecimal("-2")), contributions);
+        assertEquals(new BigDecimal("4"), result.getPeriodPnl());
+    }
+
+    @Test
     void keepsPostClosePricesForPerPositionTodayPnl() {
         LocalDate today = LocalDate.parse("2026-08-04");
         Fixtures fixtures = fixturesAt(Instant.parse("2026-08-04T07:00:00Z"), today);
@@ -224,7 +250,7 @@ class PortfolioOverviewAppServiceTest {
         when(chart.intraday(anyString(), anyString(), anyString(), anyString(), anyString(), anyList()))
                 .thenReturn(new StockChartQueryDomainService.IntradayResult(
                         "600000", "stock", "Demo", "qfq", "qfq", "qfq", "test", today, today,
-                        List.of(), Map.of("1m", List.of()), null));
+                        null, List.of(), Map.of("1m", List.of()), null));
         when(performanceDomainService.calculate(anyList(), anyMap(), anyMap(), any(), any(), any(), any()))
                 .thenReturn(new PortfolioPerformanceResultBO(
                         PortfolioPerformanceGranularity.DAILY, today.minusDays(29), today,

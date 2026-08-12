@@ -54,6 +54,20 @@ class NewMarketAgentToolHandlerTest {
     }
 
     @Test
+    void indicatorReadsOnlyMaterializedTradeReviewState() {
+        MarketResearchFeignClient client = mock(MarketResearchFeignClient.class);
+        when(client.getTradeReviewMarketState("2026-08-10", "", "daily", "union", "", 60))
+                .thenReturn(Result.success(Map.of("tradeDate", "2026-08-10", "dataStatus", "ready", "source", "trade_review_materialized")));
+        MarketIndicatorAgentToolHandler handler = new MarketIndicatorAgentToolHandler(client, objectMapper);
+
+        var result = handler.execute(call(handler.definition().getCode(), Map.of(
+                "operation", "trade_review_state", "tradeDate", "2026-08-10")), null);
+
+        assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
+        verify(client).getTradeReviewMarketState("2026-08-10", "", "daily", "union", "", 60);
+    }
+
+    @Test
     void etfUsesBoundedDefaultsAndExposesReadOnlyDefinition() {
         MarketResearchFeignClient client = mock(MarketResearchFeignClient.class);
         when(client.getMarketEtf(10, 180)).thenReturn(Result.success(MarketEtfDTO.builder().ok(true).build()));

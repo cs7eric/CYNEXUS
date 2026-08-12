@@ -241,7 +241,7 @@ def test_adjusted_daily_date_replace_omits_source_filter_when_table_has_no_sourc
     assert client.command_calls[0]["sql"] == "ALTER TABLE daily_qfq DELETE WHERE trade_date BETWEEN toDate('2026-06-30') AND toDate('2026-06-30')"
 
 
-def test_intraday_auction_delete_scope_includes_phase() -> None:
+def test_intraday_auction_insert_uses_replacing_merge_tree_without_mutation_by_default() -> None:
     client = FakeClickHouseClient([])
     sink = ClickHouseIntradayDetailSink.__new__(ClickHouseIntradayDetailSink)
     sink.auction_table = "ch_ods_stock_auction_point"
@@ -271,6 +271,41 @@ def test_intraday_auction_delete_scope_includes_phase() -> None:
     )
 
     assert sink.insert_auction_points(frame) == 1
+
+    assert client.command_calls == []
+    assert client.insert_calls[0]["rows"] == 1
+
+
+def test_intraday_auction_explicit_replace_scopes_mutation_to_phase() -> None:
+    client = FakeClickHouseClient([])
+    sink = ClickHouseIntradayDetailSink.__new__(ClickHouseIntradayDetailSink)
+    sink.auction_table = "ch_ods_stock_auction_point"
+    sink.client = client
+    frame = pd.DataFrame(
+        [
+            {
+                "market": "SH",
+                "symbol": "600000",
+                "code": "600000",
+                "tdx_code": "sh600000",
+                "trade_date": date(2026, 6, 26),
+                "trade_time": datetime(2026, 6, 26, 9, 25),
+                "time_label": "09:25:00",
+                "phase": "opening",
+                "price": 10.0,
+                "matched_volume": 100.0,
+                "matched_amount": 1000.0,
+                "unmatched_buy_volume": None,
+                "unmatched_sell_volume": None,
+                "source": "eltdx",
+                "raw_payload": {},
+                "fetched_at": datetime(2026, 6, 26, 9, 26),
+                "ingested_at": datetime(2026, 6, 26, 9, 26),
+            }
+        ]
+    )
+
+    assert sink.insert_auction_points(frame, replace_existing=True) == 1
 
     command = client.command_calls[0]
     assert "AND phase = %(phase_0)s" in command["sql"]
@@ -476,3 +511,20 @@ def test_kline_writer_can_replace_existing_symbol_date_source_rows() -> None:
     assert client.command_calls[0]["parameters"]["symbol_0"] == "000001"
     assert client.insert_calls[0]["rows"] == 1
     assert client.insert_calls[0]["records"][0]["close"] == 10.6
+
+
+def test_kline_writer_skips_impossible_delete_range() -> None:
+    client = FakeClickHouseClient([])
+    sink = ClickHouseKlineSink.__new__(ClickHouseKlineSink)
+    sink.table = "ch_dwd_kline_1m"
+    sink.client = client
+
+    sink.delete_1m_range(
+        date(2026, 8, 11),
+        date(2026, 8, 10),
+        source="tdx_local",
+        period=1,
+        tdx_codes=["sh000001"],
+    )
+
+    assert client.command_calls == []

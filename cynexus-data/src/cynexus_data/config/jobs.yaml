@@ -206,9 +206,10 @@ jobs:
       source_table: optional
       target_table: optional
       create_table: optional
+      allow_full_history: optional; false by default. Requires explicit confirmation before a full-history FINAL read and replacement.
 
   sync_kline_minute:
-    description: Sync minute kline records.
+    description: Sync minute kline records incrementally from the last effective ClickHouse date by default.
     params:
       trade_date: optional
       date: optional
@@ -225,6 +226,7 @@ jobs:
       create_table: optional
       replace_existing: optional
       batch_size: optional
+      incremental: optional; TDX defaults to true and resumes after the last effective ClickHouse date; set false only for an intentional full read
 
   sync_tdx_hsjday:
     description: Download, verify, extract, and atomically replace local TDX hsjday daily files.
@@ -265,7 +267,34 @@ jobs:
       eltdx_timeout: optional
       batch_size: optional
       limit_codes: optional
+      replace_existing: optional; false by default. Set true only for a bounded repair that must physically replace existing rows.
       provider: optional; easy_tdx or eltdx, default eltdx; easy_tdx is available for timeshare
+
+  sync_trade_review_timeshare:
+    description: Archive selected stock, ETF, index, and review-context timeshare series with exact-date semantics.
+    params:
+      trade_date: required; YYYY-MM-DD
+      codes: optional; comma-separated bounded symbols; omitted builds limit/THS selection pools
+      etf_codes: optional; comma-separated ETF symbols to archive in the same run
+      context_symbols: optional; defaults to 000001,399001,399006
+      timeout_seconds: optional; defaults to 15
+      redis_cache: optional; defaults to true
+      redis_ttl_seconds: optional; defaults to 604800
+      ignore_errors: optional; defaults to true
+
+  rebuild_kline_1m_partitions:
+    description: Rebuild selected damaged 1m ClickHouse year partitions from local Parquet with bounded Arrow inserts.
+    params:
+      years: required; bounded calendar years, preferably one year per execution
+      execute: optional; false performs staging validation only
+      source_dir: optional
+      stage_table: optional
+      keep_stage: optional
+      batch_rows: optional; execution is capped at 25000 unless allow_high_memory=true
+      flush_rows: optional; execution is capped at 100000 unless allow_high_memory=true
+      workers: optional; execution uses one worker unless allow_high_memory=true
+      max_partitions_per_insert_block: optional
+      allow_high_memory: optional; explicit maintenance override, disabled by default
 
   aggregate_kline_periods:
     description: Aggregate 1m kline into higher periods.
@@ -273,6 +302,9 @@ jobs:
       periods: optional
       trade_date: optional
       codes: optional
+      start_date: optional
+      end_date: optional
+      allow_full_history: optional; false by default. Requires explicit confirmation before a full-history aggregation and replacement.
 
   sync_fund_flow:
     description: Sync THS sector fund-flow snapshots into PostgreSQL.
@@ -674,6 +706,46 @@ jobs:
       pool_size: optional; defaults to 8
       batch_size: optional; defaults to 240
 
+  market_indicator_limit_board_capture:
+    description: Capture only current limit-up/down stocks at five-second cadence into a Redis trading-session buffer; no raw provider payload or PostgreSQL write.
+    params:
+      captured_at: optional; ISO timestamp for controlled replay or tests
+      create_table: optional
+      discovery_interval_seconds: optional; defaults to 30
+      pool_size: optional; defaults to 8
+      batch_size: optional; defaults to 240
+      timeout: optional; defaults to 8 seconds
+      quote_retry_attempts: optional; defaults to 2
+      quote_retry_backoff_seconds: optional; defaults to 0.25
+      quote_request_spacing_seconds: optional; defaults to 0.02
+      quote_fallback_batch_size: optional; defaults to 80
+      redis_prefix: optional; defaults to cynexus:market-indicator:limit-board:v1
+      redis_ttl_seconds: optional; defaults to 43200
+
+  market_indicator_limit_board_finalize:
+    description: Aggregate one completed limit-board trading session into PostgreSQL and delete its Redis buffer only after commit succeeds.
+    params:
+      finalized_at: optional; ISO timestamp for controlled replay or tests
+      trade_date: optional; YYYY-MM-DD
+      trade_session: optional; morning or afternoon
+      create_table: optional
+      sample_interval_seconds: optional; defaults to 5
+      redis_prefix: optional; defaults to cynexus:market-indicator:limit-board:v1
+      redis_ttl_seconds: optional; defaults to 43200
+      source: optional
+
+  build_trade_review_market_state:
+    description: Materialize Trade Review minute and daily market-state read models from local TDX 1m, daily facts, industry memberships, and persisted Market Indicator events. Never calls an external quote API.
+    params:
+      trade_date: optional; defaults to today
+      start_date: optional; inclusive historical backfill start; processed by raw-1m trading dates only
+      end_date: optional; inclusive historical backfill end; defaults to start_date when only one bound is supplied
+      window_days: optional; defaults to 60, range 5 to 240
+      create_table: optional; apply the idempotent Trade Review projection schema
+      redis_cache: optional; defaults to true
+      redis_ttl_seconds: optional; defaults to 604800
+      redis_prefix: optional; defaults to cynexus:trade-review:market-state
+
   rebuild_msi:
     description: Rebuild market sentiment index over a date range.
     params:
@@ -736,5 +808,25 @@ jobs:
       scope_key: optional; defaults to default
       active_post_days: optional; retained for compatibility; only today's posts are eligible
       max_posts: optional; bounded post count per run
+      create_table: optional
+      profile_name: optional; defaults to default
+
+  social_xiaohongshu_collection:
+    description: Discover all Xiaohongshu posts published today and collect every visible comment in the same run; reports comment-phase timing and seconds per 1000 comments.
+    params:
+      creators: optional; JSON array of {creator_key, profile_url, display_name}; omitted uses enabled database targets
+      collection_purpose: optional; market_sentiment or market_analysis
+      scope_key: optional; defaults to default
+      max_posts: optional; only set to explicitly limit posts; omitted collects all discovered posts
+      create_table: optional
+      profile_name: optional; defaults to default
+
+  social_douyin_collection:
+    description: Discover all Douyin posts published today and collect every visible comment in the same run; reports comment-phase timing and seconds per 1000 comments.
+    params:
+      creators: optional; JSON array of {creator_key, profile_url, display_name}; omitted uses enabled database targets
+      collection_purpose: optional; market_sentiment or market_analysis
+      scope_key: optional; defaults to default
+      max_posts: optional; only set to explicitly limit posts; omitted collects all discovered posts
       create_table: optional
       profile_name: optional; defaults to default

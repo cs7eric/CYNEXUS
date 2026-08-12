@@ -1,0 +1,9 @@
+<clickhouse>
+    <profiles>
+        <default>
+            <!-- Query profiling is available on demand; do not emit its high-volume streams for every query. -->
+            <log_processors_profiles>0</log_processors_profiles>
+            <log_profile_events>0</log_profile_events>
+        </default>
+    </profiles>
+</clickhouse>

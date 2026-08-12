@@ -119,6 +119,66 @@
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
+/* Dialog focus halo: a light, airy breathing ring with a small transparent gap. */
+.dialog-ring-breathe {
+  --dialog-ring: color-mix(in oklab, white 84%, var(--ring));
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--dialog-ring) 68%, transparent),
+    0 0 0 6px color-mix(in oklab, var(--dialog-ring) 12%, transparent);
+  animation: dialog-ring-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes dialog-ring-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px color-mix(in oklab, var(--dialog-ring) 68%, transparent),
+      0 0 0 6px color-mix(in oklab, var(--dialog-ring) 12%, transparent);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 4px color-mix(in oklab, var(--dialog-ring) 100%, transparent),
+      0 0 0 12px color-mix(in oklab, var(--dialog-ring) 32%, transparent);
+  }
+}
+
+/* Minute replay feedback for industry limit-up changes. Mirrors the dialog's
+ * outside breathing ring, but stops after two pulses so it stays informative. */
+.trade-review-industry-limit-up,
+.trade-review-industry-limit-down {
+  animation: trade-review-industry-limit-pulse 0.7s ease-in-out 2;
+}
+
+.trade-review-industry-limit-up {
+  --trade-review-limit-pulse: color-mix(in oklab, #f43f5e 70%, transparent);
+}
+
+.trade-review-industry-limit-down {
+  --trade-review-limit-pulse: color-mix(in oklab, #22c55e 70%, transparent);
+}
+
+@keyframes trade-review-industry-limit-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px var(--trade-review-limit-pulse),
+      0 0 0 6px color-mix(in oklab, var(--trade-review-limit-pulse) 18%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-ring-breathe,
+  .trade-review-industry-limit-up,
+  .trade-review-industry-limit-down {
+    animation: none;
+  }
+}
+
 @layer base {
   html,
   body,

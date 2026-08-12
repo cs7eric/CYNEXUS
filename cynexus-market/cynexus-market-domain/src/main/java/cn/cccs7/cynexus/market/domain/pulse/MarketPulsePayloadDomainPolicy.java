@@ -64,6 +64,15 @@ public final class MarketPulsePayloadDomainPolicy {
                                           List<MarketLimitDailyStockBO> brokenStocks) {
         JsonNode parsed = parse(payload);
         ObjectNode value = parsed != null && parsed.isObject() ? (ObjectNode) parsed : mapper.createObjectNode();
+        JsonNode extra = parse(snapshot.getExtra());
+        if (extra != null && extra.isObject()) {
+            ObjectNode extraObject = (ObjectNode) extra;
+            copyIfMissing(value, "above5PctCount", extraObject, "above5PctCount", "above_5_pct_count", "above5_count");
+            copyIfMissing(value, "medianChangePct", extraObject, "medianChangePct", "median_change_pct", "medianReturnPct");
+            copyIfMissing(value, "advancingCount", extraObject, "advancingCount", "risingCount", "rising_count");
+            copyIfMissing(value, "decliningCount", extraObject, "decliningCount", "fallingCount", "falling_count");
+            copyIfMissing(value, "flatCount", extraObject, "flatCount", "flat_count");
+        }
         value.put("ok", true);
         if (!value.hasNonNull("tradeDate")) {
             value.put("tradeDate", snapshot.getTradeDate() == null ? null : snapshot.getTradeDate().toString());
@@ -312,6 +321,18 @@ public final class MarketPulsePayloadDomainPolicy {
         for (String source : sources) {
             if (value.hasNonNull(source)) {
                 value.set(target, value.get(source));
+                return;
+            }
+        }
+    }
+
+    private void copyIfMissing(ObjectNode target, String targetField, ObjectNode source, String... sourceFields) {
+        if (target.hasNonNull(targetField)) {
+            return;
+        }
+        for (String sourceField : sourceFields) {
+            if (source.hasNonNull(sourceField)) {
+                target.set(targetField, source.get(sourceField));
                 return;
             }
         }

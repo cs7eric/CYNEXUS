@@ -9,6 +9,7 @@ import cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorSnapshotPO;
 import cn.cccs7.cynexus.market.infra.basic.mapper.MarketIndicatorQueryMapper;
 import cn.cccs7.cynexus.market.infra.basic.service.MarketIndicatorQueryBasicService;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -49,4 +50,24 @@ public class MarketIndicatorQueryBasicServiceImpl implements MarketIndicatorQuer
     @Override public List<Map<String, Object>> listTransmissionOutcomes(LocalDate date, int limit) {
         return mapper.listTransmissionOutcomes(date, limit);
     }
+    @Override public List<MarketIndicatorEventPO> listReplayEvents(LocalDate date, OffsetDateTime from, OffsetDateTime to,
+                                                                     String eventType, String industryCode, int limit) {
+        return mapper.listReplayEvents(date, from, to, eventType, industryCode, limit);
+    }
+    @Override public List<MarketIndicatorIndustrySnapshotPO> listReplayIndustries(LocalDate date, OffsetDateTime from,
+                                                                                    OffsetDateTime to, String industryCode, int limit) {
+        return mapper.listReplayIndustries(date, from, to, industryCode, limit);
+    }
+    @Override public Map<String, Object> getTradeReviewManifest(LocalDate date) { return mapper.getTradeReviewManifest(date); }
+    @Override public List<Map<String, Object>> listLimitBoardSessionSummaries(LocalDate date, String tradeSession, String direction, int limit) {
+        return mapper.listLimitBoardSessionSummaries(date, tradeSession, direction, limit);
+    }
+    @Override public Map<String, Object> getTradeReviewMarketMinute(LocalDate date, OffsetDateTime asOf) { return mapper.getTradeReviewMarketMinute(date, asOf); }
+    @Override public Map<String, Object> getTradeReviewMarketDaily(LocalDate date) { return mapper.getTradeReviewMarketDaily(date); }
+    @Override public List<Map<String, Object>> listTradeReviewIndustries(LocalDate date, OffsetDateTime asOf, String membership, String industryCode) { return mapper.listTradeReviewIndustries(date, asOf, membership, industryCode); }
+    @Override public List<Map<String, Object>> listTradeReviewPools(LocalDate date, OffsetDateTime asOf, String membership, String industryCode) { return mapper.listTradeReviewPools(date, asOf, membership, industryCode); }
+    @Override public List<Map<String, Object>> listTradeReviewEvents(LocalDate date, OffsetDateTime asOf) { return mapper.listTradeReviewEvents(date, asOf); }
+    @Override public List<Map<String, Object>> listTradeReviewDailyStates(LocalDate date, int windowDays) { return mapper.listTradeReviewDailyStates(date, windowDays); }
+    @Override public Map<String, Object> getTradeReviewPhase(LocalDate date, int windowDays) { return mapper.getTradeReviewPhase(date, windowDays); }
+    @Override public List<Map<String, Object>> listTradeReviewIndustryPhases(LocalDate date, String membership, String industryCode, int windowDays) { return mapper.listTradeReviewIndustryPhases(date, membership, industryCode, windowDays); }
 }

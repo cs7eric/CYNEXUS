@@ -106,10 +106,7 @@ public class PortfolioImportAppService {
     public PortfolioImportReviewDTO review(long taskId) {
         PortfolioImportTaskBO task = domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
         List<PortfolioImportCandidateDTO> candidates = confirmationService.candidatesForReview(task, candidateStore.listByTaskId(taskId), today()).stream()
-                .map(candidate -> PortfolioImportCandidateDTO.builder()
-                        .id(candidate.id()).rowNo(candidate.rowNo()).normalizedPayload(candidate.normalizedPayload().toString())
-                        .reviewStatus(candidate.reviewStatus()).version(candidate.version()).confidence(candidate.confidence())
-                        .warnings(candidate.warnings()).build())
+                .map(candidate -> toCandidateDto(candidate.candidate(), candidate.suggestedSymbol()))
                 .toList();
         return PortfolioImportReviewDTO.builder().task(toDto(task)).candidates(candidates).build();
     }
@@ -161,8 +158,9 @@ public class PortfolioImportAppService {
         }
         append(task, PortfolioImportProcessEventType.CANDIDATE_EDITED, task.getStatus().name(), task.getStatus().name(),
                 null, null, null, null, null, null, "{\"candidateId\":" + candidateId + "}", null);
-        return confirmationService.candidatesForReview(task, candidateStore.listByTaskId(taskId), today()).stream().filter(candidate -> candidate.id() == candidateId)
-                .findFirst().map(this::toCandidateDto).orElseThrow();
+        return confirmationService.candidatesForReview(task, candidateStore.listByTaskId(taskId), today()).stream()
+                .filter(candidate -> candidate.candidate().id() == candidateId)
+                .findFirst().map(candidate -> toCandidateDto(candidate.candidate(), candidate.suggestedSymbol())).orElseThrow();
     }
 
     @Transactional
@@ -182,8 +180,13 @@ public class PortfolioImportAppService {
     }
 
     private PortfolioImportCandidateDTO toCandidateDto(PortfolioCandidateRecord candidate) {
+        return toCandidateDto(candidate, null);
+    }
+
+    private PortfolioImportCandidateDTO toCandidateDto(PortfolioCandidateRecord candidate, String suggestedSymbol) {
         return PortfolioImportCandidateDTO.builder().id(candidate.id()).rowNo(candidate.rowNo())
-                .normalizedPayload(candidate.normalizedPayload().toString()).reviewStatus(candidate.reviewStatus())
+                .normalizedPayload(candidate.normalizedPayload().toString()).suggestedSymbol(suggestedSymbol)
+                .reviewStatus(candidate.reviewStatus())
                 .version(candidate.version()).confidence(candidate.confidence()).warnings(candidate.warnings()).build();
     }
 
@@ -206,6 +209,7 @@ public class PortfolioImportAppService {
                 .version(task.getVersion())
                 .attemptCount(task.getAttemptCount())
                 .assetId(task.getAssetId())
+                .createdAt(task.getCreatedAt())
                 .queuedAt(task.getQueuedAt())
                 .startedAt(task.getStartedAt())
                 .completedAt(task.getCompletedAt())

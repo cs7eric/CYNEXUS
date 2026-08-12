@@ -11,6 +11,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     start_date = request.params.get("start_date") or request.params.get("trade_date")
     end_date = request.params.get("end_date") or request.params.get("trade_date")
     symbols = _normalize_symbols(request.params.get("symbols") or request.params.get("codes"))
+    allow_full_history = _truthy(request.params.get("allow_full_history"))
     estimate = _truthy(request.params.get("estimate"))
     table = request.params.get("table") or _default_kline_table()
 
@@ -22,10 +23,16 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "start_date": start_date,
         "end_date": end_date,
         "symbols": symbols,
+        "allow_full_history": allow_full_history,
         "rows_read": 0,
         "rows_written": 0,
         "period_results": [],
     }
+    if not request.dry_run and not allow_full_history and start_date is None and end_date is None and not symbols:
+        raise ValueError(
+            "aggregate kline requires trade_date/start_date/end_date or symbols; "
+            "set allow_full_history=true only for an intentional maintenance backfill"
+        )
     if request.dry_run and not estimate:
         result["notes"] = ["dry_run skipped ClickHouse access; pass estimate=true to count source and target rows"]
         return result
@@ -56,6 +63,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
                 start_date=start_date,
                 end_date=end_date,
                 symbols=symbols,
+                allow_full_history=allow_full_history,
             )
         total_written += written
         result["period_results"].append({"period": period, "expected_rows": expected_rows, "rows_written": written})

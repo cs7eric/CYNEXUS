@@ -128,7 +128,7 @@ export default function EasyTdxPoc() {
       setFlowLoading(false)
     }
   }, [code])
-  const loadBoards = () => run(async () => { const [list, rank, change] = await Promise.all([fetchEasyTdxBoards({ boardType, count: 100 }), fetchEasyTdxBoardRanking({ boardType, topN: 30, change: false }), fetchEasyTdxBoardRanking({ boardType, topN: 30, change: true })]); setBoards(list.items); setRanking(rank.items); setChangeRanking(change.items); if (list.items[0]) { const symbol = String(list.items[0].symbol ?? list.items[0].code ?? ""); setBoardSymbol(symbol); const [boardSummary, boardMembers] = await Promise.all([fetchEasyTdxBoardSummary(symbol), fetchEasyTdxBoardMembers({ boardSymbol: symbol, count: 100 })]); setSummary(boardSummary.items || [boardSummary as unknown as EasyTdxRow]); setMembers(boardMembers.items) } })
+  const loadBoards = () => run(async () => { const [list, rank, change] = await Promise.all([fetchEasyTdxBoards({ boardType, count: 100 }), fetchEasyTdxBoardRanking({ boardType, topN: 30, change: false }), fetchEasyTdxBoardRanking({ boardType, topN: 30, change: true })]); setBoards(list.items); setRanking(rank.items); setChangeRanking(change.items); if (list.items[0]) { const symbol = String(list.items[0].symbol ?? list.items[0].code ?? ""); setBoardSymbol(symbol); const [boardSummary, boardMembers] = await Promise.all([fetchEasyTdxBoardSummary(symbol), fetchEasyTdxBoardMembers({ boardSymbol: symbol, count: 100 })]); setSummary([boardSummary as unknown as EasyTdxRow]); setMembers(boardMembers.items) } })
   const refresh = () => void loadMarket()
 
   useEffect(() => { void loadMarket() }, [])

@@ -1,3 +1,35 @@
+## Page: Data Collector · Market Indicator
+
+### Components
+
+#### Market Indicator Workbench Panels
+- Path: `cynexus-ui/src/views/data-collector/market-indicator/components/`
+- Purpose: Render market context, transmission evidence, industry drill-down, limit-board lists, stock indicators, event feed, and replay panels.
+- Reuse Scope: Same domain pages
+- Props Summary:
+  - Each component receives typed Market Indicator API data and page callbacks.
+- Notes: Components remain page-private after the semantic folder migration.
+
+### Lib Methods
+
+- No new extracted lib methods; page-local filtering and orchestration stay in the page entry.
+
+## Page: Data Collector · Limit Board Monitor
+
+### Components
+
+#### SummaryTable
+- Path: `cynexus-ui/src/views/data-collector/limit-board-monitor/index.tsx`
+- Purpose: Render one row per stock and session with seal amount aggregates, duration, open/reseal counts, trend, and coverage.
+- Reuse Scope: Current page only
+- Props Summary:
+  - `rows`: persisted session summary records.
+- Notes: Raw Redis samples are intentionally excluded from this UI.
+
+### Lib Methods
+
+- No shared lib methods; display formatting is page-local and has no cross-page contract.
+
 ## Page: Market Information
 
 ### Components

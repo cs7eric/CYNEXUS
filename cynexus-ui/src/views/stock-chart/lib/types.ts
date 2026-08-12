@@ -171,6 +171,8 @@ export interface StockIntradayResponse {
   source?: string
   trade_date?: string | null
   requested_trade_date?: string | null
+  /** Prior trading session close, used as the stable 0% intraday baseline. */
+  pre_close?: number | null
   timeshare: StockIntradayPoint[]
   minute_bars: Partial<StockIntradayMinuteBars>
   error?: string

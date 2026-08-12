@@ -28,15 +28,31 @@ public class PortfolioAccountDomainService {
     }
 
     public BigDecimal totalAssets(PortfolioAccountBO account, BigDecimal marketValue) {
+        return totalAssets(account, marketValue, BigDecimal.ZERO);
+    }
+
+    public BigDecimal totalAssets(PortfolioAccountBO account, BigDecimal marketValue, BigDecimal accumulatedPnl) {
         BigDecimal market = nonNegative(marketValue);
-        return account.totalAssets() == null ? market.add(account.legacyAvailableCash()) : account.totalAssets();
+        if (account.totalAssets() == null) {
+            return market.add(account.legacyAvailableCash());
+        }
+        return account.totalAssets().add(nonNull(accumulatedPnl));
     }
 
     public BigDecimal availableCash(PortfolioAccountBO account, BigDecimal marketValue) {
-        return totalAssets(account, marketValue).subtract(nonNegative(marketValue));
+        return availableCash(account, marketValue, BigDecimal.ZERO);
+    }
+
+    public BigDecimal availableCash(PortfolioAccountBO account, BigDecimal marketValue, BigDecimal accumulatedPnl) {
+        return totalAssets(account, marketValue, accumulatedPnl).subtract(nonNegative(marketValue));
     }
 
     private BigDecimal nonNegative(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
+
+    private BigDecimal nonNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
 }

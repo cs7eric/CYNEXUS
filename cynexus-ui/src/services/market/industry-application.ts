@@ -121,6 +121,21 @@ export interface IndustryApplicationMergedConstituent {
   change_pct?: number | string | null
   turnover_pct?: number | string | null
   amount_text?: string | null
+  open?: number | string | null
+  high?: number | string | null
+  low?: number | string | null
+  pre_close?: number | string | null
+  volume?: number | string | null
+  amount?: number | string | null
+  vol_ratio?: number | string | null
+  eps?: number | string | null
+  net_assets?: number | string | null
+  pe_dynamic?: number | string | null
+  pe_ttm?: number | string | null
+  pe_static?: number | string | null
+  main_net_amount?: number | string | null
+  main_net_3d_amount?: number | string | null
+  main_net_5d_amount?: number | string | null
   ths_snapshot_date?: string | null
   tdx_snapshot_date?: string | null
   quote_trade_date?: string | null

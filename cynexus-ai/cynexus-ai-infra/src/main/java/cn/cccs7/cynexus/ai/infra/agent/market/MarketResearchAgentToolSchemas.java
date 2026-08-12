@@ -81,14 +81,22 @@ final class MarketResearchAgentToolSchemas {
 
     static final String INDICATOR = """
             {"type":"object","required":["operation"],"properties":{
-              "operation":{"type":"string","enum":["latest","industry_detail","transmission"],"description":"Market-indicator query operation to run."},
+              "operation":{"type":"string","enum":["latest","industry_detail","transmission","replay_timeline","radar_state","radar_events","limit_ladder","replay_summary","replay_episode","trade_review_state"],"description":"Market-indicator query operation to run."},
               "tradeDate":{"type":"string","format":"date","description":"Optional trading date in YYYY-MM-DD format."},
               "status":{"type":"string","enum":["all","limit_up","limit_down","rapid_rise","rapid_fall"],"description":"Optional status filter within the recent historical limit-up/down pool."},
               "eventType":{"type":"string","maxLength":40,"description":"Optional event type filter for latest."},
               "limit":{"type":"integer","minimum":1,"maximum":300,"description":"Maximum rows to return from the historical limit-up/down pool."},
               "industryCode":{"type":"string","minLength":1,"maxLength":40,"description":"Required industry code for industry_detail."},
               "page":{"type":"integer","minimum":0,"maximum":100,"description":"Zero-based industry-detail page number."},
-              "pageSize":{"type":"integer","minimum":10,"maximum":100,"description":"Industry-detail page size."}
+              "pageSize":{"type":"integer","minimum":10,"maximum":100,"description":"Industry-detail page size."},
+              "asOf":{"type":"string","format":"date-time","description":"Optional evidence cutoff; events after this instant are excluded."},
+              "board":{"type":"string","enum":["all","limit_up","first_board","sealed","limit_down","touch"],"description":"Limit ladder board filter."},
+              "episodeId":{"type":"string","minLength":1,"maxLength":120,"description":"Episode identifier for replay_episode."},
+              "from":{"type":"string","pattern":"^([01]\\\\d|2[0-3]):[0-5]\\\\d(:[0-5]\\\\d)?$","description":"Replay start time in Asia/Shanghai, defaults to 09:30."},
+              "to":{"type":"string","pattern":"^([01]\\\\d|2[0-3]):[0-5]\\\\d(:[0-5]\\\\d)?$","description":"Replay end time in Asia/Shanghai, defaults to 15:00."},
+              "mode":{"type":"string","enum":["intraday","daily"],"description":"Trade Review materialized-state mode; daily ignores asOf."},
+              "membership":{"type":"string","enum":["ths","tdx","union"],"description":"Industry membership basis for Trade Review state; defaults to union."},
+              "windowDays":{"type":"integer","minimum":5,"maximum":120,"description":"Bounded Trade Review trend window; defaults to 60."}
             },"additionalProperties":false}
             """;
 

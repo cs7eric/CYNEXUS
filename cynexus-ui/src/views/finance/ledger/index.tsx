@@ -13,7 +13,6 @@ import {
   type FinanceOverview,
 } from "@/services/finance/ledger";
 import { FinancePageHeader } from "../components/page-header";
-import { AccountSnapshot } from "../components/account-snapshot";
 import { CategoryBreakdown } from "../components/category-breakdown";
 import { ConsumptionAnalysis } from "../components/consumption-analysis";
 import { FinanceSummaryStrip } from "../components/summary-strip";
@@ -84,6 +83,8 @@ export default function FinanceLedgerPage() {
         description="查看消费节奏、支出结构和账户变化，所有数据来自 AI 解析后确认的账单。"
         onRefresh={() => void load()}
         loading={loading}
+        onManualEntrySaved={() => void load()}
+        onFinanceDataChanged={() => void load()}
       />
       <div className="rounded-xl border border-border/70 bg-muted/25 px-3 py-3 sm:px-4">
         <div className="flex items-center gap-2 text-xs font-medium">
@@ -154,13 +155,10 @@ export default function FinanceLedgerPage() {
             <ConsumptionAnalysis overview={overview} />
             <CategoryBreakdown items={overview.categories} />
           </div>
-          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <AccountSnapshot accounts={overview.accounts} />
-            <TransactionTable
-              rows={overview.recentTransactions}
-              onArchive={archive}
-            />
-          </div>
+          <TransactionTable
+            rows={overview.recentTransactions}
+            onArchive={archive}
+          />
           <div className="border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
             分析口径：只统计已确认入账的收入和支出；转账不会计入消费。AI
             识别结果始终先进入审核草稿。

@@ -270,7 +270,7 @@ function SignalMatrix({ state, stats }: { state: OverviewState; stats: Stats }) 
   const breadthScore = stats.breadthDeltaPct
   const signals: Signal[] = [
     { name: "价格", value: state.indices[0]?.returnPct == null ? "—" : `${formatSigned(state.indices[0].returnPct)}%`, baseline: "宽基 5D 收益", note: state.indices[0]?.name ?? "指数数据", status: statusLabel(state.indices[0]?.returnPct ?? null), score: state.indices[0]?.returnPct ?? null, href: "/market/pulse" },
-    { name: "宽度", value: stats.latestBreadth == null ? "—" : `${formatNumber(stats.latestBreadth * 100, 1)}%`, baseline: `5D ${formatSigned(stats.breadthDeltaPct)}pp`, note: `${stats.latest?.risingCount ?? "—"} 家上涨 / ${stats.latest?.fallingCount ?? "—"} 家下跌`, status: statusLabel(breadthScore), score: breadthScore, href: "/market/indicator" },
+    { name: "宽度", value: stats.latestBreadth == null ? "—" : `${formatNumber(stats.latestBreadth * 100, 1)}%`, baseline: `5D ${formatSigned(stats.breadthDeltaPct)}pp`, note: `${stats.latest?.risingCount ?? "—"} 家上涨 / ${stats.latest?.fallingCount ?? "—"} 家下跌`, status: statusLabel(breadthScore), score: breadthScore, href: "/data-collector/market-indicator" },
     { name: "成交", value: formatAmount(stats.latest?.totalAmount), baseline: `相对 5D ${formatSigned(stats.amountVs5dPct)}%`, note: "成交额是否放大", status: statusLabel(stats.amountVs5dPct), score: stats.amountVs5dPct, href: "/market/pulse" },
     { name: "资金", value: formatAmount(stats.latest?.mainNetInflow ?? state.flow?.mainNetInflow), baseline: `5D ${formatAmount(stats.flow5d)}`, note: "主力净流入", status: statusLabel(stats.flowDelta), score: stats.flowDelta, href: "/market/pulse" },
     { name: "杠杆", value: formatAmount(margin), baseline: `日变动 ${formatAmount(marginDelta)}`, note: "融资融券余额", status: statusLabel(marginDelta), score: marginDelta, href: "/market/margin-trading" },
@@ -362,7 +362,7 @@ function Reliability({ state }: { state: OverviewState }) {
 
 function NextSession({ stats }: { stats: Stats }) {
   const points = [
-    { title: "宽度是否继续扩散", detail: `上涨占比需要站稳 ${formatNumber((stats.latestBreadth ?? 0) * 100, 1)}% 上方`, href: "/market/indicator" },
+    { title: "宽度是否继续扩散", detail: `上涨占比需要站稳 ${formatNumber((stats.latestBreadth ?? 0) * 100, 1)}% 上方`, href: "/data-collector/market-indicator" },
     { title: "量能是否补上", detail: `成交额回到 5D 基线（${formatAmount(mean(stats.five.map((item) => item.totalAmount)))}）才算确认`, href: "/market/pulse" },
     { title: "资金与杠杆是否同向", detail: "主力净流入和融资余额至少一项继续改善", href: "/market/margin-trading" },
   ]

@@ -8,6 +8,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.TradeStatus;
 import cn.cccs7.cynexus.market.infra.portfolio.entity.PortfolioTradePO;
 import cn.cccs7.cynexus.market.infra.portfolio.mapper.PortfolioTradeQueryMapper;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -21,6 +22,11 @@ public class PortfolioTradeQueryRepositoryAdapter implements PortfolioTradeQuery
     @Override
     public List<PortfolioTradeBO> list(String principalKey, String tenantKey, String symbol) {
         return mapper.list(principalKey, tenantKey, symbol).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public Optional<PortfolioTradeBO> findById(String principalKey, String tenantKey, long tradeId) {
+        return Optional.ofNullable(mapper.findById(principalKey, tenantKey, tradeId)).map(this::toDomain);
     }
 
     private PortfolioTradeBO toDomain(PortfolioTradePO po) {

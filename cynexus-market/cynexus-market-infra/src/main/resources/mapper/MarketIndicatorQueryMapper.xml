@@ -281,17 +281,39 @@
     </select>
 
     <select id="listTransmissionEpisodes" resultType="map">
-        select episode_id, trade_date, sector_type, sector_code, sector_name, direction, stage,
-               started_at, confirmed_at, last_evidence_at, eligible_count, observed_count, responded_count,
-               coverage_ratio, coverage_peak, median_lag_seconds, p75_lag_seconds,
-               sector_equal_return_pct, sector_median_return_pct, ex_leader_return_pct,
-               benchmark_excess_pct, breadth_delta_pct_point, confidence_score, confidence_level,
-               data_quality_grade, algorithm_version, payload::text as payload
-          from market_indicator_sector_episodes
-         where deleted_at is null
-           <if test="tradeDate != null">and trade_date = #{tradeDate}</if>
-         order by last_evidence_at desc, confidence_score desc nulls last
-         limit #{limit}
+        with ranked as (
+            select episode_id, stage, confidence_score, coverage_peak, last_evidence_at,
+                   row_number() over (
+                       partition by coalesce(sector_code, ''), sector_name, direction
+                       order by case when stage in ('confirmed', 'spreading', 'crowded') then 0 else 1 end,
+                                confidence_score desc nulls last, coverage_peak desc nulls last, last_evidence_at desc
+                   ) as position
+              from market_indicator_sector_episodes
+             where deleted_at is null
+               <if test="tradeDate != null">and trade_date = #{tradeDate}</if>
+        ), selected as materialized (
+            select episode_id
+              from ranked
+             where position = 1
+             order by case when stage in ('confirmed', 'spreading', 'crowded') then 0 else 1 end,
+                      confidence_score desc nulls last, coverage_peak desc nulls last, last_evidence_at desc
+             limit #{limit}
+        )
+        select episode.episode_id, episode.trade_date, episode.sector_type, episode.sector_code,
+               episode.sector_name, episode.direction, episode.stage, episode.started_at,
+               episode.confirmed_at, episode.last_evidence_at, episode.eligible_count,
+               episode.observed_count, episode.responded_count, episode.coverage_ratio,
+               episode.coverage_peak, episode.median_lag_seconds, episode.p75_lag_seconds,
+               episode.sector_equal_return_pct, episode.sector_median_return_pct,
+               episode.ex_leader_return_pct, episode.benchmark_excess_pct,
+               episode.breadth_delta_pct_point, episode.confidence_score,
+               episode.confidence_level, episode.data_quality_grade, episode.algorithm_version,
+               episode.payload::text as payload
+          from selected
+          join market_indicator_sector_episodes episode on episode.episode_id = selected.episode_id
+         order by case when episode.stage in ('confirmed', 'spreading', 'crowded') then 0 else 1 end,
+                  episode.confidence_score desc nulls last, episode.coverage_peak desc nulls last,
+                  episode.last_evidence_at desc
     </select>
 
     <select id="listTransmissionAdvice" resultType="map">
@@ -312,5 +334,179 @@
            <if test="tradeDate != null">and evaluated_at::date = #{tradeDate}</if>
          order by evaluated_at desc
          limit #{limit}
+    </select>
+
+    <select id="listReplayEvents" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorEventPO">
+        select e.id, e.trade_date, e.code, e.name, e.market, e.event_type, e.event_at,
+               e.signal_value, e.last_price, e.change_pct, e.limit_status, e.source
+          from market_indicator_events e
+         where e.deleted_at is null
+           and e.trade_date = #{tradeDate}
+           and e.event_at &gt;= #{from}
+           and e.event_at &lt;= #{to}
+           <if test="eventType != null and eventType != ''">and e.event_type = #{eventType}</if>
+           <if test="industryCode != null and industryCode != ''">
+               and exists (
+                   select 1
+                     from ths_industry_constituent_snapshot constituent
+                    where constituent.deleted_at is null
+                      and constituent.industry_code = #{industryCode}
+                      and constituent.stock_code = right(e.code, 6)
+                      and constituent.snapshot_date = (
+                          select max(snapshot.snapshot_date)
+                            from ths_industry_constituent_snapshot snapshot
+                           where snapshot.deleted_at is null
+                             and snapshot.industry_code = #{industryCode}
+                             and snapshot.snapshot_date &lt;= #{tradeDate}
+                      )
+               )
+           </if>
+         order by e.event_at asc, e.id asc
+         limit #{limit}
+    </select>
+
+    <select id="listReplayIndustries" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketIndicatorIndustrySnapshotPO">
+        select i.id, i.trade_date, i.captured_at, i.industry_code, i.industry_name, i.stock_count,
+               i.advancing_count, i.declining_count, i.flat_count, i.limit_up_count,
+               i.limit_up_touch_count, i.limit_down_count, i.limit_down_touch_count,
+               i.rapid_rise_count, i.rapid_fall_count, i.first_limit_up_at, i.first_limit_up_code,
+               i.first_limit_up_name, i.first_limit_up_change_pct, i.first_event_at,
+               i.first_event_code, i.first_event_name, i.first_event_type,
+               i.first_event_signal_value, i.source
+          from market_indicator_industry_snapshots i
+         where i.deleted_at is null
+           and i.trade_date = #{tradeDate}
+           and i.captured_at &gt;= #{from}
+           and i.captured_at &lt;= #{to}
+           <if test="industryCode != null and industryCode != ''">and i.industry_code = #{industryCode}</if>
+         order by i.captured_at asc, i.industry_name asc
+         limit #{limit}
+    </select>
+
+    <select id="getTradeReviewManifest" resultType="map">
+        select trade_date, status, minute_bar_count, minute_symbol_count, context_count, indicator_event_count,
+               market_minute_count, industry_minute_count, daily_pool_count, cache_published,
+               quality::text as quality, error_message, built_at
+          from trade_review_day_manifest where trade_date = #{tradeDate}
+    </select>
+
+    <select id="listLimitBoardSessionSummaries" resultType="map">
+        select trade_date, trade_session, code, name, market, direction, closing_status,
+               is_sealed_at_close, first_touch_at, first_sealed_at, last_sealed_at, last_observed_at,
+               sealed_duration_seconds, open_count, reseal_count, sample_count, valid_sample_count,
+               gap_count, coverage_ratio, max_sealed_amount, avg_sealed_amount, median_sealed_amount,
+               peak_sealed_amount_at, first_sealed_amount, last_sealed_amount, sealed_amount_change,
+               sealed_amount_slope, trend_direction, source, algorithm_version, trend_features::text as trend_features
+          from market_indicator_limit_board_session_summaries
+         where deleted_at is null
+           and trade_date = coalesce(#{tradeDate}, (select max(trade_date) from market_indicator_limit_board_session_summaries where deleted_at is null))
+           <if test="tradeSession != null and tradeSession != 'all'">and trade_session = #{tradeSession}</if>
+           <if test="direction != null and direction != 'all'">and direction = #{direction}</if>
+         order by is_sealed_at_close desc, max_sealed_amount desc nulls last, code
+         limit #{limit}
+    </select>
+
+    <select id="getTradeReviewMarketMinute" resultType="map">
+        select trade_date, minute_at, advancing_count, declining_count, flat_count, above_5_count, below_minus_5_count,
+               touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count, sealed_limit_down_count,
+               max_height, seal_rate, break_rate, ladder::text as ladder, source_confidence
+          from trade_review_market_minute_state
+         where trade_date = #{tradeDate} and minute_at &lt;= #{asOf}
+         order by minute_at desc limit 1
+    </select>
+
+    <select id="getTradeReviewMarketDaily" resultType="map">
+        select trade_date, advancing_count, declining_count, flat_count, above_5_count, below_minus_5_count,
+               touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count, sealed_limit_down_count,
+               max_height, seal_rate, break_rate, promotion_rate, break_streak_rate, ladder::text as ladder, source::text as source
+          from trade_review_market_daily_state where trade_date = #{tradeDate}
+    </select>
+
+    <select id="listTradeReviewIndustries" resultType="map">
+        <choose>
+            <when test="asOf != null">
+                select distinct on (membership, industry_code)
+                       trade_date, minute_at, membership, industry_code, industry_name, stock_count, advancing_count,
+                       declining_count, flat_count, touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count,
+                       sealed_limit_down_count, max_height, seal_rate, break_rate, relative_change_pct,
+                       ladder::text as ladder, core_pool::text as core_pool
+                  from trade_review_industry_minute_state
+                 where trade_date = #{tradeDate} and minute_at &lt;= #{asOf} and membership = #{membership}
+                   <if test="industryCode != null and industryCode != ''">and industry_code = #{industryCode}</if>
+                 order by membership, industry_code, minute_at desc
+            </when>
+            <otherwise>
+                select trade_date, membership, industry_code, industry_name, stock_count, advancing_count, declining_count,
+                       touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count, sealed_limit_down_count,
+                       max_height, seal_rate, break_rate, relative_change_pct, factor::text as factor
+                  from trade_review_industry_daily_state
+                 where trade_date = #{tradeDate} and membership = #{membership}
+                   <if test="industryCode != null and industryCode != ''">and industry_code = #{industryCode}</if>
+                 order by sealed_limit_up_count desc, relative_change_pct desc nulls last, industry_name
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="listTradeReviewPools" resultType="map">
+        <choose>
+            <when test="asOf != null">
+                select pool_type, membership, industry_code, stocks::text as stocks
+                  from trade_review_minute_pool_index
+                 where trade_date = #{tradeDate} and minute_at = (
+                    select max(minute_at) from trade_review_minute_pool_index where trade_date = #{tradeDate} and minute_at &lt;= #{asOf}
+                 ) and membership = #{membership}
+                   <choose>
+                       <when test="industryCode != null and industryCode != ''">and industry_code = #{industryCode}</when>
+                       <otherwise>and coalesce(industry_code, '') = ''</otherwise>
+                   </choose>
+                 order by pool_type
+            </when>
+            <otherwise>
+                select pool_type, membership, industry_code, stocks::text as stocks
+                 from trade_review_daily_pool
+                 where trade_date = #{tradeDate} and membership = #{membership}
+                   <choose>
+                       <when test="industryCode != null and industryCode != ''">and industry_code = #{industryCode}</when>
+                       <otherwise>and coalesce(industry_code, '') = ''</otherwise>
+                   </choose>
+                 order by pool_type
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="listTradeReviewEvents" resultType="map">
+        select code, name, event_type, event_at, effective_minute, price, change_pct,
+               limit_up_price, limit_down_price, source, payload::text as payload
+          from trade_review_indicator_event
+         where trade_date = #{tradeDate} and event_at &lt;= #{asOf}
+         order by event_at asc, code asc
+    </select>
+
+    <select id="listTradeReviewDailyStates" resultType="map">
+        select trade_date, advancing_count, declining_count, flat_count, above_5_count, below_minus_5_count,
+               touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count, sealed_limit_down_count,
+               max_height, seal_rate, break_rate, promotion_rate, break_streak_rate, ladder::text as ladder
+          from trade_review_market_daily_state
+         where trade_date &lt;= #{tradeDate}
+         order by trade_date desc limit #{windowDays}
+    </select>
+
+    <select id="getTradeReviewPhase" resultType="map">
+        select trade_date, scope, membership, industry_code, window_days, phase, phase_score,
+               factor::text as factor, policy_version
+          from trade_review_trend_phase
+         where trade_date = #{tradeDate} and scope = 'market' and membership = 'union'
+           and window_days = #{windowDays}
+         order by updated_at desc limit 1
+    </select>
+
+    <select id="listTradeReviewIndustryPhases" resultType="map">
+        select trade_date, scope, membership, industry_code, window_days, phase, phase_score,
+               factor::text as factor, policy_version
+          from trade_review_trend_phase
+         where trade_date = #{tradeDate} and scope = 'industry' and membership = #{membership}
+           and window_days = #{windowDays}
+           <if test="industryCode != null and industryCode != ''">and industry_code = #{industryCode}</if>
+         order by phase_score desc, industry_code
     </select>
 </mapper>

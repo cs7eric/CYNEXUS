@@ -83,6 +83,24 @@ public final class SchedulerDataJobKeyResolver {
                     Map.entry("full_confirmation_required", true),
                     Map.entry("scope", "priority")
             )),
+            entry("market_indicator_limit_board_capture", "market_indicator_limit_board_capture", Map.ofEntries(
+                    Map.entry("discovery_interval_seconds", 30),
+                    Map.entry("batch_size", 240),
+                    Map.entry("pool_size", 8),
+                    Map.entry("quote_retry_attempts", 2),
+                    Map.entry("quote_retry_backoff_seconds", 0.25),
+                    Map.entry("quote_request_spacing_seconds", 0.02),
+                    Map.entry("quote_fallback_batch_size", 80),
+                    Map.entry("timeout", 8),
+                    Map.entry("redis_prefix", "cynexus:market-indicator:limit-board:v1"),
+                    Map.entry("redis_ttl_seconds", 43200)
+            )),
+            entry("market_indicator_limit_board_finalize", "market_indicator_limit_board_finalize", Map.ofEntries(
+                    Map.entry("sample_interval_seconds", 5),
+                    Map.entry("redis_prefix", "cynexus:market-indicator:limit-board:v1"),
+                    Map.entry("redis_ttl_seconds", 43200),
+                    Map.entry("source", "eltdx.quotes.best_quote")
+            )),
             entry("profit_effect_refresh", "build_profit_effect"),
             entry("risk_appetite_refresh", "build_risk_appetite"),
             entry("sector_breadth_refresh", "build_sector_breadth"),

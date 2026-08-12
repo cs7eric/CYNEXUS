@@ -24,6 +24,25 @@ class SchedulerTriggerPolicyTest {
     }
 
     @Test
+    void resolvesLimitBoardJobsForRecurringRuntime() {
+        SchedulerDataJobKeyResolver.ResolvedDataJob capture = SchedulerDataJobKeyResolver
+                .resolve("market_indicator_limit_board_capture")
+                .orElseThrow();
+        SchedulerDataJobKeyResolver.ResolvedDataJob finalize = SchedulerDataJobKeyResolver
+                .resolve("market_indicator_limit_board_finalize")
+                .orElseThrow();
+
+        assertThat(capture.jobKey()).isEqualTo("market_indicator_limit_board_capture");
+        assertThat(capture.defaultParams())
+                .containsEntry("batch_size", 240)
+                .containsEntry("redis_prefix", "cynexus:market-indicator:limit-board:v1");
+        assertThat(finalize.jobKey()).isEqualTo("market_indicator_limit_board_finalize");
+        assertThat(finalize.defaultParams())
+                .containsEntry("sample_interval_seconds", 5)
+                .containsEntry("source", "eltdx.quotes.best_quote");
+    }
+
+    @Test
     void resolvesDailyMarginSyncForRecurringRuntime() {
         SchedulerDataJobKeyResolver.ResolvedDataJob dataJob = SchedulerDataJobKeyResolver
                 .resolve("margin_sync_daily")
@@ -114,5 +133,25 @@ class SchedulerTriggerPolicyTest {
         assertThat(outcome.failedCount()).isEqualTo(1);
         assertThat(outcome.items()).extracting(item -> item.jobId()).containsExactly("a", "b");
         assertThat(outcome.items().get(1).lastRunError()).isEqualTo("timeout");
+    }
+
+    @Test
+    void normalizesExecutorPartialSuccessToSchedulerPartialStatus() {
+        assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(resultWithStatus("partial_success")))
+                .isEqualTo("partial");
+    }
+
+    @Test
+    void normalizesKnownExecutorStatusesToLowercase() {
+        assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(resultWithStatus("SUCCESS")))
+                .isEqualTo("success");
+        assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(resultWithStatus("failed")))
+                .isEqualTo("failed");
+        assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(resultWithStatus("running")))
+                .isEqualTo("running");
+    }
+
+    private static DataJobTriggerResultBO resultWithStatus(String status) {
+        return DataJobTriggerResultBO.builder().status(status).build();
     }
 }

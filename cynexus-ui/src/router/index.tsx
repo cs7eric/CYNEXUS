@@ -1,53 +1,73 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createBrowserRouter, Navigate, useParams, useSearchParams } from "react-router-dom"
+import { lazy, Suspense, type ComponentType } from "react"
 import App from "../App"
-import ApplicationAnalysisPage from "../views/application-analysis"
-import DashboardPage from "../views/dashboard"
-import DownloaderPage from "../views/downloader"
-import HomePage from "../views/home"
-import HeatmapDemoPage, { HeatmapDataDebug } from "../views/heatmap-demo"
-import IndustryApplicationPage from "../views/industry-application"
-import Mp4ToWordPage from "../views/mp4-to-word"
-import Mp4HistoryPage from "../views/mp4-to-word/history"
-import Mp4ProcessHistoryPage from "../views/mp4-to-word/process-history"
-import SchedulerSettingsPage from "../views/settings/scheduler"
-import WechatHistoryPage from "../views/settings/wechat-history"
-import AiProviderSettingsPage from "../views/ai/provider"
-import DataSourceSettingsPage from "../views/settings/data-source"
-import ProviderSettingsPage from "../views/settings/provider"
-import PromptSettingsPage from "../views/ai/prompt"
-import AiUsageSettingsPage from "../views/ai/usage"
-import AutonomousAgentPage from "../views/cynexus-agent"
-import SelfSelectedPage from "../views/self-selected"
-import StockOverviewPage from "../views/stock-overview"
-import StockOverviewMarketPulsePage from "../views/stock-overview/market-pulse"
-import MarketPulsePage from "../views/market/market-pulse"
-import MarketSentimentPage from "../views/market/market-sentiment"
-import MarketMarginTradingPage from "../views/market/market-margin-trading"
-import MarketEtfPage from "../views/market/market-etf"
-import MarketIndicatorPage from "../views/market/market-indicator"
-import MarketFuturesPositionPage from "../views/market/market-futures-position"
-import MarketOverviewPage from "../views/market/market-overview"
-import MarketInformationPage, { MarketInformationAnalyzedPage } from "../views/information"
-import SocialMonitoringPage from "../views/information/social-monitoring"
-import PocPage from "../views/poc"
-import AStockSkillPocPage from "../views/poc/a-stock-skill/page"
-import AiPocPage from "../views/poc/ai"
-import MarkdownRenderPocPage from "../views/poc/markdown-render"
-import EasyTdxPocPage from "../views/poc/easy-tdx/page"
-import ShadcnPocPage from "../views/poc/shadcn"
-import StockReviewPage from "../views/stock-review"
-import KnowledgeBasePage from "../views/knowledge-base"
-import KnowledgeBaseWritingPage from "../views/knowledge-base/writing"
-import KnowledgeBaseViewPage from "../views/knowledge-base/view"
-import FinanceOverviewPage from "../views/finance/overview"
-import FinanceLedgerPage from "../views/finance/ledger"
-import FinanceTransactionsPage from "../views/finance/transactions"
-import FinanceAccountsPage from "../views/finance/accounts"
-import FinanceAiCapturePage from "../views/finance/ai-capture"
-import PersonalPortfolioPage from "../views/market/personal-portfolio"
-import PersonalPortfolioImportReviewPage from "../views/market/personal-portfolio/import-review"
-import PersonalPortfolioReviewEditorPage from "../views/market/personal-portfolio/review-editor"
-import PersonalPortfolioStockDetailPage from "../views/market/personal-portfolio/stock-detail"
+
+const ApplicationAnalysisPage = lazy(() => import("../views/application-analysis"))
+const DashboardPage = lazy(() => import("../views/dashboard"))
+const DownloaderPage = lazy(() => import("../views/downloader"))
+const HomePage = lazy(() => import("../views/home"))
+const HeatmapDemoPage = lazy(() => import("../views/heatmap-demo"))
+const HeatmapDataDebug = lazy(() => import("../views/heatmap-demo").then(({ HeatmapDataDebug }) => ({ default: HeatmapDataDebug })))
+const IndustryApplicationPage = lazy(() => import("../views/industry-application"))
+const Mp4ToWordPage = lazy(() => import("../views/mp4-to-word"))
+const Mp4HistoryPage = lazy(() => import("../views/mp4-to-word/history"))
+const Mp4ProcessHistoryPage = lazy(() => import("../views/mp4-to-word/process-history"))
+const SchedulerSettingsPage = lazy(() => import("../views/settings/scheduler"))
+const WechatHistoryPage = lazy(() => import("../views/settings/wechat-history"))
+const AiProviderSettingsPage = lazy(() => import("../views/ai/provider"))
+const DataSourceSettingsPage = lazy(() => import("../views/settings/data-source"))
+const ProviderSettingsPage = lazy(() => import("../views/settings/provider"))
+const PromptSettingsPage = lazy(() => import("../views/ai/prompt"))
+const AiUsageSettingsPage = lazy(() => import("../views/ai/usage"))
+const AutonomousAgentPage = lazy(() => import("../views/cynexus-agent"))
+const SelfSelectedPage = lazy(() => import("../views/self-selected"))
+const StockOverviewPage = lazy(() => import("../views/stock-overview"))
+const StockOverviewMarketPulsePage = lazy(() => import("../views/stock-overview/market-pulse"))
+const MarketPulsePage = lazy(() => import("../views/market/market-pulse"))
+const MarketSentimentPage = lazy(() => import("../views/market/market-sentiment"))
+const MarketMarginTradingPage = lazy(() => import("../views/market/market-margin-trading"))
+const MarketEtfPage = lazy(() => import("../views/market/market-etf"))
+const MarketIndicatorPage = lazy(() => import("../views/data-collector/market-indicator"))
+const LimitBoardMonitorPage = lazy(() => import("../views/data-collector/limit-board-monitor"))
+const MarketFuturesPositionPage = lazy(() => import("../views/market/market-futures-position"))
+const MarketOverviewPage = lazy(() => import("../views/market/market-overview"))
+const MarketInformationPage = lazy(() => import("../views/information"))
+const MarketInformationAnalyzedPage = lazy(() => import("../views/information").then(({ MarketInformationAnalyzedPage }) => ({ default: MarketInformationAnalyzedPage })))
+const SocialMonitoringPage = lazy(() => import("../views/information/social-monitoring"))
+const PocPage = lazy(() => import("../views/poc"))
+const AStockSkillPocPage = lazy(() => import("../views/poc/a-stock-skill/page"))
+const AiPocPage = lazy(() => import("../views/poc/ai"))
+const MarkdownRenderPocPage = lazy(() => import("../views/poc/markdown-render"))
+const EasyTdxPocPage = lazy(() => import("../views/poc/easy-tdx/page"))
+const ShadcnPocPage = lazy(() => import("../views/poc/shadcn"))
+const StockReviewPage = lazy(() => import("../views/stock-review"))
+const KnowledgeBasePage = lazy(() => import("../views/knowledge-base"))
+const KnowledgeBaseWritingPage = lazy(() => import("../views/knowledge-base/writing"))
+const KnowledgeBaseViewPage = lazy(() => import("../views/knowledge-base/view"))
+const FinanceOverviewPage = lazy(() => import("../views/finance/overview"))
+const FinanceLedgerPage = lazy(() => import("../views/finance/ledger"))
+const FinanceTransactionsPage = lazy(() => import("../views/finance/transactions"))
+const FinanceAiCapturePage = lazy(() => import("../views/finance/ai-capture"))
+const PersonalPortfolioPage = lazy(() => import("../views/market/personal-portfolio"))
+const PersonalPortfolioImportReviewPage = lazy(() => import("../views/market/personal-portfolio/import-review"))
+const PersonalPortfolioReviewEditorPage = lazy(() => import("../views/market/personal-portfolio/review-editor"))
+const PersonalPortfolioStockDetailPage = lazy(() => import("../views/market/personal-portfolio/stock-detail"))
+const TradeReviewPage = lazy(() => import("../views/market/trade-review"))
+
+const RouteLoading = () => (
+  <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+    Loading…
+  </div>
+)
+
+function pageElement(Page: ComponentType) {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <Page />
+    </Suspense>
+  )
+}
 
 function LegacyPortfolioImportRoute() {
   const { taskId } = useParams()
@@ -68,91 +88,99 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: pageElement(HomePage),
       },
       {
         path: "downloader",
-        element: <DownloaderPage />,
+        element: pageElement(DownloaderPage),
       },
       {
         path: "dashboard",
-        element: <DashboardPage />,
+        element: pageElement(DashboardPage),
       },
       {
         path: "finance/overview",
-        element: <FinanceOverviewPage />,
+        element: pageElement(FinanceOverviewPage),
       },
       {
         path: "finance/ledger",
-        element: <FinanceLedgerPage />,
+        element: pageElement(FinanceLedgerPage),
       },
       {
         path: "finance/transactions",
-        element: <FinanceTransactionsPage />,
-      },
-      {
-        path: "finance/accounts",
-        element: <FinanceAccountsPage />,
+        element: pageElement(FinanceTransactionsPage),
       },
       {
         path: "finance/ai-capture",
-        element: <FinanceAiCapturePage />,
+        element: pageElement(FinanceAiCapturePage),
       },
       {
         path: "mp4-to-word",
-        element: <Mp4ToWordPage />,
+        element: pageElement(Mp4ToWordPage),
       },
       {
         path: "mp4-to-word/history",
-        element: <Mp4HistoryPage />,
+        element: pageElement(Mp4HistoryPage),
       },
       {
         path: "mp4-to-word/history/:id",
-        element: <Mp4HistoryPage />,
+        element: pageElement(Mp4HistoryPage),
       },
       {
         path: "mp4-to-word/process-history",
-        element: <Mp4ProcessHistoryPage />,
+        element: pageElement(Mp4ProcessHistoryPage),
       },
       {
         path: "stock-overview",
-        element: <StockOverviewPage />,
+        element: pageElement(StockOverviewPage),
       },
       {
         path: "stock-overview/market",
-        element: <StockOverviewMarketPulsePage />,
+        element: pageElement(StockOverviewMarketPulsePage),
       },
       {
         path: "market/overview",
-        element: <MarketOverviewPage />,
+        element: pageElement(MarketOverviewPage),
       },
       {
         path: "market/pulse",
-        element: <MarketPulsePage />,
+        element: pageElement(MarketPulsePage),
       },
       {
         path: "market/sentiment",
-        element: <MarketSentimentPage />,
+        element: pageElement(MarketSentimentPage),
       },
       {
         path: "market/margin-trading",
-        element: <MarketMarginTradingPage />,
+        element: pageElement(MarketMarginTradingPage),
       },
       {
         path: "market/etf",
-        element: <MarketEtfPage />,
+        element: pageElement(MarketEtfPage),
       },
       {
         path: "market/indicator",
-        element: <MarketIndicatorPage />,
+        element: <Navigate to="/data-collector/market-indicator" replace />,
+      },
+      {
+        path: "data-collector",
+        element: <Navigate to="/data-collector/market-indicator" replace />,
+      },
+      {
+        path: "data-collector/market-indicator",
+        element: pageElement(MarketIndicatorPage),
+      },
+      {
+        path: "data-collector/limit-board-monitor",
+        element: pageElement(LimitBoardMonitorPage),
       },
       {
         path: "market/futures-position",
-        element: <MarketFuturesPositionPage />,
+        element: pageElement(MarketFuturesPositionPage),
       },
       {
         path: "personal-portfolio",
-        element: <PersonalPortfolioPage />,
+        element: pageElement(PersonalPortfolioPage),
       },
       {
         path: "personal-portfolio/imports",
@@ -160,7 +188,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "personal-portfolio/imports/:taskId/review",
-        element: <PersonalPortfolioImportReviewPage />,
+        element: pageElement(PersonalPortfolioImportReviewPage),
       },
       {
         path: "personal-portfolio/imports/:taskId",
@@ -172,23 +200,27 @@ export const router = createBrowserRouter([
       },
       {
         path: "personal-portfolio/reviews/:reviewId",
-        element: <PersonalPortfolioReviewEditorPage />,
+        element: pageElement(PersonalPortfolioReviewEditorPage),
       },
       {
         path: "personal-portfolio/stocks/:symbol",
-        element: <PersonalPortfolioStockDetailPage />,
+        element: pageElement(PersonalPortfolioStockDetailPage),
+      },
+      {
+        path: "trade-review",
+        element: pageElement(TradeReviewPage),
       },
       {
         path: "information",
-        element: <MarketInformationPage />,
+        element: pageElement(MarketInformationPage),
       },
       {
         path: "information/analyzed",
-        element: <MarketInformationAnalyzedPage />,
+        element: pageElement(MarketInformationAnalyzedPage),
       },
       {
         path: "information/social-monitoring",
-        element: <SocialMonitoringPage />,
+        element: pageElement(SocialMonitoringPage),
       },
       {
         path: "market/information",
@@ -196,71 +228,71 @@ export const router = createBrowserRouter([
       },
       {
         path: "poc",
-        element: <PocPage />,
+        element: pageElement(PocPage),
       },
       {
         path: "poc/ai",
-        element: <AiPocPage />,
+        element: pageElement(AiPocPage),
       },
       {
         path: "poc/a-stock-skill",
-        element: <AStockSkillPocPage />,
+        element: pageElement(AStockSkillPocPage),
       },
       {
         path: "poc/markdown-render",
-        element: <MarkdownRenderPocPage />,
+        element: pageElement(MarkdownRenderPocPage),
       },
       {
         path: "poc/easy-tdx",
-        element: <EasyTdxPocPage />,
+        element: pageElement(EasyTdxPocPage),
       },
       {
         path: "poc/shadcn",
-        element: <ShadcnPocPage />,
+        element: pageElement(ShadcnPocPage),
       },
       {
         path: "knowledge-base",
-        element: <KnowledgeBasePage />,
+        element: pageElement(KnowledgeBasePage),
       },
       {
         path: "knowledge-base/writing",
-        element: <KnowledgeBaseWritingPage />,
+        element: pageElement(KnowledgeBaseWritingPage),
       },
       {
         path: "knowledge-base/view",
-        element: <KnowledgeBaseViewPage />,
+        element: pageElement(KnowledgeBaseViewPage),
       },
       {
         path: "stock-overview/application-analysis",
-        element: <ApplicationAnalysisPage />,
+        element: pageElement(ApplicationAnalysisPage),
       },
       {
         path: "stock-overview/industry-application",
-        element: <IndustryApplicationPage />,
+        element: pageElement(IndustryApplicationPage),
       },
       {
         path: "heatmap-demo",
-        element: <HeatmapDemoPage />,
+        element: pageElement(HeatmapDemoPage),
       },
       {
         path: "heatmap-data-debug",
-        element: <HeatmapDataDebug />,
+        element: pageElement(HeatmapDataDebug),
       },
       {
         path: "stock-overview/self-selected",
-        element: <SelfSelectedPage />,
+        element: pageElement(SelfSelectedPage),
       },
       {
         path: "stock-review",
-        element: <StockReviewPage />,
+        element: pageElement(StockReviewPage),
       },
       {
         path: "settings/scheduler",
-        element: <SchedulerSettingsPage />,
+        element: pageElement(SchedulerSettingsPage),
       },
       {
         path: "settings/wechat-history",
-        element: <WechatHistoryPage />,
+        element: pageElement(WechatHistoryPage),
       },
       {
         path: "ai",
@@ -268,11 +300,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "cynexus-agent",
-        element: <AutonomousAgentPage />,
+        element: pageElement(AutonomousAgentPage),
       },
       {
         path: "ai/provider",
-        element: <AiProviderSettingsPage />,
+        element: pageElement(AiProviderSettingsPage),
       },
       {
         path: "ai/agent",
@@ -280,19 +312,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings/data-source",
-        element: <DataSourceSettingsPage />,
+        element: pageElement(DataSourceSettingsPage),
       },
       {
         path: "settings/provider",
-        element: <ProviderSettingsPage />,
+        element: pageElement(ProviderSettingsPage),
       },
       {
         path: "ai/prompt",
-        element: <PromptSettingsPage />,
+        element: pageElement(PromptSettingsPage),
       },
       {
         path: "ai/usage",
-        element: <AiUsageSettingsPage />,
+        element: pageElement(AiUsageSettingsPage),
       },
       {
         path: "settings/ai-provider",

@@ -27,7 +27,7 @@ final class MarketResearchAgentToolGuidance {
             "Use when the user asks about margin balance, industry ranking, or a stock or industry's margin history.",
             "Do not treat margin balance as a standalone buy or sell signal.");
     static final String INDICATOR = guidance(
-            "Read full-market indicator snapshots when available, sector transmission episodes, replay outcomes, conditional trade references, and industry detail.",
+            "Read full-market indicator snapshots, bounded 1m replay timelines, materialized Trade Review states, sector transmission episodes, replay outcomes, conditional trade references, and industry detail.",
             "Use when the user asks who led a sector move, whether followers confirmed it, what market context accompanied the anomaly, or how an episode performed afterward.",
             "Treat coverage, freshness, data quality, counter-evidence, and invalidation conditions as mandatory. Conditional references are auxiliary research only; never present them as guaranteed buy/sell instructions or automatic trading.");
     static final String ETF = guidance(

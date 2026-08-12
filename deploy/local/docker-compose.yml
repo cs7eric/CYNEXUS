@@ -112,6 +112,8 @@ services:
       - clickhouse-logs:/var/log/clickhouse-server
       - ./clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./clickhouse/config.d/merge_tree_recovery.xml:/etc/clickhouse-server/config.d/merge_tree_recovery.xml:ro
+      - ./clickhouse/config.d/observability_retention.xml:/etc/clickhouse-server/config.d/observability_retention.xml:ro
+      - ./clickhouse/users.d/observability_profile.xml:/etc/clickhouse-server/users.d/observability_profile.xml:ro
     ulimits:
       nofile:
         soft: 262144
@@ -139,9 +141,10 @@ services:
     build:
       context: ../..
       dockerfile: deploy/local/Dockerfile.data
-    image: cynexus-data-job-executor:local
+    image: cynexus-data-job-executor:cpu
     container_name: cynexus-data-job-executor
     restart: unless-stopped
+    command: ["cynexus-trigger-api", "--host", "0.0.0.0", "--port", "18083"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,7 +153,13 @@ services:
       redis:
         condition: service_healthy
     environment:
+      CYNEXUS_DATA_PROJECT_ROOT: /app
+      CYNEXUS_PLAYWRIGHT_EXECUTABLE_PATH: /usr/bin/chromium
       CYNEXUS_DATA_INTERNAL_TOKEN: ${CYNEXUS_DATA_INTERNAL_TOKEN:-}
+      CYNEXUS_SOCIAL_BACKEND: ${CYNEXUS_SOCIAL_BACKEND:-cdp}
+      CYNEXUS_SOCIAL_CDP_HOST: ${CYNEXUS_SOCIAL_CDP_HOST:-host.docker.internal}
+      CYNEXUS_SOCIAL_CDP_PORT_XIAOHONGSHU: ${CYNEXUS_SOCIAL_CDP_PORT_XIAOHONGSHU:-19221}
+      CYNEXUS_SOCIAL_CDP_PORT_DOUYIN: ${CYNEXUS_SOCIAL_CDP_PORT_DOUYIN:-19222}
       EASTMONEY_QGQP_B_ID: ${EASTMONEY_QGQP_B_ID:-}
       EASTMONEY_NID18: ${EASTMONEY_NID18:-}
       EASTMONEY_CHROMIUM_EXECUTABLE: ${EASTMONEY_CHROMIUM_EXECUTABLE:-/usr/bin/chromium}
@@ -174,13 +183,15 @@ services:
       TDX_ROOT: /app/var/tdx/day/hsjday
       CYNEXUS_MEDIA_TRANSCRIPTION_WORK_ROOT: /app/var/media-transcription
       CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER:-cynexus_data.pipelines.transcription.providers.faster_whisper:FasterWhisperTranscriber}
-      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS:-{"device":"cuda","compute_type":"float16","beam_size":1,"vad_filter":true,"fallback_device":"cpu"}}
+      CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS: ${CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS:-{"device":"cpu","compute_type":"int8","beam_size":1,"vad_filter":true,"fallback_device":"cpu"}}
+      # Optional URL-native provider. Leave empty to keep the existing local Faster Whisper flow.
+      CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER: ${CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER:-}
+      CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER_PARAMS: ${CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER_PARAMS:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_ENDPOINT: ${DASHSCOPE_ENDPOINT:-https://llm-0iqmce4s7al5sk6j.cn-beijing.maas.aliyuncs.com/api/v1}
+      DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-paraformer-v2}
       CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE: ${CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE:-zh}
       CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH: ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_PATH:-/app/var/models/whisper-large-v3-ct2}
-      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
-      LD_LIBRARY_PATH: /usr/local/lib/python3.13/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.13/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.13/site-packages/nvidia/cu13/lib:/usr/local/lib/python3.13/site-packages/nvidia/cusparse/lib:/usr/local/lib/python3.13/site-packages/nvidia/cusolver/lib
-    gpus: all
     ports:
       - "127.0.0.1:18083:18083"
     volumes:
@@ -188,6 +199,10 @@ services:
       - type: bind
         source: ${CYNEXUS_TDX_LOCAL_ROOT:-D:/Program File/tdx}
         target: /app/tdx
+        read_only: true
+      - type: bind
+        source: ${CYNEXUS_PARQUET_1M_ROOT:-F:/data/stock_1min}
+        target: /app/parquet/stock_1min
         read_only: true
       - ${CYNEXUS_MEDIA_TRANSCRIPTION_MODEL_HOST_PATH:-F:/dev-repo/mp4-to-word-new/models/AI-ModelScope}:/models/transcription:ro
     healthcheck:

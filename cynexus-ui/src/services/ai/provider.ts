@@ -275,6 +275,16 @@ const AI_CAPABILITIES: AiCapability[] = [
     aliases: ["market.futures_position_analysis", "期货持仓结构分析", "股指期货 AI 分析"],
   },
   {
+    code: "market_indicator_replay_explanation",
+    label: "Market indicator replay explanation",
+    group: "Market / Indicator Replay",
+    description: "Explain event-anchored market indicator replay Episodes using bounded radar, 1m benchmark, limit-ladder, and outcome evidence.",
+    entry: "Market / Indicator / Post-market Replay / AI Explanation",
+    reads_binding: true,
+    runtime: "MarketIndicatorReplayAiAppService",
+    prompt_key: "market_indicator_replay_explanation",
+  },
+  {
     code: "knowledge_base_document_generate",
     label: "Knowledge Base document generation",
     group: "Knowledge Base",
@@ -659,6 +669,18 @@ export async function upsertAiBinding(payload: Partial<AiBindingItem>): Promise<
   return binding
 }
 
-export async function updateAiBindingProvider(capability: string, providerId: string): Promise<AiBindingItem> {
-  return upsertAiBinding({ capability, provider_id: providerId })
+export async function updateAiBindingProvider(
+  capability: string,
+  providerId: string,
+  modelOverride?: string,
+): Promise<AiBindingItem> {
+  return upsertAiBinding({
+    capability,
+    provider_id: providerId,
+    ...(modelOverride === undefined ? {} : { model_override: modelOverride }),
+  })
+}
+
+export async function updateAiBindingModel(capability: string, modelOverride: string): Promise<AiBindingItem> {
+  return upsertAiBinding({ capability, model_override: modelOverride })
 }

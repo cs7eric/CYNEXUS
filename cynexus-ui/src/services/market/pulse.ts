@@ -558,6 +558,8 @@ export type LimitEmotionBreakBoardStatus = "ready" | "unavailable"
 export interface LimitEmotionStock {
   code: string
   name: string
+  streak?: number | null
+  previousStreak?: number | null
   changePct?: number | null
   industry?: string | null
   concepts?: string[]
@@ -629,6 +631,11 @@ export interface LimitEmotionPayload {
   updateTime: string | null
   marketStatus: LimitEmotionMarketStatus | null
   dataStatus: LimitEmotionDataStatus
+  above5PctCount?: number | null
+  medianChangePct?: number | null
+  advancingCount?: number | null
+  decliningCount?: number | null
+  flatCount?: number | null
   error?: string
 }
 
@@ -1152,8 +1159,9 @@ export async function triggerMarketPulseSnapshot(): Promise<Record<string, unkno
   return result as unknown as Record<string, unknown>
 }
 
-export async function fetchMarketPulseLimitEmotion(): Promise<LimitEmotionPayload> {
-  const res = await fetchWithRetry(`${MARKET_PULSE_API_BASE}/limit-emotion`, { cache: "no-store" })
+export async function fetchMarketPulseLimitEmotion(date?: string): Promise<LimitEmotionPayload> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : ""
+  const res = await fetchWithRetry(`${MARKET_PULSE_API_BASE}/limit-emotion${query}`, { cache: "no-store" })
   return readPayload<LimitEmotionPayload>(res, "获取涨跌停情绪失败")
 }
 

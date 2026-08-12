@@ -60,7 +60,7 @@ class CdpSocialClient:
             100_000,
         )
         self.scroll_wait_ms = _bounded_int(configured.get("scroll_wait_ms"), 800, 100, 10_000)
-        self.post_limit = _bounded_int(configured.get("cdp_post_limit"), 20, 1, 100)
+        self.post_limit = _optional_bounded_int(configured.get("cdp_post_limit"), 1, 1_000_000)
         self.comment_limit = _optional_bounded_int(
             configured.get("cdp_comment_limit") or os.getenv("CYNEXUS_SOCIAL_CDP_COMMENT_LIMIT"),
             1,
@@ -350,7 +350,8 @@ class CdpSocialClient:
     def _discover_xiaohongshu(self, creator: SocialCreator, page: Any, rows: list[dict[str, Any]]) -> list[SocialPost]:
         today = datetime.now(SHANGHAI_TZ).date()
         selected: list[SocialPost] = []
-        for row in rows[: self.post_limit]:
+        candidate_rows = rows if self.post_limit is None else rows[: self.post_limit]
+        for row in candidate_rows:
             post = self._post_from_row(creator, row)
             if post is None:
                 continue
@@ -370,7 +371,8 @@ class CdpSocialClient:
     def _discover_douyin(self, creator: SocialCreator, _page: Any, rows: list[dict[str, Any]]) -> list[SocialPost]:
         today = datetime.now(SHANGHAI_TZ).date()
         selected: list[SocialPost] = []
-        for row in rows[: self.post_limit]:
+        candidate_rows = rows if self.post_limit is None else rows[: self.post_limit]
+        for row in candidate_rows:
             post = self._post_from_row(creator, row)
             if post is None or post.published_at is None:
                 continue
@@ -428,7 +430,7 @@ class CdpSocialClient:
                   const result = [];
                   const seen = new Set();
                   const visit = (value, depth) => {
-                    if (!value || depth > 8 || result.length >= 300) return;
+                    if (!value || depth > 8) return;
                     if (Array.isArray(value)) {
                       for (const item of value) visit(item, depth + 1);
                       return;

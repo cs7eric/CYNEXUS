@@ -106,7 +106,7 @@ class FakeMarketLimitRepo:
         return 1
 
 
-def test_build_limit_emotion_uses_stock_meta_threshold(monkeypatch) -> None:
+def test_build_limit_emotion_uses_board_threshold_for_stale_st_meta(monkeypatch) -> None:
     monkeypatch.setattr(build_limit_emotion, "StockBasicRepository", FakeStockRepo)
     monkeypatch.setattr(build_limit_emotion, "MsiRepository", FakeMsiRepo)
     monkeypatch.setattr(build_limit_emotion, "MarketLimitRepository", FakeMarketLimitRepo)
@@ -114,7 +114,7 @@ def test_build_limit_emotion_uses_stock_meta_threshold(monkeypatch) -> None:
     monkeypatch.setattr(
         build_limit_emotion,
         "read_limit_emotion_ohlcv_rows",
-        lambda client, trade_date, table="daily_raw": [{"market": "SH", "code": "600000", "tdxCode": "sh600000", "open": 10, "high": 10.5, "low": 9.8, "close": 10.5, "preClose": 10}],
+        lambda client, trade_date, table="daily_raw": [{"market": "SH", "code": "600000", "tdxCode": "sh600000", "open": 11, "high": 11, "low": 10.8, "close": 11, "preClose": 10}],
     )
     monkeypatch.setattr(build_limit_emotion, "read_limit_emotion_history_ohlcv_rows", lambda client, trade_date, codes, tdx_codes=None, lookback_days=120, table="daily_raw": [])
     FakeMsiRepo.saved = None
@@ -141,11 +141,11 @@ def test_build_limit_emotion_auto_previous_trade_date(monkeypatch) -> None:
     def fake_ohlcv(client, trade_date, table="daily_raw"):
         if str(trade_date) == "2026-06-29":
             return [
-                {"market": "SH", "code": "600000", "tdxCode": "sh600000", "open": 10.6, "high": 11.1, "low": 10.5, "close": 10.92, "preClose": 10.5},
+                {"market": "SH", "code": "600000", "tdxCode": "sh600000", "open": 12.1, "high": 12.1, "low": 11.8, "close": 12.1, "preClose": 11.0},
                 {"market": "SZ", "code": "000001", "tdxCode": "sz000001", "open": 9.8, "high": 10.0, "low": 9.7, "close": 9.9, "preClose": 10.0},
             ]
         return [
-            {"market": "SH", "code": "600000", "tdxCode": "sh600000", "open": 10, "high": 10.5, "low": 9.8, "close": 10.5, "preClose": 10},
+            {"market": "SH", "code": "600000", "tdxCode": "sh600000", "open": 11, "high": 11, "low": 10.8, "close": 11, "preClose": 10},
             {"market": "SZ", "code": "000001", "tdxCode": "sz000001", "open": 10, "high": 10.2, "low": 9.8, "close": 10.0, "preClose": 10},
         ]
 
@@ -157,8 +157,8 @@ def test_build_limit_emotion_auto_previous_trade_date(monkeypatch) -> None:
 
     assert result["payload"]["prevTradeDate"] == "2026-06-26"
     assert result["payload"]["yesterdayLimitUpCount"] == 1
-    assert result["payload"]["yesterdayLimitUpAvgReturn"] == 4.0
-    assert FakeMsiRepo.saved["yesterdayLimitUpAvgReturn"] == 4.0
+    assert result["payload"]["yesterdayLimitUpAvgReturn"] == 10.0
+    assert FakeMsiRepo.saved["yesterdayLimitUpAvgReturn"] == 10.0
 
 
 def test_build_limit_emotion_applies_history_percentile_scores(monkeypatch) -> None:

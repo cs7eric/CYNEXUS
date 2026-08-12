@@ -21,6 +21,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
     start_date = _parse_date(params.get("start_date") or params.get("trade_date") or params.get("date"))
     end_date = _parse_date(params.get("end_date") or params.get("trade_date") or params.get("date"))
     create_table = _truthy(params.get("create_table"))
+    allow_full_history = _truthy(params.get("allow_full_history"))
     result = {
         "pipeline": "kline.sync_index_daily_raw_from_daily_raw",
         "dry_run": request.dry_run,
@@ -29,11 +30,17 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         "index_codes": index_codes,
         "start_date": start_date.isoformat() if start_date else None,
         "end_date": end_date.isoformat() if end_date else None,
+        "allow_full_history": allow_full_history,
         "rows_read": 0,
         "rows_written": 0,
     }
     if request.dry_run:
         return result
+    if not allow_full_history and start_date is None and end_date is None:
+        raise ValueError(
+            "sync_index_daily_raw_from_daily_raw requires trade_date/start_date/end_date; "
+            "set allow_full_history=true only for an intentional maintenance backfill"
+        )
 
     client = context.hooks.clickhouse.get_client()
     if create_table:

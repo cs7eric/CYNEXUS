@@ -6,10 +6,11 @@ def normalize_market_symbol(symbol: str) -> str:
     if value.startswith(("sh", "sz", "bj")):
         return value
     code = value.zfill(6)
+    # Beijing exchange securities also include the newer 920xxx series.
+    if code.startswith(("4", "8", "920")):
+        return f"bj{code}"
     if code.startswith(("5", "6", "9")):
         return f"sh{code}"
-    if code.startswith(("4", "8")):
-        return f"bj{code}"
     return f"sz{code}"
 
 

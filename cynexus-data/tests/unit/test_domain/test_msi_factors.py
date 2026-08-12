@@ -81,9 +81,26 @@ def test_build_limit_snapshot_rows_uses_stock_meta_threshold() -> None:
     ]
     snapshots = build_limit_snapshot_rows(rows, stock_meta={"600000": {"is_st": True, "limit_up_threshold": 0.05}})
     by_code = {row["code"]: row for row in snapshots}
-    assert by_code["600000"]["isLimitUp"] is True
-    assert by_code["600000"]["limitThreshold"] == 0.05
+    assert by_code["600000"]["isLimitUp"] is False
+    assert by_code["600000"]["limitThreshold"] == 0.10
     assert by_code["000001"]["isLimitUp"] is False
+
+
+def test_build_limit_snapshot_rows_uses_board_limit_for_stocks() -> None:
+    rows = [
+        {"code": "300001", "open": 12, "high": 14.4, "low": 12, "close": 14.4, "preClose": 12},
+        {"code": "688001", "open": 12, "high": 14.4, "low": 12, "close": 14.4, "preClose": 12},
+        {"code": "430001", "open": 10, "high": 13, "low": 10, "close": 13, "preClose": 10},
+    ]
+    snapshots = build_limit_snapshot_rows(
+        rows,
+        stock_meta={code: {"is_st": True, "limit_up_threshold": 0.05} for code in ("300001", "688001", "430001")},
+    )
+    by_code = {row["code"]: row for row in snapshots}
+    assert by_code["300001"]["limitThreshold"] == 0.20
+    assert by_code["688001"]["limitThreshold"] == 0.20
+    assert by_code["430001"]["limitThreshold"] == 0.30
+    assert all(by_code[code]["isLimitUp"] for code in ("300001", "688001", "430001"))
 
 
 def test_build_limit_snapshot_rows_keeps_stock_name_from_meta() -> None:
@@ -116,3 +133,20 @@ def test_build_limit_snapshot_rows_computes_historical_streaks() -> None:
     assert by_code["600000"]["isPromoted"] is True
     assert by_code["600001"]["previousLimitUpStreak"] == 1
     assert by_code["600001"]["isBrokenStreak"] is True
+
+
+def test_build_limit_snapshot_rows_rounds_limit_price_and_keeps_streak_over_suspension_gap() -> None:
+    history = [
+        {"code": "600721", "trade_date": "2026-07-30", "close": 7.92, "preClose": 7.2},
+        {"code": "600721", "trade_date": "2026-07-31", "close": 8.71, "preClose": 7.92},
+    ]
+    rows = [
+        {"code": "600721", "open": 12.75, "high": 12.75, "low": 12.57, "close": 12.75, "preClose": 11.59},
+    ]
+
+    snapshots = build_limit_snapshot_rows(rows, history_rows=history)
+
+    assert snapshots[0]["limitUpPrice"] == 12.75
+    assert snapshots[0]["isLimitUp"] is True
+    assert snapshots[0]["previousLimitUpStreak"] == 2
+    assert snapshots[0]["limitUpStreak"] == 3

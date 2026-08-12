@@ -69,6 +69,16 @@ public final class SchedulerRunResultDomainPolicy {
         copyIfPresent(metadata, extra, "qcSummary");
         copyIfPresent(metadata, extra, "lastCompletedSteps");
         copyIfPresent(metadata, extra, "lastStepResults");
+        copyIfPresent(metadata, extra, "posts_discovered");
+        copyIfPresent(metadata, extra, "posts_requested");
+        copyIfPresent(metadata, extra, "posts_succeeded");
+        copyIfPresent(metadata, extra, "posts_unavailable");
+        copyIfPresent(metadata, extra, "comments_collected");
+        copyIfPresent(metadata, extra, "comment_collection_seconds");
+        copyIfPresent(metadata, extra, "comment_fetch_seconds");
+        copyIfPresent(metadata, extra, "comment_persist_seconds");
+        copyIfPresent(metadata, extra, "comments_per_second");
+        copyIfPresent(metadata, extra, "seconds_per_1000_comments");
         Object plannedSteps = firstNumber(resultMap, metadata, "planned_steps", "plannedSteps");
         if (plannedSteps != null) extra.put("plannedSteps", plannedSteps);
         Object message = firstPresent(metadata, Set.of("lastMessage", "message"));
@@ -108,6 +118,7 @@ public final class SchedulerRunResultDomainPolicy {
         Map<String, Object> metrics = new LinkedHashMap<>();
         putIfPresent(metrics, "rowsRead", extra.get("rowsRead"));
         putIfPresent(metrics, "rowsWritten", extra.get("rowsWritten"));
+        putSocialCollectionMetrics(metrics, extra);
         Map<String, Object> payload = new LinkedHashMap<>();
         putIfPresent(payload, "lastDataJobRunId", extra.get("lastDataJobRunId"));
         putIfPresent(payload, "lastDataJobKey", extra.get("lastDataJobKey"));
@@ -135,6 +146,7 @@ public final class SchedulerRunResultDomainPolicy {
         Map<String, Object> metrics = new LinkedHashMap<>();
         putIfPresent(metrics, "rowsRead", extra.get("rowsRead"));
         putIfPresent(metrics, "rowsWritten", extra.get("rowsWritten"));
+        putSocialCollectionMetrics(metrics, extra);
         Map<String, Object> payload = new LinkedHashMap<>();
         putIfPresent(payload, "lastDataJobRunId", extra.get("lastDataJobRunId"));
         putIfPresent(payload, "lastDataJobKey", extra.get("lastDataJobKey"));
@@ -156,6 +168,18 @@ public final class SchedulerRunResultDomainPolicy {
     }
 
     private static void putIfPresent(Map<String, Object> target, String key, Object value) { if (value != null) target.put(key, value); }
+    private static void putSocialCollectionMetrics(Map<String, Object> target, Map<String, Object> extra) {
+        putIfPresent(target, "postsDiscovered", firstPresent(extra, Set.of("posts_discovered", "postsDiscovered")));
+        putIfPresent(target, "postsRequested", firstPresent(extra, Set.of("posts_requested", "postsRequested")));
+        putIfPresent(target, "postsSucceeded", firstPresent(extra, Set.of("posts_succeeded", "postsSucceeded")));
+        putIfPresent(target, "postsUnavailable", firstPresent(extra, Set.of("posts_unavailable", "postsUnavailable")));
+        putIfPresent(target, "commentsCollected", firstPresent(extra, Set.of("comments_collected", "commentsCollected")));
+        putIfPresent(target, "commentCollectionSeconds", firstPresent(extra, Set.of("comment_collection_seconds", "commentCollectionSeconds")));
+        putIfPresent(target, "commentFetchSeconds", firstPresent(extra, Set.of("comment_fetch_seconds", "commentFetchSeconds")));
+        putIfPresent(target, "commentPersistSeconds", firstPresent(extra, Set.of("comment_persist_seconds", "commentPersistSeconds")));
+        putIfPresent(target, "commentsPerSecond", firstPresent(extra, Set.of("comments_per_second", "commentsPerSecond")));
+        putIfPresent(target, "secondsPer1000Comments", firstPresent(extra, Set.of("seconds_per_1000_comments", "secondsPer1000Comments")));
+    }
     private static Object withTotalCodeProgress(Object value, Map<String, Object> metadata) {
         if (!(value instanceof Map<?, ?> map)) {
             return value;

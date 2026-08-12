@@ -10,6 +10,7 @@ public class PortfolioImportTaskPO {
     private String tenantKey;
     private Long assetId;
     private String idempotencyKey;
+    private OffsetDateTime createdAt;
     private String status;
     private Long version;
     private Integer attemptCount;

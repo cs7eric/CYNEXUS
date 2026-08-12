@@ -78,7 +78,7 @@ import {
 } from "@/services/information/social-monitoring"
 
 type CollectionPurpose = "market_sentiment" | "market_analysis"
-type SocialJobKind = "discovery" | "comments"
+type SocialJobKind = "collection"
 type PageSurface = "report" | "targets"
 
 type Creator = {
@@ -100,6 +100,9 @@ type RunRecord = {
   purpose: CollectionPurpose
   status: string
   rowsWritten: number
+  commentsCollected?: number
+  commentCollectionSeconds?: number | null
+  secondsPer1000Comments?: number | null
   runId?: string
   createdAt: string
 }
@@ -185,6 +188,11 @@ function jobRows(result: SocialJobTriggerResult) {
   const summary = (result.result?.metadata ?? result.result ?? {}) as Record<string, unknown>
   const rows = Number(summary.rows_written ?? summary.posts_discovered ?? 0)
   return Number.isFinite(rows) ? rows : 0
+}
+
+function jobMetric(result: SocialJobTriggerResult, key: string) {
+  const value = (result.result?.metadata as Record<string, unknown> | undefined)?.[key]
+  return typeof value === "number" ? value : null
 }
 
 function sourceStatusIcon(status?: string | null) {
@@ -437,24 +445,14 @@ export default function SocialMonitoringPage() {
     setRunningJobs((current) => ({ ...current, [stateKey]: true }))
     try {
       const result = await triggerSocialJob(
-        kind === "discovery" ? "social_creator_discovery" : "social_comment_sync",
+        platform === "xiaohongshu" ? "social_xiaohongshu_collection" : "social_douyin_collection",
         platform,
-        kind === "discovery"
-          ? {
-              creators: targetCreators.map((creator) => ({ creator_key: creator.creatorKey, profile_url: creator.profileUrl, display_name: creator.displayName, purpose: creator.purpose })),
-              purpose_targets: targetCreators.map((creator) => ({ creator_key: creator.creatorKey, purpose: creator.purpose })),
-              collection_purpose: workspace,
-              lock_scope: platform,
-              lookback_hours: 24,
-              create_table: true,
-            }
-          : {
-              purpose_targets: targetCreators.map((creator) => ({ creator_key: creator.creatorKey, purpose: creator.purpose })),
-              collection_purpose: workspace,
-              lock_scope: platform,
-              today_only: true,
-              create_table: true,
-            },
+        {
+          creators: targetCreators.map((creator) => ({ creator_key: creator.creatorKey, profile_url: creator.profileUrl, display_name: creator.displayName, purpose: creator.purpose })),
+          collection_purpose: workspace,
+          lock_scope: platform,
+          create_table: true,
+        },
       )
       const record: RunRecord = {
         id: `${platform}-${kind}-${Date.now()}`,
@@ -463,11 +461,14 @@ export default function SocialMonitoringPage() {
         purpose: workspace,
         status: result.status ?? "accepted",
         rowsWritten: jobRows(result),
+        commentsCollected: jobMetric(result, "comments_collected") ?? jobRows(result),
+        commentCollectionSeconds: jobMetric(result, "comment_collection_seconds"),
+        secondsPer1000Comments: jobMetric(result, "seconds_per_1000_comments"),
         runId: result.run_id,
         createdAt: new Date().toISOString(),
       }
       setRunHistory((current) => [record, ...current].slice(0, 12))
-      setMessage(`${platformLabels[platform]}${kind === "discovery" ? "作品发现" : "评论同步"}已触发。`)
+      setMessage(`${platformLabels[platform]}帖子与评论采集已触发。`)
       await loadPosts()
     } finally {
       setRunningJobs((current) => ({ ...current, [stateKey]: false }))
@@ -480,8 +481,7 @@ export default function SocialMonitoringPage() {
     setMessage(null)
     try {
       for (const platform of platforms) {
-        await runJob("discovery", platform)
-        await runJob("comments", platform)
+        await runJob("collection", platform)
       }
       setMessage("今日社媒采集批次已完成触发，结果将在任务完成后刷新。")
     } catch (reason) {
@@ -829,7 +829,7 @@ function SourceDrawer({ open, onOpenChange, creators, loginStatuses, onLogin }: 
 }
 
 function RunDrawer({ open, onOpenChange, purpose, runHistory, runningJobs, batchRunning, onRun }: { open: boolean; onOpenChange: (open: boolean) => void; purpose: CollectionPurpose; runHistory: RunRecord[]; runningJobs: Partial<Record<`${SocialPlatform}:${SocialJobKind}`, boolean>>; batchRunning: boolean; onRun: () => void }) {
-  return <Drawer direction="right" open={open} onOpenChange={onOpenChange}><DrawerContent className="h-full max-h-none w-full overflow-y-auto sm:max-w-xl"><DrawerHeader className="border-b border-border/70"><DrawerTitle>运行记录</DrawerTitle><DrawerDescription>{purposeLabels[purpose]} · 每日夜间批次的采集链路和产出摘要。</DrawerDescription></DrawerHeader><div className="space-y-5 px-5 py-5"><div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/35 px-4 py-3"><div><div className="text-sm font-semibold">今日批次</div><div className="mt-1 text-xs text-muted-foreground">当前 UI 仅展示本次会话触发的记录，历史 Job 查询接口待接入。</div></div><Button size="sm" onClick={onRun} disabled={batchRunning}>{batchRunning ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}补跑今日批次</Button></div><div className="space-y-2">{platforms.flatMap((platform) => (["discovery", "comments"] as SocialJobKind[]).map((kind) => { const latest = runHistory.find((run) => run.platform === platform && run.kind === kind); const running = runningJobs[jobStateKey(platform, kind)] === true; return <div key={`${platform}-${kind}`} className="flex items-center gap-3 border-b border-border/60 py-3 last:border-0"><div className={`flex size-7 shrink-0 items-center justify-center rounded-full ${running ? "bg-information/10 text-information" : latest?.status === "success" ? "bg-emerald-50 text-emerald-600" : "bg-muted text-muted-foreground"}`}>{running ? <Loader2 className="size-3.5 animate-spin" /> : latest?.status === "success" ? <Check className="size-3.5" /> : <Database className="size-3.5" />}</div><div className="min-w-0 flex-1"><div className="text-sm font-medium">{platformLabels[platform]} · {kind === "discovery" ? "作品发现" : "评论同步"}</div><div className="mt-1 text-xs text-muted-foreground">{running ? "正在执行" : latest ? `${formatDateTime(latest.createdAt)} · 写入 ${latest.rowsWritten} 条` : "尚未在本次会话执行"}</div></div><Badge variant="outline" className={running ? "border-information/30 bg-information/5 text-information" : latest?.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : ""}>{running ? "运行中" : latest?.status ?? "待执行"}</Badge></div> }))}</div><div className="border-t border-border/70 pt-4"><div className="flex items-center gap-2 text-sm font-semibold"><History className="size-4" />本次会话明细</div>{runHistory.length === 0 ? <div className="mt-3 rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">暂无手动触发记录。日常调度记录将在 Job 查询接口接入后显示。</div> : <div className="mt-3 space-y-2">{runHistory.map((run) => <div key={run.id} className="rounded-md border border-border/70 px-3 py-2.5 text-xs"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">{platformLabels[run.platform]} · {run.kind === "discovery" ? "作品发现" : "评论同步"}</span><Badge variant="secondary" className="text-[10px]">{run.status}</Badge></div><div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground"><span>{formatDateTime(run.createdAt)}</span><span>写入 {run.rowsWritten} 条</span>{run.runId ? <span className="font-mono">{run.runId}</span> : null}</div></div>)}</div>}</div></div></DrawerContent></Drawer>
+  return <Drawer direction="right" open={open} onOpenChange={onOpenChange}><DrawerContent className="h-full max-h-none w-full overflow-y-auto sm:max-w-xl"><DrawerHeader className="border-b border-border/70"><DrawerTitle>运行记录</DrawerTitle><DrawerDescription>{purposeLabels[purpose]} · 每日夜间批次的采集链路和产出摘要。</DrawerDescription></DrawerHeader><div className="space-y-5 px-5 py-5"><div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/35 px-4 py-3"><div><div className="text-sm font-semibold">今日批次</div><div className="mt-1 text-xs text-muted-foreground">帖子发现和评论采集现在由同一个平台 Job 完成。</div></div><Button size="sm" onClick={onRun} disabled={batchRunning}>{batchRunning ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}补跑今日批次</Button></div><div className="space-y-2">{platforms.map((platform) => { const kind: SocialJobKind = "collection"; const latest = runHistory.find((run) => run.platform === platform && run.kind === kind); const running = runningJobs[jobStateKey(platform, kind)] === true; return <div key={`${platform}-${kind}`} className="flex items-center gap-3 border-b border-border/60 py-3 last:border-0"><div className={`flex size-7 shrink-0 items-center justify-center rounded-full ${running ? "bg-information/10 text-information" : latest?.status === "success" ? "bg-emerald-50 text-emerald-600" : "bg-muted text-muted-foreground"}`}>{running ? <Loader2 className="size-3.5 animate-spin" /> : latest?.status === "success" ? <Check className="size-3.5" /> : <Database className="size-3.5" />}</div><div className="min-w-0 flex-1"><div className="text-sm font-medium">{platformLabels[platform]} · 帖子与评论采集</div><div className="mt-1 text-xs text-muted-foreground">{running ? "正在执行" : latest ? `${formatDateTime(latest.createdAt)} · 评论 ${latest.commentsCollected ?? latest.rowsWritten} 条${latest.secondsPer1000Comments != null ? ` · 每千条 ${latest.secondsPer1000Comments}s` : ""}` : "尚未在本次会话执行"}</div></div><Badge variant="outline" className={running ? "border-information/30 bg-information/5 text-information" : latest?.status === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : ""}>{running ? "运行中" : latest?.status ?? "待执行"}</Badge></div> })}</div><div className="border-t border-border/70 pt-4"><div className="flex items-center gap-2 text-sm font-semibold"><History className="size-4" />本次会话明细</div>{runHistory.length === 0 ? <div className="mt-3 rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">暂无手动触发记录。日常调度记录将在 Job 查询接口接入后显示。</div> : <div className="mt-3 space-y-2">{runHistory.map((run) => <div key={run.id} className="rounded-md border border-border/70 px-3 py-2.5 text-xs"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium">{platformLabels[run.platform]} · 帖子与评论采集</span><Badge variant="secondary" className="text-[10px]">{run.status}</Badge></div><div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground"><span>{formatDateTime(run.createdAt)}</span><span>评论 {run.commentsCollected ?? run.rowsWritten} 条</span>{run.commentCollectionSeconds != null ? <span>评论阶段 {run.commentCollectionSeconds}s</span> : null}{run.secondsPer1000Comments != null ? <span>每千条 {run.secondsPer1000Comments}s</span> : null}{run.runId ? <span className="font-mono">{run.runId}</span> : null}</div></div>)}</div>}</div></div></DrawerContent></Drawer>
 }
 
 function TargetEditor({ open, onOpenChange, form, onChange, onSave }: { open: boolean; onOpenChange: (open: boolean) => void; form: CreatorEditor; onChange: React.Dispatch<React.SetStateAction<CreatorEditor>>; onSave: () => void }) {
@@ -841,5 +841,5 @@ function LoginDialog({ open, onOpenChange, platform, session, loading, blocked, 
 }
 
 function PostDetailSheet({ open, onOpenChange, post, comments, commentsLoading, commentsError, onRetry }: { open: boolean; onOpenChange: (open: boolean) => void; post: SocialPost | null; comments: SocialComment[]; commentsLoading: boolean; commentsError: string | null; onRetry: () => void }) {
-  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent className="w-full gap-0 p-0 sm:max-w-xl"><SheetHeader className="border-b border-border/60 px-5 py-4 pr-12 text-left"><SheetTitle className="truncate text-base">{post?.title || "帖子详情"}</SheetTitle><SheetDescription>{post?.display_name || post?.creator_key || "未知博主"} · {post ? platformLabels[post.platform] : ""}</SheetDescription></SheetHeader><div className="min-h-0 flex-1 overflow-y-auto">{post ? <div className="space-y-5 p-5"><section className="space-y-3 rounded-md bg-muted/45 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-xs text-muted-foreground">原帖入口</div><div className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{post.post_key}</div></div><Button asChild size="sm" variant="outline" className="shrink-0"><a href={post.url} target="_blank" rel="noreferrer">打开原帖 <ExternalLink className="size-3.5" /></a></Button></div><div className="grid gap-3 text-xs sm:grid-cols-2"><div><div className="text-muted-foreground">发布时间</div><div className="mt-1 font-mono">{post.published_at ? formatDateTime(post.published_at) : "时间未知"}</div></div><div><div className="text-muted-foreground">评论数量</div><div className="mt-1 font-mono">{post.comment_count ?? 0}</div></div></div></section><section><div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-sm font-semibold"><MessageCircle className="size-4" />评论快照</h2><p className="mt-1 text-xs text-muted-foreground">帖子正文和 AI 解读将在分析 API 接入后补充。</p></div>{commentsError ? <Button size="sm" variant="outline" onClick={onRetry} disabled={commentsLoading}>重试</Button> : null}</div>{commentsLoading ? <div className="mt-4 space-y-4">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="space-y-2 border-b border-border/60 pb-4"><Skeleton className="h-4 w-4/5" /><Skeleton className="h-3 w-2/5" /></div>)}</div> : commentsError ? <Alert variant="destructive" className="mt-4"><AlertTriangle className="size-4" /><AlertTitle>评论加载失败</AlertTitle><AlertDescription>{commentsError}</AlertDescription></Alert> : comments.length === 0 ? <div className="mt-4 rounded-md border border-dashed border-border/80 px-4 py-8 text-center text-xs text-muted-foreground">当前帖子尚未保存可见评论，或评论同步尚未完成。</div> : <div className="mt-4 divide-y divide-border/60">{comments.map((comment) => <article key={`${comment.platform}-${comment.comment_key}`} className="space-y-2 py-4 first:pt-0 last:pb-0"><div className="text-xs font-medium text-muted-foreground">{comment.author_name || "匿名用户"}</div><p className="whitespace-pre-wrap break-words text-sm leading-6">{comment.content || "（无文字内容）"}</p><div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>{comment.published_at ? formatDateTime(comment.published_at) : "时间未知"}</span><span className="inline-flex items-center gap-1"><MessageCircle className="size-3" />{comment.like_count ?? "未知"}</span><span className="inline-flex items-center gap-1"><Reply className="size-3" />{comment.reply_count ?? "未知"}</span></div></article>)}</div>}</section></div> : null}</div></SheetContent></Sheet>
+    return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent className="w-full gap-0 p-0 sm:max-w-xl"><SheetHeader className="border-b border-border/60 px-5 py-4 pr-12 text-left"><SheetTitle className="truncate text-base">{post?.title || "帖子详情"}</SheetTitle><SheetDescription>{post?.display_name || post?.creator_key || "未知博主"} · {post ? platformLabels[post.platform] : ""}</SheetDescription></SheetHeader><div className="min-h-0 flex-1 overflow-y-auto">{post ? <div className="space-y-5 p-5">{post.availability_status === "unavailable" ? <Alert className="border-amber-200 bg-amber-50 text-amber-900"><AlertTriangle className="size-4 text-amber-700" /><AlertTitle>帖子当前不可用</AlertTitle><AlertDescription className="text-amber-800">{post.availability_reason || "原帖可能已删除、下架或无法访问。"} 历史评论快照仍会保留。</AlertDescription></Alert> : null}<section className="space-y-3 rounded-md bg-muted/45 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-xs text-muted-foreground">原帖入口</div><div className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{post.post_key}</div></div><Button asChild size="sm" variant="outline" className="shrink-0"><a href={post.url} target="_blank" rel="noreferrer">打开原帖 <ExternalLink className="size-3.5" /></a></Button></div><div className="grid gap-3 text-xs sm:grid-cols-2"><div><div className="text-muted-foreground">发布时间</div><div className="mt-1 font-mono">{post.published_at ? formatDateTime(post.published_at) : "时间未知"}</div></div><div><div className="text-muted-foreground">评论数量</div><div className="mt-1 font-mono">{post.comment_count ?? 0}</div></div></div></section><section><div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-sm font-semibold"><MessageCircle className="size-4" />评论快照</h2><p className="mt-1 text-xs text-muted-foreground">帖子正文和 AI 解读将在分析 API 接入后补充。</p></div>{commentsError ? <Button size="sm" variant="outline" onClick={onRetry} disabled={commentsLoading}>重试</Button> : null}</div>{commentsLoading ? <div className="mt-4 space-y-4">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="space-y-2 border-b border-border/60 pb-4"><Skeleton className="h-4 w-4/5" /><Skeleton className="h-3 w-2/5" /></div>)}</div> : commentsError ? <Alert variant="destructive" className="mt-4"><AlertTriangle className="size-4" /><AlertTitle>评论加载失败</AlertTitle><AlertDescription>{commentsError}</AlertDescription></Alert> : comments.length === 0 ? <div className="mt-4 rounded-md border border-dashed border-border/80 px-4 py-8 text-center text-xs text-muted-foreground">当前帖子尚未保存可见评论，或评论同步尚未完成。</div> : <div className="mt-4 divide-y divide-border/60">{comments.map((comment) => <article key={`${comment.platform}-${comment.comment_key}`} className="space-y-2 py-4 first:pt-0 last:pb-0"><div className="text-xs font-medium text-muted-foreground">{comment.author_name || "匿名用户"}</div><p className="whitespace-pre-wrap break-words text-sm leading-6">{comment.content || "（无文字内容）"}</p><div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>{comment.published_at ? formatDateTime(comment.published_at) : "时间未知"}</span><span className="inline-flex items-center gap-1"><MessageCircle className="size-3" />{comment.like_count ?? "未知"}</span><span className="inline-flex items-center gap-1"><Reply className="size-3" />{comment.reply_count ?? "未知"}</span></div></article>)}</div>}</section></div> : null}</div></SheetContent></Sheet>
 }

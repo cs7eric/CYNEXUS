@@ -138,6 +138,11 @@ public class MarketPulseQueryBasicServiceImpl implements MarketPulseQueryBasicSe
     }
 
     @Override
+    public Optional<MarketLimitDailySnapshotPO> findLimitEmotionBefore(LocalDate tradeDate) {
+        return Optional.ofNullable(marketPulseQueryMapper.findLimitEmotionBefore(tradeDate));
+    }
+
+    @Override
     public List<MarketLimitDailyStockPO> listLimitStocks(LocalDate tradeDate, String category, int limit) {
         return marketPulseQueryMapper.listLimitStocks(tradeDate, category, limit);
     }

@@ -120,8 +120,11 @@ public class PortfolioOverviewAppService {
         BigDecimal costBasis = sum(result.positions(), PortfolioPositionBO::costBasis);
         BigDecimal marketValue = sum(result.positions(), PortfolioPositionBO::marketValue);
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
-        BigDecimal availableCash = accountDomainService.availableCash(account, marketValue);
-        BigDecimal totalAssets = accountDomainService.totalAssets(account, marketValue);
+        BigDecimal todayPnl = todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal accumulatedPnl = accumulatedPnlSinceAccountBaseline(
+                account, trades, priceSeries, baselines, today, todayPnl);
+        BigDecimal availableCash = accountDomainService.availableCash(account, marketValue, accumulatedPnl);
+        BigDecimal totalAssets = accountDomainService.totalAssets(account, marketValue, accumulatedPnl);
         Map<String, String> securityNames = loadSecurityNames(result.positions());
         return PortfolioOverviewDTO.builder()
                 .positions(result.positions().stream().map(position -> toPosition(position, securityNames, todayPnlBySymbol)).toList())
@@ -132,28 +135,23 @@ public class PortfolioOverviewAppService {
                 .availableCash(availableCash).totalAssets(totalAssets)
                 .accountUpdatedAt(account.updatedAt())
                 .realizedPnl(result.realizedPnl()).unrealizedPnl(result.unrealizedPnl()).totalPnl(result.totalPnl())
-                .todayPnl(todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add))
+                .todayPnl(todayPnl)
                 .tradeCount(trades.size())
                 .valuationStatus(ledgerService.valuationStatus(trades, result, latestPrices).name()).build();
     }
 
     public PortfolioAccountDTO account() {
-        var trades = tradeRepository.list(PRINCIPAL, TENANT, null);
-        BigDecimal marketValue = currentMarketValue(trades);
-        PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
+        PortfolioOverviewDTO overview = overview();
         return PortfolioAccountDTO.builder()
-                .totalAssets(accountDomainService.totalAssets(account, marketValue))
-                .availableCash(accountDomainService.availableCash(account, marketValue))
-                .updatedAt(account.updatedAt()).build();
+                .totalAssets(overview.getTotalAssets())
+                .availableCash(overview.getAvailableCash())
+                .updatedAt(overview.getAccountUpdatedAt()).build();
     }
 
     public PortfolioAccountDTO updateAccount(PortfolioAccountUpdateRequest request) {
         if (request == null) throw new IllegalArgumentException("portfolio account update is required");
-        PortfolioAccountBO account = accountDomainService.updateTotalAssets(PRINCIPAL, TENANT, request.getTotalAssets());
-        BigDecimal marketValue = currentMarketValue(tradeRepository.list(PRINCIPAL, TENANT, null));
-        return PortfolioAccountDTO.builder().totalAssets(accountDomainService.totalAssets(account, marketValue))
-                .availableCash(accountDomainService.availableCash(account, marketValue))
-                .updatedAt(account.updatedAt()).build();
+        accountDomainService.updateTotalAssets(PRINCIPAL, TENANT, request.getTotalAssets());
+        return account();
     }
 
     public List<PortfolioTradeDTO> trades(String symbol) {
@@ -221,15 +219,17 @@ public class PortfolioOverviewAppService {
         PortfolioAccountBO account = accountDomainService.get(PRINCIPAL, TENANT);
         var currentLedger = ledgerService.calculate(trades, realtimePrices);
         BigDecimal currentMarketValue = sum(currentLedger.positions(), PortfolioPositionBO::marketValue);
-        BigDecimal currentTotalAssets = accountDomainService.totalAssets(account, currentMarketValue);
+        Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
+                trades, prices, realtimePrices, previousClosePrices, realtimePriceDates, intradayPriceSeries, today);
+        BigDecimal todayPnl = todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal accumulatedPnl = accumulatedPnlSinceAccountBaseline(
+                account, trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), today, todayPnl);
+        BigDecimal currentTotalAssets = accountDomainService.totalAssets(account, currentMarketValue, accumulatedPnl);
         PortfolioPerformanceResultBO result = performanceDomainService.calculate(
                 trades, prices, realizedPnlBaselineRepository.list(PRINCIPAL, TENANT), currentTotalAssets,
                 requested.from(), requested.to(), requested.granularity());
         // Use the complete trade universe so today's performance includes
         // trades that were fully closed today, matching the overview metric.
-        Map<String, BigDecimal> todayPnlBySymbol = performanceDomainService.calculateTodayPnlBySymbol(
-                trades, prices, realtimePrices, previousClosePrices, realtimePriceDates, intradayPriceSeries, today);
-        BigDecimal todayPnl = todayPnlBySymbol.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         boolean liveToday = isBeforeMarketClose();
         boolean replaceDailyPointWithLivePnl = requested.granularity() == PortfolioPerformanceGranularity.DAILY
                 && liveToday;
@@ -258,14 +258,24 @@ public class PortfolioOverviewAppService {
                 .filter(java.util.Objects::nonNull).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
         BigDecimal worstPeriodPnl = summaryPoints.stream().map(PortfolioPerformancePointDTO::getPeriodPnl)
                 .filter(java.util.Objects::nonNull).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        Map<String, BigDecimal> effectiveContributions = new LinkedHashMap<>(result.periodPnlBySymbol());
+        // The daily view visualizes the latest trading day's composition. Other
+        // granularities visualize the full selected period's composition.
+        Map<String, BigDecimal> effectiveContributions = new LinkedHashMap<>(
+                requested.granularity() == PortfolioPerformanceGranularity.DAILY
+                        ? result.lastDayPnlBySymbol()
+                        : result.periodPnlBySymbol());
         boolean replacesTodayContribution = replaceDailyPointWithLivePnl && result.points().stream()
                 .anyMatch(point -> point.tradeDate().equals(today));
         if (replacesTodayContribution) {
-            result.lastDayPnlBySymbol().forEach((symbol, pnl) ->
-                    effectiveContributions.merge(symbol, pnl.negate(), BigDecimal::add));
-            todayPnlBySymbol.forEach((symbol, pnl) ->
-                    effectiveContributions.merge(symbol, pnl, BigDecimal::add));
+            if (requested.granularity() == PortfolioPerformanceGranularity.DAILY) {
+                effectiveContributions.clear();
+                effectiveContributions.putAll(todayPnlBySymbol);
+            } else {
+                result.lastDayPnlBySymbol().forEach((symbol, pnl) ->
+                        effectiveContributions.merge(symbol, pnl.negate(), BigDecimal::add));
+                todayPnlBySymbol.forEach((symbol, pnl) ->
+                        effectiveContributions.merge(symbol, pnl, BigDecimal::add));
+            }
         }
         Map<String, PortfolioTradeBO> contributionMetadata = trades.stream()
                 .collect(Collectors.toMap(PortfolioTradeBO::symbol, trade -> trade,
@@ -523,6 +533,25 @@ public class PortfolioOverviewAppService {
         var positions = ledgerService.calculate(trades, Map.of()).positions();
         var valued = ledgerService.calculate(trades, loadLatestPrices(positions));
         return sum(valued.positions(), PortfolioPositionBO::marketValue);
+    }
+
+    private BigDecimal accumulatedPnlSinceAccountBaseline(
+            PortfolioAccountBO account,
+            List<PortfolioTradeBO> trades,
+            Map<String, List<PortfolioPricePointBO>> priceSeries,
+            Map<String, BigDecimal> baselines,
+            LocalDate today,
+            BigDecimal todayPnl) {
+        if (account == null || account.totalAssets() == null || account.updatedAt() == null || today == null) {
+            return BigDecimal.ZERO;
+        }
+        LocalDate baselineDate = account.updatedAt().atZoneSameInstant(SHANGHAI).toLocalDate();
+        if (!baselineDate.isBefore(today)) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal historicalPnl = performanceDomainService.cumulativePnl(
+                trades, priceSeries, baselines, baselineDate.plusDays(1), today.minusDays(1));
+        return historicalPnl.add(todayPnl == null ? BigDecimal.ZERO : todayPnl);
     }
 
     private BigDecimal sum(List<PortfolioPositionBO> positions,

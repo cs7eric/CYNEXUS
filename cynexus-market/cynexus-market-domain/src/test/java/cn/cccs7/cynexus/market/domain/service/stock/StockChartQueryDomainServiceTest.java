@@ -55,6 +55,23 @@ class StockChartQueryDomainServiceTest {
     }
 
     @Test
+    void exposesPriorDailyCloseForIntradayPercentageBaseline() {
+        FakeRepository repository = new FakeRepository();
+        repository.latestMinuteDate = Optional.of(LocalDate.of(2026, 7, 23));
+        repository.dailyBars = List.of(
+                bar("2026-07-22", "10", "100", null),
+                bar("2026-07-23", "11", "120", null));
+        repository.minuteBars = List.of(
+                StockChartBO.Bar.builder().tradeDate(LocalDate.of(2026, 7, 23))
+                        .close(new BigDecimal("11")).build());
+
+        StockChartQueryDomainService.IntradayResult result = service(repository)
+                .intraday("stock", "600000", "Demo", "none", "2026-07-23", List.of("1m"), true);
+
+        assertEquals(new BigDecimal("10"), result.preClose());
+    }
+
+    @Test
     void groupsAuctionRowsInDomainAndExposesAnchorFacts() {
         FakeRepository repository = new FakeRepository();
         repository.latestAuctionDate = Optional.of(LocalDate.of(2026, 7, 23));
@@ -173,7 +190,7 @@ class StockChartQueryDomainServiceTest {
         public StockChartBO.StockMeta stockMeta(String symbol) { return meta; }
 
         @Override
-        public StockChartBO.StockSectors stockSectors(String symbol) { return StockChartBO.StockSectors.builder().build(); }
+        public StockChartBO.StockSectors stockSectors(String symbol, LocalDate tradeDate) { return StockChartBO.StockSectors.builder().build(); }
 
         @Override
         public StockChartBO.SectorStocks sectorStocks(String sectorId, Integer categoryRaw, String topicId, String name, int limit) {

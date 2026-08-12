@@ -1,16 +1,26 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 from cynexus_data.core.market_symbol import normalize_market_symbol
 from cynexus_data.domain.stock.kline_records import minute_provider_rows_to_frame
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.sources.provider_fallback import fetch_minute_kline_with_fallback, provider_plan
-from cynexus_data.sources.tdx.local_minute import discover_1m_files, iter_tdx_1m_frames
+from cynexus_data.sources.tdx.local_minute import (
+    discover_1m_files,
+    iter_tdx_1m_frames,
+    latest_tdx_1m_date,
+)
+from cynexus_data.storage.clickhouse.readers import get_latest_effective_kline_trade_date
 from cynexus_data.storage.clickhouse.writers import ClickHouseKlineSink
+
+
+_INCREMENTAL_FLUSH_ROWS = 500_000
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
@@ -20,6 +30,11 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
     codes = _normalize_codes(request.params.get("codes") or request.params.get("symbols"))
     code_set = {_normalize_code_key(code) for code in codes or []}
     providers = provider_plan("kline_minute", requested=request.params.get("providers"))
+    incremental = (
+        _truthy(request.params.get("incremental"))
+        if "incremental" in request.params
+        else "tdx" in providers
+    )
     limit_files = request.params.get("limit_files")
     batch_size = int(request.params.get("batch_size") or 50_000)
     create_table = _truthy(request.params.get("create_table"))
@@ -34,6 +49,22 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         files = [file for file in files if _file_key(file.market, file.symbol) in code_set]
     if limit_files is not None:
         files = files[: int(limit_files)]
+    sink: ClickHouseKlineSink | None = None
+    effective_trade_date: date | None = None
+    if incremental and "tdx" in providers and start_date is None and end_date is None:
+        latest_source_date = latest_tdx_1m_date(files)
+        if not request.dry_run:
+            sink = ClickHouseKlineSink(context.hooks.clickhouse.get_config())
+            effective_trade_date = get_latest_effective_kline_trade_date(
+                sink.client,
+                expected_symbols=len({file.tdx_code for file in files}),
+            )
+        start_date = (
+            effective_trade_date + timedelta(days=1)
+            if effective_trade_date
+            else latest_source_date
+        )
+        end_date = latest_source_date
     result = {
         "pipeline": "kline.sync_minute",
         "dry_run": request.dry_run,
@@ -50,31 +81,92 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         "file_results": [],
         "provider_results": [],
         "replace_existing": replace_existing,
+        "incremental": incremental,
+        "effective_trade_date": effective_trade_date.isoformat() if effective_trade_date else None,
     }
     if request.dry_run:
         if codes and any(provider != "tdx" for provider in providers):
             result["network_provider_plan"] = [provider for provider in providers if provider != "tdx"]
         return result
 
-    sink = ClickHouseKlineSink(context.hooks.clickhouse.get_config())
+    # Do not turn an empty incremental range into an ALTER ... DELETE mutation.
+    # A MergeTree mutation is planned against every active part even when its
+    # predicate cannot match a row.  On this table that has previously caused
+    # a no-op close job to advance every historical part to a new mutation
+    # version.  Apart from the needless I/O, that makes an interrupted host
+    # substantially more likely to leave a part unrecoverable.
+    if (
+        incremental
+        and "tdx" in providers
+        and start_date is not None
+        and end_date is not None
+        and start_date > end_date
+    ):
+        return {
+            **result,
+            "status": "up_to_date",
+            "reason": "effective_trade_date_is_not_behind_latest_source_date",
+        }
+
+    if sink is None:
+        sink = ClickHouseKlineSink(context.hooks.clickhouse.get_config())
     if create_table:
         sink.create_table()
+    local_replace_existing = replace_existing
+    if (
+        incremental
+        and replace_existing
+        and "tdx" in providers
+        and start_date is not None
+        and end_date is not None
+        and files
+    ):
+        sink.delete_1m_range(
+            start_date,
+            end_date,
+            source="tdx_local",
+            period=period,
+            tdx_codes=[file.tdx_code for file in files],
+        )
+        local_replace_existing = False
     total_rows = 0
     total_written = 0
-    for file, frame in iter_tdx_1m_frames(files):
+    local_frames: list[tuple[dict[str, object], pd.DataFrame]] = []
+    local_frame_rows = 0
+    for file, frame in iter_tdx_1m_frames(files, start_date=start_date, end_date=end_date):
         frame = _filter_frame_dates(frame, start_date=start_date, end_date=end_date)
         rows = len(frame)
-        written = sink.insert_1m(frame, batch_size=batch_size, replace_existing=replace_existing)
         total_rows += rows
-        total_written += written
-        result["file_results"].append(
-            {
-                "path": str(file.path),
-                "market": file.market,
-                "symbol": file.symbol,
-                "rows_read": rows,
-                "rows_written": written,
-            }
+        file_result = {
+            "path": str(file.path),
+            "market": file.market,
+            "symbol": file.symbol,
+            "rows_read": rows,
+            "rows_written": 0,
+        }
+        result["file_results"].append(file_result)
+        if incremental:
+            if not frame.empty:
+                local_frames.append((file_result, frame))
+                local_frame_rows += len(frame)
+            if local_frame_rows >= _INCREMENTAL_FLUSH_ROWS:
+                total_written += _flush_incremental_frames(
+                    sink,
+                    local_frames,
+                    batch_size=batch_size,
+                    replace_existing=local_replace_existing,
+                )
+                local_frame_rows = 0
+        else:
+            written = sink.insert_1m(frame, batch_size=batch_size, replace_existing=local_replace_existing)
+            total_written += written
+            file_result["rows_written"] = written
+    if incremental and local_frames:
+        total_written += _flush_incremental_frames(
+            sink,
+            local_frames,
+            batch_size=batch_size,
+            replace_existing=replace_existing,
         )
     if codes and any(provider != "tdx" for provider in providers) and ("tdx" not in providers or not files):
         for code in codes:
@@ -167,3 +259,20 @@ def _truthy(value) -> bool:
     if value is None:
         return False
     return str(value).lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _flush_incremental_frames(
+    sink: ClickHouseKlineSink,
+    frames: list[tuple[dict[str, object], pd.DataFrame]],
+    *,
+    batch_size: int,
+    replace_existing: bool,
+) -> int:
+    if not frames:
+        return 0
+    combined = pd.concat([frame for _, frame in frames], ignore_index=True)
+    written = sink.insert_1m(combined, batch_size=batch_size, replace_existing=replace_existing)
+    for file_result, frame in frames:
+        file_result["rows_written"] = len(frame)
+    frames.clear()
+    return written

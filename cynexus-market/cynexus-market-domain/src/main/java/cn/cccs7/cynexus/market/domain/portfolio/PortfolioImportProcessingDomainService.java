@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.market.domain.portfolio;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -67,15 +68,31 @@ public class PortfolioImportProcessingDomainService {
     private JsonNode normalize(JsonNode candidate, PortfolioImportTaskBO task) {
         var normalized = objectMapper.createObjectNode();
         normalized.put("symbol", textOrNull(candidate, "symbol", "securityCode"));
-        normalized.put("instrumentType", instrumentTypeOrDefault(candidate));
+        String instrumentType = instrumentTypeOrDefault(candidate);
+        normalized.put("instrumentType", instrumentType);
         normalized.put("side", textOrNull(candidate, "side"));
         normalized.put("tradedAt", tradedAtOrNull(candidate, task));
-        normalized.put("quantity", textOrNull(candidate, "quantity", "executionQuantity"));
-        normalized.put("price", textOrNull(candidate, "price", "executionPrice"));
-        normalized.put("fee", textOrNull(candidate, "fee"));
+        String quantity = textOrNull(candidate, "quantity", "executionQuantity");
+        String price = textOrNull(candidate, "price", "executionPrice");
+        normalized.put("quantity", quantity);
+        normalized.put("price", price);
+        normalized.put("fee", normalizedFee(instrumentType, quantity, price, textOrNull(candidate, "fee")));
         normalized.put("securityName", textOrNull(candidate, "securityName"));
         normalized.put("externalTradeNo", textOrNull(candidate, "externalTradeNo", "tradeId"));
         return normalized;
+    }
+
+    private String normalizedFee(String instrumentType, String quantity, String price, String declaredFee) {
+        if (quantity == null || price == null) return declaredFee;
+        try {
+            BigDecimal quantityValue = new BigDecimal(quantity);
+            BigDecimal priceValue = new BigDecimal(price);
+            BigDecimal declaredValue = declaredFee == null ? BigDecimal.ZERO : new BigDecimal(declaredFee);
+            return PortfolioTradingFeePolicy.resolve(PortfolioInstrumentType.fromPayload(instrumentType),
+                    quantityValue, priceValue, declaredValue).toPlainString();
+        } catch (NumberFormatException exception) {
+            return declaredFee;
+        }
     }
 
     private String tradedAtOrNull(JsonNode candidate, PortfolioImportTaskBO task) {
@@ -85,7 +102,13 @@ public class PortfolioImportProcessingDomainService {
                 "transactionAt", "datetime", "dateTime", "traded_at", "execution_at");
         String time = textOrNull(candidate, "tradeTime", "executionTime", "transactionTime", "time",
                 "trade_time", "execution_time", "transaction_time");
-        if (direct != null) return isTimeOnly(direct) ? combineWithImportDate(date, direct, task) : direct;
+        if (direct != null) {
+            if (isTimeOnly(direct)) return combineWithImportDate(date, direct, task);
+            // Vision models occasionally append `Z` to a screenshot's local
+            // clock value. Treat that suffix as model noise; trade times in
+            // screenshots are Asia/Shanghai wall-clock values, not UTC.
+            return normalizeScreenshotTimestamp(direct);
+        }
         if (date != null) return time == null ? date : date + "T" + time;
         return time == null ? null : combineWithImportDate(null, time, task);
     }
@@ -97,12 +120,20 @@ public class PortfolioImportProcessingDomainService {
     }
 
     private LocalDate importDate(PortfolioImportTaskBO task) {
-        OffsetDateTime importedAt = task.getQueuedAt() != null ? task.getQueuedAt() : task.getStartedAt();
+        OffsetDateTime importedAt = task.getCreatedAt() != null ? task.getCreatedAt()
+                : task.getQueuedAt() != null ? task.getQueuedAt() : task.getStartedAt();
         return importedAt == null ? null : importedAt.atZoneSameInstant(SHANGHAI).toLocalDate();
     }
 
     private boolean isTimeOnly(String value) {
         return value.matches("\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?)?");
+    }
+
+    private String normalizeScreenshotTimestamp(String value) {
+        if (value.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?)?Z")) {
+            return value.substring(0, value.length() - 1);
+        }
+        return value;
     }
 
     private String textOrNull(JsonNode node, String... fields) {

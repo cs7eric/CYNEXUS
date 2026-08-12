@@ -6,7 +6,9 @@
 
 - `dry_run=true`: discover files only, no ClickHouse connection.
 - `dry_run=false`: read TDX local files and write normalized 1m rows through `ClickHouseKlineSink`.
-- Optional params: `tdx_root`, `limit_files`, `batch_size`, `create_table`.
+- Optional params: `tdx_root`, `limit_files`, `batch_size`, `create_table`, `incremental`.
+- TDX local sync is incremental by default. When no date is supplied, it resolves the newest TDX date and queries ClickHouse for the newest effectively complete `tdx_local` date (at least 95% of discovered symbols), then reads from the following date through the newest TDX date. Incremental frames are flushed in bounded batches.
+- Set `incremental=false` only for an intentionally unbounded local-file read. Historical backfills should provide `start_date` and `end_date` explicitly.
 - Provider fallback params: `providers`, `codes` / `symbols`, `period`, `limit`.
 - When `providers` excludes `tdx` and `codes` are provided, the pipeline fetches minute bars through `sources/provider_fallback.py` and writes normalized rows to `ch_dwd_kline_1m`.
 - Network provider attempts are returned in `provider_results` with `source`, `dataQuality`, and attempt metadata.
@@ -89,3 +91,13 @@ Supported filters:
 - Daily raw source sampling uses `checks=daily_source_sample`. It samples ClickHouse daily rows with `sample_every` (default `100`), calls configured daily providers with unadjusted bars (`adjust=none`), and compares OHLC values against `price_tolerance_pct` / `price_tolerance_abs`.
 - Useful params: `daily_table`, `trade_date`, `sample_every`, `sample_limit`, `sample_markets`, `sample_scope`, `source_providers`, `source_limit`.
 - `sample_scope=stock` limits the sample to A-share stock code ranges. Use it when validating stock UI/MSI inputs so bonds, funds, ETFs, and indices with different TDX price scales do not mask stock-data quality.
+
+## Safe 1m Partition Rebuild
+
+`rebuild_kline_1m_partitions` repairs damaged `ch_dwd_kline_1m` yearly partitions from the local Parquet source without touching individual ClickHouse part files.
+
+- The job always rebuilds into a same-schema staging table, validates row counts, date ranges, symbol coverage, source, and period, then uses `REPLACE PARTITION ... FROM staging` only when `execute=true`.
+- `dry_run=true` (or the default `execute=false`) never replaces the target partitions. The staging table is retained for diagnosis and a later retry.
+- Default repair scope is `years=2014,2015,2019,2025`; override with `years`, `source_dir`, `target_table`, `stage_table`, `workers`, `batch_rows`, and `flush_rows` (the latter batches multiple source files into fewer ClickHouse inserts).
+- Before replacement, the target scope must contain only `source='parquet_1m'` and `period=1`; otherwise the job aborts rather than dropping unrelated data.
+- The source reader supports inclusive `start_date`/`end_date` windows and a multi-year `years` filter, so future replays can reuse the same bounded reader.

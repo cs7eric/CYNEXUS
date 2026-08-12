@@ -17,6 +17,7 @@ DAILY_RAW_TABLE = "daily_raw"
 DAILY_RAW_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_daily_raw.sql"
 DAILY_ADJUSTED_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_daily_adjusted.sql"
 INTRADAY_DETAIL_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260628_create_intraday_detail.sql"
+TRADE_REVIEW_TIMESHARE_DDL_PATH = PROJECT_ROOT / "sql" / "clickhouse" / "20260809_create_trade_review_timeshare.sql"
 DAILY_RAW_REQUIRED_COLUMNS = [
     "code",
     "trade_date",
@@ -54,6 +55,40 @@ class ClickHouseKlineSink:
     def create_table(self) -> None:
         for statement in _split_sql(DDL_PATH.read_text(encoding="utf-8")):
             self.client.command(statement)
+
+    def delete_1m_range(
+        self,
+        start_date,
+        end_date,
+        *,
+        source: str = "tdx_local",
+        period: int = 1,
+        tdx_codes: list[str] | None = None,
+    ) -> None:
+        normalized_start_date = pd.to_datetime(start_date).date()
+        normalized_end_date = pd.to_datetime(end_date).date()
+        # Keep the storage boundary defensive: callers must never be able to
+        # submit an impossible range and force a table-wide no-op mutation.
+        if normalized_start_date > normalized_end_date:
+            return
+        if tdx_codes is not None and not tdx_codes:
+            return
+        code_filter = ""
+        if tdx_codes:
+            code_filter = f" AND tdx_code IN ({_quote_ch_strings(sorted(set(tdx_codes)))})"
+        self.client.command(
+            f"ALTER TABLE {_safe_ch_identifier(self.table)} DELETE "
+            f"WHERE source = %(source)s AND period = %(period)s "
+            f"AND trade_date BETWEEN toDate(%(start_date)s) AND toDate(%(end_date)s)"
+            f"{code_filter}",
+            {
+                "source": source,
+                "period": period,
+                "start_date": normalized_start_date,
+                "end_date": normalized_end_date,
+            },
+            settings={"mutations_sync": 1},
+        )
 
     def insert_1m(self, frame: pd.DataFrame, batch_size: int = 50_000, *, replace_existing: bool = False) -> int:
         if frame.empty:
@@ -209,27 +244,55 @@ class ClickHouseIntradayDetailSink:
         for statement in _split_sql(INTRADAY_DETAIL_DDL_PATH.read_text(encoding="utf-8")):
             self.client.command(statement)
 
-    def insert_auction_points(self, frame: pd.DataFrame, batch_size: int = 50_000) -> int:
+    def insert_auction_points(
+        self,
+        frame: pd.DataFrame,
+        batch_size: int = 50_000,
+        *,
+        replace_existing: bool = False,
+    ) -> int:
         return self._insert_frame(
             self.auction_table,
             frame,
             batch_size=batch_size,
             key_columns=["trade_date", "market", "symbol", "trade_time", "phase", "source"],
+            replace_existing=replace_existing,
         )
 
-    def insert_timeshare(self, frame: pd.DataFrame, batch_size: int = 50_000) -> int:
+    def insert_timeshare(
+        self,
+        frame: pd.DataFrame,
+        batch_size: int = 50_000,
+        *,
+        replace_existing: bool = False,
+    ) -> int:
         return self._insert_frame(
             self.timeshare_table,
             frame,
             batch_size=batch_size,
             key_columns=["trade_date", "market", "symbol", "trade_time", "source"],
+            replace_existing=replace_existing,
         )
 
-    def _insert_frame(self, table: str, frame: pd.DataFrame, batch_size: int, *, key_columns: list[str]) -> int:
+    def _insert_frame(
+        self,
+        table: str,
+        frame: pd.DataFrame,
+        batch_size: int,
+        *,
+        key_columns: list[str],
+        replace_existing: bool = False,
+    ) -> int:
         if frame.empty:
             return 0
         prepared = _deduplicate_frame(frame, key_columns)
-        _delete_existing_intraday_rows(self.client, table, prepared)
+        # Both intraday detail tables are ReplacingMergeTree(ingested_at) and
+        # their reader paths use FINAL. A synchronous mutation per symbol
+        # rewrites the entire monthly partition and is dramatically more
+        # expensive than accepting a temporary duplicate until merge. Keep
+        # destructive replacement opt-in for exceptional maintenance jobs.
+        if replace_existing:
+            _delete_existing_intraday_rows(self.client, table, prepared)
         if "raw_payload" in prepared.columns:
             prepared["raw_payload"] = prepared["raw_payload"].map(_json_dumps)
         inserted = 0
@@ -237,6 +300,67 @@ class ClickHouseIntradayDetailSink:
         for start in range(0, len(prepared), batch_size):
             batch = prepared.iloc[start : start + batch_size]
             self.client.insert_df(table, batch[columns], column_names=columns)
+            inserted += len(batch)
+        return inserted
+
+
+class ClickHouseTradeReviewTimeshareSink:
+    """Durable, chart-shaped timeshare fact used by trade review replay."""
+
+    table = "ch_ods_trade_review_timeshare_1m"
+
+    def __init__(self, config: ClickHouseConfig) -> None:
+        self.config = config
+        _ensure_local_no_proxy(config.host)
+        self.client = ClickHouseClient(config)
+
+    def create_table(self) -> None:
+        for statement in _split_sql(TRADE_REVIEW_TIMESHARE_DDL_PATH.read_text(encoding="utf-8")):
+            self.client.command(statement)
+
+    def delete_targets(self, trade_date, targets: list[dict[str, str]]) -> None:
+        """Delete the current archive scope once before the batch inserts.
+
+        The old implementation issued one synchronous ClickHouse mutation per
+        target.  That serialized the archive at roughly one target every few
+        seconds.  Cleanup is now performed once for the selected scope, after
+        which each worker only inserts its immutable 240-point series.
+        """
+        if not targets:
+            return
+        frame = pd.DataFrame(
+            [
+                {
+                    "trade_date": trade_date,
+                    "target_type": target["target_type"],
+                    "market": target["market"],
+                    "symbol": target["symbol"],
+                }
+                for target in targets
+            ]
+        )
+        _delete_existing_trade_review_timeshare(self.client, self.table, frame)
+
+    def replace(self, frame: pd.DataFrame, batch_size: int = 50_000, *, delete_existing: bool = True) -> int:
+        if frame.empty:
+            return 0
+        required = [
+            "trade_date", "target_type", "market", "symbol", "tdx_code", "slot", "trade_time",
+            "price", "avg_price", "volume_lots", "turnover", "price_source", "amount_source",
+            "source_version", "fetched_at", "ingested_at",
+        ]
+        missing = [column for column in required if column not in frame.columns]
+        if missing:
+            raise ValueError(f"trade review timeshare frame missing columns: {', '.join(missing)}")
+        prepared = frame[required].drop_duplicates(
+            subset=["trade_date", "target_type", "market", "symbol", "slot", "price_source"]
+        ).reset_index(drop=True)
+        if delete_existing:
+            _delete_existing_trade_review_timeshare(self.client, self.table, prepared)
+        inserted = 0
+        for start in range(0, len(prepared), batch_size):
+            batch = prepared.iloc[start : start + batch_size]
+            self.client.insert_df(self.table, batch[required], column_names=required)
             inserted += len(batch)
         return inserted
 
@@ -386,6 +510,28 @@ def _delete_existing_intraday_rows(client: ClickHouseClient, table: str, frame: 
         )
     if not clauses:
         return
+    client.command(
+        f"ALTER TABLE {_safe_ch_identifier(table)} DELETE WHERE {' OR '.join(clauses)}",
+        params,
+        settings={"mutations_sync": 1},
+    )
+
+
+def _delete_existing_trade_review_timeshare(client: ClickHouseClient, table: str, frame: pd.DataFrame) -> None:
+    if frame.empty:
+        return
+    pairs = frame[["trade_date", "target_type", "market", "symbol"]].drop_duplicates()
+    clauses = []
+    params: dict[str, object] = {}
+    for index, row in pairs.reset_index(drop=True).iterrows():
+        params[f"date_{index}"] = pd.to_datetime(row["trade_date"]).date()
+        params[f"type_{index}"] = str(row["target_type"])
+        params[f"market_{index}"] = str(row["market"])
+        params[f"symbol_{index}"] = str(row["symbol"])
+        clauses.append(
+            f"(trade_date = %(date_{index})s AND target_type = %(type_{index})s "
+            f"AND market = %(market_{index})s AND symbol = %(symbol_{index})s)"
+        )
     client.command(
         f"ALTER TABLE {_safe_ch_identifier(table)} DELETE WHERE {' OR '.join(clauses)}",
         params,

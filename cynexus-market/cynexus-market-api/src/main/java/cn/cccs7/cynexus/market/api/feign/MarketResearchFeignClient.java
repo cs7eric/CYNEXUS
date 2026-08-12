@@ -281,6 +281,53 @@ public interface MarketResearchFeignClient {
             @RequestParam(value = "tradeDate", required = false) String tradeDate,
             @RequestParam("limit") int limit);
 
+    @GetMapping("/indicator/replay/timeline")
+    Result<MarketIndicatorDTO.ReplayTimeline> getMarketIndicatorReplayTimeline(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to,
+            @RequestParam("eventType") String eventType,
+            @RequestParam(value = "industryCode", required = false) String industryCode,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/indicator/radar/state")
+    Result<Map<String, Object>> getMarketIndicatorRadarState(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam(value = "asOf", required = false) String asOf);
+
+    @GetMapping("/indicator/radar/events")
+    Result<Map<String, Object>> getMarketIndicatorRadarEvents(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam(value = "asOf", required = false) String asOf,
+            @RequestParam("kind") String kind,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/indicator/radar/limit-ladder")
+    Result<Map<String, Object>> getMarketIndicatorLimitLadder(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("board") String board,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/indicator/replay/summary")
+    Result<Map<String, Object>> getMarketIndicatorReplaySummary(
+            @RequestParam(value = "tradeDate", required = false) String tradeDate,
+            @RequestParam("limit") int limit);
+
+    @GetMapping("/indicator/replay/episode/{episodeId}")
+    Result<Map<String, Object>> getMarketIndicatorReplayEpisode(
+            @PathVariable("episodeId") String episodeId,
+            @RequestParam(value = "tradeDate", required = false) String tradeDate);
+
+    /** Materialized Trade Review state only; this endpoint has no provider fallback. */
+    @GetMapping("/trade-review/market-state")
+    Result<Map<String, Object>> getTradeReviewMarketState(
+            @RequestParam("tradeDate") String tradeDate,
+            @RequestParam(value = "asOf", required = false) String asOf,
+            @RequestParam(value = "mode", required = false) String mode,
+            @RequestParam("membership") String membership,
+            @RequestParam(value = "industryCode", required = false) String industryCode,
+            @RequestParam("windowDays") int windowDays);
+
     @GetMapping("/etf")
     Result<MarketEtfDTO> getMarketEtf(@RequestParam("historyDays") int historyDays,
                                       @RequestParam("rowLimit") int rowLimit);

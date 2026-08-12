@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.common.db.mapper.BaseMapperX;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorConstituentPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorJoinedPO;
 import cn.cccs7.cynexus.market.infra.basic.entity.StockSectorPO;
+import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -11,7 +12,11 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface StockSectorMapper extends BaseMapperX<StockSectorPO> {
 
-    List<StockSectorJoinedPO> listJoinedByCode(@Param("code") String code);
+    List<StockSectorJoinedPO> listJoinedByCode(@Param("code") String code,
+                                               @Param("tradeDate") LocalDate tradeDate);
+
+    List<StockSectorJoinedPO> listThsJoinedByCode(@Param("code") String code,
+                                                  @Param("tradeDate") LocalDate tradeDate);
 
     List<StockSectorConstituentPO> listConstituentsBySector(@Param("sectorId") String sectorId,
                                                             @Param("categoryRaw") Integer categoryRaw,

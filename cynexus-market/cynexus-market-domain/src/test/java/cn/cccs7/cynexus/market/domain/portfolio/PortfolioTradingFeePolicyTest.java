@@ -31,4 +31,12 @@ class PortfolioTradingFeePolicyTest {
 
         assertEquals(0, new BigDecimal("0.12").compareTo(fee));
     }
+
+    @Test
+    void replacesGrossAmountMisreadAsFee() {
+        BigDecimal fee = PortfolioTradingFeePolicy.resolve(PortfolioInstrumentType.ETF,
+                new BigDecimal("500"), new BigDecimal("0.872"), new BigDecimal("436.00"));
+
+        assertEquals(0, new BigDecimal("0.1").compareTo(fee));
+    }
 }

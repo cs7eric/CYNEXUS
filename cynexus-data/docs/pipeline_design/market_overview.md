@@ -44,11 +44,14 @@ set, and the trade-date latest pointer together.
 Redis capture keys expire after one day by default. PostgreSQL persistence is
 deferred until a capture is older than `persistence_interval_seconds` (default
 180 seconds). A capture is removed from the pending set only after
-`save_capture` commits successfully. Stable PostgreSQL identifiers make retries
-idempotent. Market query consumers should read the atomically published latest
-bundle first and use PostgreSQL as the durable fallback. If Redis is unavailable,
-the pipeline falls back to direct PostgreSQL persistence and reports a warning; it
-never publishes a partial Redis capture.
+`save_capture` commits successfully. After acknowledgement, the payload is
+deleted unless it is still the atomically published latest bundle; this keeps
+live reads available while preventing historical Redis payloads from
+accumulating. Stable PostgreSQL identifiers make retries idempotent, and failed
+writes retain both the pending entry and payload for retry. Market query
+consumers should read the latest bundle first and use PostgreSQL as the durable
+fallback. If Redis is unavailable, the pipeline falls back to direct PostgreSQL
+persistence and reports a warning; it never publishes a partial Redis capture.
 
 ## Parameters
 

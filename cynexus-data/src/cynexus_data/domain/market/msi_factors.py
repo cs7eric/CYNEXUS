@@ -5,6 +5,8 @@ import statistics
 from datetime import date
 from typing import Any
 
+from cynexus_data.domain.stock.stock_meta import effective_limit_up_threshold
+
 
 def calculate_turnover_activity(rows: list[dict[str, Any]], *, trade_date: date, window: int = 20, score: float | None = None) -> dict[str, Any] | None:
     ordered = _rows_by_date(rows)
@@ -253,8 +255,11 @@ def build_limit_snapshot_rows(
         if close is None or high is None or pre_close is None or pre_close <= 0:
             continue
         threshold = _limit_threshold(code, meta_by_code.get(code))
-        limit_up_price = pre_close * (1.0 + threshold)
-        limit_down_price = pre_close * (1.0 - threshold)
+        # Mainland A-share limit prices are rounded to the tick before the
+        # close is compared. Comparing against the raw percentage result
+        # misclassifies prices such as 8.71 vs 8.712 as broken boards.
+        limit_up_price = _round_price(pre_close * (1.0 + threshold))
+        limit_down_price = _round_price(pre_close * (1.0 - threshold))
         is_limit_up = close >= limit_up_price * (1.0 - tolerance)
         is_limit_down = close <= limit_down_price * (1.0 + tolerance)
         is_touched = high >= limit_up_price * (1.0 - high_tolerance)
@@ -270,8 +275,8 @@ def build_limit_snapshot_rows(
                 "close": close,
                 "latestPrice": close,
                 "preClose": pre_close,
-                "limitUpPrice": round(limit_up_price, 4),
-                "limitDownPrice": round(limit_down_price, 4),
+                "limitUpPrice": limit_up_price,
+                "limitDownPrice": limit_down_price,
                 "changePct": round((close - pre_close) / pre_close * 100.0, 4),
                 "isLimitUp": is_limit_up,
                 "isLimitDown": is_limit_down,
@@ -381,7 +386,8 @@ def _previous_streaks(rows: list[dict[str, Any]], *, meta_by_code: dict[str, dic
             pre_close = _to_float(row.get("preClose") or row.get("pre_close"))
             if close is None or pre_close is None or pre_close <= 0:
                 break
-            if close >= pre_close * (1.0 + threshold) * (1.0 - tolerance):
+            limit_up_price = _round_price(pre_close * (1.0 + threshold))
+            if close >= limit_up_price * (1.0 - tolerance):
                 streak += 1
                 continue
             break
@@ -483,14 +489,9 @@ def _truthy(value: Any) -> bool:
 
 
 def _limit_threshold(code: str, meta: dict[str, Any] | None) -> float:
-    threshold = _to_float((meta or {}).get("limit_up_threshold"))
-    is_st = _truthy((meta or {}).get("is_st")) if meta else False
-    if is_st and threshold is None:
-        return 0.05
-    if threshold is not None and threshold > 0:
-        return threshold
-    if code.startswith(("300", "301", "688")):
-        return 0.20
-    if code.startswith(("4", "8", "9")):
-        return 0.30
-    return 0.10
+    return effective_limit_up_threshold(code, meta)
+
+
+def _round_price(value: float) -> float:
+    """Round an A-share price to its two-decimal tick."""
+    return round(value + 1e-9, 2)

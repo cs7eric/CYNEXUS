@@ -261,6 +261,8 @@ export default function FinanceTransactionsPage() {
         description="集中查看、修正和删除已经入账的收入、支出与转账。"
         onRefresh={() => void load()}
         loading={loading}
+        onManualEntrySaved={() => void load()}
+        onFinanceDataChanged={() => void load()}
       />
       <section className="rounded-xl border border-border/70 bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(140px,0.8fr)_minmax(140px,0.8fr)_minmax(130px,0.7fr)_minmax(170px,0.95fr)_minmax(150px,0.85fr)_minmax(240px,1.4fr)]">

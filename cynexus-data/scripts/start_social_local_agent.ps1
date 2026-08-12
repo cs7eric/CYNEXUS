@@ -34,10 +34,27 @@ function Start-SocialChrome {
         [string]$Url
     )
 
-    $existing = Get-NetTCPConnection -LocalPort ([int]$Port) -State Listen -ErrorAction SilentlyContinue
+    $existing = @(Get-NetTCPConnection -LocalPort ([int]$Port) -State Listen -ErrorAction SilentlyContinue)
+    $loopbackOnly = @($existing | Where-Object { $_.LocalAddress -notin @("0.0.0.0", "::") })
+    if ($loopbackOnly) {
+        $managedBrowser = Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" |
+            Where-Object {
+                $_.CommandLine -match ("--remote-debugging-port={0}(\s|$)" -f [regex]::Escape($Port)) -and
+                $_.CommandLine -notmatch "--type="
+            }
+        foreach ($process in @($managedBrowser)) {
+            Write-Host ("Restarting social Chrome on port {0} so Docker can reach CDP." -f $Port)
+            Stop-Process -Id ([int]$process.ProcessId) -Force
+        }
+        Start-Sleep -Milliseconds 500
+        $existing = @()
+    }
     if (-not $existing) {
         $arguments = @(
             ("--remote-debugging-port={0}" -f $Port),
+            # The data executor runs in Docker and reaches the host through
+            # host.docker.internal, so CDP must not bind only to loopback.
+            "--remote-debugging-address=0.0.0.0",
             ("--user-data-dir={0}" -f $Profile),
             "--profile-directory=Default",
             "--no-first-run",

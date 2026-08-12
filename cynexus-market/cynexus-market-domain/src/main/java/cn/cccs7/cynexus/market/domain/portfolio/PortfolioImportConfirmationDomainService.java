@@ -29,42 +29,46 @@ public class PortfolioImportConfirmationDomainService {
     private final PortfolioTradeRepository tradeRepository;
     private final PortfolioTradeQueryRepository tradeQueryRepository;
     private final PortfolioImportTaskRepository taskRepository;
+    private final PortfolioSecuritySymbolResolver securitySymbolResolver;
 
     public PortfolioImportConfirmationDomainService(PortfolioCandidateStore candidateStore,
                                                     PortfolioTradeRepository tradeRepository,
                                                     PortfolioTradeQueryRepository tradeQueryRepository,
-                                                    PortfolioImportTaskRepository taskRepository) {
+                                                    PortfolioImportTaskRepository taskRepository,
+                                                    PortfolioSecuritySymbolResolver securitySymbolResolver) {
         this.candidateStore = candidateStore;
         this.tradeRepository = tradeRepository;
         this.tradeQueryRepository = tradeQueryRepository;
         this.taskRepository = taskRepository;
+        this.securitySymbolResolver = securitySymbolResolver;
     }
 
-    public List<PortfolioCandidateRecord> candidatesForReview(PortfolioImportTaskBO task,
+    public List<PortfolioCandidateReview> candidatesForReview(PortfolioImportTaskBO task,
                                                                List<PortfolioCandidateRecord> candidates) {
         return candidatesForReview(task, candidates, LocalDate.now(SHANGHAI));
     }
 
-    public List<PortfolioCandidateRecord> candidatesForReview(PortfolioImportTaskBO task,
+    public List<PortfolioCandidateReview> candidatesForReview(PortfolioImportTaskBO task,
                                                                List<PortfolioCandidateRecord> candidates,
                                                                LocalDate today) {
         requireToday(today);
         Map<String, Set<Instant>> existingKeys = existingTradeTimes(task, candidates);
         Set<TradeKey> seenKeys = new HashSet<>();
         return candidates.stream().map(candidate -> {
-            if (!"PENDING".equals(candidate.reviewStatus())) return candidate;
+            PortfolioCandidateRecord reviewed = candidate;
+            if (!"PENDING".equals(candidate.reviewStatus())) return new PortfolioCandidateReview(candidate, null);
             try {
                 PortfolioTradeBO trade = toTrade(candidate);
-                if (!isToday(trade, today)) return excluded(candidate, NON_TODAY_WARNING);
+                if (!isToday(trade, today)) reviewed = excluded(candidate, NON_TODAY_WARNING);
                 TradeKey key = new TradeKey(trade.symbol(), trade.tradedAt().toInstant());
                 if (existingKeys.getOrDefault(key.symbol(), Set.of()).contains(key.tradedAt())
                         || !seenKeys.add(key)) {
-                    return excluded(candidate, DUPLICATE_WARNING);
+                    reviewed = excluded(candidate, DUPLICATE_WARNING);
                 }
             } catch (IllegalArgumentException ignored) {
                 // Field validation remains part of the explicit confirm action.
             }
-            return candidate;
+            return new PortfolioCandidateReview(reviewed, suggestedSymbol(reviewed));
         }).toList();
     }
 
@@ -140,6 +144,16 @@ public class PortfolioImportConfirmationDomainService {
                 candidate.normalizedPayload(), "EXCLUDED", candidate.version(), candidate.confidence(), warnings);
     }
 
+    private String suggestedSymbol(PortfolioCandidateRecord candidate) {
+        if (!"PENDING".equals(candidate.reviewStatus())) return null;
+        JsonNode payload = candidate.normalizedPayload();
+        if (optionalText(payload, "symbol") != null) return null;
+        String securityName = optionalText(payload, "securityName");
+        if (securityName == null) return null;
+        PortfolioInstrumentType instrumentType = PortfolioInstrumentType.fromPayload(optionalText(payload, "instrumentType"));
+        return securitySymbolResolver.resolveExact(securityName, instrumentType).orElse(null);
+    }
+
     private boolean isToday(PortfolioTradeBO trade, LocalDate today) {
         return trade.tradedAt().withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate().equals(today);
     }
@@ -168,7 +182,7 @@ public class PortfolioImportConfirmationDomainService {
         String normalized = value.trim();
         try { return OffsetDateTime.parse(normalized); }
         catch (Exception ignored) {
-            try { return LocalDateTime.parse(normalized).atOffset(ZoneOffset.UTC); }
+            try { return LocalDateTime.parse(normalized).atZone(SHANGHAI).toOffsetDateTime(); }
             catch (Exception localDateTimeIgnored) {
                 try {
                     LocalTime.parse(normalized);

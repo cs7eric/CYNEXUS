@@ -45,6 +45,11 @@ export const sidebarConfig = {
       icon: Sparkles,
     },
     {
+      title: "Trade View",
+      url: "/trade-review",
+      icon: LineChart,
+    },
+    {
       title: "Finance",
       url: "/finance/overview",
       icon: WalletCards,
@@ -52,7 +57,6 @@ export const sidebarConfig = {
         { title: "Overview", url: "/finance/overview" },
         { title: "Ledger", url: "/finance/ledger" },
         { title: "Transactions", url: "/finance/transactions" },
-        { title: "Accounts", url: "/finance/accounts" },
         { title: "AI Capture", url: "/finance/ai-capture" },
       ],
     },
@@ -110,12 +114,23 @@ export const sidebarConfig = {
           url: "/market/etf",
         },
         {
-          title: "market indicator",
-          url: "/market/indicator",
-        },
-        {
           title: "futures position",
           url: "/market/futures-position",
+        },
+      ],
+    },
+    {
+      title: "Data Collector",
+      url: "/data-collector/market-indicator",
+      icon: Database,
+      items: [
+        {
+          title: "Market Indicator",
+          url: "/data-collector/market-indicator",
+        },
+        {
+          title: "Limit Board Monitor",
+          url: "/data-collector/limit-board-monitor",
         },
       ],
     },

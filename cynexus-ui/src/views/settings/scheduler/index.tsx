@@ -87,6 +87,7 @@ import {
   type SchedulerFundFlowQcSummary,
   type SchedulerJobHistoryItem,
   type SchedulerJobItem,
+  type SchedulerResultSummary,
   createSchedulerCategory,
   deleteSchedulerCategory,
   deleteSchedulerJob,
@@ -199,6 +200,16 @@ function formatSeconds(value: number | null | undefined): string {
 function formatInteger(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—"
   return new Intl.NumberFormat("zh-CN").format(value)
+}
+
+function formatSocialCommentTiming(summary?: SchedulerResultSummary | null): string | null {
+  const metrics = summary?.metrics
+  if (!metrics) return null
+  const comments = typeof metrics.commentsCollected === "number" ? metrics.commentsCollected : null
+  const seconds = typeof metrics.commentCollectionSeconds === "number" ? metrics.commentCollectionSeconds : null
+  const perThousand = typeof metrics.secondsPer1000Comments === "number" ? metrics.secondsPer1000Comments : null
+  if (comments === null || seconds === null) return null
+  return `评论 ${formatInteger(comments)} 条 · 评论阶段 ${formatSeconds(seconds)}${perThousand === null ? "" : ` · 每千条 ${perThousand.toFixed(1)}s`}`
 }
 
 function displaySchedulerJobName(name: string): string {
@@ -1370,7 +1381,8 @@ function HistoryRow({ item }: { item: SchedulerJobHistoryItem }) {
   const isProcessing = item.status === "processing" || item.status === "running" || item.status === "in_progress"
   const isManual = item.trigger_type === "manual"
   const summaryMessage = item.result_summary?.message || item.message
-  const hasDetail = (isFailed || isSkipped) ? !!item.error : (isSuccess && !!summaryMessage)
+  const socialCommentTiming = formatSocialCommentTiming(item.result_summary)
+  const hasDetail = (isFailed || isSkipped) ? !!item.error : (isSuccess && (!!summaryMessage || !!socialCommentTiming))
 
   return (
     <div
@@ -1430,6 +1442,11 @@ function HistoryRow({ item }: { item: SchedulerJobHistoryItem }) {
       <span className="font-mono tabular-nums text-muted-foreground">
         {formatSeconds(item.duration_seconds)}
       </span>
+      {socialCommentTiming ? (
+        <div className="text-[10px] text-muted-foreground sm:col-span-4">
+          {socialCommentTiming}
+        </div>
+      ) : null}
 
       {hasDetail && expanded ? (
         <div className={cn(
@@ -1445,7 +1462,7 @@ function HistoryRow({ item }: { item: SchedulerJobHistoryItem }) {
           ) : (
             <AlertTriangle className="mt-0.5 size-3 shrink-0" />
           )}
-          <span className="break-all whitespace-pre-wrap">{isSuccess ? summaryMessage : item.error}</span>
+          <span className="break-all whitespace-pre-wrap">{isSuccess ? [summaryMessage, socialCommentTiming].filter(Boolean).join(" · ") : item.error}</span>
         </div>
       ) : null}
 

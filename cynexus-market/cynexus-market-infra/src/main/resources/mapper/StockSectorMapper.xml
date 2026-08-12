@@ -27,11 +27,52 @@
             s.name,
             s.topic_id AS topicId,
             ss.relation_level AS relationLevel,
+            tdx.change_pct AS changePercent,
             COALESCE(ss.source, s.source) AS source
         FROM sec_stock_sector ss
         JOIN sec_sector s ON s.sector_id = ss.sector_id
+        LEFT JOIN LATERAL (
+            SELECT quote.change_pct
+              FROM tdx_industry_quote_snapshot quote
+             WHERE quote.deleted_at IS NULL
+               AND (quote.code6 = s.topic_id OR lower(trim(quote.name)) = lower(trim(s.name)))
+               AND (CAST(#{tradeDate} AS date) IS NULL OR quote.snapshot_date &lt;= CAST(#{tradeDate} AS date))
+             ORDER BY quote.snapshot_date DESC, quote.fetched_at DESC NULLS LAST
+             LIMIT 1
+        ) tdx ON TRUE
         WHERE ss.code = #{code}
         ORDER BY s.category_raw ASC, s.name ASC
+    </select>
+
+    <select id="listThsJoinedByCode" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StockSectorJoinedPO">
+        WITH latest AS (
+            SELECT MAX(snapshot_date) AS snapshot_date
+              FROM ths_industry_constituent_snapshot
+             WHERE deleted_at IS NULL
+               AND (CAST(#{tradeDate} AS date) IS NULL OR snapshot_date &lt;= CAST(#{tradeDate} AS date))
+        )
+        SELECT constituent.stock_code AS code,
+               constituent.industry_code AS sectorId,
+               0 AS categoryRaw,
+               'THS 行业' AS categoryLabel,
+               COALESCE(NULLIF(TRIM(mapping.ths_name), ''), constituent.industry_code) AS name,
+               mapping.tdx_code6 AS topicId,
+               mapping.confidence AS relationLevel,
+               'ths_industry_constituent_snapshot->tdx_ths_industry_mapping' AS source
+          FROM ths_industry_constituent_snapshot constituent
+          CROSS JOIN latest
+          LEFT JOIN LATERAL (
+              SELECT map.tdx_code6, map.ths_name, map.confidence
+                FROM tdx_ths_industry_mapping map
+               WHERE map.deleted_at IS NULL
+                 AND map.ths_code = constituent.industry_code
+               ORDER BY map.priority ASC NULLS LAST, map.confidence DESC NULLS LAST
+               LIMIT 1
+          ) mapping ON TRUE
+         WHERE constituent.deleted_at IS NULL
+           AND constituent.snapshot_date = latest.snapshot_date
+           AND constituent.stock_code = #{code}
+         ORDER BY mapping.confidence DESC NULLS LAST, constituent.industry_code
     </select>
 
     <select id="listConstituentsBySector" resultType="cn.cccs7.cynexus.market.infra.basic.entity.StockSectorConstituentPO">

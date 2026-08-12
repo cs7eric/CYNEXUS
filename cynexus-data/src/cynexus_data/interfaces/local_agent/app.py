@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -48,7 +48,13 @@ else:
         lambda platform, profile_name: _context.hooks.social.get_client(platform, profile_name=profile_name)
     )
 _job_runner = JobRunner(JOB_REGISTRY, context=_context)
-_LOCAL_SOCIAL_JOBS = {"social_creator_discovery", "social_comment_sync"}
+_LOCAL_SOCIAL_JOBS = {
+    "social_creator_discovery",
+    "social_comment_sync",
+    "social_xiaohongshu_collection",
+    "social_douyin_collection",
+}
+_ASYNC_LOCAL_SOCIAL_JOBS = {"social_xiaohongshu_collection", "social_douyin_collection"}
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="Cynexus Local Social Agent", docs_url=None, redoc_url=None)
@@ -185,7 +191,7 @@ def close_login_session(session_id: str) -> dict:
 
 
 @app.post("/local/jobs/{job_key}/trigger")
-def trigger_local_job(job_key: str, payload: LocalJobTriggerRequest) -> dict:
+def trigger_local_job(job_key: str, payload: LocalJobTriggerRequest, background_tasks: BackgroundTasks) -> dict:
     if job_key not in _LOCAL_SOCIAL_JOBS:
         raise HTTPException(status_code=404, detail={"code": "JOB_NOT_FOUND", "message": "Local agent only runs social jobs"})
     request = JobRequest(
@@ -195,7 +201,12 @@ def trigger_local_job(job_key: str, payload: LocalJobTriggerRequest) -> dict:
         dry_run=payload.dry_run,
         params=payload.params,
     )
-    result = _job_runner.run(request)
+    if job_key in _ASYNC_LOCAL_SOCIAL_JOBS:
+        result = _job_runner.start(request)
+        if result.status == "running":
+            background_tasks.add_task(_job_runner.run_started, request, result.run_id, result.started_at)
+    else:
+        result = _job_runner.run(request)
     return _success(
         {
             "accepted": result.status not in {"unknown_job", "locked"},

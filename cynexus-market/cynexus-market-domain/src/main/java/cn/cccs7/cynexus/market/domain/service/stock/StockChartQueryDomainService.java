@@ -4,6 +4,7 @@ import cn.cccs7.cynexus.market.domain.entity.StockChartBO;
 import cn.cccs7.cynexus.market.domain.entity.StockDailyFeatureBO;
 import cn.cccs7.cynexus.market.domain.entity.StockIntradayFeatureBO;
 import cn.cccs7.cynexus.market.domain.stock.StockAuctionDomainPolicy;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +24,7 @@ public interface StockChartQueryDomainService {
 
     StockChartBO.StockMeta stockMeta(String symbol);
 
-    StockChartBO.StockSectors stockSectors(String symbol);
+    StockChartBO.StockSectors stockSectors(String symbol, String tradeDate);
 
     StockChartBO.FundFlowSnapshot fundFlow(String symbol);
 
@@ -36,6 +37,11 @@ public interface StockChartQueryDomainService {
 
     IntradayResult intraday(String targetType, String symbol, String name, String adjust,
                             String tradeDate, List<String> periods);
+
+    default IntradayResult intraday(String targetType, String symbol, String name, String adjust,
+                                    String tradeDate, List<String> periods, boolean strictDate) {
+        return intraday(targetType, symbol, name, adjust, tradeDate, periods);
+    }
 
     AuctionResult auction(String symbol, String tradeDate);
 
@@ -64,6 +70,7 @@ public interface StockChartQueryDomainService {
     record IntradayResult(String symbol, String targetType, String name, String adjust,
                           String effectiveAdjust, String requestedAdjust, String source,
                           LocalDate tradeDate, LocalDate requestedTradeDate,
+                          BigDecimal preClose,
                           List<StockChartBO.IntradayPoint> timeshare,
                           Map<String, List<StockChartBO.Bar>> minuteBars,
                           String error) {

@@ -11,6 +11,7 @@ from cynexus_data.sources.eastmoney.http import EastMoneyHttpClient
 from cynexus_data.sources.iwencai.client import IwencaiClient, dedup_articles
 from cynexus_data.sources.sina.a_stock import SinaAStockClient
 from cynexus_data.sources.tdx.mootdx_market import fetch_order_book, fetch_quotes, fetch_transactions
+from cynexus_data.sources.tdx.trades import fetch_history_trade_rows
 from cynexus_data.sources.tdx.easy_tdx import (
     fetch_board_change_ranking,
     fetch_belong_board_rows,
@@ -250,9 +251,17 @@ def tdx_order_book(symbol: str) -> dict:
 
 
 @router.get("/tdx/transactions")
-def tdx_transactions(symbol: str, trade_date: str | None = None) -> dict:
+def tdx_transactions(symbol: str, trade_date: str | None = None, target_type: str | None = None) -> dict:
+    if trade_date:
+        try:
+            rows = fetch_history_trade_rows(symbol, trade_date, target_type=target_type)
+            return {"items": rows, "count": len(rows), "source": "eltdx.history_trade"}
+        except Exception:
+            # Keep the existing mootdx path as a compatibility fallback for
+            # installations that have not installed the optional eltdx wheel.
+            pass
     rows = fetch_transactions(symbol, trade_date=trade_date)
-    return {"items": rows, "count": len(rows)}
+    return {"items": rows, "count": len(rows), "source": "mootdx.transaction"}
 
 
 @router.get("/tdx/fund-flow")

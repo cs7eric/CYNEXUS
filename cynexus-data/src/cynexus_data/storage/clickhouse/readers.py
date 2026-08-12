@@ -149,6 +149,38 @@ def get_latest_table_trade_date(client: ClickHouseClient, table: str = "daily_ra
     return value.date() if hasattr(value, "date") and not isinstance(value, date) else value
 
 
+def get_latest_effective_kline_trade_date(
+    client: ClickHouseClient,
+    *,
+    expected_symbols: int,
+    source: str = "tdx_local",
+    period: int = 1,
+    table: str = DEFAULT_KLINE_TABLE,
+) -> date | None:
+    """Find the newest date whose local-TDX coverage is effectively complete."""
+    if expected_symbols <= 0:
+        return None
+    minimum_symbols = max(1, int(expected_symbols * 0.95 + 0.999999))
+    row = client.query_one(
+        f"""
+        SELECT max(trade_date)
+          FROM (
+                SELECT trade_date
+                  FROM {_safe_table_name(table)}
+                 WHERE source = %(source)s
+                   AND period = %(period)s
+                 GROUP BY trade_date
+                HAVING uniqExact(tdx_code) >= %(minimum_symbols)s
+               )
+        """,
+        {"source": source, "period": period, "minimum_symbols": minimum_symbols},
+    )
+    value = row[0] if row else None
+    if value is None:
+        return None
+    return value.date() if hasattr(value, "date") and not isinstance(value, date) else value
+
+
 def get_previous_table_trade_date(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw") -> date | None:
     row = client.query_one(
         f"SELECT max(trade_date) FROM {_safe_table_name(table)} WHERE trade_date < %(trade_date)s",
@@ -834,7 +866,14 @@ def aggregate_kline_period_to_clickhouse(
     start_date: date | str | None = None,
     end_date: date | str | None = None,
     symbols: Sequence[str] | None = None,
+    *,
+    allow_full_history: bool = False,
 ) -> int:
+    if not allow_full_history and start_date is None and end_date is None and not symbols:
+        raise ValueError(
+            "aggregate kline requires trade_date/start_date/end_date or symbols; "
+            "set allow_full_history=true only for an intentional maintenance backfill"
+        )
     expected_rows = count_aggregate_kline_bars(
         client,
         interval_minutes=interval_minutes,

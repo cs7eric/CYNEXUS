@@ -42,6 +42,8 @@ class MediaTranscriptionConfig:
     ffmpeg_path: str | None
     transcriber_path: str | None
     transcriber_params: dict[str, Any]
+    remote_transcriber_path: str | None
+    remote_transcriber_params: dict[str, Any]
     language: str | None
 
 
@@ -97,27 +99,30 @@ class MediaTranscriptionRuntime:
             "categories": [str(metadata.get("platform"))] if metadata.get("platform") else [],
             "tags": [str(metadata.get("noteType"))] if metadata.get("noteType") else [],
         }
+        config = self._config()
+        use_remote_transcriber = bool(config.remote_transcriber_path)
         self._task_store.update_task(
             task_id,
-            status="downloading",
+            status="transcribing" if use_remote_transcriber else "downloading",
             metadata=task_metadata,
             download_progress={
-                "phase": "queued",
-                "progress": 0,
+                "phase": "remote" if use_remote_transcriber else "queued",
+                "progress": 100 if use_remote_transcriber else 0,
                 "downloaded_bytes": 0,
                 "total_bytes": 0,
-                "eta_seconds": None,
+                "eta_seconds": 0 if use_remote_transcriber else None,
                 "speed_bytes_per_sec": 0,
             },
             intake_progress={
-                "phase": "pending",
+                "phase": "remote" if use_remote_transcriber else "pending",
                 "progress": 0,
                 "processed_bytes": 0,
                 "total_bytes": 0,
                 "eta_seconds": None,
             },
         )
-        self._task_store.executor.submit(self._run_remote_download_and_transcription, task_id, source_url, title, source_page_url, task_metadata)
+        worker = self._run_remote_url_and_transcription if use_remote_transcriber else self._run_remote_download_and_transcription
+        self._task_store.executor.submit(worker, task_id, source_url, title, source_page_url, task_metadata)
         return {"task_id": task_id, "file_name": file_name}
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
@@ -255,6 +260,49 @@ class MediaTranscriptionRuntime:
         finally:
             session.close()
 
+    def _run_remote_url_and_transcription(
+        self,
+        task_id: str,
+        source_url: str,
+        title: str,
+        source_page_url: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        _ = source_page_url
+        try:
+            config = self._config()
+            if not config.remote_transcriber_path:
+                raise RuntimeError("remote transcription transcriber is not configured")
+            transcriber = load_transcriber(config.remote_transcriber_path, config.remote_transcriber_params)
+            if not hasattr(transcriber, "transcribe_url"):
+                raise TypeError(f"remote transcriber does not support URL input: {config.remote_transcriber_path}")
+            self._task_store.update_task(
+                task_id,
+                status="transcribing",
+                intake_progress={
+                    "phase": "remote",
+                    "progress": 10,
+                    "processed_bytes": 0,
+                    "total_bytes": 0,
+                    "eta_seconds": None,
+                },
+            )
+            transcript = str(transcriber.transcribe_url(source_url, language=config.language) or "").strip()
+            if not transcript:
+                raise RuntimeError("转写结果为空")
+            self._complete_transcription(
+                task_id,
+                transcript,
+                file_name=str(metadata.get("title") or title or "remote-media"),
+                metadata=metadata,
+                file_path=None,
+                audio_path=None,
+                kind=media_kind(Path(_build_download_filename(source_url, title, None))),
+                source_uri=source_url,
+            )
+        except Exception as exc:
+            self._task_store.update_task(task_id, status="error", error=str(exc))
+
     def _run_local_transcription(self, task_id: str, file_path: Path, file_name: str, metadata: dict[str, Any]) -> None:
         try:
             source_size = file_path.stat().st_size if file_path.exists() else 0
@@ -288,30 +336,68 @@ class MediaTranscriptionRuntime:
             transcript = self._transcribe_audio(task_id, audio_path, config)
             if not transcript:
                 raise RuntimeError("转写结果为空")
-            duration = probe_duration_seconds(audio_path, ffmpeg_path=config.ffmpeg_path)
-            summary = build_transcript_summary(
-                transcript,
-                title=str(metadata.get("title") or Path(file_name).stem),
-                platform=str(metadata.get("platform") or "") or None,
-                duration=duration,
-            )
-            persistence_warning = self._persist_transcript(task_id, transcript, file_path, audio_path, duration, kind)
-            next_metadata = dict(metadata)
-            if duration and not next_metadata.get("duration"):
-                next_metadata["duration"] = int(duration)
-            if persistence_warning:
-                next_metadata["persistence_warning"] = persistence_warning
-            self._task_store.update_task(
+            self._complete_transcription(
                 task_id,
-                status="done",
-                transcript=transcript,
-                polished=transcript,
-                summary=summary,
-                metadata=next_metadata,
-                error=None,
+                transcript,
+                file_name=file_name,
+                metadata=metadata,
+                file_path=file_path,
+                audio_path=audio_path,
+                kind=kind,
             )
         except Exception as exc:
             self._task_store.update_task(task_id, status="error", error=str(exc))
+
+    def _complete_transcription(
+        self,
+        task_id: str,
+        transcript: str,
+        *,
+        file_name: str,
+        metadata: dict[str, Any],
+        file_path: Path | None,
+        audio_path: Path | None,
+        kind: str,
+        source_uri: str | None = None,
+    ) -> None:
+        config = self._config()
+        duration = probe_duration_seconds(audio_path, ffmpeg_path=config.ffmpeg_path) if audio_path else None
+        summary = build_transcript_summary(
+            transcript,
+            title=str(metadata.get("title") or Path(file_name).stem),
+            platform=str(metadata.get("platform") or "") or None,
+            duration=duration,
+        )
+        persistence_warning = self._persist_transcript(
+            task_id,
+            transcript,
+            file_path,
+            audio_path,
+            duration,
+            kind,
+            source_uri=source_uri,
+        )
+        next_metadata = dict(metadata)
+        if duration and not next_metadata.get("duration"):
+            next_metadata["duration"] = int(duration)
+        if persistence_warning:
+            next_metadata["persistence_warning"] = persistence_warning
+        self._task_store.update_task(
+            task_id,
+            status="done",
+            transcript=transcript,
+            polished=transcript,
+            summary=summary,
+            metadata=next_metadata,
+            intake_progress={
+                "phase": "done",
+                "progress": 100,
+                "processed_bytes": 0,
+                "total_bytes": 0,
+                "eta_seconds": 0,
+            },
+            error=None,
+        )
 
     def _transcribe_audio(self, task_id: str, audio_path: Path, config: MediaTranscriptionConfig) -> str:
         if not config.transcriber_path:
@@ -376,10 +462,11 @@ class MediaTranscriptionRuntime:
         self,
         task_id: str,
         transcript: str,
-        file_path: Path,
-        audio_path: Path,
+        file_path: Path | None,
+        audio_path: Path | None,
         duration: float | None,
         kind: str,
+        source_uri: str | None = None,
     ) -> str | None:
         try:
             repo = TranscriptRepository(self._context.hooks.postgres_core.get_client())
@@ -387,15 +474,15 @@ class MediaTranscriptionRuntime:
             repo.upsert(
                 {
                     "transcript_id": task_id,
-                    "source_uri": file_path.resolve().as_uri(),
+                    "source_uri": source_uri or (file_path.resolve().as_uri() if file_path else ""),
                     "transcript": transcript,
                     "language": self._config().language,
                     "duration_seconds": duration,
                     "metadata": {
                         "media_kind": kind,
-                        "audio_path": str(audio_path),
-                        "source_path": str(file_path),
                         "task_id": task_id,
+                        **({"audio_path": str(audio_path)} if audio_path else {}),
+                        **({"source_path": str(file_path)} if file_path else {}),
                     },
                 }
             )
@@ -412,12 +499,21 @@ class MediaTranscriptionRuntime:
             raise RuntimeError(f"invalid CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS: {exc}") from exc
         if not isinstance(params, dict):
             raise RuntimeError("CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER_PARAMS must decode to a JSON object")
+        remote_params_raw = os.getenv("CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER_PARAMS", "").strip()
+        try:
+            remote_params = json.loads(remote_params_raw) if remote_params_raw else {}
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"invalid CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER_PARAMS: {exc}") from exc
+        if not isinstance(remote_params, dict):
+            raise RuntimeError("CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER_PARAMS must decode to a JSON object")
         return MediaTranscriptionConfig(
             work_root=work_root,
             upload_root=work_root / "uploads",
             ffmpeg_path=os.getenv("CYNEXUS_MEDIA_TRANSCRIPTION_FFMPEG_PATH") or None,
             transcriber_path=os.getenv("CYNEXUS_MEDIA_TRANSCRIPTION_TRANSCRIBER") or None,
             transcriber_params=params,
+            remote_transcriber_path=os.getenv("CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER") or None,
+            remote_transcriber_params=remote_params,
             language=os.getenv("CYNEXUS_MEDIA_TRANSCRIPTION_LANGUAGE", "zh") or None,
         )
 

@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import replace
+
+from cynexus_data.jobs._pipeline_job import main_for_job, run_pipeline_job
+from cynexus_data.jobs.contracts import JobRequest, JobResult
+from cynexus_data.pipelines.social.collect import run as run_pipeline
+from cynexus_data.runtime.context import PipelineContext
+
+
+def run(context: PipelineContext, request: JobRequest, run_id: str) -> JobResult:
+    request = replace(request, params={**request.params, "platform": "douyin"})
+    return run_pipeline_job(context, request, run_id, run_pipeline)
+
+
+def main() -> None:
+    main_for_job("social_douyin_collection", "Discover Douyin posts and collect their comments.")
+
+
+if __name__ == "__main__":
+    main()

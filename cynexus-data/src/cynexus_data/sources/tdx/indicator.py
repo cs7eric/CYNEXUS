@@ -3,16 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 import random
 import time
-from typing import Any
+from typing import Any, Iterable
 
 from cynexus_data.domain.market.market_indicator import normalize_indicator_quote
+from cynexus_data.domain.stock.stock_meta import effective_limit_up_threshold
 
 
 def create_eltdx_indicator_client(*, pool_size: int = 8, timeout: float = 8.0, batch_size: int = 80):
     try:
         import eltdx  # type: ignore
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError("eltdx 1.2.0 is required for market indicator refresh") from exc
+        raise RuntimeError("eltdx 1.3.0 is required for market indicator refresh") from exc
     client = eltdx.TdxClient(
         pool_size=max(1, int(pool_size)),
         timeout=float(timeout),
@@ -26,6 +27,7 @@ def fetch_indicator_snapshots(
     client: Any,
     metadata: dict[str, dict[str, Any]],
     *,
+    requested_codes: Iterable[str] | None = None,
     batch_size: int = 80,
     captured_at: datetime | None = None,
     retry_attempts: int = 2,
@@ -34,7 +36,8 @@ def fetch_indicator_snapshots(
     fallback_batch_size: int = 80,
 ) -> list[dict[str, Any]]:
     source_codes = [_plain_code(value) for value in (client.get_a_share_codes_all() or [])]
-    codes = [code for code in source_codes if code in metadata]
+    selected_codes = None if requested_codes is None else {_plain_code(code) for code in requested_codes}
+    codes = [code for code in source_codes if code in metadata and (selected_codes is None or code in selected_codes)]
     captured = captured_at or datetime.now().astimezone()
     rows: list[dict[str, Any]] = []
     effective_batch_size = max(1, int(batch_size))
@@ -60,7 +63,7 @@ def fetch_indicator_snapshots(
                 name=info.get("name"),
                 market=info.get("market"),
                 captured_at=captured,
-                limit_up_threshold=float(info.get("limit_up_threshold") or 10),
+                limit_up_threshold=effective_limit_up_threshold(code, info),
                 float_shares=_float(info.get("float_shares")),
             )
             if normalized["last_price"] is None:

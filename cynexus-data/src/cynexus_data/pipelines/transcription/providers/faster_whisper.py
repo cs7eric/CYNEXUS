@@ -4,10 +4,7 @@ import os
 from pathlib import Path
 from typing import Callable
 
-import torch
 from faster_whisper import WhisperModel
-
-from cynexus_data.pipelines.transcription.providers.transformers_whisper import TransformersWhisperTranscriber
 
 
 SegmentCallback = Callable[[int, str, bool], None]
@@ -39,7 +36,7 @@ class FasterWhisperTranscriber:
         self.compute_type = compute_type or os.getenv("CYNEXUS_MEDIA_TRANSCRIPTION_COMPUTE_TYPE") or "auto"
         self.beam_size = beam_size
         self.vad_filter = vad_filter
-        self.model: WhisperModel | TransformersWhisperTranscriber
+        self.model: WhisperModel | object
         self._uses_transformers_fallback = False
         try:
             self.model = WhisperModel(
@@ -53,10 +50,12 @@ class FasterWhisperTranscriber:
             if not fallback_to_transformers or "model.bin" not in str(exc):
                 raise
             self._uses_transformers_fallback = True
+            from cynexus_data.pipelines.transcription.providers.transformers_whisper import TransformersWhisperTranscriber
+
             self.model = TransformersWhisperTranscriber(
                 model_path=str(self.model_path),
                 language=self.language,
-                device=fallback_device or ("cuda" if torch.cuda.is_available() else "cpu"),
+                device=fallback_device or "cpu",
             )
 
     def transcribe(self, audio_path: str, language: str | None = None) -> str:

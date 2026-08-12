@@ -9,6 +9,13 @@ class RedisHook(BaseHook):
     """Create the shared Redis client without leaking connection config."""
 
     def get_client(self) -> Any:
+        return self._get_client(decode_responses=True)
+
+    def get_binary_client(self) -> Any:
+        """Return a byte-preserving client for compressed immutable bundles."""
+        return self._get_client(decode_responses=False)
+
+    def _get_client(self, *, decode_responses: bool) -> Any:
         try:
             import redis
         except ImportError as exc:  # pragma: no cover - exercised by runtime image
@@ -22,5 +29,5 @@ class RedisHook(BaseHook):
             password=self.connection.password or None,
             socket_timeout=float(self.connection.timeout or 2.0),
             socket_connect_timeout=float(self.connection.timeout or 2.0),
-            decode_responses=True,
+            decode_responses=decode_responses,
         )

@@ -789,7 +789,10 @@ def _leader_evidence(
 ) -> dict[str, Any]:
     following = [member for member in members if member.code != leader.code]
     follow_score = min(1.0, len(following) / max(3, len(members)))
-    timing_score = 1.0
+    follower_lags = [member.lag_seconds for member in following if member.lag_seconds is not None]
+    first_follower_lag = min(follower_lags) if follower_lags else None
+    timing_score = 1.0 if first_follower_lag is None else _clip01(1.0 - first_follower_lag / 300.0)
+    activity_confirmation = 0.5 if leader.amount_velocity is not None else 0.35
     persistence = 1.0 if ex_leader is not None and (ex_leader >= 0 if direction is Direction.RISE else ex_leader <= 0) else 0.0
     role = "emotional_leader" if follow_score >= 0.5 and persistence >= 0.5 else "independent_move"
     if coverage < 0.15 and role == "emotional_leader":
@@ -801,8 +804,10 @@ def _leader_evidence(
         "score": round(0.25 * timing_score + 0.20 * _clip01(abs(leader.sector_excess_pct or 0.0) / 2.0) + 0.20 * follow_score + 0.10 * persistence + 0.10 * _clip01(context.regime_strength) + 0.15 * _quality_score(quality), 6),
         "timingLead": timing_score,
         "relativeStrength": _clip01(abs(leader.sector_excess_pct or 0.0) / 2.0),
+        "activityConfirmation": activity_confirmation,
         "followerResponse": follow_score,
         "exLeaderPersistence": persistence,
+        "firstFollowerLagSeconds": first_follower_lag,
     }
 
 

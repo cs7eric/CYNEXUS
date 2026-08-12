@@ -33,7 +33,16 @@ public final class SchedulerManagementPolicy {
         if (result == null || result.getStatus() == null || result.getStatus().isBlank()) {
             return CoreConstants.STATUS_FAILED;
         }
-        return CoreConstants.STATUS_LOCKED.equalsIgnoreCase(result.getStatus()) ? CoreConstants.STATUS_SKIPPED : result.getStatus();
+        String status = result.getStatus().trim().toLowerCase();
+        if (CoreConstants.STATUS_LOCKED.equals(status)) {
+            return CoreConstants.STATUS_SKIPPED;
+        }
+        // Data Executor uses partial_success for a run that completed with per-post errors;
+        // scheduler persistence exposes the canonical partial status.
+        if ("partial_success".equals(status)) {
+            return CoreConstants.STATUS_PARTIAL;
+        }
+        return status;
     }
 
     public static boolean isTerminalStatus(String status) {

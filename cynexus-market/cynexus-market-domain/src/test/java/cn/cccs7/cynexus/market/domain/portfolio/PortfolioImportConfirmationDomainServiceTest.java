@@ -26,7 +26,7 @@ class PortfolioImportConfirmationDomainServiceTest {
         service.confirm(task, List.of(3L), "u", OffsetDateTime.parse("2026-08-02T00:00:00Z"),
                 LocalDate.of(2026, 7, 31));
 
-        assertEquals(OffsetDateTime.parse("2026-07-31T09:30:10Z"), trades.trade.tradedAt());
+        assertEquals(OffsetDateTime.parse("2026-07-31T09:30:10+08:00"), trades.trade.tradedAt());
         assertEquals("0.1", trades.trade.totalFee().toPlainString());
     }
 
@@ -40,10 +40,10 @@ class PortfolioImportConfirmationDomainServiceTest {
         PortfolioImportConfirmationDomainService service = service(new RecordingCandidates(candidate), new RecordingTrades(),
                 queries, new RecordingTasks());
 
-        PortfolioCandidateRecord reviewed = service.candidatesForReview(task, List.of(candidate), LocalDate.of(2026, 7, 31)).getFirst();
+        PortfolioCandidateReview reviewed = service.candidatesForReview(task, List.of(candidate), LocalDate.of(2026, 7, 31)).getFirst();
 
-        assertEquals("EXCLUDED", reviewed.reviewStatus());
-        assertTrue(reviewed.warnings().stream().anyMatch(item -> item.startsWith("Duplicate trade:")));
+        assertEquals("EXCLUDED", reviewed.candidate().reviewStatus());
+        assertTrue(reviewed.candidate().warnings().stream().anyMatch(item -> item.startsWith("Duplicate trade:")));
     }
 
     @Test
@@ -71,10 +71,10 @@ class PortfolioImportConfirmationDomainServiceTest {
         PortfolioImportConfirmationDomainService service = service(candidates, trades,
                 new RecordingTradeQueries(), new RecordingTasks());
 
-        PortfolioCandidateRecord reviewed = service.candidatesForReview(task, List.of(candidate()),
+        PortfolioCandidateReview reviewed = service.candidatesForReview(task, List.of(candidate()),
                 LocalDate.of(2026, 8, 1)).getFirst();
-        assertEquals("EXCLUDED", reviewed.reviewStatus());
-        assertTrue(reviewed.warnings().contains("Trade date is not today; only today's transactions are valid for import."));
+        assertEquals("EXCLUDED", reviewed.candidate().reviewStatus());
+        assertTrue(reviewed.candidate().warnings().contains("Trade date is not today; only today's transactions are valid for import."));
 
         service.confirm(task, List.of(3L), "u", OffsetDateTime.parse("2026-08-02T00:00:00Z"),
                 LocalDate.of(2026, 8, 1));
@@ -82,11 +82,38 @@ class PortfolioImportConfirmationDomainServiceTest {
         assertEquals(PortfolioImportStatus.CONFIRMED, task.getStatus());
     }
 
+    @Test
+    void suggestsAUniqueExactSymbolForCandidateWithoutCode() throws Exception {
+        PortfolioCandidateRecord candidate = new PortfolioCandidateRecord(4L, 1L, 2,
+                new ObjectMapper().readTree("{\"symbol\":null,\"securityName\":\"红星发展\","
+                        + "\"instrumentType\":\"STOCK\",\"side\":\"BUY\","
+                        + "\"tradedAt\":\"2026-07-31T09:30:10\",\"quantity\":\"100\",\"price\":\"10\"}"),
+                "PENDING", 0, null, List.of());
+        PortfolioImportConfirmationDomainService service = service(new RecordingCandidates(candidate), new RecordingTrades(),
+                new RecordingTradeQueries(), new RecordingTasks(), (securityName, instrumentType) ->
+                        "红星发展".equals(securityName) && instrumentType == PortfolioInstrumentType.STOCK
+                                ? Optional.of("600367") : Optional.empty());
+
+        PortfolioCandidateReview reviewed = service.candidatesForReview(task(), List.of(candidate),
+                LocalDate.of(2026, 7, 31)).getFirst();
+
+        assertEquals("600367", reviewed.suggestedSymbol());
+        assertTrue(reviewed.candidate().normalizedPayload().path("symbol").isNull());
+    }
+
     private static PortfolioImportConfirmationDomainService service(RecordingCandidates candidates,
                                                                      RecordingTrades trades,
                                                                      RecordingTradeQueries queries,
                                                                      RecordingTasks tasks) {
-        return new PortfolioImportConfirmationDomainService(candidates, trades, queries, tasks);
+        return service(candidates, trades, queries, tasks, (securityName, instrumentType) -> Optional.empty());
+    }
+
+    private static PortfolioImportConfirmationDomainService service(RecordingCandidates candidates,
+                                                                     RecordingTrades trades,
+                                                                     RecordingTradeQueries queries,
+                                                                     RecordingTasks tasks,
+                                                                     PortfolioSecuritySymbolResolver resolver) {
+        return new PortfolioImportConfirmationDomainService(candidates, trades, queries, tasks, resolver);
     }
 
     private static PortfolioImportTaskBO task() {

@@ -90,6 +90,17 @@ def test_latest_and_adjusted_helpers() -> None:
     assert readers.list_codes_with_adjusted_daily(list_client) == ["000001", "600000"]
 
 
+def test_latest_effective_kline_trade_date_requires_symbol_coverage() -> None:
+    client = FakeClickHouseClient(one=(date(2026, 7, 27),))
+
+    result = readers.get_latest_effective_kline_trade_date(client, expected_symbols=100)
+
+    assert result == date(2026, 7, 27)
+    sql, params = client.one_calls[0]
+    assert "uniqExact(tdx_code)" in sql
+    assert params == {"source": "tdx_local", "period": 1, "minimum_symbols": 95}
+
+
 def test_read_index_daily_bars_groups_max_close_and_returns_ascending() -> None:
     client = FakeClickHouseClient(
         rows=[

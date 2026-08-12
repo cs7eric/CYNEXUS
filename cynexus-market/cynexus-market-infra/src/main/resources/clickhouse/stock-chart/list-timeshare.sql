@@ -3,20 +3,14 @@ select
     toUnixTimestamp(trade_time) * 1000 as timestamp,
     toString(trade_date) as tradeDate,
     formatDateTime(trade_time, '%%H:%%i') as timeLabel,
-    close as price,
-    open,
-    if(
-        sum(volume) over (order by trade_time asc rows between unbounded preceding and current row) = 0,
-        null,
-        sum(amount) over (order by trade_time asc rows between unbounded preceding and current row)
-        / sum(volume) over (order by trade_time asc rows between unbounded preceding and current row)
-    ) as avgPrice,
-    volume,
-    amount as turnover
-  from ch_dwd_kline_1m FINAL
+    toFloat64(price) as price,
+    toFloat64(price) as open,
+    toFloat64(avg_price) as avgPrice,
+    toFloat64(volume_lots) as volume,
+    toFloat64(turnover) as turnover
+  from ch_ods_trade_review_timeshare_1m FINAL
  where market = '%s'
    and symbol = '%s'
-   and period = 1
    and trade_date = toDate('%s')
- order by trade_time asc
+ order by slot asc
 FORMAT JSONEachRow

@@ -10,6 +10,7 @@ public final class PortfolioImportTaskBO {
     private final String tenantKey;
     private final Long assetId;
     private final String idempotencyKey;
+    private OffsetDateTime createdAt;
     private PortfolioImportStatus status;
     private long version;
     private int attemptCount;
@@ -23,6 +24,12 @@ public final class PortfolioImportTaskBO {
     public PortfolioImportTaskBO(Long id, String principalKey, String tenantKey, Long assetId,
                                  String idempotencyKey, PortfolioImportStatus status,
                                  long version, int attemptCount) {
+        this(id, principalKey, tenantKey, assetId, idempotencyKey, status, version, attemptCount, null);
+    }
+
+    public PortfolioImportTaskBO(Long id, String principalKey, String tenantKey, Long assetId,
+                                 String idempotencyKey, PortfolioImportStatus status,
+                                 long version, int attemptCount, OffsetDateTime createdAt) {
         if (id == null || principalKey == null || principalKey.isBlank()
                 || tenantKey == null || tenantKey.isBlank() || assetId == null
                 || idempotencyKey == null || idempotencyKey.isBlank() || status == null
@@ -37,6 +44,7 @@ public final class PortfolioImportTaskBO {
         this.status = status;
         this.version = version;
         this.attemptCount = attemptCount;
+        this.createdAt = createdAt;
     }
 
     public static PortfolioImportTaskBO rehydrate(Long id, String principalKey, String tenantKey, Long assetId,
@@ -44,8 +52,18 @@ public final class PortfolioImportTaskBO {
                                                   int attemptCount, OffsetDateTime queuedAt, OffsetDateTime startedAt,
                                                   OffsetDateTime completedAt, OffsetDateTime confirmedAt,
                                                   String lastErrorCode, String lastErrorMessage) {
+        return rehydrate(id, principalKey, tenantKey, assetId, idempotencyKey, status, version, attemptCount,
+                null, queuedAt, startedAt, completedAt, confirmedAt, lastErrorCode, lastErrorMessage);
+    }
+
+    public static PortfolioImportTaskBO rehydrate(Long id, String principalKey, String tenantKey, Long assetId,
+                                                  String idempotencyKey, PortfolioImportStatus status, long version,
+                                                  int attemptCount, OffsetDateTime createdAt, OffsetDateTime queuedAt,
+                                                  OffsetDateTime startedAt, OffsetDateTime completedAt,
+                                                  OffsetDateTime confirmedAt, String lastErrorCode,
+                                                  String lastErrorMessage) {
         PortfolioImportTaskBO task = new PortfolioImportTaskBO(id, principalKey, tenantKey, assetId,
-                idempotencyKey, status, version, attemptCount);
+                idempotencyKey, status, version, attemptCount, createdAt);
         task.queuedAt = queuedAt;
         task.startedAt = startedAt;
         task.completedAt = completedAt;

@@ -35,6 +35,7 @@ export interface NotificationItem {
   title: string
   description?: ReactNode
   duration?: number
+  placement?: "top-right" | "bottom-right"
 }
 
 interface VariantStyle {
@@ -109,7 +110,7 @@ function emit() {
 
 function push(
   variant: NotificationVariant,
-  opts: { title: string; description?: ReactNode; duration?: number },
+  opts: { title: string; description?: ReactNode; duration?: number; placement?: "top-right" | "bottom-right" },
 ): string {
   const id = `notif-${Date.now()}-${counter++}`
   const item: NotificationItem = {
@@ -118,6 +119,7 @@ function push(
     title: opts.title,
     description: opts.description,
     duration: opts.duration ?? DEFAULT_DURATION_MS,
+    placement: opts.placement ?? "top-right",
   }
   store = [...store, item]
   emit()
@@ -131,10 +133,10 @@ function push(
 }
 
 export interface NotificationApi {
-  success: (opts: { title: string; description?: ReactNode; duration?: number }) => string
-  info: (opts: { title: string; description?: ReactNode; duration?: number }) => string
-  warn: (opts: { title: string; description?: ReactNode; duration?: number }) => string
-  danger: (opts: { title: string; description?: ReactNode; duration?: number }) => string
+  success: (opts: { title: string; description?: ReactNode; duration?: number; placement?: "top-right" | "bottom-right" }) => string
+  info: (opts: { title: string; description?: ReactNode; duration?: number; placement?: "top-right" | "bottom-right" }) => string
+  warn: (opts: { title: string; description?: ReactNode; duration?: number; placement?: "top-right" | "bottom-right" }) => string
+  danger: (opts: { title: string; description?: ReactNode; duration?: number; placement?: "top-right" | "bottom-right" }) => string
   dismiss: (id: string) => void
   dismissAll: () => void
 }
@@ -159,13 +161,11 @@ export const notification: NotificationApi = {
 // ---------------------------------------------------------------------------
 
 export function NotificationRoot() {
-  const [items, setItems] = useState<NotificationItem[]>([])
+  const [items, setItems] = useState<NotificationItem[]>(() => [...store])
 
   useEffect(() => {
     const handler = (next: NotificationItem[]) => setItems(next)
     listeners.add(handler)
-    // 初始化同步（处理 hot reload / 二次挂载时 store 已有内容的情况）
-    setItems([...store])
     return () => {
       listeners.delete(handler)
     }
@@ -173,15 +173,13 @@ export function NotificationRoot() {
 
   if (typeof document === "undefined") return null
 
+  const topRight = items.filter((item) => item.placement !== "bottom-right")
+  const bottomRight = items.filter((item) => item.placement === "bottom-right")
+
   return createPortal(
-    <div
-      aria-live="polite"
-      aria-atomic="false"
-      className="pointer-events-none fixed top-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2"
-    >
-      {items.map((item) => (
-        <NotificationCard key={item.id} item={item} />
-      ))}
+    <div aria-live="polite" aria-atomic="false" className="pointer-events-none fixed inset-0 z-[100]">
+      {topRight.length ? <div className="pointer-events-none absolute top-4 right-4 flex w-full max-w-sm flex-col gap-2">{topRight.map((item) => <NotificationCard key={item.id} item={item} />)}</div> : null}
+      {bottomRight.length ? <div className="pointer-events-none absolute right-4 bottom-4 flex w-full max-w-sm flex-col gap-2">{bottomRight.map((item) => <NotificationCard key={item.id} item={item} />)}</div> : null}
     </div>,
     document.body,
   )

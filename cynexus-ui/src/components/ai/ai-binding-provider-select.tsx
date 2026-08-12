@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AlertCircle, Cpu, Loader2 } from "lucide-react"
+import { AlertCircle, Cpu, Loader2, Sparkles } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { notification } from "@/components/ui/notification"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { fetchAiBindings, fetchAiProviders, updateAiBindingProvider, AI_BINDING_CHANGED_EVENT, type AiBindingItem, type AiProviderItem } from "@/services/ai/provider"
+import { fetchAiBindings, fetchAiProviders, updateAiBindingModel, updateAiBindingProvider, AI_BINDING_CHANGED_EVENT, type AiBindingItem, type AiProviderItem } from "@/services/ai/provider"
 
 interface AiBindingProviderSelectProps {
   capability: string
   className?: string
   label?: string
+  modelLabel?: string
 }
 
 function providerLabel(provider: AiProviderItem) {
   return provider.name || provider.code || "Unnamed provider"
 }
 
-export function AiBindingProviderSelect({ capability, className, label = "Provider" }: AiBindingProviderSelectProps) {
+function providerModels(provider: AiProviderItem | null | undefined, selectedModel: string) {
+  if (!provider) return selectedModel ? [selectedModel] : []
+  return Array.from(new Set([
+    ...provider.model_configs.map((item) => item.model),
+    ...provider.models,
+    provider.default_model,
+    selectedModel,
+  ].map((model) => model.trim()).filter(Boolean)))
+}
+
+export function AiBindingProviderSelect({ capability, className, label = "Provider", modelLabel = "Model" }: AiBindingProviderSelectProps) {
   const [binding, setBinding] = useState<AiBindingItem | null>(null)
   const [providers, setProviders] = useState<AiProviderItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +70,10 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
   }, [capability, load])
 
   const currentProvider = binding?.provider
+  const availableModels = useMemo(
+    () => providerModels(currentProvider, binding?.model_override || ""),
+    [binding?.model_override, currentProvider],
+  )
   const availableProviders = useMemo(() => {
     const enabled = providers.filter((provider) => provider.is_enabled)
     if (currentProvider && !enabled.some((provider) => provider.id === currentProvider.id)) {
@@ -71,7 +86,8 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
     if (!binding && value === "auto") return
     setSaving(true)
     try {
-      const next = await updateAiBindingProvider(capability, value === "auto" ? "" : value)
+      const nextProvider = value === "auto" ? null : providers.find((provider) => provider.id === value) || null
+      const next = await updateAiBindingProvider(capability, value === "auto" ? "" : value, nextProvider?.default_model || "")
       setBinding(next)
       setError(null)
     } catch (cause) {
@@ -100,6 +116,32 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
       <SelectContent align="start">
         <SelectItem value="auto">Default provider</SelectItem>
         {availableProviders.map((provider) => <SelectItem key={provider.id} value={provider.id}>{providerLabel(provider)}{provider.is_enabled ? "" : " (disabled)"}</SelectItem>)}
+      </SelectContent>
+    </Select>
+    <Select
+      value={binding?.model_override || currentProvider?.default_model || ""}
+      onValueChange={(value) => {
+        setSaving(true)
+        void updateAiBindingModel(capability, value)
+          .then((next) => {
+            setBinding(next)
+            setError(null)
+          })
+          .catch((cause) => {
+            const message = cause instanceof Error ? cause.message : String(cause)
+            setError(message)
+            notification.danger({ title: "Model route update failed", description: message })
+          })
+          .finally(() => setSaving(false))
+      }}
+      disabled={saving || !currentProvider || !availableModels.length}
+    >
+      <SelectTrigger size="sm" aria-label={`${modelLabel} for ${capability}`} className="h-7 min-w-0 max-w-[11rem] gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none">
+        {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+        <SelectValue placeholder={modelLabel} />
+      </SelectTrigger>
+      <SelectContent align="start">
+        {availableModels.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}
       </SelectContent>
     </Select>
     {error ? <AlertCircle className="ml-1 size-3.5 shrink-0 text-rose-600" aria-label={error} /> : null}

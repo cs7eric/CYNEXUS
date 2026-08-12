@@ -149,6 +149,11 @@ class MarketIndicatorCache:
                         transmission=dict(bundle.get("transmission") or {}),
                     )
                     self.client.zrem(pending_key, capture_id)
+                    # Keep the atomically published latest bundle available for
+                    # live readers; older bundles are already durable in PG.
+                    latest_capture_id = self.client.get(self._latest_key(trade_day))
+                    if not _same_capture_id(capture_id, latest_capture_id):
+                        self.client.delete(self._capture_key(trade_day, str(capture_id)))
                     result["captures"] += 1
                     result["snapshots"] += int(written.get("snapshots") or 0)
                     result["events"] += int(written.get("events") or 0)
@@ -186,6 +191,15 @@ def _decode_bundle(raw: str | bytes) -> dict[str, Any]:
     if not isinstance(value, dict) or int(value.get("schema_version") or 0) not in {1, MarketIndicatorCache.schema_version}:
         raise ValueError("unsupported market indicator cache bundle")
     return value
+
+
+def _same_capture_id(left: Any, right: Any) -> bool:
+    def normalize(value: Any) -> str:
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return str(value)
+
+    return right is not None and normalize(left) == normalize(right)
 
 
 def _restore_datetimes(value: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:

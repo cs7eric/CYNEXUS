@@ -26,6 +26,16 @@ _PREFERRED_STANDARD_TDX_HOSTS = (
 
 
 def _from_best_host(client_type: Any, *, timeout: float) -> Any:
+    # `from_best_host()` pings every known TDX endpoint on every symbol.  The
+    # archive can fetch thousands of symbols, so repeating that probe becomes
+    # the dominant cost and the factory lock effectively serializes workers.
+    # Reuse easy_tdx's persisted best host; the client itself still retains its
+    # normal reconnect/failover behavior for command-level failures.
+    from easy_tdx.config import get_best_host, get_port
+
+    host = get_best_host()
+    if host:
+        return client_type(host, get_port(), timeout=timeout)
     with _CLIENT_FACTORY_LOCK:
         return client_type.from_best_host(timeout=timeout)
 

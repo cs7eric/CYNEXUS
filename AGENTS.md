@@ -18,10 +18,13 @@ Never discard or rewrite changes you did not make for the current task.
 - Read the closest applicable `AGENTS.md` before editing files in that area.
 - Use `apply_patch` for manual edits and keep changes scoped to the task.
 - Do not create temporary files, logs, dumps, jars, secrets, or one-off SQL in the repository root.
-- The deprecated Dev application must not be started. Do not start local Java, Vite, or source-tree application runtimes.
-- Only the Release application stack may be online. Shared PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor infrastructure must remain running.
+- The deprecated Dev application must not be started. Do not start local Java, Python, or source-tree backend runtimes.
+- Frontend-only development is allowed: start only `cynexus-ui`'s Vite server on port `5174` (HMR), proxying to the existing Release backend. Do not start the deprecated Dev application or any local backend runtime.
+- UI code changes and UI deployments use the `develop` workflow by default. Before any UI deployment, inspect and record the current model/environment (`develop` or `release`). Only switch to the `release` workflow when the user explicitly asks to deploy Release; otherwise keep the UI on the `develop`/HMR workflow.
+- The `develop` and `release` UI workflows share the same Release backend services; this rule applies only to the UI layer.
+- Only the Release backend/application services may be online, plus the explicitly allowed frontend-only Vite server on `5174`. Shared PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor infrastructure must remain running.
 - Functional changes require Maven and UI versions to remain synchronized as `x.y.z-SNAPSHOT`.
-- Any functional, configuration, migration, or UI change that can affect Release behavior must be deployed before handoff. Rebuild and recreate every potentially affected Release service; when the impact boundary is uncertain, deploy the full Release application stack. Compilation and tests alone do not update the running Release stack.
+- Any backend, data, migration, or shared-runtime change that can affect Release behavior must be deployed before handoff. UI-only changes use the `develop` Vite workflow by default; rebuild/recreate Release UI only after the user explicitly requests a Release deployment. Compilation and tests alone do not update a running Release stack.
 - New AI capabilities are incomplete until backend capability code, AI Provider routing, prompt seed, usage binding, and runtime resolution agree.
 - Every foundational user-facing data read/query/write capability must evaluate autonomous Agent exposure. Implement a bounded read-only Agent tool when safe; route mutations through preview/explicit confirmation/audit. Document an explicit exclusion when the operation is unsafe or unsuitable for model invocation.
 - Do not place business rules in application services or infrastructure when they belong in the domain layer.
@@ -86,7 +89,7 @@ Use the matching repository skill under `.agents/skills/` for repeatable workflo
 4. For UI changes, run the relevant `pnpm` checks from `cynexus-ui`.
 5. For Python changes, run the relevant `pytest` checks and dry-run jobs where applicable.
 6. After functional changes, verify Maven and UI versions are identical.
-7. For functional or runtime changes, rebuild and verify every potentially affected Release service through `deploy/release/start-release.ps1 -Build -Version <version>`; use a full-stack deployment when the impact boundary is uncertain.
+7. For backend, data, migration, or shared-runtime changes, rebuild and verify every potentially affected Release service through `deploy/release/start-release.ps1 -Build -Version <version>`; use a full-stack deployment when the impact boundary is uncertain. For UI-only changes, verify the `5174` develop server unless the user explicitly requests Release.
 8. Check `git status` and remove unintended scratch output before finishing.
 
 ## Communication

@@ -32,6 +32,15 @@ public class MarketIndicatorController {
         return Result.success(service.latest(tradeDate, status, eventType, limit));
     }
 
+    @GetMapping("/limit-board/summaries")
+    public Result<Map<String, Object>> limitBoardSummaries(
+            @RequestParam(required = false) String tradeDate,
+            @RequestParam(defaultValue = "all") String tradeSession,
+            @RequestParam(defaultValue = "all") String direction,
+            @RequestParam(defaultValue = "120") int limit) {
+        return Result.success(service.limitBoardSessionSummaries(tradeDate, tradeSession, direction, limit));
+    }
+
     @GetMapping("/industry/detail")
     public Result<MarketIndicatorDTO.IndustryDetail> industryDetail(
             @RequestParam String industryCode,
@@ -46,6 +55,64 @@ public class MarketIndicatorController {
             @RequestParam(required = false) String tradeDate,
             @RequestParam(defaultValue = "100") int limit) {
         return Result.success(service.transmission(tradeDate, limit));
+    }
+
+    @GetMapping("/replay/timeline")
+    public Result<MarketIndicatorDTO.ReplayTimeline> replayTimeline(
+            @RequestParam(required = false) String tradeDate,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "all") String eventType,
+            @RequestParam(required = false) String industryCode,
+            @RequestParam(defaultValue = "3000") int limit) {
+        return Result.success(service.replayTimeline(tradeDate, from, to, eventType, industryCode, limit));
+    }
+
+    @GetMapping("/radar/state")
+    public Result<Map<String, Object>> radarState(@RequestParam(required = false) String tradeDate,
+                                                   @RequestParam(required = false) String asOf) {
+        return Result.success(service.radarState(tradeDate, asOf));
+    }
+
+    @GetMapping("/radar/events")
+    public Result<Map<String, Object>> radarEvents(@RequestParam(required = false) String tradeDate,
+                                                    @RequestParam(required = false) String asOf,
+                                                    @RequestParam(defaultValue = "all") String kind,
+                                                    @RequestParam(defaultValue = "50") int limit) {
+        return Result.success(service.radarEvents(tradeDate, asOf, kind, limit));
+    }
+
+    @GetMapping("/radar/limit-ladder")
+    public Result<Map<String, Object>> radarLimitLadder(@RequestParam(required = false) String tradeDate,
+                                                         @RequestParam(defaultValue = "all") String board,
+                                                         @RequestParam(defaultValue = "100") int limit) {
+        return Result.success(service.radarLimitLadder(tradeDate, board, limit));
+    }
+
+    @GetMapping("/trade-review/market-state")
+    public Result<Map<String, Object>> tradeReviewMarketState(@RequestParam(required = false) String tradeDate,
+                                                               @RequestParam(required = false) String asOf,
+                                                               @RequestParam(defaultValue = "union") String membership,
+                                                               @RequestParam(required = false) String industryCode,
+                                                               @RequestParam(defaultValue = "60") int windowDays) {
+        return Result.success(service.tradeReviewMarketState(tradeDate, asOf, membership, industryCode, windowDays));
+    }
+
+    @GetMapping("/replay/summary")
+    public Result<Map<String, Object>> replaySummary(@RequestParam(required = false) String tradeDate,
+                                                      @RequestParam(defaultValue = "30") int limit) {
+        return Result.success(service.replaySummary(tradeDate, limit));
+    }
+
+    @GetMapping("/replay/episode/{episodeId}")
+    public Result<Map<String, Object>> replayEpisode(@org.springframework.web.bind.annotation.PathVariable String episodeId,
+                                                      @RequestParam(required = false) String tradeDate) {
+        return Result.success(service.replayEpisode(tradeDate, episodeId));
+    }
+
+    @PostMapping("/replay/explain")
+    public Result<Map<String, Object>> explainReplay(@RequestBody Map<String, Object> request) {
+        return Result.success(service.explainReplay(request));
     }
 
     @PostMapping("/watchlist/preview")

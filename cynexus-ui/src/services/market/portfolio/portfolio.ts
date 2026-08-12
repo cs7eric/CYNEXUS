@@ -16,6 +16,26 @@ export async function fetchPortfolioTrades(symbol?: string): Promise<PortfolioTr
   return cynexusResult<PortfolioTrade[]>(response)
 }
 
+export interface PortfolioTradeUpdate {
+  symbol: string
+  securityName?: string
+  instrumentType: "STOCK" | "ETF"
+  side: "BUY" | "SELL"
+  tradedAt: string
+  quantity: string
+  price: string
+  totalFee?: string
+}
+
+export async function updatePortfolioTrade(tradeId: number, update: PortfolioTradeUpdate): Promise<PortfolioTrade> {
+  const response = await fetchWithRetry(`${BASE}/trades/${tradeId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update),
+  })
+  return cynexusResult<PortfolioTrade>(response)
+}
+
 export async function fetchPortfolioAccount(): Promise<PortfolioAccount> {
   const response = await fetchWithRetry(`${BASE}/account`, { cache: "no-store" })
   return cynexusResult<PortfolioAccount>(response)

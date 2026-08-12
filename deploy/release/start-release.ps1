@@ -126,6 +126,7 @@ if ($selectedServices -contains "ai") {
 }
 if ($selectedServices -contains "market") {
     & (Join-Path $repoRoot "deploy\release\apply-market-migrations.ps1")
+    & (Join-Path $repoRoot "deploy\release\apply-market-clickhouse-migrations.ps1")
 }
 if ($selectedServices -contains "wechat") {
     & (Join-Path $repoRoot "deploy\release\apply-wechat-migrations.ps1")

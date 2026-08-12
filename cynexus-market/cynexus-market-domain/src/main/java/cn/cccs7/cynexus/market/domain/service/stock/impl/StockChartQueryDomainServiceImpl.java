@@ -77,8 +77,8 @@ public class StockChartQueryDomainServiceImpl implements StockChartQueryDomainSe
     }
 
     @Override
-    public StockChartBO.StockSectors stockSectors(String symbol) {
-        return repository.stockSectors(symbol);
+    public StockChartBO.StockSectors stockSectors(String symbol, String tradeDate) {
+        return repository.stockSectors(symbol, parseDate(tradeDate));
     }
 
     @Override
@@ -183,16 +183,31 @@ public class StockChartQueryDomainServiceImpl implements StockChartQueryDomainSe
     @Override
     public IntradayResult intraday(String targetType, String symbol, String name, String adjust,
                                    String tradeDate, List<String> periods) {
+        return intraday(targetType, symbol, name, adjust, tradeDate, periods, false);
+    }
+
+    @Override
+    public IntradayResult intraday(String targetType, String symbol, String name, String adjust,
+                                   String tradeDate, List<String> periods, boolean strictDate) {
         String normalizedTargetType = targetType(targetType);
         String normalizedName = rules.defaultValue(name, symbol);
         String normalizedAdjust = adjust(adjust);
         LocalDate requested = rules.parseDateOrToday(tradeDate);
-        LocalDate effectiveDate = repository.findLatestMinuteDate(
-                        normalizedTargetType, symbol, requested)
+        LocalDate effectiveDate = repository.findLatestMinuteDate(normalizedTargetType, symbol, requested)
                 .orElse(null);
+        if (!strictDate && effectiveDate == null && tradeDate != null && !tradeDate.isBlank()) {
+            effectiveDate = repository.findLatestMinuteDate(normalizedTargetType, symbol, LocalDate.now(SHANGHAI)).orElse(null);
+        }
+        List<StockChartBO.IntradayPoint> requestedTimeshare = effectiveDate == null
+                ? repository.listTimeshare(normalizedTargetType, symbol, requested)
+                : List.of();
+        if (effectiveDate == null && !requestedTimeshare.isEmpty()) {
+            effectiveDate = requested;
+        }
         if (effectiveDate == null) {
             return new IntradayResult(symbol, normalizedTargetType, normalizedName, normalizedAdjust,
                     "none", normalizedAdjust, EMPTY_MINUTE_SOURCE, null, requested,
+                    null,
                     List.of(), emptyMinuteBars(), "minute kline / timeshare data not found");
         }
 
@@ -202,13 +217,27 @@ public class StockChartQueryDomainServiceImpl implements StockChartQueryDomainSe
             minuteBars.put(normalizedPeriod, repository.listMinuteBars(
                     normalizedTargetType, symbol, effectiveDate, rules.periodMinutes(normalizedPeriod)));
         }
-        List<StockChartBO.IntradayPoint> timeshare = repository.listTimeshare(
-                normalizedTargetType, symbol, effectiveDate);
+        List<StockChartBO.IntradayPoint> timeshare = requestedTimeshare.isEmpty()
+                ? repository.listTimeshare(normalizedTargetType, symbol, effectiveDate)
+                : requestedTimeshare;
         boolean empty = timeshare.isEmpty() && minuteBars.values().stream().allMatch(List::isEmpty);
+        String intradaySource = timeshare.isEmpty()
+                ? source("clickhouse.ch_dwd_kline_1m", empty)
+                : "clickhouse.ch_ods_trade_review_timeshare_1m";
+        // Intraday rows do not carry yesterday's close. Expose the raw daily
+        // close separately so clients can always render the 0% reference
+        // correctly, including an all-day one-price limit-up/down board.
+        // Never use today's close here: replay needs a stable prior-session
+        // baseline and must not leak a future closing value into the cursor.
+        BigDecimal preClose = previousClose(normalizedTargetType, symbol, effectiveDate);
         return new IntradayResult(symbol, normalizedTargetType, normalizedName, normalizedAdjust,
-                "none", normalizedAdjust, source("clickhouse.ch_dwd_kline_1m", empty),
-                effectiveDate, requested, timeshare, minuteBars,
+                "none", normalizedAdjust, intradaySource,
+                effectiveDate, requested, preClose, timeshare, minuteBars,
                 empty ? "minute kline / timeshare data not found" : null);
+    }
+
+    private BigDecimal previousClose(String targetType, String symbol, LocalDate effectiveDate) {
+        return repository.findPreviousDailyClose(targetType, symbol, effectiveDate).orElse(null);
     }
 
     @Override

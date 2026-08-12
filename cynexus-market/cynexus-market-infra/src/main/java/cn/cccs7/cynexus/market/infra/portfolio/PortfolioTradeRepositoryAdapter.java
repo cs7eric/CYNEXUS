@@ -41,4 +41,23 @@ public class PortfolioTradeRepositoryAdapter implements PortfolioTradeRepository
         po.setConfirmedBy(confirmedBy);
         return mapper.insert(po) == 1;
     }
+
+    @Override
+    public boolean update(String principalKey, String tenantKey, PortfolioTradeBO trade) {
+        PortfolioTradePO po = new PortfolioTradePO();
+        po.setId(trade.id());
+        po.setPrincipalKey(principalKey);
+        po.setTenantKey(tenantKey);
+        po.setSymbol(trade.symbol());
+        po.setSecurityName(trade.securityName());
+        po.setInstrumentType(trade.instrumentType().name());
+        po.setSide(trade.side().name());
+        po.setTradedAt(trade.tradedAt());
+        po.setQuantity(trade.quantity());
+        po.setPrice(trade.price());
+        po.setGrossAmount(trade.quantity().multiply(trade.price()));
+        po.setTotalFee(trade.totalFee());
+        po.setStatus(trade.status().name());
+        return mapper.update(principalKey, tenantKey, po) == 1;
+    }
 }

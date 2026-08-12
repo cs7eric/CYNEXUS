@@ -39,8 +39,9 @@ public class StockChartQueryController {
     }
 
     @GetMapping("/stock-sectors")
-    public Result<StockChartDTO.StockSectorsResponseDTO> stockSectors(@RequestParam String symbol) {
-        return Result.success(stockChartQueryAppService.stockSectors(symbol));
+    public Result<StockChartDTO.StockSectorsResponseDTO> stockSectors(@RequestParam String symbol,
+                                                                      @RequestParam(name = "trade_date", required = false) String tradeDate) {
+        return Result.success(stockChartQueryAppService.stockSectors(symbol, tradeDate));
     }
 
     @GetMapping("/sector-stocks")
@@ -63,13 +64,14 @@ public class StockChartQueryController {
                                                       @RequestParam(required = false) String name,
                                                       @RequestParam(name = "adjust", defaultValue = "qfq") String adjust,
                                                       @RequestParam(name = "trade_date", required = false) String tradeDate,
-                                                      @RequestParam(name = "periods", defaultValue = "1m,5m,15m,30m") String periods) {
+                                                      @RequestParam(name = "periods", defaultValue = "1m,5m,15m,30m") String periods,
+                                                      @RequestParam(name = "strict_date", defaultValue = "false") boolean strictDate) {
         List<String> periodList = Arrays.stream(periods.split(","))
                 .map(String::trim)
                 .filter(item -> !item.isBlank())
                 .distinct()
                 .toList();
-        return Result.success(stockChartQueryAppService.intraday(targetType, symbol, name, adjust, tradeDate, periodList));
+        return Result.success(stockChartQueryAppService.intraday(targetType, symbol, name, adjust, tradeDate, periodList, strictDate));
     }
 
     @GetMapping("/auction")

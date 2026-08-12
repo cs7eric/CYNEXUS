@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from cynexus_data.jobs.contracts import JobRequest
 from cynexus_data.pipelines.social.comment_sync import run as run_comment_sync
+from cynexus_data.pipelines.social.collect import run as run_social_collection
 from cynexus_data.pipelines.social.creator_discovery import (
     _filter_posts_for_today,
     run as run_creator_discovery,
@@ -75,3 +76,75 @@ def test_creator_discovery_filters_to_shanghai_calendar_day() -> None:
     )
 
     assert [post.post_key for post in selected] == ["today"]
+
+
+def test_social_collection_discovers_posts_and_collects_comments_with_timing(monkeypatch) -> None:
+    class FakeRepository:
+        def __init__(self, _client) -> None:
+            self.saved_comments = 0
+
+        def create_table(self) -> None:
+            pass
+
+        def upsert_creator(self, _creator, *, scope_key: str) -> int:
+            return 100
+
+        def upsert_posts(self, _creator_id, _posts, *, scope_key: str) -> int:
+            return 1
+
+        def mark_post_available(self, _post_id) -> None:
+            pass
+
+        def upsert_comments(self, _post_id, comments, *, scope_key: str, replace: bool) -> int:
+            self.saved_comments += len(comments)
+            return len(comments)
+
+        def mark_comments_synced(self, _post_id) -> None:
+            pass
+
+    class FakeClient:
+        def discover_posts(self, _creator):
+            return [
+                SocialPost(
+                    platform="douyin",
+                    post_key="post-001",
+                    url="https://example.test/video/1",
+                    published_at=datetime.now(timezone.utc),
+                )
+            ]
+
+        def fetch_comments(self, _post):
+            return [object()] * 1000
+
+    class FakeSocialHook:
+        def get_client(self, _platform, *, profile_name: str):
+            return FakeClient()
+
+    class FakePostgresHook:
+        def get_client(self):
+            return object()
+
+    class FakeHooks:
+        social = FakeSocialHook()
+        postgres = FakePostgresHook()
+
+    monkeypatch.setattr("cynexus_data.pipelines.social.collect.SocialRepository", FakeRepository)
+    context = PipelineContext()
+    context.hooks = FakeHooks()
+    result = run_social_collection(
+        context,
+        JobRequest(
+            job_key="social_douyin_collection",
+            params={
+                "platform": "douyin",
+                "creators": [{"creator_key": "creator-001", "profile_url": "https://example.test/u/1"}],
+            },
+        ),
+    )
+
+    assert result["posts_discovered"] == 1
+    assert result["posts_succeeded"] == 1
+    assert result["comments_collected"] == 1000
+    assert result["comment_collection_seconds"] >= 0
+    assert result["seconds_per_1000_comments"] >= 0
+    assert result["rows_written"] == 1000

@@ -5,7 +5,9 @@ import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRuntimeLeasePort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentCircuitBreakerPort;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -46,8 +48,14 @@ public class RedisAgentRuntimeLease implements AgentRuntimeLeasePort, AgentRateL
 
     private final RedisCacheOperations redis;
 
+    @Autowired
     public RedisAgentRuntimeLease(RedisCacheOperations redis) {
         this.redis = redis;
+    }
+
+    /** Backward-compatible constructor for integration tests and legacy wiring. */
+    public RedisAgentRuntimeLease(StringRedisTemplate redis) {
+        this(new RedisCacheOperations(redis));
     }
 
     @Override

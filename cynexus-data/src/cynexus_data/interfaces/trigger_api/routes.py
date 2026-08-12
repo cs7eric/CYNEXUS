@@ -13,8 +13,18 @@ from cynexus_data.runtime.job_runner import JobRunner
 router = APIRouter()
 _context = PipelineContext.default(persist_job_state=True)
 ASYNC_TRIGGER_JOBS = {
+    # Full-day Trade Review materialization scans the complete local 1m
+    # baseline.  It must outlive an HTTP client timeout and be observable via
+    # the persisted job run instead of holding a request worker open.
+    "build_trade_review_market_state",
+    # Partition rebuilds scan the complete local Parquet archive and can run
+    # far beyond an HTTP request timeout.  Keep the durable job run alive
+    # independently of the triggering client.
+    "rebuild_kline_1m_partitions",
     "market_sentiment_chain_refresh",
     "a_stock_fund_flow_history_backfill",
+    "social_xiaohongshu_collection",
+    "social_douyin_collection",
 }
 
 

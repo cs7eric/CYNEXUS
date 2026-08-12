@@ -48,6 +48,8 @@ public interface MarketPulseQueryRepository {
 
     Optional<MarketLimitDailySnapshotBO> findLimitEmotionByDate(LocalDate tradeDate);
 
+    Optional<MarketLimitDailySnapshotBO> findLimitEmotionBefore(LocalDate tradeDate);
+
     List<MarketLimitDailyStockBO> listLimitStocks(LocalDate tradeDate, String category, int limit);
 
     List<IndexReturnDailyBO> listLatestIndexReturns(int days);

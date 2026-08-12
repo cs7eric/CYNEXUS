@@ -52,3 +52,24 @@
 - Personal Portfolio 定向 ESLint、`tsc -b` 与 Vite build 均通过。
 - 已使用 Release `1.1.398-260806-RELEASE` 重建并重启 market/ui；market health 为 `UP`，UI HTTP 200。
 - Release 实际数据确认：7/30 为 `0`，8/3 为 `12.1`；日/周/月/年逐证券贡献之和均等于视图收益，日资产相邻差额均等于对应日收益。
+
+## 2026-08-06 日视图热力图口径
+
+- 已确认截图中的日视图热力图误用了近一个月 `periodPnlBySymbol`，所以显示了 `+354.90` 的总体累计收益。
+- 日视图改为返回最新交易日的逐证券贡献，盘中使用实时贡献替换；周/月/年仍使用所选视图区间累计。
+- 新增应用层回归测试；`PortfolioOverviewAppServiceTest` 9/9、`PortfolioPerformanceDomainServiceTest` 22/22、Personal Portfolio 定向 ESLint、Vite build 均通过。
+- Release market/UI 已重建；实际 API 确认日贡献合计与 `todayPnl` 同为 `-6.2`，不再等于近一个月累计 `354.9`。
+
+## 2026-08-06 日历日期联动
+
+- 左侧日历交易日已改为可点击按钮，最新交易日默认选中；选中态有明确边框和键盘焦点状态。
+- 点击历史交易日会请求该日期的单日 performance，右侧持仓热力图、收益金额和日期摘要同步切换；请求期间显示 skeleton，失败显示重试入口。
+- 前端定向 ESLint、`tsc -b --force`、Vite build 通过；Release UI 已用 `1.1.398-260806-RELEASE` 重建，UI HTTP 200、market health `UP`。
+
+## 2026-08-06 动态总资产
+
+- 已确认当前总资产接口直接返回手动输入值，不会累计后续每日收益。
+- 正在修改领域/应用层计算，使手动输入所在日期作为基线日，后续交易日收益动态累加；动态结果不回写数据库。
+- 测试首次发现 `stripTrailingZeros()` 改变了 `BigDecimal` 的 scale/表示，已移除该额外格式化，保留金额数值和既有接口行为。
+- 领域/应用测试通过：PortfolioAccountDomainServiceTest 5/5、PortfolioPerformanceDomainServiceTest 22/22、PortfolioOverviewAppServiceTest 9/9。
+- 已用 `start-release.ps1 -Services @('market') -Build -Version 1.1.398-260806-RELEASE` 重建并重启 market；health 为 UP，overview/account 接口均返回 200，动态总资产验证通过。

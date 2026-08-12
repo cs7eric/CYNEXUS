@@ -26,8 +26,8 @@ import {
   type FinanceAccount,
   type FinanceCategory,
 } from "@/services/finance/ledger";
+import { FinanceAccountDrawer } from "../components/account-drawer";
 import { FinancePageHeader } from "../components/page-header";
-import { CreditInstallmentPanel } from "../components/credit-installment-panel";
 import { accountTypeLabel, formatMoney } from "../lib/format";
 
 const accountTypes = [
@@ -64,6 +64,9 @@ export default function FinanceAccountsPage() {
   const [category, setCategory] = useState({ name: "", direction: "expense" });
   const [categoryToArchive, setCategoryToArchive] =
     useState<FinanceCategory | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,6 +206,7 @@ export default function FinanceAccountsPage() {
         description="管理资金账户和信用账户，余额会随账目自动更新。"
         onRefresh={() => void load()}
         loading={loading}
+        onManualEntrySaved={() => void load()}
       />
       <section className="grid grid-cols-2 overflow-hidden rounded-xl border border-border/70 bg-card sm:grid-cols-4 sm:divide-x sm:divide-border/60">
         <AccountMetric
@@ -257,6 +261,7 @@ export default function FinanceAccountsPage() {
                 <AccountRow
                   key={item.id}
                   item={item}
+                  onOpen={() => setSelectedAccountId(item.id)}
                   onArchive={archive}
                   onRestore={restore}
                 />
@@ -471,7 +476,16 @@ export default function FinanceAccountsPage() {
         destructive
         onConfirm={removeCategory}
       />
-      <CreditInstallmentPanel accounts={activeAccounts} />
+      <FinanceAccountDrawer
+        account={
+          selectedAccountId == null
+            ? null
+            : accounts.find((item) => item.id === selectedAccountId) ?? null
+        }
+        accounts={accounts}
+        onClose={() => setSelectedAccountId(null)}
+        onChanged={() => void load()}
+      />
     </WorkspaceShell>
   );
 }
@@ -504,10 +518,12 @@ function AccountMetric({
 
 function AccountRow({
   item,
+  onOpen,
   onArchive,
   onRestore,
 }: {
   item: FinanceAccount;
+  onOpen: () => void;
   onArchive: (id: number) => Promise<void>;
   onRestore: (id: number) => Promise<void>;
 }) {
@@ -521,7 +537,12 @@ function AccountRow({
     <div
       className={`flex items-center justify-between gap-3 py-3.5 ${item.archived ? "opacity-50" : ""}`}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        onClick={onOpen}
+        title="查看账户详情"
+      >
         <span
           className={`flex size-9 shrink-0 items-center justify-center rounded-md ${item.nature === "credit" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}
         >
@@ -543,7 +564,7 @@ function AccountRow({
             </div>
           ) : null}
         </div>
-      </div>
+      </button>
       <div className="flex items-center gap-2">
         <div className="text-right">
           <span

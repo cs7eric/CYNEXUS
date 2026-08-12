@@ -24,6 +24,7 @@ type Props = {
     symbol: string
     name: string
   } | null
+  tradeDate?: string
 }
 
 function fmtYi(value: number | null | undefined) {
@@ -67,7 +68,7 @@ function matchTypeLabel(value: string | null | undefined) {
   }
 }
 
-export function IndustryTdxFundPanel({ target }: Props) {
+export function IndustryTdxFundPanel({ target, tradeDate }: Props) {
   const [data, setData] = useState<IndustryApplicationTdxFundFlowResponse | null>(null)
   const [klineRows, setKlineRows] = useState<Array<{
     tradeDate: string
@@ -92,6 +93,7 @@ export function IndustryTdxFundPanel({ target }: Props) {
       fetchIndustryApplicationTdxFundFlow({
         targetType: target.target_type,
         symbol: target.symbol,
+        tradeDate,
         days: 30,
       }),
       fetchIndustryApplicationKline(target.target_type, target.symbol, { period: "day", count: 120 }),
@@ -100,14 +102,16 @@ export function IndustryTdxFundPanel({ target }: Props) {
         if (!cancelled) {
           setData(fundResult)
           setKlineRows(
-            (klineResult.kline ?? []).map((item) => ({
-              tradeDate: item.time.slice(0, 10),
-              open: item.open ?? null,
-              high: item.high ?? null,
-              low: item.low ?? null,
-              close: item.close ?? null,
-              amount: item.amount ?? null,
-            })),
+            (klineResult.kline ?? [])
+              .map((item) => ({
+                tradeDate: item.time.slice(0, 10),
+                open: item.open ?? null,
+                high: item.high ?? null,
+                low: item.low ?? null,
+                close: item.close ?? null,
+                amount: item.amount ?? null,
+              }))
+              .filter((item) => !tradeDate || item.tradeDate <= tradeDate),
           )
           setThsPanels({})
           setThsChartView("net")
@@ -128,7 +132,7 @@ export function IndustryTdxFundPanel({ target }: Props) {
     return () => {
       cancelled = true
     }
-  }, [target, targetKey])
+  }, [target, targetKey, tradeDate])
 
   const loading = Boolean(targetKey && resolvedTargetKey !== targetKey)
   const visibleData = targetKey && resolvedTargetKey === targetKey ? data : null
@@ -162,8 +166,8 @@ export function IndustryTdxFundPanel({ target }: Props) {
     let cancelled = false
     const mappingCodeSet = new Set(thsMappings.map((item) => item.ths_code).filter((item): item is string => Boolean(item)))
     void Promise.all([
-      fetchIndustryFundFlow(),
-      fetchIndustryFundFlowHistory({ days: 30 }),
+      fetchIndustryFundFlow(tradeDate ? { tradeDate } : {}),
+      fetchIndustryFundFlowHistory({ maxTradeDate: tradeDate, days: 30 }),
     ])
       .then(([latestResult, historyResult]) => {
         if (cancelled) return
@@ -222,7 +226,7 @@ export function IndustryTdxFundPanel({ target }: Props) {
     return () => {
       cancelled = true
     }
-  }, [thsMappings, visibleData?.ok])
+  }, [thsMappings, tradeDate, visibleData?.ok])
 
   if (!target) {
     return <NotApplicableCard title="资金" description="请先选择一个行业标的。" />

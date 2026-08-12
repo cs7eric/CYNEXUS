@@ -46,6 +46,8 @@ public interface MarketPulseQueryBasicService {
 
     Optional<MarketLimitDailySnapshotPO> findLimitEmotionByDate(LocalDate tradeDate);
 
+    Optional<MarketLimitDailySnapshotPO> findLimitEmotionBefore(LocalDate tradeDate);
+
     List<MarketLimitDailyStockPO> listLimitStocks(LocalDate tradeDate, String category, int limit);
 
     List<IndexReturnDailyPO> listLatestIndexReturns(int windowDays);

@@ -50,6 +50,7 @@ function sameReview(left: PortfolioImportReview | null, right: PortfolioImportRe
     if (!next) return false
     return candidate.id === next.id && candidate.version === next.version
       && candidate.reviewStatus === next.reviewStatus && candidate.normalizedPayload === next.normalizedPayload
+      && candidate.suggestedSymbol === next.suggestedSymbol
   })
 }
 
@@ -66,7 +67,7 @@ function isTimeOnly(value: string) {
   return /^\d{2}:\d{2}(?::\d{2})?$/.test(value.trim())
 }
 
-function toDraft(payload: string, version: number, fallbackDate?: string): Draft {
+function toDraft(payload: string, version: number, fallbackDate?: string, suggestedSymbol?: string | null): Draft {
   let data: Record<string, unknown> = {}
   try { data = JSON.parse(payload) } catch { /* validation is handled by the API */ }
   const extractedTradeTime = String(data.tradedAt ?? "").trim()
@@ -74,9 +75,10 @@ function toDraft(payload: string, version: number, fallbackDate?: string): Draft
   const normalizedTradeTime = isTimeOnly(extractedTradeTime) && defaultTradeDate
     ? `${defaultTradeDate}T${extractedTradeTime}`
     : extractedTradeTime
+  const extractedSymbol = String(data.symbol ?? "").trim()
   return {
     version,
-    symbol: String(data.symbol ?? ""),
+    symbol: extractedSymbol || String(suggestedSymbol ?? ""),
     securityName: String(data.securityName ?? ""),
     instrumentType: data.instrumentType === "ETF" ? "ETF" : "STOCK",
     side: data.side === "SELL" ? "SELL" : "BUY",
@@ -168,7 +170,7 @@ export default function PersonalPortfolioImportReviewPage() {
       setReview(item)
       setSelected(item.candidates.filter((candidate) => candidate.reviewStatus === "PENDING").map((candidate) => candidate.id))
       const importDate = importDateFromTimestamp(item.task.queuedAt)
-      setDrafts(Object.fromEntries(item.candidates.map((candidate) => [candidate.id, toDraft(candidate.normalizedPayload, candidate.version, importDate)])))
+      setDrafts(Object.fromEntries(item.candidates.map((candidate) => [candidate.id, toDraft(candidate.normalizedPayload, candidate.version, importDate, candidate.suggestedSymbol)])))
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) } finally { setLoading(false) }
   }, [id])
 
@@ -205,7 +207,7 @@ export default function PersonalPortfolioImportReviewPage() {
         setSelected((current) => current.length ? current : nextReview.candidates
           .filter((candidate) => candidate.reviewStatus === "PENDING").map((candidate) => candidate.id))
         setDrafts((current) => Object.keys(current).length ? current : Object.fromEntries(
-          nextReview.candidates.map((candidate) => [candidate.id, toDraft(candidate.normalizedPayload, candidate.version, importDateFromTimestamp(nextReview.task.queuedAt))]),
+          nextReview.candidates.map((candidate) => [candidate.id, toDraft(candidate.normalizedPayload, candidate.version, importDateFromTimestamp(nextReview.task.queuedAt), candidate.suggestedSymbol)]),
         ))
       }
     } catch {
@@ -291,7 +293,45 @@ export default function PersonalPortfolioImportReviewPage() {
       {loading ? <Skeleton className="h-72 rounded-lg" /> : error ? <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="size-4" />{error}<Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>Retry</Button></div> : <>
         <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/35 px-4 py-3 text-sm"><span className="font-medium">Status</span><span className="rounded-full bg-background px-2.5 py-1 text-xs">{review?.task.status}</span>{!terminal.has(review?.task.status || "") ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}</div>
         {review?.task.lastErrorMessage ? <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div className="min-w-0"><p className="font-medium">Latest processing error <span className="font-mono text-xs">{review.task.lastErrorCode}</span></p><p className="mt-1 break-words text-xs leading-5">{review.task.lastErrorMessage}</p></div></div> : null}
-        <section className="overflow-hidden rounded-lg border border-border/60 bg-card"><div className="border-b border-border/60 px-4 py-3"><div className="flex items-center gap-2"><Pencil className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Candidate trades</h2></div><p className="mt-1 text-xs text-muted-foreground">Verify the instrument type before confirmation so the correct stock or ETF quote is used. Duplicate symbol and trade-time records are marked invalid and will not be posted again.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[1280px] text-sm"><thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">Use</th><th className="px-4 py-3">Row</th><th className="px-4 py-3">Symbol</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Side</th><th className="px-4 py-3">Trade date / time</th><th className="px-4 py-3">Quantity</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">Fee</th><th className="px-4 py-3">Action</th></tr></thead><tbody className="divide-y divide-border/60">{review?.candidates.map((candidate) => { const draft = drafts[candidate.id]; const editable = candidate.reviewStatus === "PENDING" && review.task.status === "READY_FOR_REVIEW"; const checked = selected.includes(candidate.id); return <tr key={candidate.id} className="align-top hover:bg-muted/35"><td className="px-4 py-3"><input type="checkbox" checked={checked} disabled={!editable} onChange={() => setSelected((current) => checked ? current.filter((value) => value !== candidate.id) : [...current, candidate.id])} aria-label={`Select candidate ${candidate.rowNo}`} /></td><td className="px-4 py-3 font-mono">{candidate.rowNo}</td><td className="px-4 py-3"><Input className="w-24" value={draft?.symbol ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "symbol", event.target.value)} aria-label={`Symbol row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.instrumentType ?? "STOCK"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "instrumentType", event.target.value)} aria-label={`Instrument type row ${candidate.rowNo}`}><option value="STOCK">Stock</option><option value="ETF">ETF</option></select></td><td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.side ?? "BUY"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "side", event.target.value)} aria-label={`Side row ${candidate.rowNo}`}><option value="BUY">BUY</option><option value="SELL">SELL</option></select></td><td className="px-4 py-3"><TradeDateTimeEditor value={draft?.tradedAt ?? ""} editable={editable} onChange={(value) => updateDraft(candidate.id, "tradedAt", value)} rowNo={candidate.rowNo} />{candidate.warnings?.length ? <div className="mt-1 max-w-52 text-[11px] leading-4 text-amber-700">{candidate.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}</td><td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.quantity ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "quantity", event.target.value)} aria-label={`Quantity row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.price ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "price", event.target.value)} aria-label={`Price row ${candidate.rowNo}`} /></td><td className="px-4 py-3"><Input className="w-24 font-mono" value={draft?.totalFee ?? "0"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "totalFee", event.target.value)} aria-label={`Fee row ${candidate.rowNo}`} /></td><td className="px-4 py-3">{candidate.reviewStatus === "EXCLUDED" ? <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">Invalid</span> : editable ? <Button size="sm" variant="outline" onClick={() => void saveCandidate(candidate.id)} disabled={savingId === candidate.id}><Save className="mr-2 size-4" />{savingId === candidate.id ? "Saving..." : "Save"}</Button> : <span className="text-xs text-muted-foreground">{candidate.reviewStatus}</span>}</td></tr> })}</tbody></table></div></section>
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="border-b border-border/60 px-4 py-3">
+            <div className="flex items-center gap-2"><Pencil className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Candidate trades</h2></div>
+            <p className="mt-1 text-xs text-muted-foreground">Verify the security name, symbol, and instrument type before confirmation. A suggested symbol is an exact active master-data match and is only saved when you save or confirm the candidate.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1420px] text-sm">
+              <thead className="bg-muted/45 text-left text-xs text-muted-foreground">
+                <tr><th className="px-4 py-3">Use</th><th className="px-4 py-3">Row</th><th className="px-4 py-3">Security</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Side</th><th className="px-4 py-3">Trade date / time</th><th className="px-4 py-3">Quantity</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">Fee</th><th className="px-4 py-3">Action</th></tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {review?.candidates.map((candidate) => {
+                  const draft = drafts[candidate.id]
+                  const editable = candidate.reviewStatus === "PENDING" && review.task.status === "READY_FOR_REVIEW"
+                  const checked = selected.includes(candidate.id)
+                  const usesSuggestedSymbol = Boolean(candidate.suggestedSymbol && draft?.symbol === candidate.suggestedSymbol)
+                  return <tr key={candidate.id} className="align-top hover:bg-muted/35">
+                    <td className="px-4 py-3"><input type="checkbox" checked={checked} disabled={!editable} onChange={() => setSelected((current) => checked ? current.filter((value) => value !== candidate.id) : [...current, candidate.id])} aria-label={`Select candidate ${candidate.rowNo}`} /></td>
+                    <td className="px-4 py-3 font-mono">{candidate.rowNo}</td>
+                    <td className="min-w-[220px] px-4 py-3">
+                      <div className="space-y-1.5">
+                        <Input className="w-44" value={draft?.securityName ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "securityName", event.target.value)} aria-label={`Security name row ${candidate.rowNo}`} placeholder="Security name" />
+                        <div className="flex items-center gap-2"><Input className="w-24 font-mono" value={draft?.symbol ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "symbol", event.target.value)} aria-label={`Symbol row ${candidate.rowNo}`} placeholder="Code" />{usesSuggestedSymbol ? <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700">Exact match</span> : null}</div>
+                        {usesSuggestedSymbol ? <p className="text-[11px] leading-4 text-amber-700">Suggested from the active market master; save or confirm to apply it.</p> : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.instrumentType ?? "STOCK"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "instrumentType", event.target.value)} aria-label={`Instrument type row ${candidate.rowNo}`}><option value="STOCK">Stock</option><option value="ETF">ETF</option></select></td>
+                    <td className="px-4 py-3"><select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={draft?.side ?? "BUY"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "side", event.target.value)} aria-label={`Side row ${candidate.rowNo}`}><option value="BUY">BUY</option><option value="SELL">SELL</option></select></td>
+                    <td className="px-4 py-3"><TradeDateTimeEditor value={draft?.tradedAt ?? ""} editable={editable} onChange={(value) => updateDraft(candidate.id, "tradedAt", value)} rowNo={candidate.rowNo} />{candidate.warnings?.length ? <div className="mt-1 max-w-52 text-[11px] leading-4 text-amber-700">{candidate.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}</td>
+                    <td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.quantity ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "quantity", event.target.value)} aria-label={`Quantity row ${candidate.rowNo}`} /></td>
+                    <td className="px-4 py-3"><Input className="w-28 font-mono" value={draft?.price ?? ""} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "price", event.target.value)} aria-label={`Price row ${candidate.rowNo}`} /></td>
+                    <td className="px-4 py-3"><Input className="w-24 font-mono" value={draft?.totalFee ?? "0"} disabled={!editable} onChange={(event) => updateDraft(candidate.id, "totalFee", event.target.value)} aria-label={`Fee row ${candidate.rowNo}`} /></td>
+                    <td className="px-4 py-3">{candidate.reviewStatus === "EXCLUDED" ? <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">Invalid</span> : editable ? <Button size="sm" variant="outline" onClick={() => void saveCandidate(candidate.id)} disabled={savingId === candidate.id}><Save className="mr-2 size-4" />{savingId === candidate.id ? "Saving..." : "Save"}</Button> : <span className="text-xs text-muted-foreground">{candidate.reviewStatus}</span>}</td>
+                  </tr>
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
         {review ? <ImportExecutionRecord task={review.task} history={history} candidateCount={review.candidates.length} loading={historyLoading} error={historyError} onRetry={() => void retry()} retrying={retrying} /> : null}
       </>}
     </div>

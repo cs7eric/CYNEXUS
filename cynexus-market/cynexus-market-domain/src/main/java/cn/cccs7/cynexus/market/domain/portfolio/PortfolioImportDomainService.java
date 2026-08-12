@@ -45,7 +45,7 @@ public final class PortfolioImportDomainService {
 
         long taskId = idGenerator.nextId();
         PortfolioImportTaskBO task = new PortfolioImportTaskBO(taskId, principalKey, tenantKey, assetId,
-                idempotencyKey, PortfolioImportStatus.PENDING_DISPATCH, 0, 0);
+                idempotencyKey, PortfolioImportStatus.PENDING_DISPATCH, 0, 0, now);
         taskRepository.save(task);
         dispatchPort.dispatch(taskId, principalKey, tenantKey);
         return task;

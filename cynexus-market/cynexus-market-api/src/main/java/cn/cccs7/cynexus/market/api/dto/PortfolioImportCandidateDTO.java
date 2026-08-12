@@ -10,6 +10,7 @@ public class PortfolioImportCandidateDTO {
     long id;
     int rowNo;
     String normalizedPayload;
+    String suggestedSymbol;
     String reviewStatus;
     long version;
     Double confidence;

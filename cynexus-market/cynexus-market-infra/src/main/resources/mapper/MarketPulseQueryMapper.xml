@@ -366,6 +366,33 @@
          limit 1
     </select>
 
+    <select id="findLimitEmotionBefore" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailySnapshotPO">
+        select id,
+               trade_date,
+               limit_up_count,
+               limit_down_count,
+               touched_count,
+               broken_count,
+               break_board_rate,
+               max_streak_height,
+               promotion_overall_rate,
+               sentiment_level,
+               sentiment_text,
+               stock_count,
+               market_status,
+               data_status,
+               source,
+               extra,
+               created_at,
+               updated_at,
+               deleted_at
+          from market_limit_daily_snapshots
+         where deleted_at is null
+           and trade_date &lt;= #{tradeDate}
+         order by trade_date desc, updated_at desc nulls last
+         limit 1
+    </select>
+
     <select id="listLimitStocks" resultType="cn.cccs7.cynexus.market.infra.basic.entity.MarketLimitDailyStockPO">
         select stocks.id,
                stocks.trade_date,

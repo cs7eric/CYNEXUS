@@ -110,4 +110,6 @@ connections:
       opencli_executable: "${CYNEXUS_OPENCLI_EXECUTABLE:}"
       cdp_host: ${CYNEXUS_SOCIAL_CDP_HOST:127.0.0.1}
       cdp_port: ${CYNEXUS_SOCIAL_CDP_PORT:19221}
-      cdp_post_limit: ${CYNEXUS_SOCIAL_CDP_POST_LIMIT:20}
+      # Empty by default: a collection job should inspect every post exposed by
+      # the authorized creator page. Set an explicit limit only for a bounded run.
+      cdp_post_limit: ${CYNEXUS_SOCIAL_CDP_POST_LIMIT:}

@@ -13,5 +13,6 @@ public class StockSectorJoinedPO {
     private String name;
     private String topicId;
     private BigDecimal relationLevel;
+    private BigDecimal changePercent;
     private String source;
 }

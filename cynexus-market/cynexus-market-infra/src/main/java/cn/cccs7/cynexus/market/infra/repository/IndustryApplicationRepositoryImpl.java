@@ -349,11 +349,40 @@ public class IndustryApplicationRepositoryImpl implements IndustryApplicationRep
         int normalizedDays = Math.max(1, Math.min(days <= 0 ? 30 : days, 252));
         IndustryApplicationBO.TdxFundFlowSnapshot snapshot =
                 industryApplicationDataClient.tdxFundFlow(normalizedType, normalizedSymbol, tradeDate, normalizedDays);
-        if (snapshot != null && snapshot.getCode6() != null && !snapshot.getCode6().isBlank()) {
-            List<IndustryApplicationBO.TdxThsIndustryMapping> mappings = listThsMappings(snapshot.getCode6());
-            LocalDate constituentDate = snapshot.getFlowTradeDate() == null ? snapshot.getTradeDate() : snapshot.getFlowTradeDate();
-            snapshot.setThsMappings(mappings);
-            snapshot.setConstituents(mergeConstituents(snapshot.getCode6(), snapshot.getFlowSectorName(), mappings, constituentDate));
+        if (snapshot != null) {
+            String snapshotCode6 = snapshot.getCode6();
+            if (snapshotCode6 != null && !snapshotCode6.isBlank()) {
+                List<IndustryApplicationBO.TdxThsIndustryMapping> mappings = listThsMappings(snapshotCode6);
+                LocalDate constituentDate = snapshot.getFlowTradeDate() == null ? snapshot.getTradeDate() : snapshot.getFlowTradeDate();
+                snapshot.setThsMappings(mappings);
+                snapshot.setConstituents(mergeConstituents(snapshotCode6, snapshot.getFlowSectorName(), mappings, constituentDate));
+            } else if ("industry".equals(normalizedType)) {
+                // The Python fund-flow endpoint only covers the TDX 56 fund-flow
+                // sectors. TDX still has constituent snapshots for other
+                // industry boards, so keep the same response contract and
+                // enrich it with the available TDX members instead of making
+                // the replay slot appear empty.
+                String code6 = normalizeStockCode(normalizedSymbol);
+                if (code6.matches("\\d{6}")) {
+                    String fallbackName = lookupName(normalizedType, normalizedSymbol);
+                    tdxSectorQuoteDetailSnapshotRepository.findLatestByCode6OnOrBefore(code6, tradeDate)
+                            .ifPresent(detail -> {
+                                if (detail.getName() != null && !detail.getName().isBlank()) {
+                                    snapshot.setTdxName(detail.getName());
+                                }
+                                if (detail.getSnapshotDate() != null) {
+                                    snapshot.setTradeDate(detail.getSnapshotDate());
+                                }
+                            });
+                    snapshot.setCode6(code6);
+                    snapshot.setFullCode(normalizedSymbol);
+                    String sectorName = snapshot.getTdxName() == null || snapshot.getTdxName().isBlank()
+                            ? fallbackName
+                            : snapshot.getTdxName();
+                    snapshot.setTdxName(sectorName);
+                    snapshot.setConstituents(mergeConstituents(code6, sectorName, List.of(), tradeDate));
+                }
+            }
         }
         return snapshot;
     }

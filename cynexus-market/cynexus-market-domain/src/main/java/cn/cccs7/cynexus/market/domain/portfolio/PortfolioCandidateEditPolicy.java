@@ -8,8 +8,10 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 
 public final class PortfolioCandidateEditPolicy {
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private PortfolioCandidateEditPolicy() {
     }
 
@@ -32,10 +34,10 @@ public final class PortfolioCandidateEditPolicy {
             normalizedTime = OffsetDateTime.parse(normalizedTime).toString();
         } catch (Exception ignored) {
             try {
-                normalizedTime = LocalDateTime.parse(normalizedTime).atOffset(ZoneOffset.UTC).toString();
+                normalizedTime = LocalDateTime.parse(normalizedTime).atZone(SHANGHAI).toOffsetDateTime().toString();
             } catch (Exception exception) {
                 try {
-                    normalizedTime = LocalDate.parse(normalizedTime).atStartOfDay().atOffset(ZoneOffset.UTC).toString();
+                        normalizedTime = LocalDate.parse(normalizedTime).atStartOfDay().atOffset(java.time.ZoneOffset.UTC).toString();
                 } catch (Exception dateException) {
                     try {
                         LocalTime.parse(normalizedTime);

@@ -75,6 +75,21 @@ public final class PortfolioPerformanceDomainService {
                 dailyPerformance.periodPnlBySymbol(), dailyPerformance.lastDayPnlBySymbol());
     }
 
+    public BigDecimal cumulativePnl(
+            List<PortfolioTradeBO> trades,
+            Map<String, List<PortfolioPricePointBO>> priceSeries,
+            Map<String, BigDecimal> realizedPnlBaselines,
+            LocalDate from,
+            LocalDate to) {
+        if (from == null || to == null || from.isAfter(to)) {
+            return BigDecimal.ZERO;
+        }
+        PortfolioPerformanceResultBO result = calculate(
+                trades, priceSeries, realizedPnlBaselines, BigDecimal.ZERO, from, to,
+                PortfolioPerformanceGranularity.DAILY);
+        return result == null ? BigDecimal.ZERO : money(result.periodPnl());
+    }
+
     /**
      * Calculates the current-day movement without treating positions bought
      * on earlier dates as if their entire unrealized P&amp;L was earned today.

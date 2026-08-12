@@ -39,11 +39,11 @@ class FakeSink:
     def create_tables(self):
         FakeSink.created += 1
 
-    def insert_auction_points(self, frame: pd.DataFrame, batch_size=50_000):
+    def insert_auction_points(self, frame: pd.DataFrame, batch_size=50_000, *, replace_existing=False):
         FakeSink.auction_inserted += len(frame)
         return len(frame)
 
-    def insert_timeshare(self, frame: pd.DataFrame, batch_size=50_000):
+    def insert_timeshare(self, frame: pd.DataFrame, batch_size=50_000, *, replace_existing=False):
         FakeSink.timeshare_inserted += len(frame)
         return len(frame)
 

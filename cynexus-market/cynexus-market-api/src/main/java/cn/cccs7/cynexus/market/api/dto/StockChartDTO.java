@@ -356,6 +356,8 @@ public final class StockChartDTO {
         private LocalDate tradeDate;
         @JsonProperty("requested_trade_date")
         private LocalDate requestedTradeDate;
+        @JsonProperty("pre_close")
+        private BigDecimal preClose;
         private List<IntradayPointDTO> timeshare;
         @JsonProperty("minute_bars")
         private MinuteBarsDTO minuteBars;

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, CircleAlert, Pencil, RefreshCw, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
+import { notification } from "@/components/ui/notification"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { fetchPortfolioTrades } from "@/services/market/portfolio/portfolio"
+import { fetchPortfolioTrades, updatePortfolioTrade } from "@/services/market/portfolio/portfolio"
 import type { PortfolioTrade } from "@/services/market/portfolio/types"
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
@@ -20,16 +23,16 @@ export function PortfolioTradeDrawer({ open, onOpenChange }: PortfolioTradeDrawe
   const [pageSize, setPageSize] = useState<number>(20)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [draft, setDraft] = useState<TradeDraft | null>(null)
+  const [savingId, setSavingId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const nextTrades = await fetchPortfolioTrades()
-      setTrades([...nextTrades].sort((left, right) => {
-        const timeDifference = tradeTimestamp(right.tradedAt) - tradeTimestamp(left.tradedAt)
-        return timeDifference || right.id - left.id
-      }))
+      setTrades([...nextTrades].sort(compareTrades))
       setPage(1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -48,6 +51,40 @@ export function PortfolioTradeDrawer({ open, onOpenChange }: PortfolioTradeDrawe
     const start = (currentPage - 1) * pageSize
     return trades.slice(start, start + pageSize)
   }, [currentPage, pageSize, trades])
+
+  function beginEdit(trade: PortfolioTrade) {
+    setEditingId(trade.id)
+    setDraft({
+      symbol: trade.symbol,
+      securityName: trade.securityName ?? "",
+      instrumentType: trade.instrumentType,
+      side: trade.side,
+      tradedAt: toShanghaiEditorValue(trade.tradedAt),
+      quantity: String(trade.quantity),
+      price: String(trade.price),
+      totalFee: String(trade.totalFee ?? 0),
+    })
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setDraft(null)
+  }
+
+  async function saveEdit(trade: PortfolioTrade) {
+    if (!draft) return
+    setSavingId(trade.id)
+    try {
+      const saved = await updatePortfolioTrade(trade.id, draft)
+      setTrades((current) => current.map((item) => item.id === saved.id ? saved : item).sort(compareTrades))
+      cancelEdit()
+      notification.success({ title: "交易记录已更新", description: `已保存 ${saved.symbol} 的成交时间和交易信息。` })
+    } catch (cause) {
+      notification.danger({ title: "交易记录更新失败", description: cause instanceof Error ? cause.message : String(cause) })
+    } finally {
+      setSavingId(null)
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -75,9 +112,9 @@ export function PortfolioTradeDrawer({ open, onOpenChange }: PortfolioTradeDrawe
           {!loading && !error && trades.length ? <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="portfolio-all-trades-heading">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-sm">
-                <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">成交时间</th><th className="px-4 py-3">标的</th><th className="px-4 py-3">类型</th><th className="px-4 py-3">方向</th><th className="px-4 py-3 text-right">数量</th><th className="px-4 py-3 text-right">成交价</th><th className="px-4 py-3 text-right">成交额</th><th className="px-4 py-3 text-right">手续费</th><th className="px-4 py-3">状态</th></tr></thead>
+                <thead className="bg-muted/45 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">成交时间</th><th className="px-4 py-3">标的</th><th className="px-4 py-3">类型</th><th className="px-4 py-3">方向</th><th className="px-4 py-3 text-right">数量</th><th className="px-4 py-3 text-right">成交价</th><th className="px-4 py-3 text-right">成交额</th><th className="px-4 py-3 text-right">手续费</th><th className="px-4 py-3">状态</th><th className="px-4 py-3">操作</th></tr></thead>
                 <tbody className="divide-y divide-border/60">
-                  {visibleTrades.map((trade) => <tr key={trade.id} className="hover:bg-muted/35">
+                  {visibleTrades.map((trade) => editingId === trade.id && draft ? <TradeEditRow key={trade.id} draft={draft} saving={savingId === trade.id} onChange={setDraft} onCancel={cancelEdit} onSave={() => void saveEdit(trade)} /> : <tr key={trade.id} className="hover:bg-muted/35">
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{formatDateTime(trade.tradedAt)}</td>
                     <td className="px-4 py-3"><div className="min-w-0"><p className="font-mono font-medium">{trade.symbol}</p><p className="max-w-[180px] truncate text-xs text-muted-foreground">{trade.securityName ?? "名称待补充"}</p></div></td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{trade.instrumentType === "ETF" ? "ETF" : "股票"}</td>
@@ -87,6 +124,7 @@ export function PortfolioTradeDrawer({ open, onOpenChange }: PortfolioTradeDrawe
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatNumber(Number(trade.quantity) * Number(trade.price), 2)}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatNumber(trade.totalFee, 2)}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{trade.status === "ACTIVE" ? "有效" : trade.status}</td>
+                    <td className="px-4 py-3"><Button size="sm" variant="ghost" onClick={() => beginEdit(trade)} disabled={trade.status !== "ACTIVE"}><Pencil className="mr-1.5 size-3.5" />编辑</Button></td>
                   </tr>)}
                 </tbody>
               </table>
@@ -100,15 +138,61 @@ export function PortfolioTradeDrawer({ open, onOpenChange }: PortfolioTradeDrawe
   )
 }
 
+type TradeDraft = { symbol: string; securityName: string; instrumentType: "STOCK" | "ETF"; side: "BUY" | "SELL"; tradedAt: string; quantity: string; price: string; totalFee: string }
+
+function TradeEditRow({ draft, saving, onChange, onCancel, onSave }: { draft: TradeDraft; saving: boolean; onChange: (draft: TradeDraft) => void; onCancel: () => void; onSave: () => void }) {
+  const parts = splitTradeDateTime(draft.tradedAt)
+  const update = (key: keyof TradeDraft, value: string) => onChange({ ...draft, [key]: value })
+  return <tr className="align-top bg-muted/20">
+    <td className="px-4 py-3"><div className="flex flex-wrap gap-1.5"><DatePicker value={parts.date} onChange={(date) => update("tradedAt", mergeTradeDateTime(date ? localDateString(date) : "", parts.time))} clearable triggerClassName="w-[132px]" /><Input type="time" step={1} value={parts.time} onChange={(event) => update("tradedAt", mergeTradeDateTime(parts.date, event.target.value))} className="h-8 w-[112px]" /></div></td>
+    <td className="px-4 py-3"><Input className="w-24" value={draft.symbol} onChange={(event) => update("symbol", event.target.value)} /><Input className="mt-1 w-36" value={draft.securityName} onChange={(event) => update("securityName", event.target.value)} /></td>
+    <td className="px-4 py-3"><select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={draft.instrumentType} onChange={(event) => update("instrumentType", event.target.value)}><option value="STOCK">股票</option><option value="ETF">ETF</option></select></td>
+    <td className="px-4 py-3"><select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={draft.side} onChange={(event) => update("side", event.target.value)}><option value="BUY">买入</option><option value="SELL">卖出</option></select></td>
+    <td className="px-4 py-3 text-right"><Input className="w-24 text-right" value={draft.quantity} onChange={(event) => update("quantity", event.target.value)} /></td>
+    <td className="px-4 py-3 text-right"><Input className="w-24 text-right" value={draft.price} onChange={(event) => update("price", event.target.value)} /></td>
+    <td className="px-4 py-3 text-right text-muted-foreground">自动计算</td>
+    <td className="px-4 py-3 text-right"><Input className="w-20 text-right" value={draft.totalFee} onChange={(event) => update("totalFee", event.target.value)} /></td>
+    <td className="px-4 py-3 text-xs text-muted-foreground">有效</td>
+    <td className="px-4 py-3"><div className="flex gap-1"><Button size="sm" onClick={onSave} disabled={saving}><Save className="mr-1.5 size-3.5" />保存</Button><Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>取消</Button></div></td>
+  </tr>
+}
+
 function formatDateTime(value: string) {
+  if (isDateOnlyMarker(value)) return `${value.slice(0, 10)}（时间未识别）`
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(date)
+  return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "medium" }).format(date)
 }
+
+function toShanghaiEditorValue(value: string) {
+  if (isDateOnlyMarker(value)) return `${value.slice(0, 10)}T00:00:00`
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(date)
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ""
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`
+}
+
+function isDateOnlyMarker(value: string) {
+  return /^\d{4}-\d{2}-\d{2}T00:00(?::00)?(?:\.\d+)?Z$/.test(value)
+}
+
+function splitTradeDateTime(value: string) {
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)/)
+  return match ? { date: match[1], time: match[2] } : { date: "", time: "" }
+}
+
+function mergeTradeDateTime(date: string, time: string) { return date ? `${date}T${time || "00:00:00"}` : time }
+function localDateString(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}` }
 
 function tradeTimestamp(value: string) {
   const timestamp = Date.parse(value)
   return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function compareTrades(left: PortfolioTrade, right: PortfolioTrade) {
+  const timeDifference = tradeTimestamp(right.tradedAt) - tradeTimestamp(left.tradedAt)
+  return timeDifference || right.id - left.id
 }
 
 function formatNumber(value: number | null | undefined, digits: number) {

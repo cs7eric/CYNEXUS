@@ -6,7 +6,9 @@ import cn.cccs7.cynexus.market.api.dto.PortfolioAccountDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceDTO;
 import cn.cccs7.cynexus.market.api.request.PortfolioAccountUpdateRequest;
+import cn.cccs7.cynexus.market.api.request.PortfolioTradeUpdateRequest;
 import cn.cccs7.cynexus.market.application.service.PortfolioOverviewAppService;
+import cn.cccs7.cynexus.market.application.service.PortfolioTradeAppService;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -19,9 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/market/portfolio")
 public class PortfolioOverviewController {
     private final PortfolioOverviewAppService service;
+    private final PortfolioTradeAppService tradeService;
 
-    public PortfolioOverviewController(PortfolioOverviewAppService service) {
+    public PortfolioOverviewController(PortfolioOverviewAppService service, PortfolioTradeAppService tradeService) {
         this.service = service;
+        this.tradeService = tradeService;
     }
 
     @GetMapping("/overview")
@@ -42,6 +46,12 @@ public class PortfolioOverviewController {
     @GetMapping("/trades")
     public Result<List<PortfolioTradeDTO>> trades(@RequestParam(required = false) String symbol) {
         return Result.success(service.trades(symbol));
+    }
+
+    @PatchMapping("/trades/{tradeId}")
+    public Result<PortfolioTradeDTO> updateTrade(@org.springframework.web.bind.annotation.PathVariable long tradeId,
+                                                 @RequestBody PortfolioTradeUpdateRequest request) {
+        return Result.success(tradeService.update(tradeId, request));
     }
 
     @GetMapping("/performance")

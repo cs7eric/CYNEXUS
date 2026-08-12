@@ -15,6 +15,8 @@ from cynexus_data.storage.postgres.ids import stable_bigint_id
 DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260727_create_market_indicator_tables.sql"
 INDUSTRY_DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260728_create_market_indicator_industry_tables.sql"
 TRANSMISSION_DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260805_create_market_indicator_transmission_tables.sql"
+LIMIT_BOARD_DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260811_create_market_indicator_limit_board_snapshots.sql"
+LIMIT_BOARD_SESSION_SUMMARY_DDL_PATH = PROJECT_ROOT / "sql" / "postgres" / "20260811_create_market_indicator_limit_board_session_summaries.sql"
 
 
 class MarketIndicatorRepository:
@@ -25,6 +27,8 @@ class MarketIndicatorRepository:
         self.client.apply_sql_file(Path(DDL_PATH))
         self.client.apply_sql_file(Path(INDUSTRY_DDL_PATH))
         self.client.apply_sql_file(Path(TRANSMISSION_DDL_PATH))
+        self.client.apply_sql_file(Path(LIMIT_BOARD_DDL_PATH))
+        self.client.apply_sql_file(Path(LIMIT_BOARD_SESSION_SUMMARY_DDL_PATH))
 
     def save_candidate_pool(self, rows: list[dict[str, Any]], *, captured_at: datetime, source: str) -> int:
         if not rows:

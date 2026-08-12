@@ -26,6 +26,7 @@ export interface PortfolioCandidate {
   id: number
   rowNo: number
   normalizedPayload: string
+  suggestedSymbol?: string | null
   reviewStatus: string
   version: number
   confidence?: number | null
@@ -168,4 +169,18 @@ export interface PortfolioReview {
   rating?: number | null
   metricsSnapshot?: string | null
   status?: string | null
+}
+
+export interface PortfolioReviewAnchor {
+  id?: number
+  symbol: string
+  instrumentType: "STOCK" | "ETF"
+  tradeId?: number | null
+  reviewId?: number | null
+  anchorType: "TRADE" | "OBSERVATION"
+  side: "BUY" | "SELL" | "OBSERVATION" | "EVENT"
+  occurredAt: string
+  price: number
+  note?: string | null
+  tags?: string | null
 }

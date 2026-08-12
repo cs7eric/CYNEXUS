@@ -11,7 +11,7 @@ Current code:
 - `market_overview.py`: optional `eltdx` A-share amount/breadth live capture.
 - `intraday.py`: optional `eltdx` auction point and historical 1m timeshare normalization.
 - `industry_quotes.py`: optional `eltdx` TDX 56 industry index quote snapshot source.
-- `indicator.py`: optional `eltdx 1.2.x` full-market quote snapshot adapter used by the live indicator monitor.
+- `indicator.py`: optional `eltdx 1.3.x` full-market quote snapshot adapter used by the live indicator monitor.
 - `sector_quote.py`: optional `eltdx` `f10.theme_market` parser/client helpers for TDX sector detail snapshots.
 - `stock_profile.py`: optional `eltdx` share-profile helper for stock turnover calculations.
 - `mootdx.py`: optional `mootdx` K-line fallback adapter used only when explicitly requested by provider fallback.
