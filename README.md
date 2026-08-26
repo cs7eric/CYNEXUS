@@ -2,94 +2,72 @@
 
 <div align="center">
 
-## Your personal operating system for investing and research
+**个人投资研究工作台**
 
-把市场数据、交易记录、研究过程和 AI 协作放进一个可复盘的工作台。
+把市场信号、研究过程、交易记录和 AI 协作，放进一条可以回看的工作流。
 
-`Research` &nbsp; `Decide` &nbsp; `Record` &nbsp; `Review`
+`发现`  ·  `研究`  ·  `确认`  ·  `复盘`
 
 </div>
 
 ---
 
-## What is CYNEXUS?
+## 它解决什么问题
 
-CYNEXUS 是面向个人投资研究与信息管理的智能工作空间。
+投资研究通常散落在行情软件、聊天记录、截图、表格和笔记里。CYNEXUS 把这些输入放在同一套工作流中：数据负责提供事实，AI 负责整理和提取，用户负责判断与确认，系统负责留下过程。
 
-它不是聊天机器人，也不是单纯的行情看板。它把你每天面对的几类工作连成闭环：从市场信号和资讯中发现线索，用 AI 和数据工具完成研究，将交易和账务沉淀为可追溯记录，再通过复盘验证自己的判断。
+它适合希望长期积累研究资产的个人用户，而不是追求“自动替我下决定”的黑盒工具。
 
-```text
-市场数据 / 资讯 / 截图 / 文档
-              ↓
-       观察、筛选、研究
-              ↓
-      AI 辅助分析与结构化提取
-              ↓
-   交易、账务、知识与策略记录
-              ↓
-         复盘、校正、再决策
-```
-
-## Three Workflows
-
-### 01 / 看见机会
-
-**市场监控、选股与研究**
-
-- 市场概览、情绪、资金、ETF、融资融券和期货持仓
-- 涨停板监控、指标采集、盘中事件与资讯流
-- 自选股、行业与概念分析、股票复盘
-- Screener、因子研究、事件回放与策略回测
-
-> 目标不是更多数据，而是把值得关注的变化找出来，并保留判断依据。
-
-### 02 / 把输入变成记录
-
-**交易、财务与内容处理**
-
-- 上传交易截图，AI 识别为待确认交易，再由用户审核入账
-- 财务 AI Capture 将票据和截图转换为账本候选项
-- 文档、视频与媒体处理，保留过程与结果历史
-- 知识库将研究材料、笔记与结论集中管理
-
-> AI 提供候选结果；确认操作始终留在业务页面，由用户完成。
-
-### 03 / 让系统持续运转
-
-**AI 治理、自动化与可追溯性**
-
-- Provider、模型、Prompt 与用量统一管理
-- Scheduler 和 Python Data Executor 负责定时采集、投影与质量检查
-- API Workflows 记录每次异步处理、重试、审核与失败原因
-- Cynexus Agent 可在受控边界内查询项目数据、编排可执行任务
-
-> 每一条自动化都应该能回答：输入是什么、做了什么、结果在哪里、谁确认了它。
-
-## Product Map
-
-| 工作区 | 你可以做什么 |
-| --- | --- |
-| **Trade View** | 导入交易、人工确认候选交易、查看复盘与持仓表现 |
-| **Cynexus Screener** | 基于市场数据筛选标的，研究因子并验证策略 |
-| **Market & Information** | 跟踪市场状态、资讯、社交信号与数据采集任务 |
-| **Finance** | 管理账本、交易与 AI 辅助录入 |
-| **Knowledge Base** | 组织研究材料、笔记和可复用内容 |
-| **AI & Agent** | 配置模型能力、提示词、用量与 Agent 工具 |
-| **Settings** | 管理调度、数据源、Provider 和工作流运行记录 |
-
-## Built for review, not blind automation
-
-在 CYNEXUS 中，AI 处理并不等于自动落库。
-
-例如，交易截图导入会经历以下过程：
+## 从一个信号，到一条记录
 
 ```text
-上传截图 → 视觉识别 → 候选交易 → AI 复核 → 人工确认 → 写入交易记录
+市场数据 / 资讯 / 交易截图 / 研究文档
+                    │
+                    ▼
+         观察 · 筛选 · 分析 · 提取
+                    │
+                    ▼
+             候选结果与证据
+                    │
+                    ▼
+              人工确认与入账
+                    │
+                    ▼
+              复盘 · 校正 · 再研究
 ```
 
-其中 AI 复核是增强步骤，不会阻塞已经可供人工确认的识别结果。API Workflows 页面保留每次尝试和错误事件，原始截图也可按需查看，便于排查而不混淆当前业务状态。
+例如上传一张交易截图，CYNEXUS 会先识别出候选交易，再进行可选的 AI 复核，最后回到投资组合页面等待你确认。识别失败、重试和复核事件都保留在 API Workflows 中，原图也能按记录查看。
 
-## Architecture at a Glance
+## 四个工作区
+
+### 发现
+
+市场概览、情绪、资金、ETF、融资融券、期货持仓、涨停板和资讯流，帮助你知道今天发生了什么。
+
+### 研究
+
+Screener、行业与概念、因子研究、事件回放和策略回测，帮助你把“感觉”变成可验证的假设。
+
+### 记录
+
+交易截图导入、财务 AI Capture、账本、知识库和媒体处理，把外部输入变成自己的结构化资产。
+
+### 复盘
+
+交易复盘、持仓详情、工作流历史和数据质量检查，让你能回到当时的输入、过程和结果。
+
+## AI 在哪里发挥作用
+
+AI 是工作流中的一个受治理环节，不是产品的全部。
+
+- **提取**：从截图、文档和媒体中生成结构化候选结果。
+- **研究**：辅助整理市场事件、因子、资讯和策略证据。
+- **编排**：通过 Cynexus Agent 查询受控的数据能力。
+- **治理**：统一管理 Provider、模型、Prompt、能力和用量。
+
+会写入业务数据的操作都经过预览、明确确认和审计；AI 复核失败不会抹掉已经可以人工确认的识别结果。
+
+## 系统结构
 
 ```text
                          React 19 / Vite / Tailwind
@@ -107,47 +85,42 @@ CYNEXUS 是面向个人投资研究与信息管理的智能工作空间。
                            Python Data Executor
 ```
 
-| Area | Stack | Responsibility |
-| --- | --- | --- |
-| `cynexus-ui` | React 19, TypeScript, Vite, Tailwind | 用户工作台 |
-| `cynexus-core` | Java 21, Spring Boot | 工作流、调度、媒体、财务与平台能力 |
-| `cynexus-ai` | Spring AI, Provider adapters | 模型路由、Prompt、结构化输出、Agent 治理 |
-| `cynexus-market` | Java, ClickHouse, PostgreSQL | 市场数据、研究、组合与交易复盘 |
-| `cynexus-data` | Python | 数据源、采集管道、存储与质量检查 |
-| `deploy` | Docker Compose, PostgreSQL migrations | Release 运行时与部署资产 |
+| 模块 | 负责什么 |
+| --- | --- |
+| `cynexus-ui` | React 工作台和所有用户交互 |
+| `cynexus-core` | API 工作流、调度、媒体与财务基础能力 |
+| `cynexus-ai` | Provider、Prompt、结构化输出和 Agent 治理 |
+| `cynexus-market` | 市场数据、投资组合、交易复盘与研究能力 |
+| `cynexus-knowledgebase` | 知识库与研究材料 |
+| `cynexus-data` | Python 数据采集、管道、存储和质量检查 |
+| `deploy` | Docker Release、配置和数据库迁移 |
 
-Java 服务按 `api → application → domain → infra → starter` 组织。业务规则放在 `domain`，应用层只负责编排与事务。
+Java 服务采用 `api → application → domain → infra → starter` 分层，业务规则集中在领域层。
 
-## Run Locally
+## 开始运行
 
-### Release runtime
+### Release
 
-Release 是唯一允许运行的本地后端形态，使用 Docker 管理：
+后端和共享基础设施通过 Docker 管理。需要 Docker Desktop、Java 21、Maven、Node.js 22+ 和 pnpm。
 
 ```powershell
-# 启动已构建的 Release 服务
+# 启动已构建的 Release
 .\deploy\release\start-release.ps1
 
-# 编译并构建 Release 镜像
+# 构建并启动
 .\deploy\release\start-release.ps1 -Build
 
-# 仅构建和部署当前改动涉及的服务
+# 只部署当前改动涉及的服务
 .\deploy\release\start-release.ps1 -Build -Changed
 ```
 
-| UI | Gateway | Core | AI | Market |
-| ---: | ---: | ---: | ---: | ---: |
-| `5173` | `18000` | `18080` | `18081` | `18082` |
-
-访问 [http://localhost:5173](http://localhost:5173)。停止服务：
+打开 [http://localhost:5173](http://localhost:5173)。停止 Release：
 
 ```powershell
 .\deploy\release\stop-release.ps1
 ```
 
-### Frontend only
-
-前端可以通过 HMR 连接已有 Release 后端。请使用 `5174`，不要占用 Release UI 的 `5173`：
+### 前端 HMR
 
 ```powershell
 Set-Location cynexus-ui
@@ -155,20 +128,23 @@ pnpm install
 pnpm dev -- --port 5174
 ```
 
-## Contributing Notes
+HMR 前端使用 `5174`，代理到已运行的 Release 后端。
 
-- Java、前端、数据与部署目录各自包含 `AGENTS.md`，修改前先阅读最近的说明。
-- 功能改动应运行受影响模块的测试；后端、迁移和共享运行时改动需要部署到 Release 验证。
-- AI 能力必须同时完成运行时路由、Prompt、Provider、用量绑定与可观测性。
-- 会修改业务数据的 Agent 能力必须经过预览、显式确认与审计。
+## 开发约定
 
-## Documentation
+- 先阅读目标目录最近的 `AGENTS.md`。
+- 功能改动运行受影响模块的窄范围测试。
+- 后端、迁移和共享运行时改动必须部署到 Release 验证。
+- AI 能力需要同时完成路由、Prompt、Provider、用量绑定和可观测性。
+- Agent 写操作必须经过预览、确认和审计。
 
-- [Release runtime](deploy/release/README.md)
-- [API workflow contract](docs/agent/api-workflows.md)
-- [Contributor guide](AGENTS.md)
-- [Frontend implementation guide](cynexus-ui/FRONTEND_UI_IMPLEMENTATION_GUIDE.md)
+## 文档入口
+
+- [Release 运行说明](deploy/release/README.md)
+- [API Workflow 合约](docs/agent/api-workflows.md)
+- [贡献与仓库约定](AGENTS.md)
+- [前端实现指南](cynexus-ui/FRONTEND_UI_IMPLEMENTATION_GUIDE.md)
 
 ---
 
-<div align="center"><sub>CYNEXUS · Make every decision easier to revisit.</sub></div>
+<div align="center"><sub>CYNEXUS · 把每一次判断，变成下一次研究的起点。</sub></div>
