@@ -22,6 +22,7 @@ public final class SchedulerTriggerPolicy {
     );
     private static final Set<String> PROGRESS_POLL_JOB_CODES = Set.of(
             MARKET_SENTIMENT_CHAIN_JOB_CODE,
+            "market_indicator_limit_board_session",
             "a_stock_fund_flow_history_bootstrap_120",
             "margin_stock_history_backfill"
     );

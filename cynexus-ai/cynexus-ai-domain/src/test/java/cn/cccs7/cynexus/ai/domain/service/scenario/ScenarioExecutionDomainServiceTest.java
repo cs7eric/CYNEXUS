@@ -40,7 +40,7 @@ class ScenarioExecutionDomainServiceTest {
                 .userPromptTemplate("candidate={{candidate_context}}")
                 .build();
         ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
-                new Routing(binding, null), promptRepository(prompt), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+                new Routing(binding, (AiModelBO) null), promptRepository(prompt), unusedModelRoute(), new OutputValidationDomainServiceImpl());
 
         assertThat(service.resolveVisionPrompt("accounting_receipt_parse", "receipt candidates"))
                 .isEqualTo("system" + System.lineSeparator() + "candidate=receipt candidates");
@@ -65,9 +65,23 @@ class ScenarioExecutionDomainServiceTest {
     }
 
     @Test
+    void retainsFallbackModelsForVisionExecution() {
+        AiModelBO primary = AiModelBO.builder().modelCode("primary").enabled(true).build();
+        AiModelBO fallback = AiModelBO.builder().modelCode("fallback").enabled(true).build();
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(AiUsageBindingBO.builder().capability("portfolio_trade_screenshot_parse").enabled(true).build(),
+                        List.of(primary, fallback)),
+                emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+
+        var prepared = service.prepareVisionExecution("portfolio_trade_screenshot_parse", null, "image metadata");
+
+        assertThat(prepared.candidateModels()).containsExactly(primary, fallback);
+    }
+
+    @Test
     void usesPortfolioFallbackPromptWhenBoundPromptIsUnavailable() {
         ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
-                new Routing(null, null), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+                new Routing(null, (AiModelBO) null), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
 
         String prompt = service.resolveVisionPrompt("portfolio_trade_screenshot_parse", "candidate context");
 
@@ -102,7 +116,7 @@ class ScenarioExecutionDomainServiceTest {
     @Test
     void usesWechatRouteFallbackPromptWhenBoundPromptIsUnavailable() {
         ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
-                new Routing(null, null), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+                new Routing(null, (AiModelBO) null), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
 
         String prompt = service.resolveVisionPrompt("wechat_image_route", "stored image metadata");
 
@@ -132,11 +146,15 @@ class ScenarioExecutionDomainServiceTest {
 
     private static final class Routing implements ApplicationAnalysisRoutingDomainService {
         private final AiUsageBindingBO binding;
-        private final AiModelBO model;
+        private final List<AiModelBO> models;
 
         private Routing(AiUsageBindingBO binding, AiModelBO model) {
+            this(binding, model == null ? List.of() : List.of(model));
+        }
+
+        private Routing(AiUsageBindingBO binding, List<AiModelBO> models) {
             this.binding = binding;
-            this.model = model;
+            this.models = models;
         }
 
         @Override
@@ -146,7 +164,7 @@ class ScenarioExecutionDomainServiceTest {
 
         @Override
         public List<AiModelBO> routeModels(String capability, String preferredModelCode) {
-            return model == null ? List.of() : List.of(model);
+            return models;
         }
 
         @Override

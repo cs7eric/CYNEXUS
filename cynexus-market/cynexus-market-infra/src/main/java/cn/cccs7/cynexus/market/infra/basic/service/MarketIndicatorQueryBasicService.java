@@ -27,6 +27,7 @@ public interface MarketIndicatorQueryBasicService {
     List<MarketIndicatorIndustrySnapshotPO> listReplayIndustries(LocalDate tradeDate, OffsetDateTime from,
                                                                   OffsetDateTime to, String industryCode, int limit);
     Map<String, Object> getTradeReviewManifest(LocalDate tradeDate);
+    List<LocalDate> listTradeReviewMaterializedDates(int limit);
     List<Map<String, Object>> listLimitBoardSessionSummaries(LocalDate tradeDate, String tradeSession,
                                                               String direction, int limit);
     Map<String, Object> getTradeReviewMarketMinute(LocalDate tradeDate, OffsetDateTime asOf);

@@ -23,6 +23,9 @@ import tools.jackson.databind.ObjectMapper;
 public class HttpMediaTranscriptionLinkResolver implements MediaTranscriptionLinkResolver {
 
     private static final Logger log = LoggerFactory.getLogger(HttpMediaTranscriptionLinkResolver.class);
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    private static final int MAX_ATTEMPTS = 2;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -34,7 +37,12 @@ public class HttpMediaTranscriptionLinkResolver implements MediaTranscriptionLin
             @Value("${cynexus.media-transcription.downloader.timeout-ms:60000}") long timeoutMs) {
         this.baseUrl = trimTrailingSlash(baseUrl);
         this.timeout = Duration.ofMillis(Math.max(1000, timeoutMs));
-        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        // Downloader CDN terminates Java HttpClient HTTP/2 handshakes; browsers and curl succeed on HTTP/1.1.
+        this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
         this.objectMapper = new ObjectMapper();
     }
 
@@ -44,45 +52,52 @@ public class HttpMediaTranscriptionLinkResolver implements MediaTranscriptionLin
             return null;
         }
         URI uri = URI.create(baseUrl + "/api/parse?url=" + URLEncoder.encode(sourceUrl, StandardCharsets.UTF_8));
-        try {
-            HttpRequest request = HttpRequest.newBuilder(uri)
-                    .timeout(timeout)
-                    .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
-                    .GET()
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("Media link resolver returned HTTP {} for sourceUrl={}", response.statusCode(), sourceUrl);
-                return null;
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder(uri)
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .timeout(timeout)
+                        .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                        .header("User-Agent", USER_AGENT)
+                        .GET()
+                        .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    log.warn("Media link resolver returned HTTP {} for sourceUrl={}", response.statusCode(), sourceUrl);
+                    return null;
+                }
+                Map<String, Object> envelope = objectMapper.readValue(response.body(), new TypeReference<LinkedHashMap<String, Object>>() {
+                });
+                if (!Boolean.TRUE.equals(envelope.get("success"))) {
+                    return null;
+                }
+                Map<String, Object> data = asMap(envelope.get("data"));
+                String originVideoUrl = asString(data.get("originDownloadVideoUrl"));
+                String originAudioUrl = asString(data.get("originDownloadAudioUrl"));
+                String videoUrl = asString(data.get("downloadVideoUrl"));
+                String audioUrl = asString(data.get("downloadAudioUrl"));
+                if (originVideoUrl == null && originAudioUrl == null && videoUrl == null && audioUrl == null) {
+                    return null;
+                }
+                return MediaTranscriptionResolvedLinkBO.builder()
+                        .title(asString(data.get("title")))
+                        .platform(asString(data.get("platform")))
+                        .duration(asInteger(data.get("duration")))
+                        .noteType(asString(data.get("noteType")))
+                        .originDownloadVideoUrl(originVideoUrl)
+                        .originDownloadAudioUrl(originAudioUrl)
+                        .downloadVideoUrl(videoUrl)
+                        .downloadAudioUrl(audioUrl)
+                        .originalUrl(asString(data.get("url")))
+                        .build();
+            } catch (Exception exception) {
+                lastError = exception;
+                log.warn("Media link resolver attempt {}/{} failed: sourceUrl={}", attempt, MAX_ATTEMPTS, sourceUrl, exception);
             }
-            Map<String, Object> envelope = objectMapper.readValue(response.body(), new TypeReference<LinkedHashMap<String, Object>>() {
-            });
-            if (!Boolean.TRUE.equals(envelope.get("success"))) {
-                return null;
-            }
-            Map<String, Object> data = asMap(envelope.get("data"));
-            String originVideoUrl = asString(data.get("originDownloadVideoUrl"));
-            String originAudioUrl = asString(data.get("originDownloadAudioUrl"));
-            String videoUrl = asString(data.get("downloadVideoUrl"));
-            String audioUrl = asString(data.get("downloadAudioUrl"));
-            if (originVideoUrl == null && originAudioUrl == null && videoUrl == null && audioUrl == null) {
-                return null;
-            }
-            return MediaTranscriptionResolvedLinkBO.builder()
-                    .title(asString(data.get("title")))
-                    .platform(asString(data.get("platform")))
-                    .duration(asInteger(data.get("duration")))
-                    .noteType(asString(data.get("noteType")))
-                    .originDownloadVideoUrl(originVideoUrl)
-                    .originDownloadAudioUrl(originAudioUrl)
-                    .downloadVideoUrl(videoUrl)
-                    .downloadAudioUrl(audioUrl)
-                    .originalUrl(asString(data.get("url")))
-                    .build();
-        } catch (Exception exception) {
-            log.warn("Media link resolver failed, direct URL fallback will be used: sourceUrl={}", sourceUrl, exception);
-            return null;
         }
+        log.warn("Media link resolver failed, direct URL fallback will be used: sourceUrl={}", sourceUrl, lastError);
+        return null;
     }
 
     @SuppressWarnings("unchecked")

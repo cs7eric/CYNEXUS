@@ -18,6 +18,8 @@ Cynexus UI is a React 19 + TypeScript + Vite 8 application using Tailwind CSS v4
 - The default visual language is a restrained, dense research workbench, not a marketing page or decorative dashboard.
 - Prefer semantic tokens from `src/index.css` and existing shadcn/Radix primitives before literal colors or new controls.
 - Use Lucide icons for common actions. Icon-only controls need accessible labels and a tooltip/title when the action is not obvious.
+- Buttons use `variant="secondary"` whenever that style is enough. Reserve `default` for the page's single primary commit, `ghost` for row/toolbar/icon-only actions, and `destructive` for destructive actions. Do not default to `outline` or implicit primary.
+- Status labels are English only. Use `Queued`, `Running`, `Waiting review`, `Success`, `Failed`, `Cancelled`, and the same English vocabulary for any other process/job/workflow status. Do not put Chinese on badges, filters, or status chips.
 - Use stable layouts with `min-w-0`, truncation, wrapping, minimum table widths, and independent pane scrolling where needed.
 - Every data block must handle loading, error, empty, stale/unavailable, and success states.
 - Do not communicate market direction, system health, selection, or failure by color alone.

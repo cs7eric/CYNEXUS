@@ -5,6 +5,7 @@ import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionResolvedLinkBO;
 import java.net.URI;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Set;
@@ -12,6 +13,8 @@ import java.util.Set;
 public class MediaTranscriptionProcessDomainPolicy {
 
     private static final Set<String> SUPPORTED_SCHEMES = Set.of("http", "https");
+    private static final Set<String> DIRECT_MEDIA_EXTENSIONS = Set.of(
+            "mp3", "mp4", "wav", "m4a", "aac", "flac", "ogg", "webm", "mov", "mkv");
     private static final Pattern SHARED_TEXT_URL = Pattern.compile("(?i)https?://[^\\s\\u3000]+");
     private static final String URL_TRAILING_PUNCTUATION = "。，、；;：:！!？?）)]}】>\"'";
 
@@ -72,12 +75,39 @@ public class MediaTranscriptionProcessDomainPolicy {
                     resolved.getDownloadVideoUrl(), resolved.getDownloadAudioUrl());
             if (!selected.isBlank()) return selected;
         }
-        return fallback == null ? "" : fallback.trim();
+        return isDirectMediaUrl(fallback) ? fallback.trim() : "";
+    }
+
+    public String requireResolvedMediaUrl(MediaTranscriptionResolvedLinkBO resolved, String fallback) {
+        String selected = selectDownloadUrl(resolved, fallback);
+        if (selected.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "解析链接失败，未拿到视频或音频地址");
+        }
+        return selected;
     }
 
     public String selectAudioUrl(MediaTranscriptionResolvedLinkBO resolved) {
         if (resolved == null) return "";
         return firstText(resolved.getOriginDownloadAudioUrl(), resolved.getDownloadAudioUrl());
+    }
+
+    private boolean isDirectMediaUrl(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        try {
+            String path = URI.create(value.trim()).getPath();
+            if (path == null) {
+                return false;
+            }
+            int dot = path.lastIndexOf('.');
+            if (dot < 0 || dot == path.length() - 1) {
+                return false;
+            }
+            return DIRECT_MEDIA_EXTENSIONS.contains(path.substring(dot + 1).toLowerCase(Locale.ROOT));
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     private String firstText(String... values) {

@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.factorresearch.mapper.MarketFactorStudyMapper">
+    <insert id="insert">
+        insert into cynexus_appl_market.market_factor_study
+        (id, study_code, tenant_id, owner_id, canonical_config, cohort_definition_version, feature_registry_version,
+         data_cutoff_at, leakage_check_status, status, progress, warnings, idempotency_key, created_at)
+        values (#{id}, #{studyCode}, #{tenantId}, #{ownerId}, cast(#{canonicalConfig} as jsonb), #{cohortDefinitionVersion},
+                #{featureRegistryVersion}, #{dataCutoffAt}, #{leakageCheckStatus}, #{status}, cast(#{progress} as jsonb), cast(#{warnings} as jsonb),
+                #{idempotencyKey}, #{createdAt})
+    </insert>
+    <select id="findByCode" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudyPO">
+        select id, study_code as studyCode, tenant_id as tenantId, owner_id as ownerId, canonical_config as canonicalConfig,
+               cohort_definition_version as cohortDefinitionVersion, feature_registry_version as featureRegistryVersion,
+               data_cutoff_at as dataCutoffAt, leakage_check_status as leakageCheckStatus, status, progress, warnings, error_code as errorCode, idempotency_key as idempotencyKey,
+               created_at as createdAt, started_at as startedAt, completed_at as completedAt, cancelled_at as cancelledAt
+          from cynexus_appl_market.market_factor_study
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode} and deleted_at is null
+    </select>
+    <select id="findByIdempotencyKey" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudyPO">
+        select id, study_code as studyCode, tenant_id as tenantId, owner_id as ownerId, canonical_config as canonicalConfig,
+               cohort_definition_version as cohortDefinitionVersion, feature_registry_version as featureRegistryVersion,
+               data_cutoff_at as dataCutoffAt, leakage_check_status as leakageCheckStatus, status, progress, warnings, error_code as errorCode, idempotency_key as idempotencyKey,
+               created_at as createdAt, started_at as startedAt, completed_at as completedAt, cancelled_at as cancelledAt
+          from cynexus_appl_market.market_factor_study
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and idempotency_key=#{idempotencyKey} and deleted_at is null
+    </select>
+    <select id="listByOwner" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudyPO">
+        select id, study_code as studyCode, tenant_id as tenantId, owner_id as ownerId, canonical_config as canonicalConfig,
+               cohort_definition_version as cohortDefinitionVersion, feature_registry_version as featureRegistryVersion,
+               data_cutoff_at as dataCutoffAt, leakage_check_status as leakageCheckStatus, status, progress, warnings,
+               error_code as errorCode, idempotency_key as idempotencyKey, created_at as createdAt, started_at as startedAt,
+               completed_at as completedAt, cancelled_at as cancelledAt
+          from cynexus_appl_market.market_factor_study
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and deleted_at is null
+         order by created_at desc
+         offset #{offset} limit #{limit}
+    </select>
+    <select id="findNextQueued" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudyPO">
+        select id, study_code as studyCode, tenant_id as tenantId, owner_id as ownerId
+          from cynexus_appl_market.market_factor_study
+         where status='QUEUED' and deleted_at is null
+         order by created_at asc
+         for update skip locked
+         limit 1
+    </select>
+    <update id="claim">
+        update cynexus_appl_market.market_factor_study
+           set status='RUNNING', started_at=#{startedAt}, version=version+1
+         where id=#{id} and status='QUEUED' and deleted_at is null
+    </update>
+    <update id="updateProgress">
+        update cynexus_appl_market.market_factor_study
+           set progress=cast(#{progress} as jsonb), version=version+1
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode}
+           and status='RUNNING' and deleted_at is null
+    </update>
+    <select id="findStatus" resultType="string">
+        select status from cynexus_appl_market.market_factor_study
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode} and deleted_at is null
+    </select>
+    <select id="findProgress" resultType="string">
+        select progress::text from cynexus_appl_market.market_factor_study
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode} and deleted_at is null
+    </select>
+    <select id="findInternalIdByCode" resultType="long">
+        select id from cynexus_appl_market.market_factor_study
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode} and deleted_at is null
+    </select>
+    <insert id="insertSample">
+        insert into cynexus_appl_market.market_factor_study_sample
+        (id, study_id, sample_type, stock_code, market, event_trade_date, anchor_at, event_type, matching_metadata, source, coverage)
+        values (#{id}, #{studyId}, #{sampleType}, #{stockCode}, #{market}, #{eventTradeDate}, #{anchorAt}, #{eventType},
+                cast(#{matchingMetadata} as jsonb), cast(#{source} as jsonb), cast(#{coverage} as jsonb))
+        on conflict (study_id, sample_type, stock_code, market, event_trade_date) do nothing
+    </insert>
+    <insert id="insertSamples">
+        insert into cynexus_appl_market.market_factor_study_sample
+        (id, study_id, sample_type, stock_code, market, event_trade_date, anchor_at, event_type, matching_metadata, source, coverage)
+        values
+        <foreach collection="samples" item="sample" separator=",">
+            (#{sample.id}, #{studyId}, #{sample.sampleType}, #{sample.stockCode}, #{sample.market}, #{sample.eventTradeDate},
+             #{sample.anchorAt}, #{sample.eventType}, cast(#{sample.matchingMetadata} as jsonb), cast(#{sample.source} as jsonb),
+             cast(#{sample.coverage} as jsonb))
+        </foreach>
+        on conflict (study_id, sample_type, stock_code, market, event_trade_date) do nothing
+    </insert>
+    <select id="listSamples" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudySamplePO">
+        select samples.sample_type as sampleType, samples.stock_code as stockCode, samples.market as market,
+               samples.event_trade_date as eventTradeDate, samples.anchor_at as anchorAt, samples.event_type as eventType,
+               samples.matching_metadata as matchingMetadata, samples.source as source, samples.coverage as coverage
+          from cynexus_appl_market.market_factor_study_sample samples
+          join cynexus_appl_market.market_factor_study studies on studies.id=samples.study_id
+         where studies.tenant_id=#{tenantId} and studies.owner_id=#{ownerId} and studies.study_code=#{studyCode}
+           and studies.deleted_at is null
+        <if test="sampleType != null">and samples.sample_type=#{sampleType}</if>
+         order by samples.event_trade_date asc, samples.stock_code asc
+         offset #{offset} limit #{limit}
+    </select>
+    <update id="cancel">
+        update cynexus_appl_market.market_factor_study
+           set status='CANCELLED', cancelled_at=#{cancelledAt}, completed_at=#{cancelledAt}, version=version+1
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode}
+           and status in ('QUEUED', 'RUNNING') and deleted_at is null
+    </update>
+    <update id="complete">
+        update cynexus_appl_market.market_factor_study
+           set status=#{status}, leakage_check_status=#{leakageCheckStatus}, progress=cast(#{progress} as jsonb), warnings=cast(#{warnings} as jsonb),
+               error_code=#{errorCode}, completed_at=#{completedAt}, version=version+1
+         where tenant_id=#{tenantId} and owner_id=#{ownerId} and study_code=#{studyCode}
+           and status='RUNNING' and deleted_at is null
+    </update>
+    <select id="findPreEventUniverse" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudySnapshotPO">
+        with latest_snapshot as (
+            select distinct on (snapshots.code, snapshots.market)
+                   snapshots.code, snapshots.market, snapshots.trade_date, snapshots.available_at,
+                   snapshots.amount, snapshots.source::text as source, snapshots.coverage::text as coverage,
+                   snapshots.feature_payload
+              from cynexus_appl_market.a_stock_daily_factor_snapshot snapshots
+             where snapshots.trade_date &lt; #{eventDate}
+               and snapshots.available_at &lt;= #{dataCutoffAt}
+               and snapshots.feature_version=#{featureVersion}
+             order by snapshots.code, snapshots.market, snapshots.trade_date desc
+        )
+        select snapshots.code, snapshots.market, snapshots.trade_date as featureTradeDate,
+                   snapshots.available_at as availableAt, snapshots.amount, snapshots.source,
+                   snapshots.coverage,
+                   coalesce(snapshots.feature_payload ->> 'market.state', marketPhase.phase) as marketRegime,
+                   coalesce(snapshots.feature_payload ->> 'industry.phase', industryPhase.phase) as industryRegime,
+                   coalesce((snapshots.feature_payload ->> 'stock.float_market_cap')::numeric, basics.float_market_cap) as floatMarketCap,
+                   concat_ws('|', coalesce(ths_membership.industry_name, 'UNAVAILABLE'),
+                              coalesce(tdx_membership.industry_name, 'UNAVAILABLE')) as industry,
+                   coalesce(basics.is_st, true) as st
+          from latest_snapshot snapshots
+          left join cynexus_appl_market.sec_stock_basic basics
+            on basics.code=snapshots.code and basics.market=snapshots.market and basics.is_active is true
+          left join lateral (
+              select industry_name, industry_code
+                from cynexus_appl_market.market_factor_membership_snapshot memberships
+               where memberships.code=snapshots.code and memberships.market=snapshots.market
+                 and memberships.effective_trade_date &lt; #{eventDate}
+                 and memberships.membership='ths'
+               order by memberships.effective_trade_date desc
+               limit 1
+          ) ths_membership on true
+          left join lateral (
+              select industry_name
+                from cynexus_appl_market.market_factor_membership_snapshot memberships
+               where memberships.code=snapshots.code and memberships.market=snapshots.market
+                 and memberships.effective_trade_date &lt; #{eventDate}
+                 and memberships.membership='tdx'
+               order by memberships.effective_trade_date desc
+               limit 1
+          ) tdx_membership on true
+          left join lateral (
+              select phase
+                from cynexus_appl_market.trade_review_trend_phase phases
+               where phases.trade_date=snapshots.trade_date and phases.scope='MARKET'
+               order by phases.window_days desc, phases.updated_at desc
+               limit 1
+          ) marketPhase on true
+          left join lateral (
+              select phase
+                from cynexus_appl_market.trade_review_trend_phase phases
+               where phases.trade_date=snapshots.trade_date and phases.scope='INDUSTRY'
+                 and phases.membership='ths' and phases.industry_code=ths_membership.industry_code
+               order by phases.window_days desc, phases.updated_at desc
+               limit 1
+          ) industryPhase on true
+    </select>
+    <select id="findDailyPrimitives" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudySnapshotPO">
+        select trade_date as featureTradeDate, available_at as availableAt, source::text as source, coverage::text as coverage,
+               close, (feature_payload ->> 'stock.volume')::numeric as volume,
+               (feature_payload ->> 'stock.amount')::numeric as amount,
+               (feature_payload ->> 'stock.turnover_pct')::numeric as turnoverPct,
+               (feature_payload ->> 'stock.return_1d')::numeric as return1d,
+               (feature_payload ->> 'stock.return_3d')::numeric as return3d,
+               (feature_payload ->> 'stock.return_5d')::numeric as return5d,
+               (feature_payload ->> 'stock.return_10d')::numeric as return10d,
+               (feature_payload ->> 'stock.return_20d')::numeric as return20d,
+               (feature_payload ->> 'stock.return_60d')::numeric as return60d,
+               (feature_payload ->> 'stock.return_120d')::numeric as return120d,
+               (feature_payload ->> 'stock.return_252d')::numeric as return252d,
+               (feature_payload ->> 'stock.ma5')::numeric as ma5,
+               (feature_payload ->> 'stock.ma10')::numeric as ma10,
+               (feature_payload ->> 'stock.ma20')::numeric as ma20,
+               (feature_payload ->> 'stock.ma60')::numeric as ma60,
+               (feature_payload ->> 'stock.close_vs_ma5')::numeric as closeVsMa5,
+               (feature_payload ->> 'stock.close_vs_ma10')::numeric as closeVsMa10,
+               (feature_payload ->> 'stock.close_vs_ma20')::numeric as closeVsMa20,
+               (feature_payload ->> 'stock.close_vs_ma60')::numeric as closeVsMa60,
+               (feature_payload ->> 'stock.volume_vs_ma5')::numeric as volumeVsMa5,
+               (feature_payload ->> 'stock.volume_vs_ma10')::numeric as volumeVsMa10,
+               (feature_payload ->> 'stock.volume_vs_ma20')::numeric as volumeVsMa20,
+               (feature_payload ->> 'stock.volume_vs_ma60')::numeric as volumeVsMa60
+          from cynexus_appl_market.a_stock_daily_factor_snapshot
+         where code=#{code} and market=#{market} and trade_date &lt; #{eventDate}
+           and available_at &lt;= #{dataCutoffAt} and feature_version=#{featureVersion}
+         order by trade_date desc
+         limit #{sessions}
+    </select>
+    <select id="findSampleInternalId" resultType="long">
+        select samples.id from cynexus_appl_market.market_factor_study_sample samples
+         where samples.study_id=#{studyId} and samples.sample_type=#{sampleType} and samples.stock_code=#{code}
+           and samples.market=#{market} and samples.event_trade_date=#{eventTradeDate}
+    </select>
+    <insert id="insertSequencePoint">
+        insert into cynexus_appl_market.market_factor_study_sequence_snapshot
+        (id, study_id, study_sample_id, frequency, sequence_code, offset_value, observed_at, available_at, raw_value, normalized_value, source)
+        values (#{id}, #{studyId}, #{sampleId}, #{frequency}, #{sequenceCode}, #{offsetValue}, #{observedAt}, #{availableAt},
+                #{rawValue}, #{normalizedValue}, cast(#{source} as jsonb))
+        on conflict (study_sample_id, frequency, sequence_code, offset_value) do nothing
+    </insert>
+    <insert id="insertSequencePoints">
+        insert into cynexus_appl_market.market_factor_study_sequence_snapshot
+        (id, study_id, study_sample_id, frequency, sequence_code, offset_value, observed_at, available_at, raw_value, normalized_value, source)
+        select values_row.id, #{studyId}, samples.id, values_row.frequency, values_row.sequence_code, values_row.offset_value,
+               values_row.observed_at, values_row.available_at, values_row.raw_value, values_row.normalized_value,
+               cast(values_row.source as jsonb)
+          from (values
+            <foreach collection="points" item="point" separator=",">
+                (#{point.id}, #{point.sampleType}, #{point.code}, #{point.market}, #{point.eventTradeDate}, #{point.frequency},
+                 #{point.sequenceCode}, #{point.offsetValue}, #{point.observedAt}, #{point.availableAt}, #{point.rawValue},
+                 #{point.normalizedValue}, #{point.source})
+            </foreach>
+          ) as values_row(id, sample_type, code, market, event_trade_date, frequency, sequence_code, offset_value,
+                         observed_at, available_at, raw_value, normalized_value, source)
+          join cynexus_appl_market.market_factor_study_sample samples
+            on samples.study_id=#{studyId} and samples.sample_type=values_row.sample_type
+           and samples.stock_code=values_row.code and samples.market=values_row.market
+           and samples.event_trade_date=values_row.event_trade_date
+        on conflict (study_sample_id, frequency, sequence_code, offset_value) do nothing
+    </insert>
+    <select id="listSequencePoints" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudySequencePointPO">
+        select samples.stock_code as code, samples.market, samples.event_trade_date as eventTradeDate,
+               samples.sample_type as sampleType, points.frequency, points.sequence_code as sequenceCode,
+               points.offset_value as offsetValue, points.observed_at as observedAt, points.available_at as availableAt,
+               points.raw_value as rawValue, points.normalized_value as normalizedValue, points.source
+          from cynexus_appl_market.market_factor_study_sequence_snapshot points
+          join cynexus_appl_market.market_factor_study_sample samples on samples.id=points.study_sample_id
+          join cynexus_appl_market.market_factor_study studies on studies.id=points.study_id
+         where studies.tenant_id=#{tenantId} and studies.owner_id=#{ownerId} and studies.study_code=#{studyCode}
+           and studies.deleted_at is null
+           <if test="sequenceCode != null and sequenceCode != ''">and points.sequence_code=#{sequenceCode}</if>
+         order by points.sequence_code asc, samples.sample_type asc, samples.event_trade_date desc, samples.stock_code asc, points.offset_value asc
+         offset #{offset} limit #{limit}
+    </select>
+    <insert id="insertFactorResult">
+        insert into cynexus_appl_market.market_factor_study_factor_result
+        (id, study_id, discovery_code, recipe_version, discovery_method, scope, recipe, learned_bounds, statistics, validation, evidence, verdict, rank)
+        values (#{id}, #{studyId}, #{discoveryCode}, #{recipeVersion}, #{method}, #{scope}, cast(#{recipe} as jsonb), cast(#{learnedBounds} as jsonb),
+                cast(#{statistics} as jsonb), cast(#{validation} as jsonb), cast(#{evidence} as jsonb), #{verdict}, #{rank})
+        on conflict (study_id, discovery_code, recipe_version) do update set
+          statistics=excluded.statistics, validation=excluded.validation, evidence=excluded.evidence, verdict=excluded.verdict, rank=excluded.rank
+    </insert>
+    <select id="findOutcomeSeries" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudySnapshotPO">
+        select snapshots.trade_date as featureTradeDate, snapshots.close,
+               appetite.hs300_close as benchmarkClose
+          from cynexus_appl_market.a_stock_daily_factor_snapshot snapshots
+          left join cynexus_appl_market.msi_risk_appetite_daily appetite on appetite.trade_date=snapshots.trade_date
+         where snapshots.code=#{code} and snapshots.market=#{market} and snapshots.trade_date &gt;= #{eventDate}
+           and snapshots.available_at &lt;= #{dataCutoffAt} and snapshots.feature_version=#{featureVersion}
+         order by snapshots.trade_date asc
+         limit #{sessions}
+    </select>
+    <update id="updateSampleOutcome">
+        update cynexus_appl_market.market_factor_study_sample
+           set outcome_snapshot=cast(#{outcome} as jsonb)
+         where study_id=#{studyId} and sample_type=#{sampleType} and stock_code=#{code} and market=#{market}
+           and event_trade_date=#{eventTradeDate}
+    </update>
+    <update id="updateSampleOutcomes">
+        update cynexus_appl_market.market_factor_study_sample samples
+           set outcome_snapshot=cast(values_row.outcome as jsonb)
+          from (values
+            <foreach collection="outcomes" item="outcome" separator=",">
+                (#{outcome.sampleType}, #{outcome.code}, #{outcome.market}, #{outcome.eventTradeDate}, #{outcome.outcome})
+            </foreach>
+          ) as values_row(sample_type, stock_code, market, event_trade_date, outcome)
+         where samples.study_id=#{studyId} and samples.sample_type=values_row.sample_type
+           and samples.stock_code=values_row.stock_code and samples.market=values_row.market
+           and samples.event_trade_date=values_row.event_trade_date
+    </update>
+    <select id="listFactorResults" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorStudyFactorResultPO">
+        select results.discovery_code as discoveryCode, results.recipe_version as recipeVersion,
+               results.discovery_method as method, results.scope, results.recipe, results.learned_bounds as learnedBounds,
+               results.statistics, results.validation, results.evidence, results.verdict, results.rank
+          from cynexus_appl_market.market_factor_study_factor_result results
+          join cynexus_appl_market.market_factor_study studies on studies.id=results.study_id
+         where studies.tenant_id=#{tenantId} and studies.owner_id=#{ownerId} and studies.study_code=#{studyCode}
+           and studies.deleted_at is null
+         order by results.rank asc, results.created_at asc
+         offset #{offset} limit #{limit}
+    </select>
+    <select id="listOutcomes" resultType="java.util.LinkedHashMap">
+        select samples.stock_code as "code", samples.market, samples.event_trade_date as "eventTradeDate",
+               samples.sample_type as "sampleType", samples.outcome_snapshot::text as outcomes
+          from cynexus_appl_market.market_factor_study_sample samples
+          join cynexus_appl_market.market_factor_study studies on studies.id=samples.study_id
+         where studies.tenant_id=#{tenantId} and studies.owner_id=#{ownerId} and studies.study_code=#{studyCode}
+           and studies.deleted_at is null
+         order by case when samples.sample_type='EVENT' then 0 else 1 end, samples.event_trade_date asc, samples.stock_code asc
+         offset #{offset} limit #{limit}
+    </select>
+    <update id="promoteFactor">
+        update cynexus_appl_market.market_factor_study_factor_result results
+           set verdict='PROMOTED'
+          from cynexus_appl_market.market_factor_study studies
+         where results.study_id=studies.id and studies.tenant_id=#{tenantId} and studies.owner_id=#{ownerId}
+           and studies.study_code=#{studyCode} and results.discovery_code=#{discoveryCode}
+           and results.verdict='CANDIDATE'
+    </update>
+</mapper>

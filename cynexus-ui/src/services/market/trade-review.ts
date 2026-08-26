@@ -69,6 +69,14 @@ export async function fetchTradeReviewMaterializationStatus(tradeDate: string): 
   return cynexusResult<TradeReviewMaterializationStatus>(response)
 }
 
+export async function fetchTradeReviewMaterializedDates(limit = 120): Promise<string[]> {
+  const response = await fetchWithRetry(
+    `${SERVICE_PREFIX.market}/trade-review/market-state/dates?limit=${limit}`,
+    { cache: "no-store" },
+  )
+  return cynexusResult<string[]>(response)
+}
+
 export async function triggerTradeReviewMarketStateMaterialization(tradeDate: string): Promise<LocalMinuteLoadResult> {
   const response = await fetchWithRetry(`${SERVICE_PREFIX.core}/scheduler/data-jobs/build_trade_review_market_state/trigger`, {
     method: "POST",

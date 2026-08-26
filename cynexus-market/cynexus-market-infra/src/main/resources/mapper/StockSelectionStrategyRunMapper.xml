@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.stockselection.mapper.StockSelectionStrategyRunMapper">
+    <insert id="insertRun">
+        insert into cynexus_appl_market.stock_selection_strategy_run
+        (id, tenant_id, owner_id, strategy_version_id, requested_trade_date, actual_trade_date, status,
+         parameter_snapshot, data_source, data_freshness, universe_count, candidate_count, warnings, started_at, completed_at)
+        values
+        (#{id}, #{tenantId}, #{ownerId}, #{strategyVersionId}, #{requestedTradeDate}, #{actualTradeDate}, #{status},
+         cast(#{parameterSnapshot} as jsonb), #{dataSource}, cast(#{dataFreshness} as jsonb), #{universeCount}, #{candidateCount},
+         cast(#{warnings} as jsonb), #{startedAt}, #{completedAt})
+    </insert>
+    <insert id="insertCandidate">
+        insert into cynexus_appl_market.stock_selection_strategy_candidate
+        (id, strategy_run_id, stock_code, stock_name, rank_no, score, reason_summary, snapshot)
+        values (#{id}, #{strategyRunId}, #{stockCode}, #{stockName}, #{rankNo}, #{score}, #{reasonSummary}, cast(#{snapshot} as jsonb))
+    </insert>
+    <insert id="insertEvidence">
+        insert into cynexus_appl_market.stock_selection_strategy_candidate_evidence
+        (id, strategy_candidate_id, evidence_code, label, operator, expected_value, actual_value, matched)
+        values (#{id}, #{strategyCandidateId}, #{evidenceCode}, #{label}, #{operator}, cast(#{expectedValue} as jsonb), cast(#{actualValue} as jsonb), #{matched})
+    </insert>
+    <select id="findLatestHealthInput" resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionStrategyRunPO">
+        select r.id, r.tenant_id as tenantId, r.owner_id as ownerId, r.strategy_version_id as strategyVersionId,
+               r.requested_trade_date as requestedTradeDate, r.actual_trade_date as actualTradeDate, r.status,
+               r.data_source as dataSource, r.universe_count as universeCount, r.candidate_count as candidateCount,
+               r.warnings, r.completed_at as completedAt, v.version_no as strategyVersionNo, d.strategy_code as strategyCode
+        from cynexus_appl_market.stock_selection_strategy_run r
+        join cynexus_appl_market.stock_selection_strategy_version v on v.id = r.strategy_version_id
+        join cynexus_appl_market.stock_selection_strategy_definition d on d.id = v.strategy_definition_id
+        where r.tenant_id = #{tenantId} and r.owner_id = #{ownerId} and d.strategy_code = #{strategyCode}
+          and r.deleted_at is null and r.status in ('SUCCEEDED', 'NO_DATA')
+        order by r.completed_at desc nulls last, r.created_at desc
+        limit 1
+    </select>
+</mapper>

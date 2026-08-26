@@ -38,3 +38,12 @@ export function todayLocal(): Date {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate())
 }
+
+/** 当前交易日 YYYY-MM-DD。周末回退到上周五；节假日需要交易日历，这里只处理周末. */
+export function currentTradingDayLocal(now = todayLocal()): string {
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const weekday = day.getDay()
+  if (weekday === 6) day.setDate(day.getDate() - 1)
+  if (weekday === 0) day.setDate(day.getDate() - 2)
+  return toLocalIso(day)
+}

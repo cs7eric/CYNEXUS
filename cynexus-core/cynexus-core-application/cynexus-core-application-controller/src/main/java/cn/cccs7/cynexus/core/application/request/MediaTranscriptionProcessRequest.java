@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class MediaTranscriptionProcessRequest {
 
     private String url;
+    private String text;
     private String title;
     private String platform;
     private String noteType;

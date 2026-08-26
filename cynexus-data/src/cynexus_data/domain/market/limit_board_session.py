@@ -51,7 +51,7 @@ def aggregate_limit_board_session(
     trade_session: str,
     sample_interval_seconds: int = 5,
     source: str = "eltdx.quotes",
-    algorithm_version: str = "v1",
+    algorithm_version: str = "v4",
 ) -> list[dict[str, Any]]:
     start, end = session_bounds(trade_date, trade_session)
     grouped: dict[str, list[dict[str, Any]]] = {}
@@ -80,8 +80,14 @@ def aggregate_limit_board_session(
         open_count = 0
         reseal_count = 0
         sealed_amounts: list[tuple[datetime, float]] = []
-        sealed_duration_seconds = 0
+        last_turnover_amount = _sample_turnover(last)
+        # A capture can be delayed, but a long gap is not evidence that the
+        # stock stayed sealed between two observations.
+        sealed_duration_seconds = 0.0
         gap_count = 0
+        observed_duration_seconds = 0.0
+        max_observed_gap_seconds = 0.0
+        max_trusted_gap_seconds = max(15, sample_interval_seconds * 3)
 
         for index, sample in enumerate(samples):
             captured_at = sample["captured_at"]
@@ -96,6 +102,9 @@ def aggregate_limit_board_session(
                 amount = _number_or_none(sample.get("sealed_amount"))
                 if amount is not None:
                     sealed_amounts.append((captured_at, amount))
+            sample_turnover = _sample_turnover(sample)
+            if sample_turnover is not None:
+                last_turnover_amount = sample_turnover
             if previous_sealed and not is_sealed:
                 open_count += 1
             if ever_sealed and not previous_sealed and is_sealed:
@@ -106,12 +115,21 @@ def aggregate_limit_board_session(
 
             if index + 1 < len(samples):
                 delta = (samples[index + 1]["captured_at"] - captured_at).total_seconds()
+                max_observed_gap_seconds = max(max_observed_gap_seconds, delta)
                 if delta > sample_interval_seconds * 1.5:
                     gap_count += max(1, int(round(delta / sample_interval_seconds)) - 1)
-                if is_sealed and 0 < delta <= sample_interval_seconds * 1.5:
-                    sealed_duration_seconds += int(min(delta, sample_interval_seconds))
+                # Each sample confirms one nominal observation window. Using
+                # the wall-clock delta here would count provider delays as
+                # sealed time and overstate duration.
+                if delta > 0 and delta <= max_trusted_gap_seconds:
+                    observed_duration_seconds += sample_interval_seconds
+                if is_sealed and delta > 0 and delta <= max_trusted_gap_seconds:
+                    sealed_duration_seconds += sample_interval_seconds
             elif is_sealed:
                 sealed_duration_seconds += sample_interval_seconds
+
+        if not ever_on_board:
+            continue
 
         if sealed_amounts:
             peak_time, peak_amount = max(sealed_amounts, key=lambda item: item[1])
@@ -129,6 +147,8 @@ def aggregate_limit_board_session(
             amount_slope = None
             trend_direction = "insufficient"
 
+        trend_offsets, trend_amounts = _compact_trend_series(sealed_amounts)
+
         closing_status = "sealed" if bool(last.get("is_sealed")) else "touch" if bool(last.get("is_on_board")) else "opened" if ever_on_board else "unknown"
         valid_sample_count = sum(1 for sample in samples if sample.get("captured_at") and sample.get("direction"))
         summaries.append({
@@ -144,7 +164,7 @@ def aggregate_limit_board_session(
             "first_sealed_at": first_sealed_at,
             "last_sealed_at": last_sealed_at,
             "last_observed_at": last["captured_at"],
-            "sealed_duration_seconds": sealed_duration_seconds,
+            "sealed_duration_seconds": int(round(sealed_duration_seconds)),
             "open_count": open_count,
             "reseal_count": reseal_count,
             "sample_count": len(samples),
@@ -157,29 +177,58 @@ def aggregate_limit_board_session(
             "peak_sealed_amount_at": peak_amount_at,
             "first_sealed_amount": first_amount,
             "last_sealed_amount": last_amount,
+            "last_turnover_amount": last_turnover_amount,
+            "last_sealed_turnover_ratio": _turnover_ratio(last_amount, last_turnover_amount),
+            "max_sealed_turnover_ratio": _turnover_ratio(peak_amount, last_turnover_amount),
             "sealed_amount_change": amount_change,
             "sealed_amount_slope": amount_slope,
             "trend_direction": trend_direction,
+            "trend_series_origin_at": sealed_amounts[0][0] if sealed_amounts else None,
+            "trend_time_offsets": trend_offsets,
+            "trend_sealed_amounts": trend_amounts,
             "source": source,
             "algorithm_version": algorithm_version,
             "trend_features": {
                 "sample_interval_seconds": sample_interval_seconds,
                 "expected_samples": expected_samples,
-                "sealed_amount_points": _trend_points(sealed_amounts),
+                "observed_interval_count": max(0, len(samples) - 1),
+                "observed_duration_seconds": int(round(observed_duration_seconds)),
+                "max_observed_gap_seconds": int(round(max_observed_gap_seconds)),
+                "duration_is_partial": gap_count > 0,
+                "quality_status": "partial" if gap_count > 0 else "observed",
+                "duration_basis": "nominal_sample_windows",
+                "trend_series_format": "offset_seconds_amount_yuan_v1",
+                "trend_series_point_count": len(trend_offsets),
             },
         })
     return summaries
 
 
-def _trend_points(points: list[tuple[datetime, float]], maximum: int = 120) -> list[list[float]]:
+def _compact_trend_series(points: list[tuple[datetime, float]], maximum: int = 120) -> tuple[list[int], list[int]]:
+    """Encode chart data as paired compact PG arrays rather than JSON points.
+
+    The offset fits in a smallint for a single A-share session and each amount
+    is rounded to yuan for display; that keeps one 120-point trend around a
+    kilobyte while retaining the shape required by the UI chart.
+    """
     if not points:
-        return []
-    stride = max(1, ceil(len(points) / maximum))
+        return [], []
+    if maximum <= 1:
+        selected = [points[-1]]
+    elif len(points) <= maximum:
+        selected = list(points)
+    else:
+        stride = max(1, ceil(len(points) / maximum))
+        selected = list(points[::stride])
+        if selected[-1] != points[-1]:
+            selected.append(points[-1])
+        if len(selected) > maximum:
+            selected = selected[: maximum - 1] + [points[-1]]
     origin = points[0][0]
-    selected = points[::stride]
-    if selected[-1] != points[-1]:
-        selected.append(points[-1])
-    return [[round((timestamp - origin).total_seconds(), 3), round(amount, 6)] for timestamp, amount in selected]
+    return (
+        [max(0, int(round((timestamp - origin).total_seconds()))) for timestamp, _ in selected],
+        [int(round(amount)) for _, amount in selected],
+    )
 
 
 def _slope(points: list[tuple[datetime, float]]) -> float | None:
@@ -192,6 +241,19 @@ def _slope(points: list[tuple[datetime, float]]) -> float | None:
     y_mean = mean(ys)
     denominator = sum((x - x_mean) ** 2 for x in xs)
     return None if denominator == 0 else sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys)) / denominator
+
+
+def _sample_turnover(sample: dict[str, Any] | None) -> float | None:
+    if not sample:
+        return None
+    turnover = _number_or_none(sample.get("turnover_amount"))
+    return turnover if turnover is not None else _number_or_none(sample.get("amount"))
+
+
+def _turnover_ratio(sealed: float | None, turnover: float | None) -> float | None:
+    if sealed is None or turnover is None or turnover <= 0:
+        return None
+    return sealed / turnover
 
 
 def _trend_direction(first: float, last: float) -> str:

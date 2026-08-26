@@ -11,6 +11,7 @@ import cn.cccs7.cynexus.market.api.request.PortfolioCandidateEditRequest;
 import cn.cccs7.cynexus.market.application.service.PortfolioImportAppService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,6 +51,13 @@ public class PortfolioImportController {
     @GetMapping("/{taskId}")
     public Result<PortfolioImportTaskDTO> get(@PathVariable long taskId) {
         return Result.success(service.get(taskId));
+    }
+
+    @GetMapping("/{taskId}/image")
+    public ResponseEntity<byte[]> image(@PathVariable long taskId) {
+        var image = service.image(taskId);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
+                .contentLength(image.content().length).body(image.content());
     }
 
     @PostMapping("/{taskId}/retry")

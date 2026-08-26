@@ -35,6 +35,7 @@ import java.net.ProxySelector;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -102,19 +103,20 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
             throw new IllegalStateException("Missing API key for provider: " + providerCode());
         }
 
+        Duration requestTimeout = resolveRequestTimeout(model);
         try {
             boolean responsesApi = "responses".equalsIgnoreCase(extraString(model, "wire_api"));
             boolean jsonOutput = shouldRequestJsonOutput(model, prompt);
             String payload = responsesApi ? buildResponsesPayload(model, prompt, jsonOutput) : buildChatPayload(model, prompt, jsonOutput);
             HttpRequest request = HttpRequest.newBuilder(resolveEndpoint(model, responsesApi))
-                    .timeout(resolveRequestTimeout(model))
+                    .timeout(requestTimeout)
                     .header("Authorization", "Bearer " + apiKey)
                     .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("AI provider returned " + response.statusCode() + ": " + response.body());
+                throw providerHttpFailure(response.statusCode(), response.body());
             }
             String responseBody = response.body();
             String content = responsesApi ? extractResponsesContent(responseBody) : extractChatContent(responseBody);
@@ -127,7 +129,11 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
                     .totalTokens(extractTotalTokens(responseBody, prompt, content))
                     .rawResponse(responseBody)
                     .build();
+        } catch (HttpTimeoutException exception) {
+            logProviderFailure("completion", model, exception);
+            throw providerTimeoutFailure(model, requestTimeout, exception);
         } catch (IOException e) {
+            logProviderFailure("completion", model, e);
             throw new IllegalStateException("Failed to call AI provider: " + providerCode(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -1223,7 +1229,7 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         return URI.create(allowedBase.toString() + path);
     }
 
-    private Duration resolveRequestTimeout(AiModelBO model) {
+    Duration resolveRequestTimeout(AiModelBO model) {
         int seconds = extraInt(model, "request_timeout_seconds", (int) DEFAULT_REQUEST_TIMEOUT.toSeconds());
         return Duration.ofSeconds(Math.max(10, Math.min(seconds, 600)));
     }
@@ -1583,6 +1589,12 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         String detail = safeProviderErrorDetail(responseBody);
         LOGGER.warn("AI provider {} returned HTTP {} with safe detail: {}", providerCode(), statusCode, detail);
         return new ProviderHttpException(statusCode, detail);
+    }
+
+    private IllegalStateException providerTimeoutFailure(AiModelBO model, Duration requestTimeout,
+                                                         HttpTimeoutException exception) {
+        return new IllegalStateException("AI provider request timed out after " + requestTimeout.toSeconds()
+                + " seconds (provider: " + providerCode() + ", model: " + resolveModelName(model) + ")", exception);
     }
 
     private String safeProviderErrorDetail(String responseBody) {

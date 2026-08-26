@@ -54,6 +54,18 @@ class OpenAiCompatibleChatAdapterAgentTest {
     }
 
     @Test
+    void resolvesCapabilityScopedCompletionTimeoutFromModelRuntimeOptions() throws Exception {
+        server = server(new AtomicReference<>(), "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+
+        assertThat(adapter().resolveRequestTimeout(model("{\"request_timeout_seconds\":180}")))
+                .isEqualTo(java.time.Duration.ofSeconds(180));
+        assertThat(adapter().resolveRequestTimeout(model("{\"request_timeout_seconds\":5}")))
+                .isEqualTo(java.time.Duration.ofSeconds(10));
+        assertThat(adapter().resolveRequestTimeout(model("{\"request_timeout_seconds\":700}")))
+                .isEqualTo(java.time.Duration.ofSeconds(600));
+    }
+
+    @Test
     void configuresHttpProxyWithHttp11ForProviderTlsCompatibility() {
         Environment environment = mock(Environment.class);
         when(environment.getProperty("HTTPS_PROXY")).thenReturn("http://proxy.example:7890");

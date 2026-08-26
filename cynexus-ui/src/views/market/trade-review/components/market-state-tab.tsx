@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Activity, ChevronDown, ChevronUp, Layers3, RefreshCw, TrendingDown, TrendingUp } from "lucide-react"
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   fetchTradeReviewMarketState,
@@ -9,7 +16,7 @@ import {
   type MarketIndicatorIndustry,
   type MarketIndicatorReplayTimelineResponse,
 } from "@/services/market/indicator"
-import { type LimitEmotionPayload, type LimitEmotionStock } from "@/services/market/pulse"
+import { fetchMarketPulseLimitEmotion, type LimitEmotionPayload, type LimitEmotionStock } from "@/services/market/pulse"
 import { fetchEasyTdxTimeshare, type EasyTdxRow } from "@/services/market/easy-tdx"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +30,7 @@ type Props = {
   dailyWindowDays: number
   onDailyWindowDaysChange: (days: number) => void
   onStartMinuteReplay?: (tradeDate: string) => void
+  onSelectStock?: (stock: LimitEmotionStock) => void
   realEventCount?: number
   timeline?: MarketIndicatorReplayTimelineResponse | null
 }
@@ -44,6 +52,17 @@ type MarketStateRequest = {
   windowDays: number
   timestamp: number
   sessionKey: string
+}
+
+type IndustryLadderLevel = {
+  height: number
+  count: number
+  stocks: LimitEmotionStock[]
+}
+
+type IndustryLadderDetail = {
+  industry: MarketIndicatorIndustry
+  ladder: IndustryLadderLevel[]
 }
 
 function numberValue(value: unknown): number | null {
@@ -125,6 +144,11 @@ function pct(value: number | null | undefined, digits = 1) {
   return `${value.toFixed(digits)}%`
 }
 
+function percentageValue(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return null
+  return Math.abs(value) <= 1 ? value * 100 : value
+}
+
 function ladderCounts(value: unknown) {
   const levels = jsonArray(value)
   const total = levels.reduce((sum, level) => sum + (recordNumber(level, "count", "count") ?? 0), 0)
@@ -137,6 +161,136 @@ function ladderSummary(value: unknown) {
     .sort((left, right) => (recordNumber(right, "height", "height") ?? 0) - (recordNumber(left, "height", "height") ?? 0))
     .map((level) => `${recordNumber(level, "height", "height") ?? 0}板×${recordNumber(level, "count", "count") ?? 0}`)
     .join(" · ")
+}
+
+function industryLadderDetail(
+  industry: MarketIndicatorIndustry,
+  pools: Array<Record<string, unknown>>,
+): IndustryLadderDetail {
+  const industryRow = industry as unknown as Record<string, unknown>
+  const poolRows = pools.flatMap((pool) => {
+    const poolType = String(pool.poolType ?? pool.pool_type ?? "")
+    return poolType === "ladder" || poolType === "limit_up" || poolType === "sealed"
+      ? jsonArray(pool.stocks)
+      : []
+  })
+  const stocksByHeight = new Map<number, LimitEmotionStock[]>()
+  const seenCodes = new Set<string>()
+  poolRows.forEach((stock) => {
+    const height = recordNumber(stock, "height", "height") ?? 0
+    const code = String(stock.code ?? "")
+    if (height <= 0 || !code || seenCodes.has(code)) return
+    seenCodes.add(code)
+    const mapped = {
+      code,
+      name: String(stock.name ?? code),
+      changePct: recordNumber(stock, "changePct", "change_pct"),
+      height,
+      industry: String(stock.industry ?? stock.industry_name ?? industry.industryName),
+    } as LimitEmotionStock
+    stocksByHeight.set(height, [...(stocksByHeight.get(height) ?? []), mapped])
+  })
+  const sourceLevels = jsonArray(industryRow.ladder)
+  const heights = new Set([
+    ...sourceLevels.map((level) => recordNumber(level, "height", "height") ?? 0),
+    ...stocksByHeight.keys(),
+  ])
+  const ladder = [...heights]
+    .filter((height) => height > 0)
+    .sort((left, right) => right - left)
+    .map((height) => {
+      const source = sourceLevels.find((level) => (recordNumber(level, "height", "height") ?? 0) === height)
+      const stocks = stocksByHeight.get(height) ?? []
+      return {
+        height,
+        count: recordNumber(source, "count", "count") ?? stocks.length,
+        stocks,
+      }
+    })
+  return { industry, ladder }
+}
+
+function IndustryLadderDialog({
+  open,
+  onOpenChange,
+  detail,
+  loading,
+  error,
+  timeshares,
+  timeshareLoading,
+  currentTimestamp,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  detail: IndustryLadderDetail | null
+  loading: boolean
+  error: string | null
+  timeshares: Record<string, MiniPoint[]>
+  timeshareLoading: Record<string, boolean>
+  currentTimestamp: number
+}) {
+  const limitUpLadder = detail?.ladder ?? []
+  const renderLadder = (levels: IndustryLadderLevel[], emptyText: string) => (
+    <div className="space-y-1.5">
+      {levels.map((level) => (
+        <div key={level.height} className="grid grid-cols-[48px_minmax(0,1fr)] items-stretch gap-2">
+          <div className={cn("flex flex-col justify-center border-l-2 pl-1.5", level.height >= 2 ? "border-rose-500" : "border-muted-foreground/30")}>
+            <span className={cn("font-mono text-sm font-semibold tabular-nums", level.height >= 2 ? "text-rose-600" : "text-foreground")}>{level.height}板</span>
+            <span className="mt-0.5 font-mono text-[10px] text-muted-foreground">{level.count}只</span>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-2 xl:grid-cols-2">
+            {level.stocks.map((stock) => (
+              <div key={stock.code} className="grid min-w-0 grid-cols-[minmax(0,140px)_minmax(0,1fr)] gap-3 bg-muted/35 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center justify-between gap-1">
+                    <span className="truncate text-[13px] font-medium">{stock.name}</span>
+                    <span className={cn("shrink-0 font-mono text-xs tabular-nums", (stock.changePct ?? 0) >= 0 ? "text-rose-600" : "text-emerald-600")}>{signed(stock.changePct)}</span>
+                  </div>
+                  <div className="mt-1 flex min-w-0 items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                    <span className="truncate">{(stock as LadderStock).industry ?? "未分类"}</span>
+                    <span className="shrink-0 font-mono">{stock.code}</span>
+                  </div>
+                  <div className="mt-1 font-mono text-[11px] text-rose-600">{level.height}板</div>
+                </div>
+                <div className="min-w-0">
+                  {timeshareLoading[stock.code]
+                    ? <Skeleton className="h-16 w-full" />
+                    : <MiniTimeshare points={timeshares[stock.code] ?? []} name={stock.name} currentTimestamp={currentTimestamp} />}
+                </div>
+              </div>
+            ))}
+            {!level.stocks.length ? <span className="col-span-full self-center text-[11px] text-muted-foreground">仅有梯度计数，暂无标的明细</span> : null}
+          </div>
+        </div>
+      ))}
+      {!levels.length ? <div className="py-5 text-center text-xs text-muted-foreground">{emptyText}</div> : null}
+    </div>
+  )
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[94vh] w-[min(1400px,calc(100%-1rem))] max-w-[1400px] !max-w-[1400px] overflow-y-auto p-0 sm:w-[min(1400px,calc(100%-2rem))] sm:max-w-[1400px]">
+        <DialogHeader className="border-b border-border/60 px-7 py-5 pr-16">
+          <DialogTitle className="text-lg">{detail?.industry.industryName ?? "行业涨停梯度"}</DialogTitle>
+          <DialogDescription className="text-sm">该行业的涨停梯度与股票分时</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-7 p-7">
+          {loading ? (
+            <div className="space-y-2"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
+          ) : error ? (
+            <div className="py-5 text-center text-xs text-muted-foreground">{error}</div>
+          ) : detail ? (
+            <>
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-base font-semibold">涨停梯度</h3><span className="font-mono text-sm text-muted-foreground">{limitUpLadder.reduce((sum, level) => sum + level.count, 0)}只</span></div>
+                {renderLadder(limitUpLadder, "暂无涨停梯度")}
+              </section>
+            </>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 function Card({ children, className }: { children: ReactNode; className?: string }) {
@@ -233,6 +387,7 @@ export function MarketStateTab({
   dailyWindowDays,
   onDailyWindowDaysChange,
   onStartMinuteReplay,
+  onSelectStock,
   realEventCount = 0,
   timeline,
 }: Props) {
@@ -247,9 +402,15 @@ export function MarketStateTab({
   const [minute, setMinute] = useState<MinuteSnapshot | null>(null)
   const [timeshare, setTimeshare] = useState<Record<string, MiniPoint[]>>({})
   const [timeshareLoading, setTimeshareLoading] = useState<Record<string, boolean>>({})
+  const timeshareRequestedRef = useRef(new Set<string>())
   const [history, setHistory] = useState<Array<Record<string, unknown>>>([])
   const [phase, setPhase] = useState<Record<string, unknown> | null>(null)
   const [expandedFirstBoardScope, setExpandedFirstBoardScope] = useState<string | null>(null)
+  const [industryDialogOpen, setIndustryDialogOpen] = useState(false)
+  const [selectedIndustry, setSelectedIndustry] = useState<MarketIndicatorIndustry | null>(null)
+  const [industryDialogDetail, setIndustryDialogDetail] = useState<IndustryLadderDetail | null>(null)
+  const [industryDialogLoading, setIndustryDialogLoading] = useState(false)
+  const [industryDialogError, setIndustryDialogError] = useState<string | null>(null)
   const [industryLimitPulse, setIndustryLimitPulse] = useState<Record<string, "up" | "down">>({})
   const industryLimitCountsRef = useRef({ scope: "", counts: new Map<string, number>() })
   const industryPulseTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
@@ -257,6 +418,7 @@ export function MarketStateTab({
   const marketStateInFlightRef = useRef(false)
   const pendingMarketStateRequestRef = useRef<MarketStateRequest | null>(null)
   const latestMarketStateRequestRef = useRef<MarketStateRequest | null>(null)
+  const industryDialogRequestRef = useRef(0)
 
   const cursorDate = dateFromTimestamp(currentTimestamp, tradeDate)
   const asOf = isoAsOf(currentTimestamp, tradeDate)
@@ -297,7 +459,7 @@ export function MarketStateTab({
       // Cursor movement is a refresh, not a new page load. Preserve the
       // prior snapshot so replay does not flash a skeleton every minute.
       setError(null)
-      fetchTradeReviewMarketState({
+      const marketStateRequest = fetchTradeReviewMarketState({
       tradeDate: nextRequest.cursorDate,
       mode: nextRequest.mode as "intraday" | "daily",
       asOf: nextRequest.mode === "intraday" ? nextRequest.asOf : undefined,
@@ -306,7 +468,11 @@ export function MarketStateTab({
       // the selected industry's scoped pools.
       industryCode: undefined,
       windowDays: nextRequest.windowDays,
-    }).then((state) => {
+      })
+      const dailyEmotionRequest = nextRequest.mode === "daily"
+        ? fetchMarketPulseLimitEmotion(nextRequest.cursorDate).catch(() => null)
+        : Promise.resolve<LimitEmotionPayload | null>(null)
+      Promise.all([marketStateRequest, dailyEmotionRequest]).then(([state, dailyEmotion]) => {
       const latestRequest = latestMarketStateRequestRef.current
       if (!marketStateMountedRef.current || !latestRequest || latestRequest.sessionKey !== nextRequest.sessionKey) return
       // Never paint a snapshot from after a cursor that was dragged back.
@@ -327,13 +493,26 @@ export function MarketStateTab({
       }))
       const pools = new Map((state.pools ?? []).map((pool) => [String(pool.poolType ?? pool.pool_type), jsonArray(pool.stocks)]))
       const ladderPool = pools.get("ladder") ?? pools.get("limit_up") ?? []
+      // The day-level materialized pool deliberately keeps only market-state
+      // fields. Its companion end-of-day emotion payload still carries the
+      // stock-to-industry mapping, so merge that metadata by code instead of
+      // rendering an otherwise known stock as "未分类".
+      const dailyIndustryByCode = new Map<string, string>()
+      dailyEmotion?.streak?.distribution.forEach((level) => {
+        level.stocks.forEach((stock) => {
+          const industry = stock.industry?.trim()
+          if (stock.code && industry) dailyIndustryByCode.set(stock.code, industry)
+        })
+      })
       const stocksByHeight = new Map<number, LimitEmotionStock[]>()
       ladderPool.forEach((stock) => {
         const height = recordNumber(stock, "height", "height") ?? 0
+        const code = String(stock.code ?? "")
+        const materializedIndustry = String(stock.industry ?? stock.industry_name ?? "").trim()
         const row = {
-          code: String(stock.code ?? ""), name: String(stock.name ?? stock.code ?? "-"),
+          code, name: String(stock.name ?? stock.code ?? "-"),
           changePct: recordNumber(stock, "changePct", "change_pct"), height,
-          industry: String(stock.industry ?? stock.industry_name ?? "未分类"),
+          industry: materializedIndustry || dailyIndustryByCode.get(code) || "未分类",
           firstLimitUpAt: String(stock.firstSealAt ?? stock.first_seal_at ?? "") || undefined,
         } as LimitEmotionStock
         if (row.code) stocksByHeight.set(height, [...(stocksByHeight.get(height) ?? []), row])
@@ -351,11 +530,16 @@ export function MarketStateTab({
       const brokenStocks = (pools.get("broken") ?? []).map((stock) => ({
         code: String(stock.code ?? ""), name: String(stock.name ?? stock.code ?? "-"), changePct: recordNumber(stock, "changePct", "change_pct"),
       } as LimitEmotionStock))
+      const promotionRate = recordNumber(market, "promotionRate", "promotion_rate")
+        ?? percentageValue(dailyEmotion?.streak?.promotion?.overallRate)
+      const promotionLevels = dailyEmotion?.streak?.promotion?.levels ?? []
       const nextEmotion = {
         limitUp: { count: mappedBreadth.limitUpCount ?? 0, stocks: limitUpStocks },
         limitDown: { count: mappedBreadth.limitDownCount ?? 0, stocks: limitDownStocks },
         breakBoard: { touchedCount: mappedBreadth.limitUpTouchCount ?? 0, brokenCount: recordNumber(market, "brokenLimitUpCount", "broken_limit_up_count") ?? 0, rate: recordNumber(market, "breakRate", "break_rate"), brokenStocks },
-        streak: { maxHeight: recordNumber(market, "maxHeight", "max_height") ?? 0, distribution: ladderWithStocks, promotion: { overallRate: recordNumber(market, "promotionRate", "promotion_rate"), levels: [] }, broken: { count: brokenStocks.length, highStreakBrokenCount: 0, stocks: brokenStocks }, sentiment: { level: state.trend?.phase ?? "normal", text: String(state.trend?.phase ?? "-" ) } },
+        streak: { maxHeight: recordNumber(market, "maxHeight", "max_height") ?? 0, distribution: ladderWithStocks, promotion: { overallRate: promotionRate, levels: promotionLevels }, broken: { count: brokenStocks.length, highStreakBrokenCount: 0, stocks: brokenStocks }, sentiment: { level: state.trend?.phase ?? "normal", text: String(state.trend?.phase ?? "-" ) } },
+        promotedCount: recordNumber(market, "promotedCount", "promoted_count"),
+        medianChangePct: recordNumber(market, "medianChangePct", "median_change_pct") ?? dailyEmotion?.medianChangePct ?? null,
       } as unknown as LimitEmotionPayload
       setEmotion(nextEmotion)
       setMarketBreadth(mappedBreadth)
@@ -434,6 +618,11 @@ export function MarketStateTab({
     ),
     [emotion],
   )
+  const hasAboveThreeBoard = useMemo(
+    () => (emotion?.streak?.distribution ?? []).some((row) => row.streak >= 3),
+    [emotion],
+  )
+  const firstBoardLimit = hasAboveThreeBoard ? 12 : 18
 
   useEffect(() => {
     let cancelled = false
@@ -469,13 +658,27 @@ export function MarketStateTab({
   const breakRate = mode === "intraday"
     ? (touched && broken != null ? broken / touched * 100 : null)
     : (emotion?.breakBoard?.rate ?? (touched && broken != null ? broken / touched * 100 : null))
-  const promoted = mode === "intraday"
-    ? (minute?.events.filter((event) => /new|first|sealed|limit_up_sealed/i.test(event.eventType)).length || null)
-    : (emotion?.streak?.promotion?.levels.reduce((sum, row) => sum + row.todayPromotedCount, 0) ?? null)
-  const promotionRate = mode === "intraday" ? null : (emotion?.streak?.promotion?.overallRate ?? null)
-  const minuteChanges = minute?.events.map((event) => event.changePct).filter((value): value is number => value != null && Number.isFinite(value)).sort((a, b) => a - b) ?? []
-  const minuteMedian = minuteChanges.length ? minuteChanges[Math.floor(minuteChanges.length / 2)] : null
-  const median = mode === "intraday" ? minuteMedian : (emotion?.medianChangePct ?? null)
+  const promotionLevels = emotion?.streak?.promotion?.levels ?? []
+  const promoted = emotion?.promotedCount
+    ?? (promotionLevels.length
+      ? promotionLevels.reduce((sum, row) => sum + row.todayPromotedCount, 0)
+      : mode === "intraday"
+        ? (minute?.events.filter((event) => /new|first|sealed|limit_up_sealed/i.test(event.eventType)).length || null)
+        : null)
+  const promotionRate = emotion?.streak?.promotion?.overallRate ?? null
+  const minuteChanges = (mode === "daily"
+    ? (emotion?.limitUp?.stocks ?? []).map((stock) => stock.changePct)
+    : (minute?.events ?? []).map((event) => event.changePct)
+  ).filter((value): value is number => value != null && Number.isFinite(value)).sort((a, b) => a - b)
+  const middle = Math.floor(minuteChanges.length / 2)
+  const minuteMedian = !minuteChanges.length
+    ? null
+    : minuteChanges.length % 2
+      ? minuteChanges[middle]
+      : (minuteChanges[middle - 1] + minuteChanges[middle]) / 2
+  const median = mode === "intraday"
+    ? (minuteMedian ?? emotion?.medianChangePct ?? null)
+    : (emotion?.medianChangePct ?? null)
   const marketIndustries = mode === "intraday" && minute?.industries.length ? minute.industries : industries
   const industryPool = useMemo(() => {
     const unique = new Map<string, MarketIndicatorIndustry>()
@@ -493,6 +696,69 @@ export function MarketStateTab({
       })
       .slice(0, 12)
   }, [marketIndustries])
+
+  const openIndustryLadder = (item: MarketIndicatorIndustry) => {
+    const requestId = industryDialogRequestRef.current + 1
+    industryDialogRequestRef.current = requestId
+    setSelectedIndustry(item)
+    setIndustryDialogDetail(industryLadderDetail(item, []))
+    setIndustryDialogError(null)
+    setIndustryDialogLoading(true)
+    setIndustryDialogOpen(true)
+    void fetchTradeReviewMarketState({
+      tradeDate: cursorDate,
+      mode: mode as "intraday" | "daily",
+      asOf: mode === "intraday" ? asOf : undefined,
+      membership: "union",
+      industryCode: item.industryCode ?? undefined,
+      windowDays: dailyWindowDays,
+    }).then((state) => {
+      if (industryDialogRequestRef.current !== requestId) return
+      const rawIndustry = state.industries?.[0]
+      const resolvedIndustry = rawIndustry
+        ? { ...item, industryName: String(rawIndustry.industryName ?? rawIndustry.industry_name ?? item.industryName), ladder: rawIndustry.ladder }
+        : item
+      setSelectedIndustry(resolvedIndustry)
+      setIndustryDialogDetail(industryLadderDetail(resolvedIndustry, state.pools ?? []))
+    }).catch((cause) => {
+      if (industryDialogRequestRef.current !== requestId) return
+      setIndustryDialogError(cause instanceof Error ? cause.message : "加载行业梯度失败")
+    }).finally(() => {
+      if (industryDialogRequestRef.current === requestId) setIndustryDialogLoading(false)
+    })
+  }
+
+  const industryDialogStocks = useMemo<LadderStock[]>(() => {
+    const stocks = industryDialogDetail?.ladder.flatMap((level) => level.stocks.map((stock) => ({
+      ...stock,
+      height: level.height,
+      industry: stock.industry ?? industryDialogDetail.industry.industryName,
+    }))) ?? []
+    return stocks.sort((left, right) => (right.height - left.height) || ((right.changePct ?? 0) - (left.changePct ?? 0)))
+  }, [industryDialogDetail])
+
+  useEffect(() => {
+    if (!industryDialogOpen) return
+    let cancelled = false
+    const targets = [...new Map(industryDialogStocks.map((stock) => [stock.code, stock])).values()]
+      .filter((stock) => !timeshareRequestedRef.current.has(`${cursorDate}:${stock.code}`) && !timeshare[stock.code] && !timeshareLoading[stock.code])
+    targets.forEach((stock) => {
+      const requestKey = `${cursorDate}:${stock.code}`
+      timeshareRequestedRef.current.add(requestKey)
+      setTimeshareLoading((current) => ({ ...current, [stock.code]: true }))
+      void fetchEasyTdxTimeshare({ code: stock.code, tradeDate: cursorDate })
+        .then((response) => {
+          if (!cancelled) setTimeshare((current) => ({ ...current, [stock.code]: parseTimeshare(response.items, null, cursorDate) }))
+        })
+        .catch(() => {
+          if (!cancelled) setTimeshare((current) => ({ ...current, [stock.code]: [] }))
+        })
+        .finally(() => {
+          if (!cancelled) setTimeshareLoading((current) => ({ ...current, [stock.code]: false }))
+        })
+    })
+    return () => { cancelled = true }
+  }, [cursorDate, industryDialogOpen, industryDialogStocks, timeshare, timeshareLoading])
 
   if (mode === "aggregate") {
     return <div className="flex min-h-40 items-center justify-center rounded-lg bg-muted/25 px-5 text-center text-xs text-muted-foreground">周K、月K仅展示价格与聚合摘要；市场情绪池请切换至日K逐日回放。</div>
@@ -532,20 +798,20 @@ export function MarketStateTab({
               {(emotion?.streak?.distribution ?? []).map((row) => {
                 const stocks = row.stocks ?? []
                 const isFirstBoard = row.streak === 1
-                const hiddenCount = Math.max(0, stocks.length - 18)
-                const visibleStocks = isFirstBoard && !firstBoardExpanded ? stocks.slice(0, 18) : stocks
+                const hiddenCount = Math.max(0, stocks.length - firstBoardLimit)
+                const visibleStocks = isFirstBoard && (!firstBoardExpanded || hasAboveThreeBoard) ? stocks.slice(0, firstBoardLimit) : stocks
                 return (
-                  <div key={row.streak} className="grid grid-cols-[52px_minmax(0,1fr)] items-stretch gap-2">
-                    <div className={cn("flex flex-col justify-center border-l-2 pl-2", row.streak >= 2 ? "border-rose-500" : "border-muted-foreground/30")}>
-                      <span className={cn("font-mono text-sm font-semibold tabular-nums", row.streak >= 2 ? "text-rose-600" : "text-foreground")}>{row.streak}板</span>
+                  <div key={row.streak} className="grid grid-cols-[44px_minmax(0,1fr)] items-stretch gap-1.5">
+                    <div className={cn("flex flex-col justify-center border-l-2 pl-1.5", row.streak >= 2 ? "border-rose-500" : "border-muted-foreground/30")}>
+                      <span className={cn("font-mono text-[13px] font-semibold tabular-nums", row.streak >= 2 ? "text-rose-600" : "text-foreground")}>{row.streak}板</span>
                       <span className="mt-0.5 font-mono text-[9px] text-muted-foreground">{row.count || stocks.length || 0}只</span>
                     </div>
                     <div className="min-w-0">
-                      <div className="grid grid-cols-[repeat(auto-fit,minmax(148px,1fr))] gap-1.5">
-                        {visibleStocks.map((stock) => <div key={stock.code} className="min-w-0 bg-background/80 px-2 py-1.5"><div className="flex min-w-0 items-center justify-between gap-2"><span className="truncate text-[11px] font-medium">{stock.name}</span><span className={cn("shrink-0 font-mono text-[10px] tabular-nums", (stock.changePct ?? 0) >= 0 ? "text-rose-600" : "text-emerald-600")}>{signed(stock.changePct)}</span></div><div className="mt-1 flex min-w-0 items-center justify-between gap-1 text-[9px] text-muted-foreground"><span className="truncate">{(stock as LadderStock).industry ?? "未分类"}</span><span className="shrink-0 font-mono">{stock.code}</span></div></div>)}
+                      <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+                        {visibleStocks.map((stock) => <button key={stock.code} type="button" onClick={() => onSelectStock?.(stock)} className="min-w-0 bg-background/80 px-1.5 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={`切换至 ${stock.name || stock.code} 复盘`} aria-label={`切换至 ${stock.name || stock.code} 复盘`}><div className="flex min-w-0 items-center justify-between gap-1"><span className="truncate text-[12px] font-medium">{stock.name}</span><span className={cn("shrink-0 font-mono text-[11px] tabular-nums", (stock.changePct ?? 0) >= 0 ? "text-rose-600" : "text-emerald-600")}>{signed(stock.changePct)}</span></div><div className="mt-0.5 flex min-w-0 items-center justify-between gap-1 text-[10px] text-muted-foreground"><span className="truncate">{(stock as LadderStock).industry ?? "未分类"}</span><span className="shrink-0 font-mono">{stock.code}</span></div></button>)}
                         {!stocks.length ? <span className="text-[10px] text-muted-foreground">暂无标的</span> : null}
                       </div>
-                      {isFirstBoard && hiddenCount > 0 ? <button type="button" className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setExpandedFirstBoardScope((current) => current === firstBoardScope ? null : firstBoardScope)}>{firstBoardExpanded ? <><ChevronUp className="size-3" />收起首板</> : <><ChevronDown className="size-3" />展开剩余 {hiddenCount} 只</>}</button> : null}
+                      {isFirstBoard && !hasAboveThreeBoard && hiddenCount > 0 ? <button type="button" className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setExpandedFirstBoardScope((current) => current === firstBoardScope ? null : firstBoardScope)}>{firstBoardExpanded ? <><ChevronUp className="size-3" />收起首板</> : <><ChevronDown className="size-3" />展开剩余 {hiddenCount} 只</>}</button> : null}
                     </div>
                   </div>
                 )
@@ -564,7 +830,7 @@ export function MarketStateTab({
                 const firstBoard = Math.max(0, total - continuing)
                 const summary = ladderSummary(row.ladder)
                 const pulse = item.industryCode ? industryLimitPulse[item.industryCode] : undefined
-                return <article key={`${item.industryCode}-${item.industryName}`} className={cn("min-w-0 rounded-md bg-background/75 px-2 py-1.5 transition-colors hover:bg-muted/55", pulse === "up" && "trade-review-industry-limit-up", pulse === "down" && "trade-review-industry-limit-down")}>
+                return <button key={`${item.industryCode}-${item.industryName}`} type="button" onClick={() => openIndustryLadder(item)} className={cn("min-w-0 rounded-md bg-background/75 px-2 py-1.5 text-left transition-colors hover:bg-muted/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", pulse === "up" && "trade-review-industry-limit-up", pulse === "down" && "trade-review-industry-limit-down")} aria-label={`查看${item.industryName}涨停梯度`}>
                   <div className="flex min-w-0 items-center gap-1.5 border-l-2 border-rose-500/70 pl-1.5">
                     <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">{item.industryName}</span>
                     <span className="shrink-0 rounded-sm bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-rose-600" title={summary}>{summary || "暂无梯度"}</span>
@@ -574,7 +840,7 @@ export function MarketStateTab({
                     <div className="flex items-baseline justify-between border-x border-border/60 px-1.5"><span className="text-muted-foreground">连板</span><strong className={cn("text-[12px]", continuing > 0 ? "text-rose-600" : "text-muted-foreground")}>{continuing}</strong></div>
                     <div className="flex items-baseline justify-between pl-1.5"><span className="text-muted-foreground">首板</span><strong className="text-[12px] text-foreground">{firstBoard}</strong></div>
                   </div>
-                </article>
+                </button>
               })}
               {!industryPool.length ? <div className="py-4 text-center text-xs text-muted-foreground">暂无新晋板行业池</div> : null}
             </div>
@@ -625,6 +891,16 @@ export function MarketStateTab({
           </Card>
         </>
       )}
+      <IndustryLadderDialog
+        open={industryDialogOpen}
+        onOpenChange={setIndustryDialogOpen}
+        detail={industryDialogDetail ?? (selectedIndustry ? industryLadderDetail(selectedIndustry, []) : null)}
+        loading={industryDialogLoading}
+        error={industryDialogError}
+        timeshares={timeshare}
+        timeshareLoading={timeshareLoading}
+        currentTimestamp={mode === "intraday" ? currentTimestamp : 0}
+      />
     </div>
   )
 }

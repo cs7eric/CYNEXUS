@@ -55,6 +55,7 @@ const PersonalPortfolioImportReviewPage = lazy(() => import("../views/market/per
 const PersonalPortfolioReviewEditorPage = lazy(() => import("../views/market/personal-portfolio/review-editor"))
 const PersonalPortfolioStockDetailPage = lazy(() => import("../views/market/personal-portfolio/stock-detail"))
 const TradeReviewPage = lazy(() => import("../views/market/trade-review"))
+const CynexusScreenerPage = lazy(() => import("../views/cynexus-screener"))
 
 const RouteLoading = () => (
   <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
@@ -210,6 +211,10 @@ export const router = createBrowserRouter([
       {
         path: "trade-review",
         element: pageElement(TradeReviewPage),
+      },
+      {
+        path: "cynexus-screener",
+        element: pageElement(CynexusScreenerPage),
       },
       {
         path: "information",

@@ -9,6 +9,7 @@ from cynexus_data.storage.clickhouse.writers import (
     ClickHouseDailyKlineSink,
     ClickHouseIntradayDetailSink,
     ClickHouseKlineSink,
+    ClickHouseTradeReviewTimeshareSink,
 )
 
 
@@ -528,3 +529,20 @@ def test_kline_writer_skips_impossible_delete_range() -> None:
     )
 
     assert client.command_calls == []
+
+
+def test_trade_review_timeshare_delete_chunks_large_target_pool() -> None:
+    client = FakeClickHouseClient([])
+    sink = ClickHouseTradeReviewTimeshareSink.__new__(ClickHouseTradeReviewTimeshareSink)
+    sink.table = "ch_ods_trade_review_timeshare_1m"
+    sink.client = client
+    targets = [
+        {"target_type": "STOCK", "market": "SH", "symbol": f"{index:06d}"}
+        for index in range(1_001)
+    ]
+
+    sink.delete_targets(date(2026, 8, 13), targets)
+
+    assert len(client.command_calls) == 3
+    assert [len(call["parameters"]) for call in client.command_calls] == [2_000, 2_000, 4]
+    assert all(len(call["sql"]) < 262_144 for call in client.command_calls)

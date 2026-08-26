@@ -29,7 +29,10 @@ BEGIN
                    'quote_retry_attempts', 2, 'quote_retry_backoff_seconds', 0.25,
                    'quote_request_spacing_seconds', 0.02, 'quote_fallback_batch_size', 80,
                    'timeout', 8, 'rapid_change_pct', 1.0, 'max_gap_minutes', 5,
-                   'signal_window_seconds', 5
+                   'signal_window_seconds', 5,
+                   'publish_limit_board_discoveries', true,
+                   'limit_board_redis_prefix', 'cynexus:market-indicator:limit-board:v1',
+                   'limit_board_redis_ttl_seconds', 43200
                )
            ),
            updated_at = now(),

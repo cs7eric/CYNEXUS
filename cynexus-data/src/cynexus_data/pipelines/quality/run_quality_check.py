@@ -8,9 +8,11 @@ from cynexus_data.storage.clickhouse.readers import (
     count_invalid_ohlcv_rows,
     count_kline_rows,
     count_scaled_duplicate_daily_keys,
+    count_stock_screening_fact_source_rows,
     sample_daily_rows_for_source_validation,
 )
 from cynexus_data.sources.provider_fallback import fetch_daily_kline_with_fallback
+from cynexus_data.storage.postgres.stock_screening_fact import StockScreeningFactRepository
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
@@ -101,6 +103,31 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
         )
         result["rows_read"] += sample_result["sampled_rows"]
         result["check_results"].append(sample_result)
+    if "screening_fact_coverage" in checks:
+        if start_date is None or end_date is None:
+            raise ValueError("screening_fact_coverage requires trade_date or start_date/end_date")
+        postgres = context.hooks.postgres.get_client()
+        source_rows = count_stock_screening_fact_source_rows(
+            client,
+            start_date=start_date,
+            end_date=end_date,
+            table=daily_table,
+        )
+        materialized_rows = StockScreeningFactRepository(postgres).count_rows(
+            start_date=start_date,
+            end_date=end_date,
+        )
+        coverage_pct = round(materialized_rows * 100 / source_rows, 2) if source_rows else 0.0
+        result["check_results"].append(
+            {
+                "check": "screening_fact_coverage",
+                "ok": source_rows > 0 and materialized_rows == source_rows,
+                "source_daily_rows": source_rows,
+                "materialized_daily_rows": materialized_rows,
+                "coverage_pct": coverage_pct,
+                "source": StockScreeningFactRepository.SOURCE,
+            }
+        )
     return result
 
 

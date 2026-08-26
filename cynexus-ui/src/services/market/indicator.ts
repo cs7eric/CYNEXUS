@@ -165,12 +165,29 @@ export interface LimitBoardSessionSummary {
   peak_sealed_amount_at?: string | null
   first_sealed_amount?: number | null
   last_sealed_amount?: number | null
+  last_turnover_amount?: number | null
+  last_sealed_turnover_ratio?: number | null
+  max_sealed_turnover_ratio?: number | null
   sealed_amount_change?: number | null
   sealed_amount_slope?: number | null
   trend_direction?: "increasing" | "decreasing" | "flat" | "insufficient" | string | null
+  trend_series_origin_at?: string | null
+  trend_time_offsets?: string | number[] | null
+  trend_sealed_amounts?: string | number[] | null
   source?: string | null
   algorithm_version?: string | null
-  trend_features?: string | Record<string, unknown> | null
+  trend_features?: string | LimitBoardTrendFeatures | Record<string, unknown> | null
+}
+
+export interface LimitBoardTrendFeatures {
+  sample_interval_seconds?: number
+  expected_samples?: number
+  observed_interval_count?: number
+  observed_duration_seconds?: number
+  max_observed_gap_seconds?: number
+  duration_is_partial?: boolean
+  quality_status?: "observed" | "partial" | string
+  sealed_amount_points?: Array<[number, number]>
 }
 
 export interface LimitBoardSessionSummaryResponse {

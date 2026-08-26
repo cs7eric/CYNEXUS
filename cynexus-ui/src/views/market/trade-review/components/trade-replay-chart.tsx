@@ -54,6 +54,7 @@ interface TradeReplayChartProps {
     bars: StockKlineBar[];
     color: string;
     mode?: "absolute" | "relative";
+    directional?: boolean;
     /** Visual hint used to distinguish the context lines at a glance. */
     lineType?: "solid" | "dashed" | "dotted";
     lineWidth?: number;
@@ -114,7 +115,7 @@ function playedCandles(
   return values.map((value, index) => (index <= cursor ? value : "-"));
 }
 
-function stableRange(values: Array<number | null>, minAtZero = false) {
+function stableRange(values: Array<number | null>, minAtZero = false, paddingRatio = 0.08) {
   const usable = values.filter(
     (value): value is number => value != null && Number.isFinite(value),
   );
@@ -122,7 +123,7 @@ function stableRange(values: Array<number | null>, minAtZero = false) {
   const low = minAtZero ? 0 : Math.min(...usable);
   const high = Math.max(...usable);
   const span = Math.max(high - low, Math.abs(high) * 0.01, 0.01);
-  return { min: minAtZero ? 0 : low - span * 0.08, max: high + span * 0.08 };
+  return { min: minAtZero ? 0 : low - span * paddingRatio, max: high + span * paddingRatio };
 }
 
 /** Keep the y-axis tied to the visible values instead of a fixed/symmetric domain. */
@@ -538,10 +539,66 @@ export function TradeReplayChart({
           type:
             overlay.lineType ??
             (overlay.mode === "absolute" ? "dashed" : "solid"),
-          color: overlay.color,
+          color: overlay.directional ? "rgba(0, 0, 0, 0)" : overlay.color,
         },
-        itemStyle: { color: overlay.color },
+        itemStyle: { color: overlay.directional ? "rgba(0, 0, 0, 0)" : overlay.color },
+        ...(overlay.directional ? { tooltip: { show: true } } : {}),
       };
+    });
+    const directionalOverlaySeries = overlays.flatMap((overlay) => {
+      if (!overlay.directional) return [];
+      const values = played(overlayValues(overlay, categories, period), cursor);
+      const baseline = overlay.mode === "absolute"
+        ? overlay.bars.find((bar) => Number.isFinite(bar.open) && bar.open > 0)?.open
+          ?? values.find((value): value is number => value != null && Number.isFinite(value))
+          ?? 0
+        : 0;
+      const maxAbsDelta = Math.max(
+        ...values
+          .filter((value): value is number => value != null && Number.isFinite(value))
+          .map((value) => Math.abs(value - baseline)),
+        0.01,
+      );
+      const segments = buildSignedSegments(
+        values.map((value) => value == null ? null : value - baseline),
+        maxAbsDelta,
+      );
+      const segmentData = (segment: SignedSegment) => ({
+        value: [
+          segment.values[0],
+          segment.values[1] + baseline,
+          segment.values[2],
+          segment.values[3] + baseline,
+          segment.startIntensity,
+          segment.endIntensity,
+        ],
+      });
+      return [
+        {
+          name: `${overlay.name} 上涨区域`,
+          type: "custom" as const,
+          xAxisIndex: 1,
+          yAxisIndex: overlay.mode === "absolute" ? 3 : 2,
+          coordinateSystem: "cartesian2d" as const,
+          clip: true,
+          renderItem: renderSignedSlice("up", baseline),
+          data: segments.up.map(segmentData),
+          tooltip: { show: false },
+          z: 4,
+        },
+        {
+          name: `${overlay.name} 下跌区域`,
+          type: "custom" as const,
+          xAxisIndex: 1,
+          yAxisIndex: overlay.mode === "absolute" ? 3 : 2,
+          coordinateSystem: "cartesian2d" as const,
+          clip: true,
+          renderItem: renderSignedSlice("down", baseline),
+          data: segments.down.map(segmentData),
+          tooltip: { show: false },
+          z: 5,
+        },
+      ];
     });
     const relativeOverlayValues = overlays
       .filter((overlay) => overlay.mode !== "absolute")
@@ -618,7 +675,10 @@ export function TradeReplayChart({
           true,
         ),
         relative: stableRange(visibleRelativeOverlayValues),
-        absolute: stableRange(visibleAbsoluteOverlayValues),
+        // Keep the index price axis tight to its actual values. The default
+        // padding is useful for candles, but made the right-hand index ticks
+        // look unrelated to the plotted Shanghai index line.
+        absolute: stableRange(visibleAbsoluteOverlayValues, false, 0.02),
       };
     };
     const visibleRanges = rangesForZoom(zoomStart, zoomEnd);
@@ -627,8 +687,8 @@ export function TradeReplayChart({
     // The price and context panes share one time index but are displayed
     // side-by-side. Volume remains a compact band inside the price pane.
     const volumeAxisMax = Math.max(visibleRanges.volume.max / 0.22, 1);
-    const renderSignedSlice = (side: "up" | "down") =>
-      (_params: unknown, api: SignedSliceRenderApi) => {
+    function renderSignedSlice(side: "up" | "down", baseline = 0) {
+      return (_params: unknown, api: SignedSliceRenderApi) => {
         const x1 = Number(api.value(0));
         const y1 = Number(api.value(1));
         const x2 = Number(api.value(2));
@@ -637,8 +697,8 @@ export function TradeReplayChart({
         const endIntensity = clamp(Number(api.value(5)) || 0, 0, 1);
         const start = api.coord([x1, y1]);
         const end = api.coord([x2, y2]);
-        const baseStart = api.coord([x1, 0]);
-        const baseEnd = api.coord([x2, 0]);
+        const baseStart = api.coord([x1, baseline]);
+        const baseEnd = api.coord([x2, baseline]);
         const isUp = side === "up";
         const color = isUp ? "220, 38, 38" : "22, 163, 74";
         const lineColor = isUp ? "220, 23, 23" : "5, 148, 71";
@@ -690,6 +750,7 @@ export function TradeReplayChart({
           ],
         };
       };
+    }
     const option: EChartsOption = {
       animation: false,
       backgroundColor: "transparent",
@@ -751,6 +812,7 @@ export function TradeReplayChart({
           const rows = Array.isArray(items)
             ? (items as Array<{
                 axisValueLabel?: string;
+                dataIndex?: number;
                 seriesName?: string;
                 value?: unknown;
                 data?: { detail?: string | null };
@@ -774,6 +836,26 @@ export function TradeReplayChart({
                 return `${row.seriesName}: ${formatTooltipValue(row.seriesName, displayValue, relativeMode)}`;
               },
             );
+          const barIndex = typeof first?.dataIndex === "number" ? first.dataIndex : -1;
+          const currentBar = period === "1d" ? bars[barIndex] : null;
+          const previousClose =
+            barIndex > 0
+              ? bars[barIndex - 1]?.close
+              : bars.length === 1
+                ? preClose
+                : null;
+          const changePct =
+            currentBar && previousClose != null && previousClose > 0
+              ? ((currentBar.close - previousClose) / previousClose) * 100
+              : null;
+          if (changePct != null && Number.isFinite(changePct)) {
+            const color = changePct > 0 ? "#dc2626" : changePct < 0 ? "#16a34a" : "#252525";
+            lines.splice(
+              Math.min(1, lines.length),
+              0,
+              `<span style='color:${color}'>涨幅: ${changePct > 0 ? "+" : ""}${changePct.toFixed(2)}%</span>`,
+            );
+          }
           const note = rows.find((row) => row.data?.detail)?.data?.detail;
           return `<b>${first?.axisValueLabel ?? ""}</b><br/>${lines.join("<br/>")}${note ? `<br/><span style='color:#666'>${note}</span>` : ""}`;
         },
@@ -1089,6 +1171,7 @@ export function TradeReplayChart({
           z: 1,
         },
         ...overlaySeries,
+        ...directionalOverlaySeries,
       ] as EChartsOption["series"],
     };
     const handleDataZoom = (rawParams: unknown) => {

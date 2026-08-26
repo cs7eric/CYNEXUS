@@ -19,6 +19,40 @@ _RAW_INDEX_TDX_CODE_BY_CODE = {
 }
 
 
+def read_event_minute_bars(
+    client: ClickHouseClient,
+    *,
+    code: str,
+    trade_date: date,
+    start_at: datetime,
+    end_at: datetime,
+    table: str = DEFAULT_KLINE_TABLE,
+) -> list[dict[str, Any]]:
+    """Read a bounded, single-session 1m sequence for a research event."""
+    if end_at < start_at:
+        raise ValueError("end_at must not be before start_at")
+    rows = client.query_rows(
+        f"""
+        SELECT trade_time, open, high, low, close, volume, amount
+          FROM {_safe_table_name(table)} FINAL
+         WHERE symbol = %(code)s
+           AND trade_date = %(trade_date)s
+           AND period = 1
+           AND trade_time BETWEEN %(start_at)s AND %(end_at)s
+         ORDER BY trade_time ASC
+        """,
+        {"code": code, "trade_date": trade_date, "start_at": start_at, "end_at": end_at},
+    )
+    return [
+        {
+            "minute_at": row[0], "open": _float_or_none(row[1]), "high": _float_or_none(row[2]),
+            "low": _float_or_none(row[3]), "close": _float_or_none(row[4]),
+            "volume": _float_or_none(row[5]), "amount": _float_or_none(row[6]),
+        }
+        for row in rows
+    ]
+
+
 def read_daily_kline(
     client: ClickHouseClient,
     code: str,
@@ -147,6 +181,166 @@ def get_latest_table_trade_date(client: ClickHouseClient, table: str = "daily_ra
     if value is None:
         return None
     return value.date() if hasattr(value, "date") and not isinstance(value, date) else value
+
+
+def read_stock_screening_fact_rows(
+    client: ClickHouseClient,
+    *,
+    start_date: date | str,
+    end_date: date | str,
+    table: str = "daily_raw",
+) -> list[dict[str, Any]]:
+    """Read the A-share daily projection used to materialize Screener facts.
+
+    The aggregation intentionally matches the serving Screener's raw-daily
+    semantics: one maximum-value bar per market/symbol/trading date and a
+    prior close from the immediately preceding available trading row.  This
+    reader is a bounded storage read; it never fetches a market-data provider.
+    """
+    start = _to_date(start_date)
+    end = _to_date(end_date)
+    if start > end:
+        raise ValueError("start_date must not be after end_date")
+    sql = f"""
+        WITH daily AS
+        (
+            SELECT
+                market,
+                symbol,
+                trade_date,
+                max(open) AS open_price,
+                max(high) AS high_price,
+                min(low) AS low_price,
+                max(close) AS close_price,
+                max(volume) AS volume,
+                max(amount) AS amount
+            FROM {_safe_table_name(table)}
+            WHERE market IN ('SH', 'SZ', 'BJ')
+              AND length(symbol) = 6
+              AND (
+                    (market = 'SH' AND startsWith(symbol, '600'))
+                 OR (market = 'SH' AND startsWith(symbol, '601'))
+                 OR (market = 'SH' AND startsWith(symbol, '603'))
+                 OR (market = 'SH' AND startsWith(symbol, '605'))
+                 OR (market = 'SH' AND startsWith(symbol, '688'))
+                 OR (market = 'SH' AND startsWith(symbol, '689'))
+                 OR (market = 'SZ' AND startsWith(symbol, '000'))
+                 OR (market = 'SZ' AND startsWith(symbol, '001'))
+                 OR (market = 'SZ' AND startsWith(symbol, '002'))
+                 OR (market = 'SZ' AND startsWith(symbol, '003'))
+                 OR (market = 'SZ' AND startsWith(symbol, '300'))
+                 OR (market = 'SZ' AND startsWith(symbol, '301'))
+                 OR (market = 'BJ' AND (startsWith(symbol, '4') OR startsWith(symbol, '8') OR startsWith(symbol, '9')))
+              )
+              AND trade_date <= %(end_date)s
+              AND trade_date >= %(history_start_date)s
+            GROUP BY market, symbol, trade_date
+        ), with_previous AS
+        (
+            SELECT
+                market,
+                symbol,
+                trade_date,
+                open_price,
+                high_price,
+                low_price,
+                close_price,
+                volume,
+                amount,
+                lagInFrame(toNullable(close_price), 1, NULL)
+                    OVER (PARTITION BY market, symbol ORDER BY trade_date
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS prev_close
+            FROM daily
+        )
+        SELECT
+            market, symbol, trade_date, open_price, high_price, low_price,
+            close_price, prev_close, volume, amount,
+            if(prev_close = 0 OR isNull(prev_close), NULL,
+               (close_price - prev_close) * 100 / prev_close) AS change_pct,
+            if(prev_close = 0 OR isNull(prev_close), NULL,
+               (high_price - low_price) * 100 / prev_close) AS amplitude_pct
+        FROM with_previous
+        WHERE trade_date >= %(history_start_date)s
+        ORDER BY trade_date ASC, market ASC, symbol ASC
+    """
+    history_start = start - timedelta(days=400)
+    rows = client.query_rows(sql, {"start_date": start, "end_date": end, "history_start_date": history_start})
+    result: list[dict[str, Any]] = []
+    history: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        item = {
+            "market": str(row[0]),
+            "code": str(row[1]),
+            "trade_date": row[2].isoformat() if hasattr(row[2], "isoformat") else str(row[2]),
+            "open_price": _float_or_none(row[3]),
+            "high_price": _float_or_none(row[4]),
+            "low_price": _float_or_none(row[5]),
+            "close_price": _float_or_none(row[6]),
+            "prev_close": _float_or_none(row[7]),
+            "volume": _float_or_none(row[8]),
+            "amount": _float_or_none(row[9]),
+            "change_pct": _float_or_none(row[10]),
+            "amplitude_pct": _float_or_none(row[11]),
+        }
+        key = (item["market"], item["code"])
+        previous = history.setdefault(key, [])
+        closes = [value["close_price"] for value in previous if value["close_price"] is not None]
+        volumes = [value["volume"] for value in previous if value["volume"] is not None]
+        for window in (3, 5, 10, 20, 60, 120, 252):
+            item[f"return_{window}d"] = ((item["close_price"] / closes[-window] - 1) * 100
+                                          if item["close_price"] is not None and len(closes) >= window and closes[-window] else None)
+        for window in (5, 10, 20, 60):
+            item[f"ma{window}"] = (sum(closes[-(window - 1):] + [item["close_price"]]) / window
+                                    if item["close_price"] is not None and len(closes) >= window - 1 else None)
+            item[f"volume_vs_ma{window}"] = (item["volume"] / (sum(volumes[-(window - 1):]) / (window - 1))
+                                              if item["volume"] is not None and len(volumes) >= window - 1 and sum(volumes[-(window - 1):]) else None)
+        if item["trade_date"] >= start.isoformat():
+            result.append(item)
+        previous.append(item)
+    return result
+
+
+def count_stock_screening_fact_source_rows(
+    client: ClickHouseClient,
+    *,
+    start_date: date | str,
+    end_date: date | str,
+    table: str = "daily_raw",
+) -> int:
+    """Count the deduplicated A-share source rows expected in the projection."""
+    start = _to_date(start_date)
+    end = _to_date(end_date)
+    if start > end:
+        raise ValueError("start_date must not be after end_date")
+    sql = f"""
+        SELECT count()
+        FROM
+        (
+            SELECT market, symbol, trade_date
+            FROM {_safe_table_name(table)}
+            WHERE market IN ('SH', 'SZ', 'BJ')
+              AND length(symbol) = 6
+              AND (
+                    (market = 'SH' AND startsWith(symbol, '600'))
+                 OR (market = 'SH' AND startsWith(symbol, '601'))
+                 OR (market = 'SH' AND startsWith(symbol, '603'))
+                 OR (market = 'SH' AND startsWith(symbol, '605'))
+                 OR (market = 'SH' AND startsWith(symbol, '688'))
+                 OR (market = 'SH' AND startsWith(symbol, '689'))
+                 OR (market = 'SZ' AND startsWith(symbol, '000'))
+                 OR (market = 'SZ' AND startsWith(symbol, '001'))
+                 OR (market = 'SZ' AND startsWith(symbol, '002'))
+                 OR (market = 'SZ' AND startsWith(symbol, '003'))
+                 OR (market = 'SZ' AND startsWith(symbol, '300'))
+                 OR (market = 'SZ' AND startsWith(symbol, '301'))
+                 OR (market = 'BJ' AND (startsWith(symbol, '4') OR startsWith(symbol, '8') OR startsWith(symbol, '9')))
+              )
+              AND trade_date BETWEEN %(start_date)s AND %(end_date)s
+            GROUP BY market, symbol, trade_date
+        )
+    """
+    row = client.query_one(sql, {"start_date": start, "end_date": end})
+    return int(row[0]) if row else 0
 
 
 def get_latest_effective_kline_trade_date(
@@ -424,52 +618,45 @@ def read_turnover_activity_rows(client: ClickHouseClient, trade_date: date | str
 
 
 def read_market_overview_fact_row(client: ClickHouseClient, trade_date: date | str, table: str = "daily_qfq") -> dict[str, Any] | None:
+    target_date = _to_date(trade_date)
+    previous_date = get_previous_table_trade_date(client, target_date, table)
+    if previous_date is None:
+        return None
     sql = f"""
         SELECT trade_date,
-               sum(amount) / 100000000.0 AS total_amount,
-               sum(volume) AS total_volume,
+               sum(current_amount) / 100000000.0 AS total_amount,
+               sum(current_volume) AS total_volume,
                count() AS stock_count,
-               sum(close > pre_close) AS rising_count,
-               sum(close < pre_close) AS falling_count,
-               sum(close = pre_close) AS flat_count,
-               sum(change_pct >= 9.5) AS limit_up_count,
-               sum(change_pct <= -9.5) AS limit_down_count
+               sum(current_close > previous_close) AS rising_count,
+               sum(current_close < previous_close) AS falling_count,
+               sum(current_close = previous_close) AS flat_count,
+               sum((current_close - previous_close) / previous_close * 100 >= 9.5) AS limit_up_count,
+               sum((current_close - previous_close) / previous_close * 100 <= -9.5) AS limit_down_count
           FROM (
-            SELECT code,
-                   trade_date,
-                   close_price AS close,
-                   amount_value AS amount,
-                   volume_value AS volume,
-                   pre_close,
-                   CASE WHEN pre_close > 0 THEN (close_price - pre_close) / pre_close * 100 ELSE NULL END AS change_pct
+            SELECT current.code,
+                   current.trade_date,
+                   current.close_price AS current_close,
+                   current.amount_value AS current_amount,
+                   current.volume_value AS current_volume,
+                   previous.close_price AS previous_close
               FROM (
-                SELECT code,
-                       trade_date,
-                       close_price,
-                       amount_value,
-                       volume_value,
-                       lagInFrame(close_price, 1) OVER (
-                           PARTITION BY code
-                           ORDER BY trade_date
-                           ROWS BETWEEN 1 PRECEDING AND CURRENT ROW
-                       ) AS pre_close
-                  FROM (
-                    SELECT code,
-                           trade_date,
-                           max(close) AS close_price,
-                           max(amount) AS amount_value,
-                           argMax(volume, close) AS volume_value
-                      FROM {_safe_table_name(table)}
-                     WHERE trade_date <= %(trade_date)s
-                     GROUP BY code, trade_date
-                  )
-              )
-             WHERE trade_date = %(trade_date)s
-               AND pre_close > 0
+                SELECT code, trade_date, max(close) AS close_price,
+                       max(amount) AS amount_value, argMax(volume, close) AS volume_value
+                  FROM {_safe_table_name(table)}
+                 WHERE trade_date = %(trade_date)s
+                 GROUP BY code, trade_date
+              ) AS current
+              INNER JOIN (
+                SELECT code, max(close) AS close_price
+                  FROM {_safe_table_name(table)}
+                 WHERE trade_date = %(previous_trade_date)s
+                 GROUP BY code
+              ) AS previous ON current.code = previous.code
+             WHERE previous.close_price > 0
           )
          GROUP BY trade_date
     """
-    row = client.query_one(sql, {"trade_date": _to_date(trade_date)})
+    row = client.query_one(sql, {"trade_date": target_date, "previous_trade_date": previous_date})
     if not row:
         return None
     return {
@@ -529,24 +716,35 @@ def read_daily_change_pct_by_codes(
 
 
 def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw") -> list[dict[str, Any]]:
+    target_date = _to_date(trade_date)
+    previous_date = get_previous_table_trade_date(client, target_date, table)
+    if previous_date is None:
+        return []
     sql = f"""
-        SELECT code, open, high, low, close, pre_close,
-               CASE WHEN pre_close > 0 THEN (close - pre_close) / pre_close * 100 ELSE NULL END AS change_pct,
-               CASE WHEN pre_close > 0 AND close >= pre_close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_limit_up,
-               CASE WHEN pre_close > 0 AND close <= pre_close * (1 - threshold) * 1.0001 THEN 1 ELSE 0 END AS is_limit_down,
-               CASE WHEN pre_close > 0 AND high >= pre_close * (1 + threshold) * 0.9995 THEN 1 ELSE 0 END AS is_touched,
-               CASE WHEN pre_close > 0 AND high >= pre_close * (1 + threshold) * 0.9995
-                         AND close < pre_close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_broken
+        SELECT current.code, current.open, current.high, current.low, current.close, previous.close AS pre_close,
+               CASE WHEN previous.close > 0 THEN (current.close - previous.close) / previous.close * 100 ELSE NULL END AS change_pct,
+               CASE WHEN previous.close > 0 AND current.close >= previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_limit_up,
+               CASE WHEN previous.close > 0 AND current.close <= previous.close * (1 - threshold) * 1.0001 THEN 1 ELSE 0 END AS is_limit_down,
+               CASE WHEN previous.close > 0 AND current.high >= previous.close * (1 + threshold) * 0.9995 THEN 1 ELSE 0 END AS is_touched,
+               CASE WHEN previous.close > 0 AND current.high >= previous.close * (1 + threshold) * 0.9995
+                         AND current.close < previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_broken
           FROM (
-            SELECT code, trade_date, open, high, low, close,
-                   lagInFrame(close, 1) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS pre_close,
+            SELECT code, argMax(open, close) AS open, argMax(high, close) AS high,
+                   argMax(low, close) AS low, max(close) AS close,
                    multiIf(startsWith(code, '300') OR startsWith(code, '301') OR startsWith(code, '688'), 0.20,
                            startsWith(code, '8') OR startsWith(code, '4') OR startsWith(code, '9'), 0.30,
                            0.10) AS threshold
               FROM {_safe_table_name(table)}
-             WHERE trade_date <= %(trade_date)s
-          )
-         WHERE trade_date = %(trade_date)s
+             WHERE trade_date = %(trade_date)s
+             GROUP BY code
+          ) AS current
+          INNER JOIN (
+            SELECT code, max(close) AS close
+              FROM {_safe_table_name(table)}
+             WHERE trade_date = %(previous_trade_date)s
+             GROUP BY code
+          ) AS previous ON current.code = previous.code
+         WHERE previous.close > 0
     """
     return [
         {
@@ -562,38 +760,33 @@ def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date 
             "isTouchedLimitUp": bool(row[9]),
             "isBrokenLimitUp": bool(row[10]),
         }
-        for row in client.query_rows(sql, {"trade_date": trade_date})
+        for row in client.query_rows(sql, {"trade_date": target_date, "previous_trade_date": previous_date})
     ]
 
 
 def read_limit_emotion_ohlcv_rows(client: ClickHouseClient, trade_date: date | str, table: str = "daily_raw") -> list[dict[str, Any]]:
+    target_date = _to_date(trade_date)
+    previous_date = get_previous_table_trade_date(client, target_date, table)
+    if previous_date is None:
+        return []
     sql = f"""
-        SELECT market, code, tdx_code, trade_date, open, high, low, close, pre_close
+        SELECT current.market, current.code, current.tdx_code, current.trade_date,
+               current.open, current.high, current.low, current.close, previous.close AS pre_close
           FROM (
-              SELECT market, code, tdx_code, trade_date, open, high, low, close_price AS close,
-                     lagInFrame(close_price, 1) OVER (PARTITION BY tdx_code ORDER BY trade_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS pre_close
-                FROM (
-                    SELECT market,
-                           code,
-                           tdx_code,
-                           trade_date,
-                           raw_open AS open,
-                           raw_high AS high,
-                           raw_low AS low,
-                           raw_close AS close_price
-                      FROM (
-                        SELECT market, code, tdx_code, trade_date,
-                               argMax(open, close) AS raw_open,
-                               argMax(high, close) AS raw_high,
-                               argMax(low, close) AS raw_low,
-                               max(close) AS raw_close
-                           FROM {_safe_table_name(table)}
-                          WHERE trade_date <= %(trade_date)s
-                          GROUP BY market, code, tdx_code, trade_date
-                       )
-                )
-            )
-         WHERE trade_date = %(trade_date)s
+            SELECT market, code, tdx_code, trade_date,
+                   argMax(open, close) AS open, argMax(high, close) AS high,
+                   argMax(low, close) AS low, max(close) AS close
+              FROM {_safe_table_name(table)}
+             WHERE trade_date = %(trade_date)s
+             GROUP BY market, code, tdx_code, trade_date
+          ) AS current
+          INNER JOIN (
+            SELECT tdx_code, max(close) AS close
+              FROM {_safe_table_name(table)}
+             WHERE trade_date = %(previous_trade_date)s
+             GROUP BY tdx_code
+          ) AS previous ON current.tdx_code = previous.tdx_code
+         WHERE previous.close > 0
     """
     return [
         {
@@ -607,7 +800,7 @@ def read_limit_emotion_ohlcv_rows(client: ClickHouseClient, trade_date: date | s
             "close": _float_or_none(row[7]),
             "preClose": _float_or_none(row[8]),
         }
-        for row in client.query_rows(sql, {"trade_date": trade_date})
+        for row in client.query_rows(sql, {"trade_date": target_date, "previous_trade_date": previous_date})
     ]
 
 

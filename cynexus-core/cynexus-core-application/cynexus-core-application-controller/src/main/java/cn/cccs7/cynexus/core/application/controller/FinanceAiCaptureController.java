@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.core.api.dto.finance.FinanceAiCapturePageDTO;
 import cn.cccs7.cynexus.core.application.request.finance.FinanceAiCaptureConfirmRequest;
 import cn.cccs7.cynexus.core.application.service.FinanceAiCaptureAppService;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +39,13 @@ public class FinanceAiCaptureController {
 
     @GetMapping("/{id}")
     public Result<FinanceAiCaptureDTO> get(@PathVariable Long id) { return Result.success(service.get(id)); }
+
+    @GetMapping("/{id}/images/{imageIndex}")
+    public ResponseEntity<byte[]> image(@PathVariable Long id, @PathVariable int imageIndex) {
+        var image = service.image(id, imageIndex);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
+                .contentLength(image.content().length).body(image.content());
+    }
 
     @GetMapping
     public Result<FinanceAiCapturePageDTO> history(

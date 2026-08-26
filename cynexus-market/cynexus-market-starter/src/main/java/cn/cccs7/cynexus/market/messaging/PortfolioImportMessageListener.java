@@ -11,6 +11,7 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportProcessHistoryRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportFailureDecision;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportFailurePolicy;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioImportAutoReviewDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeVisionGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,13 +34,15 @@ public class PortfolioImportMessageListener {
     private final PortfolioTradeVisionGateway visionGateway;
     private final RabbitTemplate rabbitTemplate;
     private final PortfolioImportProcessHistoryRepository historyRepository;
+    private final PortfolioImportAutoReviewDomainService autoReviewService;
 
     public PortfolioImportMessageListener(ObjectMapper objectMapper, PortfolioImportTaskRepository taskRepository,
                                           PortfolioImportAssetStorePort assetStore,
                                           PortfolioImportProcessingDomainService processingService,
                                           PortfolioTradeVisionGateway visionGateway,
                                           RabbitTemplate rabbitTemplate,
-                                          PortfolioImportProcessHistoryRepository historyRepository) {
+                                          PortfolioImportProcessHistoryRepository historyRepository,
+                                          PortfolioImportAutoReviewDomainService autoReviewService) {
         this.objectMapper = objectMapper;
         this.taskRepository = taskRepository;
         this.assetStore = assetStore;
@@ -47,6 +50,7 @@ public class PortfolioImportMessageListener {
         this.visionGateway = visionGateway;
         this.rabbitTemplate = rabbitTemplate;
         this.historyRepository = historyRepository;
+        this.autoReviewService = autoReviewService;
     }
 
     @RabbitListener(queues = PortfolioRabbitTopologyConfiguration.PARSE_QUEUE,
@@ -84,6 +88,24 @@ public class PortfolioImportMessageListener {
                     PortfolioImportStatus.READY_FOR_REVIEW.name(), message);
             append(task, PortfolioImportProcessEventType.TASK_READY_FOR_REVIEW, PortfolioImportStatus.PROCESSING.name(),
                     PortfolioImportStatus.READY_FOR_REVIEW.name(), message);
+            append(task, PortfolioImportProcessEventType.AI_REVIEW_STARTED, PortfolioImportStatus.READY_FOR_REVIEW.name(),
+                    PortfolioImportStatus.READY_FOR_REVIEW.name(), message);
+            try {
+                String review = visionGateway.review(asset, result);
+                boolean confirmed = autoReviewService.confirmIfApproved(task, review, "ai-vision-review",
+                        OffsetDateTime.now(), java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")));
+                if (confirmed) {
+                    append(task, PortfolioImportProcessEventType.TASK_CONFIRMED,
+                            PortfolioImportStatus.READY_FOR_REVIEW.name(), PortfolioImportStatus.CONFIRMED.name(), message);
+                }
+                append(task, confirmed ? PortfolioImportProcessEventType.AI_REVIEW_SUCCEEDED
+                                : PortfolioImportProcessEventType.AI_REVIEW_FAILED,
+                        confirmed ? PortfolioImportStatus.READY_FOR_REVIEW.name() : PortfolioImportStatus.READY_FOR_REVIEW.name(),
+                        task.getStatus().name(), message);
+            } catch (Exception reviewException) {
+                append(task, PortfolioImportProcessEventType.AI_REVIEW_FAILED, PortfolioImportStatus.READY_FOR_REVIEW.name(),
+                        task.getStatus().name(), message, "PORTFOLIO_AI_REVIEW_FAILED", reviewException.getMessage());
+            }
             channel.basicAck(deliveryTag, false);
         } catch (IllegalArgumentException exception) {
             if (processingTask != null && processingTask.getStatus() == PortfolioImportStatus.PROCESSING) {

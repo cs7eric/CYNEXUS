@@ -207,6 +207,32 @@ class ThsIndustryConstituentRepository:
             ).scalars().all()
         return [str(code).strip() for code in rows if str(code).strip()]
 
+    def list_records_as_of(self, *, snapshot_date: date, source: str = "q.10jqka.com.cn") -> list[dict[str, Any]]:
+        """Return each industry's last published membership no later than the effective date."""
+        with self.client.session() as db:
+            rows = db.execute(
+                text(
+                    f"""
+                    WITH latest AS (
+                        SELECT industry_code, max(snapshot_date) AS source_snapshot_date
+                          FROM {self.client.schema}.ths_industry_constituent_snapshot
+                         WHERE snapshot_date <= :snapshot_date
+                           AND source = :source
+                           AND deleted_at IS NULL
+                         GROUP BY industry_code
+                    )
+                    SELECT s.snapshot_date AS source_snapshot_date, s.industry_code, s.stock_code, s.stock_name,
+                           s.source, s.source_type, s.captured_at
+                      FROM {self.client.schema}.ths_industry_constituent_snapshot s
+                      JOIN latest l ON l.industry_code=s.industry_code AND l.source_snapshot_date=s.snapshot_date
+                     WHERE s.source=:source AND s.deleted_at IS NULL
+                     ORDER BY s.industry_code, s.stock_code
+                    """
+                ),
+                {"snapshot_date": snapshot_date, "source": source},
+            ).mappings().all()
+        return [dict(row) for row in rows]
+
 
 def _record_params(record: dict[str, Any], *, batch_id: Any, captured_at: datetime) -> dict[str, Any]:
     payload = dict(record)

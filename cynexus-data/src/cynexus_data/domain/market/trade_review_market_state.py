@@ -162,7 +162,7 @@ def build_minute_projections(
             was_sealed[code] = stock["sealed"]
             stock["first_seal_at"] = first_seal_at.get(code)
             stock["open_count"] = open_count[code]
-        market = _snapshot(stock_rows, minute_at)
+        market = _snapshot(stock_rows, minute_at, contexts)
         industries = _industry_snapshots(stock_rows, minute_at, market, memberships)
         pools = _pool_indexes(stock_rows, minute_at, memberships)
         output.append(MinuteProjection(minute_at=minute_at, market=market, industries=industries, pools=pools))
@@ -442,7 +442,7 @@ def classify_phase(rows: list[dict[str, Any]], *, window_days: int = 60) -> dict
     }
 
 
-def _snapshot(rows: list[dict[str, Any]], minute_at: datetime) -> dict[str, Any]:
+def _snapshot(rows: list[dict[str, Any]], minute_at: datetime, contexts: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
     up = sum(1 for item in rows if item["change_pct"] > 0)
     down = sum(1 for item in rows if item["change_pct"] < 0)
     touched = [item for item in rows if item["touched"]]
@@ -452,6 +452,22 @@ def _snapshot(rows: list[dict[str, Any]], minute_at: datetime) -> dict[str, Any]
     for item in sealed:
         if item["height"]:
             ladder[item["height"]] += 1
+    context_by_code = contexts or {}
+    eligible = [
+        context for context in context_by_code.values()
+        if int(context.get("previous_streak") or 0) > 0 and context.get("security_type") == "STOCK"
+    ]
+    promoted = sum(
+        1 for item in sealed
+        if int(context_by_code.get(item["code"], {}).get("previous_streak") or 0) > 0
+    )
+    changes = sorted(item["change_pct"] for item in rows)
+    middle = len(changes) // 2
+    median_change = (
+        None if not changes
+        else changes[middle] if len(changes) % 2
+        else (changes[middle - 1] + changes[middle]) / 2
+    )
     return {
         "minute_at": minute_at, "advancing_count": up, "declining_count": down,
         "flat_count": len(rows) - up - down,
@@ -461,6 +477,8 @@ def _snapshot(rows: list[dict[str, Any]], minute_at: datetime) -> dict[str, Any]
         "broken_limit_up_count": len(broken), "sealed_limit_down_count": sum(1 for item in rows if item["down_sealed"]),
         "max_height": max(ladder, default=0),
         "seal_rate": _rate(len(sealed), len(touched)), "break_rate": _rate(len(broken), len(touched)),
+        "promotion_rate": _rate(promoted, len(eligible)), "promoted_count": promoted,
+        "median_change_pct": round(median_change, 6) if median_change is not None else None,
         "ladder": [{"height": height, "count": count} for height, count in sorted(ladder.items(), reverse=True)],
         "source_confidence": "derived_1m",
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Play, RefreshCw, ShieldAlert, Sparkles, Target } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -431,7 +432,10 @@ function AuctionAiHistoryList({
           <div className="text-sm font-semibold text-slate-900">Auction AI Interpretation</div>
           <div className="text-[11px] text-slate-500">Persisted by trading day · newest first · {sortedDates.length} sessions</div>
         </div>
-        {latestDate ? <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">Latest {latestDate}</Badge> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1 text-[11px] text-slate-500"><span>AI route</span><AiBindingProviderSelect capability="auction_analysis" /></div>
+          {latestDate ? <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">Latest {latestDate}</Badge> : null}
+        </div>
       </div>
 
       {sortedDates.length === 0 ? (

@@ -34,10 +34,17 @@ def fetch_indicator_snapshots(
     retry_backoff_seconds: float = 0.25,
     request_spacing_seconds: float = 0.02,
     fallback_batch_size: int = 80,
+    allow_partial_failures: bool = False,
 ) -> list[dict[str, Any]]:
-    source_codes = [_plain_code(value) for value in (client.get_a_share_codes_all() or [])]
     selected_codes = None if requested_codes is None else {_plain_code(code) for code in requested_codes}
-    codes = [code for code in source_codes if code in metadata and (selected_codes is None or code in selected_codes)]
+    # The continuous limit-board session already has a bounded tracked set.
+    # Avoid rediscovering the whole A-share universe on every five-second
+    # cycle; this is both slower and more likely to hit provider limits.
+    if selected_codes is None:
+        source_codes = [_plain_code(value) for value in (client.get_a_share_codes_all() or [])]
+        codes = [code for code in source_codes if code in metadata]
+    else:
+        codes = [code for code in sorted(selected_codes) if code in metadata]
     captured = captured_at or datetime.now().astimezone()
     rows: list[dict[str, Any]] = []
     effective_batch_size = max(1, int(batch_size))
@@ -49,6 +56,7 @@ def fetch_indicator_snapshots(
             retry_attempts=max(0, int(retry_attempts)),
             retry_backoff_seconds=max(0.0, float(retry_backoff_seconds)),
             fallback_batch_size=max(1, int(fallback_batch_size)),
+            allow_partial_failures=allow_partial_failures,
         )
         for quote in quotes:
             raw = _object_to_dict(quote)
@@ -82,6 +90,7 @@ def _fetch_quote_batch(
     retry_attempts: int,
     retry_backoff_seconds: float,
     fallback_batch_size: int,
+    allow_partial_failures: bool = False,
 ) -> list[Any]:
     """Fetch one quote batch with bounded retry and payload-size fallback.
 
@@ -89,8 +98,9 @@ def _fetch_quote_batch(
     limit contract. A transient disconnect, timeout, or empty page is retried
     with exponential backoff; a repeatedly failing large payload is split once
     into smaller requests so a single oversized batch cannot discard a whole
-    capture. Persistent failure still raises and prevents publishing an
-    incomplete snapshot.
+    capture. Strict full-market callers still fail on a persistent provider
+    error. The bounded five-second board sampler may opt into isolating a
+    bad symbol so one unavailable quote does not drop every other board.
     """
     last_error: Exception | None = None
     for attempt in range(retry_attempts + 1):
@@ -105,7 +115,8 @@ def _fetch_quote_batch(
             delay = retry_backoff_seconds * (2**attempt) + random.uniform(0.0, 0.05)
             if delay > 0:
                 time.sleep(delay)
-    if len(codes) > fallback_batch_size:
+    should_split = len(codes) > fallback_batch_size or (allow_partial_failures and len(codes) > 1)
+    if should_split:
         midpoint = len(codes) // 2
         left = _fetch_quote_batch(
             client,
@@ -113,6 +124,7 @@ def _fetch_quote_batch(
             retry_attempts=retry_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             fallback_batch_size=fallback_batch_size,
+            allow_partial_failures=allow_partial_failures,
         )
         right = _fetch_quote_batch(
             client,
@@ -120,8 +132,11 @@ def _fetch_quote_batch(
             retry_attempts=retry_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             fallback_batch_size=fallback_batch_size,
+            allow_partial_failures=allow_partial_failures,
         )
         return left + right
+    if allow_partial_failures:
+        return []
     raise RuntimeError(f"TDX quote batch failed after {retry_attempts + 1} attempt(s)") from last_error
 
 

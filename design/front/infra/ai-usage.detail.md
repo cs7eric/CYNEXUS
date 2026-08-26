@@ -27,7 +27,7 @@ Inspect AI request volume, token usage, estimated cost, provider health, individ
 - `SummaryMetric`: render top-level usage metrics.
 - `CapabilityRow`: render usage grouped by capability.
 - `ProviderHealthRow`: render provider success health.
-- Quota policy list/editor: explains matching precedence and manages global, tenant, and user scope policies.
+- Quota policy list/editor: compactly presents matching precedence and manages global, tenant, and user scope policies.
 
 ## Data Flow
 

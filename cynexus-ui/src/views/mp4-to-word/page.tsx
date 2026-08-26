@@ -32,6 +32,8 @@ import { LoadingState } from "@/views/downloader/components/loading-state";
 import { formatDuration } from "@/views/downloader/lib/format";
 import { AlertCircle, BookOpen, Captions, CheckCircle2, Code2, Copy, Download, ExternalLink, FileAudio, FileText, History, Info, LinkIcon, ListChecks, Loader2, RefreshCw, Send, Sparkles, UploadCloud, Video, X } from "lucide-react";
 
+const MP4_AI_CAPABILITIES = ["text_polish", "text_summary", "post_metadata", "mp4_qa"] as const
+
 interface QaItem {
   id: string;
   question: string;
@@ -1107,11 +1109,12 @@ export default function Mp4ToWordPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="flex flex-wrap items-center gap-0.5 rounded-md bg-muted/45 px-1 py-0.5" aria-label="MP4 AI provider routes">
-              <AiBindingProviderSelect capability="text_polish" label="Polish provider" />
-              <AiBindingProviderSelect capability="text_summary" label="Summary provider" />
-              <AiBindingProviderSelect capability="post_metadata" label="Metadata provider" />
-              <AiBindingProviderSelect capability="mp4_qa" label="Ask provider" />
+            <div className="flex flex-wrap items-center gap-0.5 rounded-md bg-muted/45 px-1 py-0.5" aria-label="MP4 AI provider route">
+              <AiBindingProviderSelect
+                capability={MP4_AI_CAPABILITIES}
+                label="MP4 provider"
+                modelLabel="MP4 model"
+              />
             </div>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <UploadCloud className="size-4" />

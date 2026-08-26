@@ -59,6 +59,7 @@ public class MarketIndicatorQueryBasicServiceImpl implements MarketIndicatorQuer
         return mapper.listReplayIndustries(date, from, to, industryCode, limit);
     }
     @Override public Map<String, Object> getTradeReviewManifest(LocalDate date) { return mapper.getTradeReviewManifest(date); }
+    @Override public List<LocalDate> listTradeReviewMaterializedDates(int limit) { return mapper.listTradeReviewMaterializedDates(limit); }
     @Override public List<Map<String, Object>> listLimitBoardSessionSummaries(LocalDate date, String tradeSession, String direction, int limit) {
         return mapper.listLimitBoardSessionSummaries(date, tradeSession, direction, limit);
     }

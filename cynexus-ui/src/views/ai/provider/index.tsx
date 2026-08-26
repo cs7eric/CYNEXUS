@@ -105,6 +105,7 @@ type BindingDraft = {
   providerId: string
   modelOverride: string
   promptId: string
+  routeGroup: string
   params: Record<string, unknown>
   reasoningEffort: AiReasoningEffort
 }
@@ -181,6 +182,14 @@ function mergeAgentRoutingRows(agentCapabilities: AgentCapability[], agentTools:
 
 function normalizeBindingReasoning(params: Record<string, unknown>): AiReasoningEffort {
   return normalizeAiReasoningEffort(params[AI_REASONING_EFFORT_PARAM]) || DEFAULT_AI_REASONING_EFFORT
+}
+
+function firstBindingText(params: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = params[key]
+    if (typeof value === "string" && value.trim()) return value.trim()
+  }
+  return ""
 }
 
 const emptyDraft: ProviderDraft = {
@@ -304,6 +313,8 @@ export default function AiProviderSettingsPage() {
       setPrompts(nextPrompts)
       setAgentCapabilities(nextAgentCapabilities)
       setAgentTools(nextTools)
+      const nextCapabilities = buildAiCapabilitiesFromBindings(nextBindings)
+      const capabilityGroups = new Map(nextCapabilities.map((item) => [item.code, item.group]))
       setBindingDrafts(
         Object.fromEntries(
           nextBindings.map((binding) => [
@@ -312,6 +323,7 @@ export default function AiProviderSettingsPage() {
               providerId: binding.provider_id || "",
               modelOverride: binding.model_override || "",
               promptId: binding.prompt_id || "",
+              routeGroup: firstBindingText(binding.params || {}, ["route_group", "routeGroup", "group"]) || capabilityGroups.get(binding.capability) || "AI / Other",
               params: binding.params,
               reasoningEffort: normalizeBindingReasoning(binding.params),
             },
@@ -356,12 +368,14 @@ export default function AiProviderSettingsPage() {
       const provider = providerById.get(providerId) || null
       const modelOverride = draftRoute?.modelOverride ?? binding?.model_override ?? ""
       const promptId = draftRoute?.promptId ?? binding?.prompt_id ?? ""
+      const routeGroup = draftRoute?.routeGroup ?? (firstBindingText(binding?.params || {}, ["route_group", "routeGroup", "group"]) || capability.group)
       const reasoningEffort = draftRoute?.reasoningEffort ?? normalizeBindingReasoning(binding?.params || {})
       const effectiveModel = modelOverride || provider?.default_model || ""
       const issues = routeIssues(provider, effectiveModel)
-      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "") || promptId !== (binding?.prompt_id || "") || reasoningEffort !== normalizeBindingReasoning(binding?.params || {})
-      return { capability, binding, providerId, provider, modelOverride, promptId, reasoningEffort, effectiveModel, issues, dirty }
-    }).sort((a, b) => a.capability.group.localeCompare(b.capability.group) || a.capability.label.localeCompare(b.capability.label)),
+      const persistedRouteGroup = firstBindingText(binding?.params || {}, ["route_group", "routeGroup", "group"]) || capability.group
+      const dirty = providerId !== (binding?.provider_id || "") || modelOverride !== (binding?.model_override || "") || promptId !== (binding?.prompt_id || "") || routeGroup !== persistedRouteGroup || reasoningEffort !== normalizeBindingReasoning(binding?.params || {})
+      return { capability, binding, providerId, provider, modelOverride, promptId, routeGroup, reasoningEffort, effectiveModel, issues, dirty }
+    }).sort((a, b) => a.routeGroup.localeCompare(b.routeGroup) || a.capability.label.localeCompare(b.capability.label)),
     [bindingByCapability, bindingDrafts, capabilities, providerById],
   )
 
@@ -376,16 +390,16 @@ export default function AiProviderSettingsPage() {
   const routingGroups = useMemo(
     () => (routingView === "tools"
       ? uniq(agentRoutingRows.map((tool) => tool.routeGroup))
-      : uniq(capabilities.map((capability) => capability.group))
+      : uniq(routeRows.map((row) => row.routeGroup))
     ).sort((a, b) => a.localeCompare(b)),
-    [agentRoutingRows, capabilities, routingView],
+    [agentRoutingRows, routeRows, routingView],
   )
 
   const normalizedRoutingQuery = routingQuery.trim().toLowerCase()
   const filteredRouteRows = useMemo(
-    () => routeRows.filter(({ capability, issues }) => {
-      const matchesGroup = routingGroup === "all" || capability.group === routingGroup
-      const haystack = [capability.label, capability.code, capability.group, capability.description, ...(capability.aliases || [])]
+    () => routeRows.filter(({ capability, routeGroup, issues }) => {
+      const matchesGroup = routingGroup === "all" || routeGroup === routingGroup
+      const haystack = [capability.label, capability.code, routeGroup, capability.description, ...(capability.aliases || [])]
         .join(" ")
         .toLowerCase()
       const matchesQuery = !normalizedRoutingQuery || haystack.includes(normalizedRoutingQuery)
@@ -503,6 +517,7 @@ export default function AiProviderSettingsPage() {
         providerId: binding?.provider_id || "",
         modelOverride: binding?.model_override || "",
         promptId: binding?.prompt_id || "",
+        routeGroup: firstBindingText(binding?.params || {}, ["route_group", "routeGroup", "group"]) || "AI / Other",
         params: binding?.params || {},
         reasoningEffort: normalizeBindingReasoning(binding?.params || {}),
       }
@@ -516,11 +531,11 @@ export default function AiProviderSettingsPage() {
     })
   }
 
-  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string, promptId: string, reasoningEffort: AiReasoningEffort) {
+  function scheduleBindingSave(capability: AiCapability, providerId: string, modelOverride: string, promptId: string, routeGroup: string, reasoningEffort: AiReasoningEffort) {
     const previous = bindingSaveTimers[capability.code]
     if (previous) window.clearTimeout(previous)
     const timer = window.setTimeout(() => {
-      void handleBindingChange(capability, providerId, modelOverride, promptId, reasoningEffort)
+      void handleBindingChange(capability, providerId, modelOverride, promptId, routeGroup, reasoningEffort)
       setBindingSaveTimers((current) => {
         const next = { ...current }
         delete next[capability.code]
@@ -530,7 +545,7 @@ export default function AiProviderSettingsPage() {
     setBindingSaveTimers((current) => ({ ...current, [capability.code]: timer }))
   }
 
-  async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string, promptId: string, reasoningEffort: AiReasoningEffort) {
+  async function handleBindingChange(capability: AiCapability, providerId: string, modelOverride: string, promptId: string, routeGroup: string, reasoningEffort: AiReasoningEffort) {
     const binding = bindingByCapability.get(capability.code) || null
     const provider = providerById.get(providerId) || null
     const normalizedModel = modelOverride.trim() || provider?.default_model || ""
@@ -551,9 +566,10 @@ export default function AiProviderSettingsPage() {
         model_override: normalizedModel,
         prompt_id: promptId,
         is_enabled: true,
-        params: {
-          ...(bindingDrafts[capability.code]?.params || binding?.params || {}),
-          [AI_REASONING_EFFORT_PARAM]: reasoningEffort,
+          params: {
+            ...(bindingDrafts[capability.code]?.params || binding?.params || {}),
+            route_group: routeGroup.trim() || capability.group,
+            [AI_REASONING_EFFORT_PARAM]: reasoningEffort,
         },
       })
       setBindings((current) => {
@@ -566,6 +582,7 @@ export default function AiProviderSettingsPage() {
           providerId: saved.provider_id || "",
           modelOverride: saved.model_override || "",
           promptId: saved.prompt_id || "",
+          routeGroup: firstBindingText(saved.params || {}, ["route_group", "routeGroup", "group"]) || capability.group,
           params: saved.params,
           reasoningEffort: normalizeBindingReasoning(saved.params),
         },
@@ -786,7 +803,7 @@ export default function AiProviderSettingsPage() {
               </div>
               <div className="divide-y divide-border/50">
                 {filteredRouteRows.map((row) => {
-                  const { capability, providerId, provider, modelOverride, promptId, reasoningEffort, issues, dirty } = row
+                  const { capability, providerId, provider, modelOverride, promptId, routeGroup, reasoningEffort, issues, dirty } = row
                   const availableModels = uniq([...providerModelNames(provider), modelOverride].filter(Boolean))
                   return (
                     <div key={capability.code} className="grid min-w-[1480px] grid-cols-[minmax(240px,1.2fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)_minmax(130px,0.6fr)_minmax(220px,1fr)_minmax(190px,0.9fr)_minmax(220px,1fr)] items-start gap-3 px-3 py-3">
@@ -804,9 +821,20 @@ export default function AiProviderSettingsPage() {
                           </div>
                         ) : null}
                       </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm">{capability.group}</div>
-                        <div className="mt-1 truncate text-xs text-muted-foreground">{capability.description}</div>
+                      <div className="min-w-0 space-y-1">
+                        <Select
+                          value={routeGroup}
+                          onValueChange={(value) => {
+                            updateBindingDraft(capability.code, { routeGroup: value })
+                            scheduleBindingSave(capability, providerId, modelOverride, promptId, value, reasoningEffort)
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {uniq([...routingGroups, routeGroup]).map((group) => <SelectItem key={group} value={group}>{group}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <div className="truncate text-xs text-muted-foreground">{capability.description}</div>
                       </div>
                       <Select
                         value={providerId || "none"}
@@ -818,7 +846,7 @@ export default function AiProviderSettingsPage() {
                               providerId: nextProviderId,
                               modelOverride: nextModel,
                             })
-                            scheduleBindingSave(capability, nextProviderId, nextModel, promptId, reasoningEffort)
+                            scheduleBindingSave(capability, nextProviderId, nextModel, promptId, routeGroup, reasoningEffort)
                           }}
                       >
                         <SelectTrigger>
@@ -836,7 +864,7 @@ export default function AiProviderSettingsPage() {
                           value={modelOverride || provider?.default_model || ""}
                           onValueChange={(value) => {
                             updateBindingDraft(capability.code, { modelOverride: value })
-                            scheduleBindingSave(capability, providerId, value, promptId, reasoningEffort)
+                            scheduleBindingSave(capability, providerId, value, promptId, routeGroup, reasoningEffort)
                           }}
                         >
                           <SelectTrigger>
@@ -852,7 +880,7 @@ export default function AiProviderSettingsPage() {
                         <Input
                           value={modelOverride}
                           onChange={(event) => updateBindingDraft(capability.code, { modelOverride: event.target.value })}
-                           onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value, promptId, reasoningEffort)}
+                           onBlur={(event) => scheduleBindingSave(capability, providerId, event.target.value, promptId, routeGroup, reasoningEffort)}
                           placeholder={provider?.default_model || "provider default"}
                         />
                       )}
@@ -861,7 +889,7 @@ export default function AiProviderSettingsPage() {
                         onValueChange={(value) => {
                           const nextReasoningEffort = value as AiReasoningEffort
                           updateBindingDraft(capability.code, { reasoningEffort: nextReasoningEffort })
-                          scheduleBindingSave(capability, providerId, modelOverride, promptId, nextReasoningEffort)
+                          scheduleBindingSave(capability, providerId, modelOverride, promptId, routeGroup, nextReasoningEffort)
                         }}
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -876,7 +904,7 @@ export default function AiProviderSettingsPage() {
                         onValueChange={(value) => {
                           const nextPromptId = value === "none" ? "" : value
                           updateBindingDraft(capability.code, { promptId: nextPromptId })
-                           scheduleBindingSave(capability, providerId, modelOverride, nextPromptId, reasoningEffort)
+                           scheduleBindingSave(capability, providerId, modelOverride, nextPromptId, routeGroup, reasoningEffort)
                         }}
                       >
                         <SelectTrigger><SelectValue placeholder="No prompt" /></SelectTrigger>

@@ -44,4 +44,14 @@ class PortfolioImportFailurePolicyTest {
         assertTrue(decision.retry());
         assertTrue(decision.errorCode().equals("PORTFOLIO_PARSE_RETRY"));
     }
+
+    @Test
+    void failsImmediatelyWhenImageIsNotATradeScreenshot() {
+        PortfolioImportFailureDecision decision = PortfolioImportFailurePolicy.decide(
+                new PortfolioTradeVisionException("PORTFOLIO_AI_RESPONSE_INVALID",
+                        "AI response is not a trade screenshot", false), 0);
+
+        assertFalse(decision.retry());
+        assertTrue(decision.errorCode().equals("PORTFOLIO_AI_RESPONSE_INVALID"));
+    }
 }

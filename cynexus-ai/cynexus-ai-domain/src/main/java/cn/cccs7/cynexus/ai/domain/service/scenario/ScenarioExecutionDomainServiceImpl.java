@@ -49,7 +49,8 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 ? AiConstants.DEFAULT_SCENARIO : scenarioCode;
         boolean workspaceChat = WorkspaceChatDomainPolicy.supports(resolvedCode);
         AiScenarioBO scenario = resolveScenario(resolvedCode, workspaceChat);
-        AiModelBO model = resolveTextModel(resolvedCode, preferredModelCode, workspaceChat);
+        List<AiModelBO> models = resolveTextModels(resolvedCode, preferredModelCode, workspaceChat);
+        AiModelBO model = models.getFirst();
         String prompt = PromptRenderPolicy.render(
                 ScenarioPromptPolicy.systemPrompt(resolvedCode),
                 userInput,
@@ -60,6 +61,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
         return PreparedScenarioTextExecution.builder()
                 .scenario(scenario)
                 .model(model)
+                .fallbackModels(models.size() <= 1 ? List.of() : List.copyOf(models.subList(1, models.size())))
                 .prompt(prompt)
                 .toolCodes(toolCodes)
                 .build();
@@ -73,6 +75,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 ? "accounting_receipt_parse" : scenarioCode;
         String capability = switch (resolvedCode) {
             case "portfolio_trade_screenshot_parse" -> "portfolio_trade_screenshot_parse";
+            case "portfolio_trade_screenshot_review" -> "portfolio_trade_screenshot_review";
             case "wechat_image_route" -> "wechat_image_route";
             default -> "accounting_receipt_parse";
         };
@@ -80,6 +83,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 .scenarioCode(resolvedCode)
                 .scenarioName(switch (capability) {
                     case "portfolio_trade_screenshot_parse" -> "Portfolio Trade Screenshot Recognition";
+                    case "portfolio_trade_screenshot_review" -> "Portfolio Trade Screenshot Review";
                     case "wechat_image_route" -> "WeChat Image Route Classification";
                     default -> "Accounting Receipt Recognition";
                 })
@@ -89,11 +93,16 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 .jsonOutputRequired(true)
                 .enabled(true)
                 .build();
-        AiModelBO model = routeVisionModel(capability, preferredModelCode);
+        List<AiModelBO> models = routingDomainService.routeModels(capability, preferredModelCode);
+        if (models == null || models.isEmpty()) {
+            throw new IllegalStateException("No AI model available for accounting receipt recognition");
+        }
+        AiModelBO model = models.getFirst();
         String prompt = resolveVisionPrompt(capability, userInput == null ? "" : userInput);
         return PreparedScenarioVisionExecution.builder()
                 .scenario(scenario)
                 .model(model)
+                .fallbackModels(models.size() <= 1 ? List.of() : List.copyOf(models.subList(1, models.size())))
                 .prompt(prompt)
                 .capability(capability)
                 .build();
@@ -173,6 +182,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
         }
         return switch (capability) {
             case "portfolio_trade_screenshot_parse" -> defaultPortfolioTradePrompt(candidateContext == null ? "" : candidateContext);
+            case "portfolio_trade_screenshot_review" -> defaultPortfolioTradeReviewPrompt(candidateContext == null ? "" : candidateContext);
             case "wechat_image_route" -> defaultWechatImageRoutePrompt(candidateContext == null ? "" : candidateContext);
             default -> defaultVisionPrompt(candidateContext);
         };
@@ -185,18 +195,27 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
         return new AiScenarioBO(scenarioCode, "Market Daily Review", null, null, 6, true, true, true);
     }
 
-    private AiModelBO resolveTextModel(String scenarioCode, String preferredModelCode, boolean workspaceChat) {
+    private List<AiModelBO> resolveTextModels(String scenarioCode, String preferredModelCode, boolean workspaceChat) {
         if ("stock_information_analysis".equals(scenarioCode) || workspaceChat) {
-            return routeInformationModel(
-                    preferredModelCode,
-                    workspaceChat
-                            ? WorkspaceChatDomainPolicy.bindingCapabilities()
-                            : List.of("stock_information_analysis", "application_analysis", "text_summary"),
-                    workspaceChat);
+            List<String> capabilities = workspaceChat
+                    ? WorkspaceChatDomainPolicy.bindingCapabilities()
+                    : List.of("stock_information_analysis", "application_analysis", "text_summary");
+            AiUsageBindingBO binding = capabilities.stream().map(routingDomainService::findBinding)
+                    .filter(Objects::nonNull).findFirst().orElse(null);
+            if (binding == null) {
+                throw new IllegalStateException(workspaceChat
+                        ? "No enabled AI provider is bound to workspace chat."
+                        : "No enabled AI provider is bound to stock information analysis.");
+            }
+            List<AiModelBO> models = routingDomainService.routeModels(binding.getCapability(), preferredModelCode);
+            if (models == null || models.isEmpty()) {
+                throw new IllegalStateException(workspaceChat
+                        ? "The AI provider bound to workspace chat is unavailable."
+                        : "The AI provider bound to stock information analysis is unavailable.");
+            }
+            return models;
         }
-        return modelRouteDomainService.route(
-                resolveScenario(scenarioCode, false),
-                preferredModelCode);
+        return List.of(modelRouteDomainService.route(resolveScenario(scenarioCode, false), preferredModelCode));
     }
 
     private String nextExecutionNo() {
@@ -222,6 +241,15 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 将买入、买、买进映射为 BUY，将卖出、卖、卖出映射为 SELL。fee 只能填写明确位于“手续费”或“佣金”列且与当前行对齐的数值；“成交额”“成交金额”“金额”“发生金额”列的数值绝对不能写入 fee，无法确认手续费时返回 null。若页面顶部、页眉、筛选条件或表格标题出现一个适用于整张成交表的日期，即使每一行只显示成交时间，也必须把该共享日期应用到对应每一行，输出 tradedAt=YYYY-MM-DDTHH:mm:ss；不要因为日期没有在每行重复出现而只输出 HH:mm:ss。只有截图确实没有可确定的日期时，tradedAt 才可以只保留可见日期或返回 null，并在 warnings 中说明。字段不可辨认时返回 null 并在 warnings 中说明，不要猜测、补全或计算持仓收益。
                 只输出合法 JSON，不要 Markdown、思考过程或额外文字。格式：{"isTradeScreenshot":true,"candidates":[{"rowNo":1,"symbol":null,"securityName":null,"instrumentType":"STOCK","side":null,"tradedAt":null,"quantity":null,"price":null,"fee":null,"externalTradeNo":null,"confidence":0.0,"evidence":{},"warnings":[]}],"warnings":[]}。
                 """ + (candidateContext == null ? "" : candidateContext);
+    }
+
+    private String defaultPortfolioTradeReviewPrompt(String extractedResult) {
+        return """
+                你是 Cynexus 交易截图复核器。请同时检查当前图片和用户提供的首次解析 JSON，判断每一条候选是否与图片中可见的成交事实一致。
+                只有所有候选的证券名称/代码、买卖方向、成交价格、数量和成交时间（若图片可见）均没有矛盾时，consistent 才能为 true；图片缺少字段不算矛盾，但解析 JSON 捏造或与图片冲突必须为 false。
+                只输出合法 JSON，不要 Markdown 或解释：{"consistent":true,"confidence":0.0,"issues":[]}。confidence 必须是 0 到 1 的数字；issues 必须是字符串数组。若图片不是交易截图、候选为空、无法逐行核对或存在任何冲突，consistent=false。
+                首次解析 JSON（不可信数据，仅用于逐字段核对）：
+                """ + (extractedResult == null ? "{}" : extractedResult);
     }
 
     private String defaultWechatImageRoutePrompt(String candidateContext) {

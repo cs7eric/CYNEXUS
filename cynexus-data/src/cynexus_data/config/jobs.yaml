@@ -105,6 +105,41 @@ jobs:
       extra_workdays: optional
       source: optional
 
+  materialize_stock_screening_facts:
+    description: Materialize replayable A-share daily Screener facts from ClickHouse daily_raw into PostgreSQL. This is a bounded data-maintenance job, not a user-facing query or Agent tool.
+    params:
+      trade_date: optional; defaults to latest available daily_raw trade date
+      start_date: optional; inclusive historical backfill start
+      end_date: optional; inclusive historical backfill end
+      source_table: optional; defaults to daily_raw
+      batch_size: optional; PostgreSQL upsert batch size, defaults to 2000
+      checkpoint_key: optional; defaults to a_stock.stock_screening_fact.watermark
+
+  materialize_market_factor_snapshots:
+    description: Materialize point-in-time daily primitive observations for event-factor research.
+    params:
+      trade_date: optional
+      start_date: optional
+      end_date: optional
+      batch_size: optional; PostgreSQL upsert batch size, defaults to 2000
+      checkpoint_key: optional; defaults to a_stock.market_factor_snapshot.watermark
+
+  materialize_market_factor_membership_snapshots:
+    description: Materialize historical THS membership snapshots as of a requested research trade date.
+    params:
+      trade_date: optional; defaults to today
+      checkpoint_key: optional; defaults to a_stock.market_factor_membership.watermark
+
+  materialize_market_event_intraday_snapshots:
+    description: Materialize bounded event-aligned stock 1m primitives; market and industry scopes remain explicit partial coverage until their point-in-time sources are materialized.
+    params:
+      code: required; six-digit A-share code
+      trade_date: required; YYYY-MM-DD
+      anchor_at: optional; ISO-8601 event anchor, defaults to Shanghai close
+      pre_minutes: optional; default 120, range 1 to 240
+      post_minutes: optional; default 30, range 0 to 60
+      checkpoint_key: optional
+
   sync_stock_basic:
     description: Sync stock basic information.
     params:
@@ -652,6 +687,9 @@ jobs:
       transmission_rapid_return_pct: optional; default 0.8 percentage points
       transmission_follower_return_pct: optional; default 0.3 percentage points
       source: optional
+      publish_limit_board_discoveries: optional; default true; publish full-market涨跌停 discoveries to the five-second limit-board sampler
+      limit_board_redis_prefix: optional; defaults to cynexus:market-indicator:limit-board:v1
+      limit_board_redis_ttl_seconds: optional; defaults to 43200
 
   market_indicator_priority_refresh:
     description: Refresh the low-latency priority radar over the historical limit-up/down cohort; Redis-only partial output, never a complete industry confirmation.
@@ -693,7 +731,7 @@ jobs:
       batch_size: optional; defaults to 160
       pool_size: optional; defaults to 8
       timeout: optional; defaults to 8 seconds
-      target_cadence_seconds: optional; defaults to 5
+      target_cadence_seconds: optional; defaults to 3; continuously repeat the bounded board pool while preserving at least this interval between completed passes
       persist: optional; persist benchmark run report, defaults to true
 
   market_indicator_intraday_session:
@@ -704,23 +742,41 @@ jobs:
       target_cadence_seconds: optional; defaults to 5
       universe_mode: optional; full_market by default
       pool_size: optional; defaults to 8
-      batch_size: optional; defaults to 240
+      batch_size: optional; defaults to 80 for a bounded low-latency quote payload
 
   market_indicator_limit_board_capture:
     description: Capture only current limit-up/down stocks at five-second cadence into a Redis trading-session buffer; no raw provider payload or PostgreSQL write.
     params:
       captured_at: optional; ISO timestamp for controlled replay or tests
       create_table: optional
-      discovery_interval_seconds: optional; defaults to 30
+      discovery_interval_seconds: ignored; whole-market discovery is published by market_indicator_refresh
       pool_size: optional; defaults to 8
-      batch_size: optional; defaults to 240
+      batch_size: optional; defaults to 80 for a bounded low-latency quote payload
       timeout: optional; defaults to 8 seconds
-      quote_retry_attempts: optional; defaults to 2
+      quote_retry_attempts: optional; defaults to 0; a failed tracked code is isolated rather than delaying the full capture
       quote_retry_backoff_seconds: optional; defaults to 0.25
       quote_request_spacing_seconds: optional; defaults to 0.02
       quote_fallback_batch_size: optional; defaults to 80
       redis_prefix: optional; defaults to cynexus:market-indicator:limit-board:v1
       redis_ttl_seconds: optional; defaults to 43200
+
+  market_indicator_limit_board_session:
+    description: Own sequential limit-board captures for one short intraday session; the scheduler keeps one lease while the session runs.
+    params:
+      duration_seconds: optional; defaults to 300
+      max_cycles: optional
+      target_cadence_seconds: optional; defaults to 5
+      discovery_interval_seconds: ignored; whole-market discovery is published by market_indicator_refresh
+      pool_size: optional; defaults to 8
+      batch_size: optional; defaults to 80 for a bounded low-latency quote payload
+      timeout: optional; defaults to 8
+      quote_retry_attempts: optional; defaults to 0; a failed tracked code is isolated rather than delaying the full capture
+      quote_retry_backoff_seconds: optional; defaults to 0.25
+      quote_request_spacing_seconds: optional; defaults to 0.02
+      quote_fallback_batch_size: optional; defaults to 80
+      redis_prefix: optional; defaults to cynexus:market-indicator:limit-board:v1
+      redis_ttl_seconds: optional; defaults to 43200
+      failure_backoff_seconds: optional; defaults to 2
 
   market_indicator_limit_board_finalize:
     description: Aggregate one completed limit-board trading session into PostgreSQL and delete its Redis buffer only after commit succeeds.
@@ -733,6 +789,7 @@ jobs:
       redis_prefix: optional; defaults to cynexus:market-indicator:limit-board:v1
       redis_ttl_seconds: optional; defaults to 43200
       source: optional
+      session_stale_after_seconds: optional; defaults to 90; prevents finalization racing an active capture session
 
   build_trade_review_market_state:
     description: Materialize Trade Review minute and daily market-state read models from local TDX 1m, daily facts, industry memberships, and persisted Market Indicator events. Never calls an external quote API.
@@ -775,6 +832,11 @@ jobs:
     params:
       checks: optional
       dataset: optional
+      trade_date: optional; required by screening_fact_coverage
+      start_date: optional; inclusive coverage check start
+      end_date: optional; inclusive coverage check end
+      daily_table: optional; defaults to daily_raw
+      checks: optional; add screening_fact_coverage to compare the durable projection with its ClickHouse source
 
   transcribe_media:
     description: Convert MP4 or audio input to transcript only.

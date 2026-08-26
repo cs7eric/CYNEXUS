@@ -170,6 +170,101 @@ public class ClickHouseStockChartClient {
         return listLatestDailyQuotesOnOrBefore(symbols, null);
     }
 
+    /**
+     * Reads one latest daily snapshot for all A-share symbols.  The rolling window is bounded to
+     * the preceding 400 calendar days, which covers the 252-trading-day return while avoiding a
+     * full history scan for every screener request.
+     */
+    public List<DailyQuote> listLatestAsharesDailyQuotesOnOrBefore(LocalDate maxTradeDate) {
+        return listLatestAsharesDailyQuotesOnOrBefore(maxTradeDate, 253);
+    }
+
+    public List<DailyQuote> listLatestAsharesDailyQuotesOnOrBefore(LocalDate maxTradeDate, int requiredSessions) {
+        int safeSessions = Math.max(2, Math.min(requiredSessions, 253));
+        int calendarLookbackDays = Math.max(14, (int) Math.ceil(safeSessions * 1.6d + 10));
+        String requestedDateCondition = maxTradeDate == null
+                ? ""
+                : "\n                  AND trade_date <= toDate('" + maxTradeDate + "')";
+        String sql = """
+                WITH
+                (
+                    SELECT max(trade_date)
+                    FROM daily_raw
+                    WHERE market IN ('SH', 'SZ', 'BJ')
+                      AND length(symbol) = 6%s
+                ) AS snapshotDate,
+                daily AS
+                (
+                    SELECT
+                        market,
+                        symbol,
+                        trade_date,
+                        max(open) AS open_value,
+                        max(high) AS high_value,
+                        min(low) AS low_value,
+                        max(close) AS close_value,
+                        max(volume) AS volume_value,
+                        max(amount) AS amount_value
+                    FROM daily_raw
+                    WHERE market IN ('SH', 'SZ', 'BJ')
+                      AND length(symbol) = 6
+                      AND trade_date <= snapshotDate
+                       AND trade_date >= addDays(snapshotDate, -%d)
+                    GROUP BY market, symbol, trade_date
+                ),
+                ranked AS
+                (
+                    SELECT
+                        *,
+                        row_number() OVER (PARTITION BY market, symbol ORDER BY trade_date DESC) AS rn
+                    FROM daily
+                ),
+                snapshot AS
+                (
+                    SELECT
+                        market,
+                        symbol,
+                        argMaxIf(trade_date, rn, rn = 1) AS latest_trade_date,
+                        argMaxIf(open_value, rn, rn = 1) AS latest_open,
+                        argMaxIf(high_value, rn, rn = 1) AS latest_high,
+                        argMaxIf(low_value, rn, rn = 1) AS latest_low,
+                        argMaxIf(close_value, rn, rn = 1) AS latest_close,
+                        argMaxIf(close_value, rn, rn = 2) AS previous_close,
+                        argMaxIf(volume_value, rn, rn = 1) AS latest_volume,
+                        argMaxIf(amount_value, rn, rn = 1) AS latest_amount,
+                        argMaxIf(close_value, rn, rn = 6) AS close5d,
+                        argMaxIf(close_value, rn, rn = 11) AS close10d,
+                        argMaxIf(close_value, rn, rn = 31) AS close30d,
+                        argMaxIf(close_value, rn, rn = 61) AS close60d,
+                        argMaxIf(close_value, rn, rn = 253) AS close252d
+                    FROM ranked
+                    GROUP BY market, symbol
+                )
+                SELECT
+                    market AS market,
+                    symbol AS symbol,
+                    toString(latest_trade_date) AS tradeDate,
+                    latest_open AS open,
+                    latest_high AS high,
+                    latest_low AS low,
+                    latest_close AS close,
+                    previous_close AS preClose,
+                    latest_close - previous_close AS change,
+                    if(previous_close = 0 OR isNull(previous_close), NULL, (latest_close - previous_close) * 100 / previous_close) AS changePct,
+                    latest_volume AS volume,
+                    latest_amount AS amount,
+                    if(previous_close = 0 OR isNull(previous_close), NULL, (latest_high - latest_low) * 100 / previous_close) AS amplitude,
+                    if(close5d = 0 OR isNull(close5d), NULL, (latest_close - close5d) * 100 / close5d) AS returnPct5d,
+                    if(close10d = 0 OR isNull(close10d), NULL, (latest_close - close10d) * 100 / close10d) AS returnPct10d,
+                    if(close30d = 0 OR isNull(close30d), NULL, (latest_close - close30d) * 100 / close30d) AS returnPct30d,
+                    if(close60d = 0 OR isNull(close60d), NULL, (latest_close - close60d) * 100 / close60d) AS returnPct60d,
+                    if(close252d = 0 OR isNull(close252d), NULL, (latest_close - close252d) * 100 / close252d) AS returnPct252d
+                FROM snapshot
+                FORMAT JSONEachRow
+                """.formatted(requestedDateCondition, calendarLookbackDays);
+        return mapDailyQuotes(query(sql, DailyQuoteRow.class));
+    }
+
     public List<DailyQuote> listLatestDailyQuotesOnOrBefore(List<MarketSymbol> symbols, LocalDate maxTradeDate) {
         if (symbols == null || symbols.isEmpty()) {
             return List.of();
@@ -253,7 +348,11 @@ public class ClickHouseStockChartClient {
                 WHERE cur.rn = 1
                 FORMAT JSONEachRow
                 """.formatted(condition, dateCondition);
-        return query(sql, DailyQuoteRow.class).stream()
+        return mapDailyQuotes(query(sql, DailyQuoteRow.class));
+    }
+
+    private List<DailyQuote> mapDailyQuotes(List<DailyQuoteRow> rows) {
+        return rows.stream()
                 .map(row -> DailyQuote.builder()
                         .market(row.market())
                         .symbol(row.symbol())
@@ -361,6 +460,71 @@ public class ClickHouseStockChartClient {
                         .volume(row.volume())
                         .amount(row.amount())
                 .build())
+                .toList();
+    }
+
+    /**
+     * Returns an exchange-session calendar from the persisted A-share daily fact.  The caller
+     * supplies a bounded limit; no arbitrary history scans are exposed through this client.
+     */
+    public List<LocalDate> listTradingDatesOnOrBefore(LocalDate requestedAsOfDate, int limit) {
+        int resolvedLimit = Math.max(1, Math.min(limit, 260));
+        String dateCondition = requestedAsOfDate == null ? "" : " AND trade_date <= toDate('" + requestedAsOfDate + "')";
+        String sql = """
+                SELECT toString(trade_date) AS tradeDate
+                  FROM daily_raw
+                 WHERE market IN ('SH', 'SZ', 'BJ')
+                   AND length(symbol) = 6%s
+                 GROUP BY trade_date
+                 ORDER BY trade_date DESC
+                 LIMIT %d
+                 FORMAT JSONEachRow
+                """.formatted(dateCondition, resolvedLimit);
+        List<LocalDate> rows = query(sql, TradeDateRow.class).stream()
+                .map(TradeDateRow::tradeDate)
+                .filter(value -> value != null && !value.isBlank())
+                .map(LocalDate::parse)
+                .sorted()
+                .toList();
+        return List.copyOf(rows);
+    }
+
+    /**
+     * Reads a bounded group of persisted raw daily closes in one ClickHouse request.  Symbols are
+     * supplied by an already-authorized strategy evaluation, not by an arbitrary SQL caller.
+     */
+    public List<DailyMarketBar> listDailyBars(List<MarketSymbol> symbols, LocalDate startDate, LocalDate endDate) {
+        if (symbols == null || symbols.isEmpty() || symbols.size() > 500 || startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            return List.of();
+        }
+        String pairs = symbols.stream()
+                .filter(item -> item != null && item.market() != null && item.symbol() != null)
+                .map(item -> "('" + escapeSql(item.market().toUpperCase(Locale.ROOT)) + "','" + escapeSql(item.symbol()) + "')")
+                .distinct()
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+        if (pairs.isBlank()) {
+            return List.of();
+        }
+        String sql = """
+                WITH daily AS
+                (
+                    SELECT market, symbol, trade_date, max(close) AS close
+                      FROM daily_raw
+                     WHERE (market, symbol) IN (%s)
+                       AND trade_date >= toDate('%s')
+                       AND trade_date <= toDate('%s')
+                     GROUP BY market, symbol, trade_date
+                )
+                SELECT market, symbol, toString(trade_date) AS tradeDate, close
+                  FROM daily
+                 ORDER BY trade_date ASC, market ASC, symbol ASC
+                 FORMAT JSONEachRow
+                """.formatted(pairs, startDate, endDate);
+        return query(sql, DailyMarketBarRow.class).stream()
+                .map(row -> new DailyMarketBar(row.market(), row.symbol(),
+                        row.tradeDate() == null ? null : LocalDate.parse(row.tradeDate()), row.close()))
+                .filter(row -> row.tradeDate() != null && row.close() != null && row.close().signum() > 0)
                 .toList();
     }
 
@@ -665,6 +829,9 @@ public class ClickHouseStockChartClient {
     public record DailyAmount(String symbol, LocalDate tradeDate, BigDecimal amount) {
     }
 
+    public record DailyMarketBar(String market, String symbol, LocalDate tradeDate, BigDecimal close) {
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record LatestTradeDateRow(String latestTradeDate) {
     }
@@ -754,6 +921,10 @@ public class ClickHouseStockChartClient {
             String tradeDate,
             BigDecimal amount
     ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record DailyMarketBarRow(String market, String symbol, String tradeDate, BigDecimal close) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

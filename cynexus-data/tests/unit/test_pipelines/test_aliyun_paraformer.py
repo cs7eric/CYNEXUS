@@ -8,6 +8,10 @@ from cynexus_data.pipelines.transcription.providers.aliyun_paraformer import Ali
 class FakeResponse:
     def __init__(self, body: dict[str, Any]) -> None:
         self.body = body
+        self.status_code = 200
+        self.reason = "OK"
+        self.url = "https://example.com/api/v1"
+        self.text = ""
 
     def json(self) -> dict[str, Any]:
         return self.body
@@ -53,6 +57,41 @@ def test_aliyun_paraformer_submits_url_polls_and_reads_result() -> None:
     assert session.calls[1][0:2] == ("get", "https://example.com/api/v1/tasks/task-1")
     assert session.calls[2][0:2] == ("get", "https://result.example/transcript.json")
     assert "Authorization" not in session.calls[2][2]["headers"]
+
+
+class ForbiddenResponse:
+    def __init__(self) -> None:
+        self.status_code = 403
+        self.reason = "Forbidden"
+        self.url = "https://example.com/api/v1/services/audio/asr/transcription"
+        self.text = '{"code":"AllocationQuota.FreeTierOnly","message":"Free quota exhausted"}'
+
+    def json(self) -> dict[str, Any]:
+        return {"code": "AllocationQuota.FreeTierOnly", "message": "Free quota exhausted"}
+
+
+class ForbiddenSession:
+    def request(self, method: str, url: str, **kwargs: Any) -> ForbiddenResponse:
+        return ForbiddenResponse()
+
+
+def test_aliyun_paraformer_includes_provider_error_body() -> None:
+    provider = AliyunParaformerTranscriber(
+        api_key="test-key",
+        endpoint="https://example.com/api/v1",
+        max_retries=1,
+        request_timeout_seconds=1,
+    )
+    provider._session = ForbiddenSession()
+
+    try:
+        provider.transcribe_url("https://media.example/demo.mp3")
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "403 Forbidden" in message
+        assert "Free quota exhausted" in message
+    else:  # pragma: no cover - assertion branch
+        raise AssertionError("provider error body should be raised")
 
 
 def test_aliyun_paraformer_rejects_local_path() -> None:

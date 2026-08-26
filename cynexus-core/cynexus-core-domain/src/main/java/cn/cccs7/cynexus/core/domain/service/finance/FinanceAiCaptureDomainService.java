@@ -42,6 +42,41 @@ public class FinanceAiCaptureDomainService {
 
     public FinanceAiCaptureBO parse(String ownerKey, String fileName, String contentType, byte[] content,
                                     Long fileSize, String mode, String idempotencyKey) {
+        AcceptedCapture accepted = accept(ownerKey, fileName, contentType, content, fileSize, mode, idempotencyKey);
+        if (!CoreConstants.STATUS_QUEUED.equalsIgnoreCase(accepted.capture().getStatus())) {
+            return accepted.capture();
+        }
+        return processCapture(ownerKey, accepted.capture().getId(), accepted.images(), accepted.imageIds(),
+                accepted.capture().getProcessingMode());
+    }
+
+    public FinanceAiCaptureBO enqueue(String ownerKey, String fileName, String contentType, byte[] content,
+                                      Long fileSize, String mode, String idempotencyKey) {
+        return accept(ownerKey, fileName, contentType, content, fileSize, mode, idempotencyKey).capture();
+    }
+
+    public FinanceAiCaptureBO claimNext() {
+        return repository.claimNextCapture();
+    }
+
+    public void execute(FinanceAiCaptureBO capture) {
+        if (capture == null || capture.getId() == null) {
+            return;
+        }
+        List<ReceiptAiParserPort.ReceiptImage> images = repository.listCaptureImages(capture.getOwnerKey(), capture.getId());
+        if (images.isEmpty()) {
+            repository.updateCapture(FinanceAiCaptureBO.builder().id(capture.getId()).ownerKey(capture.getOwnerKey())
+                    .status(CoreConstants.STATUS_FAILED).processingMode(capture.getProcessingMode())
+                    .sourceCount(0).errorMessage("\u539f\u59cb\u56fe\u7247\u672a\u4fdd\u5b58\uff0c\u65e0\u6cd5\u8bc6\u522b")
+                    .rawResponse("{}").build());
+            return;
+        }
+        String processingMode = capture.getProcessingMode() == null ? "auto" : capture.getProcessingMode();
+        processCapture(capture.getOwnerKey(), capture.getId(), images, Map.of(), processingMode);
+    }
+
+    private AcceptedCapture accept(String ownerKey, String fileName, String contentType, byte[] content,
+                                   Long fileSize, String mode, String idempotencyKey) {
         String processingMode = CoreConstants.STATUS_REVIEW.equalsIgnoreCase(mode)
                 ? CoreConstants.STATUS_REVIEW : "auto";
         String validationError = null;
@@ -60,15 +95,15 @@ public class FinanceAiCaptureDomainService {
                 : "invalid-" + UUID.randomUUID();
         FinanceAiCaptureBO existing = repository.findCaptureByIdempotencyKey(ownerKey, requestKey);
         if (existing != null) {
-            return existing;
+            return new AcceptedCapture(existing, List.of(), Map.of());
         }
         int sourceCount = content == null || content.length == 0 ? 0 : 1;
-        Long captureId = repository.createCapture(FinanceAiCaptureBO.builder().ownerKey(ownerKey).status(CoreConstants.STATUS_PROCESSING)
+        Long captureId = repository.createCapture(FinanceAiCaptureBO.builder().ownerKey(ownerKey).status(CoreConstants.STATUS_QUEUED)
                 .processingMode(processingMode).sourceCount(sourceCount).idempotencyKey(requestKey).build());
         if (validationError != null) {
             repository.updateCapture(FinanceAiCaptureBO.builder().id(captureId).ownerKey(ownerKey).status(CoreConstants.STATUS_FAILED)
                     .sourceCount(sourceCount).errorMessage(validationError).rawResponse("{}").build());
-            return repository.findCapture(ownerKey, captureId);
+            return new AcceptedCapture(repository.findCapture(ownerKey, captureId), List.of(), Map.of());
         }
         ReceiptAiParserPort.ReceiptImage receiptImage = new ReceiptAiParserPort.ReceiptImage(0, fileName, contentType, content);
         List<ReceiptAiParserPort.ReceiptImage> images = List.of(receiptImage);
@@ -77,7 +112,12 @@ public class FinanceAiCaptureDomainService {
             imageIds.put(image.imageIndex(), repository.createCaptureImage(captureId, image.imageIndex(), image.fileName(),
                     image.contentType(), image.content().length, sha256(image.content()), image.content()));
         }
-        return processCapture(ownerKey, captureId, images, imageIds, processingMode);
+        return new AcceptedCapture(repository.findCapture(ownerKey, captureId), images, imageIds);
+    }
+
+    private record AcceptedCapture(FinanceAiCaptureBO capture,
+                                   List<ReceiptAiParserPort.ReceiptImage> images,
+                                   Map<Integer, Long> imageIds) {
     }
 
     public FinanceAiCaptureBO get(String ownerKey, Long id) {
@@ -86,6 +126,14 @@ public class FinanceAiCaptureDomainService {
             throw new BizException(ErrorCode.NOT_FOUND, "AI \u8bc6\u522b\u6279\u6b21\u4e0d\u5b58\u5728");
         }
         return capture;
+    }
+
+    public ReceiptAiParserPort.ReceiptImage image(String ownerKey, Long captureId, int imageIndex) {
+        get(ownerKey, captureId);
+        return repository.listCaptureImages(ownerKey, captureId).stream()
+                .filter(image -> image.imageIndex() == imageIndex)
+                .findFirst()
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "AI capture image not found"));
     }
 
     public FinanceAiCaptureHistoryPageBO history(String ownerKey, int limit, int offset, String status) {

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.stockselection.mapper.StockSelectionBacktestMapper">
+    <insert id="insertRun">
+        insert into cynexus_appl_market.stock_selection_strategy_backtest_run
+        (id, tenant_id, owner_id, strategy_version_id, requested_as_of_date, actual_as_of_date, status, config,
+         benchmark, data_source, warnings, summary, started_at, completed_at)
+        values (#{id}, #{tenantId}, #{ownerId}, #{strategyVersionId}, #{requestedAsOfDate}, #{actualAsOfDate}, #{status},
+                cast(#{config} as jsonb), #{benchmark}, #{dataSource}, cast(#{warnings} as jsonb), cast(#{summary} as jsonb),
+                #{startedAt}, #{completedAt})
+    </insert>
+    <insert id="insertTrade">
+        insert into cynexus_appl_market.stock_selection_strategy_backtest_trade
+        (id, backtest_run_id, signal_date, entry_date, exit_date, market, stock_code, stock_name, signal_rank, score,
+         entry_price, exit_price, gross_return_pct, net_return_pct, benchmark_return_pct, excess_return_pct, outcome)
+        values (#{id}, #{backtestRunId}, #{signalDate}, #{entryDate}, #{exitDate}, #{market}, #{stockCode}, #{stockName},
+                #{signalRank}, #{score}, #{entryPrice}, #{exitPrice}, #{grossReturnPct}, #{netReturnPct},
+                #{benchmarkReturnPct}, #{excessReturnPct}, #{outcome})
+    </insert>
+    <select id="findNextQueued" resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionBacktestRunPO">
+        select id, tenant_id as tenantId, owner_id as ownerId
+          from cynexus_appl_market.stock_selection_strategy_backtest_run
+         where status = 'QUEUED'
+         order by created_at asc
+         for update skip locked
+         limit 1
+    </select>
+    <select id="findLatestCompleted" resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionBacktestRunPO">
+        select r.id, r.tenant_id as tenantId, r.owner_id as ownerId, r.strategy_version_id as strategyVersionId,
+               d.strategy_code as strategyCode, v.version_no as strategyVersionNo,
+               r.requested_as_of_date as requestedAsOfDate, r.actual_as_of_date as actualAsOfDate, r.status,
+               r.config, r.benchmark, r.data_source as dataSource, r.warnings, r.summary,
+               r.started_at as startedAt, r.completed_at as completedAt
+          from cynexus_appl_market.stock_selection_strategy_backtest_run r
+          join cynexus_appl_market.stock_selection_strategy_version v on v.id=r.strategy_version_id
+          join cynexus_appl_market.stock_selection_strategy_definition d on d.id=v.strategy_definition_id
+         where r.tenant_id=#{tenantId} and r.owner_id=#{ownerId} and d.strategy_code=#{strategyCode}
+           and r.status='SUCCEEDED' and v.deleted_at is null and d.deleted_at is null
+         order by r.completed_at desc nulls last, r.created_at desc
+         limit 1
+    </select>
+    <update id="claimRun">
+        update cynexus_appl_market.stock_selection_strategy_backtest_run
+           set status = 'RUNNING'
+         where id = #{id} and status = 'QUEUED'
+    </update>
+    <update id="completeRun">
+        update cynexus_appl_market.stock_selection_strategy_backtest_run
+           set actual_as_of_date = #{actualAsOfDate}, status = #{status}, warnings = cast(#{warnings} as jsonb),
+               summary = cast(#{summary} as jsonb), completed_at = #{completedAt}
+         where id = #{id} and tenant_id = #{tenantId} and owner_id = #{ownerId} and status = 'RUNNING'
+    </update>
+    <update id="failRun">
+        update cynexus_appl_market.stock_selection_strategy_backtest_run
+           set status = 'FAILED', warnings = cast(#{warnings} as jsonb), completed_at = #{completedAt}
+         where id = #{id} and tenant_id = #{tenantId} and owner_id = #{ownerId} and status = 'RUNNING'
+    </update>
+    <delete id="deleteTrades">
+        delete from cynexus_appl_market.stock_selection_strategy_backtest_trade where backtest_run_id = #{runId}
+    </delete>
+    <select id="findRun" resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionBacktestRunPO">
+        select r.id, r.tenant_id as tenantId, r.owner_id as ownerId, r.strategy_version_id as strategyVersionId,
+               d.strategy_code as strategyCode, v.version_no as strategyVersionNo,
+               r.requested_as_of_date as requestedAsOfDate, r.actual_as_of_date as actualAsOfDate, r.status,
+               r.config, r.benchmark, r.data_source as dataSource, r.warnings, r.summary,
+               r.started_at as startedAt, r.completed_at as completedAt
+          from cynexus_appl_market.stock_selection_strategy_backtest_run r
+          join cynexus_appl_market.stock_selection_strategy_version v on v.id=r.strategy_version_id
+          join cynexus_appl_market.stock_selection_strategy_definition d on d.id=v.strategy_definition_id
+         where r.id=#{id} and r.tenant_id=#{tenantId} and r.owner_id=#{ownerId}
+    </select>
+    <select id="findTrades" resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionBacktestTradePO">
+        select id, backtest_run_id as backtestRunId, signal_date as signalDate, entry_date as entryDate,
+               exit_date as exitDate, market, stock_code as stockCode, stock_name as stockName,
+               signal_rank as signalRank, score, entry_price as entryPrice, exit_price as exitPrice,
+               gross_return_pct as grossReturnPct, net_return_pct as netReturnPct,
+               benchmark_return_pct as benchmarkReturnPct, excess_return_pct as excessReturnPct, outcome
+          from cynexus_appl_market.stock_selection_strategy_backtest_trade
+         where backtest_run_id=#{runId}
+         order by signal_date, signal_rank
+    </select>
+</mapper>

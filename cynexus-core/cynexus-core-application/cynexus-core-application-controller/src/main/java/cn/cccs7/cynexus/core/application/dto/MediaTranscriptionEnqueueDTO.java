@@ -15,4 +15,7 @@ public class MediaTranscriptionEnqueueDTO {
     private String message;
     private String processId;
     private String status;
+    private String workflowType;
+    private String workflowKey;
+    private String pollUrl;
 }

@@ -79,7 +79,8 @@ export async function retryMediaProcess(id: string): Promise<MediaProcessItem> {
 }
 
 export interface ParseUrlRequest {
-  url: string
+  url?: string
+  text?: string
   title?: string
   platform?: string
   noteType?: string

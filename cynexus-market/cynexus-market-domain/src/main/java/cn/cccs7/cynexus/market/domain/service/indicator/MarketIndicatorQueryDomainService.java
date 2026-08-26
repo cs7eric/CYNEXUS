@@ -190,6 +190,10 @@ public final class MarketIndicatorQueryDomainService {
         return result;
     }
 
+    public List<LocalDate> tradeReviewMaterializedDates(int limit) {
+        return repository.listTradeReviewMaterializedDates(Math.max(1, Math.min(240, limit)));
+    }
+
     public Map<String, Object> replaySummary(LocalDate requestedDate, int limit) {
         MarketIndicatorReplayBO replay = replayTimeline(requestedDate, LocalTime.of(9, 30), LocalTime.of(15, 0), null, null, Math.min(1000, limit));
         LocalDate tradeDate = replay.getTradeDate();

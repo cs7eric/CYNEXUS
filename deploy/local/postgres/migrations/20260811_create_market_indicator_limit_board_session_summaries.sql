@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_market.market_indicator_limit_board_sess
     sealed_amount_change numeric(24,6),
     sealed_amount_slope numeric(24,10),
     trend_direction varchar(16) NOT NULL DEFAULT 'insufficient',
+    trend_series_origin_at timestamptz,
+    trend_time_offsets smallint[] NOT NULL DEFAULT '{}'::smallint[],
+    trend_sealed_amounts bigint[] NOT NULL DEFAULT '{}'::bigint[],
     source text NOT NULL,
     algorithm_version varchar(32) NOT NULL DEFAULT 'v1',
     trend_features jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -48,7 +51,10 @@ CREATE TABLE IF NOT EXISTS cynexus_appl_market.market_indicator_limit_board_sess
         CHECK (sealed_duration_seconds >= 0 AND open_count >= 0 AND reseal_count >= 0
             AND sample_count >= 0 AND valid_sample_count >= 0 AND gap_count >= 0),
     CONSTRAINT ck_market_indicator_limit_board_summary_coverage
-        CHECK (coverage_ratio IS NULL OR coverage_ratio BETWEEN 0 AND 1)
+        CHECK (coverage_ratio IS NULL OR coverage_ratio BETWEEN 0 AND 1),
+    CONSTRAINT ck_market_indicator_limit_board_summary_trend_series
+        CHECK (cardinality(trend_time_offsets) = cardinality(trend_sealed_amounts)
+            AND cardinality(trend_time_offsets) <= 120)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_market_indicator_limit_board_session_summary

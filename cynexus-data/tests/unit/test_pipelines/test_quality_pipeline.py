@@ -151,3 +151,47 @@ def test_quality_check_daily_source_sample_reports_price_mismatch(monkeypatch) -
     assert check["ok"] is False
     assert check["mismatch_count"] == 1
     assert check["mismatches"][0]["symbol"] == "sh600000"
+
+
+def test_quality_check_reports_screening_fact_coverage(monkeypatch) -> None:
+    class FakePostgresHook:
+        def get_client(self):
+            return object()
+
+    class ScreeningHooks(FakeHooks):
+        postgres = FakePostgresHook()
+
+    class FakeRepository:
+        SOURCE = "clickhouse.daily_raw"
+
+        def __init__(self, client) -> None:
+            self.client = client
+
+        def count_rows(self, **kwargs):
+            return 99
+
+    monkeypatch.setattr(
+        "cynexus_data.pipelines.quality.run_quality_check.count_stock_screening_fact_source_rows",
+        lambda *args, **kwargs: 100,
+    )
+    monkeypatch.setattr("cynexus_data.pipelines.quality.run_quality_check.StockScreeningFactRepository", FakeRepository)
+
+    result = run(
+        PipelineContext(hooks=ScreeningHooks(FakeClickHouseClient())),
+        JobRequest(
+            job_key="quality_check",
+            dry_run=True,
+            params={"estimate": True, "checks": "screening_fact_coverage", "trade_date": "2026-08-14"},
+        ),
+    )
+
+    assert result["check_results"] == [
+        {
+            "check": "screening_fact_coverage",
+            "ok": False,
+            "source_daily_rows": 100,
+            "materialized_daily_rows": 99,
+            "coverage_pct": 99.0,
+            "source": "clickhouse.daily_raw",
+        }
+    ]

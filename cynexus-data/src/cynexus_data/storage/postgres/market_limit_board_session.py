@@ -53,8 +53,11 @@ def _columns() -> list[str]:
         "is_sealed_at_close", "first_touch_at", "first_sealed_at", "last_sealed_at", "last_observed_at",
         "sealed_duration_seconds", "open_count", "reseal_count", "sample_count", "valid_sample_count",
         "gap_count", "coverage_ratio", "max_sealed_amount", "avg_sealed_amount", "median_sealed_amount",
-        "peak_sealed_amount_at", "first_sealed_amount", "last_sealed_amount", "sealed_amount_change",
-        "sealed_amount_slope", "trend_direction", "source", "algorithm_version", "trend_features",
+        "peak_sealed_amount_at", "first_sealed_amount", "last_sealed_amount",
+        "last_turnover_amount", "last_sealed_turnover_ratio", "max_sealed_turnover_ratio",
+        "sealed_amount_change",
+        "sealed_amount_slope", "trend_direction", "trend_series_origin_at", "trend_time_offsets",
+        "trend_sealed_amounts", "source", "algorithm_version", "trend_features",
     ]
 
 
@@ -69,6 +72,8 @@ def _summary_params(row: dict[str, Any], *, source: str) -> dict[str, Any]:
         "trade_session": trade_session,
         "code": code,
         "source": row.get("source") or source,
+        "trend_time_offsets": list(row.get("trend_time_offsets") or []),
+        "trend_sealed_amounts": list(row.get("trend_sealed_amounts") or []),
         "trend_features": json.dumps(row.get("trend_features") or {}, ensure_ascii=False, default=str),
     })
     return params

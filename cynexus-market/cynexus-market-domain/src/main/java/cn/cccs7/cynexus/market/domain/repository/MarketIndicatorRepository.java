@@ -35,6 +35,7 @@ public interface MarketIndicatorRepository {
 
     /** Lightweight day-manifest read for the Trade Review entry page. */
     Map<String, Object> tradeReviewMarketStateManifest(LocalDate tradeDate);
+    List<LocalDate> listTradeReviewMaterializedDates(int limit);
     List<Map<String, Object>> listLimitBoardSessionSummaries(LocalDate tradeDate, String tradeSession,
                                                               String direction, int limit);
 }

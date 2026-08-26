@@ -95,6 +95,9 @@ public class ApiWorkflowAppService {
             case AI_REQUEST_STARTED -> "AI_STARTED";
             case AI_REQUEST_SUCCEEDED -> "AI_SUCCEEDED";
             case AI_REQUEST_FAILED -> "AI_FAILED";
+            case AI_REVIEW_STARTED -> "AI_REVIEW_STARTED";
+            case AI_REVIEW_SUCCEEDED -> "AI_REVIEW_SUCCEEDED";
+            case AI_REVIEW_FAILED -> "AI_REVIEW_FAILED";
             case RETRY_SCHEDULED, MANUAL_RETRY_REQUESTED -> "RETRY_SCHEDULED";
             case CANDIDATES_SAVED -> "RESULT_READY";
             case TASK_READY_FOR_REVIEW -> "WAITING_REVIEW";
@@ -109,6 +112,7 @@ public class ApiWorkflowAppService {
             case TASK_CREATED, OUTBOX_CREATED -> "queued";
             case PROCESSING_STARTED -> "processing";
             case AI_REQUEST_STARTED, AI_REQUEST_SUCCEEDED, AI_REQUEST_FAILED -> "ai_processing";
+            case AI_REVIEW_STARTED, AI_REVIEW_SUCCEEDED, AI_REVIEW_FAILED -> "ai_review";
             case RETRY_SCHEDULED, MANUAL_RETRY_REQUESTED -> "retrying";
             case CANDIDATES_SAVED -> "result_ready";
             case TASK_READY_FOR_REVIEW, CANDIDATE_EDITED -> "waiting_review";
@@ -131,6 +135,8 @@ public class ApiWorkflowAppService {
             case PROCESSING_STARTED -> 25;
             case AI_REQUEST_STARTED -> 50;
             case AI_REQUEST_SUCCEEDED, CANDIDATES_SAVED -> 80;
+            case AI_REVIEW_STARTED -> 92;
+            case AI_REVIEW_SUCCEEDED, AI_REVIEW_FAILED -> 100;
             case TASK_READY_FOR_REVIEW, CANDIDATE_EDITED -> 90;
             case TASK_CONFIRMED -> 100;
             case AI_REQUEST_FAILED, TASK_FAILED -> 0;

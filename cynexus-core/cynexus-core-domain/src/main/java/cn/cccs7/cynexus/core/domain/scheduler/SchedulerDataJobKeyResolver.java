@@ -295,6 +295,13 @@ public final class SchedulerDataJobKeyResolver {
                     Map.entry("datasets", List.of("summary", "detail", "account")),
                     Map.entry("lock_scope", "margin")
             )),
+            entry("futures_position_daily", "sync_futures_position", Map.ofEntries(
+                    Map.entry("create_table", true),
+                    Map.entry("providers", List.of("akshare", "sina")),
+                    Map.entry("exchanges", List.of("CFFEX", "SHFE", "CZCE", "DCE", "GFEX", "INE")),
+                    Map.entry("latest_source_data", true),
+                    Map.entry("lookback_days", 10)
+            )),
             entry("a_stock_research_weekly", "sync_a_stock_dataset", Map.ofEntries(
                     Map.entry("create_table", true),
                     Map.entry("ignore_errors", true),

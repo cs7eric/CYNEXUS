@@ -26,6 +26,30 @@ final class MarketResearchAgentToolGuidance {
             "Read bounded margin-trading summaries, rankings, and stock history.",
             "Use when the user asks about margin balance, industry ranking, or a stock or industry's margin history.",
             "Do not treat margin balance as a standalone buy or sell signal.");
+    static final String SCREENER = guidance(
+            "Run a bounded end-of-day A-share stock screen using THS-to-TDX industry groups, THS industry leaves, TDX concept/style memberships, technical, liquidity, size, valuation, and main-fund-flow fields.",
+            "Use when the user asks to identify stocks meeting explicit daily conditions, including a TDX industry group, THS industry leaf, TDX concept, TDX style, board, momentum, volatility, turnover rate, volume ratio, PE, or main-fund-flow filters.",
+            "Do not use for intraday or full financial-factor screening; PE has partial daily-snapshot coverage, sector memberships are descriptive classifications, and the returned list is factual research input, not a trading recommendation.");
+    static final String FACTOR_OBSERVATORY = guidance(
+            "Read a bounded daily limit-up or large-move cohort through independently traceable market, industry, intraday, technical, and margin evidence.",
+            "Use when the user asks to inspect recurring event characteristics or the contextual evidence around a selected stock move.",
+            "Do not infer a causal reason from the result. Preserve unavailable sources, coverage warnings, and counter-evidence when summarizing it.");
+    static final String FACTOR_STUDY = guidance(
+            "Read the active Agent owner's bounded persisted market-factor studies and their immutable research metadata.",
+            "Use when the user asks whether a study is queued, complete, partial, failed, or which frozen window and leakage checks it used.",
+            "This is a facts-only owner-scoped read. It cannot queue, cancel, retry, promote, or create a strategy, and it is not trading advice.");
+    static final String EVENT_REPLAY = guidance(
+            "Read a single bounded stock event replay around an explicit trading date and anchor.",
+            "Use to inspect the factual stock-minute path and materialized market/industry coverage around one historical event.",
+            "Do not infer causality, use unavailable minutes as facts, or turn the replay into trading advice.");
+    static final String FACTOR_SET_VALIDATION = guidance(
+            "Read one owner-scoped Factor Set and its active immutable version status.",
+            "Use when the user asks whether a named Factor Set is draft, validated or promoted, and needs its persisted validation metadata.",
+            "This tool cannot validate, promote, edit, or create a Factor Set or strategy; use it as factual evidence only.");
+    static final String STOCK_SELECTION_STRATEGY_HEALTH = guidance(
+            "Read the current health assessment for one governed stock-selection strategy in the active user's scope.",
+            "Use when the user asks whether a named Screener strategy is Valid, Weakening, Invalid, or not assessed today, and needs coverage, freshness, signal-density, or recent-performance evidence.",
+            "This tool reads only the current Agent owner's scoped health result. It cannot run a strategy, start a backtest, read another user's watchlist, or make a trading decision. Treat NOT_ASSESSED and warnings as missing evidence, not a positive signal.");
     static final String INDICATOR = guidance(
             "Read full-market indicator snapshots, bounded 1m replay timelines, materialized Trade Review states, sector transmission episodes, replay outcomes, conditional trade references, and industry detail.",
             "Use when the user asks who led a sector move, whether followers confirmed it, what market context accompanied the anomaly, or how an episode performed afterward.",

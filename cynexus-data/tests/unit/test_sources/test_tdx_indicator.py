@@ -91,3 +91,52 @@ def test_fetch_indicator_snapshots_splits_repeatedly_failing_large_batch():
     assert sorted(row["code"] for row in rows) == ["000001", "000002"]
     assert client.calls[0] == ["sz000001", "sz000002"]
     assert len(client.calls) == 3
+
+
+def test_fetch_indicator_snapshots_isolates_one_failed_symbol_for_bounded_monitoring():
+    class IsolatedFailureClient:
+        def get_quote(self, codes):
+            if "sz000004" in codes:
+                raise RuntimeError("symbol unavailable")
+            return [
+                {"code": code[2:], "last_price": 11, "pre_close_price": 10}
+                for code in codes
+            ]
+
+    rows = fetch_indicator_snapshots(
+        IsolatedFailureClient(),
+        {
+            "000001": {"name": "平安银行", "market": "SZ", "limit_up_threshold": 10},
+            "000002": {"name": "万科A", "market": "SZ", "limit_up_threshold": 10},
+            "000004": {"name": "国华网安", "market": "SZ", "limit_up_threshold": 10},
+        },
+        requested_codes={"000001", "000002", "000004"},
+        batch_size=240,
+        retry_attempts=0,
+        retry_backoff_seconds=0,
+        request_spacing_seconds=0,
+        fallback_batch_size=80,
+        allow_partial_failures=True,
+    )
+
+    assert sorted(row["code"] for row in rows) == ["000001", "000002"]
+
+
+def test_fetch_indicator_snapshots_uses_tracked_codes_without_universe_discovery():
+    class TrackedClient:
+        def get_a_share_codes_all(self):
+            raise AssertionError("tracked captures must not rediscover the full market")
+
+        def get_quote(self, codes):
+            assert codes == ["sz000001"]
+            return [{"code": "000001", "last_price": 11, "pre_close_price": 10}]
+
+    rows = fetch_indicator_snapshots(
+        TrackedClient(),
+        {"000001": {"name": "平安银行", "market": "SZ", "limit_up_threshold": 10}},
+        requested_codes={"000001"},
+        captured_at=datetime(2026, 7, 28, 1, 42, tzinfo=timezone.utc),
+        request_spacing_seconds=0,
+    )
+
+    assert [row["code"] for row in rows] == ["000001"]

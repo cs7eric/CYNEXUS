@@ -60,6 +60,21 @@ $migrationFiles = @(
     ,"20260810_repair_portfolio_trade_wall_clock_times.sql"
     ,"20260810_disable_1m_kline_delete_mutations.sql"
     ,"20260811_schedule_trade_review_market_state.sql"
+    ,"20260812_add_trade_review_market_minute_metrics.sql"
+    ,"20260813_repair_limit_board_session_duration.sql"
+    ,"20260813_limit_board_session_capture.sql"
+    ,"20260814_limit_board_sealed_turnover_ratio.sql"
+    ,"20260815_create_stock_selection_strategy_tables.sql"
+    ,"20260815_create_stock_selection_backtest_tables.sql"
+    ,"20260815_extend_stock_selection_backtest_status.sql"
+    ,"20260815_optimize_market_indicator_candidate_capture.sql"
+    ,"20260816_schedule_stock_screening_fact_materialization.sql"
+    ,"20260816_extend_stock_selection_user_strategies.sql"
+    ,"20260816_create_stock_selection_named_watchlists.sql"
+    ,"20260816_create_market_factor_research.sql"
+    ,"20260817_add_market_factor_study_outcomes.sql"
+    ,"20260819_optimize_market_factor_study_snapshot_lookup.sql"
+    ,"20260826_clear_portfolio_retry_errors_after_success.sql"
 )
 
 foreach ($file in $migrationFiles) {

@@ -18,17 +18,18 @@
 
 ### Components
 
-#### SummaryTable
-- Path: `cynexus-ui/src/views/data-collector/limit-board-monitor/index.tsx`
-- Purpose: Render one row per stock and session with seal amount aggregates, duration, open/reseal counts, trend, and coverage.
+#### StockBoardCard / OverlayTimeshareChart
+- Path: `cynexus-ui/src/views/data-collector/limit-board-monitor/components/`
+- Purpose: Compact card grid; overlay TDX timeshare price with sealed-amount series on session clock time.
 - Reuse Scope: Current page only
 - Props Summary:
-  - `rows`: persisted session summary records.
-- Notes: Raw Redis samples are intentionally excluded from this UI.
+  - `row`: persisted session summary record.
+  - `tradeDate`: calendar day used to fetch TDX timeshare.
+- Notes: Timeshare is fetched on viewport entry via `fetchEasyTdxTimeshare`. Do not use `ChartContainer` / Recharts here.
 
 ### Lib Methods
 
-- No shared lib methods; display formatting is page-local and has no cross-page contract.
+- Page-local formatters live in `limit-board-monitor/lib/format.ts` and have no cross-page contract.
 
 ## Page: Market Information
 

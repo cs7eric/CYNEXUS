@@ -125,7 +125,7 @@ export interface FinanceAiCaptureItem {
 
 export interface FinanceAiCapture {
   id: number
-  status: "uploaded" | "processing" | "review" | "confirmed" | "failed" | "archived"
+  status: "queued" | "uploaded" | "processing" | "review" | "confirmed" | "failed" | "archived"
   sourceCount: number
   modelCode: string | null
   errorMessage: string | null

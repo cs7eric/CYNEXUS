@@ -222,7 +222,10 @@ export default function AiUsageSettingsPage() {
     finally { setQuotaLoading(false) }
   }, [])
 
-  useEffect(() => { void refreshQuotaPolicies() }, [refreshQuotaPolicies])
+  useEffect(() => {
+    const timer = window.setTimeout(() => void refreshQuotaPolicies(), 0)
+    return () => window.clearTimeout(timer)
+  }, [refreshQuotaPolicies])
 
   const openQuotaCreate = useCallback(() => {
     setQuotaError(null)
@@ -352,31 +355,34 @@ export default function AiUsageSettingsPage() {
         {!error && data && !data.available ? <Alert><AlertTriangle className="h-4 w-4" /><AlertTitle>Langfuse has no data</AlertTitle><AlertDescription>{data.message || "Enable the shared Langfuse stack and AI reporter to see usage."}</AlertDescription></Alert> : null}
 
         <Card className="shadow-none">
-          <CardHeader className="flex flex-col gap-4 border-b border-border/60 py-4 sm:flex-row sm:items-start sm:justify-between">
+          <CardHeader className="flex flex-col gap-2 border-b border-border/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <CardTitle className="text-base">Agent 配额策略</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">限制每天 UTC 00:00 重置。系统按用户策略、租户策略、全局默认的顺序匹配。</p>
+              <CardTitle className="text-sm">Agent 配额策略</CardTitle>
+              <p className="mt-0.5 text-xs text-muted-foreground">每日 UTC 00:00 重置，按用户、租户、全局顺序匹配。</p>
             </div>
-            <Button size="sm" onClick={openQuotaCreate} disabled={quotaSaving}>
+            <Button size="xs" onClick={openQuotaCreate} disabled={quotaSaving}>
               <Plus className="size-4" />
               新增策略
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4 px-4 py-4">
+          <CardContent className="space-y-3 px-3 py-3">
             {quotaError ? <Alert variant="destructive"><AlertTriangle className="size-4" /><AlertTitle>配额策略操作失败</AlertTitle><AlertDescription>{quotaError}</AlertDescription></Alert> : null}
 
-            <div className="grid gap-2 rounded-lg bg-muted/45 p-3 text-xs text-muted-foreground md:grid-cols-3">
-              <div className="flex min-w-0 gap-2"><UserRound className="mt-0.5 size-4 shrink-0 text-foreground" /><div><p className="font-medium text-foreground">用户策略</p><p className="mt-0.5 leading-5">租户内指定用户，优先级最高。</p></div></div>
-              <div className="flex min-w-0 gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-foreground" /><div><p className="font-medium text-foreground">租户策略</p><p className="mt-0.5 leading-5">覆盖该租户内未单独配置的用户。</p></div></div>
-              <div className="flex min-w-0 gap-2"><Globe2 className="mt-0.5 size-4 shrink-0 text-foreground" /><div><p className="font-medium text-foreground">全局默认</p><p className="mt-0.5 leading-5">作为最终兜底，请始终保留一条。</p></div></div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-muted/45 px-3 py-1.5 text-xs text-muted-foreground" aria-label="配额匹配顺序">
+              <span className="font-medium text-foreground">匹配顺序</span>
+              <span className="inline-flex items-center gap-1" title="租户内指定用户，优先级最高"><UserRound className="size-3.5 text-foreground" />用户策略</span>
+              <span aria-hidden="true">›</span>
+              <span className="inline-flex items-center gap-1" title="覆盖该租户内未单独配置的用户"><Building2 className="size-3.5 text-foreground" />租户策略</span>
+              <span aria-hidden="true">›</span>
+              <span className="inline-flex items-center gap-1" title="作为最终兜底，请始终保留一条"><Globe2 className="size-3.5 text-foreground" />全局默认</span>
             </div>
 
             <section className="overflow-hidden rounded-lg border border-border/60" aria-label="Agent 配额策略列表">
-              <div className="hidden grid-cols-[minmax(220px,1.4fr)_minmax(120px,0.7fr)_minmax(140px,0.8fr)_auto] gap-4 border-b border-border/60 bg-muted/35 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
+              <div className="hidden grid-cols-[minmax(220px,1.4fr)_minmax(120px,0.7fr)_minmax(140px,0.8fr)_auto] gap-3 border-b border-border/60 bg-muted/35 px-3 py-1.5 text-xs font-medium text-muted-foreground md:grid">
                 <span>适用范围</span><span className="text-right">每日请求上限</span><span className="text-right">每日 Token 上限</span><span className="text-right">操作</span>
               </div>
               {quotaLoading ? (
-                <div className="space-y-3 p-4"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+                <div className="space-y-2 p-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
               ) : null}
               {!quotaLoading && sortedQuotaPolicies.map((policy) => {
                 const scope = quotaScopeOf(policy)
@@ -384,9 +390,9 @@ export default function AiUsageSettingsPage() {
                 const ScopeIcon = scope === "principal" ? UserRound : scope === "tenant" ? Building2 : Globe2
                 const deleting = quotaDeletingId === policy.id
                 return (
-                  <div key={policy.id} className="grid gap-3 border-b border-border/60 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(220px,1.4fr)_minmax(120px,0.7fr)_minmax(140px,0.8fr)_auto] md:items-center md:gap-4">
-                    <div className="flex min-w-0 items-start gap-2.5">
-                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><ScopeIcon className="size-3.5" /></span>
+                  <div key={policy.id} className="grid gap-2 border-b border-border/60 px-3 py-2 last:border-b-0 md:grid-cols-[minmax(220px,1.4fr)_minmax(120px,0.7fr)_minmax(140px,0.8fr)_auto] md:items-center md:gap-3">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><ScopeIcon className="size-3" /></span>
                       <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-medium">{scopeCopy.label}</p><Badge variant={policy.enabled ? "outline" : "secondary"} className="h-5 px-1.5 text-[10px] font-medium">{policy.enabled ? "已启用" : "已停用"}</Badge></div><p className="mt-0.5 truncate text-xs text-muted-foreground" title={scope === "global" ? scopeCopy.description : scope === "tenant" ? `租户：${policy.tenantKey}` : `租户：${policy.tenantKey} / 用户：${policy.principalKey}`}>{scope === "global" ? scopeCopy.description : scope === "tenant" ? `租户：${policy.tenantKey}` : `租户：${policy.tenantKey} / 用户：${policy.principalKey}`}</p></div>
                     </div>
                     <div className="flex items-baseline justify-between gap-3 md:block md:text-right"><span className="text-xs text-muted-foreground md:hidden">每日请求上限</span><span className="font-mono text-sm tabular-nums">{number(policy.dailyRequestLimit)}</span></div>

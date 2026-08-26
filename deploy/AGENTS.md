@@ -3,6 +3,10 @@
 ## Runtime Policy
 
 - The Dev application environment is deprecated and must not be started.
+- Never force-stop ClickHouse, PostgreSQL, Redis, Nacos, or Docker Desktop to recover an application. ClickHouse force shutdown can leave unfinished parts and corrupt or quarantine data parts.
+- Do not use `Stop-Process -Force`, `taskkill`, `docker kill`, `docker system prune`, or a Docker Desktop hard restart as a routine recovery action. First diagnose the affected Release service and use the graceful Release scripts.
+- If an application service is unhealthy, restart only the affected Release service with `deploy/release/start-release.ps1 -Services <service> -Version <version>` after confirming shared infrastructure health. Preserve shared infrastructure containers and wait for graceful shutdown/startup.
+- If Docker itself is unresponsive, stop and request explicit approval before any Docker Desktop restart; record the impact and verify ClickHouse, PostgreSQL, Redis, Nacos, and Data Executor health afterward.
 - Do not start local Java processes, Vite, `cmd.exe`, or source-tree application runtimes.
 - Only the Release application stack may be online.
 - PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor are shared infrastructure and must remain running while the Release application stack is switched or restarted.

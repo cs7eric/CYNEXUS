@@ -3,17 +3,21 @@ package cn.cccs7.cynexus.ai.infra.agent.market;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.cccs7.cynexus.ai.domain.futuresposition.FuturesPositionAiDomainService;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentToolCall;
+import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionContext;
 import cn.cccs7.cynexus.common.core.result.Result;
 import cn.cccs7.cynexus.market.api.dto.FuturesPositionDTO;
 import cn.cccs7.cynexus.market.api.dto.MarginTradingIndustryHistoryDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketEtfDTO;
 import cn.cccs7.cynexus.market.api.dto.MarketIndicatorDTO;
+import cn.cccs7.cynexus.market.api.dto.StockScreenerDTO;
+import cn.cccs7.cynexus.market.api.dto.StockSelectionStrategyDTO;
 import cn.cccs7.cynexus.market.api.feign.MarketResearchFeignClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -108,6 +112,54 @@ class NewMarketAgentToolHandlerTest {
 
         assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
         verify(client).getMarginIndustryHistory("BK001", null, 60);
+    }
+
+    @Test
+    void stockScreenerUsesBoundedDefaultsAndExposesReadOnlyDefinition() {
+        MarketResearchFeignClient client = mock(MarketResearchFeignClient.class, invocation -> {
+            if ("getStockScreener".equals(invocation.getMethod().getName())) {
+                return Result.success(StockScreenerDTO.Response.builder().ok(true).items(List.of()).warnings(List.of()).build());
+            }
+            return org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
+        });
+        MarketStockScreenerAgentToolHandler handler = new MarketStockScreenerAgentToolHandler(client, objectMapper);
+
+        var result = handler.execute(call(handler.definition().getCode(), Map.of()), null);
+
+        assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
+        assertThat(handler.definition().isReadOnly()).isTrue();
+        assertThat(handler.definition().isRequiresConfirmation()).isFalse();
+        assertThat(handler.definition().getVersion()).isEqualTo("1.6.0");
+    }
+
+    @Test
+    void strategyHealthUsesOnlyTheTrustedAgentScope() {
+        MarketResearchFeignClient client = mock(MarketResearchFeignClient.class);
+        when(client.getStockSelectionStrategyHealth(eq("TREND_MOMENTUM"), eq(null), eq("owner-a"), eq("tenant-a"), anyString()))
+                .thenReturn(Result.success(StockSelectionStrategyDTO.HealthResponse.builder()
+                        .strategyCode("TREND_MOMENTUM").status("VALID").source("daily close").checks(List.of()).warnings(List.of()).build()));
+        StockSelectionStrategyHealthAgentToolHandler handler = new StockSelectionStrategyHealthAgentToolHandler(
+                client, objectMapper, "test-secret");
+
+        var result = handler.execute(call(handler.definition().getCode(), Map.of("strategyCode", "TREND_MOMENTUM")),
+                AgentExecutionContext.builder().ownerKey("owner-a").tenantKey("tenant-a").build());
+
+        assertThat(result.getStatus()).isEqualTo("SUCCEEDED");
+        assertThat(handler.definition().isReadOnly()).isTrue();
+        assertThat(handler.definition().isRequiresConfirmation()).isFalse();
+        verify(client).getStockSelectionStrategyHealth(eq("TREND_MOMENTUM"), eq(null), eq("owner-a"), eq("tenant-a"), anyString());
+    }
+
+    @Test
+    void strategyHealthRejectsMissingTrustedScopeBeforeCallingMarket() {
+        MarketResearchFeignClient client = mock(MarketResearchFeignClient.class);
+        StockSelectionStrategyHealthAgentToolHandler handler = new StockSelectionStrategyHealthAgentToolHandler(
+                client, objectMapper, "test-secret");
+
+        var result = handler.execute(call(handler.definition().getCode(), Map.of("strategyCode", "TREND_MOMENTUM")), null);
+
+        assertThat(result.getStatus()).isEqualTo("FAILED");
+        assertThat(result.getWarnings()).containsExactly("TRUSTED_IDENTITY_REQUIRED");
     }
 
     @Test

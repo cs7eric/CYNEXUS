@@ -45,6 +45,7 @@ public interface FinanceRepository {
     boolean updateInstallmentPlanStatus(String ownerKey, Long planId, String status);
 
     Long createCapture(FinanceAiCaptureBO capture);
+    FinanceAiCaptureBO claimNextCapture();
     FinanceAiCaptureBO findCaptureByIdempotencyKey(String ownerKey, String idempotencyKey);
     List<FinanceAiCaptureBO> listCaptures(String ownerKey, int limit, int offset, String status);
     long countCaptures(String ownerKey, String status);

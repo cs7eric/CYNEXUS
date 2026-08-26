@@ -27,13 +27,13 @@ Manage AI providers, models, pricing, and capability bindings.
 ## Components
 
 - Provider editor and capability binding panels are composed in the page module.
-- Capability binding rows expose the per-capability reasoning effort and persist it as `params.reasoning_effort`.
+- Capability binding rows expose the per-capability group and reasoning effort; both are persisted in the binding params as `route_group` and `reasoning_effort`.
 
 ## Data Flow
 
 AI configuration APIs and the backend-owned capability registry -> page state -> provider, binding, and governance forms -> UI.
 
-Binding runtime parameters are preserved during capability route updates; reasoning effort uses `low`, `medium`, or `high`, with `low` as the default.
+Binding runtime parameters are preserved during capability route updates; group changes are written to `route_group`, and reasoning effort uses `low`, `medium`, or `high`, with `low` as the default.
 
 ## Maintenance Notes
 

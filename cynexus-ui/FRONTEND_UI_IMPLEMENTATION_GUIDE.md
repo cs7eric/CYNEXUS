@@ -130,8 +130,8 @@ export default function ExamplePage() {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm">Refresh</Button>
-        <Button size="sm">Create</Button>
+        <Button variant="secondary" size="sm">Refresh</Button>
+        <Button variant="default" size="sm">Create</Button>
       </div>
     </header>
 
@@ -167,13 +167,14 @@ export default function ExamplePage() {
 
 ### Button
 
-使用 [`src/components/ui/button.tsx`](./src/components/ui/button.tsx)：
+使用 [`src/components/ui/button.tsx`](./src/components/ui/button.tsx)。**能用 `secondary` 就用 `secondary`。** 刷新、筛选、取消、重试、次要操作、工具栏文字按钮都写 `variant="secondary"`，不要省略 variant，也不要默认写成 `outline` 或 primary。
 
-- `default`：页面唯一主要提交/确认动作。
-- `secondary`：Refresh、次要 utility action。
-- `outline`：需要可见边界的非主要动作。
-- `ghost`：行操作、toolbar、icon-only action。
-- `sm` / `icon-sm` 用于紧凑工具栏；`default` 用于常规表单动作。
+- `secondary`：默认选择。几乎所有非主提交按钮都用它。
+- `default`：仅页面唯一的主要提交/确认动作，必须显式写 `variant="default"`。
+- `ghost`：行操作、紧凑 toolbar、icon-only action。
+- `destructive`：不可逆或高风险删除。
+- `outline` / `link`：只有明确需要描边或行内文字链时才用；先考虑 secondary。
+- `sm` / `icon-sm` 用于紧凑工具栏；`default` size 用于常规表单动作。
 - icon-only 必须有 `aria-label`；不熟悉的图标补 `title` 或 Tooltip。
 - loading 时保留按钮尺寸，只替换图标为 `Loader2` / `RefreshCw animate-spin`，不要让布局跳动。
 
@@ -183,7 +184,17 @@ export default function ExamplePage() {
 - 筛选 Select 常用 `h-7` / `h-8 border-0 bg-muted/45 text-xs`。
 - 统一使用 `Tabs`；默认是 muted segmented control，`line` 是带 active underline 的页面内导航。
 - `Badge` 只承载短状态、数量、分类或来源，不放长句。
+- 状态类文案只用英文，包括徽章、筛选器和 status chip。workflow / job 状态用 `Queued`、`Running`、`Waiting review`、`Success`、`Failed`、`Cancelled`。不要写 `已入队`、`处理中`、`待确认`、`已完成`、`成功`、`失败`、`已归档`。
 - 筛选变化要同步重置分页；按钮/Select 的文字要明确表达结果，而不是技术实现。
+
+### AI route selection
+
+每个允许用户触发 AI capability 的页面或 panel，必须在对应操作旁或局部标题区域展示共享的 `AiBindingProviderSelect`。它同时提供 Provider 与 Model，并写入该 capability 的 `ai_usage_bindings` 路由；禁止再实现页面私有 selector、硬编码模型，或只展示不可编辑的路由名称。
+
+- 传入精确的稳定 capability code，例如 `stock_selection_ai_screening` 或 `auction_analysis`。
+- 每个可独立执行的 AI capability 都应拥有自己的 route selector；同一工作流且路由必须一致的多个 capability 可传入对齐的 capability 列表。
+- 必须在执行前可见，并保留组件提供的 loading、保存失败状态；执行结果可用时继续展示实际返回的 provider/model。
+- Provider 与 Model 仅管理运行路由；Prompt、fallback、timeout、reasoning 等治理参数继续在 AI Provider 设置中管理，除非 capability 显式支持用户级覆盖。
 
 ### Table / Chart / Drawer
 

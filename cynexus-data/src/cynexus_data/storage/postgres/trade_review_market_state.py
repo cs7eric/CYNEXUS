@@ -139,10 +139,11 @@ class TradeReviewMarketStateRepository:
                     INSERT INTO {self.client.schema}.trade_review_market_minute_state
                     (trade_date, minute_at, advancing_count, declining_count, flat_count, above_5_count, below_minus_5_count,
                      touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count, sealed_limit_down_count, max_height,
-                     seal_rate, break_rate, ladder, source_confidence, updated_at)
+                     seal_rate, break_rate, promotion_rate, promoted_count, median_change_pct, ladder, source_confidence, updated_at)
                     VALUES (:trade_date, :minute_at, :advancing_count, :declining_count, :flat_count, :above_5_count, :below_minus_5_count,
                             :touched_limit_up_count, :sealed_limit_up_count, :broken_limit_up_count, :sealed_limit_down_count, :max_height,
-                            :seal_rate, :break_rate, CAST(:ladder AS jsonb), :source_confidence, now())
+                            :seal_rate, :break_rate, :promotion_rate, :promoted_count, :median_change_pct,
+                            CAST(:ladder AS jsonb), :source_confidence, now())
                 """), markets)
             if industries:
                 db.execute(text(f"""

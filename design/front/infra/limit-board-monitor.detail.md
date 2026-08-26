@@ -24,11 +24,13 @@
 
 ## Components
 
-- `SummaryTable`: renders per-stock session seal statistics and trend features
+- `StockBoardCard`: compact card per stock with identity, seal metrics, and an overlaid timeshare
+- `OverlayTimeshareChart`: ECharts overlay of TDX timeshare price and sealed-amount series on the same session clock axis
 
 ## Lib
 
-- `amount`, `duration`, `percent`, `time`, `trendLabel`: page-local display formatters
+- `format.ts`: display formatters, session clock/minute axis helpers, sealed-amount series
+- `timeshare.ts`: page-local TDX timeshare fetch/parse for card overlay
 
 ## Data Flow
 

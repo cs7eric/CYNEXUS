@@ -56,6 +56,13 @@ public final class PortfolioImportDomainService {
                 .orElseThrow(() -> new IllegalArgumentException("portfolio import task not found"));
     }
 
+    public PortfolioImportAssetBO image(String principalKey, String tenantKey, long taskId) {
+        PortfolioImportTaskBO task = get(principalKey, tenantKey, taskId);
+        return assetStore.findById(task.getAssetId())
+                .filter(asset -> principalKey.equals(asset.principalKey()) && tenantKey.equals(asset.tenantKey()))
+                .orElseThrow(() -> new IllegalArgumentException("portfolio import image not found"));
+    }
+
     public PortfolioImportTaskBO retry(String principalKey, String tenantKey, long taskId) {
         PortfolioImportTaskBO task = get(principalKey, tenantKey, taskId);
         task.retry();

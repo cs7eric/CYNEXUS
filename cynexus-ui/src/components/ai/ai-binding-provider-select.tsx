@@ -7,10 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fetchAiBindings, fetchAiProviders, updateAiBindingModel, updateAiBindingProvider, AI_BINDING_CHANGED_EVENT, type AiBindingItem, type AiProviderItem } from "@/services/ai/provider"
 
 interface AiBindingProviderSelectProps {
-  capability: string
+  capability: string | readonly string[]
   className?: string
   label?: string
   modelLabel?: string
+}
+
+function capabilityList(capability: string | readonly string[]) {
+  return Array.isArray(capability) ? [...capability] : [capability]
 }
 
 function providerLabel(provider: AiProviderItem) {
@@ -28,6 +32,8 @@ function providerModels(provider: AiProviderItem | null | undefined, selectedMod
 }
 
 export function AiBindingProviderSelect({ capability, className, label = "Provider", modelLabel = "Model" }: AiBindingProviderSelectProps) {
+  const capabilities = useMemo(() => capabilityList(capability), [capability])
+  const primaryCapability = capabilities[0] ?? ""
   const [binding, setBinding] = useState<AiBindingItem | null>(null)
   const [providers, setProviders] = useState<AiProviderItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +44,22 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
     setLoading(true)
     try {
       const [nextBindings, nextProviders] = await Promise.all([fetchAiBindings(), fetchAiProviders()])
-      setBinding(nextBindings.find((item) => item.capability === capability) || null)
+      const group = capabilities
+        .map((code) => nextBindings.find((item) => item.capability === code))
+        .filter((item): item is AiBindingItem => Boolean(item))
+      const primary = group.find((item) => item.capability === primaryCapability) ?? group[0] ?? null
+      if (primary && capabilities.length > 1) {
+        const drifted = capabilities.filter((code) => {
+          const item = nextBindings.find((binding) => binding.capability === code)
+          return !item
+            || item.provider_id !== primary.provider_id
+            || (item.model_override || "") !== (primary.model_override || "")
+        })
+        if (drifted.length) {
+          await Promise.all(drifted.map((code) => updateAiBindingProvider(code, primary.provider_id || "", primary.model_override || "")))
+        }
+      }
+      setBinding(primary)
       setProviders(nextProviders)
       setError(null)
     } catch (cause) {
@@ -46,7 +67,7 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
     } finally {
       setLoading(false)
     }
-  }, [capability])
+  }, [capabilities, primaryCapability])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0)
@@ -56,7 +77,7 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
   useEffect(() => {
     const onBindingChanged = (event: Event) => {
       const next = (event as CustomEvent<AiBindingItem>).detail
-      if (next?.capability === capability) setBinding(next)
+      if (next?.capability === primaryCapability) setBinding(next)
     }
     const onVisibilityChange = () => {
       if (!document.hidden) void load()
@@ -67,7 +88,7 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
       window.removeEventListener(AI_BINDING_CHANGED_EVENT, onBindingChanged)
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [capability, load])
+  }, [load, primaryCapability])
 
   const currentProvider = binding?.provider
   const availableModels = useMemo(
@@ -82,18 +103,38 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
     return enabled
   }, [currentProvider, providers])
 
+  async function applyToAll(write: (code: string) => Promise<AiBindingItem>) {
+    const results = await Promise.all(capabilities.map((code) => write(code)))
+    return results.find((item) => item.capability === primaryCapability) ?? results[0] ?? null
+  }
+
   async function handleChange(value: string) {
     if (!binding && value === "auto") return
     setSaving(true)
     try {
       const nextProvider = value === "auto" ? null : providers.find((provider) => provider.id === value) || null
-      const next = await updateAiBindingProvider(capability, value === "auto" ? "" : value, nextProvider?.default_model || "")
+      const next = await applyToAll((code) => updateAiBindingProvider(code, value === "auto" ? "" : value, nextProvider?.default_model || ""))
       setBinding(next)
       setError(null)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
       notification.danger({ title: "Provider route update failed", description: message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleModelChange(value: string) {
+    setSaving(true)
+    try {
+      const next = await applyToAll((code) => updateAiBindingModel(code, value))
+      setBinding(next)
+      setError(null)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setError(message)
+      notification.danger({ title: "Model route update failed", description: message })
     } finally {
       setSaving(false)
     }
@@ -109,7 +150,7 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
 
   return <div className={cn("inline-flex min-w-0 items-center", className)} title={error || undefined}>
     <Select value={binding?.provider_id || "auto"} onValueChange={(value) => void handleChange(value)} disabled={saving || !availableProviders.length}>
-      <SelectTrigger size="sm" aria-label={`${label} for ${capability}`} className="h-7 min-w-0 max-w-[10.5rem] gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none">
+      <SelectTrigger size="sm" aria-label={`${label} for ${primaryCapability}`} className="h-7 min-w-0 max-w-[10.5rem] gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none">
         {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Cpu className="size-3.5" />}
         <SelectValue placeholder={label} />
       </SelectTrigger>
@@ -120,23 +161,10 @@ export function AiBindingProviderSelect({ capability, className, label = "Provid
     </Select>
     <Select
       value={binding?.model_override || currentProvider?.default_model || ""}
-      onValueChange={(value) => {
-        setSaving(true)
-        void updateAiBindingModel(capability, value)
-          .then((next) => {
-            setBinding(next)
-            setError(null)
-          })
-          .catch((cause) => {
-            const message = cause instanceof Error ? cause.message : String(cause)
-            setError(message)
-            notification.danger({ title: "Model route update failed", description: message })
-          })
-          .finally(() => setSaving(false))
-      }}
+      onValueChange={(value) => void handleModelChange(value)}
       disabled={saving || !currentProvider || !availableModels.length}
     >
-      <SelectTrigger size="sm" aria-label={`${modelLabel} for ${capability}`} className="h-7 min-w-0 max-w-[11rem] gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none">
+      <SelectTrigger size="sm" aria-label={`${modelLabel} for ${primaryCapability}`} className="h-7 min-w-0 max-w-[11rem] gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none">
         {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
         <SelectValue placeholder={modelLabel} />
       </SelectTrigger>

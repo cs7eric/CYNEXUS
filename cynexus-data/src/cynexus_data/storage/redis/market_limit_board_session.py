@@ -48,6 +48,13 @@ class MarketLimitBoardSessionCache:
             "trade_session": session,
             "source": source,
         }
+        if rows:
+            latest = max(
+                (row.get("captured_at") for row in rows if isinstance(row.get("captured_at"), datetime)),
+                default=None,
+            )
+            if latest is not None:
+                meta["last_capture_at"] = _datetime_text(latest)
         if discovered_at is not None:
             meta["last_discovery_at"] = _datetime_text(discovered_at)
         pipe.hset(keys["meta"], mapping=meta)
@@ -55,6 +62,86 @@ class MarketLimitBoardSessionCache:
             pipe.expire(key, self.ttl_seconds)
         pipe.execute()
         return len(rows)
+
+    def publish_discoveries(
+        self,
+        *,
+        trade_date: date | str,
+        trade_session: str,
+        discovered: dict[str, str],
+        discovered_at: datetime,
+        source: str,
+    ) -> int:
+        """Publish boards discovered by the whole-market monitor.
+
+        Discovery is intentionally separated from the five-second sampler:
+        the former owns the expensive whole-market scan, while the latter only
+        follows this bounded code set.
+        """
+        valid = {
+            str(code).strip()[-6:].zfill(6): str(direction)
+            for code, direction in discovered.items()
+            if str(direction) in {"up", "down"}
+        }
+        if not valid:
+            return 0
+        day = _trade_day(trade_date)
+        session = _session(trade_session)
+        keys = self._keys(day, session)
+        pipe = self.client.pipeline(transaction=True)
+        pipe.sadd(keys["seen"], *sorted(valid))
+        pipe.hset(keys["directions"], mapping=valid)
+        pipe.hset(
+            keys["meta"],
+            mapping={
+                "trade_date": day,
+                "trade_session": session,
+                "source": source,
+                "last_discovery_at": _datetime_text(discovered_at),
+                "discovery_owner": "market_indicator_refresh",
+            },
+        )
+        for key in keys.values():
+            pipe.expire(key, self.ttl_seconds)
+        pipe.execute()
+        return len(valid)
+
+    def set_session_state(
+        self,
+        *,
+        trade_date: date | str,
+        trade_session: str,
+        state: str,
+        at: datetime,
+    ) -> None:
+        if state not in {"active", "completed"}:
+            raise ValueError(f"unsupported limit-board session state: {state}")
+        keys = self._keys(_trade_day(trade_date), _session(trade_session))
+        self.client.hset(
+            keys["meta"],
+            mapping={"session_state": state, "session_heartbeat_at": _datetime_text(at)},
+        )
+        self.client.expire(keys["meta"], self.ttl_seconds)
+
+    def is_session_active(
+        self,
+        *,
+        trade_date: date | str,
+        trade_session: str,
+        now: datetime,
+        stale_after_seconds: int = 90,
+    ) -> bool:
+        metadata = self.metadata(trade_date=trade_date, trade_session=trade_session)
+        if metadata.get("session_state") != "active":
+            return False
+        heartbeat = metadata.get("session_heartbeat_at")
+        if not heartbeat:
+            return True
+        try:
+            heartbeat_at = datetime.fromisoformat(heartbeat.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        return (now - heartbeat_at).total_seconds() <= max(30, int(stale_after_seconds))
 
     def seen_directions(self, *, trade_date: date | str, trade_session: str) -> dict[str, str]:
         keys = self._keys(_trade_day(trade_date), _session(trade_session))

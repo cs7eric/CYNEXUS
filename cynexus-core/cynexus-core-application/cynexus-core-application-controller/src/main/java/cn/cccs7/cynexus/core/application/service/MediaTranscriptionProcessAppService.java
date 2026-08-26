@@ -33,7 +33,7 @@ public class MediaTranscriptionProcessAppService {
 
     public MediaTranscriptionProcessDTO submit(MediaTranscriptionProcessRequest request, String idempotencyKey) {
         MediaTranscriptionProcessBO process = domainService.submit(
-                request == null ? null : request.getUrl(),
+                sourceInput(request),
                 idempotencyKey,
                 request == null ? null : request.getTitle(),
                 request == null ? null : request.getPlatform(),
@@ -43,16 +43,19 @@ public class MediaTranscriptionProcessAppService {
 
     public MediaTranscriptionEnqueueDTO enqueue(MediaTranscriptionProcessRequest request, String idempotencyKey) {
         MediaTranscriptionProcessBO process = domainService.submit(
-                request == null ? null : request.getUrl(),
+                sourceInput(request),
                 idempotencyKey,
                 request == null ? null : request.getTitle(),
                 request == null ? null : request.getPlatform(),
                 request == null ? null : request.getNoteType());
         return MediaTranscriptionEnqueueDTO.builder()
                 .accepted(true)
-                .message("已入队")
+                .message("queued")
                 .processId(String.valueOf(process.getId()))
-                .status(process.getStatus())
+                .status("queued")
+                .workflowType("MEDIA_TRANSCRIPTION")
+                .workflowKey("media.transcription")
+                .pollUrl("/api/core/media-transcription/processes/" + process.getId())
                 .build();
     }
 
@@ -108,6 +111,16 @@ public class MediaTranscriptionProcessAppService {
                 .createdAt(process.getCreatedAt())
                 .updatedAt(process.getUpdatedAt())
                 .build();
+    }
+
+    private String sourceInput(MediaTranscriptionProcessRequest request) {
+        if (request == null) {
+            return null;
+        }
+        if (request.getUrl() != null && !request.getUrl().isBlank()) {
+            return request.getUrl();
+        }
+        return request.getText();
     }
 
     private Map<String, Object> parseMap(String json) {

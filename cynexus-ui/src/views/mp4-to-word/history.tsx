@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, FileText, RefreshCw, Search, Sparkles } from "lucide-react";
 import { askHistoryQuestion, deleteMP4History, getMP4History, listMP4History } from "@/services/core/mp4-history";
 import type { MP4HistoryListItem, MP4HistoryRecord } from "@/lib/history-types";
 import { MP4HistoryDataTable } from "@/components/mp4-history-data-table";
@@ -31,8 +31,10 @@ function formatDate(value?: string) {
 
 function DetailPanel({ html, text }: { html: string; text: string }) {
   return (
-    <div className="max-w-full overflow-hidden rounded-md border bg-background">
-      <div className="result-body">{text ? <div dangerouslySetInnerHTML={{ __html: html }} /> : <div className="text-muted-foreground">暂无内容</div>}</div>
+    <div className="max-w-full overflow-hidden rounded-md border border-border/70 bg-background">
+      <div className="max-h-[calc(100dvh-20rem)] overflow-y-auto p-4 sm:p-5">
+        {text ? <div className="result-body"> <div dangerouslySetInnerHTML={{ __html: html }} /> </div> : <div className="py-12 text-center text-sm text-muted-foreground">暂无内容</div>}
+      </div>
     </div>
   );
 }
@@ -167,7 +169,9 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
       answerHtml: renderQaAnswer(item.answer, item.question),
     }))
   );
-  const [activeView, setActiveView] = useState<"transcript" | "polished" | "summary" | "ask">("summary");
+  const [activeView, setActiveView] = useState<"transcript" | "polished" | "summary" | "ask">(
+    task.summary ? "summary" : task.polished ? "polished" : "transcript",
+  );
   const [collapsedAsk, setCollapsedAsk] = useState(false);
   const [collapsedQaItems, setCollapsedQaItems] = useState<Record<string, boolean>>({});
   const [askInput, setAskInput] = useState("");
@@ -250,12 +254,13 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-none border-y bg-background sm:rounded-md sm:border">
+      <div className="overflow-hidden rounded-md border border-border/70 bg-background">
         <div className="space-y-4 p-4 sm:p-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{record.type}</Badge>
               <Badge variant="outline">{task.status || "done"}</Badge>
+              {task.polished ? <Badge variant="outline"><Sparkles className="mr-1 size-3" />AI polished</Badge> : null}
             </div>
             <div>
               <h1 className="break-words text-xl font-semibold text-foreground sm:text-2xl">{record.title}</h1>
@@ -300,17 +305,18 @@ function HistoryContent({ record }: { record: MP4HistoryRecord }) {
       </div>
 
       <div className="space-y-3">
-        <div className="grid grid-cols-4 gap-1 rounded-none border-y bg-muted/60 p-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:rounded-md sm:border sm:p-2">
+        <div className="flex flex-wrap items-center gap-1 rounded-md border border-border/70 bg-muted/40 p-1.5">
           {[
-            { key: "summary", label: "Summary" },
-            { key: "polished", label: "Polished" },
-            { key: "transcript", label: "Transcript" },
-            { key: "ask", label: "Ask AI" },
+            { key: "summary", label: "Summary", available: Boolean(task.summary) },
+            { key: "polished", label: "AI Polish", available: Boolean(task.polished) },
+            { key: "transcript", label: "Transcript", available: Boolean(task.transcript) },
+            { key: "ask", label: "Ask AI", available: true },
           ].map((item) => (
             <Button
               key={item.key}
-              variant={activeView === item.key ? "default" : "ghost"}
-              className="h-8 w-full rounded-md px-2 text-xs sm:w-auto sm:px-3 sm:text-sm"
+              variant={activeView === item.key ? "secondary" : "ghost"}
+              className="h-8 rounded px-3 text-xs sm:text-sm"
+              disabled={!item.available}
               onClick={() => setActiveView(item.key as "summary" | "polished" | "transcript" | "ask")}
             >
               {item.label}

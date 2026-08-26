@@ -47,7 +47,7 @@ changing the existing local Faster Whisper provider:
 ```text
 CYNEXUS_MEDIA_TRANSCRIPTION_REMOTE_TRANSCRIBER=cynexus_data.pipelines.transcription.providers.aliyun_paraformer:AliyunParaformerTranscriber
 DASHSCOPE_API_KEY=<secret>
-DASHSCOPE_ENDPOINT=https://llm-0iqmce4s7al5sk6j.cn-beijing.maas.aliyuncs.com/api/v1
+DASHSCOPE_ENDPOINT=https://dashscope.aliyuncs.com/api/v1
 DASHSCOPE_MODEL=paraformer-v2
 ```
 

@@ -86,7 +86,7 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
 
     private ApiWorkflowProcessBO finance(FinanceAiCaptureBO capture) {
         ApiWorkflowStatus status = switch (value(capture.getStatus(), "failed")) {
-            case "uploaded" -> ApiWorkflowStatus.QUEUED;
+            case "uploaded", "queued" -> ApiWorkflowStatus.QUEUED;
             case "processing" -> ApiWorkflowStatus.RUNNING;
             case "review" -> ApiWorkflowStatus.WAITING_REVIEW;
             case "confirmed" -> ApiWorkflowStatus.SUCCEEDED;
@@ -148,7 +148,7 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
     private static String financeStatus(ApiWorkflowStatus status) {
         if (status == null) return null;
         return switch (status) {
-            case QUEUED -> "uploaded";
+            case QUEUED -> "queued";
             case RUNNING -> "processing";
             case WAITING_REVIEW -> "review";
             case SUCCEEDED -> "confirmed";

@@ -32,6 +32,7 @@ import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockResearchAgentToolHandle
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketSentimentAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketSkillDataAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.MarketStockInformationAgentToolHandler;
+import cn.cccs7.cynexus.ai.infra.agent.market.StockSelectionStrategyHealthAgentToolHandler;
 import cn.cccs7.cynexus.ai.infra.agent.market.FuturesPositionAiAgentToolHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -71,7 +72,8 @@ class AgentToolDefinitionContractTest {
             MarketStockResearchAgentToolHandler.class,
             MarketSentimentAgentToolHandler.class,
             MarketSkillDataAgentToolHandler.class,
-            MarketStockInformationAgentToolHandler.class);
+            MarketStockInformationAgentToolHandler.class,
+            StockSelectionStrategyHealthAgentToolHandler.class);
 
     @Test
     void everyRegisteredCapabilityHasExecutableMetadataContract() throws Exception {
@@ -81,7 +83,7 @@ class AgentToolDefinitionContractTest {
                 .map(AgentToolHandler::definition)
                 .toList();
 
-        assertThat(definitions).hasSize(27);
+        assertThat(definitions).hasSize(28);
         assertThat(definitions).extracting(AgentToolDefinition::getCode).doesNotHaveDuplicates();
         assertThat(definitions).allSatisfy(definition -> {
             assertThat(definition.getCode()).matches("[a-z0-9_]+\\.[a-z0-9_]+" );

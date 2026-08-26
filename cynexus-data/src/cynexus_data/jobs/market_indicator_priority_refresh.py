@@ -21,6 +21,7 @@ def run(context: PipelineContext, request: JobRequest, run_id: str):
     params.setdefault("redis_prefix", "cynexus:market-indicator:priority")
     params.setdefault("persist_postgres", False)
     params.setdefault("full_confirmation_required", True)
+    params.setdefault("publish_limit_board_discoveries", False)
     params.setdefault("redis_ttl_seconds", 7200)
     params.setdefault("batch_size", 320)
     params.setdefault("quote_retry_attempts", 2)

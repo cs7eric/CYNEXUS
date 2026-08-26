@@ -123,6 +123,7 @@ services:
       RABBITMQ_PASSWORD: C020611.
       CYNEXUS_AI_API_BASE_URL: http://ai:18081
       CYNEXUS_DATA_QUERY_API_BASE_URL: http://cynexus-data-job-executor:18083
+      CYNEXUS_TRUSTED_IDENTITY_SECRET: ${CYNEXUS_TRUSTED_IDENTITY_SECRET:-}
     ports:
       - "127.0.0.1:18082:18082"
     networks: [cynexus-shared]

@@ -521,22 +521,26 @@ def _delete_existing_trade_review_timeshare(client: ClickHouseClient, table: str
     if frame.empty:
         return
     pairs = frame[["trade_date", "target_type", "market", "symbol"]].drop_duplicates()
-    clauses = []
-    params: dict[str, object] = {}
-    for index, row in pairs.reset_index(drop=True).iterrows():
-        params[f"date_{index}"] = pd.to_datetime(row["trade_date"]).date()
-        params[f"type_{index}"] = str(row["target_type"])
-        params[f"market_{index}"] = str(row["market"])
-        params[f"symbol_{index}"] = str(row["symbol"])
-        clauses.append(
-            f"(trade_date = %(date_{index})s AND target_type = %(type_{index})s "
-            f"AND market = %(market_{index})s AND symbol = %(symbol_{index})s)"
+    # ClickHouse parses the complete mutation query before executing it. A
+    # single OR expression for the normal ~2k review target pool exceeds its
+    # default max_query_size, so bound each statement by target count.
+    for start in range(0, len(pairs), 500):
+        clauses = []
+        params: dict[str, object] = {}
+        for index, row in pairs.iloc[start : start + 500].reset_index(drop=True).iterrows():
+            params[f"date_{index}"] = pd.to_datetime(row["trade_date"]).date()
+            params[f"type_{index}"] = str(row["target_type"])
+            params[f"market_{index}"] = str(row["market"])
+            params[f"symbol_{index}"] = str(row["symbol"])
+            clauses.append(
+                f"(trade_date = %(date_{index})s AND target_type = %(type_{index})s "
+                f"AND market = %(market_{index})s AND symbol = %(symbol_{index})s)"
+            )
+        client.command(
+            f"ALTER TABLE {_safe_ch_identifier(table)} DELETE WHERE {' OR '.join(clauses)}",
+            params,
+            settings={"mutations_sync": 1},
         )
-    client.command(
-        f"ALTER TABLE {_safe_ch_identifier(table)} DELETE WHERE {' OR '.join(clauses)}",
-        params,
-        settings={"mutations_sync": 1},
-    )
 
 
 def _deduplicate_daily_frame(frame: pd.DataFrame) -> pd.DataFrame:

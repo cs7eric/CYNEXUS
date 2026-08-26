@@ -1,6 +1,6 @@
 package cn.cccs7.cynexus.core.application.config;
 
-import cn.cccs7.cynexus.core.domain.scheduler.SchedulerDataJobKeyResolver;
+import cn.cccs7.cynexus.core.domain.scheduler.SchedulerExecutionCapabilityPolicy;
 import cn.cccs7.cynexus.core.domain.client.MarketAutomationClient;
 import cn.cccs7.cynexus.core.domain.entity.SchedulerJobBO;
 import cn.cccs7.cynexus.core.domain.gateway.scheduler.SchedulerExecutionCapabilityPort;
@@ -29,7 +29,7 @@ public class SchedulerDomainServiceConfiguration {
         return new SchedulerExecutionCapabilityPort() {
             @Override
             public boolean supports(SchedulerJobBO job) {
-                return isMarketAutomation(job) || SchedulerDataJobKeyResolver.resolve(job == null ? null : job.getCode()).isPresent();
+                return isMarketAutomation(job) || SchedulerExecutionCapabilityPolicy.supportsDataJob(job);
             }
 
             @Override

@@ -153,6 +153,10 @@ public class MarketIndicatorQueryAppService {
         return domainService.tradeReviewMarketStateStatus(date);
     }
 
+    public List<LocalDate> tradeReviewMaterializedDates(int limit) {
+        return domainService.tradeReviewMaterializedDates(limit);
+    }
+
     public Map<String, Object> replaySummary(String tradeDate, int limit) {
         LocalDate date = tradeDate == null || tradeDate.isBlank() ? null : LocalDate.parse(tradeDate);
         return domainService.replaySummary(date, limit);

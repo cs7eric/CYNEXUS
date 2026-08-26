@@ -96,3 +96,18 @@ export async function retryApiWorkflow(item: ApiWorkflowProcess): Promise<void> 
   const response = await fetchWithRetry(`${SERVICE_PREFIX.core}/finance/ai-captures/${encodeURIComponent(item.sourceRef)}/retry`, { method: "POST" })
   await cynexusResult(response)
 }
+
+export async function fetchApiWorkflowImage(item: ApiWorkflowProcess): Promise<string> {
+  const endpoint = item.workflowType === "PORTFOLIO_TRADE_IMPORT"
+    ? `${SERVICE_PREFIX.market}/portfolio/imports/${encodeURIComponent(item.sourceRef)}/image`
+    : `${SERVICE_PREFIX.core}/finance/ai-captures/${encodeURIComponent(item.sourceRef)}/images/0`
+  const response = await fetchWithRetry(endpoint, { cache: "no-store" })
+  if (!response.ok) {
+    throw new Error(`图片加载失败 (${response.status})`)
+  }
+  const blob = await response.blob()
+  if (!blob.type.startsWith("image/")) {
+    throw new Error("上传文件不是可预览的图片")
+  }
+  return URL.createObjectURL(blob)
+}

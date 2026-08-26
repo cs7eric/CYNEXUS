@@ -189,7 +189,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
             return taskService.getTask(process.getWorkerTaskId());
         }
         MediaTranscriptionResolvedLinkBO resolved = linkResolver.resolve(process.getSourceUrl());
-        String downloadUrl = processPolicy.selectDownloadUrl(resolved, process.getSourceUrl());
+        String downloadUrl = processPolicy.requireResolvedMediaUrl(resolved, process.getSourceUrl());
         if (resolved != null) {
             if (process.getTitle() == null || process.getTitle().isBlank()) process.setTitle(resolved.getTitle());
             if (process.getPlatform() == null || process.getPlatform().isBlank()) process.setPlatform(resolved.getPlatform());

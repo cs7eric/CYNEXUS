@@ -94,7 +94,8 @@ def build_limit_board_sample(
     an opening and a later reseal without persisting provider payloads.
     """
     status = str(row.get("limit_status") or "normal")
-    direction = _direction(status) or str(prior_direction or "")
+    live_direction = last_price_limit_direction(row)
+    direction = live_direction or _direction(status) or str(prior_direction or "")
     if direction not in {"up", "down"}:
         return None
     payload = row.get("raw_payload") if isinstance(row.get("raw_payload"), dict) else {}
@@ -105,8 +106,10 @@ def build_limit_board_sample(
     queue = _find_limit_level(bids if queue_side == "buy" else asks, limit_price)
     queue_price = queue[0] if queue else None
     queue_volume = queue[1] if queue else None
-    is_on_board = _base_status(status) is not None
-    is_sealed = status.endswith("sealed")
+    # High/low touching the limit is not a current board. The monitor only
+    # treats last price at the limit as on-board; otherwise this is an open.
+    is_on_board = live_direction is not None
+    is_sealed = is_on_board and status.endswith("sealed")
     captured_at = row.get("captured_at")
     if not isinstance(captured_at, datetime):
         raise ValueError("captured_at must be a datetime")
@@ -127,8 +130,33 @@ def build_limit_board_sample(
         "ask_price_1": asks[0][0] if asks else None,
         "ask_volume_1": asks[0][1] if asks else None,
         "sealed_amount": queue_price * queue_volume * 100 if is_sealed and queue_price is not None and queue_volume is not None else None,
+        "turnover_amount": _number(row.get("amount")),
         "source": source,
     }
+
+
+def last_price_limit_direction(row: dict[str, Any]) -> str | None:
+    """Return up/down only when last price is at the limit price.
+
+    Market-indicator ``limit_status`` also flags a session high/low that once
+    touched the limit. That is useful for "touched today" counts, but it must
+    not enroll a stock into the limit-board monitor after the last price has
+    left the board.
+    """
+    last = _number(row.get("last_price"))
+    if last is None:
+        return None
+    up = _number(row.get("limit_up_price"))
+    down = _number(row.get("limit_down_price"))
+    at_up = up is not None and _near_price(last, up)
+    at_down = down is not None and _near_price(last, down)
+    if at_up and not at_down:
+        return "up"
+    if at_down and not at_up:
+        return "down"
+    if at_up and at_down:
+        return _direction(str(row.get("limit_status") or ""))
+    return None
 
 
 def _direction(status: str) -> str | None:
@@ -137,6 +165,10 @@ def _direction(status: str) -> str | None:
     if status.startswith("limit_down_"):
         return "down"
     return None
+
+
+def _near_price(value: float, target: float) -> bool:
+    return abs(value - target) <= max(0.011, abs(target) * 0.0005)
 
 
 def _base_status(status: str) -> str | None:

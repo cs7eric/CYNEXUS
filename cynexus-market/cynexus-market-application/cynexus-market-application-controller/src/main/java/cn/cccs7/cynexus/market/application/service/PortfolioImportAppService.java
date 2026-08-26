@@ -82,6 +82,14 @@ public class PortfolioImportAppService {
         return toDto(domainService.get(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId));
     }
 
+    public ImageContent image(long taskId) {
+        var image = domainService.image(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);
+        return new ImageContent(image.contentType(), image.contentBytes());
+    }
+
+    public record ImageContent(String contentType, byte[] content) {
+    }
+
     @Transactional
     public PortfolioImportTaskDTO retry(long taskId) {
         PortfolioImportTaskBO task = domainService.retry(DEFAULT_PRINCIPAL, DEFAULT_TENANT, taskId);

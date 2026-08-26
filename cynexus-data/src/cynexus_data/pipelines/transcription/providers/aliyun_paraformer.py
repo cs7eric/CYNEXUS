@@ -119,7 +119,12 @@ class AliyunParaformerTranscriber:
                     timeout=self.request_timeout_seconds,
                     **kwargs,
                 )
-                response.raise_for_status()
+                if response.status_code >= 400:
+                    last_error = RuntimeError(_http_error(response))
+                    if attempt + 1 >= self.max_retries:
+                        break
+                    time.sleep(min(2**attempt, 5))
+                    continue
                 return response
             except (requests.RequestException, ValueError) as exc:
                 last_error = exc
@@ -168,6 +173,19 @@ def _extract_transcript(value: Any) -> str:
         parts = [_extract_transcript(item) for item in value]
         return "\n".join(part for part in parts if part).strip()
     return ""
+
+
+def _http_error(response: requests.Response) -> str:
+    detail = ""
+    try:
+        body = response.json()
+    except ValueError:
+        detail = (response.text or "").strip()[:300]
+    else:
+        if isinstance(body, dict):
+            detail = _error_message(body)
+    suffix = f": {detail}" if detail else ""
+    return f"{response.status_code} {response.reason} for url: {response.url}{suffix}"
 
 
 def _error_message(body: dict[str, Any]) -> str:

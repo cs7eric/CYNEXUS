@@ -181,10 +181,13 @@ Every normal page uses `WorkspaceShell` from `src/layout/workspace-shell.tsx`:
 
 Use `src/components/ui/button.tsx` and Lucide icons. The default control is a compact `h-9 rounded-md` button with `text-sm font-medium`.
 
-- **Primary:** `variant="default"` for the page's main commit action, not for every clickable item.
-- **Secondary:** `variant="secondary"` for refresh, low-risk utility actions, and alternate actions.
-- **Outline:** `variant="outline"` for a visible but non-primary action.
-- **Ghost:** `variant="ghost"` for row actions, toolbar controls, and icon-only commands.
+**Prefer `variant="secondary"` whenever it is enough.** Most toolbar, refresh, filter, cancel, retry, and alternate actions should be secondary. Do not leave `variant` unset, and do not reach for `outline` or primary just to make a control look like a button.
+
+- **Secondary:** `variant="secondary"` is the default choice for almost every button.
+- **Primary:** `variant="default"` only for the page's single main commit or confirm action, not for every clickable item.
+- **Ghost:** `variant="ghost"` for row actions, compact toolbars, and icon-only commands where a filled chip is too heavy.
+- **Destructive:** `variant="destructive"` for irreversible or high-risk deletes.
+- **Outline / link:** use only when a visible border or inline text action is specifically required; prefer secondary first.
 - **Sizes:** `xs h-6`, `sm h-8`, `default h-9`, `lg h-10`; use `icon-sm`/`icon` for icon-only controls.
 - Icon-only buttons require `aria-label` and a `title` when the action is not obvious. Text buttons should use direct verbs such as `Refresh`, `Save`, `Open`, `Retry`, or `Delete`.
 - Keep focus, disabled, and loading states from the primitive. A loading button keeps its width and swaps the icon for `Loader2` or `RefreshCw` with `animate-spin`.
@@ -205,6 +208,7 @@ Use `Card` for a genuinely framed, reusable unit. For dense operational sections
 - **Select / date picker:** use the existing Radix-backed components. Compact filters commonly use `h-7` or `h-8`, `border-0`, `bg-muted/45`, and `text-xs`.
 - **Tabs:** use `Tabs` and `TabsList`. The default variant is a muted segmented control; `line` is for navigation where the active underline carries the state. Do not invent button groups with different active behavior.
 - **Badge:** use `Badge` for status, counts, categories, and compact context. It is a pill by default; keep text short and do not use a badge as a paragraph.
+- **Status labels:** English only on badges, filters, and status chips. Use `Queued`, `Running`, `Waiting review`, `Success`, `Failed`, `Cancelled`, or the equivalent English verb/noun for the status. Do not use Chinese such as `已入队`, `处理中`, `待确认`, `已完成`, `成功`, `失败`, or `已归档`.
 - **Filter groups:** place the label/icon first, keep controls in a wrapping row, and reset pagination when a filter changes.
 
 ### Tables, metrics, and charts

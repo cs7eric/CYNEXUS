@@ -33,6 +33,9 @@ Verify all Cynexus SNAPSHOT versions are identical, the UI package matches, and 
 - Do not start `deploy/dev/start-dev.ps1`, local Java processes, `cmd.exe`, Vite, or source-tree application runtimes.
 - Release runs only from versioned Docker images and the built UI image.
 - PostgreSQL, Redis, ClickHouse, Nacos, and Data Executor are shared infrastructure and remain running.
+- Never force-stop ClickHouse or hard-restart Docker Desktop as an application recovery shortcut. ClickHouse may still be flushing or merging parts; an abrupt shutdown can leave bad or detached parts and cause data loss or repair work.
+- Prefer graceful, service-scoped recovery: inspect health and logs, stop/recreate only the affected Release application service with `start-release.ps1 -Services <service>`, and leave shared infrastructure untouched.
+- A Docker Desktop restart is an exceptional operation requiring explicit approval after all non-destructive recovery checks fail. Before and after it, record the affected containers and verify ClickHouse, PostgreSQL, Redis, Nacos, and Data Executor health.
 - Only the Release application stack may be online.
 - Use `deploy/release/start-release.ps1 -Version <version>` for every application restart.
 - Use `deploy/release/stop-release.ps1` to stop the application stack.

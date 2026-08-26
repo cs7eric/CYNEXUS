@@ -58,6 +58,21 @@ class SchedulerTriggerPolicyTest {
     }
 
     @Test
+    void resolvesDailyFuturesPositionSyncForRecurringRuntime() {
+        SchedulerDataJobKeyResolver.ResolvedDataJob dataJob = SchedulerDataJobKeyResolver
+                .resolve("futures_position_daily")
+                .orElseThrow();
+
+        assertThat(dataJob.jobKey()).isEqualTo("sync_futures_position");
+        assertThat(dataJob.defaultParams())
+                .containsEntry("create_table", true)
+                .containsEntry("providers", List.of("akshare", "sina"))
+                .containsEntry("exchanges", List.of("CFFEX", "SHFE", "CZCE", "DCE", "GFEX", "INE"))
+                .containsEntry("latest_source_data", true)
+                .containsEntry("lookback_days", 10);
+    }
+
+    @Test
     void resolvesMarginHistoryBackfillForWholeActiveUniverse() {
         SchedulerDataJobKeyResolver.ResolvedDataJob dataJob = SchedulerDataJobKeyResolver
                 .resolve("margin_stock_history_backfill")
@@ -139,6 +154,23 @@ class SchedulerTriggerPolicyTest {
     void normalizesExecutorPartialSuccessToSchedulerPartialStatus() {
         assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(resultWithStatus("partial_success")))
                 .isEqualTo("partial");
+    }
+
+    @Test
+    void normalizesExecutorUpToDateToSchedulerSuccessStatus() {
+        DataJobTriggerResultBO result = DataJobTriggerResultBO.builder()
+                .accepted(true)
+                .status("up_to_date")
+                .build();
+
+        assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(result)).isEqualTo("success");
+        assertThat(SchedulerManagementPolicy.isAcceptedSuccess(result)).isTrue();
+    }
+
+    @Test
+    void normalizesUnknownExecutorStatusToSchedulerFailureStatus() {
+        assertThat(SchedulerManagementPolicy.normalizeTriggerStatus(resultWithStatus("unavailable")))
+                .isEqualTo("failed");
     }
 
     @Test

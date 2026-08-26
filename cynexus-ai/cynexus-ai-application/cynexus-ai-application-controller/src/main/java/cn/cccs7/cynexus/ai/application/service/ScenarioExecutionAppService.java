@@ -48,14 +48,21 @@ public class ScenarioExecutionAppService {
                 safeRequest.getUserInput(),
                 safeRequest.getVariables(),
                 aiToolCatalog.enabledToolCodes());
-        String content = agentExecutor.execute(
-                prepared.getScenario(),
-                prepared.getModel(),
-                prepared.getPrompt(),
-                prepared.getToolCodes());
-        AiExecutionBO execution = scenarioExecutionDomainService.finalizeExecution(prepared, content);
-        aiExecutionTracePort.record(execution.getExecutionNo(), execution.getStatus());
-        return aiExecutionAssembler.toDTO(execution);
+        RuntimeException lastFailure = null;
+        for (var model : prepared.candidateModels()) {
+            try {
+                String content = agentExecutor.execute(prepared.getScenario(), model, prepared.getPrompt(), prepared.getToolCodes());
+                AiExecutionBO execution = scenarioExecutionDomainService.finalizeExecution(prepared.withModel(model), content);
+                aiExecutionTracePort.record(execution.getExecutionNo(), execution.getStatus());
+                if (execution.getStatus() == cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus.SUCCEEDED) {
+                    return aiExecutionAssembler.toDTO(execution);
+                }
+                lastFailure = new IllegalStateException("AI returned invalid output for model " + model.getModelCode());
+            } catch (RuntimeException exception) {
+                lastFailure = exception;
+            }
+        }
+        throw new IllegalStateException("AI scenario execution failed for all available models", lastFailure);
     }
 
     public AiExecuteDTO executeVision(AiVisionExecuteRequest request) {
@@ -72,14 +79,20 @@ public class ScenarioExecutionAppService {
                                 .dataUrl(item.getDataUrl())
                                 .build())
                         .toList();
-        var completion = agentExecutor.completeVisionDetailed(
-                prepared.getModel(),
-                prepared.getPrompt(),
-                images,
-                prepared.getCapability());
-        AiExecutionBO execution = scenarioExecutionDomainService.finalizeVisionExecution(
-                prepared, completion.getContent());
-        aiExecutionTracePort.record(execution.getExecutionNo(), execution.getStatus());
-        return aiExecutionAssembler.toDTO(execution);
+        RuntimeException lastFailure = null;
+        for (var model : prepared.candidateModels()) {
+            try {
+                var completion = agentExecutor.completeVisionDetailed(model, prepared.getPrompt(), images, prepared.getCapability());
+                AiExecutionBO execution = scenarioExecutionDomainService.finalizeVisionExecution(prepared.withModel(model), completion.getContent());
+                aiExecutionTracePort.record(execution.getExecutionNo(), execution.getStatus());
+                if (execution.getStatus() == cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus.SUCCEEDED) {
+                    return aiExecutionAssembler.toDTO(execution);
+                }
+                lastFailure = new IllegalStateException("AI returned invalid vision output for model " + model.getModelCode());
+            } catch (RuntimeException exception) {
+                lastFailure = exception;
+            }
+        }
+        throw new IllegalStateException("AI vision execution failed for all available models", lastFailure);
     }
 }

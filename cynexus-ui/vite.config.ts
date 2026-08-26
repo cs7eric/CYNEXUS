@@ -14,6 +14,10 @@ export default defineConfig(({ mode }) => {
     port: 5174,
     allowedHosts: ['.trycloudflare.com', 'nooops.makeup', '.nooops.makeup'],
     proxy: {
+      '/api/workflows': {
+        target: backendUrl,
+        changeOrigin: true,
+      },
       '/api/ai': {
         target: backendUrl,
         changeOrigin: true,

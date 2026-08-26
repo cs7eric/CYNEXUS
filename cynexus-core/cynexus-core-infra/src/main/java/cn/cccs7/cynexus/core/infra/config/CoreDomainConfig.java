@@ -41,4 +41,20 @@ public class CoreDomainConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean("financeAiCaptureExecutor")
+    public TaskExecutor financeAiCaptureExecutor(
+            @Value("${cynexus.finance.capture.process.executor-core-size:1}") int coreSize,
+            @Value("${cynexus.finance.capture.process.executor-max-size:2}") int maxSize,
+            @Value("${cynexus.finance.capture.process.executor-queue-capacity:20}") int queueCapacity) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(Math.max(1, coreSize));
+        executor.setMaxPoolSize(Math.max(Math.max(1, coreSize), maxSize));
+        executor.setQueueCapacity(Math.max(1, queueCapacity));
+        executor.setThreadNamePrefix("finance-capture-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(10);
+        executor.initialize();
+        return executor;
+    }
 }

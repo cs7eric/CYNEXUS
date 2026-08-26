@@ -23,6 +23,10 @@ ASYNC_TRIGGER_JOBS = {
     "rebuild_kline_1m_partitions",
     "market_sentiment_chain_refresh",
     "a_stock_fund_flow_history_backfill",
+    # A 504-trading-day primitive backfill can process millions of daily bars.
+    # Persist the run and detach it from the caller so client timeouts cannot
+    # leave an unobservable in-process materialization behind.
+    "materialize_market_factor_snapshots",
     "social_xiaohongshu_collection",
     "social_douyin_collection",
 }

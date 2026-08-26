@@ -32,4 +32,9 @@ public class TradeReviewMarketStateController {
     public Result<Map<String, Object>> marketStateStatus(@RequestParam(required = false) String tradeDate) {
         return Result.success(service.tradeReviewMarketStateStatus(tradeDate));
     }
+
+    @GetMapping("/market-state/dates")
+    public Result<java.util.List<java.time.LocalDate>> materializedDates(@RequestParam(defaultValue = "120") int limit) {
+        return Result.success(service.tradeReviewMaterializedDates(limit));
+    }
 }

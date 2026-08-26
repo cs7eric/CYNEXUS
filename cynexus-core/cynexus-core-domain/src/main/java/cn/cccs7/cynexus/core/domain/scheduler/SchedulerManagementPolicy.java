@@ -34,15 +34,22 @@ public final class SchedulerManagementPolicy {
             return CoreConstants.STATUS_FAILED;
         }
         String status = result.getStatus().trim().toLowerCase();
-        if (CoreConstants.STATUS_LOCKED.equals(status)) {
-            return CoreConstants.STATUS_SKIPPED;
-        }
-        // Data Executor uses partial_success for a run that completed with per-post errors;
-        // scheduler persistence exposes the canonical partial status.
-        if ("partial_success".equals(status)) {
-            return CoreConstants.STATUS_PARTIAL;
-        }
-        return status;
+        return switch (status) {
+            case CoreConstants.STATUS_PENDING,
+                    CoreConstants.STATUS_RUNNING,
+                    CoreConstants.STATUS_SUCCESS,
+                    CoreConstants.STATUS_FAILED,
+                    CoreConstants.STATUS_SKIPPED,
+                    CoreConstants.STATUS_PARTIAL -> status;
+            case CoreConstants.STATUS_PROCESSING -> CoreConstants.STATUS_RUNNING;
+            case CoreConstants.STATUS_LOCKED -> CoreConstants.STATUS_SKIPPED;
+            // Data Executor uses partial_success for a run that completed with per-job errors.
+            case "partial_success" -> CoreConstants.STATUS_PARTIAL;
+            // Idempotent data jobs report this when requested data is already current.
+            case "up_to_date" -> CoreConstants.STATUS_SUCCESS;
+            // Never persist executor-specific statuses outside the scheduler schema contract.
+            default -> CoreConstants.STATUS_FAILED;
+        };
     }
 
     public static boolean isTerminalStatus(String status) {
@@ -58,7 +65,9 @@ public final class SchedulerManagementPolicy {
             return false;
         }
         String status = result.getStatus() == null ? "" : result.getStatus().toLowerCase();
-        return CoreConstants.STATUS_SUCCESS.equals(status) || CoreConstants.STATUS_SKIPPED.equals(status);
+        return CoreConstants.STATUS_SUCCESS.equals(status)
+                || CoreConstants.STATUS_SKIPPED.equals(status)
+                || "up_to_date".equals(status);
     }
 
     public static boolean isAcceptedRunning(DataJobTriggerResultBO result) {

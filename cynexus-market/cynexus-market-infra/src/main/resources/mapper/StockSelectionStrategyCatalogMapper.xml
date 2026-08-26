@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.stockselection.mapper.StockSelectionStrategyCatalogMapper">
+    <select id="findActiveStrategies"
+            resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionStrategyCatalogPO">
+        select definition.strategy_code as code,
+               definition.id as definition_id,
+               definition.version as definition_version,
+               definition.name,
+               definition.description,
+               definition.strategy_type as type,
+               version.id as version_id,
+               version.version_no,
+               version.parameter_schema::text as parameter_schema,
+               version.evidence_schema::text as evidence_schema,
+               version.change_summary,
+               version.effective_from,
+               version.source_factor_study_id,
+               version.source_factor_set_version_id
+          from cynexus_appl_market.stock_selection_strategy_definition definition
+          join cynexus_appl_market.stock_selection_strategy_version version
+            on version.strategy_definition_id = definition.id
+           and version.status = 'ACTIVE'
+           and version.deleted_at is null
+         where definition.status = 'ACTIVE'
+           and definition.deleted_at is null
+           and version.effective_from &lt;= current_date
+           and (version.effective_to is null or version.effective_to &gt;= current_date)
+         order by definition.strategy_code asc, version.version_no desc
+    </select>
+
+    <select id="findActiveStrategiesForScope"
+            resultType="cn.cccs7.cynexus.market.infra.stockselection.entity.StockSelectionStrategyCatalogPO">
+        select definition.strategy_code as code,
+               definition.id as definition_id,
+               definition.version as definition_version,
+               definition.name,
+               definition.description,
+               definition.strategy_type as type,
+               version.id as version_id,
+               version.version_no,
+               version.parameter_schema::text as parameter_schema,
+               version.evidence_schema::text as evidence_schema,
+               version.change_summary,
+               version.effective_from,
+               version.source_factor_study_id,
+               version.source_factor_set_version_id
+          from cynexus_appl_market.stock_selection_strategy_definition definition
+          join cynexus_appl_market.stock_selection_strategy_version version
+            on version.strategy_definition_id = definition.id
+           and version.status = 'ACTIVE'
+           and version.deleted_at is null
+         where definition.status = 'ACTIVE'
+           and definition.deleted_at is null
+           and version.effective_from &lt;= current_date
+           and (version.effective_to is null or version.effective_to &gt;= current_date)
+           and (definition.strategy_type = 'SCREENER_PRESET'
+                or (definition.strategy_type = 'USER_SCREENER'
+                    and definition.tenant_id = #{tenantId}
+                    and definition.owner_id = #{ownerId}))
+         order by case when definition.strategy_type = 'SCREENER_PRESET' then 0 else 1 end,
+                  definition.updated_at desc,
+                  definition.strategy_code asc,
+                  version.version_no desc
+    </select>
+
+    <insert id="insertUserDefinition">
+        insert into cynexus_appl_market.stock_selection_strategy_definition
+            (id, strategy_code, name, description, strategy_type, tenant_id, owner_id, status, version)
+        values
+            (#{strategy.definitionId}, #{strategy.code}, #{strategy.name}, #{strategy.description}, #{strategy.type},
+             #{tenantId}, #{ownerId}, 'ACTIVE', #{strategy.activeVersion.definitionVersion})
+    </insert>
+
+    <insert id="insertVersion">
+        insert into cynexus_appl_market.stock_selection_strategy_version
+            (id, strategy_definition_id, version_no, status, parameter_schema, evidence_schema, change_summary, effective_from,
+             source_factor_study_id, source_factor_set_version_id)
+        values
+            (#{strategy.activeVersion.id}, #{strategy.definitionId}, #{strategy.activeVersion.versionNo}, 'ACTIVE',
+             cast(#{strategy.activeVersion.parameterSchema} as jsonb), cast(#{strategy.activeVersion.evidenceSchema} as jsonb),
+             #{strategy.activeVersion.changeSummary}, #{strategy.activeVersion.effectiveFrom},
+             #{strategy.activeVersion.sourceFactorStudyId}, #{strategy.activeVersion.sourceFactorSetVersionId})
+    </insert>
+
+    <update id="updateUserDefinition">
+        update cynexus_appl_market.stock_selection_strategy_definition
+           set name = #{strategy.name},
+               description = #{strategy.description},
+               version = version + 1,
+               updated_at = now()
+         where id = #{strategy.definitionId}
+           and strategy_code = #{strategy.code}
+           and strategy_type = 'USER_SCREENER'
+           and tenant_id = #{tenantId}
+           and owner_id = #{ownerId}
+           and version = #{expectedDefinitionVersion}
+           and status = 'ACTIVE'
+           and deleted_at is null
+    </update>
+
+    <update id="retireActiveVersions">
+        update cynexus_appl_market.stock_selection_strategy_version
+           set status = 'RETIRED',
+               effective_to = current_date,
+               updated_at = now()
+         where strategy_definition_id = #{definitionId}
+           and status = 'ACTIVE'
+           and deleted_at is null
+    </update>
+</mapper>

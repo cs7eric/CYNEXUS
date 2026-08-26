@@ -7,6 +7,7 @@ import {
   Flame,
   GalleryVerticalEnd,
   LayoutDashboard,
+  ListFilter,
   LineChart,
   Settings,
   BrainCircuit,
@@ -49,6 +50,11 @@ export const sidebarConfig = {
       title: "Trade View",
       url: "/trade-review",
       icon: LineChart,
+    },
+    {
+      title: "Cynexus Screener",
+      url: "/cynexus-screener",
+      icon: ListFilter,
     },
     {
       title: "Finance",

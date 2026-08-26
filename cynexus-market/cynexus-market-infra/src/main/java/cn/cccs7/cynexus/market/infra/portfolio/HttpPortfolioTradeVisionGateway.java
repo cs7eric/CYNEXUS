@@ -40,6 +40,45 @@ public class HttpPortfolioTradeVisionGateway implements PortfolioTradeVisionGate
     }
 
     @Override
+    public String review(PortfolioImportAssetBO asset, String extractedResult) {
+        try {
+            String dataUrl = "data:" + asset.contentType() + ";base64,"
+                    + Base64.getEncoder().encodeToString(asset.contentBytes());
+            String body = objectMapper.writeValueAsString(Map.of(
+                    "scenarioCode", "portfolio_trade_screenshot_review",
+                    "userInput", extractedResult == null ? "{}" : extractedResult,
+                    "images", List.of(Map.of("fileName", asset.fileName() == null ? "trade.png" : asset.fileName(),
+                            "contentType", asset.contentType(), "dataUrl", dataUrl))));
+            HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/api/ai/executions/vision"))
+                    .timeout(timeout)
+                    .header(CommonConstants.HTTP_HEADER_ACCEPT, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                    .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw providerFailure(response.statusCode(), response.body());
+            }
+            JsonNode envelope = objectMapper.readTree(response.body());
+            if (envelope.path("success").isBoolean() && !envelope.path("success").asBoolean()) {
+                throw executionFailure(envelope);
+            }
+            JsonNode data = envelope.path("data");
+            if (!"SUCCEEDED".equalsIgnoreCase(data.path("status").asText())) {
+                throw new PortfolioTradeVisionException("PORTFOLIO_AI_REVIEW_FAILED",
+                        "AI trade review did not succeed.", true);
+            }
+            return data.path("content").asText(null);
+        } catch (PortfolioTradeVisionException exception) {
+            throw exception;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI trade review interrupted", exception);
+        } catch (Exception exception) {
+            throw new IllegalStateException("AI trade review failed", exception);
+        }
+    }
+
+    @Override
     public String parse(String fileName, String contentType, byte[] content) {
         try {
             String dataUrl = "data:" + contentType + ";base64,"

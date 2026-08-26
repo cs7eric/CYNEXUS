@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.cccs7.cynexus.market.infra.factorresearch.mapper.MarketFactorCohortMapper">
+    <select id="listLimitUpTouches" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorEventFactPO">
+        select facts.code as code, coalesce(context.market, case when facts.code like '6%' then 'SH' else 'SZ' end) as market,
+               facts.trade_date as tradeDate, facts.first_limit_up_at as firstLimitUpAt,
+               facts.final_limit_up as finalLimitUp, facts.change_pct as changePct
+          from cynexus_appl_market.trade_review_security_daily_fact facts
+          left join cynexus_appl_market.trade_review_security_day_context context
+            on context.trade_date=facts.trade_date and context.code=facts.code
+         where facts.trade_date between #{startDate} and #{endDate}
+           and facts.touch_limit_up is true
+         order by facts.trade_date asc, facts.first_limit_up_at asc nulls last, facts.code asc
+         limit #{limit}
+    </select>
+    <select id="listLargeMoveCloses" resultType="cn.cccs7.cynexus.market.infra.factorresearch.entity.MarketFactorEventFactPO">
+        select facts.code as code, coalesce(context.market, case when facts.code like '6%' then 'SH' else 'SZ' end) as market,
+               facts.trade_date as tradeDate, facts.change_pct as changePct
+          from cynexus_appl_market.trade_review_security_daily_fact facts
+          left join cynexus_appl_market.trade_review_security_day_context context
+            on context.trade_date=facts.trade_date and context.code=facts.code
+         where facts.trade_date between #{startDate} and #{endDate}
+           and facts.change_pct between #{minChangePct} and #{maxChangePct}
+         order by facts.trade_date asc, facts.change_pct desc, facts.code asc
+         limit #{limit}
+    </select>
+</mapper>

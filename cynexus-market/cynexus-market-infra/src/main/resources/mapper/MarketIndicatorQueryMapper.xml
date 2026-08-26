@@ -6,33 +6,19 @@
             select coalesce(#{tradeDate}, max(cp.trade_date)) as trade_date
               from market_indicator_candidate_pool cp
              where cp.deleted_at is null
-               and exists (
-                   select 1 from market_indicator_snapshots s
-                    where s.deleted_at is null and s.trade_date = cp.trade_date
-                      and s.captured_at = cp.captured_at and s.last_price > 0
-               )
         ), latest_candidate_capture as (
-            select max(cp.captured_at) as captured_at
+            select cp.captured_at
               from market_indicator_candidate_pool cp
-             join latest_candidate_trade_date d on d.trade_date = cp.trade_date
              where cp.deleted_at is null
-               and exists (
-                   select 1 from market_indicator_snapshots s
-                    where s.deleted_at is null and s.trade_date = cp.trade_date
-                      and s.captured_at = cp.captured_at and s.last_price > 0
-               )
+               and cp.trade_date = (select trade_date from latest_candidate_trade_date)
+             order by cp.captured_at desc
+             limit 1
         ), candidate_codes as (
             select distinct cp.code
               from market_indicator_candidate_pool cp
               join latest_candidate_trade_date d on d.trade_date = cp.trade_date
               join latest_candidate_capture c on c.captured_at = cp.captured_at
              where cp.deleted_at is null
-               and exists (
-                   select 1 from market_indicator_snapshots s
-                    where s.deleted_at is null and s.code = cp.code
-                      and s.trade_date = cp.trade_date and s.captured_at = cp.captured_at
-                      and s.last_price > 0
-               )
         )
     </sql>
 
@@ -68,6 +54,7 @@
                    limit_status, source, s.captured_at
               from market_indicator_snapshots s
               join candidate_codes cp on cp.code = s.code
+              join latest_candidate_trade_date d on d.trade_date = s.trade_date
               join latest_candidate_capture c on c.captured_at = s.captured_at
              where s.deleted_at is null
                and s.last_price > 0
@@ -102,6 +89,7 @@
             select distinct on (s.code) s.change_pct, s.limit_status, s.captured_at
               from market_indicator_snapshots s
               join candidate_codes cp on cp.code = s.code
+              join latest_candidate_trade_date d on d.trade_date = s.trade_date
               join latest_candidate_capture c on c.captured_at = s.captured_at
              where s.deleted_at is null
                and s.last_price > 0
@@ -191,6 +179,7 @@
                    limit_status, source, s.captured_at
               from market_indicator_snapshots s
               join candidate_codes cp on cp.code = s.code
+              join latest_candidate_trade_date d on d.trade_date = s.trade_date
               join latest_candidate_capture c on c.captured_at = s.captured_at
              where s.deleted_at is null
                and s.last_price > 0
@@ -214,6 +203,7 @@
             select distinct on (s.code) s.code, s.change_pct, s.captured_at
               from market_indicator_snapshots s
               join candidate_codes cp on cp.code = s.code
+              join latest_candidate_trade_date d on d.trade_date = s.trade_date
               join latest_candidate_capture c on c.captured_at = s.captured_at
              where s.deleted_at is null
                and s.last_price > 0
@@ -238,6 +228,7 @@
             select distinct on (s.code) s.code, s.change_pct
               from market_indicator_snapshots s
               join candidate_codes cp on cp.code = s.code
+              join latest_candidate_trade_date d on d.trade_date = s.trade_date
               join latest_candidate_capture c on c.captured_at = s.captured_at
              where s.deleted_at is null
                and s.last_price > 0
@@ -390,13 +381,26 @@
           from trade_review_day_manifest where trade_date = #{tradeDate}
     </select>
 
+    <select id="listTradeReviewMaterializedDates" resultType="java.time.LocalDate">
+        select trade_date
+          from trade_review_day_manifest
+         where status in ('READY', 'PARTIAL')
+         order by trade_date desc
+         limit #{limit}
+    </select>
+
     <select id="listLimitBoardSessionSummaries" resultType="map">
         select trade_date, trade_session, code, name, market, direction, closing_status,
                is_sealed_at_close, first_touch_at, first_sealed_at, last_sealed_at, last_observed_at,
                sealed_duration_seconds, open_count, reseal_count, sample_count, valid_sample_count,
                gap_count, coverage_ratio, max_sealed_amount, avg_sealed_amount, median_sealed_amount,
-               peak_sealed_amount_at, first_sealed_amount, last_sealed_amount, sealed_amount_change,
-               sealed_amount_slope, trend_direction, source, algorithm_version, trend_features::text as trend_features
+               peak_sealed_amount_at, first_sealed_amount, last_sealed_amount,
+               last_turnover_amount, last_sealed_turnover_ratio, max_sealed_turnover_ratio,
+               sealed_amount_change,
+               sealed_amount_slope, trend_direction, trend_series_origin_at,
+               array_to_json(trend_time_offsets)::text as trend_time_offsets,
+               array_to_json(trend_sealed_amounts)::text as trend_sealed_amounts,
+               source, algorithm_version, trend_features::text as trend_features
           from market_indicator_limit_board_session_summaries
          where deleted_at is null
            and trade_date = coalesce(#{tradeDate}, (select max(trade_date) from market_indicator_limit_board_session_summaries where deleted_at is null))
@@ -409,7 +413,8 @@
     <select id="getTradeReviewMarketMinute" resultType="map">
         select trade_date, minute_at, advancing_count, declining_count, flat_count, above_5_count, below_minus_5_count,
                touched_limit_up_count, sealed_limit_up_count, broken_limit_up_count, sealed_limit_down_count,
-               max_height, seal_rate, break_rate, ladder::text as ladder, source_confidence
+               max_height, seal_rate, break_rate, promotion_rate, promoted_count, median_change_pct,
+               ladder::text as ladder, source_confidence
           from trade_review_market_minute_state
          where trade_date = #{tradeDate} and minute_at &lt;= #{asOf}
          order by minute_at desc limit 1

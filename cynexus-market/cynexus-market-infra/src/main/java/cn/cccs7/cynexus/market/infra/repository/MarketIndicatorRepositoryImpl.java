@@ -117,8 +117,12 @@ public class MarketIndicatorRepositoryImpl implements MarketIndicatorRepository 
         // decide whether the user can start a replay.
         return service.getTradeReviewManifest(date);
     }
+    @Override public List<LocalDate> listTradeReviewMaterializedDates(int limit) {
+        return service.listTradeReviewMaterializedDates(limit);
+    }
     @Override public List<Map<String, Object>> listLimitBoardSessionSummaries(LocalDate date, String tradeSession, String direction, int limit) {
-        return service.listLimitBoardSessionSummaries(date, tradeSession, direction, limit);
+        return normalizeRows(service.listLimitBoardSessionSummaries(date, tradeSession, direction, limit),
+                "trend_features", "trend_time_offsets", "trend_sealed_amounts");
     }
     private List<Map<String, Object>> markFullConfirmation(List<Map<String, Object>> rows) {
         rows.forEach(row -> {

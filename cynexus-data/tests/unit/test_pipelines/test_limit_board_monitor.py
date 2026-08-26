@@ -89,3 +89,94 @@ def test_finalize_keeps_redis_when_postgres_write_fails(monkeypatch):
         )
 
     assert cache.deleted is False
+
+
+def test_session_continues_after_a_transient_capture_failure(monkeypatch):
+    calls = 0
+
+    def flaky_capture(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("provider disconnected")
+        return {"success": True, "rows_read": 1, "rows_written": 1}
+
+    monkeypatch.setattr(limit_board_monitor, "capture", flaky_capture)
+    monkeypatch.setattr(limit_board_monitor, "current_trade_session", lambda *_args: "morning")
+    monkeypatch.setattr(
+        limit_board_monitor,
+        "MarketIndicatorRepository",
+        lambda *_args, **_kwargs: SimpleNamespace(list_stock_metadata=lambda: {}),
+    )
+    monkeypatch.setattr(
+        limit_board_monitor,
+        "session_bounds",
+        lambda *_args: (
+            datetime(2026, 8, 11, 1, 30, tzinfo=timezone.utc),
+            datetime(2100, 8, 11, 3, 30, tzinfo=timezone.utc),
+        ),
+    )
+    monkeypatch.setattr(limit_board_monitor.MarketLimitBoardSessionCache, "set_session_state", lambda *_args, **_kwargs: None)
+
+    result = limit_board_monitor.run_session(
+        _context(),
+        JobRequest(
+            job_key="market_indicator_limit_board_session",
+            params={"duration_seconds": 60, "max_cycles": 2, "target_cadence_seconds": 1, "failure_backoff_seconds": 0},
+        ),
+    )
+
+    assert calls == 2
+    assert result["failed_cycles"] == 1
+    assert result["success"] is False
+    assert result["cycle_results"][1]["success"] is True
+
+
+def test_session_defaults_to_three_second_rolling_cadence():
+    result = limit_board_monitor.run_session(
+        _context(),
+        JobRequest(job_key="market_indicator_limit_board_session", dry_run=True),
+    )
+
+    assert result["target_cadence_seconds"] == 3
+
+
+def test_finalize_skips_while_capture_session_is_active(monkeypatch):
+    cache = _Cache()
+    cache.is_session_active = lambda **_kwargs: True
+    monkeypatch.setattr(limit_board_monitor, "MarketLimitBoardSessionCache", lambda *_args, **_kwargs: cache)
+
+    result = limit_board_monitor.finalize(
+        _context(),
+        JobRequest(
+            job_key="market_indicator_limit_board_finalize",
+            params={"trade_date": "2026-08-11", "trade_session": "morning"},
+        ),
+    )
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "capture_session_active"
+    assert cache.deleted is False
+
+
+def test_capture_waits_for_whole_market_discovery(monkeypatch):
+    class _EmptyCache(_Cache):
+        def seen_directions(self, **_kwargs): return {}
+        def seen_codes(self, **_kwargs): return set()
+
+    cache = _EmptyCache()
+    monkeypatch.setattr(limit_board_monitor, "MarketLimitBoardSessionCache", lambda *_args, **_kwargs: cache)
+    monkeypatch.setattr(
+        limit_board_monitor,
+        "MarketIndicatorRepository",
+        lambda *_args, **_kwargs: SimpleNamespace(list_stock_metadata=lambda: {"000001": {"market": "SZ"}}),
+    )
+    monkeypatch.setattr(limit_board_monitor, "current_trade_session", lambda *_args: "morning")
+
+    result = limit_board_monitor.capture(
+        _context(),
+        JobRequest(job_key="market_indicator_limit_board_session"),
+    )
+
+    assert result["status"] == "waiting_for_discovery"
+    assert result["success"] is True

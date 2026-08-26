@@ -35,7 +35,7 @@ public class PortfolioImportProcessingDomainService {
             }
             boolean declaredTradeScreenshot = root.path("isTradeScreenshot").asBoolean(false);
             if (!declaredTradeScreenshot && candidates.isEmpty()) {
-                throw invalidAiResponse("AI response is not a trade screenshot");
+                throw invalidInput("AI response is not a trade screenshot");
             }
             List<PortfolioImportCandidateBO> values = new ArrayList<>();
             int fallbackRow = 1;
@@ -63,6 +63,10 @@ public class PortfolioImportProcessingDomainService {
 
     private PortfolioTradeVisionException invalidAiResponse(String message) {
         return new PortfolioTradeVisionException("PORTFOLIO_AI_RESPONSE_INVALID", message, true);
+    }
+
+    private PortfolioTradeVisionException invalidInput(String message) {
+        return new PortfolioTradeVisionException("PORTFOLIO_AI_RESPONSE_INVALID", message, false);
     }
 
     private JsonNode normalize(JsonNode candidate, PortfolioImportTaskBO task) {

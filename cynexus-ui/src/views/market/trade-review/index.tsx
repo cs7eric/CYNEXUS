@@ -65,6 +65,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -135,6 +142,7 @@ import {
   type MarketIndicatorReplayTimelineResponse,
 } from "@/services/market/indicator";
 import {
+  fetchTradeReviewMaterializedDates,
   fetchTradeReviewMaterializationStatus,
   triggerLocalTdxMinuteLoad,
   triggerTradeReviewMarketStateMaterialization,
@@ -178,6 +186,15 @@ const INDEX_NAME = "上证指数";
 const lastTradeReviewTargetStorageKey = "cynexus.trade-review.last-target";
 const tradeReviewHealthCacheTtlMs = 8 * 60 * 60 * 1_000;
 const tradeReviewHealthCacheVersion = 1;
+const tradeReviewPanelTabs = [
+  "交易与复盘",
+  "逐笔成交",
+  "两融",
+  "财务",
+  "资金流",
+  "行业",
+  "市场状态",
+] as const;
 
 function historicalBarsKey(targetType: StockTargetType, symbol: string) {
   return `${targetType}:${symbol.trim().toUpperCase()}`;
@@ -765,6 +782,7 @@ export default function TradeReviewPage() {
   const [searchParams] = useSearchParams();
   const lastTarget = useMemo(() => readLastTradeReviewTarget(), []);
   const [trades, setTrades] = useState<PortfolioTrade[]>([]);
+  const [materializedTradeDates, setMaterializedTradeDates] = useState<string[]>([]);
   const [symbol, setSymbol] = useState(
     searchParams.get("symbol")?.toUpperCase() ?? lastTarget?.symbol ?? "",
   );
@@ -800,13 +818,16 @@ export default function TradeReviewPage() {
     void fetchPortfolioTrades()
       .then(setTrades)
       .catch(() => setTrades([]));
+    void fetchTradeReviewMaterializedDates()
+      .then(setMaterializedTradeDates)
+      .catch(() => setMaterializedTradeDates([]));
   }, []);
   const tradeDates = useMemo(
     () =>
-      [...new Set(trades.map((item) => localDate(item.tradedAt)))].sort(
+      [...new Set([...trades.map((item) => localDate(item.tradedAt)), ...materializedTradeDates])].sort(
         (a, b) => b.localeCompare(a),
       ),
-    [trades],
+    [materializedTradeDates, trades],
   );
   const symbols = useMemo(
     () => [...new Map(trades.map((item) => [item.symbol, item])).values()],
@@ -820,6 +841,24 @@ export default function TradeReviewPage() {
     }
     if (!tradeDate && tradeDates[0]) setTradeDate(tradeDates[0]);
   }, [symbol, tradeDate, tradeDates, trades]);
+
+  useEffect(() => {
+    if (searchParams.get("open") !== "1") return;
+    const requestedSymbol = searchParams.get("symbol")?.trim().toUpperCase();
+    if (requestedSymbol && requestedSymbol !== symbol) setSymbol(requestedSymbol);
+    const requestedType = searchParams.get("type") === "ETF" ? "ETF" : "STOCK";
+    if (requestedSymbol && requestedType !== instrumentType) setInstrumentType(requestedType);
+    const requestedDate = searchParams.get("date") ?? "";
+    if (requestedDate && requestedDate !== tradeDate) setTradeDate(requestedDate);
+  }, [instrumentType, searchParams, symbol, tradeDate]);
+
+  // The global command palette can deep-link to a symbol and request its panel
+  // to open on the latest available trading day.
+  useEffect(() => {
+    if (searchParams.get("open") !== "1" || !symbol) return;
+    if (!tradeDate && tradeDates[0]) setTradeDate(tradeDates[0]);
+    if (tradeDate || tradeDates[0]) setPanelOpen(true);
+  }, [searchParams, symbol, tradeDate, tradeDates]);
 
   useEffect(() => {
     if (symbol) writeLastTradeReviewTarget(symbol, instrumentType);
@@ -1460,6 +1499,7 @@ export default function TradeReviewPage() {
           symbols.find((item) => item.symbol === symbol)?.securityName ?? undefined
         }
         symbols={symbols}
+        availableTradeDates={tradeDates}
         onSymbolChange={(nextSymbol, nextInstrumentType) => {
           setSymbol(nextSymbol);
           setInstrumentType(nextInstrumentType);
@@ -1684,13 +1724,14 @@ interface PanelProps {
   onTradeDateChange: (tradeDate: string) => void;
   securityName?: string;
   symbols: PortfolioTrade[];
+  availableTradeDates: string[];
   onSymbolChange: (symbol: string, instrumentType: "STOCK" | "ETF") => void;
   trades: PortfolioTrade[];
   initialStock?: StockIntradayResponse | null;
   initialIndicator?: MarketIndicatorReplayTimelineResponse | null;
 }
 
-function TradeReviewPanel({
+export function TradeReviewPanel({
   open,
   onOpenChange,
   symbol,
@@ -1699,6 +1740,7 @@ function TradeReviewPanel({
   onTradeDateChange,
   securityName,
   symbols,
+  availableTradeDates,
   onSymbolChange,
   trades,
   initialStock,
@@ -1790,6 +1832,13 @@ function TradeReviewPanel({
   const historicalBarsRequested = useRef(new Set<string>());
   const pendingMinuteReplayDate = useRef<string | null>(null);
   const financeDetailsLoadedKey = useRef<string | null>(null);
+  const automaticPeriodFallbackKey = useRef<string | null>(null);
+  const reviewDateOptions = useMemo(
+    () => [...new Set([tradeDate, ...availableTradeDates].filter(Boolean))].sort(
+      (left, right) => right.localeCompare(left),
+    ),
+    [availableTradeDates, tradeDate],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -1809,6 +1858,21 @@ function TradeReviewPanel({
       active = false;
     };
   }, [open]);
+
+  useEffect(() => {
+    const replayKey = `${symbol}:${tradeDate}`;
+    if (
+      !open ||
+      period !== "timeshare" ||
+      automaticPeriodFallbackKey.current === replayKey ||
+      stock?.timeshare.length ||
+      !stock?.minute_bars["1m"]?.length
+    ) {
+      return;
+    }
+    automaticPeriodFallbackKey.current = replayKey;
+    setPeriod("1m");
+  }, [open, period, stock, symbol, tradeDate]);
   useEffect(() => {
     if (!targetPickerOpen) return;
     const query = targetQuery.trim();
@@ -1886,6 +1950,39 @@ function TradeReviewPanel({
     };
   }, [industry?.symbol, industryName, industryTargets, manualSector, meta]);
   const isConceptTarget = industryTarget?.kind === "concept";
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.isComposing) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChange(false);
+        return;
+      }
+
+      if (
+        !event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+
+      const tabIndex = Number(event.key) - 1;
+      const nextTab = tradeReviewPanelTabs[tabIndex];
+      if (!nextTab || (nextTab === "资金流" && isConceptTarget)) return;
+
+      event.preventDefault();
+      setTab(nextTab);
+    };
+
+    window.addEventListener("keydown", handleShortcut, true);
+    return () => window.removeEventListener("keydown", handleShortcut, true);
+  }, [isConceptTarget, onOpenChange, open]);
 
   useEffect(() => {
     // Concept boards do not expose historical daily K, but the selected
@@ -2290,6 +2387,19 @@ function TradeReviewPanel({
             tradeDate,
             periods: ["1m"],
           });
+      // The chart only depends on the primary target. Metadata, portfolio
+      // anchors, sector context, and board membership are supplementary and a
+      // slow one must never leave the already-rendered replay beneath a modal
+      // loading mask.
+      void base
+        .then((result) => {
+          if (cancelled) return;
+          setStock(result);
+          setLoading(false);
+        })
+        .catch(() => {
+          if (!cancelled) setLoading(false);
+        });
       const metaRequest = fetchStockMeta({ targetType, symbol });
       const sectorsRequest = fetchStockSectors(symbol, tradeDate);
       const tdxBoardsRequest = fetchEasyTdxBelongBoard(symbol);
@@ -2399,17 +2509,20 @@ function TradeReviewPanel({
             periods: ["1m"],
           })
         : Promise.resolve(null);
-      const [resolvedIndex, industryResult] = await Promise.all([
-        indexRequest,
-        industryRequest,
-      ]);
-      if (cancelled) return;
-      setIndex(resolvedIndex);
-      setIndustry(industryResult);
-      setIndustryName(conceptContext ? null : effectiveSectorContext?.name ?? null);
+      void indexRequest.then((result) => {
+        if (!cancelled) setIndex(result);
+      });
+      void industryRequest.then((result) => {
+        if (cancelled) return;
+        setIndustry(result);
+        setIndustryName(
+          conceptContext ? null : effectiveSectorContext?.name ?? null,
+        );
+      });
       // The replay chart is ready once the target, benchmark and sector data
-      // arrive. Do not keep the chart covered while slower daily F10/margin
-      // requests continue loading in the side panel.
+      // are requested. Do not serialize the independent context fetches: an
+      // unavailable industry source must not prevent the index overlay from
+      // rendering, or vice versa.
       setLoading(false);
       const [tradeTicksResult] = await Promise.allSettled([tradeTicksRequest]);
       if (cancelled) return;
@@ -2784,6 +2897,7 @@ function TradeReviewPanel({
       bars: typeof bars;
       color: string;
       mode: "absolute" | "relative";
+      directional?: boolean;
       lineType: "solid" | "dashed" | "dotted";
       lineWidth: number;
     }> =
@@ -2805,7 +2919,7 @@ function TradeReviewPanel({
         name: `行业${(industryName ?? meta?.sectorIndexName) ? ` · ${industryName ?? meta?.sectorIndexName}` : ""}`,
         bars: visibleIndustryBars,
         color: "#2563eb",
-        mode: "relative",
+        mode: "absolute",
         lineType: "solid",
         lineWidth: 2.4,
       });
@@ -2822,10 +2936,11 @@ function TradeReviewPanel({
       result.push({
         name: `${INDEX_NAME} · ${INDEX_SYMBOL}`,
         bars: visibleIndexBars,
-        color: "#7c3aed",
-        mode: "absolute",
-        lineType: "dashed",
-        lineWidth: 2.2,
+        color: "#dc2626",
+        mode: "relative",
+        directional: true,
+        lineType: "solid",
+        lineWidth: 2.4,
       });
     }
     return result;
@@ -3032,7 +3147,7 @@ function TradeReviewPanel({
                     <button
                       type="button"
                       aria-label="选择或搜索复盘标的"
-                      className="flex h-8 min-w-0 max-w-[360px] items-center gap-2 rounded-md px-1 text-left text-sm font-semibold outline-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring/50"
+                      className="flex h-5 min-w-0 max-w-[360px] items-center gap-2 rounded-md px-1 text-left text-sm font-semibold outline-none hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring/50"
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate font-normal text-muted-foreground">
@@ -3108,10 +3223,27 @@ function TradeReviewPanel({
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {tradeDate} · {state.label} · 游标{" "}
-                  {formatTime(current?.timestamp)}
-                </p>
+                <div className="-mt-0.5 ml-1 flex min-w-0 items-center gap-2">
+                  <Select value={tradeDate} onValueChange={onTradeDateChange}>
+                    <SelectTrigger
+                      size="sm"
+                      className="h-6 w-auto min-w-[86px] shrink-0 border-0 bg-transparent px-0 text-[11px] font-semibold shadow-none hover:bg-transparent"
+                      aria-label="选择复盘日期"
+                    >
+                      <SelectValue placeholder="复盘日期" />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {reviewDateOptions.map((date) => (
+                        <SelectItem key={date} value={date} className="font-mono text-xs">
+                          {date}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="truncate text-[11px] text-muted-foreground">
+                    {state.label} · 游标 {formatTime(current?.timestamp)}
+                  </span>
+                </div>
               </div>
             </div>
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -3251,8 +3383,8 @@ function TradeReviewPanel({
           >
             <ResizablePanel
               id="chart"
-              defaultSize="76%"
-              minSize="55%"
+              defaultSize="66%"
+              minSize="45%"
               className="min-h-0 min-w-0 overflow-hidden"
             >
               <main className="h-full min-w-0 overflow-hidden border-r border-border/70 p-3">
@@ -3335,9 +3467,9 @@ function TradeReviewPanel({
             />
             <ResizablePanel
               id="details"
-              defaultSize="24%"
-              minSize="20%"
-              maxSize="45%"
+              defaultSize="34%"
+              minSize="28%"
+              maxSize="55%"
             >
               <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-muted/15">
               <Tabs
@@ -3351,7 +3483,7 @@ function TradeReviewPanel({
                 >
                   <TabsTrigger
                     value="交易与复盘"
-                    title="交易与复盘"
+                    title="交易与复盘（Alt+1）"
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <ClipboardCheck className="size-3 shrink-0" aria-hidden="true" />
@@ -3359,7 +3491,7 @@ function TradeReviewPanel({
                   </TabsTrigger>
                   <TabsTrigger
                     value="逐笔成交"
-                    title="逐笔成交"
+                    title="逐笔成交（Alt+2）"
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <ListOrdered className="size-3 shrink-0" aria-hidden="true" />
@@ -3367,7 +3499,7 @@ function TradeReviewPanel({
                   </TabsTrigger>
                   <TabsTrigger
                     value="两融"
-                    title="两融"
+                    title="两融（Alt+3）"
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <Landmark className="size-3 shrink-0" aria-hidden="true" />
@@ -3375,7 +3507,7 @@ function TradeReviewPanel({
                   </TabsTrigger>
                   <TabsTrigger
                     value="财务"
-                    title="财务"
+                    title="财务（Alt+4）"
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <FileChartColumn className="size-3 shrink-0" aria-hidden="true" />
@@ -3384,7 +3516,7 @@ function TradeReviewPanel({
                   <TabsTrigger
                     value="资金流"
                     disabled={isConceptTarget}
-                    title={isConceptTarget ? "TDX 概念板块绑定后禁用资金流" : undefined}
+                    title={isConceptTarget ? "TDX 概念板块绑定后禁用资金流" : "资金流（Alt+5）"}
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <ArrowDownUp className="size-3 shrink-0" aria-hidden="true" />
@@ -3392,7 +3524,7 @@ function TradeReviewPanel({
                   </TabsTrigger>
                   <TabsTrigger
                     value="行业"
-                    title="行业"
+                    title="行业（Alt+6）"
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <Layers3 className="size-3 shrink-0" aria-hidden="true" />
@@ -3400,14 +3532,17 @@ function TradeReviewPanel({
                   </TabsTrigger>
                   <TabsTrigger
                     value="市场状态"
-                    title="市场状态"
+                    title="市场状态（Alt+7）"
                     className="min-w-0 justify-center px-1 py-1.5 text-[11px] after:hidden data-[state=active]:rounded-md data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground"
                   >
                     <Activity className="size-3 shrink-0" aria-hidden="true" />
                     <span className="truncate">市场</span>
                   </TabsTrigger>
                 </TabsList>
-                <div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain p-3">
+                <div className={cn(
+                  "min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain p-3",
+                  tab === "财务" && "p-2",
+                )}>
                   <TabsContent value="交易与复盘" className="m-0 space-y-3">
                     <MarkerInspector
                       marker={currentMarker}
@@ -3488,6 +3623,12 @@ function TradeReviewPanel({
                         setCursor(0);
                         setPeriod("timeshare");
                         onTradeDateChange(replayDate);
+                      }}
+                      onSelectStock={(nextStock) => {
+                        const nextSymbol = nextStock.code.trim().toUpperCase();
+                        if (!nextSymbol) return;
+                        onSymbolChange(nextSymbol, "STOCK");
+                        setTab("交易与复盘");
                       }}
                       realEventCount={visibleEvents.length}
                       timeline={timeline}
@@ -6176,11 +6317,12 @@ function TicksReplayLower({
   loading: boolean;
   onSelect: (timestamp: number) => void;
 }) {
-  const visibleRows = rows
-    .filter((row) => tickTimestamp(row) <= currentTimestamp)
+  const allRows = rows
+    .slice()
     .sort((a, b) => tickTimestamp(a) - tickTimestamp(b));
+  const visibleRows = allRows.filter((row) => tickTimestamp(row) <= currentTimestamp);
   const groups = Array.from(
-    visibleRows.reduce(
+    allRows.reduce(
       (map, row) => {
         const label = row.time_label ?? row.trade_time ?? row.time ?? "未知";
         const price = Number(row.price);
@@ -6233,8 +6375,14 @@ function TicksReplayLower({
       >(),
     ).values(),
   );
-  const latest = groups.at(-1);
-  const recent = groups.slice(-18);
+  const visibleGroups = groups.filter(
+    (group) => tickTimestamp(group.rows[0]) <= currentTimestamp,
+  );
+  const latest = visibleGroups.at(-1);
+  // Keep the strength strip on the same time span as the replay chart above.
+  // Limiting this to the last 18 groups made its left/right ticks drift to a
+  // much narrower window than the intraday chart.
+  const recent = groups;
   const totalVolume = visibleRows.reduce((sum, row) => sum + (Number(row.volume) || 0), 0);
   const totalAmount = visibleRows.reduce((sum, row) => {
     const price = Number(row.price);
@@ -6306,12 +6454,13 @@ function TicksReplayLower({
               const net = group.buyVolume - group.sellVolume;
               const intensity = Math.max(0.12, group.volume / maxMinuteVolume);
               const height = 10 + intensity * 42;
+              const future = tickTimestamp(group.rows[0]) > currentTimestamp;
               return (
                 <button
                   key={group.label}
                   type="button"
-                  className={`min-w-0 flex-1 rounded-t-sm ${net >= 0 ? "bg-red-500/75 hover:bg-red-500" : "bg-emerald-500/75 hover:bg-emerald-500"}`}
-                  style={{ height: `${height}px`, opacity: 0.35 + intensity * 0.65 }}
+                  className={`min-w-0 flex-1 rounded-t-sm ${future ? "bg-muted-foreground/25 hover:bg-muted-foreground/40" : net >= 0 ? "bg-red-500/75 hover:bg-red-500" : "bg-emerald-500/75 hover:bg-emerald-500"}`}
+                  style={{ height: `${height}px`, opacity: future ? 0.5 : 0.35 + intensity * 0.65 }}
                   title={`${group.label} · ${group.count} 笔 · 量 ${displayVolume(group.volume)} · 买 ${displayVolume(group.buyVolume)} · 卖 ${displayVolume(group.sellVolume)}`}
                   onClick={() => onSelect(tickTimestamp(group.rows[0]))}
                 />

@@ -5,12 +5,16 @@ import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceAiCaptureDTO;
 import cn.cccs7.cynexus.core.api.dto.finance.FinanceAiCapturePageDTO;
+import cn.cccs7.cynexus.core.application.dto.FinanceAiCaptureEnqueueDTO;
 import cn.cccs7.cynexus.core.application.request.finance.FinanceAiCaptureConfirmRequest;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureHistoryPageBO;
 import cn.cccs7.cynexus.core.domain.finance.entity.FinanceAiCaptureItemUpdate;
 import cn.cccs7.cynexus.core.domain.service.finance.FinanceAiCaptureDomainService;
 import java.util.List;
+import java.util.concurrent.Executor;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,34 +22,60 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class FinanceAiCaptureAppService {
     private final FinanceAiCaptureDomainService domainService;
+    private final Executor executor;
 
-    public FinanceAiCaptureAppService(FinanceAiCaptureDomainService domainService) {
+    public FinanceAiCaptureAppService(FinanceAiCaptureDomainService domainService,
+                                      @Qualifier("financeAiCaptureExecutor") Executor executor) {
         this.domainService = domainService;
+        this.executor = executor;
     }
 
     @Transactional
     public FinanceAiCaptureDTO parse(MultipartFile file, String mode, String idempotencyKey) {
-        byte[] content = new byte[0];
-        String contentType = null;
-        String fileName = null;
-        long size = 0L;
-        if (file != null && !file.isEmpty()) {
-            contentType = file.getContentType();
-            fileName = file.getOriginalFilename();
-            size = file.getSize();
-            try {
-                content = file.getBytes();
-            } catch (Exception exception) {
-                throw new BizException(ErrorCode.BAD_REQUEST, "\u8bfb\u53d6\u56fe\u7247\u5931\u8d25");
-            }
-        }
+        FileBytes source = fileBytes(file);
         String processingMode = CoreConstants.STATUS_REVIEW.equalsIgnoreCase(mode) ? CoreConstants.STATUS_REVIEW : "auto";
-        return toDto(domainService.parse(FinanceLedgerAppService.DEFAULT_OWNER, fileName, contentType, content, size, mode, idempotencyKey),
+        return toDto(domainService.parse(FinanceLedgerAppService.DEFAULT_OWNER,
+                source.fileName(), source.contentType(), source.content(), source.size(), mode, idempotencyKey),
                 processingMode);
+    }
+
+    @Transactional
+    public FinanceAiCaptureEnqueueDTO enqueue(MultipartFile file, String mode, String idempotencyKey) {
+        FileBytes source = fileBytes(file);
+        FinanceAiCaptureBO capture = domainService.enqueue(FinanceLedgerAppService.DEFAULT_OWNER,
+                source.fileName(), source.contentType(), source.content(), source.size(), mode, idempotencyKey);
+        return FinanceAiCaptureEnqueueDTO.builder()
+                .accepted(true)
+                .message("queued")
+                .processId(capture.getId() == null ? null : String.valueOf(capture.getId()))
+                .status("queued")
+                .workflowType("FINANCE_AI_CAPTURE")
+                .workflowKey("finance.ai_capture.image")
+                .pollUrl(capture.getId() == null ? null : "/api/core/finance/ai-captures/" + capture.getId())
+                .build();
+    }
+
+    @Scheduled(
+            initialDelayString = "${cynexus.finance.capture.process.initial-delay-ms:2000}",
+            fixedDelayString = "${cynexus.finance.capture.process.dispatch-delay-ms:2000}"
+    )
+    public void dispatchQueuedCaptures() {
+        FinanceAiCaptureBO capture = domainService.claimNext();
+        if (capture != null) {
+            executor.execute(() -> domainService.execute(capture));
+        }
     }
 
     public FinanceAiCaptureDTO get(Long id) {
         return toDto(domainService.get(FinanceLedgerAppService.DEFAULT_OWNER, id), CoreConstants.STATUS_REVIEW);
+    }
+
+    public ImageContent image(Long captureId, int imageIndex) {
+        var image = domainService.image(FinanceLedgerAppService.DEFAULT_OWNER, captureId, imageIndex);
+        return new ImageContent(image.contentType(), image.content());
+    }
+
+    public record ImageContent(String contentType, byte[] content) {
     }
 
     public FinanceAiCapturePageDTO history(int limit, int offset, String status) {
@@ -132,5 +162,26 @@ public class FinanceAiCaptureAppService {
                         .transactionId(item.getTransactionId())
                         .build()).toList())
                 .build();
+    }
+
+    private FileBytes fileBytes(MultipartFile file) {
+        byte[] content = new byte[0];
+        String contentType = null;
+        String fileName = null;
+        long size = 0L;
+        if (file != null && !file.isEmpty()) {
+            contentType = file.getContentType();
+            fileName = file.getOriginalFilename();
+            size = file.getSize();
+            try {
+                content = file.getBytes();
+            } catch (Exception exception) {
+                throw new BizException(ErrorCode.BAD_REQUEST, "\u8bfb\u53d6\u56fe\u7247\u5931\u8d25");
+            }
+        }
+        return new FileBytes(fileName, contentType, content, size);
+    }
+
+    private record FileBytes(String fileName, String contentType, byte[] content, long size) {
     }
 }

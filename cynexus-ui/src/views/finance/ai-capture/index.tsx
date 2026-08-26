@@ -64,19 +64,20 @@ function editable(item: Draft, patch: Partial<Draft>) {
 }
 
 const statusLabels: Record<FinanceAiCapture["status"], string> = {
-  uploaded: "已上传",
-  processing: "识别中",
-  review: "待审核",
-  confirmed: "已入账",
-  failed: "识别失败",
-  archived: "已归档",
+  queued: "Queued",
+  uploaded: "Uploaded",
+  processing: "Processing",
+  review: "Waiting review",
+  confirmed: "Success",
+  failed: "Failed",
+  archived: "Cancelled",
 };
 
 function statusClass(status: FinanceAiCapture["status"]) {
   if (status === "confirmed") return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   if (status === "review") return "bg-amber-500/10 text-amber-700 dark:text-amber-300";
   if (status === "failed") return "bg-rose-500/10 text-rose-700 dark:text-rose-300";
-  if (status === "processing") return "bg-sky-500/10 text-sky-700 dark:text-sky-300";
+  if (status === "processing" || status === "queued") return "bg-sky-500/10 text-sky-700 dark:text-sky-300";
   return "bg-muted text-muted-foreground";
 }
 

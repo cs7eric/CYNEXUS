@@ -37,6 +37,14 @@ spring:
       server:
         webflux:
           routes:
+            - id: cynexus-workflows-core
+              uri: lb://cynexus-core
+              predicates:
+                - Path=/api/workflows/media-transcription/**,/api/workflows/finance-ai-capture/**
+            - id: cynexus-workflows-market
+              uri: lb://cynexus-market
+              predicates:
+                - Path=/api/workflows/portfolio-trade-import/**
             - id: cynexus-core
               uri: lb://cynexus-core
               predicates:

@@ -79,6 +79,127 @@ final class MarketResearchAgentToolSchemas {
             },"additionalProperties":false}
             """;
 
+    static final String SCREENER = """
+            {"type":"object","properties":{
+              "tradeDate":{"type":"string","format":"date","description":"Optional daily close date in YYYY-MM-DD format."},
+              "universe":{"type":"string","enum":["ALL","SH","SZ","BJ"],"description":"Market universe; defaults to ALL."},
+              "excludeSt":{"type":"boolean","description":"Exclude ST stocks; defaults to true."},
+              "excludeChiNext":{"type":"boolean","description":"Exclude ChiNext stocks; defaults to true."},
+              "excludeStar":{"type":"boolean","description":"Exclude STAR Market stocks; defaults to true."},
+              "minPrice":{"type":"number","minimum":0,"description":"Optional inclusive minimum close price."},
+              "maxPrice":{"type":"number","minimum":0,"description":"Optional inclusive maximum close price."},
+              "minChangePct":{"type":"number","minimum":-100,"maximum":100,"description":"Optional inclusive minimum daily change percentage."},
+              "maxChangePct":{"type":"number","minimum":-100,"maximum":100,"description":"Optional inclusive maximum daily change percentage."},
+              "minAmount":{"type":"number","minimum":0,"description":"Optional inclusive minimum daily turnover amount in CNY."},
+              "minMarketCap":{"type":"number","minimum":0,"description":"Optional inclusive minimum total market capitalization in CNY."},
+              "maxMarketCap":{"type":"number","minimum":0,"description":"Optional inclusive maximum total market capitalization in CNY."},
+              "industry":{"type":"string","minLength":1,"maxLength":80,"description":"Optional exact industry name filter."},
+              "tdxIndustryCode":{"type":"string","minLength":1,"maxLength":32,"description":"Optional TDX industry-group code from THS-to-TDX mapped screener results."},
+              "thsIndustryCode":{"type":"string","minLength":1,"maxLength":32,"description":"Optional THS industry membership code from a cited screener result."},
+              "conceptSectorId":{"type":"string","minLength":1,"maxLength":64,"description":"Optional TDX concept sector ID from a cited screener result."},
+              "styleSectorId":{"type":"string","minLength":1,"maxLength":64,"description":"Optional TDX style sector ID from a cited screener result."},
+              "board":{"type":"string","enum":["main_sh","main_sz","chinext","star","bse","unknown"],"description":"Optional listing-board filter."},
+              "minAmplitudePct":{"type":"number","description":"Optional inclusive minimum daily amplitude percentage."},
+              "maxAmplitudePct":{"type":"number","description":"Optional inclusive maximum daily amplitude percentage."},
+              "minReturnPct5d":{"type":"number","description":"Optional inclusive minimum five-session return percentage."},
+              "maxReturnPct5d":{"type":"number","description":"Optional inclusive maximum five-session return percentage."},
+              "minReturnPct10d":{"type":"number","description":"Optional inclusive minimum ten-session return percentage."},
+              "maxReturnPct10d":{"type":"number","description":"Optional inclusive maximum ten-session return percentage."},
+              "minReturnPct30d":{"type":"number","description":"Optional inclusive minimum thirty-session return percentage."},
+              "maxReturnPct30d":{"type":"number","description":"Optional inclusive maximum thirty-session return percentage."},
+              "minReturnPct60d":{"type":"number","description":"Optional inclusive minimum sixty-session return percentage."},
+              "maxReturnPct60d":{"type":"number","description":"Optional inclusive maximum sixty-session return percentage."},
+              "minReturnPct252d":{"type":"number","description":"Optional inclusive minimum 252-session return percentage."},
+              "maxReturnPct252d":{"type":"number","description":"Optional inclusive maximum 252-session return percentage."},
+              "minMainNet":{"type":"number","description":"Optional inclusive minimum daily main-fund net flow in CNY."},
+              "minMainNet5d":{"type":"number","description":"Optional inclusive minimum five-session main-fund net flow in CNY."},
+              "minTurnoverPct":{"type":"number","description":"Optional inclusive minimum daily turnover percentage."},
+              "maxTurnoverPct":{"type":"number","description":"Optional inclusive maximum daily turnover percentage."},
+              "minVolumeRatio":{"type":"number","description":"Optional inclusive minimum daily volume ratio."},
+              "maxVolumeRatio":{"type":"number","description":"Optional inclusive maximum daily volume ratio."},
+              "minPe":{"type":"number","description":"Optional inclusive minimum PE; partial coverage only."},
+              "maxPe":{"type":"number","description":"Optional inclusive maximum PE; partial coverage only."},
+              "volumeContractionDays":{"type":"integer","minimum":2,"maximum":10,"description":"Optional number of immediately preceding sessions whose volumes must decrease successively."},
+              "minBreakoutVolumeMultiple":{"type":"number","minimum":1,"maximum":20,"description":"Optional minimum ratio of today's volume to the mean volume across the requested contracting sessions; requires volumeContractionDays."},
+              "maxBreakoutVolumeMultiple":{"type":"number","minimum":1,"maximum":20,"description":"Optional inclusive maximum for the same contraction-relative volume multiple."},
+              "minBullishBodyPct":{"type":"number","minimum":0,"maximum":30,"description":"Optional minimum positive real-body percentage: (close - open) / previous close * 100."},
+              "minCloseAboveMa20Pct":{"type":"number","minimum":-100,"maximum":500,"description":"Optional minimum current-close percentage above MA20."},
+              "minMa5AboveMa20Pct":{"type":"number","minimum":-100,"maximum":300,"description":"Optional minimum MA5 percentage above MA20."},
+              "breakoutHighDays":{"type":"integer","minimum":5,"maximum":20,"description":"Optional prior-high breakout lookback; current close must meet or exceed every prior high."},
+              "maxAtrPct20":{"type":"number","minimum":0.01,"maximum":50,"description":"Optional maximum 20-session ATR as a percentage of current close."},
+              "minConsecutiveBullishDays":{"type":"integer","minimum":1,"maximum":10,"description":"Optional minimum consecutive sessions, including today, whose close exceeds open."},
+              "minVolumeVsMa5Multiple":{"type":"number","minimum":0.1,"maximum":20,"description":"Optional minimum current volume divided by the preceding five-session mean volume."},
+              "maxVolumeVsMa5Multiple":{"type":"number","minimum":0.1,"maximum":20,"description":"Optional inclusive maximum current volume divided by the preceding five-session mean volume."},
+              "candlestickPattern":{"type":"string","enum":["bullish_engulfing","bearish_engulfing","hammer","shooting_star","doji","gap_up","gap_down","inside_bar"],"description":"Optional exact daily candlestick pattern, evaluated only on an aligned daily OHLCV fact."},
+              "sort":{"type":"string","enum":["amount","change_pct","amplitude_pct","return_5d","return_10d","return_30d","return_60d","return_252d","main_net","main_net_5d","turnover_pct","volume_ratio","pe","market_cap","price","code"],"description":"Sort field; defaults to amount."},
+              "sortDir":{"type":"string","enum":["asc","desc"],"description":"Sort direction; defaults to desc."},
+              "page":{"type":"integer","minimum":1,"maximum":20,"description":"One-based result page; defaults to 1."},
+              "pageSize":{"type":"integer","minimum":1,"maximum":50,"description":"Bounded result page size; defaults to 20."}
+            },"additionalProperties":false}
+            """;
+
+    static final String SCREENER_OUTPUT = """
+            {"type":"object","required":["ok","universe","excludeSt","sort","sortDir","page","pageSize","universeCount","count","source","items","warnings"],"properties":{
+              "ok":{"type":"boolean"},"requestedTradeDate":{"type":["string","null"],"format":"date"},"tradeDate":{"type":["string","null"],"format":"date"},
+              "universe":{"type":"string"},"excludeSt":{"type":"boolean"},"excludeChiNext":{"type":"boolean"},"excludeStar":{"type":"boolean"},"industry":{"type":["string","null"]},"tdxIndustryCode":{"type":["string","null"]},"thsIndustryCode":{"type":["string","null"]},"conceptSectorId":{"type":["string","null"]},"styleSectorId":{"type":["string","null"]},"sort":{"type":"string"},"sortDir":{"type":"string"},"page":{"type":"integer"},"pageSize":{"type":"integer"},"universeCount":{"type":"integer"},"count":{"type":"integer"},"source":{"type":"string"},"warnings":{"type":"array","items":{"type":"string"}},"error":{"type":["string","null"]},"dataQuality":{"type":["object","null"],"properties":{"status":{"type":"string","enum":["READY","PARTIAL","STALE"]},"snapshotDate":{"type":["string","null"],"format":"date"},"freshnessLagDays":{"type":"integer"},"eligibleStockCount":{"type":"integer"},"dailySnapshotCount":{"type":"integer"},"warnings":{"type":"array","items":{"type":"string"}},"fieldCoverage":{"type":"array","items":{"type":"object","properties":{"field":{"type":"string"},"availableCount":{"type":"integer"},"eligibleCount":{"type":"integer"},"coveragePct":{"type":"number"}},"additionalProperties":false}}},"additionalProperties":false},
+              "items":{"type":"array","items":{"type":"object","required":["code","name","market","st"],"properties":{"code":{"type":"string"},"name":{"type":"string"},"market":{"type":"string"},"industry":{"type":["string","null"]},"board":{"type":["string","null"]},"tdxIndustryCode":{"type":["string","null"]},"tdxIndustryName":{"type":["string","null"]},"thsIndustryCode":{"type":["string","null"]},"thsIndustryName":{"type":["string","null"]},"concepts":{"type":"array","items":{"type":"object","properties":{"sectorId":{"type":"string"},"name":{"type":"string"}},"additionalProperties":false}},"styles":{"type":"array","items":{"type":"object","properties":{"sectorId":{"type":"string"},"name":{"type":"string"}},"additionalProperties":false}},"st":{"type":"boolean"},"price":{"type":["number","null"]},"changePct":{"type":["number","null"]},"amplitudePct":{"type":["number","null"]},"amount":{"type":["number","null"]},"totalMarketCap":{"type":["number","null"]},"floatMarketCap":{"type":["number","null"]},"returnPct5d":{"type":["number","null"]},"returnPct10d":{"type":["number","null"]},"returnPct30d":{"type":["number","null"]},"returnPct60d":{"type":["number","null"]},"returnPct252d":{"type":["number","null"]},"mainNet":{"type":["number","null"]},"mainNet5d":{"type":["number","null"]},"turnoverPct":{"type":["number","null"]},"volumeRatio":{"type":["number","null"]},"pe":{"type":["number","null"]},"priceVolumePattern":{"type":["object","null"],"properties":{"observedContractionDays":{"type":["integer","null"]},"breakoutVolumeMultiple":{"type":["number","null"]},"bullishBodyPct":{"type":["number","null"]},"closeAboveMa20Pct":{"type":["number","null"]},"ma5AboveMa20Pct":{"type":["number","null"]},"breakoutHighDays":{"type":["integer","null"]},"atrPct20":{"type":["number","null"]},"consecutiveBullishDays":{"type":["integer","null"]},"volumeVsMa5Multiple":{"type":["number","null"]},"candlestickPatterns":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}},"additionalProperties":false}}
+            },"additionalProperties":false}
+            """;
+
+    static final String FACTOR_OBSERVATORY = """
+            {"type":"object","properties":{
+              "tradeDate":{"type":"string","format":"date","description":"Observation date in YYYY-MM-DD; defaults to the latest available daily snapshot."},
+              "cohort":{"type":"string","enum":["LIMIT_UP","LARGE_MOVE"],"description":"Daily event pool; defaults to LIMIT_UP."},
+              "minLargeMovePct":{"type":"number","minimum":0,"maximum":30,"description":"Inclusive daily percent-change threshold for LARGE_MOVE; defaults to 7."},
+              "limit":{"type":"integer","minimum":1,"maximum":100,"description":"Maximum event rows; defaults to 40."},
+              "symbol":{"type":"string","minLength":1,"maxLength":30,"description":"Optional single stock code within the selected event cohort."}
+            },"additionalProperties":false}
+            """;
+
+    static final String FACTOR_OBSERVATORY_OUTPUT = """
+            {"type":"object","required":["ok","cohort","populationCount","sampledCount","marketFactors","events","screeningHintsDeprecated","screeningHints","warnings"],"properties":{
+              "ok":{"type":"boolean"},"requestedTradeDate":{"type":["string","null"],"format":"date"},"tradeDate":{"type":["string","null"],"format":"date"},"cohort":{"type":"string","enum":["LIMIT_UP","LARGE_MOVE"]},"minLargeMovePct":{"type":["number","null"]},"populationCount":{"type":"integer","minimum":0},"sampledCount":{"type":"integer","minimum":0},"warnings":{"type":"array","items":{"type":"string"}},"error":{"type":["string","null"]},
+              "screeningHintsDeprecated":{"type":"boolean"},
+              "marketFactors":{"type":"array","items":{"type":"object","required":["stage","code","label","status","source","metrics","supportingEvidence","counterEvidence","warnings"],"properties":{"stage":{"type":"string"},"code":{"type":"string"},"label":{"type":"string"},"status":{"type":"string"},"asOfDate":{"type":["string","null"],"format":"date"},"source":{"type":"string"},"metrics":{"type":"array","items":{"type":"object","required":["key","label","value","unit"],"properties":{"key":{"type":"string"},"label":{"type":"string"},"value":{"type":"string"},"unit":{"type":"string"}},"additionalProperties":false}},"supportingEvidence":{"type":"array","items":{"type":"string"}},"counterEvidence":{"type":"array","items":{"type":"string"}},"warnings":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}},
+              "events":{"type":"array","items":{"type":"object","required":["code","name","eventType","changePct","streak","concepts","styles","factors"],"properties":{"code":{"type":"string"},"name":{"type":"string"},"eventType":{"type":"string"},"changePct":{"type":["number","null"]},"streak":{"type":["integer","null"]},"thsIndustryCode":{"type":["string","null"]},"thsIndustryName":{"type":["string","null"]},"tdxIndustryCode":{"type":["string","null"]},"tdxIndustryName":{"type":["string","null"]},"concepts":{"type":"array","items":{"type":"string"}},"styles":{"type":"array","items":{"type":"string"}},"factors":{"type":"array","items":{"type":"object","required":["stage","code","label","status","source","metrics","supportingEvidence","counterEvidence","warnings"],"properties":{"stage":{"type":"string"},"code":{"type":"string"},"label":{"type":"string"},"status":{"type":"string"},"asOfDate":{"type":["string","null"],"format":"date"},"source":{"type":"string"},"metrics":{"type":"array","items":{"type":"object","required":["key","label","value","unit"],"properties":{"key":{"type":"string"},"label":{"type":"string"},"value":{"type":"string"},"unit":{"type":"string"}},"additionalProperties":false}},"supportingEvidence":{"type":"array","items":{"type":"string"}},"counterEvidence":{"type":"array","items":{"type":"string"}},"warnings":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}}},"additionalProperties":false}},
+              "screeningHints":{"type":"array","items":{"type":"object","required":["criterion","operator","value","label","basis"],"properties":{"criterion":{"type":"string"},"operator":{"type":"string"},"value":{"type":"string"},"label":{"type":"string"},"basis":{"type":"string"}},"additionalProperties":false}}
+            },"additionalProperties":false}
+            """;
+
+    static final String FACTOR_STUDY = """
+            {"type":"object","properties":{"offset":{"type":"integer","minimum":0,"maximum":200},"limit":{"type":"integer","minimum":1,"maximum":50}},"additionalProperties":false}
+            """;
+    static final String FACTOR_STUDY_OUTPUT = """
+            {"type":"array","items":{"type":"object","required":["studyId","status","eventType","startDate","endDate","dataCutoffAt","featureRegistryVersion","leakageCheckPassed","eventSampleCount","controlSampleCount","warnings"],"properties":{"studyId":{"type":"string"},"status":{"type":"string"},"eventType":{"type":"string"},"startDate":{"type":"string","format":"date"},"endDate":{"type":"string","format":"date"},"dataCutoffAt":{"type":"string"},"featureRegistryVersion":{"type":"string"},"leakageCheckPassed":{"type":"boolean"},"eventSampleCount":{"type":"integer"},"controlSampleCount":{"type":"integer"},"warnings":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}}
+            """;
+    static final String EVENT_REPLAY = """
+            {"type":"object","required":["code","tradeDate"],"properties":{"code":{"type":"string","minLength":6,"maxLength":12,"pattern":"^[0-9]{6}$"},"tradeDate":{"type":"string","format":"date"},"anchorAt":{"type":"string","format":"date-time"},"minuteLimit":{"type":"integer","minimum":30,"maximum":300}},"additionalProperties":false}
+            """;
+    static final String EVENT_REPLAY_OUTPUT = """
+            {"type":"object","required":["code","tradeDate","status","source","warnings","stockMinuteBars"],"properties":{"code":{"type":"string"},"tradeDate":{"type":"string","format":"date"},"anchorAt":{"type":["string","null"]},"status":{"type":"string"},"source":{"type":"string"},"dataCutoffAt":{"type":["string","null"]},"warnings":{"type":"array","items":{"type":"string"}},"stockMinuteBars":{"type":"array","maxItems":300,"items":{"type":"object"}},"coverage":{"type":["object","null"]},"marketReplay":{"type":["object","null"]}},"additionalProperties":false}
+            """;
+    static final String FACTOR_SET_VALIDATION = """
+            {"type":"object","required":["code"],"properties":{"code":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Za-z0-9_-]+$"}},"additionalProperties":false}
+            """;
+    static final String FACTOR_SET_VALIDATION_OUTPUT = """
+            {"type":"object","required":["id","code","name","status","version"],"properties":{"id":{"type":"integer"},"code":{"type":"string"},"name":{"type":"string"},"status":{"type":"string"},"activeVersionId":{"type":["integer","null"]},"version":{"type":"integer"},"activeVersion":{"type":["object","null"]}},"additionalProperties":false}
+            """;
+
+    static final String STOCK_SELECTION_STRATEGY_HEALTH = """
+            {"type":"object","required":["strategyCode"],"properties":{
+              "strategyCode":{"type":"string","enum":["TREND_MOMENTUM","VOLUME_CAPITAL_RESONANCE","INDUSTRY_RELATIVE_STRENGTH"],"description":"Published governed strategy code to assess."},
+              "tradeDate":{"type":"string","format":"date","description":"Optional requested daily-close date in YYYY-MM-DD format; the response reports the actual available date."}
+            },"additionalProperties":false}
+            """;
+
+    static final String STOCK_SELECTION_STRATEGY_HEALTH_OUTPUT = """
+            {"type":"object","required":["strategyCode","strategyVersionNo","status","reason","recommendedAction","universeCount","candidateCount","signalDensityPct","freshnessLagDays","source","checks","warnings"],"properties":{
+              "strategyCode":{"type":"string"},"strategyVersionNo":{"type":"integer"},"requestedTradeDate":{"type":["string","null"],"format":"date"},"actualTradeDate":{"type":["string","null"],"format":"date"},"status":{"type":"string","enum":["VALID","WEAKENING","INVALID","NOT_ASSESSED"]},"reason":{"type":"string"},"recommendedAction":{"type":"string"},"universeCount":{"type":"integer"},"candidateCount":{"type":"integer"},"signalDensityPct":{"type":"number"},"freshnessLagDays":{"type":"integer"},"source":{"type":"string"},"warnings":{"type":"array","items":{"type":"string"}},
+              "recentPerformance":{"type":["object","null"],"properties":{"evaluatedTradeCount":{"type":"integer"},"winRatePct":{"type":"number"},"averageExcessReturnPct":{"type":"number"},"asOfDate":{"type":["string","null"],"format":"date"}},"additionalProperties":false},
+              "checks":{"type":"array","items":{"type":"object","required":["code","label","status","actualValue","threshold","detail"],"properties":{"code":{"type":"string"},"label":{"type":"string"},"status":{"type":"string","enum":["PASS","WARN","FAIL"]},"actualValue":{"type":"string"},"threshold":{"type":"string"},"detail":{"type":"string"}},"additionalProperties":false}}
+            },"additionalProperties":false}
+            """;
+
     static final String INDICATOR = """
             {"type":"object","required":["operation"],"properties":{
               "operation":{"type":"string","enum":["latest","industry_detail","transmission","replay_timeline","radar_state","radar_events","limit_ladder","replay_summary","replay_episode","trade_review_state"],"description":"Market-indicator query operation to run."},

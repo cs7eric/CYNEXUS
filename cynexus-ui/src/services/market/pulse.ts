@@ -632,6 +632,7 @@ export interface LimitEmotionPayload {
   marketStatus: LimitEmotionMarketStatus | null
   dataStatus: LimitEmotionDataStatus
   above5PctCount?: number | null
+  promotedCount?: number | null
   medianChangePct?: number | null
   advancingCount?: number | null
   decliningCount?: number | null

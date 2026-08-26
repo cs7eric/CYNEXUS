@@ -138,7 +138,6 @@ export function MarketStateMaterializedSlot({ tradeDate, currentTimestamp, indus
   const ladder = useMemo(() => pools.get("ladder") ?? [], [pools])
   const yesterdayLimitUpFeedback = useMemo(() => pools.get("yesterday_limit_up_feedback") ?? [], [pools])
   const poolGroups = useMemo(() => [
-    { title: "行业封板池", stocks: pools.get("sealed") ?? pools.get("limit_up") ?? [], showSealDetails: true },
     { title: "行业炸板池", stocks: pools.get("broken") ?? [] },
     { title: "昨日涨停反馈", stocks: pools.get("yesterday_limit_up_feedback") ?? [] },
   ], [pools])

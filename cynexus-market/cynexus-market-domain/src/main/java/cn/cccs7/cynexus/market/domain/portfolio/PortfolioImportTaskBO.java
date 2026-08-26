@@ -97,6 +97,8 @@ public final class PortfolioImportTaskBO {
         requireStatus(PortfolioImportStatus.PROCESSING);
         this.status = PortfolioImportStatus.READY_FOR_REVIEW;
         this.completedAt = requiredTime(completedAt);
+        this.lastErrorCode = null;
+        this.lastErrorMessage = null;
         this.version++;
     }
 

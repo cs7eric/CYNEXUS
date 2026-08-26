@@ -14,7 +14,7 @@
 - Detail: `./limit-board-monitor.detail.md`
 - Data Source: PostgreSQL session summaries produced after the morning and afternoon 5-second capture windows
 - APIs: `/api/market/indicator/limit-board/summaries`
-- Components: `SummaryTable` (page-local)
+- Components: `StockBoardCard`, `OverlayTimeshareChart` (card grid, timeshare + sealed-amount overlay)
 
 ## Market Information
 

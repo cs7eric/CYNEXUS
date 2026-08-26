@@ -53,6 +53,9 @@ def test_minute_projection_keeps_touched_state_and_excludes_etf_emotion():
     assert len(projections) == 2
     assert projections[0].market["sealed_limit_up_count"] == 1
     assert projections[0].market["max_height"] == 2
+    assert projections[0].market["promoted_count"] == 1
+    assert projections[0].market["promotion_rate"] == 100.0
+    assert projections[0].market["median_change_pct"] == pytest.approx(6.0)
     assert projections[1].market["touched_limit_up_count"] == 1
     assert projections[1].market["broken_limit_up_count"] == 1
     assert projections[1].market["advancing_count"] == 2

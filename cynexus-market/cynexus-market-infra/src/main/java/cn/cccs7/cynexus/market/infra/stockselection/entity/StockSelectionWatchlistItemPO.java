@@ -1,0 +1,3 @@
+package cn.cccs7.cynexus.market.infra.stockselection.entity;
+import java.time.LocalDate; import java.time.OffsetDateTime; import lombok.Data;
+@Data public class StockSelectionWatchlistItemPO { private Long id; private Long watchlistId; private String watchlistName; private String tenantId; private String ownerId; private String stockCode; private String stockName; private String market; private LocalDate entryTradeDate; private java.math.BigDecimal entryPrice; private Long sourceStrategyCandidateId; private String status; private String attentionReason; private String invalidationCondition; private LocalDate nextReviewDate; private Long version; private OffsetDateTime updatedAt; }

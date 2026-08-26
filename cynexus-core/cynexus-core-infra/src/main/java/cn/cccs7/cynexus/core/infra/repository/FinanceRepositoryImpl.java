@@ -375,6 +375,29 @@ public class FinanceRepositoryImpl implements FinanceRepository {
     }
 
     @Override
+    public FinanceAiCaptureBO claimNextCapture() {
+        return jdbcTemplate.query("""
+                WITH candidate AS (
+                    SELECT id
+                      FROM finance_ai_captures
+                     WHERE deleted_at IS NULL
+                       AND (status = 'queued' OR (status = 'processing' AND updated_at < now() - interval '2 hours'))
+                     ORDER BY created_at, id
+                     FOR UPDATE SKIP LOCKED
+                     LIMIT 1
+                )
+                UPDATE finance_ai_captures p
+                   SET status = 'processing', updated_at = now()
+                  FROM candidate
+                 WHERE p.id = candidate.id
+                RETURNING p.*
+                """, (rs, rowNum) -> captureRow(rs)).stream().findFirst().map(capture -> {
+                    capture.setItems(captureItems(capture.getId()));
+                    return capture;
+                }).orElse(null);
+    }
+
+    @Override
     public FinanceAiCaptureBO findCaptureByIdempotencyKey(String ownerKey, String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) return null;
         return jdbcTemplate.query("SELECT * FROM finance_ai_captures WHERE owner_key = ? AND idempotency_key = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",

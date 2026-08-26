@@ -17,11 +17,14 @@ from cynexus_data.domain.market.transmission import (
     to_jsonable,
 )
 from cynexus_data.jobs.contracts import JobRequest
+from cynexus_data.domain.market.limit_board import last_price_limit_direction
+from cynexus_data.domain.market.limit_board_session import current_trade_session
 from cynexus_data.pipelines.msi._params import parse_int, truthy
 from cynexus_data.runtime.context import PipelineContext
 from cynexus_data.sources.tdx.indicator import create_eltdx_indicator_client, fetch_indicator_snapshots
 from cynexus_data.storage.postgres.market_indicator import MarketIndicatorRepository
 from cynexus_data.storage.redis.market_indicator import MarketIndicatorCache
+from cynexus_data.storage.redis.market_limit_board_session import MarketLimitBoardSessionCache
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
@@ -134,6 +137,30 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             cache = None
             cache_warnings.append(f"redis_cache_unavailable:{type(exc).__name__}")
+    limit_board_discovered = 0
+    limit_board_session = current_trade_session(captured_at)
+    if limit_board_session and truthy(request.params.get("publish_limit_board_discoveries", True)):
+        discovered = {
+            str(row["code"]): direction
+            for row in rows
+            if (direction := last_price_limit_direction(row)) in {"up", "down"}
+        }
+        if discovered:
+            try:
+                board_cache = MarketLimitBoardSessionCache(
+                    context.hooks.redis.get_client(),
+                    prefix=str(request.params.get("limit_board_redis_prefix") or "cynexus:market-indicator:limit-board:v1"),
+                    ttl_seconds=parse_int(request.params.get("limit_board_redis_ttl_seconds"), 43200),
+                )
+                limit_board_discovered = board_cache.publish_discoveries(
+                    trade_date=captured_at.astimezone().date(),
+                    trade_session=limit_board_session,
+                    discovered=discovered,
+                    discovered_at=captured_at,
+                    source="market_indicator_refresh",
+                )
+            except Exception as exc:  # A discovery publish must not discard a valid market capture.
+                cache_warnings.append(f"limit_board_discovery_unavailable:{type(exc).__name__}")
 
     previous_by_code = {}
     if cache:
@@ -264,6 +291,7 @@ def run(context: PipelineContext, request: JobRequest) -> dict[str, Any]:
             "rows_staged": len(rows) if staged else 0, "events_staged": len(events) if staged else 0,
             "persisted_captures": written.get("captures", 1 if cache_mode != "redis_staged" else 0),
             "pending_captures": written.get("pending_captures", staged.get("pending_captures", 0) if staged else 0),
+            "limit_board_discovered": limit_board_discovered,
             "warnings": cache_warnings}
 
 

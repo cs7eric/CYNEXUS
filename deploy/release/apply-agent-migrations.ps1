@@ -69,7 +69,21 @@ $migrationFiles = @(
     ,"20260805_refine_portfolio_trade_screenshot_prompt_v6.sql"
     ,"20260807_refine_portfolio_trade_screenshot_prompt_v7.sql"
     ,"20260810_refine_portfolio_trade_screenshot_prompt_v8.sql"
+    ,"20260825_refine_portfolio_trade_screenshot_prompt_v9.sql"
+    ,"20260825_seed_portfolio_trade_screenshot_review_prompt.sql"
     ,"20260807_seed_market_indicator_replay_explanation.sql"
+    ,"20260816_seed_stock_selection_ai_screening_prompt.sql"
+    ,"20260816_seed_stock_selection_ai_intent_planning_prompt.sql"
+    ,"20260816_harden_stock_selection_ai_provider_fallback.sql"
+    ,"20260816_refine_stock_selection_ai_intent_planning_v2.sql"
+    ,"20260816_route_stock_selection_ai_to_verified_provider.sql"
+    ,"20260816_refine_stock_selection_ai_intent_planning_v3.sql"
+    ,"20260816_expand_stock_selection_ai_intent_planning_v4.sql"
+    ,"20260816_refine_stock_selection_ai_intent_planning_v5.sql"
+    ,"20260816_align_custom_provider_default_model.sql"
+    ,"20260816_seed_market_event_factor_analysis_prompt.sql"
+    ,"20260818_seed_market_factor_study_synthesis_prompt.sql"
+    ,"20260817_enable_portfolio_vision_provider_fallback.sql"
 )
 
 foreach ($file in $migrationFiles) {

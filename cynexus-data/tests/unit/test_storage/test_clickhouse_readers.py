@@ -164,17 +164,37 @@ def test_turnover_activity_reader_deduplicates_index_amounts_before_sum() -> Non
 
 
 def test_limit_emotion_readers_group_duplicate_daily_rows() -> None:
-    client = FakeClickHouseClient(rows=[("SH", "000852", "sh000852", date(2026, 6, 29), 8616.0, 8677.0, 8413.0, 8597.0, 8600.0)])
+    client = FakeClickHouseClient(
+        rows=[("SH", "000852", "sh000852", date(2026, 6, 29), 8616.0, 8677.0, 8413.0, 8597.0, 8600.0)],
+        one=(date(2026, 6, 26),),
+    )
 
     rows = readers.read_limit_emotion_ohlcv_rows(client, "2026-06-29", table="daily_raw")
 
     sql, params = client.row_calls[0]
     assert "argMax(open, close)" in sql
     assert "GROUP BY market, code, tdx_code, trade_date" in sql
-    assert "PARTITION BY tdx_code" in sql
-    assert params == {"trade_date": "2026-06-29"}
+    assert "INNER JOIN" in sql
+    assert "trade_date = %(previous_trade_date)s" in sql
+    assert params == {"trade_date": date(2026, 6, 29), "previous_trade_date": date(2026, 6, 26)}
     assert rows[0]["tdxCode"] == "sh000852"
     assert rows[0]["close"] == 8597.0
+
+
+def test_market_overview_reads_only_target_and_previous_trade_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = FakeClickHouseClient(
+        one=(date(2026, 6, 29), 100.0, 1000, 1, 1, 0, 0, 1, 0),
+    )
+    monkeypatch.setattr(readers, "get_previous_table_trade_date", lambda *_: date(2026, 6, 29))
+
+    row = readers.read_market_overview_fact_row(client, "2026-06-30", table="daily_qfq")
+
+    sql, params = client.one_calls[0]
+    assert row["stockCount"] == 1
+    assert "lagInFrame" not in sql
+    assert "trade_date = %(trade_date)s" in sql
+    assert "trade_date = %(previous_trade_date)s" in sql
+    assert params == {"trade_date": date(2026, 6, 30), "previous_trade_date": date(2026, 6, 29)}
 
 
 def test_daily_quality_counts_duplicate_and_scaled_keys() -> None:

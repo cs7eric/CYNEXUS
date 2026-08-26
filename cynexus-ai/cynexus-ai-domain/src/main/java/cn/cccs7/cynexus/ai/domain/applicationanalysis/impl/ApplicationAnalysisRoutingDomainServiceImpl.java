@@ -13,6 +13,7 @@ import cn.cccs7.cynexus.ai.domain.routing.ModelRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -81,19 +82,82 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
         addArray(names, binding.getParams(), "fallback_models");
         add(names, provider.getDefaultModel());
         List<AiModelBO> models = new ArrayList<>();
-        names.forEach(name -> models.add(providerModel(provider, name)));
+        names.forEach(name -> models.add(providerModel(provider, name, binding)));
+        fallbackProviders(binding, provider).forEach(fallback -> {
+            Set<String> fallbackNames = new LinkedHashSet<>();
+            add(fallbackNames, fallbackModel(binding, fallback));
+            add(fallbackNames, fallback.getDefaultModel());
+            fallbackNames.forEach(name -> models.add(providerModel(fallback, name, binding)));
+        });
         return models;
     }
 
-    private AiModelBO providerModel(AiProviderBO provider, String modelName) {
+    /**
+     * A capability can declare one distinct Provider fallback for outages such
+     * as an upstream gateway timeout. Model fallbacks remain on the primary
+     * Provider; this branch only runs after all of them have failed.
+     */
+    private List<AiProviderBO> fallbackProviders(AiUsageBindingBO binding, AiProviderBO primary) {
+        Set<String> codes = new LinkedHashSet<>();
+        addArray(codes, binding == null ? null : binding.getParams(), "fallback_provider_codes");
+        if (codes.isEmpty()) add(codes, jsonText(binding == null ? null : binding.getParams(), "fallback_provider_code"));
+        if (codes.isEmpty()) return List.of();
+        List<AiProviderBO> providers = providerRepository.listAll();
+        List<AiProviderBO> fallbacks = new ArrayList<>();
+        for (String code : codes) {
+            providers.stream()
+                    .filter(item -> item != null && Boolean.TRUE.equals(item.getEnabled()))
+                    .filter(item -> code.equalsIgnoreCase(normalize(item.getCode())))
+                    .filter(item -> primary.getId() == null || !primary.getId().equals(item.getId()))
+                    .findFirst()
+                    .ifPresent(fallbacks::add);
+        }
+        return fallbacks;
+    }
+
+    private String fallbackModel(AiUsageBindingBO binding, AiProviderBO provider) {
+        JsonNode values = readJson(binding == null ? null : binding.getParams()).path("fallback_provider_models");
+        if (values.isObject()) {
+            JsonNode value = values.get(normalize(provider.getCode()));
+            if (value == null) {
+                var fields = values.fields();
+                while (fields.hasNext()) {
+                    var entry = fields.next();
+                    if (normalize(provider.getCode()).equalsIgnoreCase(normalize(entry.getKey()))) {
+                        value = entry.getValue();
+                        break;
+                    }
+                }
+            }
+            if (value != null && value.isValueNode()) return normalize(value.asText(""));
+        }
+        return jsonText(binding == null ? null : binding.getParams(), "fallback_model");
+    }
+
+    private AiModelBO providerModel(AiProviderBO provider, String modelName, AiUsageBindingBO binding) {
         String providerCode = normalize(provider.getProviderType()).isBlank()
                 ? normalize(provider.getCode()) : normalize(provider.getProviderType());
         AiProviderModelPricingPolicy.ModelPricing pricing = AiProviderModelPricingPolicy.find(provider, modelName).orElse(null);
         return AiModelBO.builder().modelCode(modelName).providerCode(providerCode).modelName(modelName)
                 .baseUrl(provider.getBaseUrl()).apiKey(provider.getApiKey()).apiKeyEnv(provider.getApiKeyEnv())
-                .extra(provider.getExtra()).inputPricePerMillion(pricing == null ? provider.getInputPricePerMillion() : pricing.inputPricePerMillion())
+                .extra(mergeRuntimeExtra(provider.getExtra(), binding.getParams()))
+                .inputPricePerMillion(pricing == null ? provider.getInputPricePerMillion() : pricing.inputPricePerMillion())
                 .outputPricePerMillion(pricing == null ? provider.getOutputPricePerMillion() : pricing.outputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
                 .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
+    }
+
+    /** Binding parameters are capability-scoped overrides of provider runtime options. */
+    private String mergeRuntimeExtra(String providerExtra, String bindingParams) {
+        ObjectNode merged = objectMapper.createObjectNode();
+        mergeJsonObject(merged, providerExtra);
+        mergeJsonObject(merged, bindingParams);
+        return merged.toString();
+    }
+
+    private void mergeJsonObject(ObjectNode target, String rawJson) {
+        JsonNode source = readJson(rawJson);
+        if (!source.isObject()) return;
+        source.fields().forEachRemaining(entry -> target.set(entry.getKey(), entry.getValue()));
     }
 
     private void addArray(Set<String> values, String rawJson, String field) {
@@ -108,6 +172,11 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
         if (!normalized.isBlank()) {
             values.add(normalized);
         }
+    }
+
+    private String jsonText(String rawJson, String field) {
+        JsonNode value = readJson(rawJson).get(field);
+        return value == null || value.isNull() ? "" : normalize(value.asText(""));
     }
 
     private JsonNode readJson(String rawJson) {

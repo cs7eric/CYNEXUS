@@ -48,6 +48,7 @@ public interface MarketIndicatorQueryMapper {
                                                                   @Param("industryCode") String industryCode,
                                                                   @Param("limit") int limit);
     Map<String, Object> getTradeReviewManifest(@Param("tradeDate") LocalDate tradeDate);
+    List<LocalDate> listTradeReviewMaterializedDates(@Param("limit") int limit);
     List<Map<String, Object>> listLimitBoardSessionSummaries(@Param("tradeDate") LocalDate tradeDate,
                                                               @Param("tradeSession") String tradeSession,
                                                               @Param("direction") String direction,
