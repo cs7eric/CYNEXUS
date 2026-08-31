@@ -1,0 +1,2 @@
+package cn.cccs7.cynexus.market.api.dto; import java.math.BigDecimal; import java.time.LocalDate; import lombok.Builder; import lombok.Value;
+@Value @Builder public class PortfolioAccountSnapshotDTO { Long id; LocalDate snapshotDate; BigDecimal totalAssets; BigDecimal availableCash; BigDecimal marketValue; BigDecimal netDeposit; BigDecimal netWithdrawal; BigDecimal dailyPnl; BigDecimal dailyReturn; }

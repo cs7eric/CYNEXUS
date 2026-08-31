@@ -9,7 +9,9 @@ import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.MediaTranscriptionMetadataBO;
+import cn.cccs7.cynexus.ai.domain.entity.MediaTranscriptionEnrichmentBO;
 import cn.cccs7.cynexus.ai.domain.mediatranscription.MediaTranscriptionCompletionPort;
+import cn.cccs7.cynexus.ai.domain.mediatranscription.MediaTranscriptionEnrichmentCommand;
 import cn.cccs7.cynexus.ai.domain.mediatranscription.MediaTranscriptionContentDomainPolicy;
 import cn.cccs7.cynexus.ai.domain.mediatranscription.MediaTranscriptionDomainService;
 import cn.cccs7.cynexus.ai.domain.mediatranscription.MediaTranscriptionStructuredOutputPort;
@@ -23,8 +25,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Collections;
 
 public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDomainService {
+
+    private static final String ENRICH_CAPABILITY = "media_transcription_enrich";
+    private static final String ENRICH_PROMPT_KEY = "media_transcription_enrich";
 
     private final ApplicationAnalysisRoutingDomainService routingService;
     private final MediaTranscriptionCompletionPort completionPort;
@@ -44,6 +50,20 @@ public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDo
         this.promptRepository = promptRepository;
         this.executionLogRepository = executionLogRepository;
         this.structuredOutputPort = structuredOutputPort;
+    }
+
+    @Override
+    public MediaTranscriptionEnrichmentBO enrich(MediaTranscriptionEnrichmentCommand command) {
+        String transcript = contentPolicy.truncate(command == null ? null : command.transcript(), MediaTranscriptionContentDomainPolicy.MAX_INPUT_LENGTH);
+        if (transcript.isBlank()) return new MediaTranscriptionEnrichmentBO("", "", "", List.of(), List.of(), List.of(), List.of(), List.of(), "", List.of(), List.of());
+        Map<String, String> variables = Map.of(
+                "transcript", transcript,
+                "title", contentPolicy.normalize(command == null ? null : command.title()),
+                "platform", contentPolicy.normalize(command == null ? null : command.platform()),
+                "duration", command == null || command.duration() == null ? "" : String.valueOf(command.duration()));
+        String content = executeText(ENRICH_CAPABILITY, ENRICH_PROMPT_KEY, variables,
+                command == null ? null : command.preferredModelCode());
+        return parseEnrichment(content);
     }
 
     @Override
@@ -104,6 +124,35 @@ public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDo
         throw new BizException(ErrorCode.INTERNAL_ERROR, "AI " + capability + " failed: " + (lastException == null ? "no available model" : lastException.getMessage()));
     }
 
+    private MediaTranscriptionEnrichmentBO parseEnrichment(String content) {
+        try {
+            String object = structuredOutputPort.extractObject(content);
+            var root = objectMapper.readTree(object);
+            return new MediaTranscriptionEnrichmentBO(
+                    bounded(root.path("polishedText").asText(""), 120_000),
+                    bounded(root.path("summary").asText(""), 30_000),
+                    bounded(root.path("shortSummary").asText(""), 2_000),
+                    strings(root.path("keyPoints"), 12, 500), strings(root.path("topics"), 12, 120),
+                    strings(root.path("methodology"), 12, 1_000), strings(root.path("actionItems"), 12, 500),
+                    strings(root.path("risks"), 12, 500), bounded(root.path("title").asText(""), 80),
+                    strings(root.path("categories"), 8, 80), strings(root.path("tags"), 20, 80));
+        } catch (Exception exception) {
+            throw new BizException(ErrorCode.INTERNAL_ERROR, "AI media enrichment returned invalid JSON");
+        }
+    }
+
+    private List<String> strings(com.fasterxml.jackson.databind.JsonNode node, int maxItems, int maxLength) {
+        if (!node.isArray()) return List.of();
+        List<String> values = new java.util.ArrayList<>();
+        node.forEach(item -> { if (values.size() < maxItems && item.isTextual() && !item.asText().isBlank()) values.add(bounded(item.asText(), maxLength)); });
+        return Collections.unmodifiableList(values);
+    }
+
+    private String bounded(String value, int maxLength) {
+        String normalized = normalize(value);
+        return normalized.length() > maxLength ? normalized.substring(0, maxLength) : normalized;
+    }
+
     private PromptRuntime resolvePrompt(String promptKey, String capability) {
         AiUsageBindingBO binding = routingService.findBinding(capability);
         if (binding != null && binding.getPromptId() != null) {
@@ -125,11 +174,13 @@ public class MediaTranscriptionDomainServiceImpl implements MediaTranscriptionDo
             case "mp4_text_summary" -> "你是股票投资知识整理助手。基于输入文本提炼核心主题、核心观点、关键知识点、方法论、风险提醒，输出结构化纯文本。";
             case "post_metadata" -> "为股票投资知识分享文章生成 JSON：{\"title\":\"\",\"categories\":[],\"tags\":[]}。只输出 JSON。";
             case "mp4_qa" -> "基于原文和摘要回答问题，只输出合法 qa_v1 JSON。";
+            case "media_transcription_enrich" -> "你是中文音视频知识整理助手。只能依据 transcript 内容，先纠错润色，再生成摘要、关键观点、方法论、行动清单、风险提醒以及知识库分类。不得补充外部事实、投资建议或不存在的观点。只输出合法 JSON。";
             default -> "";
         };
         String user = switch (promptKey) {
             case "post_metadata" -> "润色文本：\n{{polished_text}}\n\n摘要：\n{{summary_text}}";
             case "mp4_qa" -> "【原文内容（润色后）】\n{{polished_text}}\n\n【AI 摘要总结】\n{{summary_text}}\n\n【用户问题】\n{{question}}";
+            case "media_transcription_enrich" -> "输入标题：{{title}}\n平台：{{platform}}\n时长：{{duration}}\n\nTranscript：\n{{transcript}}\n\n输出字段必须包含 polishedText、summary、shortSummary、keyPoints、topics、methodology、actionItems、risks、title、categories、tags。title 必须是概括主题的短标题，控制在 30 个中文字符以内，不得复述正文；categories 只使用复盘、交易技巧、投资方法、市场分析、行业研究、公司研究、宏观政策、学习笔记、其他；tags 为简短中文标签。";
             default -> "{{text}}";
         };
         return new PromptRuntime(promptKey, "fallback-service-default", system, user);

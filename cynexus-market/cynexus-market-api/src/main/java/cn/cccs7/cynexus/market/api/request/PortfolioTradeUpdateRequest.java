@@ -12,4 +12,8 @@ public class PortfolioTradeUpdateRequest {
     private String quantity;
     private String price;
     private String totalFee;
+    private String strategy;
+    private String tags;
+    private String industryCode;
+    private String industryName;
 }

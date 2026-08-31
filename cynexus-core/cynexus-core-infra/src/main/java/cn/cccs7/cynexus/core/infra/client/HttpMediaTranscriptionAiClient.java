@@ -6,6 +6,7 @@ import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionAiClient;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionAskResultBO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionMetadataBO;
+import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionAiResultBO;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -37,6 +38,18 @@ public class HttpMediaTranscriptionAiClient implements MediaTranscriptionAiClien
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
         this.objectMapper = new ObjectMapper();
+    }
+
+    @Override
+    public MediaTranscriptionAiResultBO enrich(String transcript, String title, String platform, Integer duration) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("transcript", transcript == null ? "" : transcript);
+        payload.put("title", title); payload.put("platform", platform); payload.put("duration", duration);
+        Map<String, Object> data = postForData("/enrich", payload);
+        return new MediaTranscriptionAiResultBO(asString(data.get("polishedText")), asString(data.get("summary")),
+                asString(data.get("shortSummary")), asStringList(data.get("keyPoints")), asStringList(data.get("topics")),
+                asStringList(data.get("methodology")), asStringList(data.get("actionItems")), asStringList(data.get("risks")),
+                asString(data.get("title")), asStringList(data.get("categories")), asStringList(data.get("tags")));
     }
 
     @Override

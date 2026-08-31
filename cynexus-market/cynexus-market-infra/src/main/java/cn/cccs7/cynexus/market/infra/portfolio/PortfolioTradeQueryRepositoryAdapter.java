@@ -32,6 +32,6 @@ public class PortfolioTradeQueryRepositoryAdapter implements PortfolioTradeQuery
     private PortfolioTradeBO toDomain(PortfolioTradePO po) {
         return new PortfolioTradeBO(po.getId(), po.getSymbol(), po.getSecurityName(),
                 PortfolioInstrumentType.fromPayload(po.getInstrumentType()), TradeSide.valueOf(po.getSide()),
-                po.getTradedAt(), po.getQuantity(), po.getPrice(), po.getTotalFee(), TradeStatus.valueOf(po.getStatus()));
+                po.getTradedAt(), po.getQuantity(), po.getPrice(), po.getTotalFee(), TradeStatus.valueOf(po.getStatus()), po.getStrategy(), po.getTags(), po.getIndustryCode(), po.getIndustryName());
     }
 }

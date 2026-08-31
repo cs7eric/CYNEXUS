@@ -1,0 +1,1 @@
+package cn.cccs7.cynexus.market.api.request; import java.math.BigDecimal; import lombok.Data; @Data public class PortfolioTradePlanRequest { private String symbol,instrumentType,strategy,thesis,marketRegime; private BigDecimal plannedEntryPrice,stopLossPrice,targetPrice,plannedPositionPct,riskAmount,confidenceScore; private Integer expectedHoldingDays; }

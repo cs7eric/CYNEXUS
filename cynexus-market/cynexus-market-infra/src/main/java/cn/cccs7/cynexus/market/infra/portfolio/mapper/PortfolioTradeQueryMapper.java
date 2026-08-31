@@ -7,7 +7,9 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface PortfolioTradeQueryMapper {
-    List<PortfolioTradePO> list(String principalKey, String tenantKey, String symbol);
+    List<PortfolioTradePO> list(@Param("principalKey") String principalKey,
+                                @Param("tenantKey") String tenantKey,
+                                @Param("symbol") String symbol);
 
     PortfolioTradePO findById(@Param("principalKey") String principalKey, @Param("tenantKey") String tenantKey,
                               @Param("tradeId") long tradeId);

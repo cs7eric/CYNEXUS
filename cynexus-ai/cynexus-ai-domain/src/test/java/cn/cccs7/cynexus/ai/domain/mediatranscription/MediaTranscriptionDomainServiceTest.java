@@ -39,6 +39,20 @@ class MediaTranscriptionDomainServiceTest {
         assertThat(completion.calls).isEqualTo(1);
     }
 
+    @Test
+    void enrichmentUsesOneStructuredCallAndReturnsKnowledgeFields() {
+        StubCompletion completion = new StubCompletion();
+        completion.content = "{\"polishedText\":\"润色正文\",\"summary\":\"详细摘要\",\"shortSummary\":\"短摘要\",\"keyPoints\":[\"观点\"],\"topics\":[\"复盘\"],\"methodology\":[\"步骤\"],\"actionItems\":[\"行动\"],\"risks\":[\"风险\"],\"title\":\"标题\",\"categories\":[\"复盘\"],\"tags\":[\"A股\"]}";
+        MediaTranscriptionDomainService service = service(completion, new StubPrompts(), content -> content);
+
+        var result = service.enrich(new MediaTranscriptionEnrichmentCommand("原始文本", "原题", "平台", 60, null));
+
+        assertThat(completion.calls).isEqualTo(1);
+        assertThat(result.polishedText()).isEqualTo("润色正文");
+        assertThat(result.categories()).containsExactly("复盘");
+        assertThat(result.keyPoints()).containsExactly("观点");
+    }
+
     private MediaTranscriptionDomainService service(StubCompletion completion, AiPromptRepository prompts,
                                                     MediaTranscriptionStructuredOutputPort outputPort) {
         return new MediaTranscriptionDomainServiceImpl(new Routing(), completion, prompts,
@@ -55,9 +69,10 @@ class MediaTranscriptionDomainServiceTest {
 
     private static final class StubCompletion implements MediaTranscriptionCompletionPort {
         private int calls;
+        private String content = "generated";
         @Override public AiCompletionResultBO complete(AiModelBO model, String prompt, String capability) {
             calls++;
-            return AiCompletionResultBO.builder().content("generated").inputTokens(1).outputTokens(1).totalTokens(2).build();
+            return AiCompletionResultBO.builder().content(content).inputTokens(1).outputTokens(1).totalTokens(2).build();
         }
     }
 

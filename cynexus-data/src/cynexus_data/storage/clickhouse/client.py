@@ -8,6 +8,14 @@ import clickhouse_connect
 from cynexus_data.config.settings import ClickHouseConfig
 
 
+# Keep large GROUP BY/ORDER BY queries from holding their complete working set
+# in RAM. ClickHouse spills intermediate data to its configured temporary disk.
+_QUERY_SETTINGS = {
+    "max_bytes_before_external_group_by": 1_073_741_824,
+    "max_bytes_before_external_sort": 1_073_741_824,
+}
+
+
 class ClickHouseClient:
     def __init__(self, config: ClickHouseConfig) -> None:
         self.config = config
@@ -25,7 +33,7 @@ class ClickHouseClient:
         )
 
     def query_rows(self, sql: str, parameters: Sequence[Any] | dict[str, Any] | None = None) -> list[tuple[Any, ...]]:
-        return list(self._client.query(sql, parameters=parameters).result_rows)
+        return list(self._client.query(sql, parameters=parameters, settings=_QUERY_SETTINGS).result_rows)
 
     def query_one(self, sql: str, parameters: Sequence[Any] | dict[str, Any] | None = None) -> tuple[Any, ...] | None:
         rows = self.query_rows(sql, parameters)
@@ -61,4 +69,3 @@ def _ensure_local_no_proxy(host: str) -> None:
             if addition not in parts:
                 parts.append(addition)
         os.environ[env_name] = ",".join(parts)
-

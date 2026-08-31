@@ -68,6 +68,17 @@ def test_daily_kline_reader_rejects_invalid_adjust() -> None:
         readers.read_daily_kline_bars(FakeClickHouseClient(), "000001", adjust="bad")
 
 
+def test_daily_kline_reader_avoids_aggregate_alias_nesting() -> None:
+    client = FakeClickHouseClient(rows=[])
+
+    readers.read_daily_kline(client, "000001", adjust="qfq")
+
+    sql, _ = client.row_calls[0]
+    assert "max(close) AS close_price" in sql
+    assert "close_price AS close" in sql
+    assert "max(close) AS close," not in sql
+
+
 def test_latest_and_adjusted_helpers() -> None:
     latest_client = FakeClickHouseClient(one=(date(2026, 6, 26),))
     assert readers.get_latest_daily_trade_date(latest_client, "000001") == date(2026, 6, 26)
@@ -179,6 +190,18 @@ def test_limit_emotion_readers_group_duplicate_daily_rows() -> None:
     assert params == {"trade_date": date(2026, 6, 29), "previous_trade_date": date(2026, 6, 26)}
     assert rows[0]["tdxCode"] == "sh000852"
     assert rows[0]["close"] == 8597.0
+
+
+def test_ma_count_reader_bounds_history_before_window_functions() -> None:
+    client = FakeClickHouseClient(rows=[])
+
+    readers.read_ma_count_input_rows(client, date(2026, 6, 29))
+
+    sql, params = client.row_calls[0]
+    assert "trade_date >= %(history_start_date)s" in sql
+    assert "trade_date <= %(trade_date)s" in sql
+    assert params["trade_date"] == date(2026, 6, 29)
+    assert params["history_start_date"] == date(2025, 5, 25)
 
 
 def test_market_overview_reads_only_target_and_previous_trade_dates(monkeypatch: pytest.MonkeyPatch) -> None:

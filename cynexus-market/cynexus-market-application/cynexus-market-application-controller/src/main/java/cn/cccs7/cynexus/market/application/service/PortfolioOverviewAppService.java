@@ -11,6 +11,10 @@ import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceContributionDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformancePointDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioTradeAnalyticsDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioTradeAnalyticsWarningDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioTradeRoundDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioTradeEquityPointDTO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerDomainService;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioLedgerResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPositionBO;
@@ -23,6 +27,12 @@ import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceGranularity;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPerformanceResultBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioPricePointBO;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioIntradayPricePointBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeAnalyticsDomainService;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioTradeAnalyticsBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCashFlowBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioCashFlowRepository;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountSnapshotBO;
+import cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountSnapshotRepository;
 import cn.cccs7.cynexus.market.domain.portfolio.PortfolioRealtimePriceGateway;
 import cn.cccs7.cynexus.market.domain.service.stock.StockChartQueryDomainService;
 import java.math.BigDecimal;
@@ -57,6 +67,9 @@ public class PortfolioOverviewAppService {
     private final PortfolioRealtimePriceGateway realtimePriceGateway;
     private final PortfolioPerformanceDomainService performanceDomainService;
     private final Clock clock;
+    private final PortfolioTradeAnalyticsDomainService tradeAnalyticsDomainService = new PortfolioTradeAnalyticsDomainService();
+    @Autowired private PortfolioCashFlowRepository cashFlowRepository;
+    @Autowired private PortfolioAccountSnapshotRepository snapshotRepository;
 
     @Autowired
     public PortfolioOverviewAppService(PortfolioTradeQueryRepository tradeRepository,
@@ -154,11 +167,73 @@ public class PortfolioOverviewAppService {
         return account();
     }
 
+    public List<cn.cccs7.cynexus.market.api.dto.PortfolioCashFlowDTO> cashFlows() {
+        return cashFlowRepository.list(PRINCIPAL, TENANT).stream().map(f -> cn.cccs7.cynexus.market.api.dto.PortfolioCashFlowDTO.builder().id(f.id()).occurredAt(f.occurredAt()).amount(f.amount()).flowType(f.flowType()).note(f.note()).build()).toList();
+    }
+    public cn.cccs7.cynexus.market.api.dto.PortfolioCashFlowDTO addCashFlow(cn.cccs7.cynexus.market.api.request.PortfolioCashFlowRequest r) {
+        var f = cashFlowRepository.save(PRINCIPAL, TENANT, new PortfolioCashFlowBO(null, r.getOccurredAt(), r.getAmount(), r.getFlowType(), r.getNote()));
+        return cn.cccs7.cynexus.market.api.dto.PortfolioCashFlowDTO.builder().id(f.id()).occurredAt(f.occurredAt()).amount(f.amount()).flowType(f.flowType()).note(f.note()).build();
+    }
+    public List<cn.cccs7.cynexus.market.api.dto.PortfolioAccountSnapshotDTO> snapshots() { return snapshotRepository.list(PRINCIPAL, TENANT).stream().map(this::snapshotDto).toList(); }
+    public cn.cccs7.cynexus.market.api.dto.PortfolioAccountSnapshotDTO addSnapshot(cn.cccs7.cynexus.market.api.request.PortfolioAccountSnapshotRequest r) {
+        return snapshotDto(snapshotRepository.upsert(PRINCIPAL, TENANT, new PortfolioAccountSnapshotBO(null, r.getSnapshotDate(), r.getTotalAssets(), r.getAvailableCash(), r.getMarketValue(), r.getNetDeposit(), r.getNetWithdrawal(), r.getDailyPnl(), r.getDailyReturn())));
+    }
+    private cn.cccs7.cynexus.market.api.dto.PortfolioAccountSnapshotDTO snapshotDto(PortfolioAccountSnapshotBO s) { return cn.cccs7.cynexus.market.api.dto.PortfolioAccountSnapshotDTO.builder().id(s.id()).snapshotDate(s.snapshotDate()).totalAssets(s.totalAssets()).availableCash(s.availableCash()).marketValue(s.marketValue()).netDeposit(s.netDeposit()).netWithdrawal(s.netWithdrawal()).dailyPnl(s.dailyPnl()).dailyReturn(s.dailyReturn()).build(); }
+    public List<Map<String,Object>> industryConcentration() {
+        PortfolioOverviewDTO value = overview();
+        Map<String,BigDecimal> totals = new LinkedHashMap<>();
+        for (PortfolioPositionDTO p : value.getPositions()) {
+            String name = "UNKNOWN";
+            try { var meta = stockChartQueryDomainService.stockMeta(p.getSymbol()); if (meta != null && meta.getIndustry() != null && !meta.getIndustry().isBlank()) name = meta.getIndustry(); } catch (RuntimeException ignored) { }
+            totals.merge(name, p.getMarketValue() == null ? BigDecimal.ZERO : p.getMarketValue(), BigDecimal::add);
+        }
+        BigDecimal total = totals.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        return totals.entrySet().stream().map(e -> Map.<String,Object>of("industryName", e.getKey(), "marketValue", e.getValue(), "weight", total.signum() == 0 ? BigDecimal.ZERO : e.getValue().divide(total, 8, java.math.RoundingMode.HALF_UP))).toList();
+    }
+
     public List<PortfolioTradeDTO> trades(String symbol) {
         return tradeRepository.list(PRINCIPAL, TENANT, symbol).stream().map(trade -> PortfolioTradeDTO.builder()
                 .id(trade.id()).symbol(trade.symbol()).securityName(trade.securityName()).instrumentType(trade.instrumentType().name()).side(trade.side().name())
                 .tradedAt(trade.tradedAt()).quantity(trade.quantity()).price(trade.price())
-                .totalFee(trade.totalFee()).status(trade.status().name()).build()).toList();
+                .totalFee(trade.totalFee()).status(trade.status().name()).strategy(trade.strategy()).tags(trade.tags())
+                .industryCode(trade.industryCode()).industryName(trade.industryName()).build()).toList();
+    }
+
+    public PortfolioTradeAnalyticsDTO analytics(String fromValue, String toValue, String symbol,
+                                                String instrumentType, String result, String holdingPeriod, String strategy, String tag) {
+        LocalDate today = today();
+        LocalDate from = fromValue == null || fromValue.isBlank() ? today.minusYears(1) : LocalDate.parse(fromValue);
+        LocalDate to = toValue == null || toValue.isBlank() ? today : LocalDate.parse(toValue);
+        PortfolioInstrumentType type = instrumentType == null || instrumentType.isBlank()
+                ? null : PortfolioInstrumentType.fromPayload(instrumentType);
+        PortfolioTradeAnalyticsBO value = tradeAnalyticsDomainService.calculate(
+                tradeRepository.list(PRINCIPAL, TENANT, null), from, to, symbol, type, result, holdingPeriod, strategy, tag);
+        return PortfolioTradeAnalyticsDTO.builder().from(value.from()).to(value.to())
+                .completedCount(value.completedCount()).openCount(value.openCount())
+                .winCount(value.winCount()).lossCount(value.lossCount()).breakevenCount(value.breakevenCount())
+                .winRate(value.winRate()).averageWin(value.averageWin()).averageLoss(value.averageLoss())
+                .payoffRatio(value.payoffRatio()).profitFactor(value.profitFactor()).expectancy(value.expectancy())
+                .netPnl(value.netPnl()).maxWin(value.maxWin()).maxLoss(value.maxLoss())
+                .maxConsecutiveWins(value.maxConsecutiveWins()).maxConsecutiveLosses(value.maxConsecutiveLosses())
+                .averageHoldingDays(value.averageHoldingDays()).medianHoldingDays(value.medianHoldingDays())
+                .feeRatio(value.feeRatio()).maxDrawdown(value.maxDrawdown())
+                .timeWeightedReturn(accountPerformance().timeWeightedReturn()).moneyWeightedReturn(accountPerformance().moneyWeightedReturn())
+                .accountMaxDrawdown(accountPerformance().maxDrawdown()).accountMaxDrawdownRate(accountPerformance().maxDrawdownRate())
+                .rounds(value.rounds().stream().map(round -> PortfolioTradeRoundDTO.builder()
+                        .roundId(round.roundId()).symbol(round.symbol()).securityName(round.securityName()).instrumentType(round.instrumentType().name())
+                        .openedAt(round.openedAt()).closedAt(round.closedAt()).entryQuantity(round.entryQuantity())
+                        .exitQuantity(round.exitQuantity()).averageEntryPrice(round.averageEntryPrice())
+                        .averageExitPrice(round.averageExitPrice()).grossPnl(round.grossPnl()).totalFee(round.totalFee())
+                        .netPnl(round.netPnl()).returnRate(round.returnRate()).holdingDays(round.holdingDays())
+                        .status(round.status()).unmatchedQuantity(round.unmatchedQuantity()).sourceTradeIds(round.sourceTradeIds()).build()).toList())
+                .equityCurve(value.equityCurve().stream().map(point -> PortfolioTradeEquityPointDTO.builder().date(point.date()).cumulativePnl(point.cumulativePnl()).drawdown(point.drawdown()).build()).toList())
+                .dataQualityWarnings(value.dataQualityWarnings().stream().map(warning -> PortfolioTradeAnalyticsWarningDTO.builder()
+                        .code(warning.code()).symbol(warning.symbol()).quantity(warning.quantity()).message(warning.message()).build()).toList())
+                .build();
+    }
+
+    private cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountPerformanceBO accountPerformance() {
+        return new cn.cccs7.cynexus.market.domain.portfolio.PortfolioAccountPerformanceDomainService().calculate(snapshotRepository.list(PRINCIPAL, TENANT), cashFlowRepository.list(PRINCIPAL, TENANT));
     }
 
     public PortfolioPerformanceDTO performance(String range, String fromValue, String toValue) {

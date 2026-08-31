@@ -66,16 +66,15 @@ public class MediaTranscriptionTaskInteractionDomainService {
         MediaTranscriptionMetadataBO metadata = task.getMetadata();
         try {
             if (!transcript.isBlank() && (polished.isBlank() || polished.equals(transcript))) {
-                polished = policy.normalize(aiClient.polish(transcript));
-            }
-            if (!polished.isBlank()) {
-                summary = policy.normalize(aiClient.summarize(polished,
+                var ai = aiClient.enrich(transcript,
                         metadata == null ? null : metadata.getTitle(),
                         metadata == null ? null : metadata.getPlatform(),
-                        metadata == null ? null : metadata.getDuration()));
+                        metadata == null ? null : metadata.getDuration());
+                polished = policy.normalize(ai.polishedText());
+                summary = policy.normalize(ai.summary());
+                MediaTranscriptionMetadataBO aiMetadata = MediaTranscriptionMetadataBO.builder().title(ai.title()).build();
+                metadata = policy.mergeMetadata(metadata, aiMetadata);
             }
-            MediaTranscriptionMetadataBO aiMetadata = aiClient.metadata(policy.firstText(polished, transcript), summary);
-            metadata = policy.mergeMetadata(metadata, aiMetadata);
             return policy.copyWithAiResult(task, policy.firstText(polished, transcript), summary, metadata, null);
         } catch (Exception exception) {
             return policy.copyWithAiResult(task, policy.firstText(polished, transcript), summary, metadata,

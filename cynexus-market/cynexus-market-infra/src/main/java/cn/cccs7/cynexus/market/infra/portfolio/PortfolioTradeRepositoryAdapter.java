@@ -37,6 +37,10 @@ public class PortfolioTradeRepositoryAdapter implements PortfolioTradeRepository
         po.setGrossAmount(trade.quantity().multiply(trade.price()));
         po.setTotalFee(trade.totalFee());
         po.setStatus(trade.status().name());
+        po.setStrategy(trade.strategy());
+        po.setTags(trade.tags());
+        po.setIndustryCode(trade.industryCode());
+        po.setIndustryName(trade.industryName());
         po.setConfirmedAt(OffsetDateTime.now());
         po.setConfirmedBy(confirmedBy);
         return mapper.insert(po) == 1;
@@ -58,6 +62,10 @@ public class PortfolioTradeRepositoryAdapter implements PortfolioTradeRepository
         po.setGrossAmount(trade.quantity().multiply(trade.price()));
         po.setTotalFee(trade.totalFee());
         po.setStatus(trade.status().name());
+        po.setStrategy(trade.strategy());
+        po.setTags(trade.tags());
+        po.setIndustryCode(trade.industryCode());
+        po.setIndustryName(trade.industryName());
         return mapper.update(principalKey, tenantKey, po) == 1;
     }
 }

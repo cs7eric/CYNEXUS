@@ -153,6 +153,72 @@ export interface PortfolioTrade {
   price: number
   totalFee: number
   status: string
+  strategy?: string | null
+  tags?: string | null
+  industryCode?: string | null
+  industryName?: string | null
+}
+export interface PortfolioCashFlow { id?: number; occurredAt: string; amount: number; flowType: "DEPOSIT" | "WITHDRAWAL"; note?: string | null }
+export interface PortfolioAccountSnapshot { id?: number; snapshotDate: string; totalAssets: number; availableCash: number; marketValue: number; netDeposit: number; netWithdrawal: number; dailyPnl?: number | null; dailyReturn?: number | null }
+
+export interface PortfolioTradeRound {
+  roundId: number
+  symbol: string
+  securityName?: string | null
+  instrumentType: "STOCK" | "ETF"
+  openedAt: string
+  closedAt?: string | null
+  entryQuantity: number
+  exitQuantity: number
+  averageEntryPrice: number
+  averageExitPrice?: number | null
+  grossPnl: number
+  totalFee: number
+  netPnl: number
+  returnRate: number
+  holdingDays: number
+  status: "OPEN" | "CLOSED"
+  unmatchedQuantity: number
+  sourceTradeIds: number[]
+}
+
+export interface PortfolioTradeAnalyticsWarning {
+  code: string
+  symbol: string
+  quantity?: number | null
+  message: string
+}
+
+export interface PortfolioTradeAnalytics {
+  from: string
+  to: string
+  completedCount: number
+  openCount: number
+  winCount: number
+  lossCount: number
+  breakevenCount: number
+  winRate: number
+  averageWin: number
+  averageLoss: number
+  payoffRatio: number
+  profitFactor: number
+  expectancy: number
+  netPnl: number
+  maxWin: number
+  maxLoss: number
+  maxConsecutiveWins: number
+  maxConsecutiveLosses: number
+  averageHoldingDays: number
+  medianHoldingDays: number
+  feeRatio: number
+  maxDrawdown: number
+  rounds: PortfolioTradeRound[]
+  equityCurve: Array<{ date: string; cumulativePnl: number; drawdown: number }>
+  dataQualityWarnings: PortfolioTradeAnalyticsWarning[]
+  timeWeightedReturn?: number | null
+  moneyWeightedReturn?: number | null
+  accountMaxDrawdown?: number | null
+  accountMaxDrawdownRate?: number | null
 }
 
 export interface PortfolioReview {

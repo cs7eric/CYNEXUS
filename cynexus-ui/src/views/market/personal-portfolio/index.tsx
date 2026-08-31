@@ -15,6 +15,7 @@ import { PortfolioPositionDrawer } from "./components/portfolio-position-drawer"
 import { PortfolioReviewDrawer } from "./components/portfolio-review-drawer"
 import { PortfolioTradeDrawer } from "./components/portfolio-trade-drawer"
 import { PortfolioCurrentHoldingsPanel } from "./components/portfolio-current-holdings-panel"
+import { PortfolioTradeAnalyticsPanel } from "./components/portfolio-trade-analytics-panel"
 import { PortfolioDailyIncomeView } from "./components/portfolio-daily-income-view"
 import { PortfolioPerformancePanel, PortfolioPerformanceSummary, PortfolioPerformanceToolbar, type PortfolioChartView } from "./components/portfolio-performance-panel"
 import { PortfolioPerformanceBreakdown } from "./components/portfolio-performance-breakdown"
@@ -69,6 +70,7 @@ export default function PersonalPortfolioPage() {
   const selectedSymbol = searchParams.get("stock")
   const selectedInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
   const reviewDrawerOpen = searchParams.get("review") === "new"
+  const analyticsOpen = searchParams.get("analytics") === "1"
   const reviewSymbol = searchParams.get("symbol")
   const reviewInstrumentType = searchParams.get("instrumentType") === "ETF" ? "ETF" : "STOCK"
   const isDailyPerformanceView = performanceState.range === "daily"
@@ -142,13 +144,13 @@ export default function PersonalPortfolioPage() {
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">持仓看板</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">查看当前资产、持仓表现和交易复盘。点击任意持仓行查看买卖点与详情。</p>
           </div>
-        <div className="flex flex-wrap gap-2"><Button onClick={() => setQueryState({ imports: "1", trades: null })}><Upload className="mr-2 size-4" />导入交易</Button><Button variant="outline" onClick={() => setQueryState({ trades: "1", imports: null })}><History className="mr-2 size-4" />交易记录</Button><Button variant="outline" onClick={refreshPortfolioData} disabled={loading || refreshing}><RefreshCw className={`mr-2 size-4 ${loading || refreshing ? "animate-spin" : ""}`} />{refreshing ? "更新中" : "刷新"}</Button></div>
+        <div className="flex flex-wrap gap-2"><Button onClick={() => setQueryState({ imports: "1", trades: null, analytics: null })}><Upload className="mr-2 size-4" />导入交易</Button><Button variant="outline" onClick={() => setQueryState({ trades: "1", imports: null, analytics: null })}><History className="mr-2 size-4" />交易记录</Button><Button variant="outline" onClick={() => setQueryState({ analytics: analyticsOpen ? null : "1", imports: null, trades: null })}><ChartNoAxesCombined className="mr-2 size-4" />{analyticsOpen ? "返回持仓" : "交易分析"}</Button><Button variant="outline" onClick={refreshPortfolioData} disabled={loading || refreshing}><RefreshCw className={`mr-2 size-4 ${loading || refreshing ? "animate-spin" : ""}`} />{refreshing ? "更新中" : "刷新"}</Button></div>
         </header>
 
         {error && !loading ? <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">持仓数据暂不可用</p><p className="mt-1 text-xs break-words">{error}</p></div><Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>重试</Button></div> : null}
         {!loading && overview?.dataQualityWarnings?.length ? <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><CircleAlert className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">交易历史存在缺口</p><div className="mt-1 space-y-1 text-xs">{overview.dataQualityWarnings.map((warning, index) => <p key={`${warning.code}-${warning.symbol}-${index}`}>{warning.symbol}：{warning.message}</p>)}</div></div></div> : null}
 
-        {loading ? <SnapshotSkeleton /> : <>
+        {loading ? <SnapshotSkeleton /> : analyticsOpen ? <PortfolioTradeAnalyticsPanel /> : <>
           {overview ? <PortfolioAssetSnapshot overview={overview} onSaved={() => void load()} /> : null}
           <section className="overflow-hidden rounded-lg border border-border/60 bg-card" aria-labelledby="performance-heading">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3.5">

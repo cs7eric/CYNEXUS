@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from cynexus_data.config.settings import PROJECT_ROOT
@@ -20,7 +20,12 @@ from cynexus_data.sources.tdx.hsjday import (
 
 
 def run(context: PipelineContext, request: JobRequest) -> dict:
-    target_date = date.fromisoformat(str(request.params.get("date") or request.params.get("trade_date") or date.today().isoformat()))
+    requested_date = date.fromisoformat(
+        str(request.params.get("date") or request.params.get("trade_date") or date.today().isoformat())
+    )
+    # TDX does not publish new daily bars on weekends. Use the last weekday
+    # for the freshness check so a scheduled weekend refresh remains idempotent.
+    target_date = _last_weekday(requested_date)
     url = str(request.params.get("url") or TDX_HSJDAY_URL)
     download_base = Path(str(request.params.get("download_base") or PROJECT_ROOT / "var" / "stock" / "download"))
     work_dir = Path(str(request.params.get("work_dir") or download_base / target_date.isoformat()))
@@ -132,6 +137,12 @@ def run(context: PipelineContext, request: JobRequest) -> dict:
 
 def _verify_to_dict(result) -> dict:
     return {"ok": result.ok, "per_market": result.per_market, "samples": result.samples, "errors": result.errors}
+
+
+def _last_weekday(value: date) -> date:
+    while value.weekday() >= 5:
+        value -= timedelta(days=1)
+    return value
 
 
 def _truthy(value) -> bool:

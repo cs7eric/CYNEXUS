@@ -92,16 +92,16 @@ public class PortfolioImportMessageListener {
                     PortfolioImportStatus.READY_FOR_REVIEW.name(), message);
             try {
                 String review = visionGateway.review(asset, result);
-                boolean confirmed = autoReviewService.confirmIfApproved(task, review, "ai-vision-review",
+                var decision = autoReviewService.decideAndConfirm(task, review, "ai-vision-review",
                         OffsetDateTime.now(), java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")));
-                if (confirmed) {
+                if (decision.approved()) {
                     append(task, PortfolioImportProcessEventType.TASK_CONFIRMED,
                             PortfolioImportStatus.READY_FOR_REVIEW.name(), PortfolioImportStatus.CONFIRMED.name(), message);
                 }
-                append(task, confirmed ? PortfolioImportProcessEventType.AI_REVIEW_SUCCEEDED
-                                : PortfolioImportProcessEventType.AI_REVIEW_FAILED,
-                        confirmed ? PortfolioImportStatus.READY_FOR_REVIEW.name() : PortfolioImportStatus.READY_FOR_REVIEW.name(),
-                        task.getStatus().name(), message);
+                append(task, decision.approved() ? PortfolioImportProcessEventType.AI_REVIEW_SUCCEEDED
+                                : PortfolioImportProcessEventType.AI_REVIEW_REJECTED,
+                        PortfolioImportStatus.READY_FOR_REVIEW.name(), task.getStatus().name(), message,
+                        null, null, decision.details());
             } catch (Exception reviewException) {
                 append(task, PortfolioImportProcessEventType.AI_REVIEW_FAILED, PortfolioImportStatus.READY_FOR_REVIEW.name(),
                         task.getStatus().name(), message, "PORTFOLIO_AI_REVIEW_FAILED", reviewException.getMessage());
@@ -194,9 +194,14 @@ public class PortfolioImportMessageListener {
 
     private void append(PortfolioImportTaskBO task, PortfolioImportProcessEventType eventType, String fromStatus,
                         String toStatus, Message message, String errorCode, String errorMessage) {
+        append(task, eventType, fromStatus, toStatus, message, errorCode, errorMessage, "{}");
+    }
+
+    private void append(PortfolioImportTaskBO task, PortfolioImportProcessEventType eventType, String fromStatus,
+                        String toStatus, Message message, String errorCode, String errorMessage, String details) {
         String messageId = message.getMessageProperties().getMessageId();
         historyRepository.append(new PortfolioImportProcessHistoryBO(0, task.getId(), task.getPrincipalKey(), task.getTenantKey(),
                 task.getAttemptCount(), eventType, fromStatus, toStatus, messageId, messageId, null, null, errorCode,
-                truncate(errorMessage), "{}", OffsetDateTime.now(), null));
+                truncate(errorMessage), details == null || details.isBlank() ? "{}" : details, OffsetDateTime.now(), null));
     }
 }

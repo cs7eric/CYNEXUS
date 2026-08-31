@@ -21,6 +21,10 @@ public class PortfolioTradePO {
     private BigDecimal grossAmount;
     private BigDecimal totalFee;
     private String status;
+    private String strategy;
+    private String tags;
+    private String industryCode;
+    private String industryName;
     private OffsetDateTime confirmedAt;
     private String confirmedBy;
 }

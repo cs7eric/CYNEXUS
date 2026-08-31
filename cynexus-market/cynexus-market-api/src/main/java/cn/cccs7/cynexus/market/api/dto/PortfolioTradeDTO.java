@@ -18,4 +18,8 @@ public class PortfolioTradeDTO {
     BigDecimal price;
     BigDecimal totalFee;
     String status;
+    String strategy;
+    String tags;
+    String industryCode;
+    String industryName;
 }

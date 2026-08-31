@@ -9,6 +9,8 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,6 +19,7 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
 
     private final MediaTranscriptionProcessRepository mediaRepository;
     private final FinanceRepository financeRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ApiWorkflowQueryDomainServiceImpl(MediaTranscriptionProcessRepository mediaRepository,
                                              FinanceRepository financeRepository) {
@@ -63,18 +66,32 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
         String phase = value(process.getPhase(), "queued");
         String resultRef = process.getHistoryId() == null ? null : String.valueOf(process.getHistoryId());
         List<ApiWorkflowEventBO> events = new ArrayList<>();
-        events.add(event("QUEUED", "queued", ApiWorkflowStatus.QUEUED, 0, "请求已入队", null, null, process.getCreatedAt()));
+        events.add(event("QUEUED", "queued", ApiWorkflowStatus.QUEUED, 0, "Request queued", null, null, process.getCreatedAt()));
         if (process.getStartedAt() != null) {
             events.add(event("PROCESSING_STARTED", "starting", ApiWorkflowStatus.RUNNING, Math.max(2, value(process.getProgress(), 0)),
-                    "后台处理已开始", null, null, process.getStartedAt()));
+                    "Background processing started", null, null, process.getStartedAt()));
         }
         if (process.getCompletedAt() != null && status == ApiWorkflowStatus.SUCCEEDED) {
-            events.add(event("RESULT_READY", "completed", status, 100, "转写结果已写入历史", null, null, process.getCompletedAt()));
+            JsonNode analysis = parseAnalysis(process.getMetadataJson());
+            String summary = text(analysis, "shortSummary");
+            String categories = join(analysis, "categories");
+            events.add(event("AI_ENRICHED", "ai_enriching", status, 76, "AI enrichment completed",
+                    null, null, compactDetails(summary, categories), process.getCompletedAt()));
+            String knowledgeStatus = text(analysis, "knowledgeIngestionStatus");
+            if ("SUCCEEDED".equalsIgnoreCase(knowledgeStatus)) {
+                String documentId = text(analysis, "knowledgeDocumentId");
+                events.add(event("KNOWLEDGE_BASE_WRITTEN", "knowledge_base", status, 92, "Knowledge base draft created",
+                        null, null, documentId.isBlank() ? null : "Document ID: " + documentId, process.getCompletedAt()));
+            } else if ("FAILED".equalsIgnoreCase(knowledgeStatus)) {
+                events.add(event("KNOWLEDGE_BASE_FAILED", "knowledge_base", status, 92, "Knowledge base write failed; AI result retained",
+                        null, text(analysis, "knowledgeIngestionError"), null, process.getCompletedAt()));
+            }
+            events.add(event("RESULT_READY", "completed", status, 100, "Transcript saved to history", null, null, process.getCompletedAt()));
         } else if (status == ApiWorkflowStatus.FAILED) {
-            events.add(event("FAILED", phase, status, value(process.getProgress(), 0), "处理失败", null,
+            events.add(event("FAILED", phase, status, value(process.getProgress(), 0), "Processing failed", null,
                     process.getErrorMessage(), process.getCompletedAt() == null ? process.getUpdatedAt() : process.getCompletedAt()));
         } else if (process.getStartedAt() != null) {
-            events.add(event("STEP_UPDATED", phase, status, value(process.getProgress(), 0), "当前步骤：" + phase, null, null, process.getUpdatedAt()));
+            events.add(event("STEP_UPDATED", phase, status, value(process.getProgress(), 0), "Current step: " + phase, null, null, process.getUpdatedAt()));
         }
         return new ApiWorkflowProcessBO(String.valueOf(process.getId()), ApiWorkflowType.MEDIA_TRANSCRIPTION,
                 "media.transcription.url", "api", String.valueOf(process.getId()),
@@ -125,6 +142,37 @@ public class ApiWorkflowQueryDomainServiceImpl implements ApiWorkflowQueryDomain
                                              String message, String errorCode, String errorMessage, OffsetDateTime occurredAt) {
         return new ApiWorkflowEventBO(0, type, null, status == null ? null : status.name(), phase, status, progress,
                 message, null, null, errorCode, errorMessage, null, null, occurredAt);
+    }
+
+    private static ApiWorkflowEventBO event(String type, String phase, ApiWorkflowStatus status, int progress,
+                                             String message, String errorCode, String errorMessage, String details,
+                                             OffsetDateTime occurredAt) {
+        return new ApiWorkflowEventBO(0, type, null, status == null ? null : status.name(), phase, status, progress,
+                message, null, null, errorCode, errorMessage, details, null, occurredAt);
+    }
+
+    private JsonNode parseAnalysis(String json) {
+        try { return json == null || json.isBlank() ? objectMapper.createObjectNode() : objectMapper.readTree(json); }
+        catch (Exception ignored) { return objectMapper.createObjectNode(); }
+    }
+
+    private static String text(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.get(field);
+        return value == null || value.isNull() ? "" : value.asText("").trim();
+    }
+
+    private static String join(JsonNode node, String field) {
+        JsonNode values = node == null ? null : node.get(field);
+        if (values == null || !values.isArray()) return "";
+        List<String> result = new ArrayList<>();
+        values.forEach(value -> { if (!value.isNull() && !value.asText("").isBlank()) result.add(value.asText().trim()); });
+        return String.join("、", result);
+    }
+
+    private static String compactDetails(String summary, String categories) {
+        if (!summary.isBlank() && !categories.isBlank()) return "摘要: " + summary + "；分类: " + categories;
+        if (!summary.isBlank()) return "摘要: " + summary;
+        return categories.isBlank() ? null : "分类: " + categories;
     }
 
     private static ApiWorkflowStatus mapMediaStatus(String status) {

@@ -32,7 +32,7 @@ import { LoadingState } from "@/views/downloader/components/loading-state";
 import { formatDuration } from "@/views/downloader/lib/format";
 import { AlertCircle, BookOpen, Captions, CheckCircle2, Code2, Copy, Download, ExternalLink, FileAudio, FileText, History, Info, LinkIcon, ListChecks, Loader2, RefreshCw, Send, Sparkles, UploadCloud, Video, X } from "lucide-react";
 
-const MP4_AI_CAPABILITIES = ["text_polish", "text_summary", "post_metadata", "mp4_qa"] as const
+const MP4_AI_CAPABILITIES = ["media_transcription_enrich", "text_polish", "text_summary", "post_metadata", "mp4_qa"] as const
 
 interface QaItem {
   id: string;
@@ -291,6 +291,7 @@ export default function Mp4ToWordPage() {
   const [displayedTranscript, setDisplayedTranscript] = useState("");
   const [polished, setPolished] = useState("");
   const [summary, setSummary] = useState("");
+  const [aiAnalysis, setAiAnalysis] = useState<Record<string, unknown>>({});
   const [taskId, setTaskId] = useState(initialTaskId);
   const [error, setError] = useState("");
   const [qaInput, setQaInput] = useState("");
@@ -426,6 +427,7 @@ export default function Mp4ToWordPage() {
     }
     setPolished(snapshot.polished || "");
     setSummary(snapshot.summary || "");
+    setAiAnalysis(snapshot.metadata || {});
     setRemoteFileName(snapshot.file_name || "");
     setDownloadProgress((current) => {
       if (shouldKeepCompletedProgress(current, snapshot.download_progress)) {
@@ -629,6 +631,7 @@ export default function Mp4ToWordPage() {
             setPolished((prev) => event.polished_text || prev);
             setSummary((prev) => event.summary_text || prev);
             setRemoteMeta(event.metadata || remoteMeta);
+            setAiAnalysis((event.metadata || {}) as Record<string, unknown>);
             setPhase("done");
             setSearchParams({ task: id });
             void refreshTaskSnapshot(id);
@@ -1607,6 +1610,17 @@ export default function Mp4ToWordPage() {
                 )}
               </div>
             </div>
+
+            {((aiAnalysis.keyPoints as string[] | undefined)?.length || (aiAnalysis.categories as string[] | undefined)?.length || aiAnalysis.shortSummary) ? (
+              <div className="summary-panel" style={{ marginBottom: 20 }}>
+                <div className="result-header"><span className="result-title"><Sparkles className="size-4" /> AI Knowledge Analysis</span></div>
+                <div className="result-body grid gap-4 md:grid-cols-2">
+                  {typeof aiAnalysis.shortSummary === "string" && aiAnalysis.shortSummary ? <div><div className="text-xs font-medium text-muted-foreground">一句话摘要</div><p className="mt-1 text-sm text-foreground">{aiAnalysis.shortSummary}</p></div> : null}
+                  {Array.isArray(aiAnalysis.categories) && aiAnalysis.categories.length ? <div><div className="text-xs font-medium text-muted-foreground">分类</div><div className="mt-2 flex flex-wrap gap-1.5">{aiAnalysis.categories.map((item) => <Badge key={String(item)} variant="secondary">{String(item)}</Badge>)}</div></div> : null}
+                  {Array.isArray(aiAnalysis.keyPoints) && aiAnalysis.keyPoints.length ? <div className="md:col-span-2"><div className="text-xs font-medium text-muted-foreground">关键观点</div><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foreground">{aiAnalysis.keyPoints.map((item) => <li key={String(item)}>{String(item)}</li>)}</ul></div> : null}
+                </div>
+              </div>
+            ) : null}
 
             <AskSection
               qaItems={qaItems}

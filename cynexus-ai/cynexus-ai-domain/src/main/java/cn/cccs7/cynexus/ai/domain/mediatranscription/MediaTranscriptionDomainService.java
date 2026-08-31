@@ -1,8 +1,11 @@
 package cn.cccs7.cynexus.ai.domain.mediatranscription;
 
 import cn.cccs7.cynexus.ai.domain.entity.MediaTranscriptionMetadataBO;
+import cn.cccs7.cynexus.ai.domain.entity.MediaTranscriptionEnrichmentBO;
 
 public interface MediaTranscriptionDomainService {
+
+    MediaTranscriptionEnrichmentBO enrich(MediaTranscriptionEnrichmentCommand command);
 
     String polish(TextCommand command);
 

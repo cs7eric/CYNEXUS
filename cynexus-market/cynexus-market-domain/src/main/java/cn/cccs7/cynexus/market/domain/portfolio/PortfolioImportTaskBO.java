@@ -136,8 +136,9 @@ public final class PortfolioImportTaskBO {
     }
 
     public void retry() {
-        requireStatus(PortfolioImportStatus.FAILED);
+        requireStatus(PortfolioImportStatus.FAILED, PortfolioImportStatus.READY_FOR_REVIEW);
         this.status = PortfolioImportStatus.PENDING_DISPATCH;
+        this.completedAt = null;
         this.lastErrorCode = null;
         this.lastErrorMessage = null;
         this.version++;

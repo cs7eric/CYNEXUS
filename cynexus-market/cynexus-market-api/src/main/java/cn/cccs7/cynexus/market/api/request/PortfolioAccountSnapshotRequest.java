@@ -1,0 +1,2 @@
+package cn.cccs7.cynexus.market.api.request; import java.math.BigDecimal; import java.time.LocalDate; import lombok.Data;
+@Data public class PortfolioAccountSnapshotRequest { private LocalDate snapshotDate; private BigDecimal totalAssets; private BigDecimal availableCash; private BigDecimal marketValue; private BigDecimal netDeposit; private BigDecimal netWithdrawal; private BigDecimal dailyPnl; private BigDecimal dailyReturn; }

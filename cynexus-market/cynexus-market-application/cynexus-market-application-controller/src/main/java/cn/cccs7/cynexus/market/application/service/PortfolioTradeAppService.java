@@ -22,14 +22,15 @@ public class PortfolioTradeAppService {
         if (request == null) throw new IllegalArgumentException("portfolio trade update is required");
         PortfolioTradeBO trade = updateDomainService.update(PRINCIPAL, TENANT, tradeId,
                 request.getSymbol(), request.getSecurityName(), request.getInstrumentType(), request.getSide(),
-                request.getTradedAt(), request.getQuantity(), request.getPrice(), request.getTotalFee());
+                request.getTradedAt(), request.getQuantity(), request.getPrice(), request.getTotalFee(), request.getStrategy(), request.getTags());
         return toDto(trade);
     }
 
     private PortfolioTradeDTO toDto(PortfolioTradeBO trade) {
         return PortfolioTradeDTO.builder().id(trade.id()).symbol(trade.symbol()).securityName(trade.securityName())
                 .instrumentType(trade.instrumentType().name()).side(trade.side().name()).tradedAt(trade.tradedAt())
-                .quantity(trade.quantity()).price(trade.price()).totalFee(trade.totalFee()).status(trade.status().name())
+                .quantity(trade.quantity()).price(trade.price()).totalFee(trade.totalFee()).status(trade.status().name()).strategy(trade.strategy()).tags(trade.tags())
+                .industryCode(trade.industryCode()).industryName(trade.industryName())
                 .build();
     }
 }

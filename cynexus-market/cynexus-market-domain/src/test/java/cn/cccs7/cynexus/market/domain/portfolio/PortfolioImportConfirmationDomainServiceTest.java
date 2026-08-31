@@ -35,7 +35,7 @@ class PortfolioImportConfirmationDomainServiceTest {
         PortfolioImportTaskBO task = task();
         PortfolioCandidateRecord candidate = candidate();
         RecordingTradeQueries queries = new RecordingTradeQueries(new PortfolioTradeBO(9L, "159796", "ETF",
-                PortfolioInstrumentType.ETF, TradeSide.BUY, OffsetDateTime.parse("2026-07-31T09:30:10Z"),
+                PortfolioInstrumentType.ETF, TradeSide.BUY, OffsetDateTime.parse("2026-07-31T09:30:10+08:00"),
                 new BigDecimal("200"), new BigDecimal("0.84"), new BigDecimal("0.1"), TradeStatus.ACTIVE));
         PortfolioImportConfirmationDomainService service = service(new RecordingCandidates(candidate), new RecordingTrades(),
                 queries, new RecordingTasks());
@@ -43,7 +43,22 @@ class PortfolioImportConfirmationDomainServiceTest {
         PortfolioCandidateReview reviewed = service.candidatesForReview(task, List.of(candidate), LocalDate.of(2026, 7, 31)).getFirst();
 
         assertEquals("EXCLUDED", reviewed.candidate().reviewStatus());
-        assertTrue(reviewed.candidate().warnings().stream().anyMatch(item -> item.startsWith("Duplicate trade:")));
+        assertTrue(reviewed.candidate().warnings().stream().anyMatch(item -> item.contains("symbol, traded time, and quantity")));
+    }
+
+    @Test
+    void matchesExistingQuantityRegardlessOfDecimalScale() {
+        PortfolioImportTaskBO task = task();
+        PortfolioCandidateRecord candidate = candidate();
+        RecordingTradeQueries queries = new RecordingTradeQueries(new PortfolioTradeBO(9L, "159796", "ETF",
+                PortfolioInstrumentType.ETF, TradeSide.BUY, OffsetDateTime.parse("2026-07-31T01:30:10Z"),
+                new BigDecimal("200.00000000"), new BigDecimal("0.84"), new BigDecimal("0.1"), TradeStatus.ACTIVE));
+        PortfolioImportConfirmationDomainService service = service(new RecordingCandidates(candidate), new RecordingTrades(),
+                queries, new RecordingTasks());
+
+        PortfolioCandidateReview reviewed = service.candidatesForReview(task, List.of(candidate), LocalDate.of(2026, 7, 31)).getFirst();
+
+        assertEquals("EXCLUDED", reviewed.candidate().reviewStatus());
     }
 
     @Test
@@ -51,7 +66,7 @@ class PortfolioImportConfirmationDomainServiceTest {
         PortfolioImportTaskBO task = task();
         RecordingTrades trades = new RecordingTrades();
         RecordingTradeQueries queries = new RecordingTradeQueries(new PortfolioTradeBO(9L, "159796", "ETF",
-                PortfolioInstrumentType.ETF, TradeSide.BUY, OffsetDateTime.parse("2026-07-31T09:30:10Z"),
+                PortfolioInstrumentType.ETF, TradeSide.BUY, OffsetDateTime.parse("2026-07-31T09:30:10+08:00"),
                 new BigDecimal("200"), new BigDecimal("0.84"), new BigDecimal("0.1"), TradeStatus.ACTIVE));
         PortfolioImportConfirmationDomainService service = service(new RecordingCandidates(candidate()), trades, queries,
                 new RecordingTasks());
@@ -64,7 +79,7 @@ class PortfolioImportConfirmationDomainServiceTest {
     }
 
     @Test
-    void excludesAndDoesNotConfirmNonTodayTransactions() {
+    void allowsHistoricalTransactionWhenItIsNotAlreadyInLedger() {
         PortfolioImportTaskBO task = task();
         RecordingCandidates candidates = new RecordingCandidates(candidate());
         RecordingTrades trades = new RecordingTrades();
@@ -73,12 +88,11 @@ class PortfolioImportConfirmationDomainServiceTest {
 
         PortfolioCandidateReview reviewed = service.candidatesForReview(task, List.of(candidate()),
                 LocalDate.of(2026, 8, 1)).getFirst();
-        assertEquals("EXCLUDED", reviewed.candidate().reviewStatus());
-        assertTrue(reviewed.candidate().warnings().contains("Trade date is not today; only today's transactions are valid for import."));
+        assertEquals("PENDING", reviewed.candidate().reviewStatus());
 
         service.confirm(task, List.of(3L), "u", OffsetDateTime.parse("2026-08-02T00:00:00Z"),
                 LocalDate.of(2026, 8, 1));
-        assertNull(trades.trade);
+        assertTrue(trades.trade != null);
         assertEquals(PortfolioImportStatus.CONFIRMED, task.getStatus());
     }
 

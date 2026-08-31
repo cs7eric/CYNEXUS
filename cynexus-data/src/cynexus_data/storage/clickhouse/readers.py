@@ -73,13 +73,13 @@ def read_daily_kline(
         where.append("trade_date <= %(end)s")
         params["end"] = end
     sql = f"""
-        SELECT trade_date, open, high, low, close, volume, amount
+        SELECT trade_date, open, high, low, close_price AS close, volume, amount
           FROM (
             SELECT trade_date,
                    argMax(open, close) AS open,
                    argMax(high, close) AS high,
                    argMax(low, close) AS low,
-                   max(close) AS close,
+                   max(close) AS close_price,
                    argMax(volume, close) AS volume,
                    max(amount) AS amount
               FROM {table}
@@ -495,13 +495,13 @@ def read_daily_bars_by_code(
     td = date.fromisoformat(str(trade_date)[:10]) if not isinstance(trade_date, date) else trade_date
     start = td - timedelta(days=int(lookback_days) * 2)
     sql = f"""
-        SELECT trade_date, open, high, low, close, volume, amount
+        SELECT trade_date, open, high, low, close_price AS close, volume, amount
           FROM (
             SELECT trade_date,
                    argMax(open, close) AS open,
                    argMax(high, close) AS high,
                    argMax(low, close) AS low,
-                   max(close) AS close,
+                   max(close) AS close_price,
                    argMax(volume, close) AS volume,
                    max(amount) AS amount
               FROM {_safe_table_name(table)}
@@ -527,6 +527,10 @@ def read_daily_bars_by_code(
 
 
 def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, table: str = "daily_qfq") -> list[dict[str, Any]]:
+    target_date = _to_date(trade_date)
+    # The largest window is 252 trading days.  A calendar-day buffer keeps
+    # enough rows for weekends and holidays without scanning the full history.
+    history_start_date = target_date - timedelta(days=400)
     sql = f"""
         SELECT code, close, ma20, ma60, close_1d_ago, close_5d_ago, close_59d_ago, min_60d, close_251d_ago, max_252d
         FROM (
@@ -544,8 +548,9 @@ def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, t
                 max(close) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS max_252d
             FROM (
                 SELECT code, trade_date, max(close) AS close
-                  FROM {_safe_table_name(table)}
-                 WHERE trade_date <= %(trade_date)s
+                 FROM {_safe_table_name(table)}
+                 WHERE trade_date >= %(history_start_date)s
+                   AND trade_date <= %(trade_date)s
                  GROUP BY code, trade_date
             )
         )
@@ -564,7 +569,7 @@ def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, t
             "close_251d_ago": _float_or_none(row[8]),
             "max_252d": _float_or_none(row[9]),
         }
-        for row in client.query_rows(sql, {"trade_date": trade_date})
+        for row in client.query_rows(sql, {"trade_date": target_date, "history_start_date": history_start_date})
     ]
 
 
@@ -721,16 +726,16 @@ def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date 
     if previous_date is None:
         return []
     sql = f"""
-        SELECT current.code, current.open, current.high, current.low, current.close, previous.close AS pre_close,
-               CASE WHEN previous.close > 0 THEN (current.close - previous.close) / previous.close * 100 ELSE NULL END AS change_pct,
-               CASE WHEN previous.close > 0 AND current.close >= previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_limit_up,
-               CASE WHEN previous.close > 0 AND current.close <= previous.close * (1 - threshold) * 1.0001 THEN 1 ELSE 0 END AS is_limit_down,
+        SELECT current.code, current.open, current.high, current.low, current.close_price, previous.close AS pre_close,
+               CASE WHEN previous.close > 0 THEN (current.close_price - previous.close) / previous.close * 100 ELSE NULL END AS change_pct,
+               CASE WHEN previous.close > 0 AND current.close_price >= previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_limit_up,
+               CASE WHEN previous.close > 0 AND current.close_price <= previous.close * (1 - threshold) * 1.0001 THEN 1 ELSE 0 END AS is_limit_down,
                CASE WHEN previous.close > 0 AND current.high >= previous.close * (1 + threshold) * 0.9995 THEN 1 ELSE 0 END AS is_touched,
                CASE WHEN previous.close > 0 AND current.high >= previous.close * (1 + threshold) * 0.9995
-                         AND current.close < previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_broken
+                         AND current.close_price < previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_broken
           FROM (
             SELECT code, argMax(open, close) AS open, argMax(high, close) AS high,
-                   argMax(low, close) AS low, max(close) AS close,
+                   argMax(low, close) AS low, max(close) AS close_price,
                    multiIf(startsWith(code, '300') OR startsWith(code, '301') OR startsWith(code, '688'), 0.20,
                            startsWith(code, '8') OR startsWith(code, '4') OR startsWith(code, '9'), 0.30,
                            0.10) AS threshold
@@ -771,11 +776,11 @@ def read_limit_emotion_ohlcv_rows(client: ClickHouseClient, trade_date: date | s
         return []
     sql = f"""
         SELECT current.market, current.code, current.tdx_code, current.trade_date,
-               current.open, current.high, current.low, current.close, previous.close AS pre_close
+               current.open, current.high, current.low, current.close_price, previous.close AS pre_close
           FROM (
             SELECT market, code, tdx_code, trade_date,
                    argMax(open, close) AS open, argMax(high, close) AS high,
-                   argMax(low, close) AS low, max(close) AS close
+                   argMax(low, close) AS low, max(close) AS close_price
               FROM {_safe_table_name(table)}
              WHERE trade_date = %(trade_date)s
              GROUP BY market, code, tdx_code, trade_date

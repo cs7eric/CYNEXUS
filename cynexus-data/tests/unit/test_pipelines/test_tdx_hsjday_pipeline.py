@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import struct
 import zipfile
+from datetime import date
 
 from cynexus_data.jobs.contracts import JobRequest
 import cynexus_data.pipelines.kline.sync_tdx_hsjday as sync_tdx_hsjday
@@ -115,3 +116,6 @@ def test_sync_tdx_hsjday_pipeline_passes_download_method(monkeypatch, tmp_path) 
     assert captured["urlopen_backoff_seconds"] == 1.0
     download_step = next(step for step in result["steps"] if step["step"] == "download")
     assert download_step["method"] == "playwright"
+def test_last_weekday_rolls_weekend_back_to_friday() -> None:
+    assert sync_tdx_hsjday._last_weekday(date(2026, 8, 29)) == date(2026, 8, 28)
+    assert sync_tdx_hsjday._last_weekday(date(2026, 8, 28)) == date(2026, 8, 28)

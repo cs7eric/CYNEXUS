@@ -5,8 +5,11 @@ import cn.cccs7.cynexus.market.api.dto.PortfolioOverviewDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioAccountDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioTradeDTO;
 import cn.cccs7.cynexus.market.api.dto.PortfolioPerformanceDTO;
+import cn.cccs7.cynexus.market.api.dto.PortfolioTradeAnalyticsDTO;
 import cn.cccs7.cynexus.market.api.request.PortfolioAccountUpdateRequest;
 import cn.cccs7.cynexus.market.api.request.PortfolioTradeUpdateRequest;
+import cn.cccs7.cynexus.market.api.request.PortfolioCashFlowRequest;
+import cn.cccs7.cynexus.market.api.request.PortfolioAccountSnapshotRequest;
 import cn.cccs7.cynexus.market.application.service.PortfolioOverviewAppService;
 import cn.cccs7.cynexus.market.application.service.PortfolioTradeAppService;
 import java.util.List;
@@ -60,4 +63,22 @@ public class PortfolioOverviewController {
                                                       @RequestParam(required = false) String to) {
         return Result.success(service.performance(range, from, to));
     }
+
+    @GetMapping("/analytics")
+    public Result<PortfolioTradeAnalyticsDTO> analytics(@RequestParam(required = false) String from,
+                                                        @RequestParam(required = false) String to,
+                                                        @RequestParam(required = false) String symbol,
+                                                        @RequestParam(required = false) String instrumentType,
+                                                        @RequestParam(required = false) String result,
+                                                        @RequestParam(required = false) String holdingPeriod,
+                                                        @RequestParam(required = false) String strategy,
+                                                        @RequestParam(required = false) String tag) {
+        return Result.success(service.analytics(from, to, symbol, instrumentType, result, holdingPeriod, strategy, tag));
+    }
+
+    @GetMapping("/cash-flows") public Result<List<cn.cccs7.cynexus.market.api.dto.PortfolioCashFlowDTO>> cashFlows(){ return Result.success(service.cashFlows()); }
+    @org.springframework.web.bind.annotation.PostMapping("/cash-flows") public Result<cn.cccs7.cynexus.market.api.dto.PortfolioCashFlowDTO> addCashFlow(@RequestBody PortfolioCashFlowRequest r){ return Result.success(service.addCashFlow(r)); }
+    @GetMapping("/account-snapshots") public Result<List<cn.cccs7.cynexus.market.api.dto.PortfolioAccountSnapshotDTO>> snapshots(){ return Result.success(service.snapshots()); }
+    @GetMapping("/industry-concentration") public Result<List<java.util.Map<String,Object>>> industryConcentration(){ return Result.success(service.industryConcentration()); }
+    @org.springframework.web.bind.annotation.PostMapping("/account-snapshots") public Result<cn.cccs7.cynexus.market.api.dto.PortfolioAccountSnapshotDTO> addSnapshot(@RequestBody PortfolioAccountSnapshotRequest r){ return Result.success(service.addSnapshot(r)); }
 }

@@ -5,6 +5,8 @@ import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
 import cn.cccs7.cynexus.core.common.constant.CoreConstants;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionAiClient;
+import cn.cccs7.cynexus.core.domain.client.KnowledgeBaseDocumentWriter;
+import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionAiResultBO;
 import cn.cccs7.cynexus.core.domain.client.MediaTranscriptionLinkResolver;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionMetadataBO;
 import cn.cccs7.cynexus.core.domain.entity.MediaTranscriptionProcessBO;
@@ -21,6 +23,8 @@ import cn.cccs7.cynexus.core.domain.repository.MediaTranscriptionProcessReposito
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,20 +36,24 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
     private final MediaTranscriptionTaskDomainService taskService;
     private final MediaTranscriptionAiClient aiClient;
     private final MediaTranscriptionLinkResolver linkResolver;
+    private final KnowledgeBaseDocumentWriter knowledgeBaseWriter;
     private final MediaTranscriptionHistoryDomainService historyService;
     private final MediaTranscriptionProcessDomainPolicy processPolicy = new MediaTranscriptionProcessDomainPolicy();
     private final MediaTranscriptionDomainPolicy mediaPolicy = new MediaTranscriptionDomainPolicy();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public MediaTranscriptionProcessDomainServiceImpl(MediaTranscriptionProcessRepository repository,
                                                       MediaTranscriptionTaskDomainService taskService,
                                                       MediaTranscriptionAiClient aiClient,
                                                       MediaTranscriptionLinkResolver linkResolver,
-                                                      MediaTranscriptionHistoryDomainService historyService) {
+                                                      MediaTranscriptionHistoryDomainService historyService,
+                                                      KnowledgeBaseDocumentWriter knowledgeBaseWriter) {
         this.repository = repository;
         this.taskService = taskService;
         this.aiClient = aiClient;
         this.linkResolver = linkResolver;
         this.historyService = historyService;
+        this.knowledgeBaseWriter = knowledgeBaseWriter;
     }
 
     @Override
@@ -143,17 +151,26 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
             if (transcript.isBlank()) {
                 throw new IllegalStateException("转写结果为空");
             }
-            setProgress(process, "polishing", 64);
-            String polished = aiClient.polish(transcript);
-            setProgress(process, "summarizing", 78);
+            setProgress(process, "ai_enriching", 64);
             Integer duration = task.getMetadata() == null ? null : task.getMetadata().getDuration();
-            String summary = aiClient.summarize(transcript, process.getTitle(), process.getPlatform(), duration);
-            setProgress(process, "metadata", 88);
-            MediaTranscriptionMetadataBO metadata = mediaPolicy.mergeMetadata(
-                    task.getMetadata(), aiClient.metadata(polished, summary));
-            setProgress(process, "persisting", 94);
+            MediaTranscriptionAiResultBO ai = aiClient.enrich(transcript, process.getTitle(), process.getPlatform(), duration);
+            if (ai == null || isEmptyAiResult(ai)) {
+                throw new IllegalStateException("AI 分析未返回有效内容，未写入知识库");
+            }
+            String polished = mediaPolicy.normalize(ai.polishedText());
+            String summary = mediaPolicy.normalize(ai.summary());
+            MediaTranscriptionMetadataBO metadata = mediaPolicy.mergeMetadata(task.getMetadata(), MediaTranscriptionMetadataBO.builder()
+                    .title(ai.title()).build());
+            setProgress(process, "knowledge_base", 86);
             var enriched = mediaPolicy.copyWithAiResult(task, polished, summary, metadata, null);
             var history = historyService.saveCompletedTask(enriched);
+            Long knowledgeDocumentId = null;
+            String knowledgeError = null;
+            try {
+                knowledgeDocumentId = knowledgeBaseWriter.createDraft(String.valueOf(process.getId()), transcript, ai, process.getSourceUrl());
+            } catch (Exception exception) {
+                knowledgeError = "知识库入库失败，已保留 AI 结果: " + (exception.getMessage() == null ? "unknown" : exception.getMessage());
+            }
             process.setHistoryId(history == null ? null : history.getId());
             process.setStatus("succeeded");
             process.setPhase("completed");
@@ -161,7 +178,7 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
             process.setTranscript(transcript);
             process.setPolished(polished);
             process.setSummary(summary);
-            process.setMetadataJson("{}");
+            process.setMetadataJson(toAnalysisJson(ai, knowledgeDocumentId, knowledgeError));
             process.setFileName(task.getFileName());
             process.setErrorMessage(null);
             process.setCompletedAt(OffsetDateTime.now());
@@ -174,6 +191,32 @@ public class MediaTranscriptionProcessDomainServiceImpl implements MediaTranscri
             process.setCompletedAt(OffsetDateTime.now());
             repository.update(process);
         }
+    }
+
+    private String toAnalysisJson(MediaTranscriptionAiResultBO ai, Long documentId, String knowledgeError) {
+        try {
+            return objectMapper.writeValueAsString(Map.ofEntries(
+                    Map.entry("shortSummary", ai.shortSummary() == null ? "" : ai.shortSummary()),
+                    Map.entry("keyPoints", ai.keyPoints() == null ? List.of() : ai.keyPoints()),
+                    Map.entry("topics", ai.topics() == null ? List.of() : ai.topics()),
+                    Map.entry("methodology", ai.methodology() == null ? List.of() : ai.methodology()),
+                    Map.entry("actionItems", ai.actionItems() == null ? List.of() : ai.actionItems()),
+                    Map.entry("risks", ai.risks() == null ? List.of() : ai.risks()),
+                    Map.entry("categories", ai.categories() == null ? List.of() : ai.categories()),
+                    Map.entry("tags", ai.tags() == null ? List.of() : ai.tags()),
+                    Map.entry("knowledgeDocumentId", documentId == null ? "" : documentId),
+                    Map.entry("knowledgeIngestionStatus", knowledgeError == null ? "SUCCEEDED" : "FAILED"),
+                    Map.entry("knowledgeIngestionError", knowledgeError == null ? "" : knowledgeError)));
+        } catch (Exception ignored) { return "{}"; }
+    }
+
+    private boolean isEmptyAiResult(MediaTranscriptionAiResultBO ai) {
+        return (ai.polishedText() == null || ai.polishedText().isBlank())
+                && (ai.summary() == null || ai.summary().isBlank())
+                && (ai.shortSummary() == null || ai.shortSummary().isBlank())
+                && (ai.title() == null || ai.title().isBlank())
+                && (ai.keyPoints() == null || ai.keyPoints().isEmpty())
+                && (ai.categories() == null || ai.categories().isEmpty());
     }
 
     private void markStarted(MediaTranscriptionProcessBO process) {

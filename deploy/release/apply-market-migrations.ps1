@@ -75,6 +75,9 @@ $migrationFiles = @(
     ,"20260817_add_market_factor_study_outcomes.sql"
     ,"20260819_optimize_market_factor_study_snapshot_lookup.sql"
     ,"20260826_clear_portfolio_retry_errors_after_success.sql"
+    ,"20260830_add_portfolio_trade_analysis_metadata.sql"
+    ,"20260830_create_portfolio_account_snapshots.sql"
+    ,"20260830_create_portfolio_trade_plans.sql"
 )
 
 foreach ($file in $migrationFiles) {

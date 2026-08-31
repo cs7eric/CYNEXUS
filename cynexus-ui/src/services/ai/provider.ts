@@ -138,6 +138,16 @@ interface JavaAiUsageBindingDTO {
 
 const AI_CAPABILITIES: AiCapability[] = [
   {
+    code: "media_transcription_enrich",
+    label: "MP4 内容整理",
+    group: "Media",
+    description: "一次生成润色正文、摘要、分类和知识库元数据",
+    entry: "MP4 to Word",
+    reads_binding: true,
+    runtime: "MediaTranscriptionAiAppService.enrich",
+    prompt_key: "media_transcription_enrich",
+  },
+  {
     code: "text_polish",
     label: "MP4 text polish",
     group: "MP4 to Text",

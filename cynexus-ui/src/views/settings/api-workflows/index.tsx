@@ -102,7 +102,8 @@ const eventShortLabels: Record<string, string> = {
   QUEUED: "Queued", DISPATCHED: "Queued", PROCESSING_STARTED: "Started", AI_STARTED: "AI request",
   AI_SUCCEEDED: "AI completed", AI_FAILED: "AI failed", AI_REVIEW: "AI review",
   AI_REVIEW_STARTED: "AI review started",
-  AI_REVIEW_SUCCEEDED: "AI review completed", AI_REVIEW_FAILED: "AI review unavailable", RETRY_SCHEDULED: "Retry queued",
+  AI_REVIEW_SUCCEEDED: "AI review approved", AI_REVIEW_REJECTED: "AI review needs manual review", AI_REVIEW_FAILED: "AI review unavailable", RETRY_SCHEDULED: "Retry queued",
+  AI_ENRICHED: "AI enrichment", KNOWLEDGE_BASE_WRITTEN: "Knowledge base draft", KNOWLEDGE_BASE_FAILED: "Knowledge base failed",
   RESULT_READY: "Result ready", WAITING_REVIEW: "Ready", CONFIRMED: "Confirmed", FAILED: "Failed", STEP_UPDATED: "Updated",
 }
 
@@ -112,9 +113,13 @@ const eventDescriptions: Record<string, string> = {
   AI_SUCCEEDED: "The AI provider returned a structured response.", AI_FAILED: "The AI provider could not produce a usable result.",
   AI_REVIEW: "The AI is reviewing the extraction result before it is made available.",
   AI_REVIEW_STARTED: "The AI is reviewing the first extraction result before it is made available.",
-  AI_REVIEW_SUCCEEDED: "The AI review completed and the result passed to the workflow.",
+  AI_REVIEW_SUCCEEDED: "The AI review approved the extracted trades and they were confirmed automatically.",
+  AI_REVIEW_REJECTED: "The AI review completed but did not meet the automatic confirmation threshold. The extracted trades remain ready for manual review.",
   AI_REVIEW_FAILED: "Automated review could not complete. The extracted trades remain ready for manual review.",
   RETRY_SCHEDULED: "The workflow was placed back in the processing queue.", RESULT_READY: "The business result is ready in its original page.",
+  AI_ENRICHED: "The transcript was polished and enriched with summaries, topics, categories, and action items.",
+  KNOWLEDGE_BASE_WRITTEN: "A draft document was created in the knowledge base from the AI analysis.",
+  KNOWLEDGE_BASE_FAILED: "Knowledge base writing failed, but the AI analysis remains available.",
   WAITING_REVIEW: "The result is ready for review in its original page.", CONFIRMED: "The business result was confirmed in its original page.",
   FAILED: "This workflow attempt stopped and can be retried.", STEP_UPDATED: "The workflow moved to the next processing step.",
 }

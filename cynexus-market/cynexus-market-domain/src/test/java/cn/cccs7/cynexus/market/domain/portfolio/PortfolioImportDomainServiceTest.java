@@ -74,6 +74,21 @@ class PortfolioImportDomainServiceTest {
         assertNull(retried.getLastErrorMessage());
     }
 
+    @Test
+    void reprocessesTaskThatIsWaitingForManualReview() {
+        PortfolioImportTaskBO task = new PortfolioImportTaskBO(1L, "user", "tenant", 2L, "request-1",
+                PortfolioImportStatus.PENDING_DISPATCH, 0, 0);
+        task.claimForProcessing(OffsetDateTime.parse("2026-08-01T00:00:00Z"));
+        task.markReadyForReview(OffsetDateTime.parse("2026-08-01T00:01:00Z"));
+        dependencies.tasks.put(task.getIdempotencyKey(), task);
+
+        PortfolioImportTaskBO reprocessed = service.retry("user", "tenant", task.getId());
+
+        assertEquals(PortfolioImportStatus.PENDING_DISPATCH, reprocessed.getStatus());
+        assertNull(reprocessed.getCompletedAt());
+        assertEquals(1, dependencies.dispatchCount);
+    }
+
     private static final class RecordingDependencies implements PortfolioImportAssetStorePort,
             PortfolioImportTaskRepository, PortfolioImportDispatchPort {
         private long nextId = 1;

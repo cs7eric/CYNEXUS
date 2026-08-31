@@ -21,9 +21,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class PortfolioImportConfirmationDomainService {
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
-    private static final String DUPLICATE_WARNING =
-            "Duplicate trade: the same symbol and traded time already exists in the portfolio ledger.";
-    private static final String NON_TODAY_WARNING =
+    private static final String HISTORICAL_DUPLICATE_WARNING =
+            "Duplicate trade: symbol, traded time, and quantity already exist in the portfolio ledger.";
+    private static final String LEGACY_NON_TODAY_WARNING =
             "Trade date is not today; only today's transactions are valid for import.";
     private final PortfolioCandidateStore candidateStore;
     private final PortfolioTradeRepository tradeRepository;
@@ -52,18 +52,17 @@ public class PortfolioImportConfirmationDomainService {
                                                                List<PortfolioCandidateRecord> candidates,
                                                                LocalDate today) {
         requireToday(today);
-        Map<String, Set<Instant>> existingKeys = existingTradeTimes(task, candidates);
+        Map<String, Set<TradeKey>> existingKeys = existingTradeKeys(task, candidates);
         Set<TradeKey> seenKeys = new HashSet<>();
         return candidates.stream().map(candidate -> {
             PortfolioCandidateRecord reviewed = candidate;
-            if (!"PENDING".equals(candidate.reviewStatus())) return new PortfolioCandidateReview(candidate, null);
+            if (!isReviewable(candidate)) return new PortfolioCandidateReview(candidate, null);
             try {
                 PortfolioTradeBO trade = toTrade(candidate);
-                if (!isToday(trade, today)) reviewed = excluded(candidate, NON_TODAY_WARNING);
-                TradeKey key = new TradeKey(trade.symbol(), trade.tradedAt().toInstant());
-                if (existingKeys.getOrDefault(key.symbol(), Set.of()).contains(key.tradedAt())
+                TradeKey key = tradeKey(trade);
+                if (existingKeys.getOrDefault(key.symbol(), Set.of()).contains(key)
                         || !seenKeys.add(key)) {
-                    reviewed = excluded(candidate, DUPLICATE_WARNING);
+                    reviewed = excluded(candidate, HISTORICAL_DUPLICATE_WARNING);
                 }
             } catch (IllegalArgumentException ignored) {
                 // Field validation remains part of the explicit confirm action.
@@ -88,20 +87,19 @@ public class PortfolioImportConfirmationDomainService {
         Set<Long> selected = candidateIds == null ? Set.of() : candidateIds.stream().collect(Collectors.toSet());
         List<PortfolioCandidateRecord> candidates = candidateStore.listByTaskId(task.getId());
         if (candidates.isEmpty()) throw new IllegalArgumentException("portfolio import has no candidates");
-        Map<String, Set<Instant>> existingKeys = existingTradeTimes(task, candidates);
+        Map<String, Set<TradeKey>> existingKeys = existingTradeKeys(task, candidates);
         Set<TradeKey> confirmedKeys = new HashSet<>();
         for (PortfolioCandidateRecord candidate : candidates) {
             if (!selected.isEmpty() && !selected.contains(candidate.id())) continue;
-            if (!"PENDING".equals(candidate.reviewStatus())) continue;
+            if (!isReviewable(candidate)) continue;
             PortfolioTradeBO trade;
             try {
                 trade = toTrade(candidate);
             } catch (IllegalArgumentException exception) {
                 throw new IllegalArgumentException("candidate row " + candidate.rowNo() + " is invalid: " + exception.getMessage(), exception);
             }
-            if (!isToday(trade, today)) continue;
-            TradeKey key = new TradeKey(trade.symbol(), trade.tradedAt().toInstant());
-            if (existingKeys.getOrDefault(key.symbol(), Set.of()).contains(key.tradedAt())
+            TradeKey key = tradeKey(trade);
+            if (existingKeys.getOrDefault(key.symbol(), Set.of()).contains(key)
                     || !confirmedKeys.add(key)) continue;
             if (!tradeRepository.save(task.getPrincipalKey(), task.getTenantKey(), task.getId(), candidate.id(), trade,
                     confirmedBy)) continue;
@@ -114,25 +112,25 @@ public class PortfolioImportConfirmationDomainService {
         return task;
     }
 
-    private Map<String, Set<Instant>> existingTradeTimes(PortfolioImportTaskBO task,
+    private Map<String, Set<TradeKey>> existingTradeKeys(PortfolioImportTaskBO task,
                                                          List<PortfolioCandidateRecord> candidates) {
         Set<String> symbols = new HashSet<>();
         for (PortfolioCandidateRecord candidate : candidates) {
-            if (!"PENDING".equals(candidate.reviewStatus())) continue;
+            if (!isReviewable(candidate)) continue;
             try {
                 symbols.add(toTrade(candidate).symbol());
             } catch (IllegalArgumentException ignored) {
                 // Invalid candidates are handled by the confirm validation path.
             }
         }
-        Map<String, Set<Instant>> result = new HashMap<>();
+        Map<String, Set<TradeKey>> result = new HashMap<>();
         for (String symbol : symbols) {
-            Set<Instant> times = new HashSet<>();
+            Set<TradeKey> keys = new HashSet<>();
             tradeQueryRepository.list(task.getPrincipalKey(), task.getTenantKey(), symbol).stream()
                     .filter(trade -> trade.status() == TradeStatus.ACTIVE)
-                    .map(trade -> trade.tradedAt().toInstant())
-                    .forEach(times::add);
-            result.put(symbol, times);
+                    .map(this::tradeKey)
+                    .forEach(keys::add);
+            result.put(symbol, keys);
         }
         return result;
     }
@@ -144,6 +142,24 @@ public class PortfolioImportConfirmationDomainService {
                 candidate.normalizedPayload(), "EXCLUDED", candidate.version(), candidate.confidence(), warnings);
     }
 
+    private boolean isReviewable(PortfolioCandidateRecord candidate) {
+        if ("PENDING".equals(candidate.reviewStatus())) return true;
+        // Candidates excluded by the former "today only" rule must be
+        // re-evaluated against the current ledger under the historical import
+        // policy. Other terminal decisions remain immutable.
+        return "EXCLUDED".equals(candidate.reviewStatus())
+                && candidate.warnings().contains(LEGACY_NON_TODAY_WARNING);
+    }
+
+    private TradeKey tradeKey(PortfolioTradeBO trade) {
+        // JDBC decimals commonly carry a scale (e.g. 500.00000000), while
+        // vision payloads usually do not (500). Canonicalize before using the
+        // value in a record key; BigDecimal.equals otherwise treats them as
+        // different quantities.
+        return new TradeKey(trade.symbol(), trade.tradedAt().atZoneSameInstant(SHANGHAI).toLocalDateTime(),
+                trade.quantity().stripTrailingZeros());
+    }
+
     private String suggestedSymbol(PortfolioCandidateRecord candidate) {
         if (!"PENDING".equals(candidate.reviewStatus())) return null;
         JsonNode payload = candidate.normalizedPayload();
@@ -152,10 +168,6 @@ public class PortfolioImportConfirmationDomainService {
         if (securityName == null) return null;
         PortfolioInstrumentType instrumentType = PortfolioInstrumentType.fromPayload(optionalText(payload, "instrumentType"));
         return securitySymbolResolver.resolveExact(securityName, instrumentType).orElse(null);
-    }
-
-    private boolean isToday(PortfolioTradeBO trade, LocalDate today) {
-        return trade.tradedAt().withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate().equals(today);
     }
 
     private void requireToday(LocalDate today) {
@@ -180,6 +192,13 @@ public class PortfolioImportConfirmationDomainService {
 
     private OffsetDateTime parseTime(String value) {
         String normalized = value.trim();
+        // Vision output may append Z to a screenshot wall-clock value. It is
+        // not UTC data; interpret it in the exchange's Asia/Shanghai zone so
+        // it compares consistently with imported ledger timestamps.
+        if (normalized.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,9})?)?Z")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+            return LocalDateTime.parse(normalized).atZone(SHANGHAI).toOffsetDateTime();
+        }
         try { return OffsetDateTime.parse(normalized); }
         catch (Exception ignored) {
             try { return LocalDateTime.parse(normalized).atZone(SHANGHAI).toOffsetDateTime(); }
@@ -219,6 +238,6 @@ public class PortfolioImportConfirmationDomainService {
         return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText();
     }
 
-    private record TradeKey(String symbol, Instant tradedAt) {
+    private record TradeKey(String symbol, LocalDateTime tradedAt, BigDecimal quantity) {
     }
 }

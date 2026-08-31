@@ -1,0 +1,1 @@
+package cn.cccs7.cynexus.market.domain.portfolio; import java.util.List; public interface PortfolioTradePlanRepository { List<PortfolioTradePlanBO> list(String principalKey,String tenantKey,String symbol); PortfolioTradePlanBO save(String principalKey,String tenantKey,PortfolioTradePlanBO plan); }

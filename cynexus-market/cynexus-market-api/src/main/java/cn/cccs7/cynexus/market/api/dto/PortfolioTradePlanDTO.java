@@ -1,0 +1,2 @@
+package cn.cccs7.cynexus.market.api.dto; import java.math.BigDecimal; import java.time.OffsetDateTime; import lombok.Builder; import lombok.Value;
+@Value @Builder public class PortfolioTradePlanDTO { Long planId; String symbol; String instrumentType; String strategy; String thesis; BigDecimal plannedEntryPrice; BigDecimal stopLossPrice; BigDecimal targetPrice; BigDecimal plannedPositionPct; BigDecimal riskAmount; Integer expectedHoldingDays; BigDecimal confidenceScore; String marketRegime; OffsetDateTime createdAt; }
