@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { notification } from "@/components/ui/notification"
 import { WorkspaceShell } from "@/layout/workspace-shell"
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard"
 import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select"
 import {
   type KnowledgeCategory,
@@ -228,6 +229,8 @@ export default function KnowledgeBaseWritingPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [savedDraft, setSavedDraft] = useState(JSON.stringify(["", "", "", "draft", [], []]))
+  const draftSnapshot = JSON.stringify([title, description, markdown, documentStatus, tags, categories])
   const [editorRevision, setEditorRevision] = useState(0)
   const [aiGenerateOpen, setAiGenerateOpen] = useState(false)
   const [aiGenerateText, setAiGenerateText] = useState("")
@@ -287,6 +290,11 @@ export default function KnowledgeBaseWritingPage() {
         if (cancelled) return
 
         if (document) {
+          setSavedDraft(JSON.stringify([
+            document.title || "Untitled", document.description || "", document.content || "", document.status || "draft",
+            document.tags.map((tag) => tag.tag_name).filter(Boolean),
+            document.categories.map((category) => category.category_name).filter(Boolean),
+          ]))
           setTitle(document.title || "Untitled")
           setDescription(document.description || "")
           setMarkdown(document.content || "")
@@ -296,6 +304,7 @@ export default function KnowledgeBaseWritingPage() {
           setSavedAt(document.updated_at || document.created_at || null)
           setEditorRevision((revision) => revision + 1)
         } else {
+          setSavedDraft(JSON.stringify(["", "", "", "draft", [], []]))
           setTitle("")
           setDescription("")
           setMarkdown("")
@@ -422,6 +431,7 @@ export default function KnowledgeBaseWritingPage() {
         }
 
         setDocumentStatus(nextStatus)
+        setSavedDraft(JSON.stringify([title, description, markdown, nextStatus, tags, categories]))
         setSavedAt(new Date().toISOString())
         await reloadMetadata()
         notification.success({ title: "Knowledge base 已保存", description: nextStatus === "published" ? "文档已发布" : "文档已保存为草稿" })
@@ -475,6 +485,7 @@ export default function KnowledgeBaseWritingPage() {
 
   return (
     <WorkspaceShell sectionLabel="Knowledge Base" sectionUrl="/knowledge-base/view" pageTitle="Writing">
+      <UnsavedChangesGuard when={!loading && draftSnapshot !== savedDraft} saving={saving || aiGenerating} />
       <div className="space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">

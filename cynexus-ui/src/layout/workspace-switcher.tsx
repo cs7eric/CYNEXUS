@@ -1,15 +1,15 @@
 "use client"
 
-import * as React from "react"
-import { ChevronsUpDown, Plus } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
+
+import { workspaces } from "@/config/workspaces"
+import { useWorkspace } from "@/layout/workspace-provider"
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -19,21 +19,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-export function TeamSwitcher({
-  teams,
-}: {
-  teams: {
-    name: string
-    logo: React.ElementType
-    plan: string
-  }[]
-}) {
-  const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
-
-  if (!activeTeam) {
-    return null
-  }
+export function WorkspaceSwitcher() {
+  const { isMobile, setOpenMobile } = useSidebar()
+  const { workspace, workspaceId, switchWorkspace } = useWorkspace()
 
   return (
     <SidebarMenu>
@@ -42,14 +30,16 @@ export function TeamSwitcher({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
+              aria-label={`切换空间：${workspace.name}`}
+              tooltip={workspace.name}
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <activeTeam.logo className="size-4" />
+                <workspace.icon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{activeTeam.name}</span>
-                <span className="truncate text-xs">{activeTeam.plan}</span>
+                <span className="truncate font-medium">{workspace.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{workspace.subtitle}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -61,28 +51,24 @@ export function TeamSwitcher({
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Teams
+              空间
             </DropdownMenuLabel>
-            {teams.map((team, index) => (
+            {Object.values(workspaces).map((space) => (
               <DropdownMenuItem
-                key={team.name}
-                onClick={() => setActiveTeam(team)}
+                key={space.id}
+                onSelect={() => {
+                  switchWorkspace(space.id)
+                  if (isMobile) setOpenMobile(false)
+                }}
                 className="gap-2 p-2"
               >
                 <div className="flex size-6 items-center justify-center rounded-md border">
-                  <team.logo className="size-3.5 shrink-0" />
+                  <space.icon className="size-3.5 shrink-0" />
                 </div>
-                {team.name}
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                <span className="flex-1">{space.name}</span>
+                {space.id === workspaceId ? <Check className="size-4" aria-label="当前空间" /> : null}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="font-medium text-muted-foreground">Add team</div>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -1,6 +1,8 @@
 package cn.cccs7.cynexus.gateway;
 
 import cn.cccs7.cynexus.common.security.identity.TrustedPrincipalSigner;
+import cn.cccs7.cynexus.gateway.auth.OwnerAuthWebFilter;
+import cn.cccs7.cynexus.gateway.auth.domain.OwnerSessionStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -34,7 +36,7 @@ public class TrustedPrincipalGatewayFilter implements GlobalFilter, Ordered {
                     headers.remove("X-Cynexus-Principal");
                     headers.remove("X-Cynexus-Tenant");
                     headers.remove("X-Cynexus-Identity-Signature");
-                    if (!secret.isBlank()) {
+                    if (!secret.isBlank() && exchange.getAttribute(OwnerAuthWebFilter.SESSION_ATTRIBUTE) instanceof OwnerSessionStore.Session) {
                         headers.set("X-Cynexus-Principal", principal);
                         headers.set("X-Cynexus-Tenant", tenant);
                         headers.set("X-Cynexus-Identity-Signature", TrustedPrincipalSigner.sign(principal, tenant, secret));

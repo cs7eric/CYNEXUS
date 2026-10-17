@@ -23,7 +23,11 @@ const STORAGE_KEY = "app-sidebar-open-groups"
 
 export function NavMain({
   items,
+  label = "Applications",
+  storageKey = "default",
 }: {
+  label?: string
+  storageKey?: string
   items: {
     title: string
     url: string
@@ -38,13 +42,14 @@ export function NavMain({
   const { state } = useSidebar()
   const location = useLocation()
   const navigate = useNavigate()
+  const persistenceKey = `${STORAGE_KEY}:${storageKey}`
 
   const getInitialOpenState = React.useCallback(() => {
     if (typeof window === "undefined") {
       return Object.fromEntries(items.map((item) => [item.title, Boolean(item.isActive)]))
     }
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
+      const raw = window.localStorage.getItem(persistenceKey)
       if (raw) {
         return {
           ...Object.fromEntries(items.map((item) => [item.title, Boolean(item.isActive)])),
@@ -55,23 +60,27 @@ export function NavMain({
       return Object.fromEntries(items.map((item) => [item.title, Boolean(item.isActive)]))
     }
     return Object.fromEntries(items.map((item) => [item.title, Boolean(item.isActive)]))
-  }, [items])
+  }, [items, persistenceKey])
 
   const [openItems, setOpenItems] = React.useState<Record<string, boolean>>(getInitialOpenState)
 
   React.useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(openItems))
-  }, [openItems])
+    try {
+      window.localStorage.setItem(persistenceKey, JSON.stringify(openItems))
+    } catch {
+      // Collapsing groups also works without browser storage.
+    }
+  }, [openItems, persistenceKey])
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Applications</SidebarGroupLabel>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
           const hasSubItems = Array.isArray(item.items) && item.items.length > 0
           const isActive =
-            location.pathname === item.url ||
-            item.items?.some((subItem) => subItem.url === location.pathname)
+            location.pathname === item.url || location.pathname.startsWith(`${item.url}/`) ||
+            item.items?.some((subItem) => subItem.url === location.pathname || location.pathname.startsWith(`${subItem.url}/`))
 
           if (!hasSubItems) {
             return (

@@ -4,6 +4,7 @@
   "version": "2.0.0-SNAPSHOT",
   "type": "module",
   "scripts": {
+    "test:workspaces": "node --test tests/workspaces.test.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

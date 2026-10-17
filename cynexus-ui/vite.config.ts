@@ -14,30 +14,13 @@ export default defineConfig(({ mode }) => {
     port: 5174,
     allowedHosts: ['.trycloudflare.com', 'nooops.makeup', '.nooops.makeup'],
     proxy: {
-      '/api/workflows': {
+      '/api': {
         target: backendUrl,
-        changeOrigin: true,
-      },
-      '/api/ai': {
-        target: backendUrl,
-        changeOrigin: true,
-      },
-      '/api/market': {
-        target: backendUrl,
-        changeOrigin: true,
-      },
-      '/api/core': {
-        target: backendUrl,
-        changeOrigin: true,
-      },
-      '/api/knowledge-base': {
-        target: backendUrl,
-        changeOrigin: true,
+        changeOrigin: false,
       },
       '/data-api': {
-        target: env.VITE_CYNEXUS_DATA_API_BASE || 'http://127.0.0.1:18083',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/data-api/, ''),
+        target: backendUrl,
+        changeOrigin: false,
       },
     },
   },

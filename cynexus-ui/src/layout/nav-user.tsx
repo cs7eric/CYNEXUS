@@ -6,6 +6,10 @@ import {
   LogOut,
   Sparkles,
 } from "lucide-react"
+import { useState } from "react"
+import { logoutOwner } from "@/services/common/owner-auth"
+import { Button } from "@/components/ui/button"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog"
 
 import {
   Avatar,
@@ -38,6 +42,15 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const [logoutMode, setLogoutMode] = useState<"current" | "all" | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState("")
+  async function confirmLogout() {
+    setLoggingOut(true)
+    setLogoutError("")
+    try { await logoutOwner(logoutMode === "all") }
+    catch { setLogoutError("退出失败，请重试。"); setLoggingOut(false) }
+  }
 
   return (
     <SidebarMenu>
@@ -100,12 +113,29 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { setLogoutError(""); setLogoutMode("current") }}>
               <LogOut />
-              Log out
+              退出当前设备
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { setLogoutError(""); setLogoutMode("all") }}>
+              <LogOut />
+              退出所有设备
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <AlertDialog open={logoutMode !== null} onOpenChange={open => { if (!open && !loggingOut) setLogoutMode(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{logoutMode === "all" ? "退出所有设备？" : "退出当前设备？"}</AlertDialogTitle>
+              <AlertDialogDescription>退出后需要重新输入密码，未保存的编辑将丢失。</AlertDialogDescription>
+            </AlertDialogHeader>
+            {logoutError && <p role="alert" className="text-sm text-destructive">{logoutError}</p>}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={loggingOut}>取消</AlertDialogCancel>
+              <Button variant="default" disabled={loggingOut} onClick={confirmLogout}><LogOut />{loggingOut ? "正在退出" : "退出"}</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SidebarMenuItem>
     </SidebarMenu>
   )

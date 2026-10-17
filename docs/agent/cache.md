@@ -38,6 +38,8 @@ arbitrary packages.
 
 ## Review checks
 
+Owner authentication sessions are security coordination state, rather than an ordinary data cache. Gateway's `auth/infra/RedisOwnerSessionStore` uses the shared `RedisCacheOperations` API and atomic Lua for session refresh, revocation epochs and login limits. Redis failure must fail closed and must never fall back to an authenticated local session. Domain code sees only `OwnerSessionStore`. See `docs/architecture/owner-authentication.md` for expiry, cookie and revocation semantics.
+
 ```text
 rg -n "StringRedisTemplate|RedisTemplate|org.springframework.data.redis" \
   <service>/src/main/java/**/infra/cache

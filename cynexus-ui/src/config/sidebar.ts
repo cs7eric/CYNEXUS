@@ -1,11 +1,9 @@
 import {
   Activity,
-  AudioWaveform,
   ComputerIcon,
   Download,
   FileText,
   Flame,
-  GalleryVerticalEnd,
   LayoutDashboard,
   ListFilter,
   LineChart,
@@ -28,18 +26,6 @@ export const sidebarConfig = {
     email: "csq020611@gmail.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  teams: [
-    {
-      name: "Application Hub",
-      logo: GalleryVerticalEnd,
-      plan: "Workspace",
-    },
-    {
-      name: "Media Tools",
-      logo: AudioWaveform,
-      plan: "Pipeline",
-    },
-  ],
   navMain: [
     {
       title: "Cynexus Agent",

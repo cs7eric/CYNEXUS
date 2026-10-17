@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { WorkspaceShell } from "@/layout/workspace-shell"
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   type AiBindingItem,
@@ -272,6 +273,7 @@ export default function AiProviderSettingsPage() {
   const [agentCapabilities, setAgentCapabilities] = useState<AgentCapability[]>([])
   const [agentTools, setAgentTools] = useState<AgentToolDefinition[]>([])
   const [draft, setDraft] = useState<ProviderDraft>(emptyDraft)
+  const [initialDraft, setInitialDraft] = useState<ProviderDraft>(emptyDraft)
   const [selectedProviderId, setSelectedProviderId] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
@@ -486,6 +488,7 @@ export default function AiProviderSettingsPage() {
   function openCreateDialog() {
     setDialogMode("create")
     setDraft(emptyDraft)
+    setInitialDraft(emptyDraft)
     setSelectedModelIndex(0)
     setDialogOpen(true)
   }
@@ -494,6 +497,7 @@ export default function AiProviderSettingsPage() {
     setDialogMode("edit")
     setSelectedProviderId(provider.id)
     setDraft(draftFromProvider(provider))
+    setInitialDraft(draftFromProvider(provider))
     setSelectedModelIndex(0)
     setDialogOpen(true)
   }
@@ -613,6 +617,7 @@ export default function AiProviderSettingsPage() {
 
   return (
     <WorkspaceShell>
+      <UnsavedChangesGuard when={(dialogOpen && JSON.stringify(draft) !== JSON.stringify(initialDraft)) || routeRows.some((row) => row.dirty)} saving={saving || Boolean(savingBinding) || Boolean(savingGovernance)} />
       <div className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">

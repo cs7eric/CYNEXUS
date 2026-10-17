@@ -24,6 +24,7 @@ Manage versioned AI prompts, scenario metadata, variables, templates, and output
 ## Components
 
 - Prompt list and editor dialog are composed in the page module.
+- `UnsavedChangesGuard` protects changed editor drafts and pending saves when leaving the Development space or navigating away.
 
 ## Data Flow
 

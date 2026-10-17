@@ -83,6 +83,8 @@ A 股行情有一个必须保留的领域约定：**红色表示上涨，绿色�
 
 ### 3.1 壳层是必选项
 
+`App` 内的 `WorkspaceProvider` 负责同步当前空间与路由。新增菜单时在 `src/config/workspaces.ts` 指定个人、开发或公共归属；侧边栏、首页和搜索据此显示入口。公共页面通过 history state 保留空间，空间位置只在导航成功后持久化。编辑器可复用 `UnsavedChangesGuard`，保护切换、导航及刷新前的未保存内容。运行 `pnpm test:workspaces` 检查归属及路由覆盖。完整约定见 `../design/frontend/workspace-navigation.md`。
+
 普通路由必须从 `WorkspaceShell` 开始：
 
 ```tsx
@@ -266,5 +268,7 @@ Knowledge Base 的左列表 + 右阅读区、AI Usage 的固定表格属于合�
 - [ ] 新增 AI 能力已加入 AI Provider Capability routing，并与 backend capability code 的 runtime、prompt、group、description 对齐。
 
 ## 8. 一句话判断
+
+登录边界由 `OwnerAuthBoundary` 在空间壳层之前处理，保留当前 URL。`main.tsx` 安装统一的同源认证请求处理，覆盖普通 fetch、上传和流式请求，写请求自动携带会话 CSRF；API 应走 `/api` 或 `/data-api` 的同源网关代理。登录凭据只保存在 HttpOnly Cookie，不放入 localStorage。认证与退出约定见 `../docs/architecture/owner-authentication.md`。
 
 如果一个新页面去掉颜色和阴影后仍然能通过导航、标题、间距、表格结构、状态文字和操作位置被快速理解，它就符合 Cynexus 的 UI 习惯；如果它依赖渐变、卡片堆叠、超大数字或用户猜测自定义控件才能成立，就需要回到本 guide 重做信息结构。

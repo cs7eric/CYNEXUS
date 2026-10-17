@@ -1,3 +1,11 @@
+## Shared: Navigation Leave Confirmation
+
+- Path: `cynexus-ui/src/components/unsaved-changes-guard.tsx`
+- Purpose: Confirm navigation away from changed drafts and protect pending saves; keep the active workspace unchanged when navigation is cancelled.
+- Props: `when` indicates unsaved changes; `saving` blocks leaving until a pending write completes.
+- Used by Knowledge Base writing and AI Prompt/Provider editors.
+- Workspace ownership and navigation contract: `../../frontend/workspace-navigation.md`.
+
 ## Page: Data Collector · Market Indicator
 
 ### Components

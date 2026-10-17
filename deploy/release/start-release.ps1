@@ -160,6 +160,14 @@ if ($releaseVersion -notmatch $releasePattern) { throw "Release version must mat
 $env:CYNEXUS_MAVEN_VERSION = $mavenVersion
 $env:CYNEXUS_RELEASE_VERSION = $releaseVersion
 
+$ownerAuthPath = Join-Path $scriptDir ".owner-auth.json"
+if ([string]::IsNullOrWhiteSpace($env:CYNEXUS_OWNER_PASSWORD_HASH)) {
+    if (-not (Test-Path $ownerAuthPath)) {
+        throw "Initialize authentication with deploy/release/initialize-owner-auth.ps1 first."
+    }
+    $env:CYNEXUS_OWNER_PASSWORD_HASH = (Get-Content $ownerAuthPath -Raw | ConvertFrom-Json).passwordHash
+}
+
 $identitySecretPath = Join-Path $scriptDir ".trusted-identity-secret"
 if ([string]::IsNullOrWhiteSpace($env:CYNEXUS_TRUSTED_IDENTITY_SECRET)) {
     if (Test-Path $identitySecretPath) {

@@ -9,13 +9,14 @@ import {
   LayoutDashboard,
   LineChart,
   Settings,
-  Sparkles,
   Star,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react"
 
 import { WorkspaceShell } from "@/layout/workspace-shell"
+import { sharedNavigation } from "@/config/workspaces"
+import { useWorkspace } from "@/layout/workspace-provider"
 
 interface ApplicationItem {
   name: string
@@ -187,7 +188,7 @@ const SettingsIllustration = (
   </svg>
 )
 
-const sections: SectionItem[] = [
+const applicationSections: SectionItem[] = [
   {
     key: "overview",
     title: "Overview",
@@ -287,14 +288,27 @@ const sections: SectionItem[] = [
 ]
 
 export default function HomePage() {
+  const { workspace } = useWorkspace()
+  const applications = applicationSections.flatMap((section) => section.items)
+  const sections = [...workspace.groups, sharedNavigation].map((group) => ({
+    key: group.id,
+    title: group.title,
+    icon: group.items[0].icon,
+    items: group.items.flatMap((item) => group.items.length === 1 && item.items?.length
+      ? item.items.map((child) => ({ ...item, title: `${item.title} · ${child.title}`, url: child.url, items: undefined }))
+      : [item],
+    ).map((item) => applications.find((application) => application.href === item.url) ?? {
+      name: item.title,
+      description: item.items?.map((child) => child.title).join(" · ") ?? "",
+      href: item.url,
+      icon: item.icon,
+      gradient: "from-muted to-transparent",
+      illustration: group.id === "investing" || group.id === "monitoring" ? StockOverviewIllustration : null,
+    }),
+  }))
   return (
-    <WorkspaceShell sectionLabel="Application Hub" pageTitle="Workspace Home">
-      <div className="space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          <Sparkles className="size-3.5" />
-          Application Hub
-        </div>
-      </div>
+    <WorkspaceShell sectionLabel={workspace.name} pageTitle="首页">
+      <h1 className="text-2xl font-semibold text-foreground">{workspace.name}</h1>
 
       <div className="flex flex-col gap-5">
         {sections.map((section) => {
@@ -303,7 +317,7 @@ export default function HomePage() {
             <div key={section.key} className="space-y-2">
               <div className="flex items-center gap-2 px-1">
                 <SectionIcon className="size-3.5 text-muted-foreground" />
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="text-xs font-semibold text-muted-foreground">
                   {section.title}
                 </div>
                 <span className="text-xs text-muted-foreground/60">
@@ -317,7 +331,7 @@ export default function HomePage() {
                     <Link
                       key={application.name}
                       to={application.href}
-                      className={`group relative flex aspect-[5/2] flex-col justify-between overflow-hidden rounded-2xl border border-border/25 bg-gradient-to-br ${application.gradient} p-4 transition-all hover:shadow-md`}
+                      className={`group relative flex min-h-44 flex-col justify-between gap-4 overflow-hidden rounded-lg border border-border/25 bg-gradient-to-br ${application.gradient} p-4 transition-shadow hover:shadow-md motion-reduce:transition-none`}
                     >
                       {/* 背景插画 */}
                       <div className="pointer-events-none absolute inset-y-0 right-0 w-3/5 text-foreground/20 transition-colors group-hover:text-foreground/30">

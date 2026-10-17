@@ -18,6 +18,7 @@ import { notification } from "@/components/ui/notification"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { WorkspaceShell } from "@/layout/workspace-shell"
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard"
 import { cn } from "@/lib/utils"
 import {
   type AiPromptItem,
@@ -113,6 +114,7 @@ export default function PromptSettingsPage() {
   const [status, setStatus] = useState<AiPromptStatus | "all">("all")
   const [scenarioCode, setScenarioCode] = useState("")
   const [draft, setDraft] = useState<PromptDraft>(emptyDraft)
+  const [initialDraft, setInitialDraft] = useState<PromptDraft>(emptyDraft)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [loading, setLoading] = useState(true)
@@ -157,12 +159,14 @@ export default function PromptSettingsPage() {
   function openCreateDialog() {
     setDialogMode("create")
     setDraft(emptyDraft)
+    setInitialDraft(emptyDraft)
     setDialogOpen(true)
   }
 
   function openEditDialog(prompt: AiPromptItem) {
     setDialogMode("edit")
     setDraft(draftFromPrompt(prompt))
+    setInitialDraft(draftFromPrompt(prompt))
     setDialogOpen(true)
   }
 
@@ -211,6 +215,7 @@ export default function PromptSettingsPage() {
 
   return (
     <WorkspaceShell>
+      <UnsavedChangesGuard when={dialogOpen && JSON.stringify(draft) !== JSON.stringify(initialDraft)} saving={saving} />
       <div className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">

@@ -5,6 +5,7 @@ import { Home } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sidebarConfig } from "@/config/sidebar"
 import { AppSidebar } from "@/layout/app-sidebar"
+import { useWorkspace } from "@/layout/workspace-provider"
 import { NotificationRoot } from "@/components/ui/notification"
 import {
   GlobalCommandPalette,
@@ -106,6 +107,7 @@ export function WorkspaceShell({
   children,
 }: WorkspaceShellProps) {
   const location = useLocation()
+  const { workspace } = useWorkspace()
   const routeBreadcrumb = getRouteBreadcrumb(location.pathname)
   const sectionLabel = sectionLabelProp ?? routeBreadcrumb.sectionLabel
   const sectionUrl = sectionUrlProp ?? routeBreadcrumb.sectionUrl
@@ -127,19 +129,23 @@ export function WorkspaceShell({
                   >
                     <Link to="/">
                       <Home className="size-3.5" />
-                      <span>Applications</span>
+                      <span>{workspace.name}</span>
                     </Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:flex">
-                  <BreadcrumbLink
-                    asChild
-                    className="rounded-md px-1.5 py-1 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  >
-                    <Link to={sectionUrl}>{sectionLabel}</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
+                {sectionLabel !== workspace.name && (
+                  <>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                    <BreadcrumbItem className="hidden md:flex">
+                      <BreadcrumbLink
+                        asChild
+                        className="rounded-md px-1.5 py-1 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      >
+                        <Link to={sectionUrl}>{sectionLabel}</Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </>
+                )}
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem className="min-w-0">
                   <BreadcrumbPage className="max-w-[9rem] truncate rounded-md bg-muted/40 px-2 py-1 font-medium sm:max-w-none">
@@ -180,7 +186,7 @@ export function WorkspaceShell({
       <NotificationRoot />
 
       {/* 全局 Alt+K 命令面板（portal 到 body） */}
-      <GlobalCommandPalette />
+      <GlobalCommandPalette key={workspace.id} />
     </SidebarProvider>
   )
 }

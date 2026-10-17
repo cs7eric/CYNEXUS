@@ -22,6 +22,8 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { isPathInWorkspace } from "@/config/workspaces"
+import { useWorkspace } from "@/layout/workspace-provider"
 import {
   CommandDialog,
   CommandEmpty,
@@ -185,11 +187,13 @@ export function GlobalCommandTrigger({ className }: { className?: string }) {
 
 export function GlobalCommandPalette() {
   const navigate = useNavigate()
+  const { workspace, workspaceId } = useWorkspace()
+  const personal = workspaceId === "personal"
   const [open, setOpen] = useState(openState)
   const [data, setData] = useState<PaletteData | null>(null)
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [stockSearchResults, setStockSearchResults] = useState<StockSearchItem[]>([])
+  const [stockSearch, setStockSearch] = useState<{ query: string; items: StockSearchItem[] }>({ query: "", items: [] })
 
   // 订阅 singleton 状态
   useEffect(() => {
@@ -219,6 +223,7 @@ export function GlobalCommandPalette() {
   }, [])
 
   const ensureData = useCallback(async () => {
+    if (!personal) return
     if (data && Date.now() - data.fetchedAt < PALETTE_CACHE_TTL_MS) return
     setLoading(true)
     try {
@@ -259,16 +264,17 @@ export function GlobalCommandPalette() {
     } finally {
       setLoading(false)
     }
-  }, [data])
+  }, [data, personal])
 
   useEffect(() => {
-    if (open) void ensureData()
-  }, [open, ensureData])
+    if (!open || !personal) return
+    const timer = window.setTimeout(() => void ensureData(), 0)
+    return () => window.clearTimeout(timer)
+  }, [open, personal, ensureData])
 
   useEffect(() => {
     const query = searchQuery.trim()
-    if (!open || query.length < 2) {
-      setStockSearchResults([])
+    if (!open || !personal || query.length < 2) {
       return
     }
     const aliasName = Object.entries(STOCK_NAME_ALIASES).find(([, aliases]) =>
@@ -278,17 +284,17 @@ export function GlobalCommandPalette() {
     const timer = window.setTimeout(() => {
       void searchStockChart(aliasName ?? query)
         .then((items) => {
-          if (active) setStockSearchResults(items.filter((item) => item.target_type === "stock" || item.target_type === "etf"))
+          if (active) setStockSearch({ query, items: items.filter((item) => item.target_type === "stock" || item.target_type === "etf") })
         })
         .catch(() => {
-          if (active) setStockSearchResults([])
+          if (active) setStockSearch({ query, items: [] })
         })
     }, 180)
     return () => {
       active = false
       window.clearTimeout(timer)
     }
-  }, [open, searchQuery])
+  }, [open, searchQuery, personal])
 
   const handleSelect = useCallback(
     (to: string) => {
@@ -303,7 +309,10 @@ export function GlobalCommandPalette() {
   }, [])
 
   const items = useMemo<PaletteItem[]>(() => {
-    if (!data) return STATIC_NAV_ITEMS
+    const navigation = STATIC_NAV_ITEMS
+      .filter((item) => isPathInWorkspace(item.to, workspaceId))
+      .map((item) => item.to === "/" ? { ...item, label: `${workspace.name} · 首页` } : item)
+    if (!personal || !data) return navigation
     const groupNameById = new Map(data.groups.map((g) => [g.id, g.name]))
 
     const uniqueSelfSelected = new Map<
@@ -379,6 +388,7 @@ export function GlobalCommandPalette() {
       }
     })
 
+    const stockSearchResults = stockSearch.query === searchQuery.trim() ? stockSearch.items : []
     const searchedTradeReview: PaletteItem[] = stockSearchResults.map((item) => {
       const targetType = item.target_type === "etf" ? "ETF" : "STOCK"
       const date = latestTradeDateBySymbol.get(item.symbol) ?? latestPortfolioDate
@@ -399,11 +409,11 @@ export function GlobalCommandPalette() {
     const mergedTradeReview = [...searchedTradeReview, ...tradeReview].filter(
       (item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index,
     )
-    const rest = [...STATIC_NAV_ITEMS, ...selfSelected, ...analysis, ...mp4]
+    const rest = [...navigation, ...selfSelected, ...analysis, ...mp4]
     return searchQuery.trim()
       ? [...mergedTradeReview, ...rest]
-      : [...STATIC_NAV_ITEMS, ...selfSelected, ...analysis, ...tradeReview, ...mp4]
-  }, [data, searchQuery, stockSearchResults])
+      : [...navigation, ...selfSelected, ...analysis, ...tradeReview, ...mp4]
+  }, [data, searchQuery, stockSearch, personal, workspaceId, workspace.name])
 
   const groups = useMemo(() => {
     const map = new Map<string, PaletteItem[]>()
@@ -434,14 +444,14 @@ export function GlobalCommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={handleOpenChange}
-      title="全局搜索"
-      description="Alt + K 唤起，搜索页面 / 自选 / 分析标的 / MP4 历史"
+      title={`${workspace.name} · 搜索`}
+      description={personal ? "页面、自选、分析标的与媒体历史" : "后台页面与管理入口"}
       className="w-[calc(100vw-1rem)] border-0 shadow-2xl sm:max-w-[840px] lg:max-w-[960px]"
     >
       <CommandInput
         autoFocus
         onValueChange={setSearchQuery}
-        placeholder="搜索页面、股票、代码、拼音... (Alt + K)"
+        placeholder={personal ? "搜索页面、股票、媒体历史…" : "搜索后台页面、配置、任务…"}
         className="border-0"
       />
       <CommandList className="max-h-[min(72vh,640px)]">

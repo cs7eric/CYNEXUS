@@ -1,4 +1,6 @@
 .git
+deploy/release/.owner-auth.json
+deploy/release/.owner-initial-password.txt
 .idea
 **/node_modules
 **/target/*

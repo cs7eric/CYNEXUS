@@ -6,6 +6,15 @@ spring:
     name: cynexus-gateway
   main:
     web-application-type: reactive
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: 2s
+      timeout: 2s
+  codec:
+    max-in-memory-size: 64KB
   config:
     import:
       - optional:nacos:cynexus-gateway.yml
@@ -37,6 +46,12 @@ spring:
       server:
         webflux:
           routes:
+            - id: cynexus-data-authenticated
+              uri: http://cynexus-data-job-executor:18083
+              predicates:
+                - Path=/data-api/**
+              filters:
+                - StripPrefix=1
             - id: cynexus-workflows-core
               uri: lb://cynexus-core
               predicates:
