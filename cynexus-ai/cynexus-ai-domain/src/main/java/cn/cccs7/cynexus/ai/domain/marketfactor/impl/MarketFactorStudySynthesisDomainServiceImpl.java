@@ -5,13 +5,14 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRouting
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.marketfactor.MarketEventFactorAnalysisCompletionPort;
 import cn.cccs7.cynexus.ai.domain.marketfactor.MarketFactorStudyEvidencePort;
 import cn.cccs7.cynexus.ai.domain.marketfactor.MarketFactorStudySynthesisDomainService;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
+import cn.cccs7.cynexus.common.core.constant.TraceId;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -34,15 +35,25 @@ public final class MarketFactorStudySynthesisDomainServiceImpl implements Market
             Each finding needs at least one exact supplied evidence ref. Treat unavailable/leakage-failed evidence as a caveat.
             """;
     private final ApplicationAnalysisRoutingDomainService routing;
-    private final AiPromptRepository prompts;
     private final AiExecutionLogRepository logs;
     private final MarketFactorStudyEvidencePort evidence;
     private final MarketEventFactorAnalysisCompletionPort completion;
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
+    private final AiStructuredOutputParser structuredOutputParser;
 
-    public MarketFactorStudySynthesisDomainServiceImpl(ApplicationAnalysisRoutingDomainService routing, AiPromptRepository prompts,
-            AiExecutionLogRepository logs, MarketFactorStudyEvidencePort evidence, MarketEventFactorAnalysisCompletionPort completion) {
-        this.routing = routing; this.prompts = prompts; this.logs = logs; this.evidence = evidence; this.completion = completion;
+    public MarketFactorStudySynthesisDomainServiceImpl(ApplicationAnalysisRoutingDomainService routing,
+            AiExecutionLogRepository logs, MarketFactorStudyEvidencePort evidence, MarketEventFactorAnalysisCompletionPort completion,
+            AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(routing, logs, evidence, completion, promptRuntimeResolver, AiStructuredOutputParser.shared());
+    }
+
+    public MarketFactorStudySynthesisDomainServiceImpl(ApplicationAnalysisRoutingDomainService routing,
+            AiExecutionLogRepository logs, MarketFactorStudyEvidencePort evidence, MarketEventFactorAnalysisCompletionPort completion,
+            AiPromptRuntimeResolver promptRuntimeResolver, AiStructuredOutputParser structuredOutputParser) {
+        this.routing = routing; this.logs = logs; this.evidence = evidence; this.completion = completion;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver is required");
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
     }
 
     @Override public Result synthesize(Command command) {
@@ -52,13 +63,14 @@ public final class MarketFactorStudySynthesisDomainServiceImpl implements Market
         if (!"PASSED".equalsIgnoreCase(snapshot.leakageCheckStatus()) && !"PASS".equalsIgnoreCase(snapshot.leakageCheckStatus())) throw new IllegalStateException("Study leakage check must pass before AI synthesis");
         String input = json(snapshot.modelInput());
         if (input.length() > 120_000 || snapshot.evidenceRefs().isEmpty()) throw new IllegalArgumentException("Study evidence is unavailable or too large");
-        AiUsageBindingBO binding = routing.findBinding(CAPABILITY);
-        Prompt prompt = resolvePrompt(binding);
+        Prompt prompt = resolvePrompt();
         Exception last = null;
         for (AiModelBO model : routing.routeModels(CAPABILITY, null)) {
             Instant started = Instant.now(); String execution = "MFS-" + UUID.randomUUID().toString().replace("-", "");
             try {
-                AiCompletionResultBO answer = completion.complete(model, prompt.render(input), CAPABILITY);
+                AiExecutionContext context = new AiExecutionContext(execution, CAPABILITY, prompt.key(),
+                        prompt.version(), model.getProviderCode(), model.getModelCode(), command.tenant(), command.principal(), execution, TraceId.current());
+                AiCompletionResultBO answer = completion.complete(model, prompt.render(input), context);
                 ObjectNode parsed = parse(answer == null ? null : answer.getContent(), snapshot.evidenceRefs().keySet());
                 log(execution, prompt, model, input, answer, started, null);
                 return new Result(snapshot.studyId(), snapshot.status(), snapshot.dataCutoffAt(), snapshot.leakageCheckStatus(), snapshot.warnings(),
@@ -68,15 +80,14 @@ public final class MarketFactorStudySynthesisDomainServiceImpl implements Market
         throw new IllegalStateException("AI study synthesis failed: " + (last == null ? "no model result" : last.getMessage()), last);
     }
 
-    private Prompt resolvePrompt(AiUsageBindingBO binding) {
-        AiPromptBO value = binding == null || binding.getPromptId() == null ? null : prompts.findById(binding.getPromptId());
-        if (value == null || !AiConstants.STATUS_ACTIVE.equalsIgnoreCase(value.getStatus())) value = prompts.list(PROMPT_KEY, null, AiConstants.STATUS_ACTIVE).stream().filter(item -> PROMPT_KEY.equals(item.getPromptKey())).findFirst().orElse(null);
-        return value == null ? new Prompt(VERSION, SYSTEM, "{{study_input}}") : new Prompt(value.getPromptVersion(), value.getSystemPrompt(), value.getUserPromptTemplate());
+    private Prompt resolvePrompt() {
+        var resolved = promptRuntimeResolver.resolve(CAPABILITY, PROMPT_KEY, SYSTEM, "{{study_input}}");
+        return new Prompt(resolved.promptKey(), resolved.promptVersion(), resolved.systemPrompt(),
+                resolved.userPromptTemplate(), resolved);
     }
     private ObjectNode parse(String content, java.util.Set<String> refs) {
         try {
-            String text = content == null ? "" : content.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "");
-            JsonNode source = mapper.readTree(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1)).path("study_synthesis");
+            JsonNode source = mapper.readTree(structuredOutputParser.extractObject(content)).path("study_synthesis");
             if (!source.isObject()) throw new IllegalArgumentException("AI study synthesis must contain study_synthesis");
             ObjectNode result = mapper.createObjectNode(); result.put("summary", bounded(source.path("summary").asText(""), 900));
             ArrayNode findings = result.putArray("findings");
@@ -89,5 +100,7 @@ public final class MarketFactorStudySynthesisDomainServiceImpl implements Market
     private void log(String execution, Prompt prompt, AiModelBO model, String input, AiCompletionResultBO answer, Instant started, Exception error) { try { logs.create(AiExecutionLogBO.builder().executionNo(execution).capability(CAPABILITY).promptKey(PROMPT_KEY).promptVersion(prompt.version()).providerCode(model.getProviderCode()).modelCode(model.getModelCode()).status(error == null ? "SUCCEEDED" : "FAILED").inputTokens(answer == null ? 0 : answer.getInputTokens()).outputTokens(answer == null ? 0 : answer.getOutputTokens()).totalTokens(answer == null ? 0 : answer.getTotalTokens()).latencyMs(Duration.between(started, Instant.now()).toMillis()).requestJson(json(Map.of("studyInputPreview", bounded(input, AiConstants.MAX_LOG_TEXT_LENGTH)))).responseJson(json(Map.of("contentPreview", bounded(answer == null ? "" : answer.getContent(), AiConstants.MAX_LOG_TEXT_LENGTH)))).errorMessage(error == null ? null : bounded(error.getMessage(), 2000)).extra("{\"source\":\"market.factor-study\",\"rawResponseStored\":false}").build()); } catch (Exception ignored) { } }
     private String json(Object value) { try { return mapper.writeValueAsString(value); } catch (Exception ignored) { return "{}"; } }
     private String bounded(String value, int maximum) { String safe = value == null ? "" : value.trim(); return safe.length() <= maximum ? safe : safe.substring(0, maximum); }
-    private record Prompt(String version, String system, String template) { String render(String input) { return (system == null || system.isBlank() ? SYSTEM : system) + System.lineSeparator() + (template == null || template.isBlank() ? "{{study_input}}" : template).replace("{{study_input}}", input); } }
+    private record Prompt(String key, String version, String system, String template, AiPromptRuntimeResolver.AiPromptRuntime runtime) {
+        String render(String input) { return runtime.render(Map.of("study_input", input)); }
+    }
 }

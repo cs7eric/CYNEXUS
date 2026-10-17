@@ -11,9 +11,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import cn.cccs7.cynexus.ai.infra.ai.rag.SpringAiPgVectorConfiguration;
 
 @EnableScheduling
-@Import({CynexusDbAutoConfiguration.class, CynexusCacheAutoConfiguration.class, GlobalExceptionHandler.class})
+@Import({CynexusDbAutoConfiguration.class, CynexusCacheAutoConfiguration.class, GlobalExceptionHandler.class,
+        SpringAiPgVectorConfiguration.class})
 @EnableFeignClients(basePackageClasses = {
         FinanceDataFeignClient.class,
         KnowledgeBaseFeignClient.class,

@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KnowledgeBaseDocumentWriterImpl implements KnowledgeBaseDocumentWriter {
+    private static final String DEFAULT_TENANT = "default";
+    private static final String DEFAULT_OWNER = "default";
     private final KnowledgeBaseFeignClient client;
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -35,7 +37,9 @@ public class KnowledgeBaseDocumentWriterImpl implements KnowledgeBaseDocumentWri
             Result<Boolean> updated = client.updateDocument(KnowledgeDocumentDTO.builder().id(documentId).title(title)
                     .description(summaryDescription(marker, ai))
                     .content(content).contentFormat(KnowledgeBaseConstants.CONTENT_FORMAT_MARKDOWN)
-                    .status(KnowledgeBaseConstants.STATUS_DRAFT.toUpperCase()).tagIds(tagIds).categoryIds(categoryIds).build());
+                    .status(KnowledgeBaseConstants.STATUS_DRAFT.toUpperCase()).tagIds(tagIds).categoryIds(categoryIds)
+                    .tenantKey(DEFAULT_TENANT).ownerKey(DEFAULT_OWNER)
+                    .extra(metadata(taskId, sourceUrl)).build());
             if (updated != null && !updated.isFailed() && Boolean.TRUE.equals(updated.getData())) return documentId;
         }
         List<Long> categoryIds = resolveCategories(ai.categories());
@@ -46,7 +50,8 @@ public class KnowledgeBaseDocumentWriterImpl implements KnowledgeBaseDocumentWri
             Result<Long> created = client.createDocument(KnowledgeDocumentDTO.builder().title(title)
                     .description(summaryDescription(marker, ai)).content(content).contentFormat(KnowledgeBaseConstants.CONTENT_FORMAT_MARKDOWN)
                     .status(KnowledgeBaseConstants.STATUS_DRAFT.toUpperCase()).tagIds(tagIds).categoryIds(categoryIds)
-                    .extra(mapper.writeValueAsString(Map.of("source", "mp4", "mp4_task_id", taskId, "source_url", sourceUrl == null ? "" : sourceUrl))).build());
+                    .tenantKey(DEFAULT_TENANT).ownerKey(DEFAULT_OWNER)
+                    .extra(metadata(taskId, sourceUrl)).build());
             if (created == null || created.isFailed() || created.getData() == null) throw new IllegalStateException("knowledge base rejected draft");
             return created.getData();
         } catch (Exception exception) { throw new IllegalStateException("knowledge base draft creation failed", exception); }
@@ -95,6 +100,15 @@ public class KnowledgeBaseDocumentWriterImpl implements KnowledgeBaseDocumentWri
     private String summaryDescription(String marker, MediaTranscriptionAiResultBO ai) {
         String summary = ai.shortSummary() == null ? "" : ai.shortSummary().trim();
         return summary.isBlank() ? marker : marker + "\n" + summary;
+    }
+    private String metadata(String taskId, String sourceUrl) {
+        try {
+            return mapper.writeValueAsString(Map.of("source", "mp4", "mp4_task_id", taskId,
+                    "source_url", sourceUrl == null ? "" : sourceUrl, "tenantKey", DEFAULT_TENANT,
+                    "ownerKey", DEFAULT_OWNER, "sourceType", "mp4", "permissionScope", "owner"));
+        } catch (Exception exception) {
+            throw new IllegalStateException("knowledge base metadata serialization failed", exception);
+        }
     }
     private String code(String value) { return value.trim().toLowerCase().replaceAll("[^a-z0-9\\u4e00-\\u9fff]+", "-"); }
     private String limitTitle(String value) {

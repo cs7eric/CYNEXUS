@@ -1,0 +1,73 @@
+%% cynexus-ai · 工具调用链 + 能力治理
+%% 每个节点 = 一个真实执行步骤；每条边 = 真实传递的数据对象
+flowchart TD
+
+    CALL(["模型返回 toolCalls[]"]) -->|"AgentToolCall<br/>callId · toolCode · arguments(JSON 字符串)"| REG["AgentToolRegistry<br/>execute()"]
+
+    subgraph GOV["能力治理 · validateRuntimeBinding()（启动期 + 运行期）"]
+        V1["读取 ai_agent_capability<br/>code · runtimeEntry · schema"]
+        V1 -->|"绑定记录"| V2{"安全属性 readOnly /<br/>requiresConfirmation 一致?"}
+        V2 -->|"不一致"| VX1["拒绝注册 + 告警"]
+        V2 -->|"一致"| V3{"runtimeEntry 在<br/>运行时入口白名单?"}
+        V3 -->|"否"| VX2["拒绝注册"]
+        V3 -->|"是"| V4{"JSON Schema 与代码声明<br/>逐字节一致?"}
+        V4 -->|"否"| VX3["拒绝注册 + 记录 audit"]
+        V4 -->|"是"| VOK["能力可用 · 进注册表"]
+    end
+
+    VOK -.提供绑定.-> REG
+
+    subgraph EXEC["单次工具执行"]
+        REG -->|"toolCode"| E1["查注册表<br/>AgentCapabilityBinding"]
+        E1 -->|"未注册"| E2["AgentToolResult(false)<br/>errorText = 未知工具"]
+        E1 -->|"已注册"| E3{"安全校验<br/>readOnly? requiresConfirmation?"}
+        E3 -->|"写操作且未走确认"| E4["拒绝 → 返回需确认提示"]
+        E3 -->|"通过"| E5["JSON Schema 校验<br/>≤16000 字符 · 深度 ≤8"]
+        E5 -->|"不合法"| E6["AgentToolResult(false)<br/>参数校验失败"]
+        E5 -->|"合法"| E7["匹配 AgentToolHandler<br/>by toolCode"]
+        E7 -->|"AgentToolCall + 领域上下文"| E8["handler.execute()"]
+    end
+
+    subgraph HANDLERS["30+ ToolHandler · 按域分组"]
+        H1["market · 行情 / 板块 / 个股 / ETF / 情绪"]
+        H2["finance · 持仓 / 收支 / 预算"]
+        H3["knowledge · 知识库检索"]
+        H4["application_analysis · 应用分析"]
+    end
+
+    E8 -->|"分派"| H1
+    E8 -->|"分派"| H2
+    E8 -->|"分派"| H3
+    E8 -->|"分派"| H4
+
+    H1 -->|"原始数据"| NORM["结果归一化 + 截断<br/>防超上下文"]
+    H2 --> NORM
+    H3 --> NORM
+    H4 --> NORM
+
+    NORM -->|"AgentToolResult<br/>ok · payload · errorText · freshness"| BACK["回 AgentRunExecutionDomainService"]
+    E2 --> BACK
+    E4 --> BACK
+    E6 --> BACK
+
+    BACK -->|"一条 tool 结果"| PERSIST["写 ai_agent_run_step<br/>runNo · turnNo · callId · toolCode · 结果"]
+    PERSIST -->|"step 已落库"| MSG["构造 role=tool message<br/>tool_call_id = callId"]
+    MSG -->|"回灌 messages"| NEXT(["进入下一轮 turn"])
+
+    AUDIT[("ai_agent_capability_audit")] -.记录.-> VX3
+    AUDIT -.记录.-> VOK
+    STEPS[("ai_agent_run_step")] -.写.-> PERSIST
+
+    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a
+    classDef gov fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608
+    classDef exec fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d
+    classDef handler fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f
+    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f
+    classDef bad fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d
+
+    class CALL,NEXT entry
+    class V1,V2,V3,V4,VOK,VX1,VX2,VX3 gov
+    class REG,E1,E3,E5,E7,E8,NORM,BACK,PERSIST,MSG exec
+    class H1,H2,H3,H4 handler
+    class AUDIT,STEPS db
+    class E2,E4,E6 bad

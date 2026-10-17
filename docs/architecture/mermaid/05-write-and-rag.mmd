@@ -1,0 +1,69 @@
+%% cynexus-ai · 写操作确认链 + RAG 索引/问答链
+%% 每个节点 = 一个真实执行步骤；每条边 = 真实传递的数据对象
+flowchart TD
+
+    %% ==================== 写路径 ====================
+    subgraph WRITE["A · Agent 写路径（只读工具之外的唯一变更通道）"]
+        direction TB
+        W0(["Agent 产出写意图<br/>toolCode + arguments"]) -->|"toolCall"| W1["AgentWriteController<br/>POST /agent/write/preview"]
+        W1 -->|"preview 请求"| W2["AgentWriteDomainService<br/>preview()"]
+        W2 -->|"计算 payload 摘要"| W3["digest = SHA-256(payload)<br/>只存哈希 · 不存原文"]
+        W3 -->|"digest + ttl"| W4["生成一次性 token<br/>落 ai_agent_write_command"]
+        W4 -->|"AgentWritePreview<br/>摘要 · 影响范围 · token · 过期时间"| W5(["返回前端展示"])
+        W5 -->|"用户在 UI 显式点确认"| W6["POST /agent/write/confirm<br/>携带 token"]
+        W6 -->|"token"| W7{"token 存在且未过期?"}
+        W7 -->|"否"| WX["拒绝 · 需重新 preview"]
+        W7 -->|"是"| W8{"digest 与 payload 一致?"}
+        W8 -->|"否"| WX
+        W8 -->|"是"| W9["AgentWriteExecutorPort<br/>执行真实写操作"]
+        W9 -->|"写结果"| W10["写 ai_agent_write_audit<br/>who · what · when · digest"]
+        W10 -->|"审计完成"| W11["标记 command 已消费 · token 失效"]
+        W11 -->|"执行结果"| WOUT(["结果回灌 Agent 上下文"])
+    end
+
+    WCMD[("ai_agent_write_command<br/>token · digest · expireAt · consumed")] -.读写.-> W4
+    WCMD -.读写.-> W7
+    WAUD[("ai_agent_write_audit")] -.写.-> W10
+
+    %% ==================== RAG 索引 ====================
+    subgraph INDEX["B · RAG 索引链（异步 · RabbitMQ 驱动）"]
+        direction TB
+        I0(["知识库文档上传/更新"]) -->|"docId"| I1["发消息到 RabbitMQ<br/>index.exchange"]
+        I1 -->|"index 消息"| I2["KnowledgeIndexRabbitListener<br/>消费"]
+        I2 -->|"docId"| I3["KnowledgeIndexingService<br/>切块 chunk"]
+        I3 -->|"List&lt;Chunk&gt;"| I4["Embedding 调用<br/>UnifiedAiModelExecutor"]
+        I4 -->|"vector[]"| I5["写入 PGVector"]
+        I5 -->|"写入完成"| I6["更新文档索引状态"]
+    end
+
+    VEC[("vector_store<br/>pgvector 扩展")] -.写.-> I5
+    I4 -.旁路.-> EMBPROV[("Embedding Provider")]
+
+    %% ==================== RAG 问答 ====================
+    subgraph QA["C · RAG 问答链"]
+        direction TB
+        Q0(["用户提问"]) -->|"question + identity"| Q1["KnowledgeRagAnswerDomainService"]
+        Q1 -->|"query + 权限范围"| Q2["向量检索<br/>PGVector similarity search"]
+        VEC -.读.-> Q2
+        Q2 -->|"Top-K 片段"| Q3["权限过滤<br/>只保留授权文档"]
+        Q3 -->|"已授权片段"| Q4["拼装上下文<br/>每段标 [Source N]"]
+        Q4 -->|"context + question"| Q5["AiPromptRuntimeResolver<br/>resolve(knowledge.*)"]
+        Q5 -->|"模板"| Q6["渲染 + routeModels()"]
+        Q6 -->|"AiCompletionRequest"| Q7["UnifiedAiModelExecutor"]
+        Q7 -->|"HTTP"| QLLM[("Provider API")]
+        QLLM -->|"AiCompletionResultBO"| Q8["解析答案 + 抽取引用 [Source N]"]
+        Q8 -->|"answer + sources"| Q9(["返回答案 + 引用出处"])
+    end
+
+    Q7 -.旁路.-> LF["Langfuse 观测"]
+
+    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a
+    classDef write fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d
+    classDef rag fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d
+    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f
+    classDef bad fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608
+
+    class W0,W5,W6,WOUT,I0,Q0,Q9 entry
+    class W1,W2,W3,W4,W7,W8,W9,W10,W11,WX write
+    class I1,I2,I3,I4,I5,I6,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8 rag
+    class WCMD,WAUD,VEC,EMBPROV,QLLM,LF db

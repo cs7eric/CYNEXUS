@@ -359,6 +359,16 @@ const AI_CAPABILITIES: AiCapability[] = [
     prompt_key: "knowledge_base_document_generate",
   },
   {
+    code: "knowledge_base_rag_answer",
+    label: "Knowledge Base RAG answer",
+    group: "Knowledge Base",
+    description: "Answer questions from tenant-scoped knowledge sources with source citations.",
+    entry: "Knowledge Base / Search / AI Answer",
+    reads_binding: true,
+    runtime: "KnowledgeBaseSearchAppService.answer",
+    prompt_key: "knowledge_base_rag_answer",
+  },
+  {
     code: "workspace_chat",
     label: "Workspace chat",
     group: "Workspace AI",

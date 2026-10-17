@@ -258,6 +258,7 @@ export default function ApiWorkflowsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [unavailableSources, setUnavailableSources] = useState<string[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
   const [previewItem, setPreviewItem] = useState<ApiWorkflowProcess | null>(null)
@@ -265,7 +266,23 @@ export default function ApiWorkflowsPage() {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
 
-  const load = useCallback(async (targetPage = page, targetPageSize = pageSize, background = false) => { if (background) setRefreshing(true); else setLoading(true); setError(null); try { const result = await listApiWorkflows(targetPage, targetPageSize, typeFilter, statusFilter); setItems(result.items); setPagination(result) } catch (cause) { setError(cause instanceof Error ? cause.message : "加载 API workflow 失败") } finally { setLoading(false); setRefreshing(false) } }, [page, pageSize, statusFilter, typeFilter])
+  const load = useCallback(async (targetPage = page, targetPageSize = pageSize, background = false) => {
+    if (background) setRefreshing(true)
+    else setLoading(true)
+    setError(null)
+    try {
+      const result = await listApiWorkflows(targetPage, targetPageSize, typeFilter, statusFilter)
+      setItems(result.items)
+      setPagination(result)
+      setUnavailableSources(result.unavailableSources ?? [])
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "加载 API workflow 失败")
+      setUnavailableSources([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [page, pageSize, statusFilter, typeFilter])
   useEffect(() => { const timer = window.setTimeout(() => { void load() }, 0); return () => window.clearTimeout(timer) }, [load])
   useEffect(() => { if (!items.some((item) => item.status === "QUEUED" || item.status === "RUNNING")) return; const timer = window.setInterval(() => void load(page, pageSize, true), 3000); return () => window.clearInterval(timer) }, [items, load, page, pageSize])
   const retry = useCallback(async (item: ApiWorkflowProcess) => { setRetryingId(item.id); try { await retryApiWorkflow(item); await load(page, pageSize, true); notification.success({ title: "已重新入队", description: "API workflow 将继续执行" }) } catch (cause) { notification.danger({ title: "重试失败", description: cause instanceof Error ? cause.message : "重试失败" }) } finally { setRetryingId(null) } }, [load, page, pageSize])
@@ -327,6 +344,7 @@ export default function ApiWorkflowsPage() {
         </div>
         <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2 border-t border-border/60 pt-3"><ListFilter className="size-4 text-muted-foreground" /><Select value={typeFilter} onValueChange={(value) => applyFilter("type", value)}><SelectTrigger size="sm" aria-label="Filter workflow type" className="h-8 w-[132px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{typeFilterOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select><Select value={statusFilter} onValueChange={(value) => applyFilter("status", value)}><SelectTrigger size="sm" aria-label="Filter workflow status" className="h-8 w-[132px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{statusFilterOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></div>
         {error ? <Alert className="mt-3 shrink-0" variant="destructive"><AlertTitle>API workflow 加载失败</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
+        {!error && unavailableSources.length ? <Alert className="mt-3 shrink-0"><CircleAlert /><AlertTitle>部分工作流记录暂不可用</AlertTitle><AlertDescription>{unavailableSources.join("、")} 服务不可用，当前列表和总数仅包含已加载的记录。</AlertDescription></Alert> : null}
         {loading ? <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div> : items.length ? <>
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border/60 divide-y divide-border/60">{items.map((item) => <ApiWorkflowRecord key={item.id} item={item} open={openId === item.id} onOpenChange={(open) => setOpenId(open ? item.id : null)} onRetry={() => void retry(item)} onPreview={() => void preview(item)} retrying={retryingId === item.id} />)}</div>
           {pagination ? <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3"><div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground"><span className="font-mono tabular-nums">Showing {start}-{end} of {pagination.total}</span><span className="hidden text-border sm:inline">·</span><span className="hidden sm:inline">Rows</span><Select value={String(pageSize)} onValueChange={(value) => { const next = Number(value); setPageSize(next); setPage(1) }}><SelectTrigger size="sm" aria-label="Workflows per page" className="h-7 w-[104px] border-0 bg-muted/45 px-2 text-xs shadow-none"><SelectValue /></SelectTrigger><SelectContent side="top">{PAGE_SIZE_OPTIONS.map((option) => <SelectItem key={option} value={String(option)}>{option} / page</SelectItem>)}</SelectContent></Select></div>{pagination.totalPages > 1 ? <Pagination className="mx-0 w-auto justify-end"><PaginationContent><PaginationItem><PaginationPrevious className="[&>span]:hidden" disabled={loading || !pagination.hasPrevious} onClick={() => setPage((current) => Math.max(1, current - 1))} /></PaginationItem>{pages.map((item, index) => { const previous = pages[index - 1]; return <Fragment key={item}>{previous != null && item - previous > 1 ? <PaginationItem><PaginationEllipsis /></PaginationItem> : null}<PaginationItem><PaginationLink disabled={loading} isActive={item === pagination.page} onClick={() => setPage(item)}>{item}</PaginationLink></PaginationItem></Fragment> })}<PaginationItem><PaginationNext className="[&>span]:hidden" disabled={loading || !pagination.hasNext} onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))} /></PaginationItem></PaginationContent></Pagination> : null}</div> : null}

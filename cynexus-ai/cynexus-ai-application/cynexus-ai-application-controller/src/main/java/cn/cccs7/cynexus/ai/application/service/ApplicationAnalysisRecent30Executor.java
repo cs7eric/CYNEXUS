@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.application.service;
 
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisExecutionDomainService;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisKlineInputPort;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
@@ -11,11 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApplicationAnalysisRecent30Executor {
 
     private final ApplicationAnalysisExecutionDomainService executionDomainService;
-    private final ApplicationAnalysisKlineInputBuilder inputBuilder;
+    private final ApplicationAnalysisKlineInputPort inputBuilder;
 
     public ApplicationAnalysisRecent30Executor(
             ApplicationAnalysisExecutionDomainService executionDomainService,
-            ApplicationAnalysisKlineInputBuilder inputBuilder) {
+            ApplicationAnalysisKlineInputPort inputBuilder) {
         this.executionDomainService = executionDomainService;
         this.inputBuilder = inputBuilder;
     }

@@ -10,11 +10,13 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisStructu
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
+import cn.cccs7.cynexus.ai.domain.validation.BoundedStructuredOutputRepairPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.ApplicationAnalysisPageBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisPageRepository;
 import cn.cccs7.cynexus.common.core.exception.BizException;
 import cn.cccs7.cynexus.common.core.exception.ErrorCode;
@@ -56,8 +58,9 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
     private final ApplicationAnalysisRoutingDomainService routingService;
     private final ApplicationAnalysisCompletionPort completionPort;
     private final ApplicationAnalysisStructuredOutputPort structuredOutputPort;
-    private final AiPromptRepository promptRepository;
+    private final AiStructuredOutputParser structuredOutputParser;
     private final AiExecutionLogRepository executionLogRepository;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
     private final ApplicationAnalysisSnapshotDomainPolicy snapshotPolicy;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -66,14 +69,36 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
             ApplicationAnalysisRoutingDomainService routingService,
             ApplicationAnalysisCompletionPort completionPort,
             ApplicationAnalysisStructuredOutputPort structuredOutputPort,
-            AiPromptRepository promptRepository,
             AiExecutionLogRepository executionLogRepository) {
+        this(repository, routingService, completionPort, structuredOutputPort, executionLogRepository, null);
+    }
+
+    public ApplicationAnalysisExecutionDomainServiceImpl(
+            ApplicationAnalysisPageRepository repository,
+            ApplicationAnalysisRoutingDomainService routingService,
+            ApplicationAnalysisCompletionPort completionPort,
+            ApplicationAnalysisStructuredOutputPort structuredOutputPort,
+            AiExecutionLogRepository executionLogRepository,
+            AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(repository, routingService, completionPort, structuredOutputPort, executionLogRepository,
+                promptRuntimeResolver, AiStructuredOutputParser.shared());
+    }
+
+    public ApplicationAnalysisExecutionDomainServiceImpl(
+            ApplicationAnalysisPageRepository repository,
+            ApplicationAnalysisRoutingDomainService routingService,
+            ApplicationAnalysisCompletionPort completionPort,
+            ApplicationAnalysisStructuredOutputPort structuredOutputPort,
+            AiExecutionLogRepository executionLogRepository,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
         this.repository = repository;
         this.routingService = routingService;
         this.completionPort = completionPort;
         this.structuredOutputPort = structuredOutputPort;
-        this.promptRepository = promptRepository;
         this.executionLogRepository = executionLogRepository;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver is required");
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
         this.snapshotPolicy = new ApplicationAnalysisSnapshotDomainPolicy();
     }
 
@@ -106,8 +131,10 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
             String executionNo = "AI-" + UUID.randomUUID().toString().replace("-", "");
             Instant startedAt = Instant.now();
             try {
-                AiCompletionResultBO completion = completionPort.complete(model, promptText, CAPABILITY);
-                ObjectNode sanitized = validateAndSanitize(completion, command.target(), analysisInput);
+                AiExecutionContext context = new AiExecutionContext(executionNo, CAPABILITY, prompt.promptKey(),
+                        prompt.promptVersion(), model.getProviderCode(), model.getModelCode(), null, null, null, null);
+                AiCompletionResultBO completion = completionPort.complete(model, promptText, context);
+                ObjectNode sanitized = validateAndSanitize(completion, model, context, command.target(), analysisInput);
                 ObjectNode payload = buildRunPayload(analysisInput, sanitized, completion);
                 SnapshotWriteResult snapshot = writeDailySnapshot(command.target(), payload, command.requestedDate());
                 persistRun(command.target(), payload, snapshot);
@@ -123,13 +150,17 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
         throw new BizException(ErrorCode.INTERNAL_ERROR, "Application recent30 AI failed: " + reason);
     }
 
-    private ObjectNode validateAndSanitize(AiCompletionResultBO completion,
+    private ObjectNode validateAndSanitize(AiCompletionResultBO completion, AiModelBO model, AiExecutionContext context,
                                             ApplicationAnalysisPageBO.Target target,
                                             Map<String, Object> analysisInput) {
         if (completion == null || completion.getContent() == null || completion.getContent().isBlank()) {
             throw new IllegalStateException("AI returned an empty completion");
         }
-        String extracted = structuredOutputPort.extractObject(completion.getContent());
+        String extracted = BoundedStructuredOutputRepairPolicy.parseOrRepair(completion.getContent(), null,
+                structuredOutputParser, 32_000,
+                raw -> completionPort.complete(model,
+                        "Repair this application analysis response into valid JSON only. Preserve supported facts only.\n"
+                                + snapshotPolicy.truncate(raw, 24_000), context.repairAttempt()).getContent()).json();
         ObjectNode root = snapshotPolicy.readObject(extracted);
         if (!root.has("analysis_result") && !hasLegacyResultFields(root)) {
             throw new IllegalStateException("AI response does not contain analysis_result");
@@ -147,33 +178,15 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
     }
 
     private PromptRuntime resolvePrompt() {
-        AiUsageBindingBO binding = routingService.findBinding(CAPABILITY);
-        if (binding != null && binding.getPromptId() != null) {
-            AiPromptBO boundPrompt = promptRepository.findById(binding.getPromptId());
-            if (boundPrompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(boundPrompt.getStatus())) {
-                return prompt(boundPrompt);
-            }
-        }
-        String promptVersion = routingService.promptVersion(binding);
-        List<AiPromptBO> prompts = promptRepository.list(PROMPT_KEY, null, AiConstants.STATUS_ACTIVE).stream()
-                .filter(item -> PROMPT_KEY.equals(item.getPromptKey()))
-                .filter(item -> promptVersion == null || promptVersion.isBlank()
-                        || promptVersion.equals(item.getPromptVersion()))
-                .toList();
-        return prompts.isEmpty() ? new PromptRuntime(PROMPT_KEY, "fallback-service-default",
-                DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE) : prompt(prompts.getFirst());
-    }
-
-    private PromptRuntime prompt(AiPromptBO prompt) {
-        return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(),
-                defaultString(prompt.getSystemPrompt(), DEFAULT_SYSTEM_PROMPT),
-                defaultString(prompt.getUserPromptTemplate(), DEFAULT_USER_PROMPT_TEMPLATE));
+        var resolved = promptRuntimeResolver.resolve(CAPABILITY, PROMPT_KEY,
+                DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE);
+        return new PromptRuntime(resolved.promptKey(), resolved.promptVersion(),
+                resolved.systemPrompt(), resolved.userPromptTemplate(), resolved);
     }
 
     private String renderPrompt(PromptRuntime prompt, Map<String, Object> input) {
         String inputJson = toJson(input);
-        return prompt.systemPrompt() + System.lineSeparator()
-                + prompt.userPromptTemplate().replace("{{analysis_input}}", inputJson);
+        return prompt.runtime().render(Map.of("analysis_input", inputJson));
     }
 
     private ObjectNode buildRunPayload(Map<String, Object> input, ObjectNode sanitized,
@@ -268,7 +281,8 @@ public class ApplicationAnalysisExecutionDomainServiceImpl
     }
 
     private record PromptRuntime(String promptKey, String promptVersion,
-                                 String systemPrompt, String userPromptTemplate) {
+                                 String systemPrompt, String userPromptTemplate,
+                                 AiPromptRuntimeResolver.AiPromptRuntime runtime) {
     }
 
     private record SnapshotWriteResult(LocalDate date, String snapshotPath,

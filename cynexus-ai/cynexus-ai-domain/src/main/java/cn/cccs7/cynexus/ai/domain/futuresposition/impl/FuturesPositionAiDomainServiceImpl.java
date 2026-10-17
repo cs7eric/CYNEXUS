@@ -1,17 +1,17 @@
 package cn.cccs7.cynexus.ai.domain.futuresposition.impl;
 
-import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.futuresposition.FuturesPositionAiCompletionPort;
 import cn.cccs7.cynexus.ai.domain.futuresposition.FuturesPositionAiDomainPolicy;
 import cn.cccs7.cynexus.ai.domain.futuresposition.FuturesPositionAiDomainService;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
+import cn.cccs7.cynexus.ai.domain.validation.BoundedStructuredOutputRepairPolicy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -21,10 +21,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import cn.cccs7.cynexus.common.core.constant.TraceId;
 
 public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDomainService {
 
-    private static final String FALLBACK_PROMPT_VERSION = "v1";
     private static final String DEFAULT_SYSTEM_PROMPT = """
             你是 Cynexus 的期货会员持仓结构研究助手，只分析 IF、IH、IM、IC 四个中金所股指期货品种。
             你只能使用输入中的当前快照、历史序列和会员排名，不得补充外部行情、新闻或未经输入支持的因果关系。
@@ -38,20 +38,31 @@ public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDoma
             """;
 
     private final ApplicationAnalysisRoutingDomainService routingService;
-    private final AiPromptRepository promptRepository;
     private final AiExecutionLogRepository executionLogRepository;
     private final FuturesPositionAiCompletionPort completionPort;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final FuturesPositionAiDomainPolicy policy = new FuturesPositionAiDomainPolicy();
+    private final AiStructuredOutputParser structuredOutputParser;
 
     public FuturesPositionAiDomainServiceImpl(ApplicationAnalysisRoutingDomainService routingService,
-                                              AiPromptRepository promptRepository,
                                               AiExecutionLogRepository executionLogRepository,
-                                              FuturesPositionAiCompletionPort completionPort) {
+                                              FuturesPositionAiCompletionPort completionPort,
+                                              AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(routingService, executionLogRepository, completionPort, promptRuntimeResolver,
+                AiStructuredOutputParser.shared());
+    }
+
+    public FuturesPositionAiDomainServiceImpl(ApplicationAnalysisRoutingDomainService routingService,
+                                              AiExecutionLogRepository executionLogRepository,
+                                              FuturesPositionAiCompletionPort completionPort,
+                                              AiPromptRuntimeResolver promptRuntimeResolver,
+                                              AiStructuredOutputParser structuredOutputParser) {
         this.routingService = routingService;
-        this.promptRepository = promptRepository;
         this.executionLogRepository = executionLogRepository;
         this.completionPort = completionPort;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver");
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
     }
 
     @Override
@@ -63,8 +74,7 @@ public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDoma
         if (inputJson.length() > 240_000) {
             throw new IllegalArgumentException("期货持仓分析数据过大，请缩小历史范围后重试");
         }
-        AiUsageBindingBO binding = routingService.findBinding(CAPABILITY);
-        PromptRuntime prompt = resolvePrompt(binding);
+        PromptRuntime prompt = resolvePrompt();
         String promptText = render(prompt, inputJson);
         List<AiModelBO> models = routingService.routeModels(CAPABILITY, null);
         if (models == null || models.isEmpty()) {
@@ -76,8 +86,10 @@ public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDoma
             Instant startedAt = Instant.now();
             String executionNo = "FPA-" + UUID.randomUUID().toString().replace("-", "");
             try {
-                AiCompletionResultBO completion = completionPort.complete(model, promptText, CAPABILITY);
-                ObjectNode analysis = parseAndValidate(completion == null ? null : completion.getContent());
+                AiExecutionContext context = new AiExecutionContext(executionNo, CAPABILITY, prompt.promptKey(), prompt.promptVersion(),
+                        model.getProviderCode(), model.getModelCode(), null, null, executionNo, TraceId.current());
+                AiCompletionResultBO completion = completionPort.complete(model, promptText, context);
+                ObjectNode analysis = parseAndValidate(completion == null ? null : completion.getContent(), model, context);
                 recordExecution(executionNo, prompt, model, inputJson, completion, startedAt, null);
                 return new AnalysisResult(varietyCode, value(command.instrumentCode()), value(command.tradeDate()), analysis,
                         completion.getProviderCode(), completion.getModelCode(), prompt.promptVersion());
@@ -89,45 +101,29 @@ public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDoma
         throw new IllegalStateException("期货持仓 AI 分析失败：" + (last == null ? "无可用模型" : last.getMessage()), last);
     }
 
-    private PromptRuntime resolvePrompt(AiUsageBindingBO binding) {
-        if (binding != null && binding.getPromptId() != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
-                return prompt(prompt);
-            }
-        }
-        String version = routingService.promptVersion(binding);
-        List<AiPromptBO> prompts = promptRepository.list(PROMPT_KEY, null, AiConstants.STATUS_ACTIVE).stream()
-                .filter(item -> PROMPT_KEY.equals(item.getPromptKey()))
-                .filter(item -> version == null || version.isBlank() || version.equals(item.getPromptVersion()))
-                .toList();
-        return prompts.isEmpty() ? new PromptRuntime(PROMPT_KEY, FALLBACK_PROMPT_VERSION,
-                DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT) : prompt(prompts.getFirst());
-    }
-
-    private PromptRuntime prompt(AiPromptBO prompt) {
-        return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(),
-                defaultString(prompt.getSystemPrompt(), DEFAULT_SYSTEM_PROMPT),
-                defaultString(prompt.getUserPromptTemplate(), DEFAULT_USER_PROMPT));
+    private PromptRuntime resolvePrompt() {
+        var resolved = promptRuntimeResolver.resolve(CAPABILITY, PROMPT_KEY, DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT);
+        return new PromptRuntime(resolved.promptKey(), resolved.promptVersion(), resolved);
     }
 
     private String render(PromptRuntime prompt, String inputJson) {
-        return prompt.systemPrompt() + System.lineSeparator()
-                + prompt.userPromptTemplate().replace("{{analysis_input}}", inputJson);
+        return prompt.runtime().render(Map.of("analysis_input", inputJson));
     }
 
-    private ObjectNode parseAndValidate(String content) throws Exception {
-        if (content == null || content.isBlank()) throw new IllegalStateException("AI 返回为空");
-        String json = content.trim();
-        int start = json.indexOf('{');
-        int end = json.lastIndexOf('}');
-        if (start < 0 || end <= start) throw new IllegalStateException("AI 未返回 JSON 对象");
-        JsonNode root = objectMapper.readTree(json.substring(start, end + 1));
+    private ObjectNode parseAndValidate(String content, AiModelBO model, AiExecutionContext context) throws Exception {
+        var parsed = BoundedStructuredOutputRepairPolicy.parseOrRepair(content, null, structuredOutputParser, 32_000,
+                raw -> completionPort.complete(model, promptRepair(raw), context.repairAttempt()).getContent());
+        JsonNode root = objectMapper.readTree(parsed.json());
         JsonNode result = root.path("analysis_result");
         if (!result.isObject()) result = root.path("analysisResult");
         if (!result.isObject()) result = root;
         if (!result.isObject()) throw new IllegalStateException("AI 返回缺少 analysis_result");
         return normalizeResult((ObjectNode) result);
+    }
+
+    private String promptRepair(String raw) {
+        return "修复以下模型输出为合法 JSON。只能保留原输出中有依据的字段，不得新增事实、交易建议或解释。"
+                + "只返回 JSON，不要 Markdown。原始输出：\n" + truncate(raw, 24_000);
     }
 
     private ObjectNode normalizeResult(ObjectNode source) {
@@ -193,8 +189,8 @@ public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDoma
                     .outputTokens(completion == null ? 0 : completion.getOutputTokens())
                     .totalTokens(completion == null ? 0 : completion.getTotalTokens())
                     .latencyMs(Duration.between(startedAt, Instant.now()).toMillis())
-                    .requestJson(toJson(Map.of("analysisInput", truncate(inputJson, AiConstants.MAX_LOG_TEXT_LENGTH))))
-                    .responseJson(toJson(Map.of("contentPreview", truncate(completion == null ? "" : completion.getContent(), AiConstants.MAX_LOG_TEXT_LENGTH))))
+                    .requestJson(toJson(Map.of("analysisInput", truncate(inputJson, 4000))))
+                    .responseJson(toJson(Map.of("contentPreview", truncate(completion == null ? "" : completion.getContent(), 4000))))
                     .errorMessage(error == null ? null : truncate(error.getMessage(), 2000))
                     .extra("{\"rawResponseStored\":false}").build());
         } catch (Exception ignored) {
@@ -215,15 +211,11 @@ public class FuturesPositionAiDomainServiceImpl implements FuturesPositionAiDoma
         return value.length() <= limit ? value : value.substring(0, limit);
     }
 
-    private String defaultString(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value.trim();
-    }
-
     private String value(String value) {
         return value == null ? "" : value;
     }
 
     private record PromptRuntime(String promptKey, String promptVersion,
-                                 String systemPrompt, String userPromptTemplate) {
+                                 AiPromptRuntimeResolver.AiPromptRuntime runtime) {
     }
 }

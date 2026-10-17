@@ -75,8 +75,8 @@ class ApplicationAnalysisExecutionDomainServiceTest {
                 new RoutingService(models),
                 completion,
                 raw -> raw,
-                new PromptRepository(),
-                repository);
+                repository,
+                (capability, promptKey, system, template) -> new cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver.AiPromptRuntime(promptKey, "v1", system, template));
     }
 
     private static final class RoutingService implements ApplicationAnalysisRoutingDomainService {

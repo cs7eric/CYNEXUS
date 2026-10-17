@@ -2,6 +2,17 @@ server:
   port: 18081
 
 spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:cynexus}
+    password: ${RABBITMQ_PASSWORD:C020611.}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
   autoconfigure:
     exclude:
       - org.jobrunr.spring.autoconfigure.JobRunrAutoConfiguration
@@ -10,6 +21,14 @@ spring:
       - org.jobrunr.spring.autoconfigure.storage.JobRunrDocumentDBStorageAutoConfiguration
       - org.jobrunr.spring.autoconfigure.storage.JobRunrSqlStorageAutoConfiguration
       - org.jobrunr.spring.autoconfigure.metrics.JobRunrMetricsAutoConfiguration
+      # Provider clients are built dynamically from database routing. Disable Spring AI's
+      # static OpenAI auto-configurations so startup does not require a global API key.
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
   application:
     name: cynexus-ai
   config:
@@ -48,6 +67,11 @@ spring:
       password: ${REDIS_PASSWORD:C020611.}
 
 cynexus:
+  messaging:
+    rabbit:
+      enabled: ${CYNEXUS_MESSAGING_RABBIT_ENABLED:true}
+      mandatory: true
+      confirm-timeout: ${CYNEXUS_RABBIT_CONFIRM_TIMEOUT:5s}
   ai:
     platform:
       enabled: ${CYNEXUS_AI_PLATFORM_ENABLED:false}
@@ -66,13 +90,18 @@ cynexus:
           base-url: ${CYNEXUS_AI_DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
           api-key-env: CYNEXUS_AI_DASHSCOPE_API_KEY
           chat-model: ${CYNEXUS_AI_DASHSCOPE_CHAT_MODEL:qwen-plus}
-          embedding-model: ${CYNEXUS_AI_DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
-      rag:
-        vector-store: ${CYNEXUS_AI_RAG_VECTOR_STORE:pgvector}
-        embedding-dimensions: ${CYNEXUS_AI_RAG_EMBEDDING_DIMENSIONS:1024}
-      speech:
-        asr-model: ${CYNEXUS_AI_ASR_MODEL:paraformer-realtime-v2}
-        tts-model: ${CYNEXUS_AI_TTS_MODEL:cosyvoice-v1}
+          embedding-model: ${CYNEXUS_AI_DASHSCOPE_EMBEDDING_MODEL:text-embedding-v4}
+    rag:
+      enabled: ${CYNEXUS_AI_RAG_ENABLED:false}
+      vector-store: ${CYNEXUS_AI_RAG_VECTOR_STORE:pgvector}
+      embedding-dimensions: ${CYNEXUS_AI_RAG_EMBEDDING_DIMENSIONS:1024}
+      embedding-model: ${CYNEXUS_AI_RAG_EMBEDDING_MODEL:text-embedding-v4}
+      embedding-base-url: ${CYNEXUS_AI_RAG_EMBEDDING_BASE_URL:${cynexus.ai.platform.providers.dashscope.base-url}}
+      embedding-api-key-env: ${CYNEXUS_AI_RAG_EMBEDDING_API_KEY_ENV:${cynexus.ai.platform.providers.dashscope.api-key-env}}
+      vector-table: ${CYNEXUS_AI_RAG_VECTOR_TABLE:cynexus_appl_ai.vector_store}
+    speech:
+      asr-model: ${CYNEXUS_AI_ASR_MODEL:paraformer-realtime-v2}
+      tts-model: ${CYNEXUS_AI_TTS_MODEL:cosyvoice-v1}
     market-information:
       deepseek-live-limit: ${CYNEXUS_AI_DEEPSEEK_LIVE_LIMIT:0}
     langfuse:
@@ -83,6 +112,10 @@ cynexus:
     security:
       provider-allowed-origins: ${CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS:https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://dashscope.aliyuncs.com}
       langfuse-allowed-origins: ${CYNEXUS_AI_LANGFUSE_ALLOWED_ORIGINS:http://127.0.0.1:33000,http://cynexus-langfuse-web:3000}
+    agentscope:
+      enabled: ${CYNEXUS_AI_AGENTSCOPE_ENABLED:false}
+      endpoint: ${CYNEXUS_AI_AGENTSCOPE_ENDPOINT:}
+      token: ${CYNEXUS_AI_AGENTSCOPE_TOKEN:}
 
 management:
   endpoints:

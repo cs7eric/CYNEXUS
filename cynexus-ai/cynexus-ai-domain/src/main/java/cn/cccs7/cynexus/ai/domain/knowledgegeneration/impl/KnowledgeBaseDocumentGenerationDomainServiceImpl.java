@@ -4,13 +4,12 @@ import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.knowledgebase.KnowledgeBaseDocumentDraftPolicy;
-import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseDocumentGenerationDomainService;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseDocumentGenerationPromptPolicy;
+import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseDocumentGenerationDomainService;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseGenerationAttempt;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseGenerationCommand;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseGenerationOutcome;
@@ -22,7 +21,8 @@ import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerati
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationFallbackModelPort;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationOutputParserPort;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationRoutingParametersPort;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
@@ -42,48 +42,32 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
 
     private final AiUsageBindingRepository bindingRepository;
     private final AiProviderRepository providerRepository;
-    private final AiPromptRepository promptRepository;
     private final AiExecutionLogRepository executionLogRepository;
     private final KnowledgeBaseGenerationFallbackModelPort fallbackModelPort;
     private final KnowledgeBaseGenerationRoutingParametersPort routingParametersPort;
     private final KnowledgeBaseGenerationCompletionPort completionPort;
     private final KnowledgeBaseGenerationOutputParserPort outputParserPort;
     private final KnowledgeBaseDocumentDraftPolicy draftPolicy;
-    private final KnowledgeBaseDocumentGenerationPromptPolicy promptPolicy;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
 
     public KnowledgeBaseDocumentGenerationDomainServiceImpl(AiUsageBindingRepository bindingRepository,
                                                               AiProviderRepository providerRepository,
-                                                              AiPromptRepository promptRepository,
-                                                              KnowledgeBaseGenerationFallbackModelPort fallbackModelPort,
-                                                              KnowledgeBaseGenerationRoutingParametersPort routingParametersPort,
-                                                              KnowledgeBaseGenerationCompletionPort completionPort,
-                                                              KnowledgeBaseGenerationOutputParserPort outputParserPort,
-                                                              KnowledgeBaseDocumentDraftPolicy draftPolicy,
-                                                              KnowledgeBaseDocumentGenerationPromptPolicy promptPolicy) {
-        this(bindingRepository, providerRepository, promptRepository, log -> null, fallbackModelPort,
-                routingParametersPort, completionPort, outputParserPort, draftPolicy, promptPolicy);
-    }
-
-    public KnowledgeBaseDocumentGenerationDomainServiceImpl(AiUsageBindingRepository bindingRepository,
-                                                              AiProviderRepository providerRepository,
-                                                              AiPromptRepository promptRepository,
                                                               AiExecutionLogRepository executionLogRepository,
                                                               KnowledgeBaseGenerationFallbackModelPort fallbackModelPort,
                                                               KnowledgeBaseGenerationRoutingParametersPort routingParametersPort,
                                                               KnowledgeBaseGenerationCompletionPort completionPort,
                                                               KnowledgeBaseGenerationOutputParserPort outputParserPort,
                                                               KnowledgeBaseDocumentDraftPolicy draftPolicy,
-                                                              KnowledgeBaseDocumentGenerationPromptPolicy promptPolicy) {
+                                                              AiPromptRuntimeResolver promptRuntimeResolver) {
         this.bindingRepository = bindingRepository;
         this.providerRepository = providerRepository;
-        this.promptRepository = promptRepository;
         this.executionLogRepository = executionLogRepository;
         this.fallbackModelPort = fallbackModelPort;
         this.routingParametersPort = routingParametersPort;
         this.completionPort = completionPort;
         this.outputParserPort = outputParserPort;
         this.draftPolicy = draftPolicy;
-        this.promptPolicy = promptPolicy;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver is required");
     }
 
     @Override
@@ -114,10 +98,12 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
         for (AiModelBO model : models) {
             Instant startedAt = Instant.now();
             String executionNo = "AI-" + UUID.randomUUID().toString().replace("-", "");
+            AiExecutionContext context = new AiExecutionContext(executionNo,
+                    KnowledgeBaseDocumentGenerationPromptPolicy.CAPABILITY, prompt.promptKey(), prompt.promptVersion(),
+                    model.getProviderCode(), model.getModelCode(), null, null, executionNo, null);
             AiCompletionResultBO completion = null;
             try {
-                completion = completionPort.complete(model, requestPrompt,
-                        KnowledgeBaseDocumentGenerationPromptPolicy.CAPABILITY);
+                completion = completionPort.complete(model, requestPrompt, context);
             } catch (Exception completionFailure) {
                 lastFailure = message(completionFailure);
                 attempts.add(KnowledgeBaseGenerationAttempt.failed(executionNo, model, prompt, startedAt,
@@ -133,7 +119,7 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
                 try {
                     AiCompletionResultBO repaired = completionPort.complete(model,
                             buildRepairPrompt(prompt, sourceText, completion.getContent(), parseFailure),
-                            KnowledgeBaseDocumentGenerationPromptPolicy.CAPABILITY);
+                            context.repairAttempt());
                     KnowledgeBaseGenerationParsedDocument parsed = parse(repaired);
                     attempts.add(KnowledgeBaseGenerationAttempt.succeeded(executionNo, model, prompt, startedAt, repaired));
                     return succeeded(sourceText, prompt, attempts, parsed);
@@ -219,12 +205,13 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
     }
 
     private KnowledgeBaseGenerationPrompt resolvePrompt(AiUsageBindingBO binding) {
-        AiPromptBO bound = binding == null || binding.getPromptId() == null
-                ? null : promptRepository.findById(binding.getPromptId());
-        String version = routingParameters(binding).promptVersion();
-        List<AiPromptBO> prompts = promptRepository.list(
-                KnowledgeBaseDocumentGenerationPromptPolicy.PROMPT_KEY, null, AiConstants.STATUS_ACTIVE);
-        return promptPolicy.resolve(bound, prompts, version);
+        AiPromptRuntimeResolver.AiPromptRuntime resolved = promptRuntimeResolver.resolve(
+                KnowledgeBaseDocumentGenerationPromptPolicy.CAPABILITY,
+                KnowledgeBaseDocumentGenerationPromptPolicy.PROMPT_KEY,
+                KnowledgeBaseDocumentGenerationPromptPolicy.DEFAULT_SYSTEM_PROMPT,
+                KnowledgeBaseDocumentGenerationPromptPolicy.DEFAULT_USER_PROMPT_TEMPLATE);
+        return new KnowledgeBaseGenerationPrompt(resolved.promptKey(), resolved.promptVersion(),
+                resolved.systemPrompt(), resolved.userPromptTemplate(), resolved);
     }
 
     private List<AiModelBO> resolveModels(AiUsageBindingBO binding, KnowledgeBaseGenerationCommand command) {
@@ -282,9 +269,12 @@ public final class KnowledgeBaseDocumentGenerationDomainServiceImpl
     }
 
     private String buildPrompt(KnowledgeBaseGenerationPrompt prompt, String sourceText) {
-        return prompt.systemPrompt() + System.lineSeparator() + prompt.userPromptTemplate()
-                .replace("{{formatInstructions}}", outputParserPort.formatInstructions())
-                .replace("{{sourceText}}", sourceText);
+        AiPromptRuntimeResolver.AiPromptRuntime runtime = prompt.runtime() == null
+                ? new AiPromptRuntimeResolver.AiPromptRuntime(prompt.promptKey(), prompt.promptVersion(),
+                prompt.systemPrompt(), prompt.userPromptTemplate())
+                : prompt.runtime();
+        return runtime.render(Map.of("formatInstructions", outputParserPort.formatInstructions(),
+                "sourceText", sourceText));
     }
 
     private String buildRepairPrompt(KnowledgeBaseGenerationPrompt prompt, String sourceText,

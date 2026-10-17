@@ -36,6 +36,7 @@ import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
 import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.service.scenario.ScenarioExecutionDomainService;
 import cn.cccs7.cynexus.ai.domain.service.scenario.ScenarioExecutionDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
 import cn.cccs7.cynexus.ai.domain.service.usage.AiUsageQueryDomainService;
 import cn.cccs7.cynexus.ai.domain.service.usage.AiUsageQueryDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
@@ -131,14 +132,16 @@ public class AiDomainServiceConfig {
     @Bean
     public ScenarioExecutionDomainService scenarioExecutionDomainService(
             ApplicationAnalysisRoutingDomainService routingDomainService,
-            AiPromptRepository promptRepository,
             ModelRouteDomainService modelRouteDomainService,
-            OutputValidationDomainService outputValidationDomainService) {
+            OutputValidationDomainService outputValidationDomainService,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser structuredOutputParser) {
         return new ScenarioExecutionDomainServiceImpl(
                 routingDomainService,
-                promptRepository,
                 modelRouteDomainService,
-                outputValidationDomainService);
+                outputValidationDomainService,
+                promptRuntimeResolver,
+                structuredOutputParser);
     }
 
     @Bean

@@ -1,0 +1,180 @@
+%% cynexus-ai · 数据模型（schema: cynexus_appl_ai）
+%% 标注每张表由哪条链路写入
+erDiagram
+
+    AI_PROMPT ||--o{ AI_USAGE_BINDINGS : "prompt_id 绑定"
+    AI_USAGE_BINDINGS ||--o{ AI_EXECUTION_LOG : "capability 维度记账"
+    AI_PROVIDER ||--o{ AI_MODEL : "provider_code"
+    AI_MODEL ||--o{ AI_EXECUTION_LOG : "model 维度记账"
+
+    AI_AGENT_CAPABILITY ||--o{ AI_AGENT_CAPABILITY_AUDIT : "变更留痕"
+    AI_AGENT_CONVERSATION ||--o{ AI_AGENT_RUN : "conversation_no"
+    AI_AGENT_CONVERSATION ||--o{ AI_AGENT_MESSAGE : "conversation_no"
+    AI_AGENT_RUN ||--o{ AI_AGENT_RUN_EVENT : "run_no"
+    AI_AGENT_RUN ||--o{ AI_AGENT_RUN_STEP : "run_no"
+    AI_AGENT_RUN ||--o{ AI_AGENT_MESSAGE : "run_no"
+    AI_AGENT_RUN ||--o{ AI_AGENT_WRITE_COMMAND : "run_no 发起"
+    AI_AGENT_WRITE_COMMAND ||--o| AI_AGENT_WRITE_AUDIT : "token 消费"
+    AI_AGENT_TASK ||--o{ AI_AGENT_TASK_NOTIFICATION : "task_no"
+    AI_AGENT_RUN ||--o{ AI_AGENT_FEEDBACK : "run_no 评价"
+
+    AI_PROMPT {
+        bigint id PK
+        varchar prompt_key "= capability code"
+        int version
+        text content "生产正文只存库"
+        varchar status "active/draft"
+    }
+
+    AI_USAGE_BINDINGS {
+        bigint id PK
+        varchar capability "= prompt_key"
+        bigint prompt_id FK
+        varchar model_override
+        varchar fallback_chain
+        boolean enabled
+    }
+
+    AI_EXECUTION_LOG {
+        bigint id PK
+        varchar capability
+        bigint model_id FK
+        int input_tokens
+        int output_tokens
+        int cached_tokens
+        bigint elapsed_ms
+        text request_digest
+    }
+
+    AI_PROVIDER {
+        bigint id PK
+        varchar provider_code
+        varchar default_model
+        text fallback_provider_codes
+    }
+
+    AI_MODEL {
+        bigint id PK
+        varchar model_code
+        bigint provider_id FK
+        text pricing_json
+    }
+
+    AI_AGENT_CAPABILITY {
+        bigint id PK
+        varchar code "= 工具 toolCode"
+        varchar runtime_entry "运行时入口白名单"
+        boolean read_only
+        boolean requires_confirmation
+        text schema_json "与代码逐字节一致"
+    }
+
+    AI_AGENT_CAPABILITY_AUDIT {
+        bigint id PK
+        varchar capability_code
+        varchar change_type
+        text diff_json
+    }
+
+    AI_AGENT_CONVERSATION {
+        bigint id PK
+        varchar conversation_no "AGC-xxx"
+        varchar owner_key
+        varchar provider_response_id "跨轮复用"
+    }
+
+    AI_AGENT_RUN {
+        bigint id PK
+        varchar run_no "AGR-xxx"
+        varchar conversation_no FK
+        varchar status
+        int turn_count
+        text plan_json
+        text evidence_json
+        text clarification_json
+        varchar idempotency_key
+    }
+
+    AI_AGENT_RUN_STEP {
+        bigint id PK
+        varchar run_no FK
+        int turn_no
+        varchar call_id
+        varchar tool_code
+        text result_json
+    }
+
+    AI_AGENT_RUN_EVENT {
+        bigint id PK
+        varchar run_no FK
+        int sequence_no
+        varchar event_type
+        text payload_json
+    }
+
+    AI_AGENT_MESSAGE {
+        bigint id PK
+        varchar conversation_no FK
+        int sequence_no
+        varchar role "user/assistant/tool"
+        text content
+    }
+
+    AI_AGENT_WRITE_COMMAND {
+        bigint id PK
+        varchar token
+        varchar digest "只存哈希"
+        timestamp expire_at
+        boolean consumed
+    }
+
+    AI_AGENT_WRITE_AUDIT {
+        bigint id PK
+        varchar token
+        varchar capability_code
+        text digest
+        varchar principal_key
+    }
+
+    AI_AGENT_QUOTA_POLICY {
+        bigint id PK
+        varchar owner_key
+        int daily_token_limit
+        int max_turns
+        int tool_budget
+    }
+
+    AI_AGENT_USAGE_DAILY {
+        bigint id PK
+        varchar owner_key
+        date stat_date
+        bigint token_used
+    }
+
+    AI_AGENT_TASK {
+        bigint id PK
+        varchar task_no
+        varchar task_type
+        varchar status
+    }
+
+    AI_AGENT_TASK_NOTIFICATION {
+        bigint id PK
+        varchar task_no FK
+        varchar channel
+        text payload_json
+    }
+
+    AI_AGENT_FEEDBACK {
+        bigint id PK
+        varchar run_no FK
+        int rating
+        text comment
+    }
+
+    VECTOR_STORE {
+        uuid id PK
+        text content
+        vector embedding
+        jsonb metadata "docId · 权限范围"
+    }

@@ -6,11 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.marketfactor.impl.MarketFactorStudySynthesisDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -60,25 +58,20 @@ class MarketFactorStudySynthesisDomainServiceImplTest {
 
     private MarketFactorStudySynthesisDomainService service(String leakageStatus, Completion completion) {
         ApplicationAnalysisRoutingDomainService routing = new ApplicationAnalysisRoutingDomainService() {
-            @Override public AiUsageBindingBO findBinding(String capability) { return null; }
+            @Override public cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO findBinding(String capability) { return null; }
             @Override public List<AiModelBO> routeModels(String capability, String preferredModelCode) {
                 return List.of(AiModelBO.builder().providerCode("test-provider").modelCode("test-model").build());
             }
-            @Override public String promptVersion(AiUsageBindingBO binding) { return "v1"; }
-        };
-        AiPromptRepository prompts = new AiPromptRepository() {
-            @Override public List<AiPromptBO> list(String keyword, String scenarioCode, String status) { return List.of(); }
-            @Override public AiPromptBO findById(Long id) { return null; }
-            @Override public Long create(AiPromptBO prompt) { return null; }
-            @Override public boolean update(AiPromptBO prompt) { return false; }
-            @Override public boolean delete(Long id) { return false; }
+            @Override public String promptVersion(cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO binding) { return "v1"; }
         };
         AiExecutionLogRepository logs = log -> 1L;
         MarketFactorStudyEvidencePort evidence = (studyId, principal, tenant, signature) -> new MarketFactorStudyEvidencePort.EvidenceSnapshot(
                 studyId, "SUCCEEDED", "2026-08-14T15:00:00+08:00", leakageStatus, List.of(),
                 Map.of("factor:1", "candidate statistics", "factor:2", "counter evidence"),
                 Map.of("studyId", studyId, "statistics", Map.of("lift", 1.6)));
-        return new MarketFactorStudySynthesisDomainServiceImpl(routing, prompts, logs, evidence, completion);
+        AiPromptRuntimeResolver prompts = (capability, promptKey, system, template) ->
+                new AiPromptRuntimeResolver.AiPromptRuntime(promptKey, "v1", system, template);
+        return new MarketFactorStudySynthesisDomainServiceImpl(routing, logs, evidence, completion, prompts);
     }
 
     private MarketFactorStudySynthesisDomainService.Command command() {

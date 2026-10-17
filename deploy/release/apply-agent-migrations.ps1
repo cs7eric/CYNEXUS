@@ -84,6 +84,11 @@ $migrationFiles = @(
     ,"20260816_seed_market_event_factor_analysis_prompt.sql"
     ,"20260818_seed_market_factor_study_synthesis_prompt.sql"
     ,"20260817_enable_portfolio_vision_provider_fallback.sql"
+    ,"20260903_seed_knowledge_base_rag_answer_prompt.sql"
+    ,"20260904_enable_pgvector_rag_store.sql"
+    ,"20260905_add_knowledge_document_identity.sql"
+    ,"20260906_repair_pgvector_embedding_column.sql"
+    ,"20260907_backfill_knowledge_document_identity.sql"
 )
 
 foreach ($file in $migrationFiles) {

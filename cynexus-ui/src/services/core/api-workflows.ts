@@ -53,6 +53,7 @@ export interface ApiWorkflowPage {
   totalPages: number
   hasPrevious: boolean
   hasNext: boolean
+  unavailableSources?: string[]
 }
 
 const CORE_API = `${SERVICE_PREFIX.core}/api-workflows`
@@ -66,20 +67,26 @@ export async function listApiWorkflows(page = 1, pageSize = 20, type = "all", st
   if (type !== "all") query.set("type", type)
   if (status !== "all") query.set("status", status)
   const queryString = query.toString()
-  const [coreResponse, marketResponse] = await Promise.all([
-    fetchWithRetry(`${CORE_API}?${queryString}`, { cache: "no-store" }),
-    fetchWithRetry(`${MARKET_API}?${queryString}`, { cache: "no-store" }),
-  ])
-  const [core, market] = await Promise.all([
-    cynexusResult<ApiWorkflowPage>(coreResponse),
-    cynexusResult<ApiWorkflowPage>(marketResponse),
-  ])
-  const items = [...core.items, ...market.items].sort((left, right) => {
+  const sources = [
+    { name: "Core", endpoint: CORE_API, types: ["MEDIA_TRANSCRIPTION", "FINANCE_AI_CAPTURE"] },
+    { name: "Market", endpoint: MARKET_API, types: ["PORTFOLIO_TRADE_IMPORT"] },
+  ].filter((source) => type === "all" || source.types.includes(type))
+  const results = await Promise.allSettled(sources.map(async (source) => {
+    const response = await fetchWithRetry(`${source.endpoint}?${queryString}`, { cache: "no-store" })
+    return cynexusResult<ApiWorkflowPage>(response)
+  }))
+  const available = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
+  if (!available.length) {
+    const failure = results.find((result) => result.status === "rejected")
+    throw failure?.reason ?? new Error("No workflow sources available")
+  }
+  const unavailableSources = sources.filter((_, index) => results[index].status === "rejected").map((source) => source.name)
+  const items = available.flatMap((result) => result.items).sort((left, right) => {
     return new Date(right.createdAt ?? 0).getTime() - new Date(left.createdAt ?? 0).getTime()
   }).slice((safePage - 1) * safePageSize, safePage * safePageSize)
-  const total = core.total + market.total
+  const total = available.reduce((sum, result) => sum + result.total, 0)
   const totalPages = total === 0 ? 0 : Math.ceil(total / safePageSize)
-  return { items, total, page: safePage, pageSize: safePageSize, totalPages, hasPrevious: safePage > 1, hasNext: safePage < totalPages }
+  return { items, total, page: safePage, pageSize: safePageSize, totalPages, hasPrevious: safePage > 1, hasNext: safePage < totalPages, unavailableSources }
 }
 
 export async function retryApiWorkflow(item: ApiWorkflowProcess): Promise<void> {

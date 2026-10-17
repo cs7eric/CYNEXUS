@@ -1,0 +1,100 @@
+%% cynexus-ai · 自主 Agent 主循环（run 级全链路）
+%% 每个节点 = 一个真实执行步骤；每条边 = 真实传递的数据对象
+flowchart TD
+
+    REQ(["POST /agent/run<br/>HTTP + SSE"]) -->|"AgentRunRequest<br/>prompt · idempotencyKey · capability"| ACTL["AutonomousAgentController"]
+    ACTL -->|"request + AgentIdentity + eventConsumer"| ASVC["AutonomousAgentAppService<br/>execute()"]
+
+    subgraph GATE["① 准入四连（任一失败直接抛错，不建 run）"]
+        ASVC -->|"AgentRunExecutionCommand"| G1["findRunByIdempotencyKey()<br/>幂等命中直接复用旧 run"]
+        G1 -->|"未命中"| G2["rateLimiter.allow()<br/>MAX_RUNS_PER_MINUTE / 60s"]
+        G2 -->|"通过"| G3["runtimeLease.tryAcquire()<br/>owner 并发上限 2 · TTL = maxRunSeconds+60"]
+        G3 -->|"拿到租约"| G4["quota.reserveRequest()<br/>预留 token = clamp(1024..16000, len/4+1024)"]
+        G4 -->|"配额不足"| GERR["AgentQuotaExceededException"]
+    end
+
+    subgraph SETUP["② 建会话与 run"]
+        G4 -->|"预留成功"| S1["生成 conversationNo = AGC-xxx<br/>runNo = AGR-xxx"]
+        S1 -->|"AgentConversationBO"| S2["runDomainService<br/>saveConversation()"]
+        S2 -->|"已持久化 conversation"| S3["runDomainService.saveRun()<br/>status = RUNNING"]
+        S3 -->|"加载 persistedMessages"| S4["nextMessageSequence()<br/>确定消息序号起点"]
+    end
+
+    subgraph CTX["③ 上下文装配"]
+        S4 -->|"history + model"| C1["reusableProviderResponseId()<br/>命中则复用 previousResponseId"]
+        C1 -->|"previousResponseId or null"| C2["AgentSystemPromptPolicy<br/>stable 系统提示"]
+        C2 -->|"system prompt"| C3["AgentToolCatalog<br/>按 capability 取工具定义"]
+        C3 -->|"工具定义 JSON Schema"| C4["历史折叠 + PromptCacheKeyPolicy"]
+        C4 -->|"AgentModelTurnRequest<br/>model · messages · tools · previousResponseId"| LOOP
+    end
+
+    subgraph LOOP["④ 轮次循环 turn = 1 .. maxTurns"]
+        direction TB
+        L0{{"turn 开始"}}
+        L0 --> L1{"isCancellationRequested()?"}
+        L1 -->|"是"| CANCEL["标记 CANCELLED · 跳出"]
+        L1 -->|"否"| L2{"usedTools >= toolBudget?"}
+        L2 -->|"是"| L3["forceFinalAnswer = true<br/>工具定义清空"]
+        L2 -->|"否"| L4["组装本轮 messages<br/>含上一轮 tool 回灌"]
+        L3 --> L4
+        L4 -->|"AgentModelTurnRequest"| L5["completeAgentWithRetry()<br/>熔断 + 瞬时失败重试"]
+        L5 -->|"HTTP"| LLM[("模型 Provider API")]
+        LLM -->|"AgentModelTurnResponse<br/>content · toolCalls · providerResponseId · usage"| L6["token 累加<br/>input / cachedInput / cacheWrite / output / total"]
+        L6 -->|"thinking 分片"| EV["AgentRunEventBO 写 run_event<br/>按 eventSequence 递增"]
+        L6 --> L7{"response.hasToolCalls()?"}
+
+        L7 -->|"否 · 终止分支"| E1["answer = content"]
+        E1 --> E2["AgentClarificationPolicy<br/>判断是否需澄清"]
+        E2 -->|"需澄清"| E3["run.clarificationJson = ..."]
+        E2 -->|"终答"| E4["redactText(answer)<br/>敏感信息脱敏"]
+        E3 --> E5["跳出循环"]
+        E4 --> E5
+
+        L7 -->|"是 · 工具分支"| T1["admitToolCalls()<br/>AgentToolBudgetPolicy 软预算准入"]
+        T1 -->|"acceptedIds / skipped / budgetExhausted"| T2["逐条遍历 toolCalls"]
+        T2 -->|"AgentToolCall<br/>callId · toolCode · arguments"| T3["AgentToolRegistry.execute()"]
+        T3 -->|"AgentToolResult<br/>ok · payload / errorText"| T4["写 run_step<br/>callId · toolCode · 结果 · freshness"]
+        T4 -->|"step 落库"| T5["构造 role=tool 消息<br/>回灌进 messages"]
+        T5 -->|"usedTools++"| EV
+        T5 --> L0
+
+        L5 -->|"连续失败 / 熔断打开"| LERR["失败分类 → FAILED"]
+    end
+
+    subgraph DONE["⑤ 收尾与记账（finally 必执行）"]
+        E5 --> F1["写 planJson / evidenceJson / warnings"]
+        CANCEL --> F1
+        LERR --> F1
+        F1 -->|"最终 run 状态"| F2["quota.settle()<br/>预留 vs 实际 · 差额回补"]
+        F2 -->|"settle 完成"| F3["runtimeLease.release()"]
+        F3 -->|"释放完成"| F4["observability.runCompleted()<br/>status · elapsedMs"]
+        F4 -->|"AgentRunExecutionResult"| F5["AutonomousAgentAppService<br/>转 AgentRunDTO"]
+    end
+
+    F5 -->|"AgentRunDTO<br/>runNo · answer · plan · evidence · usage"| RESP(["SSE 事件流 + 最终响应"])
+    EV -.订阅.-> RESP
+
+    QUOTA[("ai_agent_quota_policy<br/>ai_agent_usage_daily")] -.读/写.-> G4
+    QUOTA -.写.-> F2
+    DBRUN[("ai_agent_conversation<br/>ai_agent_run · run_step<br/>ai_agent_message · run_event")] -.读写.-> S2
+    DBRUN -.写.-> T4
+    DBRUN -.写.-> EV
+    DBRUN -.写.-> F1
+    LEASE[("Redis 租约 / 限流 / 熔断")] -.读写.-> G2
+    LEASE -.读写.-> G3
+    LEASE -.读.-> L1
+    GERR -->|"错误"| RESP
+
+    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a
+    classDef app fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f
+    classDef dom fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d
+    classDef loop fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608
+    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f
+    classDef bad fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d
+
+    class REQ,RESP entry
+    class ACTL,ASVC app
+    class G1,G2,G3,G4,S1,S2,S3,S4,C1,C2,C3,C4,T1,T2,T4,T5,E1,E2,E3,E4,E5,F1,F2,F3,F4,F5 dom
+    class L0,L1,L2,L3,L4,L5,L6,L7,LERR,CANCEL loop
+    class QUOTA,DBRUN,LEASE,LLM db
+    class GERR bad

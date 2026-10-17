@@ -1,14 +1,14 @@
 package cn.cccs7.cynexus.ai.domain.marketindicator;
 
-import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
+import cn.cccs7.cynexus.ai.domain.validation.BoundedStructuredOutputRepairPolicy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -20,26 +20,37 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import cn.cccs7.cynexus.common.core.constant.TraceId;
 
 public final class MarketIndicatorReplayAiDomainServiceImpl implements MarketIndicatorReplayAiDomainService {
-    private static final String FALLBACK_VERSION = "v1";
     private static final String FALLBACK_SYSTEM = "你是 Cynexus A 股盘后复盘解释器。只能依据输入证据解释板块 Episode，不得补充外部事实，不得改写评分、时间、收益或数据质量，不得给出买入卖出、目标价、仓位或收益承诺。必须明确支持证据、反证与不确定性。只输出简体中文 JSON。";
     private static final String FALLBACK_USER = "请解释以下确定性复盘证据：{{evidence}}";
 
     private final ApplicationAnalysisRoutingDomainService routingService;
-    private final AiPromptRepository promptRepository;
     private final AiExecutionLogRepository executionLogRepository;
     private final MarketIndicatorReplayAiCompletionPort completionPort;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final AiStructuredOutputParser structuredOutputParser;
 
     public MarketIndicatorReplayAiDomainServiceImpl(ApplicationAnalysisRoutingDomainService routingService,
-                                                     AiPromptRepository promptRepository,
                                                      AiExecutionLogRepository executionLogRepository,
-                                                     MarketIndicatorReplayAiCompletionPort completionPort) {
+                                                     MarketIndicatorReplayAiCompletionPort completionPort,
+                                                     AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(routingService, executionLogRepository, completionPort, promptRuntimeResolver,
+                AiStructuredOutputParser.shared());
+    }
+
+    public MarketIndicatorReplayAiDomainServiceImpl(ApplicationAnalysisRoutingDomainService routingService,
+                                                     AiExecutionLogRepository executionLogRepository,
+                                                     MarketIndicatorReplayAiCompletionPort completionPort,
+                                                     AiPromptRuntimeResolver promptRuntimeResolver,
+                                                     AiStructuredOutputParser structuredOutputParser) {
         this.routingService = routingService;
-        this.promptRepository = promptRepository;
         this.executionLogRepository = executionLogRepository;
         this.completionPort = completionPort;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver");
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
     }
 
     @Override
@@ -47,8 +58,7 @@ public final class MarketIndicatorReplayAiDomainServiceImpl implements MarketInd
         if (evidence == null || evidence.isEmpty()) throw new IllegalArgumentException("复盘证据不能为空");
         String inputJson = toJson(limitEvidence(evidence));
         if (inputJson.length() > 180_000) throw new IllegalArgumentException("复盘证据过大，请先选择单个 Episode");
-        AiUsageBindingBO binding = routingService.findBinding(CAPABILITY);
-        PromptRuntime prompt = resolvePrompt(binding);
+        PromptRuntime prompt = resolvePrompt();
         List<AiModelBO> models = routingService.routeModels(CAPABILITY, null);
         if (models == null || models.isEmpty()) throw new IllegalStateException("未配置可用的复盘解释 AI provider");
         Exception last = null;
@@ -56,8 +66,10 @@ public final class MarketIndicatorReplayAiDomainServiceImpl implements MarketInd
             Instant started = Instant.now();
             String executionNo = "MIR-" + UUID.randomUUID().toString().replace("-", "");
             try {
-                AiCompletionResultBO completion = completionPort.complete(model, render(prompt, inputJson), CAPABILITY);
-                Map<String, Object> normalized = normalize(parse(completion == null ? null : completion.getContent()), inputJson);
+                AiExecutionContext context = new AiExecutionContext(executionNo, CAPABILITY, prompt.key(), prompt.version(),
+                        model.getProviderCode(), model.getModelCode(), null, null, executionNo, TraceId.current());
+                AiCompletionResultBO completion = completionPort.complete(model, render(prompt, inputJson), context);
+                Map<String, Object> normalized = normalize(parse(completion == null ? null : completion.getContent(), model, context), inputJson);
                 normalized.put("status", "ai");
                 normalized.put("providerCode", completion.getProviderCode());
                 normalized.put("modelCode", completion.getModelCode());
@@ -87,30 +99,21 @@ public final class MarketIndicatorReplayAiDomainServiceImpl implements MarketInd
         return copy;
     }
 
-    private PromptRuntime resolvePrompt(AiUsageBindingBO binding) {
-        if (binding != null && binding.getPromptId() != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) return prompt(prompt);
-        }
-        List<AiPromptBO> prompts = promptRepository.list(PROMPT_KEY, null, AiConstants.STATUS_ACTIVE);
-        return prompts.isEmpty() ? new PromptRuntime(PROMPT_KEY, FALLBACK_VERSION, FALLBACK_SYSTEM, FALLBACK_USER) : prompt(prompts.getFirst());
-    }
-
-    private PromptRuntime prompt(AiPromptBO prompt) {
-        return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(), defaultString(prompt.getSystemPrompt(), FALLBACK_SYSTEM), defaultString(prompt.getUserPromptTemplate(), FALLBACK_USER));
+    private PromptRuntime resolvePrompt() {
+        var resolved = promptRuntimeResolver.resolve(CAPABILITY, PROMPT_KEY, FALLBACK_SYSTEM, FALLBACK_USER);
+        return new PromptRuntime(resolved.promptKey(), resolved.promptVersion(), resolved.systemPrompt(), resolved.userPromptTemplate(), resolved);
     }
 
     private String render(PromptRuntime prompt, String evidence) {
-        return prompt.system() + System.lineSeparator() + prompt.user().replace("{{evidence}}", evidence);
+        return prompt.runtime().render(Map.of("evidence", evidence));
     }
 
-    private ObjectNode parse(String content) throws Exception {
-        if (content == null || content.isBlank()) throw new IllegalStateException("AI 返回为空");
-        String value = content.trim();
-        int start = value.indexOf('{');
-        int end = value.lastIndexOf('}');
-        if (start < 0 || end <= start) throw new IllegalStateException("AI 未返回 JSON 对象");
-        JsonNode root = objectMapper.readTree(value.substring(start, end + 1));
+    private ObjectNode parse(String content, AiModelBO model, AiExecutionContext context) throws Exception {
+        var parsed = BoundedStructuredOutputRepairPolicy.parseOrRepair(content, null, structuredOutputParser, 32_000,
+                raw -> completionPort.complete(model,
+                        "修复以下复盘解释输出为合法 JSON，只返回 JSON，不得添加输入中没有的事实：\n"
+                                + truncate(raw, 24_000), context.repairAttempt()).getContent());
+        JsonNode root = objectMapper.readTree(parsed.json());
         if (!root.isObject()) throw new IllegalStateException("AI 返回不是 JSON 对象");
         return (ObjectNode) root;
     }
@@ -155,14 +158,14 @@ public final class MarketIndicatorReplayAiDomainServiceImpl implements MarketInd
                     .modelCode(model == null ? null : model.getModelCode()).status(error == null ? "SUCCEEDED" : "FAILED")
                     .inputTokens(completion == null ? 0 : completion.getInputTokens()).outputTokens(completion == null ? 0 : completion.getOutputTokens())
                     .totalTokens(completion == null ? 0 : completion.getTotalTokens()).latencyMs(Duration.between(started, Instant.now()).toMillis())
-                    .requestJson(toJson(Map.of("evidencePreview", truncate(input, AiConstants.MAX_LOG_TEXT_LENGTH))))
-                    .responseJson(toJson(Map.of("contentPreview", truncate(completion == null ? "" : completion.getContent(), AiConstants.MAX_LOG_TEXT_LENGTH))))
+                    .requestJson(toJson(Map.of("evidencePreview", truncate(input, 4000))))
+                    .responseJson(toJson(Map.of("contentPreview", truncate(completion == null ? "" : completion.getContent(), 4000))))
                     .errorMessage(error == null ? null : truncate(error.getMessage(), 2000)).extra("{\"rawResponseStored\":false}").build());
         } catch (Exception ignored) { }
     }
 
     private String toJson(Object value) { try { return objectMapper.writeValueAsString(value); } catch (Exception ignored) { return "{}"; } }
     private String truncate(String value, int limit) { return value == null ? "" : value.length() <= limit ? value : value.substring(0, limit); }
-    private String defaultString(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
-    private record PromptRuntime(String key, String version, String system, String user) { }
+    private record PromptRuntime(String key, String version, String system, String user,
+                                 AiPromptRuntimeResolver.AiPromptRuntime runtime) { }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,6 +18,15 @@ import java.util.regex.Pattern;
 
 /** Validation and normalization for a bounded, evidence-only screening result. */
 public class StockSelectionAiDomainPolicy {
+    private final AiStructuredOutputParser structuredOutputParser;
+
+    public StockSelectionAiDomainPolicy() {
+        this(AiStructuredOutputParser.shared());
+    }
+
+    public StockSelectionAiDomainPolicy(AiStructuredOutputParser structuredOutputParser) {
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
+    }
 
     private static final Pattern VOLUME_MULTIPLE_PATTERN = Pattern.compile("([0-9]+(?:\\.[0-9]+)?|[一二三四五六七八九十])倍");
     private static final Pattern AMOUNT_IN_YI_PATTERN = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)\\s*亿");
@@ -72,11 +82,7 @@ public class StockSelectionAiDomainPolicy {
                                       String content, ObjectMapper mapper) throws Exception {
         String intent = researchIntent(researchIntent);
         if (content == null || content.isBlank()) throw new IllegalStateException("AI returned an empty screening plan");
-        String json = content.trim();
-        int start = json.indexOf('{');
-        int end = json.lastIndexOf('}');
-        if (start < 0 || end <= start) throw new IllegalStateException("AI did not return a screening-plan JSON object");
-        JsonNode root = mapper.readTree(json.substring(start, end + 1));
+        JsonNode root = mapper.readTree(structuredOutputParser.extractObject(content));
         JsonNode plan = root.path("screening_plan");
         if (!plan.isObject()) throw new IllegalStateException("AI response must contain screening_plan");
         Map<String, Object> criteria = new LinkedHashMap<>(normalizeCriteria(baseCriteria));
@@ -161,11 +167,7 @@ public class StockSelectionAiDomainPolicy {
 
     public ObjectNode parseAndValidate(String content, Map<String, String> candidateNames, ObjectMapper mapper) throws Exception {
         if (content == null || content.isBlank()) throw new IllegalStateException("AI returned an empty completion");
-        String json = content.trim();
-        int start = json.indexOf('{');
-        int end = json.lastIndexOf('}');
-        if (start < 0 || end <= start) throw new IllegalStateException("AI did not return a JSON object");
-        JsonNode root = mapper.readTree(json.substring(start, end + 1));
+        JsonNode root = mapper.readTree(structuredOutputParser.extractObject(content));
         JsonNode result = root.path("screening_result");
         if (!result.isObject()) throw new IllegalStateException("AI response must contain screening_result");
         ObjectNode source = (ObjectNode) result;

@@ -20,6 +20,8 @@ public class KnowledgeDocumentDTO {
     private String contentFormat;
     private String status;
     private String extra;
+    private String tenantKey;
+    private String ownerKey;
     private List<Long> tagIds;
     private List<Long> categoryIds;
     private List<KnowledgeTagDTO> tags;

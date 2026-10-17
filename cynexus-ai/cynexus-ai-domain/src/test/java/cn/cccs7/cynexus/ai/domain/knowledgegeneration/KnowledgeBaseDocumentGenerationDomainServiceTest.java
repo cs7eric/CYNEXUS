@@ -124,13 +124,13 @@ class KnowledgeBaseDocumentGenerationDomainServiceTest {
         return new KnowledgeBaseDocumentGenerationDomainServiceImpl(
                 new StubUsageBindingRepository(),
                 new StubProviderRepository(),
-                new StubPromptRepository(),
+                log -> 1L,
                 preferred -> model,
                 raw -> KnowledgeBaseGenerationRoutingParameters.empty(),
                 completion,
                 parser,
                 new KnowledgeBaseDocumentDraftPolicy(),
-                new KnowledgeBaseDocumentGenerationPromptPolicy());
+                (capability, promptKey, system, template) -> new cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver.AiPromptRuntime(promptKey, "v1", system, template));
     }
 
     private KnowledgeBaseGenerationCommand command(String source) {
@@ -183,11 +183,4 @@ class KnowledgeBaseDocumentGenerationDomainServiceTest {
         @Override public boolean delete(Long id) { return false; }
     }
 
-    private static final class StubPromptRepository implements AiPromptRepository {
-        @Override public List<cn.cccs7.cynexus.ai.domain.entity.AiPromptBO> list(String keyword, String scenarioCode, String status) { return List.of(); }
-        @Override public cn.cccs7.cynexus.ai.domain.entity.AiPromptBO findById(Long id) { return null; }
-        @Override public Long create(cn.cccs7.cynexus.ai.domain.entity.AiPromptBO prompt) { return null; }
-        @Override public boolean update(cn.cccs7.cynexus.ai.domain.entity.AiPromptBO prompt) { return false; }
-        @Override public boolean delete(Long id) { return false; }
-    }
 }

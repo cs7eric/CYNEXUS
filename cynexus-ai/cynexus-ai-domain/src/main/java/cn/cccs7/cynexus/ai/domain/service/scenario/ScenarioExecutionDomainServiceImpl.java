@@ -4,39 +4,93 @@ import cn.cccs7.cynexus.ai.common.constant.AiConstants;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus;
-import cn.cccs7.cynexus.ai.domain.policy.prompt.PromptRenderPolicy;
 import cn.cccs7.cynexus.ai.domain.policy.scenario.ScenarioPromptPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
+import cn.cccs7.cynexus.ai.domain.validation.VisionOutputDomainPolicy;
 import cn.cccs7.cynexus.ai.domain.valueobject.scenario.PreparedScenarioTextExecution;
 import cn.cccs7.cynexus.ai.domain.valueobject.scenario.PreparedScenarioVisionExecution;
 import cn.cccs7.cynexus.ai.domain.workspacechat.WorkspaceChatDomainPolicy;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
+import cn.cccs7.cynexus.ai.domain.port.RepositoryAiPromptRuntimeResolver;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.LinkedHashMap;
 
 public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDomainService {
 
     private final ApplicationAnalysisRoutingDomainService routingDomainService;
-    private final AiPromptRepository promptRepository;
     private final ModelRouteDomainService modelRouteDomainService;
     private final OutputValidationDomainService outputValidationDomainService;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
+    private final AiStructuredOutputParser structuredOutputParser;
 
     public ScenarioExecutionDomainServiceImpl(
             ApplicationAnalysisRoutingDomainService routingDomainService,
             AiPromptRepository promptRepository,
             ModelRouteDomainService modelRouteDomainService,
             OutputValidationDomainService outputValidationDomainService) {
+        this(routingDomainService, promptRepository, modelRouteDomainService, outputValidationDomainService,
+                new RepositoryAiPromptRuntimeResolver(routingDomainService, promptRepository),
+                AiStructuredOutputParser.shared());
+    }
+
+    public ScenarioExecutionDomainServiceImpl(
+            ApplicationAnalysisRoutingDomainService routingDomainService,
+            AiPromptRepository promptRepository,
+            ModelRouteDomainService modelRouteDomainService,
+            OutputValidationDomainService outputValidationDomainService,
+            AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(routingDomainService, promptRepository, modelRouteDomainService, outputValidationDomainService,
+                promptRuntimeResolver == null
+                        ? new RepositoryAiPromptRuntimeResolver(routingDomainService, promptRepository)
+                        : promptRuntimeResolver,
+                AiStructuredOutputParser.shared());
+    }
+
+    private ScenarioExecutionDomainServiceImpl(
+            ApplicationAnalysisRoutingDomainService routingDomainService,
+            AiPromptRepository promptRepository,
+            ModelRouteDomainService modelRouteDomainService,
+            OutputValidationDomainService outputValidationDomainService,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
         this.routingDomainService = Objects.requireNonNull(routingDomainService, "routingDomainService");
-        this.promptRepository = Objects.requireNonNull(promptRepository, "promptRepository");
         this.modelRouteDomainService = Objects.requireNonNull(modelRouteDomainService, "modelRouteDomainService");
         this.outputValidationDomainService = Objects.requireNonNull(outputValidationDomainService, "outputValidationDomainService");
+        this.promptRuntimeResolver = Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver");
+        this.structuredOutputParser = Objects.requireNonNull(structuredOutputParser, "structuredOutputParser");
+    }
+
+    /** Production constructor: prompt lookup is exclusively delegated to the runtime resolver. */
+    public ScenarioExecutionDomainServiceImpl(
+            ApplicationAnalysisRoutingDomainService routingDomainService,
+            ModelRouteDomainService modelRouteDomainService,
+            OutputValidationDomainService outputValidationDomainService,
+            AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(routingDomainService, modelRouteDomainService, outputValidationDomainService, promptRuntimeResolver,
+                AiStructuredOutputParser.shared());
+    }
+
+    /** Production constructor with the shared structured-output boundary. */
+    public ScenarioExecutionDomainServiceImpl(
+            ApplicationAnalysisRoutingDomainService routingDomainService,
+            ModelRouteDomainService modelRouteDomainService,
+            OutputValidationDomainService outputValidationDomainService,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
+        this.routingDomainService = Objects.requireNonNull(routingDomainService, "routingDomainService");
+        this.modelRouteDomainService = Objects.requireNonNull(modelRouteDomainService, "modelRouteDomainService");
+        this.outputValidationDomainService = Objects.requireNonNull(outputValidationDomainService, "outputValidationDomainService");
+        this.promptRuntimeResolver = Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver");
+        this.structuredOutputParser = Objects.requireNonNull(structuredOutputParser, "structuredOutputParser");
     }
 
     @Override
@@ -51,10 +105,7 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
         AiScenarioBO scenario = resolveScenario(resolvedCode, workspaceChat);
         List<AiModelBO> models = resolveTextModels(resolvedCode, preferredModelCode, workspaceChat);
         AiModelBO model = models.getFirst();
-        String prompt = PromptRenderPolicy.render(
-                ScenarioPromptPolicy.systemPrompt(resolvedCode),
-                userInput,
-                variables);
+        PromptRender renderedPrompt = renderTextPrompt(resolvedCode, userInput, variables);
         List<String> toolCodes = "stock_information_analysis".equals(resolvedCode) || workspaceChat
                 ? List.of()
                 : (enabledToolCodes == null ? List.of() : enabledToolCodes);
@@ -62,9 +113,27 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
                 .scenario(scenario)
                 .model(model)
                 .fallbackModels(models.size() <= 1 ? List.of() : List.copyOf(models.subList(1, models.size())))
-                .prompt(prompt)
+                .prompt(renderedPrompt.text())
                 .toolCodes(toolCodes)
+                .promptKey(renderedPrompt.key()).promptVersion(renderedPrompt.version())
+                .executionNo(nextExecutionNo())
+                .outputSchema(renderedPrompt.schema())
                 .build();
+    }
+
+    private PromptRender renderTextPrompt(String scenarioCode, String userInput, Map<String, Object> variables) {
+        String fallbackSystem = ScenarioPromptPolicy.systemPrompt(scenarioCode);
+        var runtime = promptRuntimeResolver.resolve(scenarioCode, scenarioCode, fallbackSystem, "{{user_input}}");
+        Map<String, String> values = new LinkedHashMap<>();
+        for (String name : runtime.declaredVariables()) {
+            Object supplied = variables == null ? null : variables.get(name);
+            if (supplied == null && ("user_input".equals(name) || "userInput".equals(name)
+                    || "text".equals(name) || "input".equals(name))) {
+                supplied = userInput;
+            }
+            values.put(name, supplied == null ? "" : String.valueOf(supplied));
+        }
+        return new PromptRender(runtime.render(values), runtime.promptKey(), runtime.promptVersion(), runtime.outputSchema());
     }
 
     @Override
@@ -98,43 +167,66 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
             throw new IllegalStateException("No AI model available for accounting receipt recognition");
         }
         AiModelBO model = models.getFirst();
-        String prompt = resolveVisionPrompt(capability, userInput == null ? "" : userInput);
+        PromptRender renderedPrompt = resolveVisionPromptRuntime(capability, userInput == null ? "" : userInput);
         return PreparedScenarioVisionExecution.builder()
                 .scenario(scenario)
                 .model(model)
                 .fallbackModels(models.size() <= 1 ? List.of() : List.copyOf(models.subList(1, models.size())))
-                .prompt(prompt)
+                .prompt(renderedPrompt.text())
                 .capability(capability)
+                .promptKey(renderedPrompt.key()).promptVersion(renderedPrompt.version())
+                .executionNo(nextExecutionNo())
+                .outputSchema(renderedPrompt.schema())
                 .build();
     }
 
     @Override
     public AiExecutionBO finalizeExecution(PreparedScenarioTextExecution prepared, String content) {
         Objects.requireNonNull(prepared, "prepared");
+        String normalizedContent = normalizeStructuredContent(prepared.getScenario().isJsonOutputRequired(), content);
         boolean valid = outputValidationDomainService.validateJsonRequired(
-                prepared.getScenario().isJsonOutputRequired(), content);
+                prepared.getScenario().isJsonOutputRequired(), normalizedContent);
+        if (valid && prepared.getOutputSchema() != null && !prepared.getOutputSchema().isBlank()) {
+            try { structuredOutputParser.validateSchema(normalizedContent, prepared.getOutputSchema()); }
+            catch (RuntimeException ignored) { valid = false; }
+        }
         AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
         return new AiExecutionBO(
-                nextExecutionNo(),
+                prepared.getExecutionNo(),
                 prepared.getScenario(),
                 prepared.getModel().getModelCode(),
                 status,
-                content,
+                normalizedContent,
                 prepared.getToolCodes());
     }
 
     @Override
     public AiExecutionBO finalizeVisionExecution(PreparedScenarioVisionExecution prepared, String content) {
         Objects.requireNonNull(prepared, "prepared");
-        boolean valid = outputValidationDomainService.validateJsonRequired(true, content);
+        String normalizedContent = normalizeStructuredContent(true, content);
+        boolean valid = outputValidationDomainService.validateJsonRequired(true, normalizedContent)
+                && VisionOutputDomainPolicy.isValid(prepared.getCapability(), normalizedContent);
+        if (valid && prepared.getOutputSchema() != null && !prepared.getOutputSchema().isBlank()) {
+            try { structuredOutputParser.validateSchema(normalizedContent, prepared.getOutputSchema()); }
+            catch (RuntimeException ignored) { valid = false; }
+        }
         AiExecutionStatus status = valid ? AiExecutionStatus.SUCCEEDED : AiExecutionStatus.FAILED;
         return new AiExecutionBO(
-                nextExecutionNo(),
+                prepared.getExecutionNo(),
                 prepared.getScenario(),
                 prepared.getModel().getModelCode(),
                 status,
-                content,
+                normalizedContent,
                 List.of());
+    }
+
+    private String normalizeStructuredContent(boolean required, String content) {
+        if (!required || structuredOutputParser == null) return content;
+        try {
+            return structuredOutputParser.extractObject(content);
+        } catch (RuntimeException ignored) {
+            return content;
+        }
     }
 
     @Override
@@ -168,25 +260,22 @@ public class ScenarioExecutionDomainServiceImpl implements ScenarioExecutionDoma
 
     @Override
     public String resolveVisionPrompt(String capability, String candidateContext) {
-        AiUsageBindingBO binding = routingDomainService.findBinding(capability);
-        if (binding != null && binding.getPromptId() != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
-                String userPrompt = prompt.getUserPromptTemplate() == null
-                        || prompt.getUserPromptTemplate().isBlank()
-                        ? candidateContext
-                        : prompt.getUserPromptTemplate().replace(
-                                "{{candidate_context}}", candidateContext == null ? "" : candidateContext);
-                return prompt.getSystemPrompt() + System.lineSeparator() + userPrompt;
-            }
-        }
-        return switch (capability) {
-            case "portfolio_trade_screenshot_parse" -> defaultPortfolioTradePrompt(candidateContext == null ? "" : candidateContext);
-            case "portfolio_trade_screenshot_review" -> defaultPortfolioTradeReviewPrompt(candidateContext == null ? "" : candidateContext);
-            case "wechat_image_route" -> defaultWechatImageRoutePrompt(candidateContext == null ? "" : candidateContext);
-            default -> defaultVisionPrompt(candidateContext);
-        };
+        return resolveVisionPromptRuntime(capability, candidateContext).text();
     }
+
+    private PromptRender resolveVisionPromptRuntime(String capability, String candidateContext) {
+        String context = candidateContext == null ? "" : candidateContext;
+        String fallback = switch (capability) {
+                case "portfolio_trade_screenshot_parse" -> defaultPortfolioTradePrompt("");
+                case "portfolio_trade_screenshot_review" -> defaultPortfolioTradeReviewPrompt("");
+                case "wechat_image_route" -> defaultWechatImageRoutePrompt("");
+                default -> defaultVisionPrompt("");
+            };
+        var runtime = promptRuntimeResolver.resolve(capability, capability, fallback, "{{candidate_context}}");
+        return new PromptRender(runtime.render(Map.of("candidate_context", context)), runtime.promptKey(), runtime.promptVersion(), runtime.outputSchema());
+    }
+
+    private record PromptRender(String text, String key, String version, String schema) { }
 
     private AiScenarioBO resolveScenario(String scenarioCode, boolean workspaceChat) {
         if (workspaceChat) {

@@ -6,7 +6,8 @@ import cn.cccs7.cynexus.ai.domain.marketfactor.MarketEventFactorAnalysisDomainSe
 import cn.cccs7.cynexus.ai.domain.marketfactor.MarketEventFactorEvidencePort;
 import cn.cccs7.cynexus.ai.domain.marketfactor.impl.MarketEventFactorAnalysisDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,10 +16,11 @@ public class MarketEventFactorAnalysisDomainServiceConfig {
     @Bean
     public MarketEventFactorAnalysisDomainService marketEventFactorAnalysisDomainService(
             ApplicationAnalysisRoutingDomainService routingService,
-            AiPromptRepository promptRepository,
             AiExecutionLogRepository executionLogRepository,
             MarketEventFactorEvidencePort evidencePort,
-            MarketEventFactorAnalysisCompletionPort completionPort) {
-        return new MarketEventFactorAnalysisDomainServiceImpl(routingService, promptRepository, executionLogRepository, evidencePort, completionPort);
+            MarketEventFactorAnalysisCompletionPort completionPort,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
+        return new MarketEventFactorAnalysisDomainServiceImpl(routingService, executionLogRepository, evidencePort, completionPort, promptRuntimeResolver, structuredOutputParser);
     }
 }

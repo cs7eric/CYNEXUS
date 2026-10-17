@@ -165,9 +165,11 @@ class StockSelectionAiDomainServiceTest {
     }
 
     private StockSelectionAiDomainService service(CompletionPort completion, LogRepository logs, List<AiModelBO> models) {
-        return new StockSelectionAiDomainServiceImpl(new RoutingService(models), new PromptRepository(), logs,
+        cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver prompts = (capability, promptKey, system, template) ->
+                new cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver.AiPromptRuntime(promptKey, "v1", system, template);
+        return new StockSelectionAiDomainServiceImpl(new RoutingService(models), logs,
                 (criteria, max) -> new StockSelectionAiCandidatePort.ScreeningSnapshot("2026-08-14", "market.screener", 100, 1,
-                        List.of(Map.of("code", "000001", "name", "Ping An Bank", "returnPct30d", 12.4, "amount", 100000000L)), List.of()), completion);
+                        List.of(Map.of("code", "000001", "name", "Ping An Bank", "returnPct30d", 12.4, "amount", 100000000L)), List.of()), completion, prompts);
     }
 
     private AiCompletionResultBO completion(String content, String provider, String model) {
@@ -191,14 +193,6 @@ class StockSelectionAiDomainServiceTest {
         private final List<AiCompletionResultBO> responses = new ArrayList<>();
         private int calls;
         @Override public AiCompletionResultBO complete(AiModelBO model, String prompt, String capability) { return responses.get(calls++); }
-    }
-
-    private static final class PromptRepository implements AiPromptRepository {
-        @Override public List<AiPromptBO> list(String keyword, String scenarioCode, String status) { return List.of(); }
-        @Override public AiPromptBO findById(Long id) { return null; }
-        @Override public Long create(AiPromptBO prompt) { return 1L; }
-        @Override public boolean update(AiPromptBO prompt) { return true; }
-        @Override public boolean delete(Long id) { return true; }
     }
 
     private static final class LogRepository implements AiExecutionLogRepository {

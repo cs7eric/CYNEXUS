@@ -4,8 +4,9 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRouting
 import cn.cccs7.cynexus.ai.domain.marketindicator.MarketIndicatorReplayAiCompletionPort;
 import cn.cccs7.cynexus.ai.domain.marketindicator.MarketIndicatorReplayAiDomainService;
 import cn.cccs7.cynexus.ai.domain.marketindicator.MarketIndicatorReplayAiDomainServiceImpl;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,9 +15,10 @@ public class MarketIndicatorReplayAiDomainServiceConfig {
     @Bean
     public MarketIndicatorReplayAiDomainService marketIndicatorReplayAiDomainService(
             ApplicationAnalysisRoutingDomainService routingService,
-            AiPromptRepository promptRepository,
             AiExecutionLogRepository executionLogRepository,
-            MarketIndicatorReplayAiCompletionPort completionPort) {
-        return new MarketIndicatorReplayAiDomainServiceImpl(routingService, promptRepository, executionLogRepository, completionPort);
+            MarketIndicatorReplayAiCompletionPort completionPort,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
+        return new MarketIndicatorReplayAiDomainServiceImpl(routingService, executionLogRepository, completionPort, promptRuntimeResolver, structuredOutputParser);
     }
 }

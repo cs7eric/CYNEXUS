@@ -22,6 +22,14 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationAnalysisRoutingDomainService {
+    private static final Set<String> STRUCTURED_CAPABILITIES = Set.of(
+            "media_transcription_enrich", "post_metadata", "mp4_qa",
+            "application_analysis", "application_recent30", "stock_selection_ai_intent_planning",
+            "stock_selection_ai_screening", "market_event_factor_analysis", "market_factor_study_synthesis",
+            "accounting_receipt_parse", "portfolio_trade_screenshot_parse", "portfolio_trade_screenshot_review",
+            "wechat_image_route", "auction_analysis", "market_information_event_analysis",
+            "market_information_daily_brief", "market_futures_position_analysis",
+            "market_indicator_replay_explanation", "knowledge_base_document_generate", "knowledge_base_rag_answer");
 
     private final AiModelRepository modelRepository;
     private final AiUsageBindingRepository bindingRepository;
@@ -143,7 +151,15 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
                 .extra(mergeRuntimeExtra(provider.getExtra(), binding.getParams()))
                 .inputPricePerMillion(pricing == null ? provider.getInputPricePerMillion() : pricing.inputPricePerMillion())
                 .outputPricePerMillion(pricing == null ? provider.getOutputPricePerMillion() : pricing.outputPricePerMillion()).pricingCurrency(provider.getPricingCurrency())
-                .capability(ModelCapability.builder().structuredOutputSupported(true).build()).enabled(true).build();
+                .capability(ModelCapability.builder()
+                        .structuredOutputSupported(STRUCTURED_CAPABILITIES.contains(capabilityOf(binding)))
+                        .visionSupported(Set.of("accounting_receipt_parse", "portfolio_trade_screenshot_parse",
+                                "portfolio_trade_screenshot_review", "wechat_image_route").contains(capabilityOf(binding)))
+                        .build()).enabled(true).build();
+    }
+
+    private String capabilityOf(AiUsageBindingBO binding) {
+        return binding == null || binding.getCapability() == null ? "" : normalize(binding.getCapability());
     }
 
     /** Binding parameters are capability-scoped overrides of provider runtime options. */

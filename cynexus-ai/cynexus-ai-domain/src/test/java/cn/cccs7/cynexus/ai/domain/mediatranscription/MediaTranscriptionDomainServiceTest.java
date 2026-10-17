@@ -5,12 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.MediaTranscriptionMetadataBO;
 import cn.cccs7.cynexus.ai.domain.mediatranscription.impl.MediaTranscriptionDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiModelExecutor;
+import java.util.Map;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,7 @@ class MediaTranscriptionDomainServiceTest {
     @Test
     void emptyPolishDoesNotCallTheCompletionPort() {
         StubCompletion completion = new StubCompletion();
-        MediaTranscriptionDomainService service = service(completion, new StubPrompts(), content -> "{}");
+        MediaTranscriptionDomainService service = service(completion, content -> "{}");
 
         assertThat(service.polish(new MediaTranscriptionDomainService.TextCommand("  ", null))).isEmpty();
         assertThat(completion.calls).isZero();
@@ -28,7 +29,7 @@ class MediaTranscriptionDomainServiceTest {
     @Test
     void metadataUsesStructuredOutputPortAndReturnsDomainMetadata() {
         StubCompletion completion = new StubCompletion();
-        MediaTranscriptionDomainService service = service(completion, new StubPrompts(), content ->
+        MediaTranscriptionDomainService service = service(completion, content ->
                 "{\"title\":\"整理后的标题\",\"categories\":[\"投资\"],\"tags\":[\"趋势\"]}");
 
         MediaTranscriptionMetadataBO result = service.metadata(new MediaTranscriptionDomainService.MetadataCommand("正文", "摘要", null));
@@ -43,7 +44,7 @@ class MediaTranscriptionDomainServiceTest {
     void enrichmentUsesOneStructuredCallAndReturnsKnowledgeFields() {
         StubCompletion completion = new StubCompletion();
         completion.content = "{\"polishedText\":\"润色正文\",\"summary\":\"详细摘要\",\"shortSummary\":\"短摘要\",\"keyPoints\":[\"观点\"],\"topics\":[\"复盘\"],\"methodology\":[\"步骤\"],\"actionItems\":[\"行动\"],\"risks\":[\"风险\"],\"title\":\"标题\",\"categories\":[\"复盘\"],\"tags\":[\"A股\"]}";
-        MediaTranscriptionDomainService service = service(completion, new StubPrompts(), content -> content);
+        MediaTranscriptionDomainService service = service(completion, content -> content);
 
         var result = service.enrich(new MediaTranscriptionEnrichmentCommand("原始文本", "原题", "平台", 60, null));
 
@@ -53,8 +54,10 @@ class MediaTranscriptionDomainServiceTest {
         assertThat(result.keyPoints()).containsExactly("观点");
     }
 
-    private MediaTranscriptionDomainService service(StubCompletion completion, AiPromptRepository prompts,
+    private MediaTranscriptionDomainService service(StubCompletion completion,
                                                     MediaTranscriptionStructuredOutputPort outputPort) {
+        AiPromptRuntimeResolver prompts = (capability, key, system, user) ->
+                new AiPromptRuntimeResolver.AiPromptRuntime(key, "test", system, user);
         return new MediaTranscriptionDomainServiceImpl(new Routing(), completion, prompts,
                 log -> 1L, outputPort);
     }
@@ -67,7 +70,7 @@ class MediaTranscriptionDomainServiceTest {
         @Override public String promptVersion(AiUsageBindingBO binding) { return null; }
     }
 
-    private static final class StubCompletion implements MediaTranscriptionCompletionPort {
+    private static final class StubCompletion implements AiModelExecutor {
         private int calls;
         private String content = "generated";
         @Override public AiCompletionResultBO complete(AiModelBO model, String prompt, String capability) {
@@ -76,11 +79,4 @@ class MediaTranscriptionDomainServiceTest {
         }
     }
 
-    private static final class StubPrompts implements AiPromptRepository {
-        @Override public List<AiPromptBO> list(String keyword, String scenarioCode, String status) { return List.of(); }
-        @Override public AiPromptBO findById(Long id) { return null; }
-        @Override public Long create(AiPromptBO prompt) { return 1L; }
-        @Override public boolean update(AiPromptBO prompt) { return true; }
-        @Override public boolean delete(Long id) { return true; }
-    }
 }

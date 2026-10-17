@@ -1,0 +1,73 @@
+%% cynexus-ai · 通用场景执行主链
+%% 每个节点 = 一个真实执行步骤；每条边 = 一个真实传递的数据对象
+flowchart TD
+
+    %% ============ 入口 ============
+    HTTP(["POST /ai/execute<br/>HTTP + JSON"]) -->|"AiExecuteRequest<br/>capability · params · userId"| CTL["AiController.execute()"]
+
+    subgraph APP["application 层 · 只做编排与 DTO 映射"]
+        CTL -->|"request + tenantKey + principalKey"| SVC["ScenarioExecutionAppService<br/>execute()"]
+        SVC -->|"capability · params · identity"| PREP["prepareTextExecution()<br/>编排三件事"]
+        PREP -->|"准备完成"| ASM["AiExecutionAssembler<br/>toDTO()"]
+    end
+
+    %% ============ 路由 ============
+    PREP -->|"capability code"| R1["RoutingDomainServiceImpl<br/>findBinding()"]
+
+    subgraph DOM["domain 层 · 全部业务判断"]
+        R1 -.读.-> BIND[("ai_usage_bindings<br/>capability → prompt_id / model_override")]
+        R1 -->|"AiUsageBindingBO<br/>promptId · modelOverride"| R2["RoutingDomainServiceImpl<br/>routeModels()"]
+        R2 -.读.-> MODEL[("ai_model · ai_provider<br/>default_model · fallback_provider_codes")]
+        R2 -->|"候选模型链 List&lt;AiModelBO&gt;"| P1["AiPromptRuntimeResolverImpl<br/>resolve()"]
+        P1 -.读.-> PROMPT[("ai_prompt<br/>prompt_key · version · status=active")]
+        P1 -->|"① binding.promptId 精确命中"| P2{"命中?"}
+        P2 -->|"否"| P3["按 prompt_key + version<br/>取 active 记录"]
+        P2 -->|"是"| PR["AiPromptBO<br/>模板正文"]
+        P3 -->|"命中"| PR
+        P3 -->|"未命中"| P4["Java 内置兜底模板"]
+        P4 --> PR
+        PR -->|"template + params"| REND["占位符渲染 render()"]
+        REND -->|"已渲染 messages"| BUILD["构造 AiCompletionRequest<br/>messages · model · temperature · structured"]
+    end
+
+    %% ============ 执行 ============
+    BUILD -->|"AiCompletionRequest"| UNI["UnifiedAiModelExecutor<br/>execute()"]
+    UNI -->|"① 主路径"| SPRING["SpringAiModelExecutor<br/>ChatClient.call()"]
+    SPRING -->|"成功"| RES
+    SPRING -->|"异常"| FB{"AiProviderFallbackPolicy<br/>shouldFallback()"}
+    FB -->|"true · 允许降级"| LEGACY["legacy 栈<br/>AiModelFactory + AiCompletionGatewayImpl"]
+    FB -->|"false"| ERR["抛异常 → 全局异常处理"]
+    LEGACY -->|"结果"| RES
+    SPRING -->|"HTTP / chat.completions"| PROVIDER[("Provider API<br/>OpenAI · DeepSeek · DashScope<br/>Anthropic · Minimax · Custom")]
+    LEGACY -->|"HTTP"| PROVIDER
+    PROVIDER -->|"原始 JSON / text"| RES["AiCompletionResultBO<br/>content · inputTokens · outputTokens<br/>cachedTokens · finishReason"]
+
+    subgraph POST["后置处理"]
+        RES -->|"原始文本"| PARSE["结构化解析<br/>Jackson → 目标 BO"]
+        PARSE -->|"解析失败"| REPAIR["BoundedStructuredOutputRepairPolicy<br/>有界修复 + schema 校验"]
+        REPAIR -->|"修复后对象"| FIN
+        PARSE -->|"解析成功"| FIN["finalizeExecution()<br/>结果校验 + 敏感信息脱敏"]
+    end
+
+    FIN -->|"AiExecutionLogBO"| LOG[("ai_execution_log<br/>capability · model · tokens · 耗时")]
+    FIN -->|"trace 上报"| LANG["Langfuse<br/>generation 观测"]
+    FIN -->|"AiExecutionResult"| ASM
+    ASM -->|"AiExecuteDTO"| OUT(["响应 JSON · content + usage"])
+    ERR -->|"错误码 + 消息"| OUT
+
+    %% ============ 缓存旁路 ============
+    UNI -.旁路.-> CACHE["PromptCache 策略注册表<br/>OpenAI / xAI / Generic / Noop"]
+    CACHE -.写入 cachedTokens.-> RES
+
+    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a
+    classDef app fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f
+    classDef dom fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d
+    classDef infra fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#1f1408
+    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f
+    classDef note fill:#fffde7,stroke:#f9a825,stroke-width:1px,color:#1f1a08
+
+    class HTTP,OUT entry
+    class CTL,SVC,PREP,ASM app
+    class R1,R2,P1,P2,P3,P4,PR,REND,BUILD,PARSE,REPAIR,FIN,PREP dom
+    class UNI,SPRING,LEGACY,FB,CACHE,ERR,LANG infra
+    class BIND,MODEL,PROMPT,LOG,PROVIDER db

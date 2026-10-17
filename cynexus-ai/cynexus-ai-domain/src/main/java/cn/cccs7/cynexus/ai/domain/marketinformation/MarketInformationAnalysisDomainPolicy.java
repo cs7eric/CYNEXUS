@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.domain.marketinformation;
 
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -29,15 +30,18 @@ public final class MarketInformationAnalysisDomainPolicy {
     private static final Set<String> CONTENT_QUALITIES = Set.of("full_text", "ocr", "mixed", "summary_only", "unknown");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AiStructuredOutputParser structuredOutputParser;
+
+    public MarketInformationAnalysisDomainPolicy() {
+        this(AiStructuredOutputParser.shared());
+    }
+
+    public MarketInformationAnalysisDomainPolicy(AiStructuredOutputParser structuredOutputParser) {
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
+    }
 
     public JsonNode extractObject(String raw) throws Exception {
-        String value = raw == null ? "" : raw.trim();
-        int start = value.indexOf('{');
-        int end = value.lastIndexOf('}');
-        if (start < 0 || end < start) {
-            throw new IllegalArgumentException("Response does not contain a JSON object");
-        }
-        JsonNode result = objectMapper.readTree(value.substring(start, end + 1));
+        JsonNode result = objectMapper.readTree(structuredOutputParser.extractObject(raw));
         if (!result.isObject()) {
             throw new IllegalArgumentException("Response must be a JSON object");
         }

@@ -537,7 +537,7 @@ def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, t
             SELECT
                 code,
                 trade_date,
-                close,
+                close_price AS close,
                 avg(close) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS ma20,
                 avg(close) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS ma60,
                 lagInFrame(close, 1) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS close_1d_ago,
@@ -547,7 +547,7 @@ def read_ma_count_input_rows(client: ClickHouseClient, trade_date: date | str, t
                 lagInFrame(close, 251) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS close_251d_ago,
                 max(close) OVER (PARTITION BY code ORDER BY trade_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS max_252d
             FROM (
-                SELECT code, trade_date, max(close) AS close
+                SELECT code, trade_date, max(close) AS close_price
                  FROM {_safe_table_name(table)}
                  WHERE trade_date >= %(history_start_date)s
                    AND trade_date <= %(trade_date)s
@@ -577,7 +577,7 @@ def read_close_series(client: ClickHouseClient, code: str, trade_date: date | st
     identity_where, params = _daily_identity_filter(code, table)
     params.update({"trade_date": trade_date, "limit": int(limit)})
     sql = f"""
-        SELECT trade_date, max(close) AS close
+        SELECT trade_date, max(close) AS close_price
           FROM {_safe_table_name(table)}
          WHERE {identity_where} AND trade_date <= %(trade_date)s
          GROUP BY trade_date
@@ -726,13 +726,13 @@ def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date 
     if previous_date is None:
         return []
     sql = f"""
-        SELECT current.code, current.open, current.high, current.low, current.close_price, previous.close AS pre_close,
-               CASE WHEN previous.close > 0 THEN (current.close_price - previous.close) / previous.close * 100 ELSE NULL END AS change_pct,
-               CASE WHEN previous.close > 0 AND current.close_price >= previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_limit_up,
-               CASE WHEN previous.close > 0 AND current.close_price <= previous.close * (1 - threshold) * 1.0001 THEN 1 ELSE 0 END AS is_limit_down,
-               CASE WHEN previous.close > 0 AND current.high >= previous.close * (1 + threshold) * 0.9995 THEN 1 ELSE 0 END AS is_touched,
-               CASE WHEN previous.close > 0 AND current.high >= previous.close * (1 + threshold) * 0.9995
-                         AND current.close_price < previous.close * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_broken
+        SELECT current.code, current.open, current.high, current.low, current.close_price, previous.close_price AS pre_close,
+               CASE WHEN previous.close_price > 0 THEN (current.close_price - previous.close_price) / previous.close_price * 100 ELSE NULL END AS change_pct,
+               CASE WHEN previous.close_price > 0 AND current.close_price >= previous.close_price * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_limit_up,
+               CASE WHEN previous.close_price > 0 AND current.close_price <= previous.close_price * (1 - threshold) * 1.0001 THEN 1 ELSE 0 END AS is_limit_down,
+               CASE WHEN previous.close_price > 0 AND current.high >= previous.close_price * (1 + threshold) * 0.9995 THEN 1 ELSE 0 END AS is_touched,
+               CASE WHEN previous.close_price > 0 AND current.high >= previous.close_price * (1 + threshold) * 0.9995
+                         AND current.close_price < previous.close_price * (1 + threshold) * 0.9999 THEN 1 ELSE 0 END AS is_broken
           FROM (
             SELECT code, argMax(open, close) AS open, argMax(high, close) AS high,
                    argMax(low, close) AS low, max(close) AS close_price,
@@ -744,12 +744,12 @@ def read_limit_emotion_snapshot_rows(client: ClickHouseClient, trade_date: date 
              GROUP BY code
           ) AS current
           INNER JOIN (
-            SELECT code, max(close) AS close
+            SELECT code, max(close) AS close_price
               FROM {_safe_table_name(table)}
              WHERE trade_date = %(previous_trade_date)s
              GROUP BY code
           ) AS previous ON current.code = previous.code
-         WHERE previous.close > 0
+         WHERE previous.close_price > 0
     """
     return [
         {
@@ -776,7 +776,7 @@ def read_limit_emotion_ohlcv_rows(client: ClickHouseClient, trade_date: date | s
         return []
     sql = f"""
         SELECT current.market, current.code, current.tdx_code, current.trade_date,
-               current.open, current.high, current.low, current.close_price, previous.close AS pre_close
+               current.open, current.high, current.low, current.close_price, previous.close_price AS pre_close
           FROM (
             SELECT market, code, tdx_code, trade_date,
                    argMax(open, close) AS open, argMax(high, close) AS high,
@@ -786,12 +786,12 @@ def read_limit_emotion_ohlcv_rows(client: ClickHouseClient, trade_date: date | s
              GROUP BY market, code, tdx_code, trade_date
           ) AS current
           INNER JOIN (
-            SELECT tdx_code, max(close) AS close
+            SELECT tdx_code, max(close) AS close_price
               FROM {_safe_table_name(table)}
              WHERE trade_date = %(previous_trade_date)s
              GROUP BY tdx_code
           ) AS previous ON current.tdx_code = previous.tdx_code
-         WHERE previous.close > 0
+         WHERE previous.close_price > 0
     """
     return [
         {
@@ -1124,7 +1124,7 @@ def aggregate_kline_period_to_clickhouse(
             argMin(open, trade_time) AS open,
             max(high) AS high,
             min(low) AS low,
-            argMax(close, trade_time) AS close,
+            argMax(close, trade_time) AS close_price,
             sum(amount) AS amount,
             sum(volume) AS volume,
             any(adj_factor) AS adj_factor,

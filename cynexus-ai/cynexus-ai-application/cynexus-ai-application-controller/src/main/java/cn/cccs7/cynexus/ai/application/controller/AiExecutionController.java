@@ -9,24 +9,44 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestHeader;
+import cn.cccs7.cynexus.ai.application.service.agent.identity.AgentIdentityResolver;
 
 @RestController
 @RequestMapping("/api/ai/executions")
 public class AiExecutionController {
 
     private final ScenarioExecutionAppService scenarioExecutionAppService;
+    private final AgentIdentityResolver identityResolver;
 
-    public AiExecutionController(ScenarioExecutionAppService scenarioExecutionAppService) {
+    public AiExecutionController(ScenarioExecutionAppService scenarioExecutionAppService, AgentIdentityResolver identityResolver) {
         this.scenarioExecutionAppService = scenarioExecutionAppService;
+        this.identityResolver = identityResolver;
     }
 
     @PostMapping
-    public Result<AiExecuteDTO> execute(@RequestBody AiExecuteRequest request) {
-        return Result.success(scenarioExecutionAppService.execute(request));
+    public Result<AiExecuteDTO> execute(@RequestBody AiExecuteRequest request,
+            @RequestHeader(value = "X-Cynexus-Tenant", required = false) String tenant,
+            @RequestHeader(value = "X-Cynexus-Principal", required = false) String principal,
+            @RequestHeader(value = "X-Cynexus-Identity-Signature", required = false) String signature) {
+        var identity = resolveOptional(principal, tenant, signature);
+        return Result.success(scenarioExecutionAppService.execute(request,
+                identity == null ? null : identity.getTenantKey(), identity == null ? null : identity.getPrincipalKey()));
     }
 
     @PostMapping("/vision")
-    public Result<AiExecuteDTO> executeVision(@RequestBody AiVisionExecuteRequest request) {
-        return Result.success(scenarioExecutionAppService.executeVision(request));
+    public Result<AiExecuteDTO> executeVision(@RequestBody AiVisionExecuteRequest request,
+            @RequestHeader(value = "X-Cynexus-Tenant", required = false) String tenant,
+            @RequestHeader(value = "X-Cynexus-Principal", required = false) String principal,
+            @RequestHeader(value = "X-Cynexus-Identity-Signature", required = false) String signature) {
+        var identity = resolveOptional(principal, tenant, signature);
+        return Result.success(scenarioExecutionAppService.executeVision(request,
+                identity == null ? null : identity.getTenantKey(), identity == null ? null : identity.getPrincipalKey()));
+    }
+
+    private cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentIdentity resolveOptional(String principal, String tenant, String signature) {
+        if ((principal == null || principal.isBlank()) && (tenant == null || tenant.isBlank())
+                && (signature == null || signature.isBlank())) return null;
+        return identityResolver.resolve(principal, tenant, signature);
     }
 }

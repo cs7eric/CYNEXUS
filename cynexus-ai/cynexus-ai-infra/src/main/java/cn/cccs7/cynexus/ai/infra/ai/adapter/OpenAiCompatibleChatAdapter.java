@@ -1635,13 +1635,18 @@ public abstract class OpenAiCompatibleChatAdapter implements AiModelAdapter {
         }
     }
 
-    private static final class ProviderHttpException extends IllegalStateException {
+    /** Typed provider failure used by rollback policy without message parsing. */
+    public static final class ProviderHttpException extends IllegalStateException {
         private final int statusCode;
 
-        private ProviderHttpException(int statusCode, String detail) {
+        public ProviderHttpException(int statusCode, String detail) {
             super("AI provider returned HTTP " + statusCode
                     + (detail == null || detail.isBlank() ? "" : ": " + detail));
             this.statusCode = statusCode;
+        }
+
+        public int statusCode() {
+            return statusCode;
         }
     }
 }

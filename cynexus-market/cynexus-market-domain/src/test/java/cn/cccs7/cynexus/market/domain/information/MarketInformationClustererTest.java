@@ -34,6 +34,17 @@ class MarketInformationClustererTest {
     }
 
     @Test
+    void retainsActiveClusterWhenRecentMembersExtendItsWindow() {
+        var clusters = clusterer.cluster(List.of(
+                candidate("cls.telegraph", "1", "监管发布资本市场改革措施", "Regulation", now),
+                candidate("xinhua.finance", "2", "监管发布资本市场改革措施", "Regulation", now.plusHours(47)),
+                candidate("csrc.news", "3", "监管发布资本市场改革措施", "Regulation", now.plusHours(49))));
+
+        assertEquals(1, clusters.size());
+        assertEquals(3, clusters.getFirst().members().size());
+    }
+
+    @Test
     void stableIdentityDoesNotDependOnInputOrderAndContentChangesInvalidateHash() {
         var first = candidate("gov.cn.policy", "policy-1", "国务院发布产业支持政策", "Policy", now);
         var confirmation = candidate("xinhua.finance", "news-2", "国务院发布产业支持政策", "Policy", now.plusHours(1));

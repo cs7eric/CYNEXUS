@@ -1,0 +1,70 @@
+%% cynexus-ai · 业务能力通用模式（以期货持仓分析为样本）
+%% 同构能力：market.* · finance.* · knowledge.* · application_analysis.*
+flowchart TD
+
+    IN(["业务请求<br/>品种 + 快照/区间参数"]) -->|"FuturesPositionRequest"| CTL["FuturesPositionController"]
+    CTL -->|"request + identity"| APP["FuturesPositionAiAppService<br/>analyze()"]
+    APP -->|"归一化参数 + identity"| DS["FuturesPositionAiDomainServiceImpl<br/>analyze()"]
+
+    subgraph NORM_G["① 入参归一化（Policy 驱动）"]
+        DS -->|"variety"| N1["requireAllowedVariety()<br/>品种白名单校验"]
+        N1 -->|"不在白名单"| NERR["IllegalArgumentException"]
+        N1 -->|"合法品种"| N2["buildInput()<br/>组装结构化输入"]
+        N2 -->|"input 文本"| N3{"长度 > 240KB?"}
+        N3 -->|"是"| NERR2["硬护栏拒绝"]
+        N3 -->|"否"| NOK["合法输入 AvailableInput"]
+    end
+
+    NOK -->|"capability = finance.futures_position"| P1["AiPromptRuntimeResolverImpl<br/>resolve()"]
+    P1 -.读.-> PDB[("ai_prompt")]
+    P1 -->|"AiPromptBO 模板"| P2["渲染占位符"]
+    P2 -->|"messages"| R1["RoutingDomainServiceImpl<br/>routeModels()"]
+    R1 -.读.-> MDB[("ai_model · ai_provider")]
+    R1 -->|"AiModelBO"| PORT["FuturesPositionAiCompletionPort<br/>complete()"]
+
+    PORT -->|"AiCompletionRequest"| UNI["UnifiedAiModelExecutor"]
+    UNI -->|"HTTP"| LLM[("Provider API")]
+    LLM -->|"AiCompletionResultBO"| PARSE["parseAndValidate()"]
+
+    subgraph VALID["② 结构化输出治理"]
+        PARSE -->|"原始文本"| V1["Jackson 反序列化"]
+        V1 -->|"失败"| V2["BoundedStructuredOutputRepairPolicy<br/>有界修复"]
+        V2 -->|"仍失败"| VERR["返回降级结果 + 记录 warn"]
+        V2 -->|"修复成功"| V3["JSON Schema 校验"]
+        V1 -->|"成功"| V3
+        V3 -->|"字段缺失/越界"| VERR
+        V3 -->|"合法"| VOK["FuturesPositionAnalysisResultBO"]
+    end
+
+    VOK -->|"结果 BO"| LOG["AiExecutionTracePort<br/>写执行日志"]
+    LOG -->|"AiExecutionLogBO"| LDB[("ai_execution_log")]
+    LOG -->|"trace"| LF["Langfuse 观测"]
+    VOK -->|"结果 BO"| MAP["Assembler → Response DTO"]
+    MAP -->|"JSON"| OUT(["结构化分析结果"])
+    VERR -->|"降级内容"| MAP
+    NERR --> OUT
+    NERR2 --> OUT
+
+    subgraph SIBLING["同构能力（同一套模板）"]
+        S1["market.overview / pulse / sentiment / indicator"]
+        S2["market.etf / sector_rank / stock_*"]
+        S3["finance.budget / ledger / position"]
+        S4["knowledge.* · application_analysis.*"]
+        S5["market_research · langchain4j 独立通道"]
+    end
+
+    SIBLING -.同样走 ①→②.-> DS
+
+    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a
+    classDef norm fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608
+    classDef core fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d
+    classDef valid fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f
+    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f
+    classDef bad fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d
+
+    class IN,OUT entry
+    class N1,N2,N3,NERR,NERR2,NOK norm
+    class CTL,APP,DS,P1,P2,R1,PORT,UNI,LOG,MAP core
+    class PARSE,V1,V2,V3,VOK,VERR valid
+    class PDB,MDB,LDB,LLM,LF db
+    class S1,S2,S3,S4,S5 db

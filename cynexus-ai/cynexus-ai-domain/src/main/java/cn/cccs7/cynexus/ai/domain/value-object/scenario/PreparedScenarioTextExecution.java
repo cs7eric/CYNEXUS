@@ -14,6 +14,10 @@ public class PreparedScenarioTextExecution {
     List<AiModelBO> fallbackModels;
     String prompt;
     List<String> toolCodes;
+    String promptKey;
+    String promptVersion;
+    String executionNo;
+    String outputSchema;
 
     public List<AiModelBO> candidateModels() {
         List<AiModelBO> result = new java.util.ArrayList<>();
@@ -24,6 +28,7 @@ public class PreparedScenarioTextExecution {
 
     public PreparedScenarioTextExecution withModel(AiModelBO selectedModel) {
         return PreparedScenarioTextExecution.builder().scenario(scenario).model(selectedModel)
-                .fallbackModels(List.of()).prompt(prompt).toolCodes(toolCodes).build();
+                .fallbackModels(List.of()).prompt(prompt).toolCodes(toolCodes)
+                .promptKey(promptKey).promptVersion(promptVersion).executionNo(executionNo).outputSchema(outputSchema).build();
     }
 }

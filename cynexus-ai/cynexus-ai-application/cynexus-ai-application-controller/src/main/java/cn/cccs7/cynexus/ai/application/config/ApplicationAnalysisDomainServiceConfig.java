@@ -9,8 +9,9 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisStructu
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.impl.ApplicationAnalysisExecutionDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.impl.ApplicationAnalysisPageDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.ApplicationAnalysisPageRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,11 +24,12 @@ public class ApplicationAnalysisDomainServiceConfig {
             ApplicationAnalysisRoutingDomainService routingService,
             ApplicationAnalysisCompletionPort completionPort,
             ApplicationAnalysisStructuredOutputPort structuredOutputPort,
-            AiPromptRepository promptRepository,
-            AiExecutionLogRepository executionLogRepository) {
+            AiExecutionLogRepository executionLogRepository,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
         return new ApplicationAnalysisExecutionDomainServiceImpl(
                 pageRepository, routingService, completionPort, structuredOutputPort,
-                promptRepository, executionLogRepository);
+                executionLogRepository, promptRuntimeResolver, structuredOutputParser);
     }
 
     @Bean

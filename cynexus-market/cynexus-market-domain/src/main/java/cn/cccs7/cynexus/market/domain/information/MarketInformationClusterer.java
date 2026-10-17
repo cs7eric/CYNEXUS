@@ -38,14 +38,16 @@ public class MarketInformationClusterer {
                 .sorted(Comparator.comparing(Candidate::publishedAt).thenComparing(Candidate::identity))
                 .toList();
         List<MutableCluster> clusters = new ArrayList<>();
+        List<MutableCluster> activeClusters = new ArrayList<>();
         for (Candidate candidate : ordered) {
+            activeClusters.removeIf(cluster -> Duration.between(cluster.lastPublishedAt, candidate.publishedAt())
+                    .abs().compareTo(WINDOW) > 0);
             String normalized = normalize(candidate.title());
             Set<String> entities = entities(safe(candidate.issuer()) + " " + candidate.title() + " " + safe(candidate.summary()));
             Set<String> documentKeys = documentKeys(candidate.title() + " " + safe(candidate.summary()));
             MutableCluster best = null;
             double bestScore = 0;
-            for (MutableCluster cluster : clusters) {
-                if (Duration.between(cluster.lastPublishedAt, candidate.publishedAt()).abs().compareTo(WINDOW) > 0) continue;
+            for (MutableCluster cluster : activeClusters) {
                 boolean sameDocument = overlap(cluster.documentKeys, documentKeys) > 0;
                 if (!categoryCompatible(cluster.category, candidate.category(), sameDocument)) continue;
                 if (!cluster.subjectCompatible(candidate.subjectKey())) continue;
@@ -64,6 +66,7 @@ public class MarketInformationClusterer {
             if (best == null) {
                 best = new MutableCluster(candidate, normalized, entities, documentKeys);
                 clusters.add(best);
+                activeClusters.add(best);
                 bestScore = 1;
             } else {
                 best.add(candidate, entities, documentKeys);

@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import cn.cccs7.cynexus.knowledgebase.domain.entity.KnowledgeDocumentBO;
 import cn.cccs7.cynexus.knowledgebase.domain.index.KnowledgeBaseIndexDomainService;
+import cn.cccs7.cynexus.knowledgebase.domain.index.KnowledgeDocumentIndexEventPublisher;
 import cn.cccs7.cynexus.knowledgebase.domain.knowledgebase.KnowledgeBaseDomainService;
 import cn.cccs7.cynexus.knowledgebase.domain.service.knowledgebase.impl.KnowledgeDocumentLifecycleDomainServiceImpl;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 class KnowledgeDocumentLifecycleDomainServiceTest {
 
@@ -27,11 +29,14 @@ class KnowledgeDocumentLifecycleDomainServiceTest {
     @Test
     void refreshesOnlySuccessfulDocumentUpdates() {
         List<String> calls = new ArrayList<>();
+        KnowledgeDocumentBO existing = KnowledgeDocumentBO.builder().id(101L).tenantKey("tenant-a").ownerKey("owner-a").build();
         KnowledgeDocumentBO document = KnowledgeDocumentBO.builder().id(101L).build();
-        KnowledgeDocumentLifecycleDomainService service = newService(calls, document);
+        KnowledgeDocumentLifecycleDomainService service = newService(calls, existing);
 
         assertTrue(service.updateDocument(document));
-        assertEquals(List.of("updateDocument", "findDocumentById", "refreshDocumentIndex"), calls);
+        assertEquals("tenant-a", document.getTenantKey());
+        assertEquals("owner-a", document.getOwnerKey());
+        assertEquals(List.of("findDocumentById", "updateDocument", "findDocumentById", "refreshDocumentIndex"), calls);
     }
 
     @Test
@@ -41,6 +46,32 @@ class KnowledgeDocumentLifecycleDomainServiceTest {
 
         assertTrue(service.deleteDocument(101L));
         assertEquals(List.of("deleteDocument", "deleteDocumentIndex"), calls);
+    }
+
+    @Test
+    void publishesChangedAndDeletedLifecycleEvents() {
+        List<String> events = new ArrayList<>();
+        KnowledgeDocumentIndexEventPublisher publisher = new KnowledgeDocumentIndexEventPublisher() {
+            @Override public void documentChanged(KnowledgeDocumentBO document) { events.add("changed:" + document.getId()); }
+            @Override public void documentDeleted(Long documentId) { events.add("deleted:" + documentId); }
+        };
+        ObjectProvider<KnowledgeDocumentIndexEventPublisher> provider = new ObjectProvider<>() {
+            @Override public KnowledgeDocumentIndexEventPublisher getObject(Object... args) { return publisher; }
+            @Override public KnowledgeDocumentIndexEventPublisher getIfAvailable() { return publisher; }
+            @Override public KnowledgeDocumentIndexEventPublisher getIfUnique() { return publisher; }
+            @Override public KnowledgeDocumentIndexEventPublisher getIfAvailable(java.util.function.Supplier<KnowledgeDocumentIndexEventPublisher> supplier) { return publisher; }
+            @Override public KnowledgeDocumentIndexEventPublisher getIfUnique(java.util.function.Supplier<KnowledgeDocumentIndexEventPublisher> supplier) { return publisher; }
+            @Override public java.util.stream.Stream<KnowledgeDocumentIndexEventPublisher> stream() { return java.util.stream.Stream.of(publisher); }
+            @Override public java.util.stream.Stream<KnowledgeDocumentIndexEventPublisher> orderedStream() { return java.util.stream.Stream.of(publisher); }
+        };
+        KnowledgeDocumentBO document = KnowledgeDocumentBO.builder().id(101L).content("content").build();
+        KnowledgeDocumentLifecycleDomainService service = new KnowledgeDocumentLifecycleDomainServiceImpl(
+                proxy(KnowledgeBaseDomainService.class, new ArrayList<>(), document),
+                proxy(KnowledgeBaseIndexDomainService.class, new ArrayList<>(), null), provider);
+        service.createDocument(document);
+        service.updateDocument(KnowledgeDocumentBO.builder().id(101L).content("updated").build());
+        service.deleteDocument(101L);
+        assertEquals(List.of("changed:101", "changed:101", "deleted:101"), events);
     }
 
     @Test

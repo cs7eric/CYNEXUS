@@ -62,6 +62,9 @@ class ScenarioExecutionDomainServiceTest {
         assertThat(prepared.getScenario().getScenarioName()).contains("Portfolio");
         assertThat(prepared.getCapability()).isEqualTo("portfolio_trade_screenshot_parse");
         assertThat(prepared.getModel()).isSameAs(model);
+        assertThat(prepared.getExecutionNo()).startsWith("AI-");
+        var result = service.finalizeVisionExecution(prepared, "{\"isTradeScreenshot\":false,\"candidates\":[]}");
+        assertThat(result.getExecutionNo()).isEqualTo(prepared.getExecutionNo());
     }
 
     @Test

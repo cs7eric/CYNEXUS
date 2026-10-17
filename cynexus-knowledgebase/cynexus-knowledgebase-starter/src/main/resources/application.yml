@@ -2,6 +2,17 @@ server:
   port: 18084
 
 spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:cynexus}
+    password: ${RABBITMQ_PASSWORD:C020611.}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
   application:
     name: cynexus-knowledgebase
   config:

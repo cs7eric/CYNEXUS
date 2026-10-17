@@ -9,6 +9,7 @@ import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.MarketInformationAiTaskRepository;
 import cn.cccs7.cynexus.ai.domain.marketinformation.MarketInformationAiDomainService;
@@ -213,7 +214,22 @@ class MarketInformationAiDomainServiceTest {
     }
 
     private MarketInformationAiDomainService worker(int limit, AiPromptRepository prompts) {
-        return new MarketInformationAiDomainService(new BudgetRepository(), null, prompts, null, null, null, limit, 10);
+        cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver resolver = (capability, promptKey, system, template) -> {
+            if (prompts != null) {
+                var bindingPrompt = prompts.findById(42L);
+                if (bindingPrompt != null && "active".equalsIgnoreCase(bindingPrompt.getStatus())) {
+                    return cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver.AiPromptRuntime.from(bindingPrompt);
+                }
+            }
+            return new cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver.AiPromptRuntime(promptKey, "fallback-service-default", system, template);
+        };
+        ApplicationAnalysisRoutingDomainService routing = new ApplicationAnalysisRoutingDomainService() {
+            @Override public cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO findBinding(String capability) { return null; }
+            @Override public List<AiModelBO> routeModels(String capability, String preferredModelCode) { return List.of(); }
+            @Override public String promptVersion(cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO binding) { return ""; }
+        };
+        return new MarketInformationAiDomainService(new BudgetRepository(), routing, null, null, resolver,
+                cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser.shared(), limit, 10);
     }
 
     private static final class BudgetRepository implements MarketInformationAiTaskRepository {

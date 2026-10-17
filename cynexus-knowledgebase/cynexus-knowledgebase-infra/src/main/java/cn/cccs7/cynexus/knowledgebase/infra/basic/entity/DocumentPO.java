@@ -19,6 +19,8 @@ public class DocumentPO extends BasePO {
     private String content;
     private String contentFormat;
     private String status;
+    private String tenantKey;
+    private String ownerKey;
     @TableField(typeHandler = JsonbTypeHandler.class)
     private String extra;
 }

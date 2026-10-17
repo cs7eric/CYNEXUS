@@ -5,7 +5,8 @@ import cn.cccs7.cynexus.ai.domain.futuresposition.FuturesPositionAiCompletionPor
 import cn.cccs7.cynexus.ai.domain.futuresposition.FuturesPositionAiDomainService;
 import cn.cccs7.cynexus.ai.domain.futuresposition.impl.FuturesPositionAiDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,10 +16,11 @@ public class FuturesPositionAiDomainServiceConfig {
     @Bean
     public FuturesPositionAiDomainService futuresPositionAiDomainService(
             ApplicationAnalysisRoutingDomainService routingService,
-            AiPromptRepository promptRepository,
             AiExecutionLogRepository executionLogRepository,
-            FuturesPositionAiCompletionPort completionPort) {
+            FuturesPositionAiCompletionPort completionPort,
+            AiPromptRuntimeResolver promptRuntimeResolver,
+            AiStructuredOutputParser structuredOutputParser) {
         return new FuturesPositionAiDomainServiceImpl(
-                routingService, promptRepository, executionLogRepository, completionPort);
+                routingService, executionLogRepository, completionPort, promptRuntimeResolver, structuredOutputParser);
     }
 }

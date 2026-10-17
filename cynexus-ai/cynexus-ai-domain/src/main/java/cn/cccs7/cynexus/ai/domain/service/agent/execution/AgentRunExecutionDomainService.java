@@ -15,6 +15,7 @@ import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutionPort;
 import cn.cccs7.cynexus.ai.domain.gateway.capability.AgentToolExecutor;
 import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AgentProviderTurnPort;
 import cn.cccs7.cynexus.ai.domain.gateway.modelturn.AiCompletionGateway;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
 import cn.cccs7.cynexus.ai.domain.gateway.observability.AgentObservabilityPort;
 import cn.cccs7.cynexus.ai.domain.gateway.quota.AgentQuotaPort;
 import cn.cccs7.cynexus.ai.domain.gateway.runtime.AgentRateLimitPort;
@@ -530,16 +531,44 @@ public class AgentRunExecutionDomainService {
                                                           Consumer<String> textDeltaConsumer,
                                                           Consumer<String> thinkingDeltaConsumer,
                                                           Consumer<Integer> retryConsumer) {
+        AiExecutionContext completionContext = new AiExecutionContext(
+                runNo + "-model-" + UUID.randomUUID().toString().replace("-", ""),
+                "autonomous_agent", "autonomous_agent", null,
+                model == null ? null : model.getProviderCode(), model == null ? null : model.getModelCode(),
+                tenantFromOwner(ownerKey), principalFromOwner(ownerKey), runNo, TraceId.current());
         AgentProviderTurnPort provider = (resolvedModel, turnRequest, deltaConsumer) ->
-                awaitCancellable(() -> deltaConsumer == null
-                        ? completionGateway.completeAgent(resolvedModel, turnRequest, "autonomous_agent")
-                        : completionGateway.streamAgent(resolvedModel, turnRequest, "autonomous_agent",
-                        deltaConsumer, thinkingDeltaConsumer), ownerKey, runNo);
+                awaitCancellable(() -> {
+                    AgentModelTurnResponse response = deltaConsumer == null
+                            ? completionGateway.completeAgent(resolvedModel, turnRequest, completionContext)
+                            : completionGateway.streamAgent(resolvedModel, turnRequest, completionContext,
+                            deltaConsumer, thinkingDeltaConsumer);
+                    // Keep compatibility with legacy test doubles and adapters that
+                    // implement only the original capability overload. Production
+                    // context-aware gateways return a non-null response here.
+                    if (response != null) return response;
+                    return deltaConsumer == null
+                            ? completionGateway.completeAgent(resolvedModel, turnRequest, "autonomous_agent")
+                            : completionGateway.streamAgent(resolvedModel, turnRequest, "autonomous_agent",
+                            deltaConsumer, thinkingDeltaConsumer);
+                }, ownerKey, runNo);
         return turnDomainService.completeWithRetry(model, request, ownerKey, runNo, provider,
                 textDeltaConsumer, attempt -> {
                     if (retryConsumer != null) retryConsumer.accept(attempt);
                     pauseBeforeRetry(attempt);
                 });
+    }
+
+    private String tenantFromOwner(String ownerKey) {
+        if (ownerKey == null) return null;
+        int separator = ownerKey.indexOf("::");
+        return separator > 0 ? ownerKey.substring(0, separator) : null;
+    }
+
+    private String principalFromOwner(String ownerKey) {
+        if (ownerKey == null) return null;
+        int separator = ownerKey.indexOf("::");
+        return separator >= 0 && separator + 2 < ownerKey.length()
+                ? ownerKey.substring(separator + 2) : ownerKey;
     }
 
     private AgentToolResult executeToolWithCancellation(AgentToolCall call, AgentExecutionContext context,

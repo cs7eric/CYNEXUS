@@ -2,6 +2,7 @@ package cn.cccs7.cynexus.ai.domain.marketfactor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -15,6 +16,15 @@ import java.util.Set;
 
 /** Validation boundary for model summaries of deterministic event-factor evidence. */
 public final class MarketEventFactorAnalysisPolicy {
+    private final AiStructuredOutputParser structuredOutputParser;
+
+    public MarketEventFactorAnalysisPolicy() {
+        this(AiStructuredOutputParser.shared());
+    }
+
+    public MarketEventFactorAnalysisPolicy(AiStructuredOutputParser structuredOutputParser) {
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
+    }
     private static final int DEFAULT_MAX_EVENTS = 12;
     private static final int MAX_EVENTS = 20;
 
@@ -70,13 +80,8 @@ public final class MarketEventFactorAnalysisPolicy {
 
     private JsonNode parse(String content, ObjectMapper mapper) {
         if (content == null || content.isBlank()) throw new IllegalArgumentException("AI factor analysis returned empty content");
-        String candidate = content.trim();
-        if (candidate.startsWith("```")) candidate = candidate.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "");
-        int start = candidate.indexOf('{');
-        int end = candidate.lastIndexOf('}');
-        if (start < 0 || end < start) throw new IllegalArgumentException("AI factor analysis did not return JSON");
         try {
-            return mapper.readTree(candidate.substring(start, end + 1));
+            return mapper.readTree(structuredOutputParser.extractObject(content));
         } catch (Exception exception) {
             throw new IllegalArgumentException("AI factor analysis returned invalid JSON", exception);
         }

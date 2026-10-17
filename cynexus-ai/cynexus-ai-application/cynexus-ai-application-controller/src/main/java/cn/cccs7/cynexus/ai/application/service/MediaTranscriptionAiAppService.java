@@ -30,10 +30,14 @@ public class MediaTranscriptionAiAppService {
     }
 
     public MediaTranscriptionEnrichmentDTO enrich(MediaTranscriptionEnrichmentRequest request) {
+        return enrich(request, null, null);
+    }
+
+    public MediaTranscriptionEnrichmentDTO enrich(MediaTranscriptionEnrichmentRequest request, String tenantKey, String principalKey) {
         MediaTranscriptionEnrichmentBO result = domainService.enrich(new MediaTranscriptionEnrichmentCommand(
                 request == null ? null : request.getTranscript(), request == null ? null : request.getTitle(),
                 request == null ? null : request.getPlatform(), request == null ? null : request.getDuration(),
-                request == null ? null : request.getPreferredModelCode()));
+                request == null ? null : request.getPreferredModelCode(), tenantKey, principalKey));
         return MediaTranscriptionEnrichmentDTO.builder().polishedText(result.polishedText()).summary(result.summary())
                 .shortSummary(result.shortSummary()).keyPoints(result.keyPoints()).topics(result.topics())
                 .methodology(result.methodology()).actionItems(result.actionItems()).risks(result.risks())

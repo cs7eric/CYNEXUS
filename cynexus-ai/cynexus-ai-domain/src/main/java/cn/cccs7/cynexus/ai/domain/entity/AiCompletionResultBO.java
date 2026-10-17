@@ -18,4 +18,8 @@ public class AiCompletionResultBO {
     private Integer outputTokens;
     private Integer totalTokens;
     private String rawResponse;
+    /** Correlation fields kept on the completion result for fallback/repair and logging. */
+    private String executionNo;
+    private Long latencyMs;
+    private String errorType;
 }

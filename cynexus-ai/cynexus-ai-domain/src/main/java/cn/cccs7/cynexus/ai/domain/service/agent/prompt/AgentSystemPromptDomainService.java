@@ -7,8 +7,10 @@ import cn.cccs7.cynexus.ai.domain.policy.agent.AgentSystemPromptPolicy;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Domain ownership for autonomous Agent system-prompt resolution.
@@ -19,11 +21,23 @@ public class AgentSystemPromptDomainService {
 
     private final AiPromptRepository promptRepository;
     private final AiUsageBindingRepository usageBindingRepository;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
 
     public AgentSystemPromptDomainService(AiPromptRepository promptRepository,
                                           AiUsageBindingRepository usageBindingRepository) {
         this.promptRepository = promptRepository;
         this.usageBindingRepository = usageBindingRepository;
+        this.promptRuntimeResolver = null;
+    }
+
+    /** Production constructor: shared resolver owns binding, active prompt and fallback selection. */
+    @Autowired
+    public AgentSystemPromptDomainService(AiPromptRepository promptRepository,
+                                          AiUsageBindingRepository usageBindingRepository,
+                                          AiPromptRuntimeResolver promptRuntimeResolver) {
+        this.promptRepository = promptRepository;
+        this.usageBindingRepository = usageBindingRepository;
+        this.promptRuntimeResolver = promptRuntimeResolver;
     }
 
     public String resolve(String currentDate,
@@ -72,6 +86,10 @@ public class AgentSystemPromptDomainService {
     }
 
     private String loadTemplate(Long preferredPromptId) {
+        if (promptRuntimeResolver != null) {
+            return promptRuntimeResolver.resolve(AgentSystemPromptPolicy.PROMPT_KEY,
+                    AgentSystemPromptPolicy.PROMPT_KEY, AgentSystemPromptPolicy.fallbackTemplate(), "").systemPrompt();
+        }
         if (promptRepository != null && preferredPromptId != null) {
             AiPromptBO bound = promptRepository.findById(preferredPromptId);
             if (AgentSystemPromptPolicy.isUsable(bound)) {

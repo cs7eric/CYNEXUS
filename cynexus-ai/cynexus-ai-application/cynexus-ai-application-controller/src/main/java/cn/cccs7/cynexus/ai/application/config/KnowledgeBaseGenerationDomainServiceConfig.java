@@ -1,10 +1,5 @@
 package cn.cccs7.cynexus.ai.application.config;
 
-import cn.cccs7.cynexus.ai.api.dto.KnowledgeBaseGenerateDTO;
-import cn.cccs7.cynexus.ai.application.prompt.KnowledgeBaseStructuredOutputParser;
-import cn.cccs7.cynexus.ai.application.prompt.StructuredJsonExtractor;
-import cn.cccs7.cynexus.ai.application.service.ModelRouteAppService;
-import cn.cccs7.cynexus.ai.application.service.agent.execution.AgentExecutor;
 import cn.cccs7.cynexus.ai.domain.entity.AiScenarioBO;
 import cn.cccs7.cynexus.ai.domain.knowledgebase.KnowledgeBaseDocumentDraftPolicy;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.KnowledgeBaseDocumentGenerationDomainService;
@@ -17,17 +12,19 @@ import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerati
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationOutputParserPort;
 import cn.cccs7.cynexus.ai.domain.knowledgegeneration.port.KnowledgeBaseGenerationRoutingParametersPort;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiModelExecutor;
+import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class KnowledgeBaseGenerationDomainServiceConfig {
@@ -36,19 +33,19 @@ public class KnowledgeBaseGenerationDomainServiceConfig {
     public KnowledgeBaseDocumentGenerationDomainService knowledgeBaseDocumentGenerationDomainService(
             AiUsageBindingRepository usageBindingRepository,
             AiProviderRepository providerRepository,
-            AiPromptRepository promptRepository,
             AiExecutionLogRepository executionLogRepository,
-            ModelRouteAppService modelRouteAppService,
-            AgentExecutor agentExecutor,
-            StructuredJsonExtractor structuredJsonExtractor,
-            KnowledgeBaseStructuredOutputParser outputParser) {
+            ModelRouteDomainService modelRouteDomainService,
+            AiModelExecutor modelExecutor,
+            KnowledgeBaseGenerationOutputParserPort outputParser,
+            AiPromptRuntimeResolver promptRuntimeResolver) {
         return new KnowledgeBaseDocumentGenerationDomainServiceImpl(
-                usageBindingRepository, providerRepository, promptRepository, executionLogRepository,
-                preferredModelCode -> modelRouteAppService.route(buildScenario(), preferredModelCode),
+                usageBindingRepository, providerRepository, executionLogRepository,
+                preferredModelCode -> modelRouteDomainService.route(buildScenario(), preferredModelCode),
                 routingParametersPort(),
-                (model, prompt, capability) -> agentExecutor.completeDetailed(model, prompt, capability),
-                outputParserPort(structuredJsonExtractor, outputParser),
-                new KnowledgeBaseDocumentDraftPolicy(), new KnowledgeBaseDocumentGenerationPromptPolicy());
+                (model, prompt, capability) -> modelExecutor.complete(model, prompt, capability),
+                outputParser,
+                new KnowledgeBaseDocumentDraftPolicy(),
+                promptRuntimeResolver);
     }
 
     private KnowledgeBaseGenerationRoutingParametersPort routingParametersPort() {
@@ -58,19 +55,6 @@ public class KnowledgeBaseGenerationDomainServiceConfig {
             return new KnowledgeBaseGenerationRoutingParameters(normalizedValues(params.get("tenant_code")),
                     normalizedValues(params.get("quality")), normalizedValues(params.get("cost_tier")),
                     normalizedScalar(params.get("prompt_version")), orderedValues(params, "fallback_chain", "fallback_models"));
-        };
-    }
-
-    private KnowledgeBaseGenerationOutputParserPort outputParserPort(StructuredJsonExtractor extractor,
-                                                                       KnowledgeBaseStructuredOutputParser parser) {
-        return new KnowledgeBaseGenerationOutputParserPort() {
-            @Override public String formatInstructions() { return parser.getFormat(); }
-
-            @Override public KnowledgeBaseGenerationParsedDocument parse(String rawOutput) throws Exception {
-                KnowledgeBaseGenerateDTO value = parser.convert(extractor.extractObject(rawOutput));
-                return new KnowledgeBaseGenerationParsedDocument(value.getTitle(), value.getDescription(),
-                        value.getTags(), value.getCategories(), value.getContent());
-            }
         };
     }
 
@@ -111,4 +95,5 @@ public class KnowledgeBaseGenerationDomainServiceConfig {
     }
 
     private String normalizedScalar(JsonNode node) { return node == null || node.isNull() ? "" : node.asText("").trim(); }
+
 }

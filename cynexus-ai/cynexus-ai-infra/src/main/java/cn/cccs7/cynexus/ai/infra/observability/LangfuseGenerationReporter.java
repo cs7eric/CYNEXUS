@@ -3,6 +3,7 @@ package cn.cccs7.cynexus.ai.infra.observability;
 import cn.cccs7.cynexus.common.core.constant.CommonConstants;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
 import cn.cccs7.cynexus.ai.domain.policy.security.AgentOutboundEndpointPolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -105,6 +106,59 @@ public class LangfuseGenerationReporter {
         } catch (Exception exception) {
             LOGGER.debug("Unable to build Langfuse event: {}", exception.getMessage());
         }
+    }
+
+    public void report(AiModelBO model, String capability, String prompt,
+                       AiCompletionResultBO result, Instant startedAt, Throwable error,
+                       AiExecutionContext context) {
+        if (!enabled) return;
+        reportInternal(model, capability, result, startedAt, error, context);
+    }
+
+    private void reportInternal(AiModelBO model, String capability, AiCompletionResultBO result,
+                                Instant startedAt, Throwable error, AiExecutionContext context) {
+        // Keep the legacy overload behavior while making correlation fields explicit for new callers.
+        String id = context == null || blank(context.traceId()) ? UUID.randomUUID().toString() : context.traceId();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("capability", safe(capability));
+        if (context != null) {
+            metadata.put("executionNo", safe(context.executionNo()));
+            metadata.put("promptKey", safe(context.promptKey()));
+            metadata.put("promptVersion", safe(context.promptVersion()));
+            metadata.put("providerCode", safe(context.providerCode()));
+            metadata.put("modelCode", safe(context.modelCode()));
+            metadata.put("tenantKey", safe(context.tenantKey()));
+            metadata.put("principalKey", safe(context.principalKey()));
+            metadata.put("requestId", safe(context.requestId()));
+            metadata.put("traceId", id);
+        }
+        // The existing reporter is intentionally bounded; context-aware calls use the same transport contract.
+        reportWithMetadata(model, capability, result, startedAt, error, id, metadata);
+    }
+
+    private void reportWithMetadata(AiModelBO model, String capability, AiCompletionResultBO result,
+                                    Instant startedAt, Throwable error, String id,
+                                    Map<String, Object> contextMetadata) {
+        Map<String, Object> metadata = new LinkedHashMap<>(contextMetadata);
+        metadata.putIfAbsent("providerCode", model == null ? "" : safe(model.getProviderCode()));
+        metadata.put("status", error == null ? "SUCCEEDED" : "FAILED");
+        metadata.put("latencyMs", Math.max(0, Duration.between(startedAt, Instant.now()).toMillis()));
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("id", id); body.put("traceId", id);
+        body.put("name", blank(capability) ? "ai.completion" : capability);
+        body.put("startTime", startedAt.toString()); body.put("endTime", Instant.now().toString());
+        body.put("model", result != null && !blank(result.getModelCode()) ? result.getModelCode() : modelName(model));
+        body.put("usageDetails", Map.of("input", nonNegative(result == null ? null : result.getInputTokens()),
+                "output", nonNegative(result == null ? null : result.getOutputTokens()),
+                "total", nonNegative(result == null ? null : result.getTotalTokens())));
+        body.put("metadata", metadata);
+        if (error != null) body.put("statusMessage", truncate(error.getMessage(), 800));
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of("batch", new Object[]{Map.of("id", id, "type", "generation-create", "timestamp", Instant.now().toString(), "body", body)}));
+            httpClient.sendAsync(HttpRequest.newBuilder(ingestionUri).timeout(Duration.ofSeconds(3)).header("Authorization", authorization)
+                    .header(CommonConstants.HTTP_HEADER_CONTENT_TYPE, CommonConstants.MEDIA_TYPE_APPLICATION_JSON)
+                    .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8)).build(), HttpResponse.BodyHandlers.discarding());
+        } catch (Exception exception) { LOGGER.debug("Unable to build Langfuse event: {}", exception.getMessage()); }
     }
 
     private static int nonNegative(Integer value) { return value == null ? 0 : Math.max(0, value); }

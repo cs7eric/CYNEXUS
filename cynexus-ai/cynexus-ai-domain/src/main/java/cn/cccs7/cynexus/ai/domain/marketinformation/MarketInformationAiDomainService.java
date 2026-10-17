@@ -1,34 +1,29 @@
 package cn.cccs7.cynexus.ai.domain.marketinformation;
 
-import cn.cccs7.cynexus.ai.common.constant.AiConstants;
+import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiProviderBO;
 import cn.cccs7.cynexus.ai.domain.policy.provider.AiProviderModelPricingPolicy;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.entity.MarketInformationAiTaskBO;
 import cn.cccs7.cynexus.ai.domain.port.marketinformation.MarketInformationAiCompletionPort;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiProviderRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiUsageBindingRepository;
 import cn.cccs7.cynexus.ai.domain.repository.MarketInformationAiTaskRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
 /** Domain orchestration for Market Information analysis tasks. */
-@Service
 public class MarketInformationAiDomainService {
 
     private static final String EVENT_CAPABILITY = "market_information_event_analysis";
@@ -40,33 +35,34 @@ public class MarketInformationAiDomainService {
     private static final String DEVELOPMENT_USAGE_SCOPE = "development-live-evaluation";
 
     private final MarketInformationAiTaskRepository taskRepository;
-    private final AiProviderRepository providerRepository;
-    private final AiPromptRepository promptRepository;
-    private final AiUsageBindingRepository bindingRepository;
+    private final ApplicationAnalysisRoutingDomainService routingService;
     private final AiExecutionLogRepository executionLogRepository;
     private final MarketInformationAiCompletionPort completionPort;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final MarketInformationAnalysisDomainPolicy analysisPolicy = new MarketInformationAnalysisDomainPolicy();
+    private final MarketInformationAnalysisDomainPolicy analysisPolicy;
     private final int deepSeekLiveLimit;
     private final int taskTimeoutMinutes;
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
 
     public MarketInformationAiDomainService(MarketInformationAiTaskRepository taskRepository,
-                                     AiProviderRepository providerRepository,
-                                     AiPromptRepository promptRepository,
-                                     AiUsageBindingRepository bindingRepository,
+                                     ApplicationAnalysisRoutingDomainService routingService,
                                      AiExecutionLogRepository executionLogRepository,
                                      MarketInformationAiCompletionPort completionPort,
-                                     @Value("${cynexus.ai.market-information.deepseek-live-limit:0}") int deepSeekLiveLimit,
-                                     @Value("${cynexus.ai.market-information.task-timeout-minutes:10}") int taskTimeoutMinutes) {
+                                     AiPromptRuntimeResolver promptRuntimeResolver,
+                                     AiStructuredOutputParser structuredOutputParser,
+                                     int deepSeekLiveLimit,
+                                     int taskTimeoutMinutes) {
         this.taskRepository = taskRepository;
-        this.providerRepository = providerRepository;
-        this.promptRepository = promptRepository;
-        this.bindingRepository = bindingRepository;
+        this.routingService = java.util.Objects.requireNonNull(routingService, "routingService is required");
         this.executionLogRepository = executionLogRepository;
         this.completionPort = completionPort;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver is required");
+        this.analysisPolicy = new MarketInformationAnalysisDomainPolicy(
+                java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required"));
         this.deepSeekLiveLimit = Math.max(-1, deepSeekLiveLimit);
         this.taskTimeoutMinutes = Math.max(1, taskTimeoutMinutes);
     }
+
 
     public void recoverStaleTasks() {
         taskRepository.recoverStaleTasks(taskTimeoutMinutes);
@@ -117,21 +113,10 @@ public class MarketInformationAiDomainService {
 
     private ParsedCompletion completeAndParse(String capability, PromptRuntime promptRuntime, String prompt, MarketInformationAiTaskBO task,
                                               CompletionParser parser) throws Exception {
-        AiUsageBindingBO binding = requiredBinding(capability);
-        JsonNode params = analysisPolicy.readJson(binding.getParams());
-        AiProviderBO primary = providerRepository.findById(binding.getProviderId());
-        List<AiProviderBO> providers = new ArrayList<>();
-        if (primary != null && Boolean.TRUE.equals(primary.getEnabled())) providers.add(primary);
-        String fallbackCode = params.path("fallback_provider_code").asText("");
-        providerRepository.listAll().stream().filter(item -> fallbackCode.equals(item.getCode()) && Boolean.TRUE.equals(item.getEnabled()))
-                .findFirst().filter(item -> providers.stream().noneMatch(existing -> existing.getId().equals(item.getId())))
-                .ifPresent(providers::add);
+        List<AiModelBO> models = routingService.routeModels(capability, null);
         Exception last = null;
-        for (int index = 0; index < providers.size(); index++) {
-            AiProviderBO provider = providers.get(index);
-            String modelName = index == 0 ? analysisPolicy.normalize(binding.getModelOverride(), provider.getDefaultModel())
-                    : params.path("fallback_model").asText(provider.getDefaultModel());
-            AiModelBO model = model(provider, modelName);
+        for (int index = 0; index < models.size(); index++) {
+            AiModelBO model = models.get(index);
             try {
                 AiCompletionResultBO result = completeOnce(capability, promptRuntime, model, prompt, task);
                 return new ParsedCompletion(model, result, parser.parse(model, result), index > 0);
@@ -147,21 +132,24 @@ public class MarketInformationAiDomainService {
             throw new IllegalStateException("DeepSeek live-call development budget exhausted");
         }
         Instant startedAt = Instant.now();
+        String executionNo = "MI-" + UUID.randomUUID().toString().replace("-", "");
+        AiExecutionContext context = new AiExecutionContext(executionNo, capability, promptRuntime.promptKey(),
+                promptRuntime.promptVersion(), model.getProviderCode(), model.getModelCode(), null, null, null, null);
         try {
-            AiCompletionResultBO result = completionPort.completeDetailed(model, prompt, capability);
-            recordExecution(capability, promptRuntime, model, result, task, startedAt, null);
+            AiCompletionResultBO result = completionPort.completeDetailed(model, prompt, context);
+            recordExecution(executionNo, capability, promptRuntime, model, result, task, startedAt, null);
             return result;
         } catch (Exception exception) {
-            recordExecution(capability, promptRuntime, model, null, task, startedAt, exception);
+            recordExecution(executionNo, capability, promptRuntime, model, null, task, startedAt, exception);
             throw exception;
         }
     }
 
-    private void recordExecution(String capability, PromptRuntime promptRuntime, AiModelBO model, AiCompletionResultBO completion,
+    private void recordExecution(String executionNo, String capability, PromptRuntime promptRuntime, AiModelBO model, AiCompletionResultBO completion,
                                  MarketInformationAiTaskBO task, Instant startedAt, Exception error) {
         try {
             executionLogRepository.create(AiExecutionLogBO.builder()
-                    .executionNo("MI-" + UUID.randomUUID().toString().replace("-", ""))
+                    .executionNo(executionNo)
                     .capability(capability).promptKey(promptRuntime.promptKey())
                     .promptVersion(promptRuntime.promptVersion())
                     .providerCode(providerIdentity(model)).modelCode(model.getModelCode())
@@ -221,30 +209,25 @@ public class MarketInformationAiDomainService {
     }
 
     public PromptRuntime resolvePrompt(AiUsageBindingBO binding, String fallbackVersion) {
-        if (binding != null && binding.getPromptId() != null && promptRepository != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
-                return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(), prompt.getSystemPrompt(), prompt.getUserPromptTemplate());
-            }
-        }
         String capability = binding == null ? EVENT_CAPABILITY : binding.getCapability();
-        return fallbackPrompt(capability, fallbackVersion);
+        String configuredVersion = routingService.promptVersion(binding);
+        String fallbackPromptVersion = configuredVersion == null || configuredVersion.isBlank()
+                ? fallbackVersion : configuredVersion;
+        PromptRuntime fallback = fallbackPrompt(capability, fallbackPromptVersion);
+        var resolved = promptRuntimeResolver.resolve(capability, capability,
+                fallback.systemPrompt(), fallback.userPromptTemplate());
+        return new PromptRuntime(resolved.promptKey(), resolved.promptVersion(),
+                resolved.systemPrompt(), resolved.userPromptTemplate(), resolved);
     }
 
     private String promptVersion(AiUsageBindingBO binding, String fallbackVersion) {
-        if (binding != null && binding.getPromptId() != null && promptRepository != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
-                return prompt.getPromptVersion();
-            }
-        }
-        return fallbackVersion;
+        return resolvePrompt(binding, fallbackVersion).promptVersion();
     }
 
     private AiUsageBindingBO requiredBinding(String capability) {
-        return bindingRepository.listAll().stream()
-                .filter(item -> capability.equals(item.getCapability()) && Boolean.TRUE.equals(item.getEnabled()))
-                .findFirst().orElseThrow(() -> new IllegalStateException("Missing AI usage binding: " + capability));
+        AiUsageBindingBO binding = routingService.findBinding(capability);
+        if (binding == null) throw new IllegalStateException("Missing AI usage binding: " + capability);
+        return binding;
     }
 
     private PromptRuntime fallbackPrompt(String capability, String version) {
@@ -281,14 +264,7 @@ public class MarketInformationAiDomainService {
     }
 
     private String render(PromptRuntime promptRuntime, Map<String, String> variables) {
-        String system = value(promptRuntime.systemPrompt());
-        String user = value(promptRuntime.userPromptTemplate());
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            String marker = "{{" + entry.getKey() + "}}";
-            system = system.replace(marker, entry.getValue());
-            user = user.replace(marker, entry.getValue());
-        }
-        return system + System.lineSeparator() + user;
+        return promptRuntime.render(variables);
     }
 
     private String value(String value) {
@@ -332,5 +308,18 @@ public class MarketInformationAiDomainService {
 
     private record ParsedCompletion(AiModelBO model, AiCompletionResultBO result, JsonNode value, boolean fallbackUsed) { }
 
-    public record PromptRuntime(String promptKey, String promptVersion, String systemPrompt, String userPromptTemplate) { }
+    public record PromptRuntime(String promptKey, String promptVersion, String systemPrompt,
+                                String userPromptTemplate,
+                                AiPromptRuntimeResolver.AiPromptRuntime resolvedRuntime) {
+        public PromptRuntime(String promptKey, String promptVersion, String systemPrompt, String userPromptTemplate) {
+            this(promptKey, promptVersion, systemPrompt, userPromptTemplate, null);
+        }
+
+        public String render(Map<String, String> variables) {
+            AiPromptRuntimeResolver.AiPromptRuntime runtime = resolvedRuntime == null
+                    ? new AiPromptRuntimeResolver.AiPromptRuntime(promptKey, promptVersion, systemPrompt, userPromptTemplate)
+                    : resolvedRuntime;
+            return runtime.render(variables);
+        }
+    }
 }

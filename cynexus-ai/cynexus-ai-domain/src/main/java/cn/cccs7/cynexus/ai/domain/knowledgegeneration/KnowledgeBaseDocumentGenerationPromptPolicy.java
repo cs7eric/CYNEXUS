@@ -9,13 +9,13 @@ public final class KnowledgeBaseDocumentGenerationPromptPolicy {
     public static final String CAPABILITY = "knowledge_base_document_generate";
     public static final String PROMPT_KEY = CAPABILITY;
 
-    private static final String DEFAULT_SYSTEM_PROMPT = """
+    public static final String DEFAULT_SYSTEM_PROMPT = """
             你是 Cynexus 知识库 Markdown 文档整理助手。
             任务：根据用户输入的一段原始文本，提炼出适合保存到知识库的文档草稿。
             要求：title 最多 40 个字，description 最多 120 个字，tags 使用短词，content 输出完整 Markdown 正文。
             不要编造输入中没有的事实，严格输出合法 JSON，不要添加 Markdown 代码块或额外解释。
             """;
-    private static final String DEFAULT_USER_PROMPT_TEMPLATE = """
+    public static final String DEFAULT_USER_PROMPT_TEMPLATE = """
             {{formatInstructions}}
 
             原始文本：

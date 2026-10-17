@@ -5,10 +5,12 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRouting
 import cn.cccs7.cynexus.ai.domain.entity.AiCompletionResultBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionLogBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
-import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
 import cn.cccs7.cynexus.ai.domain.repository.AiExecutionLogRepository;
-import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
+import cn.cccs7.cynexus.ai.domain.port.AiPromptRuntimeResolver;
+import cn.cccs7.cynexus.ai.domain.port.AiExecutionContext;
+import cn.cccs7.cynexus.ai.domain.port.AiStructuredOutputParser;
+import cn.cccs7.cynexus.ai.domain.validation.BoundedStructuredOutputRepairPolicy;
 import cn.cccs7.cynexus.ai.domain.stockselection.StockSelectionAiCandidatePort;
 import cn.cccs7.cynexus.ai.domain.stockselection.StockSelectionAiCompletionPort;
 import cn.cccs7.cynexus.ai.domain.stockselection.StockSelectionAiDomainPolicy;
@@ -20,6 +22,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import cn.cccs7.cynexus.common.core.constant.TraceId;
 
 /** Executes a model only after the candidate universe is fetched from the trusted screener boundary. */
 public class StockSelectionAiDomainServiceImpl implements StockSelectionAiDomainService {
@@ -73,23 +76,36 @@ public class StockSelectionAiDomainServiceImpl implements StockSelectionAiDomain
             """;
 
     private final ApplicationAnalysisRoutingDomainService routingService;
-    private final AiPromptRepository promptRepository;
     private final AiExecutionLogRepository executionLogRepository;
     private final StockSelectionAiCandidatePort candidatePort;
     private final StockSelectionAiCompletionPort completionPort;
-    private final StockSelectionAiDomainPolicy policy = new StockSelectionAiDomainPolicy();
+    private final AiPromptRuntimeResolver promptRuntimeResolver;
+    private final StockSelectionAiDomainPolicy policy;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final AiStructuredOutputParser structuredOutputParser;
 
     public StockSelectionAiDomainServiceImpl(ApplicationAnalysisRoutingDomainService routingService,
-                                              AiPromptRepository promptRepository,
                                               AiExecutionLogRepository executionLogRepository,
                                               StockSelectionAiCandidatePort candidatePort,
-                                              StockSelectionAiCompletionPort completionPort) {
+                                              StockSelectionAiCompletionPort completionPort,
+                                              AiPromptRuntimeResolver promptRuntimeResolver) {
+        this(routingService, executionLogRepository, candidatePort, completionPort, promptRuntimeResolver,
+                AiStructuredOutputParser.shared());
+    }
+
+    public StockSelectionAiDomainServiceImpl(ApplicationAnalysisRoutingDomainService routingService,
+                                              AiExecutionLogRepository executionLogRepository,
+                                              StockSelectionAiCandidatePort candidatePort,
+                                              StockSelectionAiCompletionPort completionPort,
+                                              AiPromptRuntimeResolver promptRuntimeResolver,
+                                              AiStructuredOutputParser structuredOutputParser) {
         this.routingService = routingService;
-        this.promptRepository = promptRepository;
         this.executionLogRepository = executionLogRepository;
         this.candidatePort = candidatePort;
         this.completionPort = completionPort;
+        this.promptRuntimeResolver = java.util.Objects.requireNonNull(promptRuntimeResolver, "promptRuntimeResolver is required");
+        this.structuredOutputParser = java.util.Objects.requireNonNull(structuredOutputParser, "structuredOutputParser is required");
+        this.policy = new StockSelectionAiDomainPolicy(this.structuredOutputParser);
     }
 
     @Override
@@ -116,8 +132,11 @@ public class StockSelectionAiDomainServiceImpl implements StockSelectionAiDomain
             Instant startedAt = Instant.now();
             String executionNo = "SSA-" + UUID.randomUUID().toString().replace("-", "");
             try {
-                AiCompletionResultBO completion = completionPort.complete(model, render(prompt, inputJson), CAPABILITY);
-                ObjectNode analysis = policy.parseAndValidate(completion == null ? null : completion.getContent(), candidateNames, objectMapper);
+                AiExecutionContext context = new AiExecutionContext(executionNo, CAPABILITY, prompt.promptKey(), prompt.promptVersion(),
+                        model.getProviderCode(), model.getModelCode(), null, null, executionNo, TraceId.current());
+                AiCompletionResultBO completion = completionPort.complete(model, render(prompt, inputJson), context);
+                String structured = repairIfNeeded(completion == null ? null : completion.getContent(), model, context);
+                ObjectNode analysis = policy.parseAndValidate(structured, candidateNames, objectMapper);
                 recordExecution(executionNo, CAPABILITY, prompt, model, inputJson, completion, startedAt, null);
                 return new AnalysisResult(snapshot.tradeDate(), snapshot.source(), snapshot.universeCount(),
                         candidateNames.size(), snapshot.warnings() == null ? List.of() : List.copyOf(snapshot.warnings()),
@@ -146,11 +165,11 @@ public class StockSelectionAiDomainServiceImpl implements StockSelectionAiDomain
             Instant startedAt = Instant.now();
             String executionNo = "SSP-" + UUID.randomUUID().toString().replace("-", "");
             try {
-                AiCompletionResultBO completion = completionPort.complete(model,
-                        prompt.systemPrompt() + System.lineSeparator() + prompt.userPromptTemplate().replace("{{intent_input}}", inputJson),
-                        INTENT_PLANNING_CAPABILITY);
-                StockSelectionAiDomainPolicy.IntentPlan plan = policy.parseIntentPlan(intent, baseCriteria,
-                        completion == null ? null : completion.getContent(), objectMapper);
+                AiExecutionContext context = new AiExecutionContext(executionNo, INTENT_PLANNING_CAPABILITY, prompt.promptKey(), prompt.promptVersion(),
+                        model.getProviderCode(), model.getModelCode(), null, null, executionNo, TraceId.current());
+                AiCompletionResultBO completion = completionPort.complete(model, prompt.runtime().render(Map.of("intent_input", inputJson)), context);
+                String structured = repairIfNeeded(completion == null ? null : completion.getContent(), model, context);
+                StockSelectionAiDomainPolicy.IntentPlan plan = policy.parseIntentPlan(intent, baseCriteria, structured, objectMapper);
                 recordExecution(executionNo, INTENT_PLANNING_CAPABILITY, prompt, model, inputJson, completion, startedAt, null);
                 return new IntentPlan(plan.normalizedIntent(), plan.criteria(), plan.proposedConditions(), plan.appliedRules(), plan.assumptions(),
                         plan.unsupportedPhrases(), plan.warnings(), completion.getProviderCode(), completion.getModelCode(), prompt.promptVersion());
@@ -163,49 +182,30 @@ public class StockSelectionAiDomainServiceImpl implements StockSelectionAiDomain
     }
 
     private PromptRuntime resolvePrompt(AiUsageBindingBO binding) {
-        if (binding != null && binding.getPromptId() != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) return prompt(prompt);
-        }
-        String version = routingService.promptVersion(binding);
-        List<AiPromptBO> prompts = promptRepository.list(PROMPT_KEY, null, AiConstants.STATUS_ACTIVE).stream()
-                .filter(item -> PROMPT_KEY.equals(item.getPromptKey()))
-                .filter(item -> version == null || version.isBlank() || version.equals(item.getPromptVersion())).toList();
-        return prompts.isEmpty() ? new PromptRuntime(PROMPT_KEY, PROMPT_VERSION, DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT)
-                : prompt(prompts.getFirst());
+        AiPromptRuntimeResolver.AiPromptRuntime resolved = promptRuntimeResolver.resolve(
+                CAPABILITY, PROMPT_KEY, DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT);
+        return new PromptRuntime(resolved.promptKey(), resolved.promptVersion(),
+                resolved);
     }
 
     private PromptRuntime resolveIntentPrompt(AiUsageBindingBO binding) {
-        if (binding != null && binding.getPromptId() != null) {
-            AiPromptBO prompt = promptRepository.findById(binding.getPromptId());
-            if (prompt != null && AiConstants.STATUS_ACTIVE.equalsIgnoreCase(prompt.getStatus())) {
-                return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(),
-                        defaultString(prompt.getSystemPrompt(), DEFAULT_INTENT_PLANNING_SYSTEM_PROMPT),
-                        defaultString(prompt.getUserPromptTemplate(), DEFAULT_INTENT_PLANNING_USER_PROMPT));
-            }
-        }
-        String version = routingService.promptVersion(binding);
-        List<AiPromptBO> prompts = promptRepository.list(INTENT_PLANNING_PROMPT_KEY, null, AiConstants.STATUS_ACTIVE).stream()
-                .filter(item -> INTENT_PLANNING_PROMPT_KEY.equals(item.getPromptKey()))
-                .filter(item -> version == null || version.isBlank() || version.equals(item.getPromptVersion())).toList();
-        if (prompts.isEmpty()) {
-            return new PromptRuntime(INTENT_PLANNING_PROMPT_KEY, INTENT_PLANNING_PROMPT_VERSION,
-                    DEFAULT_INTENT_PLANNING_SYSTEM_PROMPT, DEFAULT_INTENT_PLANNING_USER_PROMPT);
-        }
-        AiPromptBO prompt = prompts.getFirst();
-        return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(),
-                defaultString(prompt.getSystemPrompt(), DEFAULT_INTENT_PLANNING_SYSTEM_PROMPT),
-                defaultString(prompt.getUserPromptTemplate(), DEFAULT_INTENT_PLANNING_USER_PROMPT));
-    }
-
-    private PromptRuntime prompt(AiPromptBO prompt) {
-        return new PromptRuntime(prompt.getPromptKey(), prompt.getPromptVersion(),
-                defaultString(prompt.getSystemPrompt(), DEFAULT_SYSTEM_PROMPT),
-                defaultString(prompt.getUserPromptTemplate(), DEFAULT_USER_PROMPT));
+        AiPromptRuntimeResolver.AiPromptRuntime resolved = promptRuntimeResolver.resolve(
+                INTENT_PLANNING_CAPABILITY, INTENT_PLANNING_PROMPT_KEY,
+                DEFAULT_INTENT_PLANNING_SYSTEM_PROMPT, DEFAULT_INTENT_PLANNING_USER_PROMPT);
+        return new PromptRuntime(resolved.promptKey(), resolved.promptVersion(),
+                resolved);
     }
 
     private String render(PromptRuntime prompt, String input) {
-        return prompt.systemPrompt() + System.lineSeparator() + prompt.userPromptTemplate().replace("{{analysis_input}}", input);
+        return prompt.runtime().render(Map.of("analysis_input", input));
+    }
+
+    private String repairIfNeeded(String raw, AiModelBO model, AiExecutionContext context) {
+        var result = BoundedStructuredOutputRepairPolicy.parseOrRepair(raw, null, structuredOutputParser, 32_000,
+                value -> completionPort.complete(model,
+                                "Repair this screening response into valid JSON only. Preserve only facts supported by the original response.\n"
+                                + policy.truncate(value, 24_000), context.repairAttempt()).getContent());
+        return result.json();
     }
 
     private void recordExecution(String executionNo, String capability, PromptRuntime prompt, AiModelBO model, String input,
@@ -230,10 +230,7 @@ public class StockSelectionAiDomainServiceImpl implements StockSelectionAiDomain
         try { return objectMapper.writeValueAsString(value); } catch (Exception ignored) { return "{}"; }
     }
 
-    private String defaultString(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value.trim();
-    }
-
-    private record PromptRuntime(String promptKey, String promptVersion, String systemPrompt, String userPromptTemplate) {
+    private record PromptRuntime(String promptKey, String promptVersion,
+                                 AiPromptRuntimeResolver.AiPromptRuntime runtime) {
     }
 }

@@ -90,6 +90,9 @@ function Get-ChangedServices {
             [void]$services.Add("wechat")
         } elseif ($normalized -like "deploy\\local\\postgres\\migrations\\*ai*" -or $normalized -like "deploy\\local\\postgres\\migrations\\*agent*") {
             [void]$services.Add("ai")
+        } elseif ($normalized -like "deploy\\local\\postgres\\migrations\\*knowledge*") {
+            [void]$services.Add("knowledgebase")
+            [void]$services.Add("ai")
         }
     }
 

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="SPA5BqmF4Hle5mYeuyAtkQ">
+<head data-page-node-id="8eZZYG9DDS5dWSomYdorfv">
+<meta charset="utf-8" data-page-node-id="QR8ZBQtls83pGlr8GNjAZ0" />
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="hPH0CGz0OdTFCRYIILs3DY" />
+<title>cynexus-ai 架构图 · 数据流视角</title>
+<script src="mermaid/vendor/mermaid.min.js"></script>
+<script>
+if (!window.mermaid) {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>');
+}
+</script>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #dfe3e8;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #1d4ed8;
+    --accent-soft: #e8effd;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+  }
+  .layout { display: flex; height: 100%; }
+  .side {
+    width: 268px; flex: 0 0 268px;
+    background: var(--panel); border-right: 1px solid var(--border);
+    padding: 20px 14px; overflow-y: auto;
+  }
+  .side h1 { font-size: 15px; margin: 0 0 4px; }
+  .side .sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; line-height: 1.6; }
+  .tab {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: 1px solid transparent; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 6px; cursor: pointer;
+    color: var(--text); font-size: 13px; line-height: 1.45;
+  }
+  .tab:hover { background: #f1f3f5; }
+  .tab.active { background: var(--accent-soft); border-color: #c3d4fb; font-weight: 600; }
+  .tab .n { color: var(--muted); font-weight: 400; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .tab.active .n { color: var(--accent); }
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .bar .title { font-size: 15px; font-weight: 600; margin-right: auto; }
+  .btn {
+    border: 1px solid var(--border); background: #fff; color: var(--text);
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .desc {
+    padding: 12px 20px; color: var(--muted); font-size: 12.5px; line-height: 1.75;
+    border-bottom: 1px solid var(--border); background: #fcfcfd;
+  }
+  .desc b { color: var(--text); font-weight: 600; }
+  .canvas { flex: 1; overflow: auto; padding: 24px; }
+  .diagram { transform-origin: top left; min-width: max-content; }
+  .mermaid svg { max-width: none !important; height: auto !important; }
+  .legend { padding: 10px 20px; border-top: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 12px; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  pre.src { display: none; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1f2328; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 12px;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body data-page-node-id="lYzJ2w67LGmGDcR3bRmQ4W">
+<div class="layout" data-page-node-id="RUVgAIET6ywjmtAwmdgqHk">
+  <aside class="side" data-page-node-id="fHNt9xm9KWcdZbivduV7oe">
+    <h1 data-page-node-id="RbVDoRHYsvts24hmuPBNyV">cynexus-ai 架构图</h1>
+    <div class="sub" data-page-node-id="ywKTxkj1e85YqzE16AmEyz">数据流视角 · 每个节点是一次真实调用<br data-page-node-id="ClBiCXt0KvX5FZ4YVfLF7H"/>每条边标注传递的数据对象</div>
+    <nav id="tabs" data-page-node-id="dyxl5kALtovMwvxjh8JvLg"></nav>
+  </aside>
+  <div class="main" data-page-node-id="D7dx5syKYHsJ77Q8Z6V23q">
+    <div class="bar" data-page-node-id="8cuNhb3mgEAOXuawlBNn5i">
+      <span class="title" id="title" data-page-node-id="kV5YCrZ1zSApTNEE2VKbWM"></span>
+      <button class="btn" id="zin" data-page-node-id="1ZzsHB8ZIPn7JMYcFDCFvE">放大 +</button>
+      <button class="btn" id="zout" data-page-node-id="98uy2lqeCha7CyaDDikqOF">缩小 −</button>
+      <button class="btn" id="zreset" data-page-node-id="ze8cd3EvR4rSLLsT5lL0Ca">100%</button>
+      <button class="btn" id="fit" data-page-node-id="pStCWsSwRrPwWdopCRhzsm">适应宽度</button>
+      <button class="btn" id="copy" data-page-node-id="NIOD1256sdEFrxGfv1nSpO">复制 mermaid 源码</button>
+    </div>
+    <div class="desc" id="desc" data-page-node-id="hgCcOYWZ4GHIsoBN4je6Dq"></div>
+    <div class="canvas" id="canvas" data-page-node-id="quC49rrPOAXTArKsOUoJmb"><div class="diagram" id="diagram" data-page-node-id="LTBkdi9ayFd9xMMEmjYKKk"></div></div>
+    <div class="legend" data-page-node-id="MjCqAIQX9BXDXLqw3PQiX1">
+      <span class="sw" style="background:#e3f2fd;border:1px solid #1565c0" data-page-node-id="qBq07erFLeNNkn3Yw764nz"></span>入口/出口
+      <span class="sw" style="background:#f3e5f5;border:1px solid #6a1b9a" data-page-node-id="U1EbtvTGJGtOiFYEmY2GZG"></span>application 层
+      <span class="sw" style="background:#e8f5e9;border:1px solid #2e7d32" data-page-node-id="j3pCDZixClF59jFUA8kzZo"></span>domain 层
+      <span class="sw" style="background:#fff8e1;border:1px solid #f57f17" data-page-node-id="wJ7o80hmbzQtj9otCQsi43"></span>循环/策略
+      <span class="sw" style="background:#fff3e0;border:1px solid #ef6c00" data-page-node-id="A0qcCHDO1SZ5RrRSpBsIFJ"></span>infra 层
+      <span class="sw" style="background:#eceff1;border:1px solid #455a64" data-page-node-id="GJuGoopM3ZefHr8DmwDXTR"></span>存储/外部
+      <span class="sw" style="background:#ffebee;border:1px solid #c62828" data-page-node-id="kZdP47fqpvVD8k20szVlaJ"></span>失败分支
+    </div>
+  </div>
+</div>
+<pre class="src" id="srcbox" data-page-node-id="2Yg2TrzUJWgvCTr82tvt1p"></pre>
+<div class="toast" id="toast" data-page-node-id="2psjIkq36xVGKhYnfVrwQQ"></div>
+
+<script>
+const DIAGRAMS = [{"key": "01", "title": "通用场景执行链", "file": "01-scenario-execution.mmd", "desc": "从 HTTP 请求到 AiExecuteDTO 的完整链路。每一步是一个真实方法调用，每条边标注真实传递的数据对象。重点看三处分支：prompt 三级解析（binding.promptId → prompt_key+version → Java 兜底）、模型候选链构造、以及 Spring AI 主路径与 legacy 栈的降级判定。", "src": "%% cynexus-ai · 通用场景执行主链\n%% 每个节点 = 一个真实执行步骤；每条边 = 一个真实传递的数据对象\nflowchart TD\n\n    %% ============ 入口 ============\n    HTTP([\"POST /ai/execute<br/>HTTP + JSON\"]) -->|\"AiExecuteRequest<br/>capability · params · userId\"| CTL[\"AiController.execute()\"]\n\n    subgraph APP[\"application 层 · 只做编排与 DTO 映射\"]\n        CTL -->|\"request + tenantKey + principalKey\"| SVC[\"ScenarioExecutionAppService<br/>execute()\"]\n        SVC -->|\"capability · params · identity\"| PREP[\"prepareTextExecution()<br/>编排三件事\"]\n        PREP -->|\"准备完成\"| ASM[\"AiExecutionAssembler<br/>toDTO()\"]\n    end\n\n    %% ============ 路由 ============\n    PREP -->|\"capability code\"| R1[\"RoutingDomainServiceImpl<br/>findBinding()\"]\n\n    subgraph DOM[\"domain 层 · 全部业务判断\"]\n        R1 -.读.-> BIND[(\"ai_usage_bindings<br/>capability → prompt_id / model_override\")]\n        R1 -->|\"AiUsageBindingBO<br/>promptId · modelOverride\"| R2[\"RoutingDomainServiceImpl<br/>routeModels()\"]\n        R2 -.读.-> MODEL[(\"ai_model · ai_provider<br/>default_model · fallback_provider_codes\")]\n        R2 -->|\"候选模型链 List&lt;AiModelBO&gt;\"| P1[\"AiPromptRuntimeResolverImpl<br/>resolve()\"]\n        P1 -.读.-> PROMPT[(\"ai_prompt<br/>prompt_key · version · status=active\")]\n        P1 -->|\"① binding.promptId 精确命中\"| P2{\"命中?\"}\n        P2 -->|\"否\"| P3[\"按 prompt_key + version<br/>取 active 记录\"]\n        P2 -->|\"是\"| PR[\"AiPromptBO<br/>模板正文\"]\n        P3 -->|\"命中\"| PR\n        P3 -->|\"未命中\"| P4[\"Java 内置兜底模板\"]\n        P4 --> PR\n        PR -->|\"template + params\"| REND[\"占位符渲染 render()\"]\n        REND -->|\"已渲染 messages\"| BUILD[\"构造 AiCompletionRequest<br/>messages · model · temperature · structured\"]\n    end\n\n    %% ============ 执行 ============\n    BUILD -->|\"AiCompletionRequest\"| UNI[\"UnifiedAiModelExecutor<br/>execute()\"]\n    UNI -->|\"① 主路径\"| SPRING[\"SpringAiModelExecutor<br/>ChatClient.call()\"]\n    SPRING -->|\"成功\"| RES\n    SPRING -->|\"异常\"| FB{\"AiProviderFallbackPolicy<br/>shouldFallback()\"}\n    FB -->|\"true · 允许降级\"| LEGACY[\"legacy 栈<br/>AiModelFactory + AiCompletionGatewayImpl\"]\n    FB -->|\"false\"| ERR[\"抛异常 → 全局异常处理\"]\n    LEGACY -->|\"结果\"| RES\n    SPRING -->|\"HTTP / chat.completions\"| PROVIDER[(\"Provider API<br/>OpenAI · DeepSeek · DashScope<br/>Anthropic · Minimax · Custom\")]\n    LEGACY -->|\"HTTP\"| PROVIDER\n    PROVIDER -->|\"原始 JSON / text\"| RES[\"AiCompletionResultBO<br/>content · inputTokens · outputTokens<br/>cachedTokens · finishReason\"]\n\n    subgraph POST[\"后置处理\"]\n        RES -->|\"原始文本\"| PARSE[\"结构化解析<br/>Jackson → 目标 BO\"]\n        PARSE -->|\"解析失败\"| REPAIR[\"BoundedStructuredOutputRepairPolicy<br/>有界修复 + schema 校验\"]\n        REPAIR -->|\"修复后对象\"| FIN\n        PARSE -->|\"解析成功\"| FIN[\"finalizeExecution()<br/>结果校验 + 敏感信息脱敏\"]\n    end\n\n    FIN -->|\"AiExecutionLogBO\"| LOG[(\"ai_execution_log<br/>capability · model · tokens · 耗时\")]\n    FIN -->|\"trace 上报\"| LANG[\"Langfuse<br/>generation 观测\"]\n    FIN -->|\"AiExecutionResult\"| ASM\n    ASM -->|\"AiExecuteDTO\"| OUT([\"响应 JSON · content + usage\"])\n    ERR -->|\"错误码 + 消息\"| OUT\n\n    %% ============ 缓存旁路 ============\n    UNI -.旁路.-> CACHE[\"PromptCache 策略注册表<br/>OpenAI / xAI / Generic / Noop\"]\n    CACHE -.写入 cachedTokens.-> RES\n\n    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a\n    classDef app fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f\n    classDef dom fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d\n    classDef infra fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#1f1408\n    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f\n    classDef note fill:#fffde7,stroke:#f9a825,stroke-width:1px,color:#1f1a08\n\n    class HTTP,OUT entry\n    class CTL,SVC,PREP,ASM app\n    class R1,R2,P1,P2,P3,P4,PR,REND,BUILD,PARSE,REPAIR,FIN,PREP dom\n    class UNI,SPRING,LEGACY,FB,CACHE,ERR,LANG infra\n    class BIND,MODEL,PROMPT,LOG,PROVIDER db\n"}, {"key": "02", "title": "自主 Agent 主循环", "file": "02-agent-run-loop.mmd", "desc": "一次 run 的全生命周期：准入四连（幂等 / 限流 / 租约 / 配额预留）→ 建会话与 run → 上下文装配 → 轮次循环 → finally 记账。循环体内有两条分支：无 tool_calls 走终答/澄清，有 tool_calls 走工具执行后回灌下一轮。", "src": "%% cynexus-ai · 自主 Agent 主循环（run 级全链路）\n%% 每个节点 = 一个真实执行步骤；每条边 = 真实传递的数据对象\nflowchart TD\n\n    REQ([\"POST /agent/run<br/>HTTP + SSE\"]) -->|\"AgentRunRequest<br/>prompt · idempotencyKey · capability\"| ACTL[\"AutonomousAgentController\"]\n    ACTL -->|\"request + AgentIdentity + eventConsumer\"| ASVC[\"AutonomousAgentAppService<br/>execute()\"]\n\n    subgraph GATE[\"① 准入四连（任一失败直接抛错，不建 run）\"]\n        ASVC -->|\"AgentRunExecutionCommand\"| G1[\"findRunByIdempotencyKey()<br/>幂等命中直接复用旧 run\"]\n        G1 -->|\"未命中\"| G2[\"rateLimiter.allow()<br/>MAX_RUNS_PER_MINUTE / 60s\"]\n        G2 -->|\"通过\"| G3[\"runtimeLease.tryAcquire()<br/>owner 并发上限 2 · TTL = maxRunSeconds+60\"]\n        G3 -->|\"拿到租约\"| G4[\"quota.reserveRequest()<br/>预留 token = clamp(1024..16000, len/4+1024)\"]\n        G4 -->|\"配额不足\"| GERR[\"AgentQuotaExceededException\"]\n    end\n\n    subgraph SETUP[\"② 建会话与 run\"]\n        G4 -->|\"预留成功\"| S1[\"生成 conversationNo = AGC-xxx<br/>runNo = AGR-xxx\"]\n        S1 -->|\"AgentConversationBO\"| S2[\"runDomainService<br/>saveConversation()\"]\n        S2 -->|\"已持久化 conversation\"| S3[\"runDomainService.saveRun()<br/>status = RUNNING\"]\n        S3 -->|\"加载 persistedMessages\"| S4[\"nextMessageSequence()<br/>确定消息序号起点\"]\n    end\n\n    subgraph CTX[\"③ 上下文装配\"]\n        S4 -->|\"history + model\"| C1[\"reusableProviderResponseId()<br/>命中则复用 previousResponseId\"]\n        C1 -->|\"previousResponseId or null\"| C2[\"AgentSystemPromptPolicy<br/>stable 系统提示\"]\n        C2 -->|\"system prompt\"| C3[\"AgentToolCatalog<br/>按 capability 取工具定义\"]\n        C3 -->|\"工具定义 JSON Schema\"| C4[\"历史折叠 + PromptCacheKeyPolicy\"]\n        C4 -->|\"AgentModelTurnRequest<br/>model · messages · tools · previousResponseId\"| LOOP\n    end\n\n    subgraph LOOP[\"④ 轮次循环 turn = 1 .. maxTurns\"]\n        direction TB\n        L0{{\"turn 开始\"}}\n        L0 --> L1{\"isCancellationRequested()?\"}\n        L1 -->|\"是\"| CANCEL[\"标记 CANCELLED · 跳出\"]\n        L1 -->|\"否\"| L2{\"usedTools >= toolBudget?\"}\n        L2 -->|\"是\"| L3[\"forceFinalAnswer = true<br/>工具定义清空\"]\n        L2 -->|\"否\"| L4[\"组装本轮 messages<br/>含上一轮 tool 回灌\"]\n        L3 --> L4\n        L4 -->|\"AgentModelTurnRequest\"| L5[\"completeAgentWithRetry()<br/>熔断 + 瞬时失败重试\"]\n        L5 -->|\"HTTP\"| LLM[(\"模型 Provider API\")]\n        LLM -->|\"AgentModelTurnResponse<br/>content · toolCalls · providerResponseId · usage\"| L6[\"token 累加<br/>input / cachedInput / cacheWrite / output / total\"]\n        L6 -->|\"thinking 分片\"| EV[\"AgentRunEventBO 写 run_event<br/>按 eventSequence 递增\"]\n        L6 --> L7{\"response.hasToolCalls()?\"}\n\n        L7 -->|\"否 · 终止分支\"| E1[\"answer = content\"]\n        E1 --> E2[\"AgentClarificationPolicy<br/>判断是否需澄清\"]\n        E2 -->|\"需澄清\"| E3[\"run.clarificationJson = ...\"]\n        E2 -->|\"终答\"| E4[\"redactText(answer)<br/>敏感信息脱敏\"]\n        E3 --> E5[\"跳出循环\"]\n        E4 --> E5\n\n        L7 -->|\"是 · 工具分支\"| T1[\"admitToolCalls()<br/>AgentToolBudgetPolicy 软预算准入\"]\n        T1 -->|\"acceptedIds / skipped / budgetExhausted\"| T2[\"逐条遍历 toolCalls\"]\n        T2 -->|\"AgentToolCall<br/>callId · toolCode · arguments\"| T3[\"AgentToolRegistry.execute()\"]\n        T3 -->|\"AgentToolResult<br/>ok · payload / errorText\"| T4[\"写 run_step<br/>callId · toolCode · 结果 · freshness\"]\n        T4 -->|\"step 落库\"| T5[\"构造 role=tool 消息<br/>回灌进 messages\"]\n        T5 -->|\"usedTools++\"| EV\n        T5 --> L0\n\n        L5 -->|\"连续失败 / 熔断打开\"| LERR[\"失败分类 → FAILED\"]\n    end\n\n    subgraph DONE[\"⑤ 收尾与记账（finally 必执行）\"]\n        E5 --> F1[\"写 planJson / evidenceJson / warnings\"]\n        CANCEL --> F1\n        LERR --> F1\n        F1 -->|\"最终 run 状态\"| F2[\"quota.settle()<br/>预留 vs 实际 · 差额回补\"]\n        F2 -->|\"settle 完成\"| F3[\"runtimeLease.release()\"]\n        F3 -->|\"释放完成\"| F4[\"observability.runCompleted()<br/>status · elapsedMs\"]\n        F4 -->|\"AgentRunExecutionResult\"| F5[\"AutonomousAgentAppService<br/>转 AgentRunDTO\"]\n    end\n\n    F5 -->|\"AgentRunDTO<br/>runNo · answer · plan · evidence · usage\"| RESP([\"SSE 事件流 + 最终响应\"])\n    EV -.订阅.-> RESP\n\n    QUOTA[(\"ai_agent_quota_policy<br/>ai_agent_usage_daily\")] -.读/写.-> G4\n    QUOTA -.写.-> F2\n    DBRUN[(\"ai_agent_conversation<br/>ai_agent_run · run_step<br/>ai_agent_message · run_event\")] -.读写.-> S2\n    DBRUN -.写.-> T4\n    DBRUN -.写.-> EV\n    DBRUN -.写.-> F1\n    LEASE[(\"Redis 租约 / 限流 / 熔断\")] -.读写.-> G2\n    LEASE -.读写.-> G3\n    LEASE -.读.-> L1\n    GERR -->|\"错误\"| RESP\n\n    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a\n    classDef app fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f\n    classDef dom fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d\n    classDef loop fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608\n    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f\n    classDef bad fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d\n\n    class REQ,RESP entry\n    class ACTL,ASVC app\n    class G1,G2,G3,G4,S1,S2,S3,S4,C1,C2,C3,C4,T1,T2,T4,T5,E1,E2,E3,E4,E5,F1,F2,F3,F4,F5 dom\n    class L0,L1,L2,L3,L4,L5,L6,L7,LERR,CANCEL loop\n    class QUOTA,DBRUN,LEASE,LLM db\n    class GERR bad\n"}, {"key": "03", "title": "工具调用与能力治理", "file": "03-agent-tool-execution.mmd", "desc": "单个 AgentToolCall 从入口到落 run_step 的过程，以及能力治理的三道校验（安全属性一致 / runtimeEntry 白名单 / JSON Schema 逐字节一致）。30+ ToolHandler 只接受已注册且校验通过的能力。", "src": "%% cynexus-ai · 工具调用链 + 能力治理\n%% 每个节点 = 一个真实执行步骤；每条边 = 真实传递的数据对象\nflowchart TD\n\n    CALL([\"模型返回 toolCalls[]\"]) -->|\"AgentToolCall<br/>callId · toolCode · arguments(JSON 字符串)\"| REG[\"AgentToolRegistry<br/>execute()\"]\n\n    subgraph GOV[\"能力治理 · validateRuntimeBinding()（启动期 + 运行期）\"]\n        V1[\"读取 ai_agent_capability<br/>code · runtimeEntry · schema\"]\n        V1 -->|\"绑定记录\"| V2{\"安全属性 readOnly /<br/>requiresConfirmation 一致?\"}\n        V2 -->|\"不一致\"| VX1[\"拒绝注册 + 告警\"]\n        V2 -->|\"一致\"| V3{\"runtimeEntry 在<br/>运行时入口白名单?\"}\n        V3 -->|\"否\"| VX2[\"拒绝注册\"]\n        V3 -->|\"是\"| V4{\"JSON Schema 与代码声明<br/>逐字节一致?\"}\n        V4 -->|\"否\"| VX3[\"拒绝注册 + 记录 audit\"]\n        V4 -->|\"是\"| VOK[\"能力可用 · 进注册表\"]\n    end\n\n    VOK -.提供绑定.-> REG\n\n    subgraph EXEC[\"单次工具执行\"]\n        REG -->|\"toolCode\"| E1[\"查注册表<br/>AgentCapabilityBinding\"]\n        E1 -->|\"未注册\"| E2[\"AgentToolResult(false)<br/>errorText = 未知工具\"]\n        E1 -->|\"已注册\"| E3{\"安全校验<br/>readOnly? requiresConfirmation?\"}\n        E3 -->|\"写操作且未走确认\"| E4[\"拒绝 → 返回需确认提示\"]\n        E3 -->|\"通过\"| E5[\"JSON Schema 校验<br/>≤16000 字符 · 深度 ≤8\"]\n        E5 -->|\"不合法\"| E6[\"AgentToolResult(false)<br/>参数校验失败\"]\n        E5 -->|\"合法\"| E7[\"匹配 AgentToolHandler<br/>by toolCode\"]\n        E7 -->|\"AgentToolCall + 领域上下文\"| E8[\"handler.execute()\"]\n    end\n\n    subgraph HANDLERS[\"30+ ToolHandler · 按域分组\"]\n        H1[\"market · 行情 / 板块 / 个股 / ETF / 情绪\"]\n        H2[\"finance · 持仓 / 收支 / 预算\"]\n        H3[\"knowledge · 知识库检索\"]\n        H4[\"application_analysis · 应用分析\"]\n    end\n\n    E8 -->|\"分派\"| H1\n    E8 -->|\"分派\"| H2\n    E8 -->|\"分派\"| H3\n    E8 -->|\"分派\"| H4\n\n    H1 -->|\"原始数据\"| NORM[\"结果归一化 + 截断<br/>防超上下文\"]\n    H2 --> NORM\n    H3 --> NORM\n    H4 --> NORM\n\n    NORM -->|\"AgentToolResult<br/>ok · payload · errorText · freshness\"| BACK[\"回 AgentRunExecutionDomainService\"]\n    E2 --> BACK\n    E4 --> BACK\n    E6 --> BACK\n\n    BACK -->|\"一条 tool 结果\"| PERSIST[\"写 ai_agent_run_step<br/>runNo · turnNo · callId · toolCode · 结果\"]\n    PERSIST -->|\"step 已落库\"| MSG[\"构造 role=tool message<br/>tool_call_id = callId\"]\n    MSG -->|\"回灌 messages\"| NEXT([\"进入下一轮 turn\"])\n\n    AUDIT[(\"ai_agent_capability_audit\")] -.记录.-> VX3\n    AUDIT -.记录.-> VOK\n    STEPS[(\"ai_agent_run_step\")] -.写.-> PERSIST\n\n    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a\n    classDef gov fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608\n    classDef exec fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d\n    classDef handler fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f\n    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f\n    classDef bad fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d\n\n    class CALL,NEXT entry\n    class V1,V2,V3,V4,VOK,VX1,VX2,VX3 gov\n    class REG,E1,E3,E5,E7,E8,NORM,BACK,PERSIST,MSG exec\n    class H1,H2,H3,H4 handler\n    class AUDIT,STEPS db\n    class E2,E4,E6 bad\n"}, {"key": "04", "title": "业务能力通用模式", "file": "04-business-capability-pattern.mmd", "desc": "以 FuturesPositionAiDomainServiceImpl 为样本的标准模板：入参归一化（白名单 → 组装 → 240KB 硬护栏）→ prompt 解析渲染 → 路由 → 调用 → 结构化输出治理 → 落执行日志。market.* / finance.* / knowledge.* 全部同构。", "src": "%% cynexus-ai · 业务能力通用模式（以期货持仓分析为样本）\n%% 同构能力：market.* · finance.* · knowledge.* · application_analysis.*\nflowchart TD\n\n    IN([\"业务请求<br/>品种 + 快照/区间参数\"]) -->|\"FuturesPositionRequest\"| CTL[\"FuturesPositionController\"]\n    CTL -->|\"request + identity\"| APP[\"FuturesPositionAiAppService<br/>analyze()\"]\n    APP -->|\"归一化参数 + identity\"| DS[\"FuturesPositionAiDomainServiceImpl<br/>analyze()\"]\n\n    subgraph NORM_G[\"① 入参归一化（Policy 驱动）\"]\n        DS -->|\"variety\"| N1[\"requireAllowedVariety()<br/>品种白名单校验\"]\n        N1 -->|\"不在白名单\"| NERR[\"IllegalArgumentException\"]\n        N1 -->|\"合法品种\"| N2[\"buildInput()<br/>组装结构化输入\"]\n        N2 -->|\"input 文本\"| N3{\"长度 > 240KB?\"}\n        N3 -->|\"是\"| NERR2[\"硬护栏拒绝\"]\n        N3 -->|\"否\"| NOK[\"合法输入 AvailableInput\"]\n    end\n\n    NOK -->|\"capability = finance.futures_position\"| P1[\"AiPromptRuntimeResolverImpl<br/>resolve()\"]\n    P1 -.读.-> PDB[(\"ai_prompt\")]\n    P1 -->|\"AiPromptBO 模板\"| P2[\"渲染占位符\"]\n    P2 -->|\"messages\"| R1[\"RoutingDomainServiceImpl<br/>routeModels()\"]\n    R1 -.读.-> MDB[(\"ai_model · ai_provider\")]\n    R1 -->|\"AiModelBO\"| PORT[\"FuturesPositionAiCompletionPort<br/>complete()\"]\n\n    PORT -->|\"AiCompletionRequest\"| UNI[\"UnifiedAiModelExecutor\"]\n    UNI -->|\"HTTP\"| LLM[(\"Provider API\")]\n    LLM -->|\"AiCompletionResultBO\"| PARSE[\"parseAndValidate()\"]\n\n    subgraph VALID[\"② 结构化输出治理\"]\n        PARSE -->|\"原始文本\"| V1[\"Jackson 反序列化\"]\n        V1 -->|\"失败\"| V2[\"BoundedStructuredOutputRepairPolicy<br/>有界修复\"]\n        V2 -->|\"仍失败\"| VERR[\"返回降级结果 + 记录 warn\"]\n        V2 -->|\"修复成功\"| V3[\"JSON Schema 校验\"]\n        V1 -->|\"成功\"| V3\n        V3 -->|\"字段缺失/越界\"| VERR\n        V3 -->|\"合法\"| VOK[\"FuturesPositionAnalysisResultBO\"]\n    end\n\n    VOK -->|\"结果 BO\"| LOG[\"AiExecutionTracePort<br/>写执行日志\"]\n    LOG -->|\"AiExecutionLogBO\"| LDB[(\"ai_execution_log\")]\n    LOG -->|\"trace\"| LF[\"Langfuse 观测\"]\n    VOK -->|\"结果 BO\"| MAP[\"Assembler → Response DTO\"]\n    MAP -->|\"JSON\"| OUT([\"结构化分析结果\"])\n    VERR -->|\"降级内容\"| MAP\n    NERR --> OUT\n    NERR2 --> OUT\n\n    subgraph SIBLING[\"同构能力（同一套模板）\"]\n        S1[\"market.overview / pulse / sentiment / indicator\"]\n        S2[\"market.etf / sector_rank / stock_*\"]\n        S3[\"finance.budget / ledger / position\"]\n        S4[\"knowledge.* · application_analysis.*\"]\n        S5[\"market_research · langchain4j 独立通道\"]\n    end\n\n    SIBLING -.同样走 ①→②.-> DS\n\n    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a\n    classDef norm fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608\n    classDef core fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d\n    classDef valid fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#1a0d1f\n    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f\n    classDef bad fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d\n\n    class IN,OUT entry\n    class N1,N2,N3,NERR,NERR2,NOK norm\n    class CTL,APP,DS,P1,P2,R1,PORT,UNI,LOG,MAP core\n    class PARSE,V1,V2,V3,VOK,VERR valid\n    class PDB,MDB,LDB,LLM,LF db\n    class S1,S2,S3,S4,S5 db\n"}, {"key": "05", "title": "写路径与 RAG", "file": "05-write-and-rag.mmd", "desc": "A 写路径是 Agent 唯一的变更通道：preview 只存哈希 + 一次性 token，用户显式确认后校验 token 与 digest 才执行，并留审计。B/C 是 RAG 的异步索引链与同步问答链。", "src": "%% cynexus-ai · 写操作确认链 + RAG 索引/问答链\n%% 每个节点 = 一个真实执行步骤；每条边 = 真实传递的数据对象\nflowchart TD\n\n    %% ==================== 写路径 ====================\n    subgraph WRITE[\"A · Agent 写路径（只读工具之外的唯一变更通道）\"]\n        direction TB\n        W0([\"Agent 产出写意图<br/>toolCode + arguments\"]) -->|\"toolCall\"| W1[\"AgentWriteController<br/>POST /agent/write/preview\"]\n        W1 -->|\"preview 请求\"| W2[\"AgentWriteDomainService<br/>preview()\"]\n        W2 -->|\"计算 payload 摘要\"| W3[\"digest = SHA-256(payload)<br/>只存哈希 · 不存原文\"]\n        W3 -->|\"digest + ttl\"| W4[\"生成一次性 token<br/>落 ai_agent_write_command\"]\n        W4 -->|\"AgentWritePreview<br/>摘要 · 影响范围 · token · 过期时间\"| W5([\"返回前端展示\"])\n        W5 -->|\"用户在 UI 显式点确认\"| W6[\"POST /agent/write/confirm<br/>携带 token\"]\n        W6 -->|\"token\"| W7{\"token 存在且未过期?\"}\n        W7 -->|\"否\"| WX[\"拒绝 · 需重新 preview\"]\n        W7 -->|\"是\"| W8{\"digest 与 payload 一致?\"}\n        W8 -->|\"否\"| WX\n        W8 -->|\"是\"| W9[\"AgentWriteExecutorPort<br/>执行真实写操作\"]\n        W9 -->|\"写结果\"| W10[\"写 ai_agent_write_audit<br/>who · what · when · digest\"]\n        W10 -->|\"审计完成\"| W11[\"标记 command 已消费 · token 失效\"]\n        W11 -->|\"执行结果\"| WOUT([\"结果回灌 Agent 上下文\"])\n    end\n\n    WCMD[(\"ai_agent_write_command<br/>token · digest · expireAt · consumed\")] -.读写.-> W4\n    WCMD -.读写.-> W7\n    WAUD[(\"ai_agent_write_audit\")] -.写.-> W10\n\n    %% ==================== RAG 索引 ====================\n    subgraph INDEX[\"B · RAG 索引链（异步 · RabbitMQ 驱动）\"]\n        direction TB\n        I0([\"知识库文档上传/更新\"]) -->|\"docId\"| I1[\"发消息到 RabbitMQ<br/>index.exchange\"]\n        I1 -->|\"index 消息\"| I2[\"KnowledgeIndexRabbitListener<br/>消费\"]\n        I2 -->|\"docId\"| I3[\"KnowledgeIndexingService<br/>切块 chunk\"]\n        I3 -->|\"List&lt;Chunk&gt;\"| I4[\"Embedding 调用<br/>UnifiedAiModelExecutor\"]\n        I4 -->|\"vector[]\"| I5[\"写入 PGVector\"]\n        I5 -->|\"写入完成\"| I6[\"更新文档索引状态\"]\n    end\n\n    VEC[(\"vector_store<br/>pgvector 扩展\")] -.写.-> I5\n    I4 -.旁路.-> EMBPROV[(\"Embedding Provider\")]\n\n    %% ==================== RAG 问答 ====================\n    subgraph QA[\"C · RAG 问答链\"]\n        direction TB\n        Q0([\"用户提问\"]) -->|\"question + identity\"| Q1[\"KnowledgeRagAnswerDomainService\"]\n        Q1 -->|\"query + 权限范围\"| Q2[\"向量检索<br/>PGVector similarity search\"]\n        VEC -.读.-> Q2\n        Q2 -->|\"Top-K 片段\"| Q3[\"权限过滤<br/>只保留授权文档\"]\n        Q3 -->|\"已授权片段\"| Q4[\"拼装上下文<br/>每段标 [Source N]\"]\n        Q4 -->|\"context + question\"| Q5[\"AiPromptRuntimeResolver<br/>resolve(knowledge.*)\"]\n        Q5 -->|\"模板\"| Q6[\"渲染 + routeModels()\"]\n        Q6 -->|\"AiCompletionRequest\"| Q7[\"UnifiedAiModelExecutor\"]\n        Q7 -->|\"HTTP\"| QLLM[(\"Provider API\")]\n        QLLM -->|\"AiCompletionResultBO\"| Q8[\"解析答案 + 抽取引用 [Source N]\"]\n        Q8 -->|\"answer + sources\"| Q9([\"返回答案 + 引用出处\"])\n    end\n\n    Q7 -.旁路.-> LF[\"Langfuse 观测\"]\n\n    classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d1b2a\n    classDef write fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#1f0d0d\n    classDef rag fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#0d1f0d\n    classDef db fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#0d1b1f\n    classDef bad fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#1f1608\n\n    class W0,W5,W6,WOUT,I0,Q0,Q9 entry\n    class W1,W2,W3,W4,W7,W8,W9,W10,W11,WX write\n    class I1,I2,I3,I4,I5,I6,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8 rag\n    class WCMD,WAUD,VEC,EMBPROV,QLLM,LF db\n"}, {"key": "06", "title": "数据模型", "file": "06-data-model.mmd", "desc": "schema cynexus_appl_ai 的核心表与关系。注意统一标识约束：capability code = ai_prompt.prompt_key = ai_usage_bindings.capability = 工具 toolCode。", "src": "%% cynexus-ai · 数据模型（schema: cynexus_appl_ai）\n%% 标注每张表由哪条链路写入\nerDiagram\n\n    AI_PROMPT ||--o{ AI_USAGE_BINDINGS : \"prompt_id 绑定\"\n    AI_USAGE_BINDINGS ||--o{ AI_EXECUTION_LOG : \"capability 维度记账\"\n    AI_PROVIDER ||--o{ AI_MODEL : \"provider_code\"\n    AI_MODEL ||--o{ AI_EXECUTION_LOG : \"model 维度记账\"\n\n    AI_AGENT_CAPABILITY ||--o{ AI_AGENT_CAPABILITY_AUDIT : \"变更留痕\"\n    AI_AGENT_CONVERSATION ||--o{ AI_AGENT_RUN : \"conversation_no\"\n    AI_AGENT_CONVERSATION ||--o{ AI_AGENT_MESSAGE : \"conversation_no\"\n    AI_AGENT_RUN ||--o{ AI_AGENT_RUN_EVENT : \"run_no\"\n    AI_AGENT_RUN ||--o{ AI_AGENT_RUN_STEP : \"run_no\"\n    AI_AGENT_RUN ||--o{ AI_AGENT_MESSAGE : \"run_no\"\n    AI_AGENT_RUN ||--o{ AI_AGENT_WRITE_COMMAND : \"run_no 发起\"\n    AI_AGENT_WRITE_COMMAND ||--o| AI_AGENT_WRITE_AUDIT : \"token 消费\"\n    AI_AGENT_TASK ||--o{ AI_AGENT_TASK_NOTIFICATION : \"task_no\"\n    AI_AGENT_RUN ||--o{ AI_AGENT_FEEDBACK : \"run_no 评价\"\n\n    AI_PROMPT {\n        bigint id PK\n        varchar prompt_key \"= capability code\"\n        int version\n        text content \"生产正文只存库\"\n        varchar status \"active/draft\"\n    }\n\n    AI_USAGE_BINDINGS {\n        bigint id PK\n        varchar capability \"= prompt_key\"\n        bigint prompt_id FK\n        varchar model_override\n        varchar fallback_chain\n        boolean enabled\n    }\n\n    AI_EXECUTION_LOG {\n        bigint id PK\n        varchar capability\n        bigint model_id FK\n        int input_tokens\n        int output_tokens\n        int cached_tokens\n        bigint elapsed_ms\n        text request_digest\n    }\n\n    AI_PROVIDER {\n        bigint id PK\n        varchar provider_code\n        varchar default_model\n        text fallback_provider_codes\n    }\n\n    AI_MODEL {\n        bigint id PK\n        varchar model_code\n        bigint provider_id FK\n        text pricing_json\n    }\n\n    AI_AGENT_CAPABILITY {\n        bigint id PK\n        varchar code \"= 工具 toolCode\"\n        varchar runtime_entry \"运行时入口白名单\"\n        boolean read_only\n        boolean requires_confirmation\n        text schema_json \"与代码逐字节一致\"\n    }\n\n    AI_AGENT_CAPABILITY_AUDIT {\n        bigint id PK\n        varchar capability_code\n        varchar change_type\n        text diff_json\n    }\n\n    AI_AGENT_CONVERSATION {\n        bigint id PK\n        varchar conversation_no \"AGC-xxx\"\n        varchar owner_key\n        varchar provider_response_id \"跨轮复用\"\n    }\n\n    AI_AGENT_RUN {\n        bigint id PK\n        varchar run_no \"AGR-xxx\"\n        varchar conversation_no FK\n        varchar status\n        int turn_count\n        text plan_json\n        text evidence_json\n        text clarification_json\n        varchar idempotency_key\n    }\n\n    AI_AGENT_RUN_STEP {\n        bigint id PK\n        varchar run_no FK\n        int turn_no\n        varchar call_id\n        varchar tool_code\n        text result_json\n    }\n\n    AI_AGENT_RUN_EVENT {\n        bigint id PK\n        varchar run_no FK\n        int sequence_no\n        varchar event_type\n        text payload_json\n    }\n\n    AI_AGENT_MESSAGE {\n        bigint id PK\n        varchar conversation_no FK\n        int sequence_no\n        varchar role \"user/assistant/tool\"\n        text content\n    }\n\n    AI_AGENT_WRITE_COMMAND {\n        bigint id PK\n        varchar token\n        varchar digest \"只存哈希\"\n        timestamp expire_at\n        boolean consumed\n    }\n\n    AI_AGENT_WRITE_AUDIT {\n        bigint id PK\n        varchar token\n        varchar capability_code\n        text digest\n        varchar principal_key\n    }\n\n    AI_AGENT_QUOTA_POLICY {\n        bigint id PK\n        varchar owner_key\n        int daily_token_limit\n        int max_turns\n        int tool_budget\n    }\n\n    AI_AGENT_USAGE_DAILY {\n        bigint id PK\n        varchar owner_key\n        date stat_date\n        bigint token_used\n    }\n\n    AI_AGENT_TASK {\n        bigint id PK\n        varchar task_no\n        varchar task_type\n        varchar status\n    }\n\n    AI_AGENT_TASK_NOTIFICATION {\n        bigint id PK\n        varchar task_no FK\n        varchar channel\n        text payload_json\n    }\n\n    AI_AGENT_FEEDBACK {\n        bigint id PK\n        varchar run_no FK\n        int rating\n        text comment\n    }\n\n    VECTOR_STORE {\n        uuid id PK\n        text content\n        vector embedding\n        jsonb metadata \"docId · 权限范围\"\n    }\n"}];
+
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: 'loose',
+  theme: 'base',
+  themeVariables: {
+    fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+    fontSize: '15px',
+    primaryColor: '#ffffff',
+    primaryTextColor: '#1f2328',
+    primaryBorderColor: '#455a64',
+    lineColor: '#5b6b7c',
+    secondaryColor: '#f6f7f9',
+    tertiaryColor: '#f1f3f5',
+    edgeLabelBackground: '#ffffff',
+    background: '#ffffff'
+  },
+  flowchart: { curve: 'basis', padding: 18, nodeSpacing: 42, rankSpacing: 60, htmlLabels: true, useMaxWidth: false },
+  er: { useMaxWidth: false, entityPadding: 12, minEntityWidth: 160 }
+});
+
+let current = 0, scale = 1;
+const tabs = document.getElementById('tabs');
+const titleEl = document.getElementById('title');
+const descEl = document.getElementById('desc');
+const diagramEl = document.getElementById('diagram');
+const canvasEl = document.getElementById('canvas');
+const srcbox = document.getElementById('srcbox');
+const toast = document.getElementById('toast');
+
+DIAGRAMS.forEach((d, i) => {
+  const b = document.createElement('button');
+  b.className = 'tab' + (i === 0 ? ' active' : '');
+  b.innerHTML = '<span class="n">' + d.key + '</span>' + d.title;
+  b.onclick = () => { history.replaceState(null, '', '?tab=' + d.key); select(i); };
+  tabs.appendChild(b);
+});
+
+function showToast(msg) {
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1600);
+}
+
+async function select(i) {
+  current = i;
+  [...tabs.children].forEach((c, k) => c.classList.toggle('active', k === i));
+  const d = DIAGRAMS[i];
+  titleEl.textContent = d.key + ' · ' + d.title;
+  descEl.innerHTML = d.desc;
+  srcbox.textContent = d.src;
+  diagramEl.innerHTML = '';
+  try {
+    const { svg } = await mermaid.render('g' + i + '_' + Date.now(), d.src);
+    diagramEl.innerHTML = svg;
+  } catch (e) {
+    diagramEl.innerHTML = '<pre style="color:#c62828;white-space:pre-wrap">' + String(e.message || e) + '</pre>';
+  }
+  applyZoom();
+}
+
+function applyZoom() {
+  diagramEl.style.transform = 'scale(' + scale + ')';
+  document.getElementById('zreset').textContent = Math.round(scale * 100) + '%';
+}
+
+function setScale(s) { scale = Math.min(3, Math.max(0.3, s)); applyZoom(); }
+
+function fitWidth() {
+  const svg = diagramEl.querySelector('svg');
+  if (!svg) return;
+  const w = svg.getBoundingClientRect().width / scale;
+  setScale((canvasEl.clientWidth - 56) / w);
+}
+
+document.getElementById('zin').onclick = () => setScale(scale + 0.1);
+document.getElementById('zout').onclick = () => setScale(scale - 0.1);
+document.getElementById('zreset').onclick = () => setScale(1);
+document.getElementById('fit').onclick = fitWidth;
+document.getElementById('copy').onclick = () => {
+  navigator.clipboard.writeText(DIAGRAMS[current].src)
+    .then(() => showToast('已复制 ' + DIAGRAMS[current].file + ' 的源码'))
+    .catch(() => showToast('复制失败，请手动选择'));
+};
+
+function init() {
+  const p = new URLSearchParams(location.search);
+  const k = p.get('tab');
+  let idx = 0;
+  if (k) {
+    const found = DIAGRAMS.findIndex(d => d.key === k);
+    if (found >= 0) idx = found;
+  }
+  if (DIAGRAMS[idx].key !== '01') {
+    [...tabs.children].forEach((c, j) => c.classList.toggle('active', j === idx));
+  }
+  select(idx);
+  // 默认大图：放大到接近可视宽度
+  setTimeout(fitWidth, 60);
+}
+init();
+</script>
+</body>
+</html>
