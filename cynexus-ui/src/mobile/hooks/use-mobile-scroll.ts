@@ -12,6 +12,15 @@ export function useMobileScroll(ref: RefObject<HTMLElement | null>, workspace: s
     const element = ref.current
     if (!element) return
     element.scrollTop = navigationType === "POP" ? positions.get(key) ?? 0 : 0
-    return () => { positions.set(key, element.scrollTop) }
+    const updateScrolled = () => {
+      const scrolled = element.scrollTop > 8 ? "true" : "false"
+      if (element.dataset.scrolled !== scrolled) element.dataset.scrolled = scrolled
+    }
+    updateScrolled()
+    element.addEventListener("scroll", updateScrolled, { passive: true })
+    return () => {
+      positions.set(key, element.scrollTop)
+      element.removeEventListener("scroll", updateScrolled)
+    }
   }, [key, navigationType, ref])
 }

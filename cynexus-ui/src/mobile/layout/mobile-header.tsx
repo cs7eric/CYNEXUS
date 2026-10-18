@@ -21,7 +21,7 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
   const currentApp = [...mobileNavigation, ...mobileFeatureApps].find((item) => item.href === mobilePath)
   const CurrentIcon = currentApp?.icon ?? WorkspaceIcon
   const currentLabel = currentApp?.label ?? workspace.name
-  const isFinance = mobilePath === "/m/finance"
+  const isFinance = mobilePath === "/m/finance" && location.hash === "#finance-accounts"
   const isAppRoute = Boolean(getMobileAppNavigation(mobilePath))
 
   const workspaceControl = (

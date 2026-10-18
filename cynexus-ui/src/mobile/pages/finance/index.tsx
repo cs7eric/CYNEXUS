@@ -1,10 +1,12 @@
 import { ArrowUpRight, Banknote, ChevronDown, ChevronUp, CreditCard, Landmark, LoaderCircle, Pencil, Save, TrendingUp, Wallet, WalletCards, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react"
-import { Link, useOutletContext } from "react-router-dom"
+import { Link, useLocation, useOutletContext } from "react-router-dom"
 
 import { useWorkspace } from "@/layout/workspace-provider"
 import { fetchFinanceAccounts, fetchFinanceOverview, saveFinanceAccount, type FinanceAccount, type FinanceOverview } from "@/services/finance/ledger"
 import "@/mobile/pages/finance/finance.css"
+import { FinanceOverviewView } from "./overview"
+import { FinanceActivityView } from "./activity"
 
 type FinanceLoadState = "loading" | "ready" | "error"
 
@@ -69,6 +71,14 @@ function accountPalette(account: FinanceAccount, index: number) {
 }
 
 export default function MobileFinancePage() {
+  const { hash } = useLocation()
+
+  if (hash === "#finance-accounts") return <FinanceAccountsView />
+  if (hash === "#finance-activity") return <FinanceActivityView />
+  return <FinanceOverviewView />
+}
+
+function FinanceAccountsView() {
   const { workspaceId } = useWorkspace()
   const { financeRefreshToken } = useOutletContext<{ financeRefreshToken: number }>()
   const [accountsState, setAccountsState] = useState<FinanceLoadState>("loading")
@@ -111,7 +121,7 @@ export default function MobileFinancePage() {
   const hasData = displayAccounts.length > 0 || Boolean(overview && (overview.income !== 0 || overview.expense !== 0 || overview.assetTotal !== 0 || overview.liabilityTotal !== 0 || overview.recentTransactions.length > 0))
 
   return (
-    <div className="mobile-finance">
+    <div id="finance-accounts" className="mobile-finance">
       <p className="mobile-finance-eyebrow">{new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date())}</p>
 
       {loading && <FinanceLoading />}
@@ -119,12 +129,12 @@ export default function MobileFinancePage() {
       {!loading && !unavailable && !hasData && <FinanceEmpty />}
       {!loading && !unavailable && hasData && (
         <>
-          <section id="finance-overview" className="mobile-finance-totals" aria-label="Monthly totals">
+          <section className="mobile-finance-totals" aria-label="Monthly totals">
             <div><span>Net assets</span><strong>{formatMoney(overview?.netAssets, currency)}</strong></div>
             <div><span>This month</span><strong>{formatMoney(overview?.expense, currency)}</strong><small>spent</small></div>
           </section>
 
-          <section id="finance-accounts" className="mobile-finance-accounts" aria-labelledby="mobile-finance-accounts-title">
+          <section className="mobile-finance-accounts" aria-labelledby="mobile-finance-accounts-title">
             <div className="mobile-finance-section-heading"><h3 id="mobile-finance-accounts-title">Your accounts</h3><span>{displayAccounts.length} {displayAccounts.length === 1 ? "account" : "accounts"}</span></div>
             {accountsState === "error" ? <div className="mobile-finance-inline-empty">Accounts are unavailable</div> : displayAccounts.length ? <AccountStack accounts={displayAccounts} onSaved={async (saved) => {
               setAccounts((current) => {
@@ -135,7 +145,7 @@ export default function MobileFinancePage() {
             }} /> : <div className="mobile-finance-inline-empty">No accounts yet</div>}
           </section>
 
-          <section id="finance-activity" className="mobile-finance-flow" aria-label="Monthly cash flow">
+          <section className="mobile-finance-flow" aria-label="Monthly cash flow">
             <div><span>Income</span><strong className="is-income">{formatMoney(overview?.income, currency)}</strong></div>
             <div><span>Expense</span><strong className="is-expense">{formatMoney(overview?.expense, currency)}</strong></div>
             <div><span>Net</span><strong>{formatMoney(overview?.net, currency)}</strong></div>

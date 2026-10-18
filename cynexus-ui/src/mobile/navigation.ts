@@ -15,17 +15,23 @@ export const mobileNavigation = [
 export const mobileFeatureApps = [workoutNavigationItem] as const
 
 export const mobileAppNavigation = {
-  "/m/finance": [
-    { href: "#finance-overview", label: "Overview", icon: ChartNoAxesCombined },
-    { href: "#finance-accounts", label: "Accounts", icon: WalletCards },
-    { href: "#finance-activity", label: "Activity", icon: ArrowLeftRight },
-  ],
-  "/m/workout": [
-    { href: "#workout-overview", label: "Overview", icon: Activity },
-    { href: "#workout-activity", label: "Activity", icon: Dumbbell },
-    { href: "#workout-body", label: "Body", icon: Ruler },
-    { href: "#workout-history", label: "History", icon: ReceiptText },
-  ],
+  "/m/finance": {
+    mode: "views",
+    items: [
+      { href: "#finance-overview", label: "Overview", icon: ChartNoAxesCombined },
+      { href: "#finance-accounts", label: "Accounts", icon: WalletCards },
+      { href: "#finance-activity", label: "Activity", icon: ArrowLeftRight },
+    ],
+  },
+  "/m/workout": {
+    mode: "views",
+    items: [
+      { href: "#workout-overview", label: "Overview", icon: Activity },
+      { href: "#workout-activity", label: "Activity", icon: Dumbbell },
+      { href: "#workout-body", label: "Body", icon: Ruler },
+      { href: "#workout-history", label: "History", icon: ReceiptText },
+    ],
+  },
 } as const
 
 export function getMobileAppNavigation(pathname: string) {

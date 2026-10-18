@@ -7,11 +7,14 @@ import { MobileActivityCalendar } from "@/mobile/components/activity-calendar"
 import { activityDateKey, activityMonthStart, shiftActivityDate, shiftActivityMonth, type FinanceSummarySnapshot } from "@/mobile/components/activity-calendar/model"
 import { createActivityPreview, createBodyMeasurementPreview } from "@/mobile/components/activity-calendar/preview"
 import { getMobileAppGroups } from "@/mobile/navigation"
+import { useWorkoutRecords } from "@/mobile/hooks/use-workout-records"
+import { bodySummary } from "@/services/workout/model"
 import { fetchFinanceOverview } from "@/services/finance/ledger"
 import "@/mobile/pages/home/home.css"
 
 export default function MobileHomePage() {
   const { workspace, workspaceId } = useWorkspace()
+  const { data: workoutRecords } = useWorkoutRecords()
   const groups = getMobileAppGroups(workspaceId)
   const primaryApp = groups.find((group) => group.id !== "shared")?.items[0]
   const financeAvailable = groups.some((group) => group.items.some((item) => item.url === "/finance/overview"))
@@ -49,7 +52,7 @@ export default function MobileHomePage() {
       <section className="mobile-home-greeting" aria-labelledby="mobile-home-greeting-title">
         <h2 id="mobile-home-greeting-title">Let’s Make<br />Today Productive</h2>
       </section>
-      <MobileActivityCalendar today={today} records={createActivityPreview(today)} bodyMeasurements={createBodyMeasurementPreview(today)} finance={finance} showFinance={financeAvailable} onFinanceRetry={() => setFinanceRetry((value) => value + 1)} isSample showWeek={false} />
+      <MobileActivityCalendar today={today} records={workoutRecords.isSample ? createActivityPreview(today) : workoutRecords.sessions.map((session) => ({ date: session.date, nutrition: null, nutritionTargets: null, workout: { minutes: session.minutes, sessions: 1, label: session.category === "Cardio" ? "Cardio" : session.split ?? "Strength" } }))} bodyMeasurements={workoutRecords.isSample ? createBodyMeasurementPreview(today) : bodySummary(workoutRecords.observations, activityDateKey(today))} finance={finance} showFinance={financeAvailable} onFinanceRetry={() => setFinanceRetry((value) => value + 1)} isSample={workoutRecords.isSample} showWeek={false} />
 
       <section className="mobile-home-plan" aria-labelledby="mobile-home-plan-title">
         <h2 id="mobile-home-plan-title">Your plan</h2>

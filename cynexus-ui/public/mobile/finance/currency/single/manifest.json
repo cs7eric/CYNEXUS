@@ -1,0 +1,222 @@
+{
+  "currency": "CNY",
+  "method": "Extracted from user screenshots, background removed and notes deskewed. No AI generation. @2x files are interpolated, not recovered detail.",
+  "assets": [
+    {
+      "id": "yuan-100",
+      "valueInFen": 10000,
+      "kind": "note",
+      "png": "yuan-100.png",
+      "webp": "yuan-100.webp",
+      "interpolated2xPng": "yuan-100@2x.png",
+      "nativeArtworkSize": [
+        620,
+        308
+      ],
+      "canvasSize": [
+        636,
+        324
+      ],
+      "sourceScreenshot": "de621929403eec07340ce1eb27b49814.png",
+      "sourceBounds": [
+        331,
+        747,
+        987,
+        1137
+      ],
+      "correctedAngleDegrees": -8.011
+    },
+    {
+      "id": "yuan-50",
+      "valueInFen": 5000,
+      "kind": "note",
+      "png": "yuan-50.png",
+      "webp": "yuan-50.webp",
+      "interpolated2xPng": "yuan-50@2x.png",
+      "nativeArtworkSize": [
+        493,
+        234
+      ],
+      "canvasSize": [
+        509,
+        250
+      ],
+      "sourceScreenshot": "f9e16216eb496b65ee0ec137d6cfd205.png",
+      "sourceBounds": [
+        393,
+        777,
+        919,
+        1097
+      ],
+      "correctedAngleDegrees": 10.784
+    },
+    {
+      "id": "yuan-20",
+      "valueInFen": 2000,
+      "kind": "note",
+      "png": "yuan-20.png",
+      "webp": "yuan-20.webp",
+      "interpolated2xPng": "yuan-20@2x.png",
+      "nativeArtworkSize": [
+        485,
+        230
+      ],
+      "canvasSize": [
+        501,
+        246
+      ],
+      "sourceScreenshot": "6c063cc598ad655ce0a99aafee85b701.png",
+      "sourceBounds": [
+        415,
+        762,
+        940,
+        1106
+      ],
+      "correctedAngleDegrees": 14.634
+    },
+    {
+      "id": "yuan-10",
+      "valueInFen": 1000,
+      "kind": "note",
+      "png": "yuan-10.png",
+      "webp": "yuan-10.webp",
+      "interpolated2xPng": "yuan-10@2x.png",
+      "nativeArtworkSize": [
+        479,
+        227
+      ],
+      "canvasSize": [
+        495,
+        243
+      ],
+      "sourceScreenshot": "984bebbfbfe0e70fe80844c0768e6351.png",
+      "sourceBounds": [
+        391,
+        759,
+        912,
+        1104
+      ],
+      "correctedAngleDegrees": 15.466
+    },
+    {
+      "id": "yuan-5",
+      "valueInFen": 500,
+      "kind": "note",
+      "png": "yuan-5.png",
+      "webp": "yuan-5.webp",
+      "interpolated2xPng": "yuan-5@2x.png",
+      "nativeArtworkSize": [
+        471,
+        223
+      ],
+      "canvasSize": [
+        487,
+        239
+      ],
+      "sourceScreenshot": "a3066376cee5a43357b3895068b2096c.png",
+      "sourceBounds": [
+        394,
+        795,
+        899,
+        1108
+      ],
+      "correctedAngleDegrees": 11.929
+    },
+    {
+      "id": "yuan-1",
+      "valueInFen": 100,
+      "kind": "note",
+      "png": "yuan-1.png",
+      "webp": "yuan-1.webp",
+      "interpolated2xPng": "yuan-1@2x.png",
+      "nativeArtworkSize": [
+        456,
+        216
+      ],
+      "canvasSize": [
+        472,
+        232
+      ],
+      "sourceScreenshot": "9bc11f566bfa49c458ba5d8ce178f389.png",
+      "sourceBounds": [
+        422,
+        771,
+        920,
+        1108
+      ],
+      "correctedAngleDegrees": 16.769
+    },
+    {
+      "id": "jiao-5",
+      "valueInFen": 50,
+      "kind": "coin",
+      "png": "jiao-5.png",
+      "webp": "jiao-5.webp",
+      "interpolated2xPng": "jiao-5@2x.png",
+      "nativeArtworkSize": [
+        86,
+        87
+      ],
+      "canvasSize": [
+        102,
+        103
+      ],
+      "sourceScreenshot": "dcbd8b2cefac3c9b0f6bdc4bc526ecba.png",
+      "sourceBounds": [
+        617,
+        897,
+        703,
+        984
+      ],
+      "correctedAngleDegrees": 0.0
+    },
+    {
+      "id": "jiao-1",
+      "valueInFen": 10,
+      "kind": "coin",
+      "png": "jiao-1.png",
+      "webp": "jiao-1.webp",
+      "interpolated2xPng": "jiao-1@2x.png",
+      "nativeArtworkSize": [
+        85,
+        87
+      ],
+      "canvasSize": [
+        101,
+        103
+      ],
+      "sourceScreenshot": "b4d959354ffc0fd1a92f2fd996961dd2.png",
+      "sourceBounds": [
+        618,
+        896,
+        703,
+        983
+      ],
+      "correctedAngleDegrees": 0.0
+    },
+    {
+      "id": "fen-1",
+      "valueInFen": 1,
+      "kind": "coin",
+      "png": "fen-1.png",
+      "webp": "fen-1.webp",
+      "interpolated2xPng": "fen-1@2x.png",
+      "nativeArtworkSize": [
+        96,
+        98
+      ],
+      "canvasSize": [
+        112,
+        114
+      ],
+      "sourceScreenshot": "6fa8a5c3134ccee135ed2bc40d49fbdf.png",
+      "sourceBounds": [
+        612,
+        892,
+        708,
+        990
+      ],
+      "correctedAngleDegrees": 0.0
+    }
+  ]
+}

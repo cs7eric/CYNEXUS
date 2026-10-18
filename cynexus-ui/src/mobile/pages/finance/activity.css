@@ -1,0 +1,145 @@
+.mobile-theme .mobile-finance-activity { padding: 25px 4px 12px; color: var(--foreground); }
+.mobile-theme .fa-heading, .mobile-theme .fa-heading > div, .mobile-theme .fa-period,
+.mobile-theme .fa-sheet-heading, .mobile-theme .fa-year-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mobile-theme .fa-heading { margin-bottom: 7px; }
+.mobile-theme .fa-heading h2 { margin: 0; font-size: 33px; font-weight: 550; letter-spacing: -1.5px; line-height: 1.2; }
+.mobile-theme .fa-heading > div { gap: 0; margin-right: -8px; }
+.mobile-theme .fa-round { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+.mobile-theme .fa-round svg { width: 20px; height: 20px; }
+.mobile-theme :is(.mobile-finance-activity, .finance-activity-dialog) :is(button, input, select, textarea):focus-visible { outline: 2px solid #426d5a; outline-offset: 3px; }
+.mobile-theme :is(.mobile-finance-activity, .finance-activity-dialog) button { touch-action: manipulation; }
+.mobile-theme :is(.mobile-finance-activity, .finance-activity-dialog) button:disabled { cursor: default; }
+.mobile-theme .fa-round:disabled, .mobile-theme .fa-primary:disabled { opacity: .45; }
+.mobile-theme .fa-period { margin: 0 -8px 14px; gap: 4px; }
+.mobile-theme .fa-period-label { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 24px; background: transparent; font-size: 14px; font-weight: 600; letter-spacing: -.2px; cursor: pointer; }
+.mobile-theme .fa-period-label svg { width: 14px; height: 14px; }
+.mobile-theme .fa-current-mark { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #5c8a71; }
+.mobile-theme .fa-flow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mobile-theme .fa-flow-card { display: block; min-width: 0; text-align: left; background: #dce9df; border: 0; border-radius: 25px; padding: 16px 13px 8px; overflow: hidden; position: relative; color: var(--foreground); cursor: pointer; }
+.mobile-theme .fa-flow-card.is-expense { background: #dfe9f1; }
+.mobile-theme .fa-flow-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; color: #496255; }
+.mobile-theme .is-expense .fa-flow-label { color: #526b7b; }
+.mobile-theme .fa-flow-label svg { width: 15px; height: 15px; }
+.mobile-theme .fa-amount-frame { display: block; min-width: 0; margin-top: 6px; height: 35px; }
+.mobile-theme .fa-flow-amount { display: inline-block; font: 450 29px/1.2 "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -.8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mobile-theme .fa-flow-amount small { font-size: .68em; letter-spacing: -.25px; color: #61756b; }
+.mobile-theme .is-expense .fa-flow-amount small { color: #627887; }
+.mobile-theme .fa-flow-foot { display: flex; align-items: center; justify-content: space-between; gap: 5px; color: #526a5a; font-size: 10px; }
+.mobile-theme .is-expense .fa-flow-foot { color: #566e7e; }
+.mobile-theme .fa-flow-foot svg { width: 12px; height: 12px; }
+.mobile-theme .fa-cash { display: block; height: 100px; position: relative; margin: 0 -13px -1px; pointer-events: none; }
+.mobile-theme .fa-cash > .finance-asset-scene { position: absolute; left: 50%; top: -9px; width: 380px; height: 330px; margin: 0; transform: translateX(-50%) scale(.34); transform-origin: 50% 0; }
+.mobile-theme .fa-cash-empty { position: absolute; left: calc(50% - 22px); top: 48%; width: 44px; height: 2px; border-radius: 2px; background: #aebfb5; transform: rotate(-8deg); }
+.mobile-theme .fa-cash.is-entry { height: 128px; margin: 0 -15px -5px; }
+.mobile-theme .fa-cash.is-entry > .finance-asset-scene { transform: translateX(-50%) scale(.43); top: -10px; }
+.mobile-theme .fa-cash.is-detail { height: 175px; margin: -3px -12px 0; }
+.mobile-theme .fa-cash.is-detail > .finance-asset-scene { transform: translateX(-50%) scale(.54); top: -4px; }
+.mobile-theme .fa-net { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 13px 2px 15px; font-size: 11px; color: var(--muted); }
+.mobile-theme .fa-net strong { font: 500 16px "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -.2px; color: #3c6856; text-align: right; overflow-wrap: anywhere; }
+.mobile-theme .fa-search { position: relative; margin: 1px 0 13px; }
+.mobile-theme .fa-search > svg { position: absolute; left: 14px; top: 14px; width: 18px; height: 18px; color: var(--muted); }
+.mobile-theme .fa-search input { display: block; width: 100%; height: 46px; padding: 0 45px 0 41px; background: #f7fafc; border: 1px solid #c9d5dd; border-radius: 16px; font-size: 12px; }
+.mobile-theme .fa-search .fa-round { position: absolute; right: 1px; top: 1px; }
+.mobile-theme .fa-search .fa-round svg { width: 16px; height: 16px; }
+.mobile-theme .fa-filters { display: flex; gap: 3px; padding: 4px; background: #f7fafbcc; border-radius: 27px; margin-bottom: 23px; }
+.mobile-theme .fa-filters button { flex: 1; min-width: 0; min-height: 44px; display: grid; place-items: center; padding: 0 7px; border: 0; border-radius: 22px; background: transparent; font-size: 10px; font-weight: 600; color: #5f7280; cursor: pointer; }
+.mobile-theme .fa-filters button[aria-pressed=true] { background: var(--foreground); color: white; }
+.mobile-theme .fa-ledger-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.mobile-theme .fa-ledger-heading h3 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.5px; }
+.mobile-theme .fa-ledger-heading > span { font-size: 10px; color: var(--muted); }
+.mobile-theme .fa-date-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 6px; font-size: 10px; line-height: 1.5; color: var(--muted); }
+.mobile-theme .fa-date-heading strong { font-size: 11px; font-weight: 650; color: #526773; }
+.mobile-theme .fa-date-heading time { font-size: 10px; font-weight: 450; margin-left: 6px; color: #667985; }
+.mobile-theme .fa-date-heading > span { font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.mobile-theme .fa-day + .fa-day { margin-top: 22px; }
+.mobile-theme .fa-record-list { list-style: none; padding: 0; margin: 0; }
+.mobile-theme .fa-record { display: flex; align-items: center; gap: 11px; min-height: 69px; width: 100%; padding: 9px 0; border: 0; border-bottom: 1px solid #ccd6dfb3; background: transparent; text-align: left; cursor: pointer; }
+.mobile-theme .fa-record-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 15px; background: #dce8e2; color: #59725f; }
+.mobile-theme .fa-record-icon.is-income { background: #d8e8dc; color: #4c7458; }
+.mobile-theme .fa-record-icon.is-transfer { background: #e0e7ec; color: #637785; }
+.mobile-theme .fa-record-icon svg { width: 19px; height: 19px; }
+.mobile-theme .fa-record-copy { flex: 1; min-width: 0; }
+.mobile-theme .fa-record-copy strong { display: block; font-size: 12px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-theme .fa-record-copy > span { display: block; margin-top: 3px; font-size: 10px; color: #607380; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-theme .fa-record-amount { flex: 0 1 auto; min-width: 0; max-width: 52%; overflow-wrap: anywhere; font: 450 18px "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -.35px; font-variant-numeric: tabular-nums; text-align: right; }
+.mobile-theme .fa-record-amount.is-income { color: #477158; }
+.mobile-theme .fa-record-amount.is-transfer { color: #647a8a; font-size: 16px; }
+.mobile-theme .fa-footnote { margin: 24px 0 0; text-align: center; color: #627683; font-size: 10px; line-height: 1.8; }
+.mobile-theme .fa-empty { text-align: center; padding: 35px 12px 25px; color: var(--muted); }
+.mobile-theme .fa-empty > svg { display: block; margin: 0 auto 12px; width: 32px; height: 32px; color: #5e7e69; }
+.mobile-theme .fa-empty h3 { font-size: 17px; line-height: 1.4; font-weight: 550; color: var(--foreground); letter-spacing: -.4px; margin: 0 0 7px; }
+.mobile-theme .fa-empty p { font-size: 11px; line-height: 1.8; max-width: 250px; margin: 0 auto 17px; }
+.mobile-theme .fa-text-button { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; min-height: 44px; padding: 0 12px; border-radius: 20px; font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.mobile-theme .fa-alert { display: flex; align-items: center; gap: 6px; margin: 0 0 13px; padding: 8px 10px; border-radius: 14px; background: #e3e9ed; }
+.mobile-theme .fa-alert p { flex: 1; margin: 0; font-size: 11px; line-height: 1.7; }
+.mobile-theme .fa-alert button { flex-shrink: 0; font-size: 11px; padding-inline: 5px; }
+.mobile-theme .fa-notice:not(:empty) { position: fixed; bottom: calc(var(--mobile-tabbar-height, 96px) + 12px); left: 24px; right: 24px; z-index: 30; max-width: 400px; margin-inline: auto; padding: 12px 15px; background: var(--foreground); color: white; border-radius: 15px; font-size: 11px; }
+.mobile-theme .finance-activity-dialog { position: fixed; inset: auto 0 0; width: min(100%, 440px); max-width: 100%; max-height: calc(var(--mobile-viewport-height, 100dvh) - 35px); margin: 0 auto; border: 0; border-radius: 28px 28px 0 0; padding: 0; background: #f2f6f9; color: var(--foreground); overflow: auto; overscroll-behavior: contain; }
+.mobile-theme .finance-activity-dialog::backdrop { background: #172e3a45; }
+.mobile-theme .fa-sheet { padding: 12px 23px max(25px, env(safe-area-inset-bottom)); }
+.mobile-theme .fa-handle { width: 34px; height: 4px; border-radius: 4px; background: #c5d0d8; margin: 0 auto 9px; }
+.mobile-theme .fa-sheet-heading { margin-bottom: 13px; }
+.mobile-theme .fa-sheet-heading h2 { min-width: 0; overflow-wrap: anywhere; font-size: 21px; font-weight: 600; letter-spacing: -.7px; line-height: 1.4; margin: 0; }
+.mobile-theme .fa-sheet-heading .fa-round { margin-right: -8px; }
+.mobile-theme .fa-type-switch { display: flex; border-radius: 26px; background: #e3eaf0; padding: 4px; gap: 3px; }
+.mobile-theme .fa-type-switch button { flex: 1; min-height: 44px; border: 0; background: transparent; border-radius: 22px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.mobile-theme .fa-type-switch button[aria-pressed=true] { background: var(--foreground); color: white; }
+.mobile-theme .fa-entry-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.mobile-theme .fa-amount-entry { display: flex; align-items: center; gap: 10px; margin: 23px 0 0; }
+.mobile-theme .fa-amount-entry label { font-size: 11px; letter-spacing: .5px; font-weight: 650; color: #627783; }
+.mobile-theme .fa-amount-entry input { width: 100%; min-width: 0; background: transparent; border: 0; border-bottom: 1px solid #d0dae1; border-radius: 0; padding: 0 0 4px; font: 450 43px/1.2 "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.mobile-theme .fa-amount-entry input::placeholder { color: #a0afb9; }
+.mobile-theme .fa-denominations { text-align: center; font-size: 10px; color: var(--muted); line-height: 1.7; margin: 0 0 17px; min-height: 17px; }
+.mobile-theme .fa-field-label, .mobile-theme .fa-field > span { display: block; font-size: 10px; font-weight: 650; color: #627783; margin-bottom: 8px; }
+.mobile-theme .fa-category-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-height: 188px; overflow: auto; padding: 3px; margin: -3px -3px 15px; }
+.mobile-theme .fa-category-options button { min-height: 44px; background: #e6edf2; border: 1px solid transparent; border-radius: 13px; padding: 5px; overflow-wrap: anywhere; font-size: 10px; cursor: pointer; }
+.mobile-theme .fa-category-options button[aria-pressed=true] { background: #d5e6d9; color: #3f6650; border-color: #8bb398; }
+.mobile-theme .fa-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.mobile-theme .fa-field { display: block; min-width: 0; }
+.mobile-theme .fa-field.is-full { grid-column: 1 / -1; }
+.mobile-theme .fa-field :is(select, input, textarea) { width: 100%; max-width: 100%; height: 45px; background: white; color: var(--foreground); border: 1px solid #d5dfe6; border-radius: 13px; padding: 0 11px; font: inherit; font-size: 11px; min-width: 0; }
+.mobile-theme .fa-field textarea { height: 63px; resize: vertical; padding-top: 10px; }
+.mobile-theme .fa-field input[type=datetime-local] { padding-inline: 6px; font-size: 10px; }
+.mobile-theme .fa-notes-toggle { padding: 0; border: 0; background: transparent; min-height: 44px; font-size: 11px; color: #627783; display: flex; align-items: center; gap: 6px; margin: 2px 0 3px; cursor: pointer; }
+.mobile-theme .fa-notes-toggle svg { width: 14px; height: 14px; }
+.mobile-theme .fa-form-error { font-size: 11px; color: #8e413b; line-height: 1.6; margin: 10px 0; }
+.mobile-theme .fa-form-error:empty { margin: 5px 0; }
+.mobile-theme .fa-primary { min-height: 49px; width: 100%; padding: 10px 18px; border: 0; border-radius: 25px; background: var(--foreground); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; }
+.mobile-theme .fa-primary svg { width: 16px; height: 16px; }
+.mobile-theme .fa-sheet .fa-footnote { margin-top: 11px; }
+.mobile-theme .fa-year-switch { margin-bottom: 12px; }
+.mobile-theme .fa-year-switch strong { font: 450 27px "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -.6px; }
+.mobile-theme .fa-month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-bottom: 20px; }
+.mobile-theme .fa-month-grid button { height: 47px; border: 0; border-radius: 17px; background: #e3ebf1; font-size: 12px; cursor: pointer; }
+.mobile-theme .fa-month-grid button[aria-pressed=true] { background: var(--foreground); color: white; }
+.mobile-theme .fa-detail-type, .mobile-theme .fa-message { font-size: 11px; color: var(--muted); margin: 5px 0 9px; line-height: 1.8; }
+.mobile-theme .fa-detail-amount { margin: 0; font: 450 40px/1.1 "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -1px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mobile-theme .fa-detail-grid { margin: 6px 0 20px; }
+.mobile-theme .fa-detail-grid > div { display: flex; align-items: baseline; justify-content: space-between; gap: 17px; border-bottom: 1px solid #d7e1e8; padding: 12px 0; font-size: 11px; }
+.mobile-theme .fa-detail-grid dt { color: var(--muted); }
+.mobile-theme .fa-detail-grid dd { margin: 0; max-width: 65%; text-align: right; line-height: 1.7; overflow-wrap: anywhere; }
+.mobile-theme .fa-money-list { list-style: none; padding: 0; margin: 0 0 15px; }
+.mobile-theme .fa-money-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #d7e1e8; font-size: 11px; }
+.mobile-theme .fa-money-list img { width: 39px; height: 24px; object-fit: contain; }
+.mobile-theme .fa-money-list span { flex: 1; }
+.mobile-theme .fa-money-list strong { font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }
+@media (max-width: 360px) {
+  .mobile-theme .mobile-finance-activity { padding-inline: 0; }
+  .mobile-theme .fa-flow-grid { gap: 8px; }
+  .mobile-theme .fa-flow-card { padding-inline: 10px; border-radius: 22px; }
+  .mobile-theme .fa-flow-amount { font-size: 25px; }
+  .mobile-theme .fa-cash.is-summary { height: 95px; margin-inline: -10px; }
+  .mobile-theme .fa-cash.is-summary > .finance-asset-scene { transform: translateX(-50%) scale(.30); top: -5px; }
+  .mobile-theme .fa-record { gap: 8px; }
+  .mobile-theme .fa-record-icon { width: 36px; height: 36px; flex-basis: 36px; border-radius: 13px; }
+  .mobile-theme .fa-record-copy strong { font-size: 11px; }
+  .mobile-theme .fa-record-amount { font-size: 16px; }
+  .mobile-theme .fa-filters button { font-size: 9px; padding-inline: 4px; }
+  .mobile-theme .fa-sheet { padding-inline: 18px; }
+  .mobile-theme .fa-form-row { gap: 8px; }
+  .mobile-theme .fa-period-label { font-size: 13px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-theme .fa-record, .mobile-theme .fa-filters button { transition: background .15s ease, color .15s ease; }
+  .mobile-theme .fa-record:hover { background: #ffffff35; }
+}

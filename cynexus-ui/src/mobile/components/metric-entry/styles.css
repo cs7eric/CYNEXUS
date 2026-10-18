@@ -1,0 +1,253 @@
+.mobile-metric-entry {
+  position: absolute;
+  z-index: 80;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  color: #101010;
+  background: transparent;
+  font-family: "Manrope Mobile", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.mobile-metric-entry::backdrop { background: #e2e8f0; }
+.mobile-metric-entry-error { position: absolute; inset: auto 18px 100px; margin: 0; color: #a82c19; font-size: 12px; text-align: center; }
+
+.mobile-metric-entry-canvas {
+  position: relative;
+  width: min(100%, 430px);
+  height: 100%;
+  min-height: 0;
+  margin-inline: auto;
+  padding: max(26px, env(safe-area-inset-top, 0px)) 18px max(24px, env(safe-area-inset-bottom, 0px));
+  background: #f6f6f6;
+}
+
+.mobile-metric-entry-top,
+.mobile-metric-entry-add {
+  position: absolute;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  border: 0;
+  color: #fff;
+  background: #de2d00;
+  transform: translateX(-50%);
+}
+
+.mobile-metric-entry-top {
+  top: -55px;
+  width: 108px;
+  height: 129px;
+  border-radius: 56px;
+}
+
+.mobile-metric-entry-top svg {
+  width: 31px;
+  height: 31px;
+  margin-top: -3px;
+  stroke-width: 2.7;
+}
+
+.mobile-metric-entry-arcs {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  width: 100%;
+  height: min(495px, calc(100% - 35px));
+  overflow: visible;
+  pointer-events: none;
+}
+
+.mobile-metric-entry-arcs path {
+  fill: none;
+  stroke: #e9e9e9;
+  stroke-linecap: round;
+  stroke-width: 16;
+}
+
+.mobile-metric-entry-wheels {
+  position: absolute;
+  top: 138px;
+  right: 0;
+  left: 0;
+  height: 238px;
+  pointer-events: none;
+}
+
+.mobile-metric-entry-wheel-column {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.mobile-metric-entry-wheel-column.is-left { left: 0; }
+.mobile-metric-entry-wheel-column.is-right { right: 0; }
+
+.mobile-metric-entry-wheel-column button {
+  --wheel-curve: 0%;
+  position: absolute;
+  top: var(--wheel-top);
+  left: var(--wheel-curve);
+  width: 62px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  color: #bcbcbc;
+  background: transparent;
+  font: inherit;
+  font-size: clamp(1.8rem, 7.8vw, 2.9rem);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  filter: blur(2px);
+  opacity: .66;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition: color 150ms ease, filter 150ms ease, opacity 150ms ease, transform 150ms ease;
+}
+
+.mobile-metric-entry-wheel-column.is-left button:nth-child(1) { --wheel-curve: 52%; }
+.mobile-metric-entry-wheel-column.is-left button:nth-child(2) { --wheel-curve: 53%; }
+.mobile-metric-entry-wheel-column.is-left button:nth-child(3) { --wheel-curve: 54%; }
+.mobile-metric-entry-wheel-column.is-left button:nth-child(4) { --wheel-curve: 56%; }
+.mobile-metric-entry-wheel-column.is-left button:nth-child(5) { --wheel-curve: 54%; }
+.mobile-metric-entry-wheel-column.is-left button:nth-child(6) { --wheel-curve: 53%; }
+.mobile-metric-entry-wheel-column.is-left button:nth-child(7) { --wheel-curve: 52%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(1) { --wheel-curve: 48%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(2) { --wheel-curve: 47%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(3) { --wheel-curve: 46%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(4) { --wheel-curve: 44%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(5) { --wheel-curve: 46%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(6) { --wheel-curve: 47%; }
+.mobile-metric-entry-wheel-column.is-right button:nth-child(7) { --wheel-curve: 48%; }
+
+.mobile-metric-entry-wheel-column button:nth-child(1),
+.mobile-metric-entry-wheel-column button:nth-child(7) { opacity: .32; }
+
+.mobile-metric-entry-wheel-column button:nth-child(2),
+.mobile-metric-entry-wheel-column button:nth-child(6) { opacity: .48; }
+
+.mobile-metric-entry-wheel-column button.is-selected {
+  color: #101010;
+  filter: none;
+  font-size: clamp(2.25rem, 10vw, 3rem);
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.03);
+}
+
+.mobile-metric-entry-wheel-column button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid #de2d00;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.mobile-metric-entry-colon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #101010;
+  font-size: clamp(2.8rem, 10vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.mobile-metric-entry-marker {
+  position: absolute;
+  top: 153px;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: #f6b400;
+  box-shadow: 0 0 0 1px #f6b400;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.mobile-metric-entry-unit {
+  position: absolute;
+  top: 406px;
+  left: 50%;
+  color: #101010;
+  font-size: clamp(1.25rem, 6.2vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: .03em;
+  line-height: 1;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.mobile-metric-entry-switch,
+.mobile-metric-entry-cancel {
+  position: absolute;
+  bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 42px));
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #de2d00;
+  background: #fff;
+  box-shadow: 0 5px 14px rgb(0 0 0 / 10%);
+}
+
+.mobile-metric-entry-switch { left: 32px; }
+.mobile-metric-entry-cancel { right: 32px; }
+.mobile-metric-entry-switch svg, .mobile-metric-entry-cancel svg { width: 25px; height: 25px; stroke-width: 2.4; }
+
+.mobile-metric-entry-switch:focus-visible,
+.mobile-metric-entry-cancel:focus-visible,
+.mobile-metric-entry-top:focus-visible,
+.mobile-metric-entry-add:focus-visible {
+  outline: 3px solid #101010;
+  outline-offset: 4px;
+}
+
+.mobile-metric-entry-add {
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  width: 119px;
+  height: 169px;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 58px;
+}
+
+.mobile-metric-entry-add svg { width: 36px; height: 36px; stroke-width: 1.8; }
+.mobile-metric-entry-add span { font-size: 1rem; font-weight: 700; }
+
+@media (max-width: 359px) {
+  .mobile-metric-entry-canvas { padding-inline: 12px; }
+  .mobile-metric-entry-wheels { padding-inline: 18px; }
+  .mobile-metric-entry-switch { left: 18px; }
+  .mobile-metric-entry-cancel { right: 18px; }
+}
+
+@media (max-height: 680px) {
+  .mobile-metric-entry-arcs { height: min(495px, calc(100% - 35px)); }
+  .mobile-metric-entry-wheels { top: 138px; height: 238px; }
+  .mobile-metric-entry-wheel-column { height: 238px; }
+  .mobile-metric-entry-marker { top: 153px; width: 36px; height: 36px; border-radius: 11px; }
+  .mobile-metric-entry-unit { top: 406px; }
+  .mobile-metric-entry-switch,
+  .mobile-metric-entry-cancel { bottom: max(54px, calc(env(safe-area-inset-bottom, 0px) + 28px)); width: 56px; height: 56px; }
+  .mobile-metric-entry-add { bottom: max(18px, env(safe-area-inset-bottom, 0px)); width: 94px; height: 128px; }
+  .mobile-metric-entry-add svg { width: 30px; height: 30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-metric-entry-wheel-column button { transition: none; }
+}
