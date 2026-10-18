@@ -2,6 +2,7 @@ import path from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import prefixSelector from 'postcss-prefix-selector'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -9,6 +10,24 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react(), tailwindcss()],
+  css: {
+    postcss: {
+      plugins: [prefixSelector({
+        prefix: ':where(.mobile-theme)',
+        includeFiles: [/[/\\]mobile[/\\]styles\.css$/],
+        transform(prefix, selector, prefixed, _file, rule) {
+          // Nested selectors inherit their outer rule's scope.
+          for (let parent: typeof rule.parent | NonNullable<typeof rule.parent>['parent'] = rule.parent; parent; parent = parent.parent) {
+            if (parent.type === 'rule') return selector
+          }
+          if (selector === '.mobile-theme') return selector
+          if (selector === ':root' || selector === ':host') return prefix
+          if (selector === '.dark' || selector === '.light' || selector.startsWith('[data-theme=')) return `${prefix}${selector}`
+          return prefixed
+        },
+      })],
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5174,

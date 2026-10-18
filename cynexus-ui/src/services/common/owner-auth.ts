@@ -31,7 +31,7 @@ export function installOwnerAuthTransport() {
 
 export async function readOwnerSession(signal?: AbortSignal): Promise<OwnerSession> {
   const response = await fetch("/api/auth/session", { cache: "no-store", signal })
-  if (!response.ok) throw new Error("暂时无法验证登录状态，请重试。")
+  if (!response.ok) throw new Error("Unable to verify your session. Please try again.")
   const session: OwnerSession = await response.json()
   csrfToken = session.authenticated ? session.csrfToken ?? null : null
   return session
@@ -43,18 +43,18 @@ export async function loginOwner(password: string, rememberDevice: boolean) {
     body: JSON.stringify({ password, rememberDevice }),
   })
   if (!response.ok) {
-    if (response.status === 401) throw new Error("密码不正确。")
-    if (response.status === 429) throw new Error("尝试次数过多，请 15 分钟后重试。")
-    throw new Error("暂时无法登录，请稍后重试。")
+    if (response.status === 401) throw new Error("Incorrect password.")
+    if (response.status === 429) throw new Error("Too many attempts. Please try again in 15 minutes.")
+    throw new Error("Unable to sign in. Please try again later.")
   }
   const session = await readOwnerSession()
-  if (!session.authenticated) throw new Error("浏览器未能保存登录状态，请检查 Cookie 设置。")
+  if (!session.authenticated) throw new Error("Your session could not be saved. Please check your cookie settings.")
   window.dispatchEvent(new Event(AUTH_CHANGED))
 }
 
 export async function logoutOwner(allDevices = false) {
   const response = await fetch(`/api/auth/${allDevices ? "logout-all" : "logout"}`, { method: "POST" })
-  if (!response.ok && response.status !== 401) throw new Error("退出失败，请重试。")
+  if (!response.ok && response.status !== 401) throw new Error("Unable to sign out. Please try again.")
   csrfToken = null
   window.dispatchEvent(new Event(AUTH_REQUIRED))
   const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("cynexus-owner-auth")

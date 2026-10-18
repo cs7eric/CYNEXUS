@@ -1,0 +1,116 @@
+.mobile-activity { --activity-food: #4c7898; --activity-workout: #4b8b7c; padding-top: 4px; color: var(--home-ink); }
+.mobile-activity-heading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.mobile-activity-heading h2 { margin: 0; font-size: 1.25rem; font-weight: 650; line-height: 1.4; letter-spacing: -0.025em; }
+.mobile-activity-heading p { margin-top: 3px; color: var(--muted); font-size: 0.6875rem; line-height: 1.5; }
+.mobile-activity .mobile-activity-toggle { min-width: 88px; min-height: 44px; gap: 7px; padding: 0 13px; border: 1px solid #dedee2; border-radius: 999px; background: #fff; color: var(--home-ink); font-size: 0.75rem; font-weight: 600; }
+.mobile-activity-toggle svg { width: 15px; height: 15px; stroke-width: 1.7; transition: transform 180ms ease; }
+.mobile-activity-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.mobile-activity-period { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 14px 0 10px; font-size: 0.8125rem; font-weight: 550; line-height: 1.5; }
+.mobile-activity-period > span { color: var(--muted); font-size: 0.6875rem; font-weight: 400; }
+.mobile-activity-month-heading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; }
+.mobile-activity-month-heading > p { margin: 0; font-size: 0.875rem; font-weight: 600; line-height: 1.5; }
+.mobile-activity-month-actions { display: flex; gap: 4px; }
+.mobile-activity .mobile-activity-month-arrow { width: 44px; min-width: 44px; height: 44px; padding: 0; border-radius: 50%; color: var(--home-ink); }
+.mobile-activity-month-arrow svg { width: 18px; height: 18px; stroke-width: 1.7; }
+.mobile-activity-days, .mobile-activity-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
+.mobile-activity-days > li { min-width: 0; }
+.mobile-activity-day { position: relative; display: flex; width: 100%; min-width: 0; min-height: 112px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 9px 2px; border: 1px solid #c5c5c7; border-radius: 999px; background: transparent; color: var(--home-ink); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.mobile-activity-today-dot { width: 4px; height: 4px; flex-shrink: 0; border-radius: 50%; background: transparent; }
+.mobile-activity-day time { font-size: 0.9375rem; font-weight: 650; line-height: 1.4; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-days,
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-weekdays { gap: 8px; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-weekdays { margin-bottom: 8px; font-size: 0.6875rem; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-day { min-height: 88px; justify-content: center; gap: 0; padding: 6px 1px; border-color: #d9d9df; background: #fff; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-today-dot { position: absolute; top: 6px; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-day time { font-size: 1rem; font-weight: 700; line-height: 1.25; }
+.mobile-activity-mini { display: grid; justify-items: center; gap: 3px; margin-top: 4px; }
+.mobile-activity-mini > span { display: inline-flex; align-items: center; gap: 2px; color: var(--activity-food); font-size: 0.5625rem; font-weight: 600; line-height: 1.35; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mobile-activity-mini svg { width: 9px; height: 9px; flex-shrink: 0; stroke-width: 1.7; }
+.mobile-activity-mini > span + span { color: var(--activity-workout); }
+.mobile-activity-mini > span[data-empty="true"] { color: #92929a; }
+.mobile-activity-day[aria-current="date"] { border-color: #7da9cb; }
+.mobile-activity-day[aria-current="date"] .mobile-activity-today-dot { background: #6598c0; }
+.mobile-activity-day[aria-pressed="true"] { border-color: var(--home-ink); background: var(--home-ink); color: #fff; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-day[aria-current="date"] { border-color: #7da9cb; }
+.mobile-activity-dates:not(.is-expanded) .mobile-activity-day[aria-pressed="true"] { border-color: var(--home-ink); background: var(--home-ink); }
+.mobile-activity-day[aria-pressed="true"] .mobile-activity-mini > span { color: #c7e1f0; }
+.mobile-activity-day[aria-pressed="true"] .mobile-activity-mini > span + span { color: #b9e2d7; }
+.mobile-activity-day[aria-pressed="true"] .mobile-activity-mini > span[data-empty="true"] { color: #a5a5ae; }
+.mobile-activity-day[aria-current="date"][aria-pressed="true"] .mobile-activity-today-dot { background: #fff; }
+.mobile-activity-day:disabled { border-color: #e1e1e4; color: #92929a; cursor: default; }
+.mobile-activity-day:disabled .mobile-activity-mini { opacity: 0.45; }
+.mobile-activity-day:focus-visible { z-index: 1; outline: 2px solid #6598c0; outline-offset: 2px; }
+.mobile-activity-legend { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
+.mobile-activity-legend > span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.6875rem; line-height: 1.6; }
+.mobile-activity-legend svg { width: 12px; height: 12px; color: var(--activity-food); stroke-width: 1.7; }
+.mobile-activity-legend > span + span svg { color: var(--activity-workout); }
+
+.mobile-activity-weekdays { margin-bottom: 8px; color: var(--muted); font-size: 0.625rem; line-height: 1.6; text-align: center; }
+.is-expanded .mobile-activity-days { min-height: 349px; grid-auto-rows: 54px; align-content: start; gap: 5px 4px; touch-action: pan-y pinch-zoom; user-select: none; }
+.is-expanded .mobile-activity-day { min-height: 54px; gap: 2px; padding: 4px 2px; border-color: transparent; border-radius: 16px; }
+.is-expanded .mobile-activity-day[aria-current="date"] { border-color: #7da9cb; }
+.is-expanded .mobile-activity-day[aria-pressed="true"] { border-color: var(--home-ink); }
+.is-expanded .mobile-activity-day:disabled { opacity: 0.45; }
+.is-expanded .mobile-activity-day time { font-size: 0.8125rem; }
+.mobile-activity-markers { display: flex; height: 4px; align-items: center; gap: 3px; }
+.mobile-activity-markers > span { width: 4px; height: 4px; border-radius: 50%; background: transparent; }
+.mobile-activity-markers > span[data-recorded="true"] { background: var(--activity-food); }
+.mobile-activity-markers > span + span[data-recorded="true"] { background: var(--activity-workout); }
+.mobile-activity-day[aria-pressed="true"] .mobile-activity-markers > span[data-recorded="true"] { background: #c7e1f0; }
+.mobile-activity-day[aria-pressed="true"] .mobile-activity-markers > span + span[data-recorded="true"] { background: #b9e2d7; }
+.is-expanded .mobile-activity-day:disabled .mobile-activity-markers { visibility: hidden; }
+
+.mobile-activity-detail-heading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.mobile-activity-detail-heading p { margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.5; }
+.mobile-activity .mobile-activity-today { min-height: 44px; padding-inline: 10px; border-radius: 999px; color: #466e8a; font-size: 0.75rem; }
+.mobile-activity-summary { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.94fr); gap: 10px; margin-top: 16px; }
+.mobile-activity-summary.is-summary-only { margin-top: 0; }
+.mobile-activity-stat { display: flex; min-width: 0; min-height: 116px; flex-direction: column; align-items: flex-start; padding: 15px 16px; border: 1px solid color-mix(in oklab, #fff 62%, var(--mobile-sky)); border-radius: 22px; background: color-mix(in oklab, #fff 74%, var(--mobile-sky) 26%); box-shadow: 0 10px 26px color-mix(in oklab, #28445a 7%, transparent); }
+.mobile-activity-workout { border-color: color-mix(in oklab, #fff 62%, var(--mobile-mint)); background: color-mix(in oklab, #fff 72%, var(--mobile-mint) 28%); }
+.mobile-activity-stat-label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.6875rem; font-weight: 550; line-height: 1.5; }
+.mobile-activity-stat-label svg { width: 14px; height: 14px; stroke-width: 1.7; }
+.mobile-activity-stat p { display: flex; align-items: baseline; gap: 4px; margin-top: 7px; }
+.mobile-activity-stat strong { font-size: 1.5rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.mobile-activity-stat p > span { font-size: 0.6875rem; }
+.mobile-activity-stat small { margin-top: 6px; font-size: 0.625rem; line-height: 1.5; }
+.mobile-activity-stat .mobile-activity-calorie-amount { flex-wrap: wrap; }
+.mobile-activity-calorie-amount > span[aria-hidden] { line-height: 1.5; white-space: nowrap; }
+.mobile-activity-calorie-target { font-size: 0.8125rem; font-weight: 500; white-space: nowrap; }
+.mobile-activity-calorie-unit { font-size: 0.6875rem; }
+.mobile-activity-macros { display: grid; width: 100%; gap: 8px; margin: 12px 0 0; padding-top: 11px; border-top: 1px solid #5f91b130; }
+.mobile-activity-macro { --macro-accent: #5f91b1; display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 4px 6px; }
+.mobile-activity-macro[data-tone="protein"] { --macro-accent: #619d91; }
+.mobile-activity-macro[data-tone="fat"] { --macro-accent: #8a9bb1; }
+.mobile-activity-macros dt { display: flex; align-items: center; gap: 4px; color: #456274; font-size: 0.625rem; font-weight: 550; line-height: 1.5; }
+.mobile-activity-macros dt svg { width: 12px; height: 12px; flex-shrink: 0; color: var(--macro-accent); stroke-width: 1.8; }
+.mobile-activity-macros dd { min-width: 0; margin: 0; color: var(--home-ink); font-size: 0.75rem; font-weight: 750; line-height: 1.5; text-align: right; font-variant-numeric: tabular-nums; }
+.mobile-activity-macro-amount { display: flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 2px; }
+.mobile-activity-macro-target, .mobile-activity-macro-unit { color: #607886; font-size: 0.625rem; font-weight: 400; white-space: nowrap; }
+.mobile-activity-macro-track { display: block; height: 3px; grid-column: 1 / -1; overflow: hidden; border-radius: 999px; background: #5f91b126; }
+.mobile-activity-macro-track > span { display: block; height: 100%; border-radius: inherit; background: var(--macro-accent); }
+.mobile-activity-workout-detail { margin-block: auto; padding-block: 12px; }
+.mobile-activity-workout-detail p { margin: 0; }
+.mobile-activity-workout-detail strong { font-size: 2.25rem; }
+.mobile-activity-workout-name { display: block; margin-top: 6px; color: #496b65; font-size: 0.75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.mobile-activity-stat .mobile-activity-workout-sessions { width: 100%; margin: 0; padding-top: 10px; border-top: 1px solid #9abfb630; color: #496b65; }
+
+@media (hover: hover) {
+  .mobile-activity-day:not(:disabled):not([aria-pressed="true"]):hover { background: #e5eef5; }
+  .mobile-activity-dates:not(.is-expanded) .mobile-activity-day:not(:disabled):not([aria-pressed="true"]):hover { border-color: #afc8da; background: #edf4f8; }
+  .mobile-activity .mobile-activity-toggle:hover { background: #e5eef5; }
+}
+@media (max-width: 359px) {
+  .mobile-activity-days, .mobile-activity-weekdays { gap: 3px; }
+  .mobile-activity-day { min-height: 108px; padding-inline: 0; }
+  .mobile-activity-dates:not(.is-expanded) .mobile-activity-days,
+  .mobile-activity-dates:not(.is-expanded) .mobile-activity-weekdays { gap: 4px; }
+  .mobile-activity-summary { gap: 8px; }
+  .mobile-activity-stat { padding-inline: 12px; border-radius: 20px; }
+  .mobile-activity-stat strong { font-size: 1.375rem; }
+  .mobile-activity-nutrition strong { font-size: 1.25rem; }
+  .mobile-activity-calorie-target { font-size: 0.6875rem; }
+  .mobile-activity-calorie-unit { font-size: 0.625rem; }
+  .mobile-activity-macro-amount { column-gap: 1px; }
+  .mobile-activity-workout-detail strong { font-size: 2rem; }
+  .is-expanded .mobile-activity-days { min-height: 344px; gap: 4px 3px; }
+}

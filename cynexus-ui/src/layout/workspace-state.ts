@@ -1,6 +1,7 @@
 import { create } from "zustand"
 
 import { isWorkspaceId, validWorkspaceLocation, workspaces, type WorkspaceId } from "@/config/workspaces"
+import { isMobilePath } from "@/mobile/paths"
 
 const STORAGE_KEY = "cynexus-workspaces-v1"
 
@@ -15,8 +16,8 @@ function readPreferences(): WorkspacePreferences {
     return {
       activeWorkspace: isWorkspaceId(saved?.activeWorkspace) ? saved.activeWorkspace : "personal",
       lastLocations: {
-        personal: validWorkspaceLocation(saved?.lastLocations?.personal, "personal"),
-        development: validWorkspaceLocation(saved?.lastLocations?.development, "development"),
+        personal: isMobilePath(String(saved?.lastLocations?.personal)) ? workspaces.personal.defaultPath : validWorkspaceLocation(saved?.lastLocations?.personal, "personal"),
+        development: isMobilePath(String(saved?.lastLocations?.development)) ? workspaces.development.defaultPath : validWorkspaceLocation(saved?.lastLocations?.development, "development"),
       },
     }
   } catch {
@@ -32,10 +33,11 @@ export const useWorkspaceState = create<WorkspacePreferences & {
 }>((set) => ({
   ...readPreferences(),
   recordLocation: (workspace, url) => set((current) => {
-    if (current.activeWorkspace === workspace && current.lastLocations[workspace] === url) return current
+    const lastLocation = isMobilePath(url) ? current.lastLocations[workspace] : url
+    if (current.activeWorkspace === workspace && current.lastLocations[workspace] === lastLocation) return current
     const next: WorkspacePreferences = {
       activeWorkspace: workspace,
-      lastLocations: { ...current.lastLocations, [workspace]: url },
+      lastLocations: { ...current.lastLocations, [workspace]: lastLocation },
     }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))

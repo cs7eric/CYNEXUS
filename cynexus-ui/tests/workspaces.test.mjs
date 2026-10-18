@@ -89,3 +89,34 @@ test("navigation state remains usable when browser storage is unavailable", () =
   previous.recordLocation("development", "/ai/provider?tab=routing")
   assert.equal(useWorkspaceState.getState(), previous)
 })
+
+test("mobile shell routes share spaces without claiming similar desktop paths", () => {
+  for (const route of ["/m", "/m/", "/m/apps", "/m/me?tab=security#session", "/m/unknown"]) {
+    assert.equal(getWorkspaceForPath(route), "shared", route)
+    assert.ok(isPathInWorkspace(route, "personal"))
+    assert.ok(isPathInWorkspace(route, "development"))
+  }
+  assert.equal(getWorkspaceForPath("/m-other"), undefined)
+  assert.equal(getWorkspaceForPath("/mobile"), undefined)
+})
+
+test("mobile navigation updates active space while preserving both desktop destinations", () => {
+  const { useWorkspaceState } = loadSource("layout/workspace-state")
+  useWorkspaceState.getState().recordLocation("personal", "/finance/ledger?account=1#entry")
+  useWorkspaceState.getState().recordLocation("development", "/ai/provider?tab=routing")
+  useWorkspaceState.getState().recordLocation("personal", "/m/apps")
+  assert.equal(useWorkspaceState.getState().activeWorkspace, "personal")
+  assert.equal(useWorkspaceState.getState().lastLocations.personal, "/finance/ledger?account=1#entry")
+  useWorkspaceState.getState().recordLocation("development", "/m/me")
+  assert.equal(useWorkspaceState.getState().activeWorkspace, "development")
+  assert.equal(useWorkspaceState.getState().lastLocations.development, "/ai/provider?tab=routing")
+})
+
+test("mobile app groups follow the same space ownership as desktop", () => {
+  const { getMobileAppGroups } = loadSource("mobile/navigation")
+  for (const workspace of ["personal", "development"]) {
+    const urls = getMobileAppGroups(workspace).flatMap((group) => group.items.map((item) => item.url))
+    assert.equal(new Set(urls).size, urls.length)
+    for (const url of urls) assert.ok(isPathInWorkspace(url, workspace), url)
+  }
+})

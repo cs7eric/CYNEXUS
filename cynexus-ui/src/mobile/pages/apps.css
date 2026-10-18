@@ -1,0 +1,32 @@
+.mobile-apps { display: flex; flex-direction: column; gap: 24px; padding-bottom: 8px; color: var(--foreground); }
+.mobile-apps-heading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 16px; }
+.mobile-apps-heading h2 { margin: 0; font-size: 1.25rem; font-weight: 600; line-height: 1.4; letter-spacing: -0.025em; }
+.mobile-apps-heading p { margin-top: 4px; color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+.mobile-apps-heading > span { flex-shrink: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+
+.mobile-apps-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.mobile-apps-section-heading h3 { margin: 0; font-size: 0.875rem; font-weight: 650; line-height: 1.5; }
+.mobile-apps-section-heading > span { flex-shrink: 0; color: var(--muted); font-size: 0.6875rem; line-height: 1.6; }
+.mobile-apps-shared { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mobile-apps-feature { display: flex; min-width: 0; min-height: 148px; flex-direction: column; justify-content: space-between; gap: 20px; padding: 18px; border-radius: 24px; background: #c4dff0; color: #243746; }
+.mobile-apps-feature:nth-child(2) { background: #d4e9e7; color: #24443f; }
+.mobile-apps-feature-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mobile-apps-feature-top svg { width: 26px; height: 26px; stroke-width: 1.5; }
+.mobile-apps-feature-top svg + svg { width: 20px; height: 20px; }
+.mobile-apps-feature strong { max-width: 120px; font-size: 1.125rem; font-weight: 600; line-height: 1.3; letter-spacing: -0.025em; }
+
+.mobile-apps-list { margin-top: -4px; }
+.mobile-apps-row { display: grid; min-height: 68px; grid-template-columns: 24px minmax(0, 1fr) 18px; align-items: center; gap: 13px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.mobile-apps-row-icon { width: 23px; height: 23px; stroke-width: 1.5; }
+.mobile-apps-row > span { min-width: 0; overflow-wrap: anywhere; font-size: 0.9375rem; font-weight: 550; line-height: 1.5; }
+.mobile-apps-row-chevron { width: 18px; height: 18px; stroke-width: 1.6; }
+
+@media (hover: hover) {
+  .mobile-apps-feature:hover { filter: brightness(0.97); }
+  .mobile-apps-row:hover { background: var(--default); }
+}
+@media (max-width: 359px) {
+  .mobile-apps-shared { gap: 8px; }
+  .mobile-apps-feature { min-height: 140px; padding: 16px; border-radius: 22px; }
+  .mobile-apps-feature strong { font-size: 1rem; }
+}

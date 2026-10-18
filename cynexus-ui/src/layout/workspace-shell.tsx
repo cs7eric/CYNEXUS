@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import type { ReactNode } from "react"
-import { Home } from "lucide-react"
+import { Home, Smartphone } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { sidebarConfig } from "@/config/sidebar"
@@ -164,6 +164,10 @@ export function WorkspaceShell({
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 px-2 sm:gap-2 sm:px-4">
             {headerActions}
+            <Link to="/m" state={{ workspace: workspace.id }} aria-label="Open mobile view" title="Open mobile view"
+              className="inline-flex size-9 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
+              <Smartphone className="size-4" aria-hidden="true" />
+            </Link>
             <WorkspaceChat />
             <GlobalCommandTrigger />
           </div>

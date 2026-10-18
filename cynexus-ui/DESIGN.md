@@ -93,6 +93,8 @@ components:
 
 The shell has Personal and Development navigation spaces, selected in the sidebar header. Keep the existing neutral tokens and density in both spaces. Shared Home, Agent and Knowledge Base entries remain accessible in either space. Navigation behavior and menu ownership are documented in `../design/frontend/workspace-navigation.md`.
 
+For the separate mobile experience, follow the user's preferred [mobile visual direction](../design/frontend/mobile-visual-direction.md): bold black/white contrast, circular controls, capsule navigation and intentional colored content surfaces. This direction is scoped to mobile; the desktop workbench guidance below remains applicable to desktop pages. Current mobile shell behavior is documented in [Mobile Shell](../design/frontend/mobile-shell.md).
+
 **Creative North Star: "A quiet research desk"**
 
 Cynexus UI is a task-first application workbench. It should feel like a well-organized research desk during a busy trading session: the navigation is stable, the content is dense but legible, and every accent exists to identify a state or make the next action obvious. The interface serves finance, A-share market research, media transcription, knowledge management, scheduler operations, and AI configuration; it is not a marketing page or a decorative dashboard.

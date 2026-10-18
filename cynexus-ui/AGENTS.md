@@ -28,6 +28,12 @@ Cynexus UI is a React 19 + TypeScript + Vite 8 application using Tailwind CSS v4
 - The MP4-to-Word glass/gradient canvas and Home page gradient tiles are local exceptions only.
 - New AI capabilities must also update the AI Provider Capability routing list.
 
+## Mobile UI Rules
+
+- For routes under `/m`, use `../design/frontend/mobile-visual-direction.md` and `../design/frontend/mobile-shell.md` as the source of truth for visual design. The mobile direction replaces the desktop workbench look for mobile screens.
+- Keep following this guide's code structure and engineering rules: mobile layout/pages/components/ui ownership, shared services, route boundaries, accessibility, responsive behavior, and required checks still apply.
+- Do not load desktop web UI visual-design skills for mobile-only UI work. The shared frontend workflow skill is optional when its guidance is not needed; it does not override the mobile visual references.
+
 ## Required References
 
 - Design tokens and visual language: `DESIGN.md`
@@ -35,4 +41,4 @@ Cynexus UI is a React 19 + TypeScript + Vite 8 application using Tailwind CSS v4
 - Product intent and anti-references: `PRODUCT.md`
 - Page-specific designs: `../design/frontend/` and `../design/front/`
 
-For frontend work, use `$cynexus-frontend`. It decides which of these references to read for the task.
+For desktop frontend work, use `$cynexus-frontend` when its workflow guidance is needed. For mobile-only work, follow the mobile references above and retain the code organization and verification rules in this guide.

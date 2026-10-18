@@ -1,6 +1,7 @@
 import { Code2, House } from "lucide-react"
 
 import { sidebarConfig } from "@/config/sidebar"
+import { isMobilePath } from "@/mobile/paths"
 
 export type WorkspaceId = "personal" | "development"
 export type NavigationItem = (typeof sidebarConfig.navMain)[number]
@@ -15,38 +16,38 @@ function menuItems(...urls: string[]): NavigationItem[] {
 
 export const sharedNavigation = {
   id: "shared",
-  title: "公共入口",
+  title: "Shared apps",
   items: menuItems("/cynexus-agent", "/knowledge-base/view"),
 }
 
 export const workspaces = {
   personal: {
     id: "personal",
-    name: "个人空间",
+    name: "Personal",
     subtitle: "Personal",
     icon: House,
     defaultPath: "/",
     groups: [
-      { id: "life", title: "日常生活", items: menuItems("/finance/overview") },
-      { id: "media", title: "内容工具", items: menuItems("/mp4-to-word") },
+      { id: "life", title: "Daily life", items: menuItems("/finance/overview") },
+      { id: "media", title: "Content tools", items: menuItems("/mp4-to-word") },
       {
-        id: "investing", title: "投资研究",
+        id: "investing", title: "Investment research",
         items: menuItems("/trade-review", "/cynexus-screener", "/market/overview", "/stock-overview", "/stock-review", "/information"),
       },
-      { id: "monitoring", title: "盘中监控", items: menuItems("/data-collector/market-indicator") },
+      { id: "monitoring", title: "Intraday monitoring", items: menuItems("/data-collector/market-indicator") },
     ],
   },
   development: {
     id: "development",
-    name: "开发后台",
+    name: "Development",
     subtitle: "Development",
     icon: Code2,
     defaultPath: "/settings/scheduler",
     groups: [
-      { id: "overview", title: "运行总览", items: menuItems("/dashboard") },
-      { id: "ai", title: "AI 管理", items: menuItems("/ai") },
-      { id: "operations", title: "系统运行", items: menuItems("/settings/scheduler") },
-      { id: "experiments", title: "开发实验", items: menuItems("/poc") },
+      { id: "overview", title: "Overview", items: menuItems("/dashboard") },
+      { id: "ai", title: "AI management", items: menuItems("/ai") },
+      { id: "operations", title: "Operations", items: menuItems("/settings/scheduler") },
+      { id: "experiments", title: "Experiments", items: menuItems("/poc") },
     ],
   },
 } as const
@@ -70,6 +71,7 @@ const routeOwners = (Object.keys(workspaces) as WorkspaceId[]).flatMap((id) =>
 
 export function getWorkspaceForPath(url: string): WorkspaceId | "shared" | undefined {
   const path = url.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  if (isMobilePath(path)) return "shared"
   if (path === "/" || matchesPath(path, "/knowledge-base") || matchesPath(path, "/cynexus-agent") || path === "/ai/agent") return "shared"
   if (path === "/heatmap-demo" || path === "/heatmap-data-debug") return "development"
   return routeOwners.find(({ prefix }) => matchesPath(path, prefix))?.id

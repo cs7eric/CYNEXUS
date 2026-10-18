@@ -240,7 +240,7 @@ export const sidebarConfig = {
           url: "/settings/provider",
         },
         {
-          title: "微信历史事件",
+          title: "WeChat event history",
           url: "/settings/wechat-history",
         },
         {
@@ -369,7 +369,7 @@ export const sidebarConfig = {
       icon: BrainCircuit,
     },
     {
-      name: "POC · A股 Skill",
+      name: "POC · A-share Skill",
       url: "/poc/a-stock-skill",
       icon: Database,
     },
@@ -409,7 +409,7 @@ export const sidebarConfig = {
       icon: Server,
     },
     {
-      name: "Settings · 微信历史事件",
+      name: "Settings · WeChat event history",
       url: "/settings/wechat-history",
       icon: MessageSquareText,
     },

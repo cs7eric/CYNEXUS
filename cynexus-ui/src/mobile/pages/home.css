@@ -1,0 +1,45 @@
+.mobile-home {
+  --home-sky: #c5ddec;
+  --home-mist: #d2e7f1;
+  --home-mint: #d9e9ed;
+  --home-ink: #202a34;
+}
+
+.mobile-home { display: flex; flex-direction: column; gap: 16px; color: var(--home-ink); }
+.mobile-home-greeting { display: flex; min-height: 116px; align-items: center; padding: 18px 20px; }
+.mobile-home-greeting h2 { max-width: 280px; margin: 0; font-family: "Outfit Display", "Manrope Mobile", sans-serif; font-size: 1.75rem; font-weight: 600; line-height: 1.12; letter-spacing: -0.02em; }
+.mobile-home-plan { margin-top: 12px; }
+.mobile-home-plan > h2 { margin: 0 0 14px; font-size: 1.5rem; font-weight: 750; line-height: 1.35; letter-spacing: -0.035em; }
+.mobile-home-plan-grid { display: grid; grid-template-columns: 1.08fr 1fr; grid-template-rows: 192px 84px; gap: 10px; }
+.mobile-home-primary-card, .mobile-home-library-card { position: relative; display: flex; min-width: 0; flex-direction: column; align-items: flex-start; overflow: hidden; padding: 18px; border-radius: 24px; }
+.mobile-home-primary-card { grid-row: 1 / 3; background: var(--home-sky); }
+.mobile-home-library-card { background: var(--home-mist); }
+.mobile-home-card-tag { display: inline-flex; max-width: 100%; align-items: center; padding: 3px 10px; border-radius: 999px; background: #ffffff35; font-size: 0.625rem; font-weight: 550; line-height: 1.5; }
+.mobile-home-primary-copy { margin-top: 24px; }
+.mobile-home-primary-copy h3, .mobile-home-library-card h3 { margin: 0; font-size: 1.375rem; font-weight: 550; line-height: 1.2; letter-spacing: -0.04em; }
+.mobile-home-primary-copy p, .mobile-home-library-card p { margin-top: 9px; font-size: 0.8125rem; line-height: 1.6; }
+.mobile-home-card-action { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 0.6875rem; line-height: 1.5; }
+.mobile-home-card-owner { display: flex; min-width: 0; align-items: center; gap: 8px; margin-top: auto; padding-top: 20px; }
+.mobile-home-owner-icon { display: inline-flex; width: 34px; height: 34px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: #fff6; }
+.mobile-home-owner-icon svg { width: 18px; height: 18px; stroke-width: 1.7; }
+.mobile-home-card-owner small { display: block; font-size: 0.625rem; line-height: 1.5; }
+.mobile-home-card-owner strong { display: block; font-size: 0.8125rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+.mobile-home-library-card h3 { position: relative; z-index: 1; margin-top: 20px; font-size: 1.25rem; }
+.mobile-home-library-card p { position: relative; z-index: 1; max-width: 72px; font-size: 0.6875rem; }
+.mobile-home-library-card img { position: absolute; right: -1px; bottom: 4px; width: 86px; height: auto; pointer-events: none; }
+.mobile-home-tools-card { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 4px; padding: 8px; border-radius: 24px; background: var(--home-mint); }
+.mobile-home-tools-card a { display: inline-flex; width: 44px; height: 44px; flex-shrink: 0; align-items: center; justify-content: center; border: 4px solid #c5dce8; border-radius: 50%; background: #fff; color: #40657f; }
+.mobile-home-tools-card svg { width: 19px; height: 19px; stroke-width: 1.7; }
+
+@media (max-width: 359px) {
+  .mobile-home-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 184px 76px; gap: 8px; }
+  .mobile-home-primary-card, .mobile-home-library-card { padding: 14px; border-radius: 22px; }
+  .mobile-home-primary-copy h3 { font-size: 1.1875rem; }
+  .mobile-home-card-owner { gap: 6px; }
+  .mobile-home-owner-icon { width: 28px; height: 28px; }
+  .mobile-home-card-owner strong { font-size: 0.6875rem; }
+  .mobile-home-library-card h3 { font-size: 1.125rem; }
+  .mobile-home-library-card img { right: -12px; width: 80px; }
+  .mobile-home-tools-card { gap: 0; padding: 4px; }
+  .mobile-home-tools-card a { border-width: 3px; }
+}

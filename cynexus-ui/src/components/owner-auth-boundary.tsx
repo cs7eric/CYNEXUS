@@ -44,8 +44,8 @@ export function OwnerAuthBoundary({ children }: { children: ReactNode }) {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background p-6 text-foreground">
       <div className="flex max-w-sm flex-col items-center gap-4 text-center" aria-live="polite">
-        {state === "loading" ? <><Loader2 className="size-5 animate-spin" /><p className="text-sm">正在验证登录状态</p></>
-          : <><p className="text-sm">暂时无法验证登录状态</p><Button variant="secondary" onClick={() => setRetry(value => value + 1)}><RefreshCw />重试</Button></>}
+        {state === "loading" ? <><Loader2 className="size-5 animate-spin" /><p className="text-sm">Checking your session</p></>
+          : <><p className="text-sm">Unable to verify your session</p><Button variant="secondary" onClick={() => setRetry(value => value + 1)}><RefreshCw />Retry</Button></>}
       </div>
     </main>
   )
@@ -63,7 +63,7 @@ function OwnerLogin() {
     setBusy(true)
     setError("")
     try { await loginOwner(password, remember) }
-    catch (failure) { setError(failure instanceof Error ? failure.message : "登录失败，请重试。") }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "Sign-in failed. Please try again.") }
     finally { setBusy(false) }
   }
   return (
@@ -71,28 +71,28 @@ function OwnerLogin() {
       <section className="w-full max-w-[360px] min-w-0">
         <LockKeyhole className="mb-6 size-7 text-muted-foreground" aria-hidden="true" />
         <h1 className="text-2xl font-semibold tracking-normal">Cynexus</h1>
-        <p className="mt-2 text-sm text-muted-foreground">登录个人工作空间</p>
+        <p className="mt-2 text-sm text-muted-foreground">Sign in to your workspace</p>
         <form className="mt-8 flex flex-col gap-5" onSubmit={submit}>
           <input type="text" name="username" autoComplete="username" value="owner" readOnly hidden />
           <div className="space-y-2">
-            <Label htmlFor="owner-password">访问密码</Label>
+            <Label htmlFor="owner-password">Password</Label>
             <div className="relative">
               <Input id="owner-password" name="password" type={visible ? "text" : "password"}
                 autoComplete="current-password" value={password} maxLength={1024} required
                 disabled={busy} onChange={event => setPassword(event.target.value)}
                 className="h-11 pr-12 text-base" aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined} />
               <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-9 w-9"
-                aria-label={visible ? "隐藏密码" : "显示密码"} title={visible ? "隐藏密码" : "显示密码"}
+                aria-label={visible ? "Hide password" : "Show password"} title={visible ? "Hide password" : "Show password"}
                 onClick={() => setVisible(value => !value)}>{visible ? <EyeOff /> : <Eye />}</Button>
             </div>
           </div>
           <div className="flex min-h-8 items-center gap-2">
             <Checkbox id="remember-owner" checked={remember} disabled={busy} onCheckedChange={value => setRemember(value === true)} />
-            <Label htmlFor="remember-owner" className="cursor-pointer">记住此设备</Label>
+            <Label htmlFor="remember-owner" className="cursor-pointer">Remember this device</Label>
           </div>
           {error && <p id="login-error" role="alert" className="text-sm text-destructive">{error}</p>}
           <Button type="submit" variant="default" disabled={busy || !password} className="h-11 w-full">
-            {busy ? <Loader2 className="animate-spin" /> : <LogIn />}登录
+            {busy ? <Loader2 className="animate-spin" /> : <LogIn />}Sign in
           </Button>
         </form>
       </section>

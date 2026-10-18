@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 
 import { getWorkspaceForPath, isWorkspaceId, validWorkspaceLocation, workspaces, type WorkspaceId } from "@/config/workspaces"
 import { useWorkspaceState } from "@/layout/workspace-state"
+import { isMobilePath } from "@/mobile/paths"
 
 export function useWorkspace() {
   const location = useLocation()
@@ -15,7 +16,9 @@ export function useWorkspace() {
 
   function switchWorkspace(next: WorkspaceId) {
     if (next === id) return
-    const destination = validWorkspaceLocation(useWorkspaceState.getState().lastLocations[next], next)
+    const destination = isMobilePath(location.pathname)
+      ? `${location.pathname}${location.search}${location.hash}`
+      : validWorkspaceLocation(useWorkspaceState.getState().lastLocations[next], next)
     // Commit space preferences only after router blockers allow navigation.
     void navigate(destination, { state: { workspace: next } })
   }

@@ -2,6 +2,7 @@
 import { createBrowserRouter, Navigate, useParams, useSearchParams } from "react-router-dom"
 import { lazy, Suspense, type ComponentType } from "react"
 import App from "../App"
+import { mobileRoutes } from "@/mobile/routes"
 
 const ApplicationAnalysisPage = lazy(() => import("../views/application-analysis"))
 const DashboardPage = lazy(() => import("../views/dashboard"))
@@ -88,6 +89,7 @@ export const router = createBrowserRouter([
     path: "/",
     element: <App />,
     children: [
+      ...mobileRoutes,
       {
         index: true,
         element: pageElement(HomePage),

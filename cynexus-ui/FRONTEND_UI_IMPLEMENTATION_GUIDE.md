@@ -85,6 +85,8 @@ A 股行情有一个必须保留的领域约定：**红色表示上涨，绿色�
 
 `App` 内的 `WorkspaceProvider` 负责同步当前空间与路由。新增菜单时在 `src/config/workspaces.ts` 指定个人、开发或公共归属；侧边栏、首页和搜索据此显示入口。公共页面通过 history state 保留空间，空间位置只在导航成功后持久化。编辑器可复用 `UnsavedChangesGuard`，保护切换、导航及刷新前的未保存内容。运行 `pnpm test:workspaces` 检查归属及路由覆盖。完整约定见 `../design/frontend/workspace-navigation.md`。
 
+移动端是同一应用中的独立路由树，入口为 `/m`。`src/mobile/layout` 负责移动壳层，`src/mobile/pages` 负责移动页面，`src/mobile/ui` 只封装移动端使用的 HeroUI 控件。桌面页面继续使用 `WorkspaceShell` 和 shadcn/Radix；移动端 HeroUI 样式由 `src/mobile/styles.css` 限定在 `.mobile-theme`，弹层使用移动端 portal，不能把两套组件混在同一个弹层内部。移动端尚未迁移的业务通过明确的桌面版入口访问。详见 `../design/frontend/mobile-shell.md`。
+
 普通路由必须从 `WorkspaceShell` 开始：
 
 ```tsx
