@@ -119,12 +119,12 @@ export default function MobileFinancePage() {
       {!loading && !unavailable && !hasData && <FinanceEmpty />}
       {!loading && !unavailable && hasData && (
         <>
-          <section className="mobile-finance-totals" aria-label="Monthly totals">
+          <section id="finance-overview" className="mobile-finance-totals" aria-label="Monthly totals">
             <div><span>Net assets</span><strong>{formatMoney(overview?.netAssets, currency)}</strong></div>
             <div><span>This month</span><strong>{formatMoney(overview?.expense, currency)}</strong><small>spent</small></div>
           </section>
 
-          <section className="mobile-finance-accounts" aria-labelledby="mobile-finance-accounts-title">
+          <section id="finance-accounts" className="mobile-finance-accounts" aria-labelledby="mobile-finance-accounts-title">
             <div className="mobile-finance-section-heading"><h3 id="mobile-finance-accounts-title">Your accounts</h3><span>{displayAccounts.length} {displayAccounts.length === 1 ? "account" : "accounts"}</span></div>
             {accountsState === "error" ? <div className="mobile-finance-inline-empty">Accounts are unavailable</div> : displayAccounts.length ? <AccountStack accounts={displayAccounts} onSaved={async (saved) => {
               setAccounts((current) => {
@@ -135,7 +135,7 @@ export default function MobileFinancePage() {
             }} /> : <div className="mobile-finance-inline-empty">No accounts yet</div>}
           </section>
 
-          <section className="mobile-finance-flow" aria-label="Monthly cash flow">
+          <section id="finance-activity" className="mobile-finance-flow" aria-label="Monthly cash flow">
             <div><span>Income</span><strong className="is-income">{formatMoney(overview?.income, currency)}</strong></div>
             <div><span>Expense</span><strong className="is-expense">{formatMoney(overview?.expense, currency)}</strong></div>
             <div><span>Net</span><strong>{formatMoney(overview?.net, currency)}</strong></div>

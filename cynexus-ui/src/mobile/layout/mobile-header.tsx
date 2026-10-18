@@ -1,14 +1,14 @@
 import { Dropdown } from "@heroui/react/dropdown"
-import { Check, RefreshCw } from "lucide-react"
+import { ArrowLeft, Check, RefreshCw } from "lucide-react"
 import { useState } from "react"
-import { useLocation } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
 import { sidebarConfig } from "@/config/sidebar"
 import { workspaces, type WorkspaceId } from "@/config/workspaces"
 import { useWorkspace } from "@/layout/workspace-provider"
 import { MobileAppSearch } from "@/mobile/components/app-search"
 import { useMobilePortal } from "@/mobile/hooks/use-mobile-portal"
-import { mobileFeatureApps, mobileNavigation } from "@/mobile/navigation"
+import { getMobileAppNavigation, mobileFeatureApps, mobileNavigation } from "@/mobile/navigation"
 import { MobileButton } from "@/mobile/ui/button"
 
 export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => void }) {
@@ -22,6 +22,7 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
   const CurrentIcon = currentApp?.icon ?? WorkspaceIcon
   const currentLabel = currentApp?.label ?? workspace.name
   const isFinance = mobilePath === "/m/finance"
+  const isAppRoute = Boolean(getMobileAppNavigation(mobilePath))
 
   const workspaceControl = (
     <Dropdown isOpen={workspaceMenuOpen} onOpenChange={setWorkspaceMenuOpen}>
@@ -50,7 +51,7 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
     <header className="mobile-header">
       <div className="mobile-header-top mx-auto w-full max-w-2xl px-4">
         <div className="mobile-header-leading">
-          {workspaceControl}
+          {isAppRoute ? <Link to="/m" className="mobile-header-control" aria-label="Back to Home" title="Back to Home"><ArrowLeft aria-hidden="true" /></Link> : workspaceControl}
         </div>
         <div className="mobile-header-greeting"><h1>Hello, {sidebarConfig.user.name}</h1><p>Today {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.</p></div>
         <div className="mobile-header-actions">

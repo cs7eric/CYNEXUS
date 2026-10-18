@@ -32,7 +32,7 @@ The recurring language is bold, rounded and tactile: strong black/white contrast
 | --- | --- |
 | App shell | Light neutral canvas, ample edge spacing, compact header and clear content hierarchy. Dark surfaces are an optional coherent variation. |
 | Header controls | Consistent 44–48px circles, simple outline icons, clear labels for assistive technology. |
-| Bottom navigation | A detached capsule. The strongest recurring reference is a near-black track with a white active circle or pill; keep Home, Apps and Profile labels understandable. |
+| Bottom navigation | A detached capsule with clearly labeled Home, Apps, Finance, Workout and Profile destinations; the active item uses a high-contrast pill. |
 | Home | A meaningful feature or current task leads, with a short headline and one deliberate accent surface. Additional app entries support that hierarchy. |
 | Apps | Sky-blue/mint shared-app shortcuts with Home's rounded surfaces, followed by Profile-style unboxed grouped rows, outline icons and thin dividers. Keep real workspace context and app counts visible. |
 | Profile | Configured identity, workspace/access metadata, three pastel app-count summaries and flat divided action rows based on the supplied profile reference. |
@@ -40,7 +40,7 @@ The recurring language is bold, rounded and tactile: strong black/white contrast
 
 Use the existing mobile components, Lucide icon system and shared services. A useful starting scale is 20–24px page edges, 24–32px corners on large feature panels, fully rounded compact controls, and 28–36px short page headlines where the viewport supports them. These are implementation starting points inferred from the images, not measurements of the source designs. Validate at 320px before settling sizes.
 
-All mobile routes use the reference's greeting/search header, near-black navigation with a white active pill, pale-blue canvas and Manrope typography. These are shared layout features that remain stable while switching tabs and scrolling. Home uses the week capsules, cool-blue asymmetric cards and mint quick links.
+All mobile routes use the reference's greeting/search header, detached white navigation capsule with a pale-blue active pill, pale-blue canvas and Manrope typography. These are shared layout features that remain stable while switching tabs and scrolling. Home uses the week capsules, cool-blue asymmetric cards and mint quick links.
 
 ## Implemented Home
 
