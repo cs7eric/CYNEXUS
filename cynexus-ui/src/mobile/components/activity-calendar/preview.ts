@@ -1,4 +1,4 @@
-import { activityDateKey, shiftActivityDate, type DailyActivity, type DailyNutritionTargets } from "./model"
+import { activityDateKey, shiftActivityDate, type BodyMeasurementSnapshot, type DailyActivity, type DailyNutritionTargets } from "./model"
 
 // UI preview fixtures only. Never merge these into real health records.
 const sampleTargets: DailyNutritionTargets = { calories: 2200, carbsGrams: 250, proteinGrams: 120, fatGrams: 80 }
@@ -22,4 +22,16 @@ export function createActivityPreview(today: Date): DailyActivity[] {
     nutritionTargets: sampleTargets,
     ...samples[offset % samples.length],
   }))
+}
+
+export function createBodyMeasurementPreview(today: Date): BodyMeasurementSnapshot {
+  return {
+    recordedAt: activityDateKey(today),
+    heightCm: 178,
+    weightKg: 72.3,
+    chestCm: 96,
+    waistCm: 80,
+    upperArmCm: 33,
+    forearmCm: 28.6,
+  }
 }

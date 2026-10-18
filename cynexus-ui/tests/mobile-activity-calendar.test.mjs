@@ -10,7 +10,16 @@ const code = ts.transpileModule(readFileSync(filename, "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 },
 }).outputText
 vm.runInNewContext(code, { module: model, exports: model.exports })
-const { activityDateKey, activityDateFromKey, shiftActivityDate, activityMonthStart, shiftActivityMonth, activityCalendarDays } = model.exports
+const { activityDateKey, activityDateFromKey, shiftActivityDate, activityMonthStart, shiftActivityMonth, activityCalendarDays, calculateBmi } = model.exports
+
+test("BMI is derived from valid metric weight and height only", () => {
+  assert.equal(calculateBmi(72.3, 178), 72.3 / (1.78 * 1.78))
+  assert.equal(calculateBmi(null, 178), null)
+  assert.equal(calculateBmi(72.3, null), null)
+  assert.equal(calculateBmi(72.3, 0), null)
+  assert.equal(calculateBmi(-1, 178), null)
+  assert.equal(calculateBmi(Number.NaN, 178), null)
+})
 
 test("month view covers the whole calendar month, aligned to weeks, across leap years and year boundaries", () => {
   for (const [anchor, lastDay, count] of [

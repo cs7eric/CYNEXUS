@@ -18,6 +18,28 @@ export interface DailyActivity {
   workout: { minutes: number; sessions: number; label: string } | null
 }
 
+export interface BodyMeasurementSnapshot {
+  recordedAt: string
+  heightCm: number | null
+  weightKg: number | null
+  chestCm: number | null
+  waistCm: number | null
+  upperArmCm: number | null
+  forearmCm: number | null
+}
+
+export type FinanceSummarySnapshot =
+  | { status: "loading" }
+  | { status: "error"; error?: string }
+  | { status: "empty" }
+  | { status: "ready"; netAssets: number; income: number; expense: number; net: number; currency: string | null }
+
+export function calculateBmi(weightKg: number | null, heightCm: number | null) {
+  if (weightKg == null || heightCm == null || !Number.isFinite(weightKg) || !Number.isFinite(heightCm) || weightKg <= 0 || heightCm <= 0) return null
+  const heightMeters = heightCm / 100
+  return weightKg / (heightMeters * heightMeters)
+}
+
 export function activityDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }

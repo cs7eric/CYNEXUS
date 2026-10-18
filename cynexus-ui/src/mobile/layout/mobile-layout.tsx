@@ -15,6 +15,7 @@ export default function MobileLayout() {
   const theme = useRef<HTMLDivElement>(null)
   const main = useRef<HTMLElement>(null)
   const [portal, setPortal] = useState<HTMLDivElement | null>(null)
+  const [financeRefreshToken, setFinanceRefreshToken] = useState(0)
   useMobileScroll(main, workspaceId)
   useMobileViewport(theme)
 
@@ -23,9 +24,9 @@ export default function MobileLayout() {
       <MobilePortalContext.Provider value={portal}>
         <div ref={theme} className="mobile-theme" lang="en">
           <div className="mobile-shell">
-            <MobileHeader />
+            <MobileHeader onFinanceRefresh={() => setFinanceRefreshToken((value) => value + 1)} />
             <main ref={main} id="mobile-content" className="mobile-content">
-              <div className="mobile-route-container mx-auto w-full max-w-2xl px-5 pb-6"><Outlet /></div>
+              <div className="mobile-route-container mx-auto w-full max-w-2xl px-5 pb-6"><Outlet context={{ financeRefreshToken }} /></div>
             </main>
             <MobileTabBar />
           </div>

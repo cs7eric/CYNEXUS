@@ -1,4 +1,4 @@
-.mobile-activity { --activity-food: #4c7898; --activity-workout: #4b8b7c; padding-top: 4px; color: var(--home-ink); }
+.mobile-activity { --activity-food: #4c7898; --activity-workout: #4b8b7c; --activity-finance: #8d7656; padding-top: 4px; color: var(--home-ink); }
 .mobile-activity-heading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
 .mobile-activity-heading h2 { margin: 0; font-size: 1.25rem; font-weight: 650; line-height: 1.4; letter-spacing: -0.025em; }
 .mobile-activity-heading p { margin-top: 3px; color: var(--muted); font-size: 0.6875rem; line-height: 1.5; }
@@ -63,10 +63,23 @@
 .mobile-activity-detail-heading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
 .mobile-activity-detail-heading p { margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.5; }
 .mobile-activity .mobile-activity-today { min-height: 44px; padding-inline: 10px; border-radius: 999px; color: #466e8a; font-size: 0.75rem; }
-.mobile-activity-summary { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.94fr); gap: 10px; margin-top: 16px; }
+.mobile-activity-summary { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 10px; margin-top: 16px; }
 .mobile-activity-summary.is-summary-only { margin-top: 0; }
-.mobile-activity-stat { display: flex; min-width: 0; min-height: 116px; flex-direction: column; align-items: flex-start; padding: 15px 16px; border: 1px solid color-mix(in oklab, #fff 62%, var(--mobile-sky)); border-radius: 22px; background: color-mix(in oklab, #fff 74%, var(--mobile-sky) 26%); box-shadow: 0 10px 26px color-mix(in oklab, #28445a 7%, transparent); }
+.mobile-activity-stat { display: flex; min-width: 0; min-height: 116px; flex-direction: column; align-items: flex-start; padding: 13px 14px; border: 1px solid color-mix(in oklab, #fff 62%, var(--mobile-sky)); border-radius: 22px; background: color-mix(in oklab, #fff 74%, var(--mobile-sky) 26%); box-shadow: 0 10px 26px color-mix(in oklab, #28445a 7%, transparent); }
 .mobile-activity-workout { border-color: color-mix(in oklab, #fff 62%, var(--mobile-mint)); background: color-mix(in oklab, #fff 72%, var(--mobile-mint) 28%); }
+.mobile-activity-summary-switcher { display: flex; min-height: 28px; align-items: center; justify-content: flex-end; gap: 4px; }
+.mobile-activity-summary-tab { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; gap: 4px; padding: 0 8px; border: 0; border-radius: 999px; background: transparent; color: #668079; font: inherit; font-size: 0.625rem; font-weight: 600; line-height: 1; cursor: pointer; }
+.mobile-activity-summary-tab svg { width: 12px; height: 12px; stroke-width: 1.8; }
+.mobile-activity-summary-tab[aria-pressed="true"] { background: #d7e8f0; color: #365d73; }
+.mobile-activity-summary-tab:focus-visible { outline: 2px solid #6598c0; outline-offset: 2px; }
+.mobile-activity-summary-viewport { min-width: 0; overflow: hidden; border-radius: 22px; touch-action: pan-y; }
+.mobile-activity-summary-track { display: flex; align-items: stretch; transform: translate3d(0, 0, 0); transition: transform 220ms ease; will-change: transform; }
+.mobile-activity-summary-track.is-two { width: 200%; }
+.mobile-activity-summary-track.is-three { width: 300%; }
+.mobile-activity-summary-track.is-dragging { transition: none; }
+.mobile-activity-summary-track.is-two .mobile-activity-summary-panel { flex: 0 0 50%; width: 50%; }
+.mobile-activity-summary-track.is-three .mobile-activity-summary-panel { flex: 0 0 33.333333%; width: 33.333333%; }
+.mobile-activity-summary-panel { min-width: 0; box-sizing: border-box; }
 .mobile-activity-stat-label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.6875rem; font-weight: 550; line-height: 1.5; }
 .mobile-activity-stat-label svg { width: 14px; height: 14px; stroke-width: 1.7; }
 .mobile-activity-stat p { display: flex; align-items: baseline; gap: 4px; margin-top: 7px; }
@@ -77,7 +90,10 @@
 .mobile-activity-calorie-amount > span[aria-hidden] { line-height: 1.5; white-space: nowrap; }
 .mobile-activity-calorie-target { font-size: 0.8125rem; font-weight: 500; white-space: nowrap; }
 .mobile-activity-calorie-unit { font-size: 0.6875rem; }
-.mobile-activity-macros { display: grid; width: 100%; gap: 8px; margin: 12px 0 0; padding-top: 11px; border-top: 1px solid #5f91b130; }
+.mobile-activity-nutrition-grid { display: grid; width: 100%; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr); align-items: center; gap: 12px; margin-top: 6px; }
+.mobile-activity-nutrition-total { min-width: 0; }
+.mobile-activity-nutrition-total small { display: block; }
+.mobile-activity-macros { display: grid; width: 100%; gap: 6px; margin: 0; padding: 2px 0 2px 12px; border-top: 0; border-left: 1px solid #5f91b130; }
 .mobile-activity-macro { --macro-accent: #5f91b1; display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 4px 6px; }
 .mobile-activity-macro[data-tone="protein"] { --macro-accent: #619d91; }
 .mobile-activity-macro[data-tone="fat"] { --macro-accent: #8a9bb1; }
@@ -86,13 +102,38 @@
 .mobile-activity-macros dd { min-width: 0; margin: 0; color: var(--home-ink); font-size: 0.75rem; font-weight: 750; line-height: 1.5; text-align: right; font-variant-numeric: tabular-nums; }
 .mobile-activity-macro-amount { display: flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 2px; }
 .mobile-activity-macro-target, .mobile-activity-macro-unit { color: #607886; font-size: 0.625rem; font-weight: 400; white-space: nowrap; }
-.mobile-activity-macro-track { display: block; height: 3px; grid-column: 1 / -1; overflow: hidden; border-radius: 999px; background: #5f91b126; }
+.mobile-activity-macro-track { display: block; height: 2px; grid-column: 1 / -1; overflow: hidden; border-radius: 999px; background: #5f91b126; }
 .mobile-activity-macro-track > span { display: block; height: 100%; border-radius: inherit; background: var(--macro-accent); }
-.mobile-activity-workout-detail { margin-block: auto; padding-block: 12px; }
+.mobile-activity-workout-content { display: grid; width: 100%; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr); align-items: center; gap: 12px; margin-top: 7px; padding-top: 8px; border-top: 1px solid #9abfb630; }
+.mobile-activity-workout-overview { min-width: 0; }
+.mobile-activity-workout-detail { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: 5px; margin-block: 0; padding-block: 0 4px; }
 .mobile-activity-workout-detail p { margin: 0; }
-.mobile-activity-workout-detail strong { font-size: 2.25rem; }
-.mobile-activity-workout-name { display: block; margin-top: 6px; color: #496b65; font-size: 0.75rem; line-height: 1.5; overflow-wrap: anywhere; }
-.mobile-activity-stat .mobile-activity-workout-sessions { width: 100%; margin: 0; padding-top: 10px; border-top: 1px solid #9abfb630; color: #496b65; }
+.mobile-activity-workout-detail strong { font-size: 1.875rem; }
+.mobile-activity-workout-name { display: block; min-width: 0; margin-top: 0; color: #496b65; font-size: 0.75rem; line-height: 1.3; overflow-wrap: anywhere; }
+.mobile-activity-stat .mobile-activity-workout-sessions { width: 100%; margin: 0; padding: 0; color: #496b65; }
+.mobile-activity-body-section { min-width: 0; padding-left: 10px; border-left: 1px solid #9abfb630; }
+.mobile-activity-body-heading { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 4px; margin: 0; padding: 0; color: #365d54; font-size: 0.6875rem; font-weight: 650; line-height: 1.4; }
+.mobile-activity-body-heading small { min-width: 0; color: #648179; font-size: 0.5625rem; font-weight: 450; text-align: right; white-space: nowrap; }
+.mobile-activity-body-metrics { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px 6px; margin: 6px 0 0; }
+.mobile-activity-body-metrics > div { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
+.mobile-activity-body-metrics dt { color: #607a73; font-size: 0.5625rem; font-weight: 500; line-height: 1.25; white-space: nowrap; }
+.mobile-activity-body-metrics dt[data-icon-label="true"] { display: flex; height: 9px; align-items: center; }
+.mobile-activity-body-metrics dt svg { width: 11px; height: 11px; color: #648179; stroke-width: 1.7; }
+.mobile-activity-body-metrics dd { min-width: 0; margin: 0; color: #294a42; font-size: 0.6875rem; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.mobile-activity-finance { border-color: color-mix(in oklab, #fff 62%, #e2d1b9); background: color-mix(in oklab, #fff 76%, #e2d1b9 24%); }
+.mobile-activity-finance .mobile-activity-stat-label svg { color: var(--activity-finance); }
+.mobile-activity-finance-state { display: flex; min-height: 58px; width: 100%; align-items: center; justify-content: center; gap: 8px; margin-top: 7px; color: #756b5d; font-size: 0.6875rem; line-height: 1.4; text-align: center; }
+.mobile-activity-finance-retry { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid #bca98f; border-radius: 50%; color: #756b5d; background: #fff8; }
+.mobile-activity-finance-retry svg { width: 13px; height: 13px; }
+.mobile-activity-finance-content { display: grid; width: 100%; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; gap: 12px; margin-top: 7px; padding-top: 8px; border-top: 1px solid #b9a17f36; }
+.mobile-activity-finance-total { min-width: 0; }
+.mobile-activity-finance-total span { display: block; color: #756b5d; font-size: 0.625rem; line-height: 1.5; }
+.mobile-activity-finance-total strong { display: block; margin-top: 3px; color: #5f4f3d; font-size: 1.25rem; font-weight: 750; line-height: 1.25; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mobile-activity-finance-metrics { display: grid; gap: 6px; margin: 0; padding-left: 12px; border-left: 1px solid #b9a17f36; }
+.mobile-activity-finance-metrics > div { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 8px; }
+.mobile-activity-finance-metrics dt { color: #756b5d; font-size: 0.625rem; line-height: 1.4; }
+.mobile-activity-finance-metrics dd { min-width: 0; margin: 0; color: #5f4f3d; font-size: 0.6875rem; font-weight: 700; line-height: 1.4; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 @media (hover: hover) {
   .mobile-activity-day:not(:disabled):not([aria-pressed="true"]):hover { background: #e5eef5; }
@@ -104,13 +145,25 @@
   .mobile-activity-day { min-height: 108px; padding-inline: 0; }
   .mobile-activity-dates:not(.is-expanded) .mobile-activity-days,
   .mobile-activity-dates:not(.is-expanded) .mobile-activity-weekdays { gap: 4px; }
-  .mobile-activity-summary { gap: 8px; }
+  .mobile-activity-summary { gap: 6px; }
   .mobile-activity-stat { padding-inline: 12px; border-radius: 20px; }
   .mobile-activity-stat strong { font-size: 1.375rem; }
   .mobile-activity-nutrition strong { font-size: 1.25rem; }
   .mobile-activity-calorie-target { font-size: 0.6875rem; }
   .mobile-activity-calorie-unit { font-size: 0.625rem; }
   .mobile-activity-macro-amount { column-gap: 1px; }
+  .mobile-activity-nutrition-grid { grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr); gap: 8px; }
+  .mobile-activity-macros { padding-left: 8px; }
+  .mobile-activity-calorie-amount > span[aria-hidden] { white-space: normal; }
+  .mobile-activity-calorie-amount > span[aria-hidden] > strong { display: block; }
   .mobile-activity-workout-detail strong { font-size: 2rem; }
+  .mobile-activity-workout-content { grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr); gap: 8px; }
+  .mobile-activity-body-section { padding-left: 7px; }
+  .mobile-activity-body-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 5px; }
+  .mobile-activity-body-heading { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .mobile-activity-body-heading small { font-size: 0.5rem; }
+  .mobile-activity-finance-content { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 8px; }
+  .mobile-activity-finance-metrics { padding-left: 8px; }
+  .mobile-activity-finance-total strong { font-size: 1.125rem; }
   .is-expanded .mobile-activity-days { min-height: 344px; gap: 4px 3px; }
 }

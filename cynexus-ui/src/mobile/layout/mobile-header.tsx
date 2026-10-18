@@ -1,24 +1,32 @@
 import { Dropdown } from "@heroui/react/dropdown"
-import { Check } from "lucide-react"
+import { Check, RefreshCw } from "lucide-react"
 import { useState } from "react"
+import { useLocation } from "react-router-dom"
 
 import { sidebarConfig } from "@/config/sidebar"
 import { workspaces, type WorkspaceId } from "@/config/workspaces"
 import { useWorkspace } from "@/layout/workspace-provider"
 import { MobileAppSearch } from "@/mobile/components/app-search"
 import { useMobilePortal } from "@/mobile/hooks/use-mobile-portal"
+import { mobileFeatureApps, mobileNavigation } from "@/mobile/navigation"
 import { MobileButton } from "@/mobile/ui/button"
 
-export function MobileHeader() {
+export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => void }) {
   const { workspace, workspaceId, switchWorkspace } = useWorkspace()
+  const location = useLocation()
   const portal = useMobilePortal()
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false)
   const WorkspaceIcon = workspace.icon
+  const mobilePath = location.pathname.replace(/\/+$/, "") || "/m"
+  const currentApp = [...mobileNavigation, ...mobileFeatureApps].find((item) => item.href === mobilePath)
+  const CurrentIcon = currentApp?.icon ?? WorkspaceIcon
+  const currentLabel = currentApp?.label ?? workspace.name
+  const isFinance = mobilePath === "/m/finance"
 
   const workspaceControl = (
     <Dropdown isOpen={workspaceMenuOpen} onOpenChange={setWorkspaceMenuOpen}>
       <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label={`Switch workspace: ${workspace.name}`}>
-        <span className="inline-flex" title={`Switch workspace: ${workspace.name}`}><WorkspaceIcon aria-hidden="true" /></span>
+        <span className="inline-flex" title={`${currentLabel}. Switch workspace`}><CurrentIcon aria-hidden="true" /></span>
       </MobileButton>
       <Dropdown.Popover UNSTABLE_portalContainer={portal} className="mobile-space-menu" placement="bottom start" offset={10}>
         <p className="mobile-space-caption" aria-hidden="true">Workspace</p>
@@ -46,6 +54,7 @@ export function MobileHeader() {
         </div>
         <div className="mobile-header-greeting"><h1>Hello, {sidebarConfig.user.name}</h1><p>Today {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.</p></div>
         <div className="mobile-header-actions">
+          {isFinance && onFinanceRefresh && <MobileButton isIconOnly variant="ghost" className="mobile-header-control mobile-header-refresh" aria-label="Refresh finance" onPress={onFinanceRefresh}><span title="Refresh finance"><RefreshCw aria-hidden="true" /></span></MobileButton>}
           <MobileAppSearch />
         </div>
       </div>

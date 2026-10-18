@@ -10,7 +10,7 @@ import { getMobileAppGroups } from "@/mobile/navigation"
 import { MobileButton } from "@/mobile/ui/button"
 import { MobileLogoutDialog } from "@/mobile/ui/confirm-dialog"
 import { logoutOwner } from "@/services/common/owner-auth"
-import "@/mobile/pages/profile.css"
+import "@/mobile/pages/profile/profile.css"
 
 export default function MobileProfilePage() {
   const { workspaceId, workspace } = useWorkspace()

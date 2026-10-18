@@ -1,20 +1,20 @@
 # Mobile Shell
 
-The mobile experience lives in the same React application but has its own route tree and shell. The first scaffold is available at `/m`, `/m/apps`, and `/m/me`; business pages remain desktop links until they are migrated.
+The mobile experience lives in the same React application but has its own route tree and shell. The current routes are `/m`, `/m/apps`, `/m/finance`, `/m/workout`, and `/m/me`; other business pages remain desktop links until they are migrated.
 
 The user's preferred visual direction and original reference set are recorded in [Mobile visual direction](mobile-visual-direction.md). Use that reference for future mobile visual work; this document describes the currently implemented shell.
 
 ## Boundaries
 
 - `src/mobile/layout/` owns the mobile header, tab bar, scroll container, safe-area handling, and overlay portal.
-- `src/mobile/pages/` owns mobile-only route pages.
+- `src/mobile/pages/<app>/` owns each mobile route as a dedicated page folder; `index.tsx` is the route entry and page-only styles stay beside it.
 - `src/mobile/components/` contains mobile compositions that link to desktop pages during migration.
 - `src/mobile/ui/` is the thin project wrapper around HeroUI components. Use HeroUI only inside the mobile tree.
 - `src/services/`, authentication, APIs, and business validation remain shared.
 
 ## Header
 
-All mobile routes share a transparent floating header: an 80px row with a centered greeting and current English date, a 44px sky-blue workspace circle on the left and app search on the right. The header has no painted canvas and page content scrolls underneath it; the initial content offset keeps its controls clear. Switching Home, Apps or Profile changes only the central route content and active tab; it does not replace the header or its controls. Each page identifies its own content with a heading in the scrolling region. Profile provides the desktop-version link, and the not-found page provides Back to Home.
+All mobile routes share a transparent floating header: an 80px row with a centered greeting and current English date, a 44px app icon on the left, and app search on the right. The left icon keeps its workspace switch action while changing to the active mobile app icon when Home, Apps, Finance, or Profile is selected. Finance also places its refresh action beside the active app icon. The header has no painted canvas and page content scrolls underneath it; the initial content offset keeps its controls clear. Each page identifies its own content in the scrolling region. Profile provides the desktop-version link, and the not-found page provides Back to Home.
 
 The workspace switcher opens an anchored 264px white popover with 28px corners and 60px rounded options. Circular icons, a pale-blue selected surface and a dark check indicator identify the active workspace; the trigger gets a subtle expanded-state ring. It retains the HeroUI menu's radio semantics, keyboard navigation, focus restoration and outside/Escape dismissal. The popover stays within narrow viewports and the mobile overlay portal.
 
@@ -26,7 +26,7 @@ The desktop shell keeps using shadcn/Radix primitives. HeroUI styles are importe
 
 ## Bottom navigation
 
-Home, Apps and Profile share the same near-black capsule with a white active pill and `aria-current="page"`. It has 20px side spacing (16px below 360px), a 380px maximum width, 56px tabs and bottom spacing equal to the larger of 12px or the device safe-area inset. Each tab places its icon beside its English label, and keyboard focus remains visible.
+Home, Apps, Finance and Profile share the same near-black capsule with a white active pill and `aria-current="page"`. It has 20px side spacing (16px below 360px), a 380px maximum width, 56px tabs and bottom spacing equal to the larger of 12px or the device safe-area inset. Each tab places its icon beside its English label, and keyboard focus remains visible.
 
 The header and tab bar persist outside the route outlet in the full-height mobile shell. The header remains above the scrolling content; the tab bar is an absolute transparent overlay anchored to the shell bottom. Its outer area passes pointer events through and has no painted background; only the dark capsule and active white pill are visible. The route container and scroll padding reserve clearance so the final content and focused controls remain reachable without being covered. Shared neutral colors, typography, search and navigation styles belong to `src/mobile/styles.css`; Home's colored cards and artwork remain in its page CSS. The shared content column is capped at 440px.
 
@@ -52,13 +52,21 @@ Date helpers use local calendar arithmetic at noon, avoiding UTC date parsing an
 
 ## Apps
 
-`/m/apps` uses page-local `apps.css` to match Home and Profile: a compact 20px title, current workspace and actual app count, then sky-blue/mint rounded shortcuts for the two shared apps. Workspace-specific groups are unboxed 68px rows with 23px outline icons, 15px labels, thin dividers and chevrons, using the same spacing and neutral palette as Profile. The old framed white cards and green icon tiles are no longer used by the directory.
+`/m/apps` is implemented in `src/mobile/pages/apps/index.tsx` with `apps.css` beside it. It matches Home and Profile: a compact 20px title, current workspace and actual app count, then sky-blue/mint rounded shortcuts for the two shared apps. Workspace-specific groups are unboxed 68px rows with 23px outline icons, 15px labels, thin dividers and chevrons, using the same spacing and neutral palette as Profile. The old framed white cards and green icon tiles are no longer used by the directory.
 
 All groups, app names, counts and destinations come from the existing navigation configuration. Switching workspace in the shared header updates the directory in place; each app link carries the current workspace to the desktop destination. The fixed greeting header and capsule navigation stay visible while the list scrolls. No usage metrics or new business functionality are implied.
 
 ## Profile
 
-The third tab is Profile at the existing `/m/me` address, implemented in `src/mobile/pages/profile.tsx` with page-local CSS. It adapts the supplied fitness profile into Cynexus: configured username/email and an initials avatar, current workspace and owner access, then mint/sky/slate summaries with the actual Personal, Development and shared app counts from navigation configuration. These app counts describe available navigation entries, not usage or backend health. Summary links open the matching app directory and retain the selected workspace.
+The fourth tab is Profile at the existing `/m/me` address, implemented in `src/mobile/pages/profile/index.tsx` with page-local CSS. It adapts the supplied fitness profile into Cynexus: configured username/email and an initials avatar, current workspace and owner access, then mint/sky/slate summaries with the actual Personal, Development and shared app counts from navigation configuration. These app counts describe available navigation entries, not usage or backend health. Summary links open the matching app directory and retain the selected workspace.
+
+## Finance
+
+The third tab opens `/m/finance`, implemented in `src/mobile/pages/finance/index.tsx`. It reuses the shared Finance account and overview services. The page shows net assets, current-month spending and cash flow, then a compact stacked deck of actual accounts with balance, currency, and account-type icon. Tapping a card brings it forward as a single expanded account view with its details visible. Double-clicking a detail value opens an inline field editor; saving uses the shared account API. Swipe left or right across the deck to bring another account forward. E-wallet accounts use coral cards; bank and cash accounts use gold; other account types use distinct cool palettes. Loading, unavailable, and no-account states remain explicit. Account amounts come from live API responses; balances remain transaction-derived and are not directly editable. No sample financial data is used.
+
+## Workout
+
+`/m/workout` is implemented in `src/mobile/pages/workout/index.tsx` and is linked from the Apps directory. Its cycle is Chest + Triceps, Back + Biceps, Shoulders, then Rest, repeating as three training days followed by one rest day. A configurable start date determines the current split day. The page records only one total duration per date and classifies it as Strength or Cardio. Entries are currently in-memory sample state and are not persisted or exposed as a backend/Agent data capability.
 
 The lower half is an unboxed list with outline icons, supporting text, thin dividers and chevrons: Your apps, Cynexus Agent, Knowledge Base, Desktop workspace, and Sign-in & security. Desktop links restore the remembered destination. The settings gear opens and focuses the security disclosure; its two sign-out actions reuse the existing confirmation dialogs and authentication service. No profile-edit API, activity metrics, follower counts or session counts are fabricated.
 

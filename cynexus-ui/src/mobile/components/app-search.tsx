@@ -3,7 +3,7 @@ import { useRef, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { useWorkspace } from "@/layout/workspace-provider"
-import { getMobileAppGroups } from "@/mobile/navigation"
+import { getMobileAppGroups, mobileFeatureApps } from "@/mobile/navigation"
 import { MobileButton } from "@/mobile/ui/button"
 
 export function MobileAppSearch() {
@@ -12,7 +12,7 @@ export function MobileAppSearch() {
   const [query, setQuery] = useState("")
   const { workspaceId } = useWorkspace()
   const search = query.trim().toLocaleLowerCase("en-US")
-  const apps = getMobileAppGroups(workspaceId).flatMap((group) => group.items)
+  const apps = [...mobileFeatureApps.map((item) => ({ url: item.href, title: item.label, icon: item.icon })), ...getMobileAppGroups(workspaceId).flatMap((group) => group.items)]
     .filter((item) => item.title.toLocaleLowerCase("en-US").includes(search))
 
   function open() {
