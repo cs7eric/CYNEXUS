@@ -10,7 +10,7 @@ export function ActivitySheet({ title, onClose, busy = false, children }: { titl
     return () => { element?.close() }
   }, [])
   return <dialog ref={dialog} className="finance-activity-dialog" aria-labelledby={titleId}
-    onCancel={(event) => { event.preventDefault(); if (!busy) onClose() }}
+    onCancel={(event) => { event.preventDefault(); event.stopPropagation(); if (!busy) onClose() }}
     onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
     <div className="fa-sheet">
       <div className="fa-handle" />

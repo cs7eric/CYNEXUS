@@ -30,8 +30,8 @@
 .mobile-theme .fa-cash { display: block; height: 100px; position: relative; margin: 0 -13px -1px; pointer-events: none; }
 .mobile-theme .fa-cash > .finance-asset-scene { position: absolute; left: 50%; top: -9px; width: 380px; height: 330px; margin: 0; transform: translateX(-50%) scale(.34); transform-origin: 50% 0; }
 .mobile-theme .fa-cash-empty { position: absolute; left: calc(50% - 22px); top: 48%; width: 44px; height: 2px; border-radius: 2px; background: #aebfb5; transform: rotate(-8deg); }
-.mobile-theme .fa-cash.is-entry { height: 128px; margin: 0 -15px -5px; }
-.mobile-theme .fa-cash.is-entry > .finance-asset-scene { transform: translateX(-50%) scale(.43); top: -10px; }
+.mobile-theme .fa-cash.is-entry { height: 98px; margin: 0 -15px -5px; }
+.mobile-theme .fa-cash.is-entry > .finance-asset-scene { transform: translateX(-50%) scale(.33); top: -7px; }
 .mobile-theme .fa-cash.is-detail { height: 175px; margin: -3px -12px 0; }
 .mobile-theme .fa-cash.is-detail > .finance-asset-scene { transform: translateX(-50%) scale(.54); top: -4px; }
 .mobile-theme .fa-net { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 13px 2px 15px; font-size: 11px; color: var(--muted); }
@@ -91,15 +91,55 @@
 .mobile-theme .fa-amount-entry input::placeholder { color: #a0afb9; }
 .mobile-theme .fa-denominations { text-align: center; font-size: 10px; color: var(--muted); line-height: 1.7; margin: 0 0 17px; min-height: 17px; }
 .mobile-theme .fa-field-label, .mobile-theme .fa-field > span { display: block; font-size: 10px; font-weight: 650; color: #627783; margin-bottom: 8px; }
-.mobile-theme .fa-category-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-height: 188px; overflow: auto; padding: 3px; margin: -3px -3px 15px; }
-.mobile-theme .fa-category-options button { min-height: 44px; background: #e6edf2; border: 1px solid transparent; border-radius: 13px; padding: 5px; overflow-wrap: anywhere; font-size: 10px; cursor: pointer; }
-.mobile-theme .fa-category-options button[aria-pressed=true] { background: #d5e6d9; color: #3f6650; border-color: #8bb398; }
+.mobile-theme .fa-category-field { margin-bottom: 15px; }
+.mobile-theme .fa-category-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; border: 1px solid #d5dfe6; border-radius: 13px; padding: 10px 12px; background: white; color: var(--foreground); text-align: left; cursor: pointer; }
+.mobile-theme .fa-category-trigger > span { min-width: 0; }
+.mobile-theme .fa-category-trigger strong { display: block; font-size: 12px; font-weight: 550; overflow-wrap: anywhere; }
+.mobile-theme .fa-category-trigger small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.mobile-theme .fa-category-trigger svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--muted); }
+.mobile-theme .fa-category-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; background: white; border: 1px solid #d5dfe6; border-radius: 15px; }
+.mobile-theme .fa-category-search svg { width: 17px; height: 17px; color: var(--muted); flex-shrink: 0; }
+.mobile-theme .fa-category-search input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 12px; }
+.mobile-theme .fa-category-search:focus-within { outline: 2px solid #426d5a; outline-offset: 3px; }
+.mobile-theme .finance-activity-dialog .fa-category-search input:focus-visible { outline: none; }
+.mobile-theme .fa-category-count { font-size: 10px; color: var(--muted); margin: 12px 0 5px; }
+.mobile-theme .fa-category-list { max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; padding: 4px; margin: -4px; scrollbar-width: thin; }
+.mobile-theme .fa-category-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; width: 100%; margin-bottom: 3px; border: 1px solid transparent; border-radius: 13px; padding: 10px 12px; background: transparent; text-align: left; cursor: pointer; }
+.mobile-theme .fa-category-list button[aria-pressed=true] { background: #dce9df; border-color: #aac9b4; }
+.mobile-theme .fa-category-list strong { display: block; font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
+.mobile-theme .fa-category-list small { display: block; margin-top: 4px; font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
+.mobile-theme .fa-category-list svg { width: 17px; height: 17px; flex-shrink: 0; color: #426d5a; }
+.mobile-theme .fa-category-list button:hover { background: #e5edf1; }
 .mobile-theme .fa-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
 .mobile-theme .fa-field { display: block; min-width: 0; }
 .mobile-theme .fa-field.is-full { grid-column: 1 / -1; }
 .mobile-theme .fa-field :is(select, input, textarea) { width: 100%; max-width: 100%; height: 45px; background: white; color: var(--foreground); border: 1px solid #d5dfe6; border-radius: 13px; padding: 0 11px; font: inherit; font-size: 11px; min-width: 0; }
 .mobile-theme .fa-field textarea { height: 63px; resize: vertical; padding-top: 10px; }
 .mobile-theme .fa-field input[type=datetime-local] { padding-inline: 6px; font-size: 10px; }
+.mobile-theme .fa-entry-form > fieldset > .fa-field { margin-bottom: 15px; }
+.mobile-theme .fa-entry-form .fa-field :is(input, select, textarea) { font-size: 12px; }
+.mobile-theme .fa-entry-form .fa-field input[type=datetime-local] { padding-inline: 11px; font-size: 12px; }
+.mobile-theme .fa-denominations.is-empty { margin: 10px 0 20px; text-align: left; }
+.mobile-theme .fa-payment-mode { margin-bottom: 18px; }
+.mobile-theme .fa-payment-mode > div { display: flex; gap: 7px; }
+.mobile-theme .fa-payment-mode button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; flex: 1; padding: 8px 10px; border: 1px solid #d5dfe6; border-radius: 15px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 550; cursor: pointer; }
+.mobile-theme .fa-payment-mode button[aria-pressed=true] { border-color: #aac9b4; background: #dce9df; color: #365a45; }
+.mobile-theme .fa-payment-mode svg { width: 15px; height: 15px; }
+.mobile-theme .fa-entry-form .fa-entry-submit { position: sticky; bottom: calc(-1 * max(25px, env(safe-area-inset-bottom))); z-index: 2; margin-top: 8px; padding: 6px 0 max(25px, env(safe-area-inset-bottom)); margin-bottom: calc(-1 * max(25px, env(safe-area-inset-bottom))); background: #f2f6f9; border-top: 1px solid #d7e1e8; }
+.mobile-theme .fa-entry-form .fa-entry-submit .fa-message { margin-top: 6px; }
+.mobile-theme .fa-installment-fields { padding: 18px 0 0 !important; margin-top: 10px !important; border-top: 1px solid #d7e1e8 !important; }
+.mobile-theme .fa-installment-heading { display: flex; align-items: center; gap: 7px; margin-bottom: 17px; }
+.mobile-theme .fa-installment-heading svg { width: 18px; height: 18px; color: #597563; }
+.mobile-theme .fa-installment-heading h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.mobile-theme .fa-installment-preview { background: #e4eee7; border-radius: 16px; padding: 14px; font-size: 11px; line-height: 1.8; }
+.mobile-theme .fa-installment-preview > strong { display: block; font-size: 14px; font-weight: 600; }
+.mobile-theme .fa-installment-preview > span { color: #516a58; }
+.mobile-theme .fa-installment-preview summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.mobile-theme .fa-installment-preview ol { list-style: none; margin: 0; padding: 0; max-height: 200px; overflow: auto; }
+.mobile-theme .fa-installment-preview li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-block: 7px; border-bottom: 1px solid #cbded0; }
+.mobile-theme .fa-installments-link { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 0 12px; margin: -6px 0 12px; border: 0; background: transparent; color: #526f60; font-size: 11px; text-align: left; cursor: pointer; }
+.mobile-theme .fa-installments-link svg { width: 16px; height: 16px; }
+.mobile-theme .fa-installments-link span { flex: 1; }
 .mobile-theme .fa-notes-toggle { padding: 0; border: 0; background: transparent; min-height: 44px; font-size: 11px; color: #627783; display: flex; align-items: center; gap: 6px; margin: 2px 0 3px; cursor: pointer; }
 .mobile-theme .fa-notes-toggle svg { width: 14px; height: 14px; }
 .mobile-theme .fa-form-error { font-size: 11px; color: #8e413b; line-height: 1.6; margin: 10px 0; }
@@ -123,6 +163,37 @@
 .mobile-theme .fa-money-list img { width: 39px; height: 24px; object-fit: contain; }
 .mobile-theme .fa-money-list span { flex: 1; }
 .mobile-theme .fa-money-list strong { font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.mobile-theme .fa-plan-toolbar .fa-text-button { gap: 7px; padding-left: 0; }
+.mobile-theme .fa-plan-toolbar .fa-text-button svg { width: 16px; height: 16px; }
+.mobile-theme .fa-plan-count { color: var(--muted); font-size: 11px; }
+.mobile-theme .fa-plan-list { display: grid; gap: 10px; }
+.mobile-theme .fa-plan-card { display: block; width: 100%; padding: 16px; border: 0; border-radius: 20px; background: #e4eee7; text-align: left; cursor: pointer; }
+.mobile-theme .fa-plan-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.mobile-theme .fa-plan-card-heading strong { min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-card-heading svg { flex-shrink: 0; width: 17px; height: 17px; }
+.mobile-theme .fa-plan-card-meta, .mobile-theme .fa-plan-progress, .mobile-theme .fa-plan-next { display: block; color: #526e5b; font-size: 11px; line-height: 1.9; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-next { margin-top: 9px; padding-top: 9px; border-top: 1px solid #c7dacf; color: #324c3d; font-weight: 600; }
+.mobile-theme .fa-plan-detail-heading h3 { font-size: 20px; font-weight: 600; line-height: 1.4; margin: 0 0 6px; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-detail-heading p { font-size: 11px; color: var(--muted); margin: 0 0 15px; }
+.mobile-theme .fa-plan-summary { margin-bottom: 16px; }
+.mobile-theme .fa-plan-summary > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-block: 7px; font-size: 11px; }
+.mobile-theme .fa-plan-summary dt { color: var(--muted); }
+.mobile-theme .fa-plan-summary dd { max-width: 65%; margin: 0; text-align: right; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-schedule { display: grid; gap: 5px; max-height: 280px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 4px; margin: -4px; }
+.mobile-theme .fa-plan-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 63px; border: 1px solid #d5dfe6; border-radius: 14px; padding: 12px 10px; background: transparent; text-align: left; cursor: pointer; }
+.mobile-theme .fa-plan-row.is-selected { background: #dce9df; border-color: #91b79e; }
+.mobile-theme .fa-plan-row.is-paid { background: #e7eef2; border-color: transparent; color: #526a5a; }
+.mobile-theme .fa-plan-row.is-cancelled { color: var(--muted); }
+.mobile-theme .fa-plan-row-copy { flex: 1; min-width: 0; }
+.mobile-theme .fa-plan-row-copy strong { display: block; font-size: 11px; font-weight: 600; }
+.mobile-theme .fa-plan-row-copy > span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.7; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-row-amount { display: flex; align-items: center; gap: 4px; max-width: 40%; font: 500 17px "Outfit Display", "Manrope Mobile", sans-serif; overflow-wrap: anywhere; }
+.mobile-theme .fa-plan-row-amount svg { width: 15px; height: 15px; flex-shrink: 0; }
+.mobile-theme .fa-plan-payment { margin-top: 22px; border-top: 1px solid #d5dfe6; padding-top: 17px; }
+.mobile-theme .fa-plan-payment h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+.mobile-theme .fa-plan-payment .fa-field { margin-bottom: 14px; }
+.mobile-theme .fa-plan-payment-status { font-size: 12px; color: #426d5a; line-height: 1.8; }
 @media (max-width: 360px) {
   .mobile-theme .mobile-finance-activity { padding-inline: 0; }
   .mobile-theme .fa-flow-grid { gap: 8px; }
