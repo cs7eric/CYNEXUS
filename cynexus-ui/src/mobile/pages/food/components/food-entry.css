@@ -1,0 +1,362 @@
+.food-nutrition-goal-preview {
+  margin: 11px 0;
+  padding: 12px 14px 11px;
+  border: 1px solid #dce5d9;
+  border-radius: 16px;
+  background: #f8fbfc;
+}
+
+.food-preview-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  color: #58705c;
+}
+
+.food-preview-heading > span {
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.food-preview-heading > small {
+  min-width: 0;
+  color: #718274;
+  font-size: 9px;
+  text-align: right;
+}
+
+.food-preview-caption {
+  margin: -5px 0 12px !important;
+  color: #718274;
+  font-size: 9px !important;
+}
+
+.food-preview-measure {
+  min-width: 0;
+}
+
+.food-preview-measure-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  color: #637563;
+  font-size: 9px;
+}
+
+.food-preview-measure-head strong {
+  color: #304b3e;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.food-preview-measure > p {
+  margin: 2px 0 4px !important;
+  color: #304b3e;
+  font-family: "Outfit Display", sans-serif;
+  font-size: 18px !important;
+  font-weight: 500;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.food-preview-measure > p small {
+  font-family: "Manrope Mobile", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.food-preview-track {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7ece5;
+}
+
+.food-preview-track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #72977a;
+  transition: width 160ms ease-out;
+}
+
+.food-preview-carbsG .food-preview-track > i { background: #7e9eb0; }
+.food-preview-proteinG .food-preview-track > i { background: #8b9a69; }
+.food-preview-fatG .food-preview-track > i { background: #b39770; }
+
+.food-preview-target {
+  display: block;
+  margin-top: 3px;
+  color: #778476;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.food-preview-caloriesKcal {
+  padding-bottom: 9px;
+  border-bottom: 1px solid #e7ece5;
+}
+
+.food-preview-caloriesKcal > p {
+  font-size: 23px !important;
+}
+
+.food-preview-macros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 9px;
+}
+
+.food-preview-macros .food-preview-measure + .food-preview-measure {
+  padding-left: 10px;
+  border-left: 1px solid #e7ece5;
+}
+
+.food-preview-partial {
+  display: block;
+  margin-top: 10px;
+  color: #718274;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.food-entry-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  align-items: stretch;
+  gap: 10px;
+  margin: 11px 0;
+}
+
+.food-entry-summary-row .food-nutrition-goal-preview {
+  min-width: 0;
+  margin: 0;
+}
+
+.food-amount-card {
+  display: grid;
+  min-width: 0;
+  min-height: 100%;
+  grid-template-rows: auto minmax(40px, 1fr) auto minmax(16px, 1fr);
+  align-items: start;
+  justify-items: center;
+  padding: 16px 8px 14px;
+  border: 1px solid #cbdde2;
+  border-radius: 19px;
+  background: #f8fbfc;
+  color: #304b4e;
+  cursor: text;
+  box-shadow: inset 0 1px 0 #ffffffcc;
+}
+
+.food-amount-label {
+  width: 100%;
+  color: #607572;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.food-amount-card input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  align-self: end;
+  margin: 0 0 2px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #304b4e;
+  font-family: "Outfit Display", sans-serif;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: .95;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+.food-amount-card input::-webkit-inner-spin-button,
+.food-amount-card input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.food-amount-card input:focus-visible {
+  outline: 2px solid #48786a;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.food-amount-unit {
+  color: #607572;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.food-amount-available {
+  max-width: 100%;
+  align-self: end;
+  margin: 0;
+  color: #7b8986;
+  font-size: 9px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Keep the entry sheet compact while preserving the serving breakdown. */
+.food-sheet {
+  max-height: calc(var(--mobile-viewport-height, 100dvh) - 12px);
+  padding: 8px 20px max(16px, env(safe-area-inset-bottom));
+  background: #eef4f5;
+  color: #304b4e;
+  box-shadow: 0 -12px 46px #243b4224;
+}
+
+.food-sheet-handle {
+  margin-bottom: 7px;
+}
+
+.food-sheet-heading {
+  min-height: 40px;
+  margin-bottom: 4px;
+}
+
+.food-sheet-heading h2 {
+  font-size: 22px;
+}
+
+.food-sheet-heading .food-round {
+  width: 40px;
+  height: 40px;
+  background: #f8fbfc;
+}
+
+.food-form > .food-text-button:first-child {
+  min-height: 34px;
+  margin-top: -5px;
+  margin-bottom: 3px;
+}
+
+.food-entry-summary-row + .food-footnote {
+  margin-top: -3px !important;
+}
+
+.food-entry-identity {
+  gap: 10px;
+  margin: 2px 0 9px;
+}
+
+.food-entry-identity > .food-art {
+  width: 60px;
+  height: 60px;
+}
+
+.food-entry-identity h3 {
+  font-size: 20px;
+}
+
+.food-entry-identity p {
+  margin-top: 3px;
+}
+
+.food-context {
+  margin: 4px 0 10px !important;
+}
+
+.food-field {
+  gap: 5px;
+  margin: 9px 0;
+}
+
+.food-field input,
+.food-field select {
+  min-height: 43px;
+  padding: 8px 12px;
+  border-radius: 13px;
+}
+
+.food-footnote {
+  margin: 8px 0 !important;
+}
+
+.food-source {
+  margin: 8px 0;
+}
+
+.food-source summary {
+  min-height: 32px;
+}
+
+.food-primary {
+  min-height: 46px;
+  margin-top: 12px;
+  border-radius: 15px;
+}
+
+@media (max-width: 359px) {
+  .food-nutrition-goal-preview { padding: 13px 12px; }
+  .food-preview-macros { gap: 7px; }
+  .food-preview-macros .food-preview-measure + .food-preview-measure { padding-left: 7px; }
+  .food-preview-measure > p { font-size: 17px !important; }
+  .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
+  .food-amount-card { padding-inline: 5px; }
+  .food-amount-card input { font-size: 29px; }
+  .food-amount-label { font-size: 9px; }
+  .food-amount-unit { font-size: 11px; }
+  .food-amount-available { font-size: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .food-preview-track > i { transition: none; }
+}
+
+/* FoodEntry is imported alongside the page stylesheet. Keep these entry-only
+   rules ahead of the shared food surface rules regardless of CSS load order. */
+section.food-nutrition-preview.food-nutrition-goal-preview {
+  margin: 0;
+  padding: 12px 14px 11px;
+  border-radius: 16px;
+  background: #f8fbfc;
+}
+
+dialog.food-sheet {
+  max-height: calc(var(--mobile-viewport-height, 100dvh) - 12px);
+  padding: 8px 20px max(16px, env(safe-area-inset-bottom));
+  background: #eef4f5;
+  color: #304b4e;
+  box-shadow: 0 -12px 46px #243b4224;
+}
+
+dialog.food-sheet .food-sheet-handle { margin-bottom: 7px; }
+dialog.food-sheet .food-sheet-heading { min-height: 40px; margin-bottom: 4px; }
+dialog.food-sheet .food-sheet-heading h2 { font-size: 22px; }
+dialog.food-sheet .food-sheet-heading .food-round { width: 40px; height: 40px; background: #f8fbfc; }
+dialog.food-sheet .food-form > .food-text-button:first-child { min-height: 34px; margin-top: -5px; margin-bottom: 3px; }
+dialog.food-sheet .food-context { margin: 4px 0 10px !important; }
+dialog.food-sheet .food-form .food-field { gap: 5px; margin: 9px 0; }
+dialog.food-sheet .food-form .food-field input,
+dialog.food-sheet .food-form .food-field select { min-height: 43px; padding: 8px 12px; border-radius: 13px; }
+dialog.food-sheet .food-form .food-footnote { margin: 8px 0 !important; }
+dialog.food-sheet .food-form .food-source { margin: 8px 0; }
+dialog.food-sheet .food-form .food-source summary { min-height: 32px; }
+dialog.food-sheet .food-form .food-primary { min-height: 46px; margin-top: 12px; border-radius: 15px; }
+
+@media (max-width: 359px) {
+  dialog.food-sheet { padding-inline: 18px; }
+  section.food-nutrition-preview.food-nutrition-goal-preview { padding: 13px 12px; }
+  dialog.food-sheet .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
+  dialog.food-sheet .food-amount-card { padding-inline: 5px; }
+  dialog.food-sheet .food-amount-card input { font-size: 29px; }
+}

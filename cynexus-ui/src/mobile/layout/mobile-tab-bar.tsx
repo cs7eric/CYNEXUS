@@ -3,13 +3,15 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 import { BookOpenText, LayoutGrid, Plus, Ruler, Scale, Sparkles, Timer, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { getMobileAppNavigation, mobileNavigation } from "@/mobile/navigation"
+import { getMobileAppNavigation, mobileNavigation, normalizeMobileAppPath } from "@/mobile/navigation"
 import type { MetricEntryMode } from "@/mobile/components/metric-entry"
 
 export function MobileTabBar({ onOpenMetricEntry }: { onOpenMetricEntry: (mode: MetricEntryMode) => void }) {
   const location = useLocation()
   const navigate = useNavigate()
   const appNavigation = getMobileAppNavigation(location.pathname)
+  const mobilePath = normalizeMobileAppPath(location.pathname)
+  const isFridgePage = mobilePath === "/m/food" && location.hash === "#food-fridge"
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
   const layout = useRef<HTMLDivElement>(null)
   const addButton = useRef<HTMLButtonElement>(null)
@@ -37,7 +39,7 @@ export function MobileTabBar({ onOpenMetricEntry }: { onOpenMetricEntry: (mode: 
             const isActive = location.hash === href || (!location.hash && index === 0)
             return <a key={href} href={href} tabIndex={quickActionsOpen ? -1 : 0} aria-current={isActive ? "page" : undefined} className={`mobile-tab${isActive ? " mobile-tab-active" : ""}`} onClick={(event) => {
               event.preventDefault()
-              navigate({ hash: href })
+              navigate({ pathname: mobilePath, search: location.search, hash: href })
             }}>
               <Icon className="size-5 shrink-0" aria-hidden="true" />
               <span>{label}</span>
@@ -59,14 +61,17 @@ export function MobileTabBar({ onOpenMetricEntry }: { onOpenMetricEntry: (mode: 
           <Link to="/knowledge-base/view" className="mobile-quick-action" style={{ "--stack-y": "-278px" } as CSSProperties} tabIndex={quickActionsOpen ? 0 : -1} aria-label="Knowledge Base" title="Knowledge Base" onClick={() => setQuickActionsOpen(false)}><BookOpenText aria-hidden="true" /><span>Knowledge</span></Link>
           <Link to="/cynexus-agent" className="mobile-quick-action" style={{ "--stack-y": "-330px" } as CSSProperties} tabIndex={quickActionsOpen ? 0 : -1} aria-label="Cynexus Agent" title="Cynexus Agent" onClick={() => setQuickActionsOpen(false)}><Sparkles aria-hidden="true" /><span>Agent</span></Link>
         </div>
-        <button ref={addButton} type="button" className="mobile-tab-add" aria-label={location.pathname.replace(/\/+$/, "") === "/m/finance" ? "Add a record" : quickActionsOpen ? "Close quick actions" : "Open quick actions"} aria-expanded={quickActionsOpen} aria-controls="mobile-quick-actions" onClick={() => {
-          if (location.pathname.replace(/\/+$/, "") === "/m/finance") {
+        {!isFridgePage && <button ref={addButton} type="button" className="mobile-tab-add" aria-label={mobilePath === "/m/food" ? "Log food" : mobilePath === "/m/finance" ? "Add a record" : quickActionsOpen ? "Close quick actions" : "Open quick actions"} aria-expanded={quickActionsOpen} aria-controls="mobile-quick-actions" onClick={() => {
+          if (mobilePath === "/m/food") {
             setQuickActionsOpen(false)
-            navigate({ hash: "#finance-activity" }, { state: { mobileAction: "finance-entry", requestId: crypto.randomUUID() } })
+            navigate({ pathname: mobilePath, search: location.search, hash: "#food-today" }, { state: { mobileAction: "food-entry", requestId: crypto.randomUUID() } })
+          } else if (mobilePath === "/m/finance") {
+            setQuickActionsOpen(false)
+            navigate({ pathname: mobilePath, search: location.search, hash: "#finance-activity" }, { state: { mobileAction: "finance-entry", requestId: crypto.randomUUID() } })
           } else setQuickActionsOpen((open) => !open)
         }}>
           <span>{quickActionsOpen ? <X aria-hidden="true" /> : <Plus aria-hidden="true" />}</span>
-        </button>
+        </button>}
       </div>
     </nav>
   )
