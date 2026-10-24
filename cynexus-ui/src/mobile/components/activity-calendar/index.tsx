@@ -10,6 +10,7 @@ const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numer
 const fullDate = new Intl.DateTimeFormat("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
 const compactNumber = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 })
 const number = new Intl.NumberFormat("en-US")
+const calorieNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 })
 const grams = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })
 const measurement = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })
 const measurementDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
@@ -158,8 +159,8 @@ export function MobileActivityCalendar({ today, records, bodyMeasurements = null
               <h3>On your table<span>.</span></h3>
             </div>
             <div className="mobile-activity-food-energy">
-              <strong>{nutritionUnavailable ? "—" : nutrition ? number.format(nutrition.calories) : "0"}</strong>
-              <span>{nutritionUnavailable ? (nutritionState === "loading" ? "Loading…" : "Unavailable") : visibleTargets?.calories != null ? `/ ${number.format(visibleTargets.calories)} kcal` : "kcal · No target"}</span>
+              <strong>{nutritionUnavailable ? "—" : nutrition ? calorieNumber.format(nutrition.calories) : "0"}</strong>
+              <span>{nutritionUnavailable ? (nutritionState === "loading" ? "Loading…" : "Unavailable") : visibleTargets?.calories != null ? `/ ${calorieNumber.format(visibleTargets.calories)} kcal` : "kcal · No target"}</span>
             </div>
           </div>
           <div className="mobile-activity-food-tabs" aria-label="Meals">
@@ -168,8 +169,8 @@ export function MobileActivityCalendar({ today, records, bodyMeasurements = null
           <div className="mobile-activity-nutrition-grid">
             <div className="mobile-activity-nutrition-total">
               <p className="mobile-activity-calorie-amount">
-                <span className="sr-only">{nutritionUnavailable ? (nutritionState === "loading" ? "Food data loading" : "Food data unavailable") : nutrition ? `${number.format(nutrition.calories)} kcal consumed` : "Food intake not logged"}, {visibleTargets?.calories != null ? `daily target ${number.format(visibleTargets.calories)} kcal` : "daily target not set"}</span>
-                <span aria-hidden="true"><strong>{nutritionUnavailable ? "—" : nutrition ? number.format(nutrition.calories) : "0"}</strong><span className="mobile-activity-calorie-target"> / {visibleTargets?.calories != null ? number.format(visibleTargets.calories) : "—"}</span><span className="mobile-activity-calorie-unit"> kcal</span></span>
+                <span className="sr-only">{nutritionUnavailable ? (nutritionState === "loading" ? "Food data loading" : "Food data unavailable") : nutrition ? `${calorieNumber.format(nutrition.calories)} kcal consumed` : "Food intake not logged"}, {visibleTargets?.calories != null ? `daily target ${calorieNumber.format(visibleTargets.calories)} kcal` : "daily target not set"}</span>
+                <span aria-hidden="true"><strong>{nutritionUnavailable ? "—" : nutrition ? calorieNumber.format(nutrition.calories) : "0"}</strong><span className="mobile-activity-calorie-target"> / {visibleTargets?.calories != null ? calorieNumber.format(visibleTargets.calories) : "—"}</span><span className="mobile-activity-calorie-unit"> kcal</span></span>
               </p>
               <small>{nutritionUnavailable ? (nutritionState === "loading" ? "Loading food data" : "Food data unavailable") : nutrition ? `${nutrition.meals} ${nutrition.meals === 1 ? "meal" : "meals"} logged` : "No meals logged"}</small>
             </div>
