@@ -1,4 +1,4 @@
-import { ArrowUpRight, BookOpen, ChevronRight, Fingerprint, LayoutGrid, Monitor, Settings, Settings2, Sparkles } from "lucide-react"
+import { ArrowUpRight, BookOpen, ChevronRight, Fingerprint, LayoutGrid, ListTodo, Monitor, Settings, Settings2, Sparkles } from "lucide-react"
 import { useRef } from "react"
 import { Link } from "react-router-dom"
 
@@ -26,6 +26,7 @@ export default function MobileProfilePage() {
   ] as const
   const links = [
     { title: "Your apps", detail: `${appCount} apps in ${workspace.name}`, href: "/m/apps", icon: LayoutGrid },
+    { title: "Async tasks", detail: "Track background work and retry failures", href: "/m/tasks", icon: ListTodo },
     { title: "Configuration center", detail: "Daily targets and basic data", href: "/m/configuration", icon: Settings2 },
     { title: "Cynexus Agent", detail: "Plan, ask and explore", href: "/cynexus-agent", icon: Sparkles },
     { title: "Knowledge Base", detail: "Notes, files and collections", href: "/knowledge-base/view", icon: BookOpen },

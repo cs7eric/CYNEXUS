@@ -110,7 +110,7 @@ cynexus:
       public-key: ${CYNEXUS_AI_LANGFUSE_PUBLIC_KEY:}
       secret-key: ${CYNEXUS_AI_LANGFUSE_SECRET_KEY:}
     security:
-      provider-allowed-origins: ${CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS:https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://dashscope.aliyuncs.com}
+      provider-allowed-origins: ${CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS:https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://api.xhhai.online,https://dashscope.aliyuncs.com}
       langfuse-allowed-origins: ${CYNEXUS_AI_LANGFUSE_ALLOWED_ORIGINS:http://127.0.0.1:33000,http://cynexus-langfuse-web:3000}
     agentscope:
       enabled: ${CYNEXUS_AI_AGENTSCOPE_ENABLED:false}

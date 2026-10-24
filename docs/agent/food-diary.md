@@ -34,3 +34,20 @@ foods/quick records are rejected by the schema contract.
 Development UI mode uses the Vite listener on port 5174 and the existing Release
 backend. Food backend deployment affects only the Release core image; it does
 not rebuild or recreate the Release UI.
+
+Photo-created foods use `/food/recognition-tasks` only when a nutrition label
+is attached and at least one required nutrient is missing. Fully entered
+nutrition and food-photo-only drafts use direct custom-food creation. Both
+the preview analysis and background task receive the original food photo
+first (when present), then the original nutrition label; client image resizing
+is allowed, background removal is never a recognition prerequisite. A pending
+cutout preview does not block background submission.
+
+The server validates the recognized name, measurement basis, confidence and
+all four nutrients, preserves supplied manual values, and commits the custom
+food and successful task together. The mobile observer wakes when a task is
+submitted, polls until completion and announces `FOOD_CHANGED`; both All foods
+and My foods reload their owner-scoped lists. Returning to the page recovers
+tasks completed while it was closed. Invalid or failed recognition never adds
+a food to either list. A same-name fridge result cannot hide a saved custom
+food from My foods search.

@@ -95,6 +95,9 @@ $migrationFiles = @(
     ,"20261023_02_seed_food_nutrition_label_ai.sql"
     ,"20261024_02_refine_food_nutrition_label_ai_two_images.sql"
     ,"20261024_03_refine_food_nutrition_label_ai_food_first.sql"
+    ,"20261024_05_create_ai_vision_task_queue.sql"
+    ,"20261024_06_add_ai_vision_task_retry_link.sql"
+    ,"20261024_07_bound_ai_vision_task_image_retention.sql"
 )
 
 foreach ($file in $migrationFiles) {

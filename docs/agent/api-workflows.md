@@ -11,6 +11,7 @@ Normalized workflow types currently include:
 - `MEDIA_TRANSCRIPTION`
 - `PORTFOLIO_TRADE_IMPORT`
 - `FINANCE_AI_CAPTURE`
+- `AI_VISION` (mobile food recognition, listed through the owner-scoped AI task API)
 
 Normalized statuses are `QUEUED`, `RUNNING`, `WAITING_REVIEW`, `SUCCEEDED`, `FAILED`, and `CANCELLED`.
 
@@ -64,3 +65,22 @@ When a new workflow is added, implement the same projection contract and keep re
 The workflow history list is an operational UI and is intentionally not exposed to the autonomous Agent: it contains execution metadata, not a bounded business read that improves model decisions. Business result queries remain governed by their owning domain and Agent exposure rules.
 
 Original uploaded images are also intentionally excluded from autonomous Agent exposure. They are private binary inputs for the owning workflow and are only available to the signed-in UI through owner-scoped image preview endpoints.
+
+AI Vision task history is likewise an operational UI feature and is intentionally not exposed to the autonomous Agent. Its request/result data may contain private food-label or fridge images; the Profile task list receives bounded owner-scoped summaries, while retry remains an explicit user action.
+
+Owner-scoped AI summaries include the original idempotency key for correlation.
+The mobile history omits `food-recognition:<task-id>:<retry-count>` child attempts
+even when Core history is unavailable; retries and saving remain owned by the
+parent food workflow.
+
+Food creation from photos uses the Core-owned `POST /api/core/food/recognition-tasks`
+workflow. It accepts the nutrition-label photo, optional original food photo, and
+manual field overrides, persists them, and returns `202` after enqueueing. A Core
+worker submits both original images to the AI vision queue before requesting a
+cutout, validates the recognized nutrition, and saves the custom food idempotently.
+The browser only observes owner-scoped task summaries and refreshes My foods and
+All foods. Closing the browser does not stop processing or saving. Fully entered
+nutrition and submissions without a nutrition-label photo use the ordinary manual
+food endpoint. Recognition task inputs and mutations are excluded from autonomous
+Agent invocation because they contain private photos and initiate paid processing
+and writes. Saved foods remain under the existing food API's ownership.

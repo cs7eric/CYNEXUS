@@ -96,6 +96,12 @@ The shared bottom-navigation `+` menu exposes Weight, Body and Workout actions. 
 
 Metric entry uses static 600/800 instances of the existing licensed Manrope face, scoped to the overlay. This keeps its button labels and bold selector values consistent in WebKit environments that display the variable face's default thin outline despite the requested weight; the shared mobile font remains unchanged.
 
+## Async Task History
+
+Task rows use a compact 54px main touch target, 28px circular type icons and two readable text lines. Only active work shows the 2px progress track. Expanded details stay flat on the page canvas, with plain error text and task IDs; Retry uses the shared mobile ghost button with a 44px touch target aligned to the trailing edge. Filters use the shell's pale-blue selected surface, and error information does not turn recovery actions into destructive red buttons.
+
+Profile links to `/m/tasks`. History groups media transcription, portfolio imports, finance capture and AI Vision tasks, with type/status filters, expandable status/error details, active-task polling and explicit retries. Partial source failures preserve the available history and automatically retry every ten seconds even when all visible tasks are terminal; active work keeps the four-second refresh cadence. Core-owned food recognition tasks include food saving in their status and retry through the food API; their internal AI jobs are hidden when the parent is available. Standalone nutrition-label results can be reviewed and explicitly saved to My foods with an idempotency key per task. AI Vision images are erased on success; failed inputs are available for seven days before the next hourly cleanup, and retry is unavailable after that window.
+
 ## Migration rule
 
 Move a high-frequency workflow one complete path at a time: list, detail, edit, save, error, and return. Put the page under the owning feature's `mobile/` folder once it has its own interactions. Extract API calls, calculations, and validation to shared services/hooks instead of copying them between desktop and mobile.

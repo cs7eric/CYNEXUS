@@ -77,7 +77,9 @@ export function useFoodSearch(query: string, filter: FoodFilter) {
       : []
     if (filter === "mine") {
       const foods = await fetchCustomFoods(query, signal)
-      return [...fridgeFoods, ...foods.filter(food => !fridgeFoods.some(fridge => fridge.name.toLocaleLowerCase() === food.name.toLocaleLowerCase()))]
+      // A saved food remains selectable independently of fridge stock, even
+      // when another item has the same printed name.
+      return [...fridgeFoods, ...foods]
     }
     if (filter === "favorites") {
       const foods = await fetchFavorites(signal)

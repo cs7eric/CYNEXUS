@@ -14,7 +14,7 @@ function blobToDataUrl(blob: Blob) {
 }
 
 /** Sends a camera photo through the shared core proxy and returns the transparent food PNG. */
-export async function mattingFoodImage(file: File) {
+export async function mattingFoodImage(file: File, signal?: AbortSignal) {
   if (!file.type.startsWith("image/")) throw new Error("Choose an image file.")
   if (file.size > 12 * 1024 * 1024) throw new Error("Choose an image smaller than 12 MB.")
   const body = new FormData()
@@ -22,6 +22,7 @@ export async function mattingFoodImage(file: File) {
   const response = await fetch(`${SERVICE_PREFIX.core}/food/matting`, {
     method: "POST",
     cache: "no-store",
+    signal,
     body,
   })
   const contentType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLocaleLowerCase()

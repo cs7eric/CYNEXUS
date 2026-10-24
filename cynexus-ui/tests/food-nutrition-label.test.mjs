@@ -103,9 +103,9 @@ test("recognition output parsing rejects malformed model output", () => {
   assert.throws(() => food.parseNutritionLabelRecognition(JSON.stringify(label({ nutrition: { caloriesKcal: "160" } }))))
 })
 
-test("vision request preserves cutout-food-first and nutrition-label image order", async () => {
+test("vision request preserves original-food-first and nutrition-label image order", async () => {
   await vision.executeVisionScenario("food_nutrition_label_parse", [
-    { fileName: "food-photo-cutout.png", contentType: "image/png", dataUrl: "data:image/png;base64,AA==" },
+    { fileName: "food-photo.jpg", contentType: "image/jpeg", dataUrl: "data:image/jpeg;base64,AA==" },
     { fileName: "nutrition-label.jpg", contentType: "image/jpeg", dataUrl: "data:image/jpeg;base64,BB==" },
   ])
   assert.equal(visionUrl, "/api/ai/executions/vision")
@@ -113,7 +113,7 @@ test("vision request preserves cutout-food-first and nutrition-label image order
   assert.deepEqual(JSON.parse(visionInit.body), {
     scenarioCode: "food_nutrition_label_parse",
     images: [
-      { fileName: "food-photo-cutout.png", contentType: "image/png", dataUrl: "data:image/png;base64,AA==" },
+      { fileName: "food-photo.jpg", contentType: "image/jpeg", dataUrl: "data:image/jpeg;base64,AA==" },
       { fileName: "nutrition-label.jpg", contentType: "image/jpeg", dataUrl: "data:image/jpeg;base64,BB==" },
     ],
   })

@@ -173,7 +173,7 @@ services:
       CYNEXUS_AI_LANGFUSE_BASE_URL: ${CYNEXUS_AI_LANGFUSE_BASE_URL:-http://cynexus-langfuse-web:3000}
       CYNEXUS_AI_LANGFUSE_PUBLIC_KEY: ${CYNEXUS_AI_LANGFUSE_PUBLIC_KEY:-}
       CYNEXUS_AI_LANGFUSE_SECRET_KEY: ${CYNEXUS_AI_LANGFUSE_SECRET_KEY:-}
-      CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS: ${CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS:-https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://dashscope.aliyuncs.com}
+      CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS: ${CYNEXUS_AI_PROVIDER_ALLOWED_ORIGINS:-https://api.openai.com,https://api.deepseek.com,https://am.xtyooo.top,https://api.xhhai.online,https://dashscope.aliyuncs.com}
       RABBITMQ_HOST: cynexus-rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: cynexus

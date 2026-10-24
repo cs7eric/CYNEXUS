@@ -80,10 +80,9 @@ SELECT
     'Vision parsing only; the user reviews and explicitly creates the custom food.',
     prompt.id
 FROM provider CROSS JOIN prompt
+-- Re-applying prompt seeds must preserve the provider/model selected in AI settings.
 ON CONFLICT (capability) DO UPDATE SET
     label = EXCLUDED.label,
-    provider_id = EXCLUDED.provider_id,
-    model_override = EXCLUDED.model_override,
     is_enabled = EXCLUDED.is_enabled,
     params = EXCLUDED.params,
     remark = EXCLUDED.remark,

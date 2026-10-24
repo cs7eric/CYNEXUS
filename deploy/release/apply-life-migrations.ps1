@@ -22,7 +22,8 @@ foreach ($file in @(
     "20261021_03_backfill_food_asset_mapping.sql",
     "20261023_01_map_food_assets_to_catalog.sql",
     "20261024_01_create_food_custom_asset.sql",
-    "20261024_04_create_nutrition_configuration.sql"
+    "20261024_04_create_nutrition_configuration.sql",
+    "20261024_07_food_recognition_tasks.sql"
 )) {
     $path = Join-Path $migrationDir $file
     if (-not (Test-Path -LiteralPath $path)) { throw "Missing Life migration: $file" }

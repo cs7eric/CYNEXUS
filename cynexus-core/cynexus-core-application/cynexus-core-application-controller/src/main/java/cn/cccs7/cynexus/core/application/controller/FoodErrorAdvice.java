@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes=FoodController.class)
+@RestControllerAdvice(assignableTypes={FoodController.class, FoodRecognitionController.class})
 public class FoodErrorAdvice {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String,Object>> invalid(IllegalArgumentException exception) {

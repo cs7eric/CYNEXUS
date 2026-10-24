@@ -41,6 +41,8 @@ import cn.cccs7.cynexus.ai.domain.service.usage.AiUsageQueryDomainService;
 import cn.cccs7.cynexus.ai.domain.service.usage.AiUsageQueryDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRoutingDomainService;
 import cn.cccs7.cynexus.ai.domain.repository.AiUsageObservabilityRepository;
+import cn.cccs7.cynexus.ai.domain.repository.AiVisionTaskRepository;
+import cn.cccs7.cynexus.ai.domain.service.vision.AiVisionTaskDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.valueobject.agent.AgentExecutionLimits;
@@ -50,6 +52,11 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class AiDomainServiceConfig {
+
+    @Bean
+    public AiVisionTaskDomainService aiVisionTaskDomainService(AiVisionTaskRepository taskRepository) {
+        return new AiVisionTaskDomainService(taskRepository);
+    }
 
     @Bean
     public ModelRoutingDomainService modelRoutingDomainService() {

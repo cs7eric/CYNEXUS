@@ -1,10 +1,11 @@
 import { ArrowLeft, Camera, ChevronRight, ImagePlus, LoaderCircle, ScanSearch, Star, Trash2, X } from "lucide-react"
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
-import { executeVisionScenario } from "@/services/ai/vision"
+import { enqueueVisionScenario, fetchVisionTask } from "@/services/ai/vision"
 import { addFavorite, announceFoodChange, createCustomFood, createFridgeMeal, createItem, deleteFavorite, deleteItem, fetchFoodAssets, updateItem } from "@/services/food/api"
 import { mattingFoodImage } from "@/services/food/matting"
+import { submitFoodRecognition, type FoodRecognitionTask } from "@/services/food/recognition"
 import { formatNutrition, meals, nutrientKeys, nutrientNames, readableDate, scaledNutrition } from "@/services/food/model"
-import { clearUneditedNutritionLabelDraft, mergeNutritionLabelDraft, nutritionLabelPer100g, parseNutritionLabelRecognition, prepareNutritionLabelImage, type NutritionLabelDraftField } from "@/services/food/nutrition-label"
+import { clearUneditedNutritionLabelDraft, mergeNutritionLabelDraft, nutritionLabelPer100g, parseNutritionLabelRecognition, prepareFoodPhotoImage, prepareNutritionLabelImage, type NutritionLabelDraftField } from "@/services/food/nutrition-label"
 import type { DiaryItem, Food, FoodAssetMapping, MealType, NutrientKey, Nutrients } from "@/services/food/types"
 import { FoodArt } from "./food-art"
 import { draftNutrients, readNutrients } from "./food-form"
@@ -116,7 +117,7 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onBack, onSa
   </form>
 }
 
-export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => void; onBack: () => void }) {
+export function CustomFoodForm({ onSaved, onQueued, onBack }: { onSaved: (food: Food) => void; onQueued: (task: FoodRecognitionTask) => void; onBack: () => void }) {
   const [name, setName] = useState(""), [brand, setBrand] = useState("")
   const [values, setValues] = useState(() => draftNutrients())
   const [assetMappings, setAssetMappings] = useState<FoodAssetMapping[]>([])
@@ -142,7 +143,9 @@ export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => v
   const foodPhotoUrlRef = useRef<string | null>(null)
   const nutritionPhotoUrlRef = useRef<string | null>(null)
   const cutoutUrlRef = useRef<string | null>(null)
+  const mattingRequest = useRef<AbortController | null>(null)
   const manuallyEdited = useRef(new Set<NutritionLabelDraftField>())
+  const requiresNutritionRecognition = !!nutritionPhoto && nutrientKeys.some(key => values[key].trim() === "")
   useEffect(() => {
     const controller = new AbortController()
     fetchFoodAssets(controller.signal)
@@ -155,20 +158,42 @@ export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => v
     return () => controller.abort()
   }, [assetReload])
   useEffect(() => () => {
+    mattingRequest.current?.abort()
     if (foodPhotoUrlRef.current) URL.revokeObjectURL(foodPhotoUrlRef.current)
     if (nutritionPhotoUrlRef.current) URL.revokeObjectURL(nutritionPhotoUrlRef.current)
     if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
   }, [])
   async function save(event: FormEvent) {
-    event.preventDefault(); if (busy || scanning || matting) return; setBusy(true); setError(null)
+    event.preventDefault(); if (busy || scanning || (matting && !requiresNutritionRecognition)) return; setBusy(true); setError(null)
     try {
+      if (requiresNutritionRecognition) {
+        const [labelImage, foodImage] = await Promise.all([
+          prepareNutritionLabelImage(nutritionPhoto!),
+          foodPhoto ? prepareFoodPhotoImage(foodPhoto) : null,
+        ])
+        const nutrients = Object.fromEntries(nutrientKeys.map(key => [key, values[key].trim() === "" ? null : Number(values[key])])) as Nutrients
+        if (nutrientKeys.some(key => nutrients[key] != null && (!Number.isFinite(nutrients[key]) || nutrients[key]! < 0 || nutrients[key]! > 10_000_000))) throw new Error("Enter valid non-negative nutrition values.")
+        const submission = await submitFoodRecognition({
+          idempotencyKey: requestKey,
+          nutritionLabelImage: { fileName: "nutrition-label.jpg", ...labelImage },
+          foodImage: foodImage ? { fileName: "food-photo.jpg", ...foodImage } : undefined,
+          name: name.trim() || undefined,
+          brand: brand.trim() || undefined,
+          assetKey: assetKey || undefined,
+          nutrients,
+        })
+        onQueued(submission)
+        return
+      }
       // Persist the selected food photo even when the user saves without first
       // pressing the separate cutout action. The cutout is reused by the saved
       // artwork, so this cannot diverge from the image shown in the form.
       const assetImageDataUrl = foodPhoto ? (cutoutDataUrl ?? await ensureFoodCutout() ?? undefined) : undefined
       const food = await createCustomFood({ idempotencyKey: requestKey, name: name.trim(), brand: brand.trim() || undefined, nutrients: readNutrients(values), assetKey: assetKey || undefined, assetImageDataUrl }); announceFoodChange(); onSaved(food)
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to create food.") } finally { setBusy(false) }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create food.")
+    } finally { setBusy(false) }
   }
   function selectFoodPhoto(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0]
@@ -214,14 +239,37 @@ export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => v
     if (!nutritionPhoto || scanning || busy) return
     setScanning(true); setScanError(null); setScanMessage(null)
     try {
-      const labelImage = await prepareNutritionLabelImage(nutritionPhoto)
-      const foodCutout = foodPhoto ? await ensureFoodCutout() : null
+      const [labelImage, foodImage] = await Promise.all([
+        prepareNutritionLabelImage(nutritionPhoto),
+        foodPhoto ? prepareFoodPhotoImage(foodPhoto) : null,
+      ])
       const images = [
-        ...(foodCutout ? [{ fileName: "food-photo-cutout.png", contentType: "image/png", dataUrl: foodCutout }] : []),
+        ...(foodImage ? [{ fileName: "food-photo.jpg", contentType: foodImage.contentType, dataUrl: foodImage.dataUrl }] : []),
         { fileName: "nutrition-label.jpg", contentType: labelImage.contentType, dataUrl: labelImage.dataUrl },
       ]
-      const response = await executeVisionScenario("food_nutrition_label_parse", images)
-      const label = parseNutritionLabelRecognition(response.content)
+      const submission = await enqueueVisionScenario("food_nutrition_label_parse", images, crypto.randomUUID())
+      setScanMessage("Submission accepted. Nutrition analysis is queued.")
+
+      // Poll the workflow instead of holding the browser request open while the
+      // vision provider processes both images. This keeps the mobile request
+      // below the proxy timeout and mirrors the API Workflows screen semantics.
+      let snapshot = await fetchVisionTask(submission)
+      const terminalSuccess = new Set(["SUCCEEDED", "SUCCESS", "COMPLETED", "DONE"])
+      const terminalFailure = new Set(["FAILED", "ERROR", "CANCELLED", "CANCELED"])
+      let pollCount = 0
+      while (!terminalSuccess.has(snapshot.status.toUpperCase()) && !terminalFailure.has(snapshot.status.toUpperCase())) {
+        if (++pollCount >= 90) throw new Error("Nutrition analysis is taking too long. Check the task history and try again later.")
+        await new Promise(resolve => window.setTimeout(resolve, 2_000))
+        snapshot = await fetchVisionTask(submission)
+      }
+      if (terminalFailure.has(snapshot.status.toUpperCase())) {
+        throw new Error(snapshot.errorMessage || snapshot.error || snapshot.message || "Nutrition analysis failed. Try again.")
+      }
+      const content = typeof snapshot.result === "string"
+        ? snapshot.result
+        : snapshot.content ?? snapshot.result?.content
+      if (!content) throw new Error("Nutrition analysis completed without a result.")
+      const label = parseNutritionLabelRecognition(content)
       const per100g = nutritionLabelPer100g(label)
       const draft = mergeNutritionLabelDraft({ name, brand, values }, label, manuallyEdited.current)
       setName(draft.name)
@@ -245,30 +293,31 @@ export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => v
   async function ensureFoodCutout() {
     if (!foodPhoto) return null
     if (cutoutDataUrl) return cutoutDataUrl
+    const controller = new AbortController()
+    mattingRequest.current = controller
     setMatting(true); setMattingError(null); setMattingMessage(null)
     try {
-      const result = await mattingFoodImage(foodPhoto)
+      const result = await mattingFoodImage(foodPhoto, controller.signal)
+      controller.signal.throwIfAborted()
       if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
       cutoutUrlRef.current = URL.createObjectURL(result.blob)
       setCutoutUrl(cutoutUrlRef.current)
       setCutoutDataUrl(result.dataUrl)
       setMattingMessage("Food image extracted. It will be saved with this food.")
       return result.dataUrl
-    } finally { setMatting(false) }
+    } finally {
+      if (mattingRequest.current === controller) mattingRequest.current = null
+      if (!controller.signal.aborted) setMatting(false)
+    }
   }
   async function extractFoodImage() {
     if (!foodPhoto || matting || busy) return
-    setMatting(true); setMattingError(null); setMattingMessage(null)
     try {
-      const result = await mattingFoodImage(foodPhoto)
-      if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
-      cutoutUrlRef.current = URL.createObjectURL(result.blob)
-      setCutoutUrl(cutoutUrlRef.current)
-      setCutoutDataUrl(result.dataUrl)
-      setMattingMessage("Food image extracted. It will be saved with this food.")
+      await ensureFoodCutout()
     } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return
       setMattingError(cause instanceof Error ? cause.message : "Unable to extract the food image. Try a clearer photo.")
-    } finally { setMatting(false) }
+    }
   }
   const formBusy = busy || scanning || matting
   const selectedAsset = assetMappings.find(mapping => mapping.assetKey === assetKey)
@@ -297,13 +346,13 @@ export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => v
       </button>
       <input ref={nutritionFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a nutrition label photo" onChange={selectNutritionPhoto} />
       {nutritionPhotoUrl ? <div className="food-label-previews"><div className="food-label-preview"><img src={nutritionPhotoUrl} alt="Selected nutrition label photo" /><span>Nutrition label</span><button type="button" className="food-label-remove" aria-label="Remove nutrition label image" title="Remove nutrition label image" disabled={formBusy} onClick={() => { if (nutritionPhotoUrlRef.current) URL.revokeObjectURL(nutritionPhotoUrlRef.current); nutritionPhotoUrlRef.current = null; setNutritionPhotoUrl(null); setNutritionPhoto(null); setScanMessage(null); setScanError(null) }}><X /></button></div></div> : null}
-      {nutritionPhoto ? <div className="food-label-actions"><button type="button" className="food-label-pick" disabled={formBusy} onClick={() => nutritionFileInput.current?.click()}><Camera />Replace photo</button><button type="button" className="food-label-scan-button" disabled={formBusy} onClick={() => void scanLabel()}>{scanning ? <LoaderCircle className="animate-spin" /> : <ScanSearch />}{scanning ? "Analyzing…" : "Analyze food + nutrition"}</button></div> : null}
+      {nutritionPhoto ? <div className="food-label-actions"><button type="button" className="food-label-pick" disabled={formBusy} onClick={() => nutritionFileInput.current?.click()}><Camera />Replace photo</button><button type="button" className="food-label-scan-button" disabled={busy || scanning} onClick={() => void scanLabel()}>{scanning ? <LoaderCircle className="animate-spin" /> : <ScanSearch />}{scanning ? "Analyzing…" : "Analyze food + nutrition"}</button></div> : null}
       {scanError ? <p className="food-label-error" role="alert">{scanError}</p> : null}
       {scanMessage ? <p className="food-label-result" role="status">{scanMessage}</p> : null}
     </section>
     <fieldset className="food-create-fields" aria-label="Food details" disabled={formBusy}>
       <div className="food-create-details-grid">
-        <label className="food-field"><span>Food name</span><input required maxLength={200} value={name} placeholder="e.g. Greek yogurt" onChange={event => { manuallyEdited.current.add("name"); setName(event.target.value) }} /></label>
+        <label className="food-field"><span>Food name</span><input required={!requiresNutritionRecognition} maxLength={200} value={name} placeholder="e.g. Greek yogurt" onChange={event => { manuallyEdited.current.add("name"); setName(event.target.value) }} /></label>
         <label className="food-field"><span>Brand <small>optional</small></span><input maxLength={200} value={brand} placeholder="e.g. Plain" onChange={event => { manuallyEdited.current.add("brand"); setBrand(event.target.value) }} /></label>
       </div>
       <section className="food-nutrition-editor" aria-labelledby="food-nutrition-editor-title">
@@ -327,7 +376,7 @@ export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => v
     </fieldset>
     <div className="food-form-footer">
       {error && <p className="food-form-error" role="alert">{error}</p>}
-      <button className="food-primary" type="submit" disabled={formBusy}>{busy ? "Creating…" : "Create food"}</button>
+      <button className="food-primary" type="submit" disabled={busy || scanning || (matting && !requiresNutritionRecognition)}>{busy ? "Creating…" : "Create food"}</button>
     </div>
   </form>
 }

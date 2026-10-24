@@ -58,6 +58,7 @@ export function getMobileAppNavigation(pathname: string) {
 
 export function getMobileTitle(pathname: string) {
   const normalizedPath = normalizeMobileAppPath(pathname)
+  if (normalizedPath === "/m/tasks") return "Async tasks"
   return [...mobileNavigation, ...mobileFeatureApps].find((item) => item.href === normalizedPath)?.label ?? "Page not found"
 }
 
