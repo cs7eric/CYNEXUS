@@ -59,11 +59,20 @@ export function WorkoutBodyView({ today, observations, isSample, onSaveObservati
     setSide(getMetric(next).paired ? nextSide ?? "left" : null)
     setAllRecords(false)
   }
+  function editSummaryMetric(nextMetric: "weight" | "height", observation?: BodyObservation | null) {
+    setMetric(nextMetric)
+    setSide(null)
+    setEditor({ observation: isSample ? undefined : observation ?? undefined })
+  }
   return <section className="workout-body-view" aria-label="Body measurements">
-    <div className="workout-body-title"><h1>Your body</h1><div className="workout-body-title-actions"><span className="workout-body-source">{isSample ? "Sample data" : "On this device"}</span>{isSample && <button className="workout-body-start" onClick={onStartLog}>Start my log</button>}</div></div>
+    <div className="workout-body-title"><h1>Your body</h1><div className="workout-body-title-actions"><span className="workout-body-source">{isSample ? "Sample data" : "Account sync enabled"}</span>{isSample && <button className="workout-body-start" onClick={onStartLog}>Start my log</button>}</div></div>
     <div className="workout-body-summary">
-      <div><span>Weight</span><strong>{weight ? weight.value.toFixed(1) : "—"}<small>kg</small></strong><time>{weight ? formatDate(weight.measuredAt) : "Not logged"}</time></div>
-      <div><span>Height</span><strong>{height ? height.value.toFixed(1) : "—"}<small>cm</small></strong><time>{height ? formatDate(height.measuredAt) : "Not logged"}</time></div>
+      <button type="button" className="workout-body-summary-cell" onClick={() => editSummaryMetric("weight", weight)} aria-label={weight ? "Edit weight" : "Record weight"}>
+        <span>Weight</span><strong>{weight ? weight.value.toFixed(1) : "—"}<small>kg</small></strong><time>{weight ? formatDate(weight.measuredAt) : "Not logged"}</time><Pencil className="workout-body-summary-edit" size={13} aria-hidden="true" />
+      </button>
+      <button type="button" className="workout-body-summary-cell" onClick={() => editSummaryMetric("height", height)} aria-label={height ? "Edit height" : "Record height"}>
+        <span>Height</span><strong>{height ? height.value.toFixed(1) : "—"}<small>cm</small></strong><time>{height ? formatDate(height.measuredAt) : "Not logged"}</time><Pencil className="workout-body-summary-edit" size={13} aria-hidden="true" />
+      </button>
       <div><span>BMI</span><strong>{bmi !== null ? bmi.toFixed(1) : "—"}</strong><span className="workout-body-summary-note">{bmi !== null ? <>Weight {shortDate(weight!.measuredAt)}<br />Height {shortDate(bmiHeight!.measuredAt)}</> : "Needs height & weight"}</span></div>
     </div>
     <div className="workout-body-date-row"><label>As of<input type="date" value={asOf} max={todayKey} onChange={(event) => { if (event.target.value && event.target.value <= todayKey) { setAsOf(event.target.value); setRangeEnd(event.target.value) } }} /></label><button aria-pressed={compare} onClick={() => setCompare(!compare)}>Compare {compare ? "on" : "off"}</button></div>

@@ -53,7 +53,7 @@ export function MeasurementEditor({ today, initialMetric, initialSide, initialDa
   const content = <dialog ref={dialog} className="workout-measurement-dialog" aria-labelledby="measurement-editor-title" onCancel={onClose} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <div className="workout-measurement-sheet">
       <header><h2 id="measurement-editor-title">{observation ? "Edit measurement" : "Record measurement"}</h2><button type="button" onClick={onClose} aria-label="Close measurement editor"><X size={21} /></button></header>
-      <p className="workout-body-muted">On this device · No cloud sync</p>
+      <p className="workout-body-muted">Account sync enabled</p>
       {isSample && <p className="workout-measurement-guide">Saving starts your personal log. Sample measurements and workouts will be excluded.</p>}
       <form onSubmit={save}>
         <label>Measurement<select value={metric} onChange={(event) => { setMetric(event.target.value as BodyMetricId); setError(""); setConfirmDelete(false) }}>{BODY_METRICS.map((entry) => <option key={entry.id} value={entry.id}>{entry.label} ({entry.unit})</option>)}</select></label>

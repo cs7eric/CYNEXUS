@@ -30,7 +30,7 @@ export const createFridgeMeal = (date: string, data: FridgeMealInput) => request
 export const updateItem = (date: string, id: string, data: EditInput) => request<FoodDay>(`/days/${date}/items/${encodeURIComponent(id)}`, "PUT", data)
 export const deleteItem = (date: string, id: string) => request<FoodDay>(`/days/${date}/items/${encodeURIComponent(id)}`, "DELETE")
 export const setDayStatus = (date: string, complete: boolean) => request<FoodDay>(`/days/${date}/${complete ? "complete" : "reopen"}`, "POST", { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
-export const createCustomFood = (data: { idempotencyKey: string; name: string; brand?: string; nutrients: Nutrients }) => request<Food>("/custom-foods", "POST", data)
+export const createCustomFood = (data: { idempotencyKey: string; name: string; brand?: string; nutrients: Nutrients; assetKey?: string; assetImageDataUrl?: string }) => request<Food>("/custom-foods", "POST", data)
 export const createGoal = (data: { idempotencyKey: string; effectiveFrom: string; nutrients: Nutrients }) => request<FoodGoal[]>("/goals", "POST", data)
 export const addFavorite = (kind: FoodKind, foodId: string, idempotencyKey: string) => request<Food>("/favorites", "POST", { kind, foodId, idempotencyKey })
 export const deleteFavorite = (id: string) => request<void>(`/favorites/${encodeURIComponent(id)}`, "DELETE")

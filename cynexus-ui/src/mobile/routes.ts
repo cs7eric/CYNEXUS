@@ -12,6 +12,7 @@ export const mobileRoutes: RouteObject[] = [{
     { path: "fridge", element: createElement(Navigate, { to: "/m/food#food-fridge", replace: true }) },
     { path: "workout", lazy: async () => ({ Component: (await import("./pages/workout/index")).default }) },
     { path: "me", lazy: async () => ({ Component: (await import("./pages/profile/index")).default }) },
+    { path: "configuration", lazy: async () => ({ Component: (await import("./pages/configuration/index")).default }) },
     { path: "*", lazy: async () => ({ Component: (await import("./pages/not-found/index")).default }) },
   ],
 }]

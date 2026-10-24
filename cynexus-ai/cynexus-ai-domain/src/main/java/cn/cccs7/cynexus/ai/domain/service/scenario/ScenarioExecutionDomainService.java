@@ -1,6 +1,7 @@
 package cn.cccs7.cynexus.ai.domain.service.scenario;
 
 import cn.cccs7.cynexus.ai.domain.entity.AiExecutionBO;
+import cn.cccs7.cynexus.ai.domain.entity.AiImageInputBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.valueobject.scenario.PreparedScenarioTextExecution;
 import cn.cccs7.cynexus.ai.domain.valueobject.scenario.PreparedScenarioVisionExecution;
@@ -23,6 +24,8 @@ public interface ScenarioExecutionDomainService {
                                                            String preferredModelCode,
                                                            String userInput);
 
+    void validateVisionInput(String scenarioCode, List<AiImageInputBO> images);
+
     AiExecutionBO finalizeExecution(PreparedScenarioTextExecution prepared, String content);
 
     AiExecutionBO finalizeVisionExecution(PreparedScenarioVisionExecution prepared, String content);
@@ -34,4 +37,13 @@ public interface ScenarioExecutionDomainService {
     AiModelBO routeVisionModel(String capability, String preferredModelCode);
 
     String resolveVisionPrompt(String capability, String candidateContext);
+
+    /**
+     * Builds the single bounded repair prompt used when a vision provider
+     * returns malformed or schema-incompatible structured output.
+     */
+    default String resolveVisionRepairPrompt(String capability, String originalPrompt,
+                                             String outputSchema, String rawOutput) {
+        return originalPrompt;
+    }
 }

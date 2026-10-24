@@ -20,12 +20,22 @@ export default function MobileLayout() {
   const [portal, setPortal] = useState<HTMLDivElement | null>(null)
   const [financeRefreshToken, setFinanceRefreshToken] = useState(0)
   const [metricEntryMode, setMetricEntryMode] = useState<MetricEntryMode | null>(null)
-  const { update: updateWorkout } = useWorkoutRecords()
+  const { data: workoutRecords, update: updateWorkout, savePlanRemote, saveSessionRemote, saveMeasurementRemote } = useWorkoutRecords()
   function addMetric(entry: MetricEntryValue) {
     const date = dateKey(new Date())
-    updateWorkout((data) => entry.mode === "workout"
+    const wasSample = workoutRecords.isSample
+    const result = updateWorkout((data) => entry.mode === "workout"
       ? saveSession(data, { date, category: "Strength", minutes: Number(entry.left) * 60 + Number(entry.right) }, date, crypto.randomUUID())
       : saveObservation(data, { metric: entry.mode === "weight" ? "weight" : "waist", side: null, value: Number(`${entry.left}.${entry.right}`), measuredAt: date }, date, crypto.randomUUID()))
+    if (wasSample) void savePlanRemote(result.data.cycleStart).catch(() => undefined)
+    if (entry.mode === "workout") {
+      const saved = result.data.sessions.find((session) => session.date === date)
+      if (saved) void saveSessionRemote(saved).catch(() => undefined)
+    } else {
+      const metric = entry.mode === "weight" ? "weight" : "waist"
+      const saved = result.data.observations.find((observation) => observation.metric === metric && observation.measuredAt === date)
+      if (saved) void saveMeasurementRemote(saved).catch(() => undefined)
+    }
   }
   useMobileScroll(main, workspaceId)
   useMobileViewport(theme)

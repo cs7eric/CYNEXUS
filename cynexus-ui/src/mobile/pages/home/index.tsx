@@ -7,8 +7,11 @@ import { MobileActivityCalendar } from "@/mobile/components/activity-calendar"
 import { activityDateKey, activityMonthStart, shiftActivityDate, shiftActivityMonth, type FinanceSummarySnapshot } from "@/mobile/components/activity-calendar/model"
 import { createActivityPreview, createBodyMeasurementPreview } from "@/mobile/components/activity-calendar/preview"
 import { getMobileAppGroups } from "@/mobile/navigation"
+import { useFoodDay } from "@/mobile/pages/food/hooks/use-food-data"
+import { useNutritionConfig } from "@/mobile/hooks/use-nutrition-config"
 import { useWorkoutRecords } from "@/mobile/hooks/use-workout-records"
-import { bodySummary } from "@/services/workout/model"
+import { calculateNutritionTargets } from "@/services/food/nutrition-config"
+import { bodySummary, latestObservation } from "@/services/workout/model"
 import { fetchFinanceOverview } from "@/services/finance/ledger"
 import "@/mobile/pages/home/home.css"
 
@@ -19,6 +22,46 @@ export default function MobileHomePage() {
   const primaryApp = groups.find((group) => group.id !== "shared")?.items[0]
   const financeAvailable = groups.some((group) => group.items.some((item) => item.url === "/finance/overview"))
   const today = new Date()
+  const todayKey = activityDateKey(today)
+  const foodDay = useFoodDay(todayKey)
+  const nutrition = useNutritionConfig()
+  const latestWeight = workoutRecords.isSample ? null : latestObservation(workoutRecords.observations, "weight", null, todayKey)
+  const calculatedTargets = calculateNutritionTargets(latestWeight?.value ?? null, nutrition.config)
+  const nutritionState = workoutRecords.isSample
+    ? "ready"
+    : nutrition.loading || (foodDay.loading && !foodDay.data)
+      ? "loading"
+      : nutrition.error || foodDay.error
+        ? "error"
+        : "ready"
+  const nutritionRecord = foodDay.data ? (() => {
+    const day = foodDay.data
+    const hasFood = day.items.length > 0
+    const total = (key: "caloriesKcal" | "carbsG" | "proteinG" | "fatG") => day.missingCounts[key] > 0 ? day.knownTotals[key] : day.totals[key]
+    return {
+      nutrition: hasFood ? {
+        calories: total("caloriesKcal") ?? 0,
+        meals: new Set(day.items.map((item) => item.mealType)).size,
+        carbsGrams: total("carbsG"),
+        proteinGrams: total("proteinG"),
+        fatGrams: total("fatG"),
+      } : null,
+      nutritionTargets: {
+        calories: calculatedTargets.caloriesKcal ?? day.targets.caloriesKcal,
+        carbsGrams: calculatedTargets.carbsG ?? day.targets.carbsG,
+        proteinGrams: calculatedTargets.proteinG ?? day.targets.proteinG,
+        fatGrams: calculatedTargets.fatG ?? day.targets.fatG,
+      },
+    }
+  })() : null
+  const activityRecords = workoutRecords.isSample
+    ? createActivityPreview(today)
+    : (() => {
+      const sessions = workoutRecords.sessions.map((session) => ({ date: session.date, nutrition: null, nutritionTargets: null, workout: { minutes: session.minutes, sessions: 1, label: session.category === "Cardio" ? "Cardio" : session.split ?? "Strength" } }))
+      const todaySession = sessions.find((session) => session.date === todayKey)
+      const todayActivity = { date: todayKey, nutrition: nutritionRecord?.nutrition ?? null, nutritionTargets: nutritionRecord?.nutritionTargets ?? null, workout: todaySession?.workout ?? null }
+      return [todayActivity, ...sessions.filter((session) => session.date !== todayKey)]
+    })()
   const financeStart = activityDateKey(activityMonthStart(today))
   const financeEnd = activityDateKey(shiftActivityDate(shiftActivityMonth(today, 1), -1))
   const PrimaryIcon = primaryApp?.icon ?? LayoutGrid
@@ -52,7 +95,7 @@ export default function MobileHomePage() {
       <section className="mobile-home-greeting" aria-labelledby="mobile-home-greeting-title">
         <h2 id="mobile-home-greeting-title">Let’s Make<br />Today Productive</h2>
       </section>
-      <MobileActivityCalendar today={today} records={workoutRecords.isSample ? createActivityPreview(today) : workoutRecords.sessions.map((session) => ({ date: session.date, nutrition: null, nutritionTargets: null, workout: { minutes: session.minutes, sessions: 1, label: session.category === "Cardio" ? "Cardio" : session.split ?? "Strength" } }))} bodyMeasurements={workoutRecords.isSample ? createBodyMeasurementPreview(today) : bodySummary(workoutRecords.observations, activityDateKey(today))} finance={finance} showFinance={financeAvailable} onFinanceRetry={() => setFinanceRetry((value) => value + 1)} isSample={workoutRecords.isSample} showWeek={false} />
+      <MobileActivityCalendar today={today} records={activityRecords} bodyMeasurements={workoutRecords.isSample ? createBodyMeasurementPreview(today) : bodySummary(workoutRecords.observations, todayKey)} finance={finance} showFinance={financeAvailable} onFinanceRetry={() => setFinanceRetry((value) => value + 1)} isSample={workoutRecords.isSample} nutritionState={nutritionState} showWeek={false} />
 
       <section className="mobile-home-plan" aria-labelledby="mobile-home-plan-title">
         <h2 id="mobile-home-plan-title">Your plan</h2>

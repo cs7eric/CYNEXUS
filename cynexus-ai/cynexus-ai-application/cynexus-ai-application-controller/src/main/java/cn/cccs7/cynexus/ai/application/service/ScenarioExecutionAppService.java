@@ -68,14 +68,17 @@ public class ScenarioExecutionAppService {
                 AiExecutionBO execution = scenarioExecutionDomainService.finalizeExecution(prepared.withModel(model), content);
                 aiExecutionTracePort.record(execution.getExecutionNo(), execution.getStatus());
                 if (execution.getStatus() == cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus.SUCCEEDED) {
-                    return aiExecutionAssembler.toDTO(execution);
+                    AiExecuteDTO response = aiExecutionAssembler.toDTO(execution);
+                    response.setProviderCode(model.getProviderCode());
+                    return response;
                 }
                 lastFailure = new IllegalStateException("AI returned invalid output for model " + model.getModelCode());
             } catch (RuntimeException exception) {
                 lastFailure = exception;
             }
         }
-        throw new IllegalStateException("AI scenario execution failed for all available models", lastFailure);
+        throw new IllegalStateException("AI scenario execution failed for all available models: "
+                + rootMessage(lastFailure), lastFailure);
     }
 
     public AiExecuteDTO executeVision(AiVisionExecuteRequest request) {
@@ -83,10 +86,6 @@ public class ScenarioExecutionAppService {
     }
 
     public AiExecuteDTO executeVision(AiVisionExecuteRequest request, String tenantKey, String principalKey) {
-        PreparedScenarioVisionExecution prepared = scenarioExecutionDomainService.prepareVisionExecution(
-                request == null ? null : request.getScenarioCode(),
-                request == null ? null : request.getPreferredModelCode(),
-                request == null ? null : request.getUserInput());
         List<AiImageInputBO> images = request == null || request.getImages() == null
                 ? List.of()
                 : request.getImages().stream()
@@ -96,6 +95,12 @@ public class ScenarioExecutionAppService {
                                 .dataUrl(item.getDataUrl())
                                 .build())
                         .toList();
+        String scenarioCode = request == null ? null : request.getScenarioCode();
+        scenarioExecutionDomainService.validateVisionInput(scenarioCode, images);
+        PreparedScenarioVisionExecution prepared = scenarioExecutionDomainService.prepareVisionExecution(
+                scenarioCode,
+                request == null ? null : request.getPreferredModelCode(),
+                request == null ? null : request.getUserInput());
         RuntimeException lastFailure = null;
         for (var model : prepared.candidateModels()) {
             try {
@@ -104,16 +109,50 @@ public class ScenarioExecutionAppService {
                         prepared.getPromptKey(), prepared.getPromptVersion(), model.getProviderCode(), model.getModelCode(),
                         tenantKey, principalKey, executionNo, TraceId.current());
                 var completion = modelExecutor.completeVision(model, prepared.getPrompt(), images, context);
-                AiExecutionBO execution = scenarioExecutionDomainService.finalizeVisionExecution(prepared.withModel(model), completion.getContent());
+                AiExecutionBO execution = null;
+                RuntimeException firstValidationFailure = null;
+                try {
+                    execution = scenarioExecutionDomainService.finalizeVisionExecution(
+                            prepared.withModel(model), completion.getContent());
+                } catch (RuntimeException validationFailure) {
+                    firstValidationFailure = validationFailure;
+                }
+                if ((execution == null
+                        || execution.getStatus() != cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus.SUCCEEDED)
+                        && "food_nutrition_label_parse".equals(prepared.getCapability())) {
+                    String repairPrompt = scenarioExecutionDomainService.resolveVisionRepairPrompt(
+                            prepared.getCapability(), prepared.getPrompt(), prepared.getOutputSchema(), completion.getContent());
+                    var repaired = modelExecutor.completeVision(model, repairPrompt, images, context.repairAttempt());
+                    execution = scenarioExecutionDomainService.finalizeVisionExecution(
+                            prepared.withModel(model), repaired.getContent());
+                }
+                if (execution == null) {
+                    throw firstValidationFailure == null
+                            ? new IllegalStateException("AI returned no vision execution result") : firstValidationFailure;
+                }
                 aiExecutionTracePort.record(execution.getExecutionNo(), execution.getStatus());
                 if (execution.getStatus() == cn.cccs7.cynexus.ai.domain.execution.AiExecutionStatus.SUCCEEDED) {
-                    return aiExecutionAssembler.toDTO(execution);
+                    AiExecuteDTO response = aiExecutionAssembler.toDTO(execution);
+                    response.setProviderCode(model.getProviderCode());
+                    return response;
                 }
                 lastFailure = new IllegalStateException("AI returned invalid vision output for model " + model.getModelCode());
             } catch (RuntimeException exception) {
                 lastFailure = exception;
             }
         }
-        throw new IllegalStateException("AI vision execution failed for all available models", lastFailure);
+        throw new IllegalStateException("AI vision execution failed for all available models: "
+                + rootMessage(lastFailure), lastFailure);
+    }
+
+    private String rootMessage(Throwable failure) {
+        Throwable current = failure;
+        Throwable last = failure;
+        while (current != null) {
+            last = current;
+            current = current.getCause();
+        }
+        String message = last == null ? null : last.getMessage();
+        return message == null || message.isBlank() ? "unknown provider failure" : message;
     }
 }

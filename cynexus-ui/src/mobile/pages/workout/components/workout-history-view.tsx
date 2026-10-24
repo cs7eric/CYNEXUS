@@ -1,4 +1,4 @@
-import { Activity, ChevronLeft, ChevronRight, Dumbbell, Plus } from "lucide-react"
+import { Activity, ChevronLeft, ChevronRight, Dumbbell, Plus, Trash2 } from "lucide-react"
 import { useState, type CSSProperties } from "react"
 import type { WorkoutSession } from "../lib/model"
 import { historyBounds, historyData, historyDate, historyKey, shiftHistoryPeriod, type HistoryFilter, type HistoryPeriod } from "../lib/history"
@@ -7,17 +7,19 @@ import "./workout-history.css"
 const longDate = (date: Date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 const sessionName = (session: WorkoutSession) => session.category === "Cardio" ? "Cardio" : session.split ?? "Strength"
 
-export function WorkoutHistoryView({ today, sessions, isSample, onLogWorkout, onStartLog }: {
+export function WorkoutHistoryView({ today, sessions, isSample, onLogWorkout, onStartLog, onDeleteSession }: {
   today: Date
   sessions: readonly WorkoutSession[]
   isSample: boolean
   onLogWorkout: (date?: string) => void
   onStartLog: () => void
+  onDeleteSession: (id: string | number) => void
 }) {
   const [period, setPeriod] = useState<HistoryPeriod>("week")
   const [anchor, setAnchor] = useState(() => historyKey(today))
   const [selected, setSelected] = useState(() => historyKey(today))
   const [filter, setFilter] = useState<HistoryFilter>("All")
+  const [confirmDelete, setConfirmDelete] = useState<string | number | null>(null)
   const data = historyData(sessions, historyDate(anchor), period, filter, today)
   const selectedBucket = data.buckets.find(bucket => bucket.key === selected)
   const selectedRecords = data.records.filter(session => session.date === selected)
@@ -77,11 +79,16 @@ export function WorkoutHistoryView({ today, sessions, isSample, onLogWorkout, on
     </section>
     <div className="wh-filter-row"><h3>Training log</h3><div aria-label="Workout type">{(["All", "Strength", "Cardio"] as const).map(value => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{value}</button>)}</div></div>
     <div className="wh-log">
-      {data.records.map(session => <button type="button" className={`wh-session ${session.date === selected ? "is-selected" : ""}`} key={session.id} aria-pressed={session.date === selected} onClick={() => { setSelected(session.date); if (period === "year") { setAnchor(session.date); setPeriod("month") } }}>
-        <span className="wh-session-icon">{session.category === "Cardio" ? <Activity size={19} /> : <Dumbbell size={19} />}</span>
-        <span className="wh-session-content"><strong>{sessionName(session)}</strong><span>{historyDate(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {session.category}</span></span>
-        <span className="wh-session-time">{session.minutes} min<small>{session.category}</small></span>
-      </button>)}
+      {data.records.map(session => <div className={`wh-session-row ${session.date === selected ? "is-selected" : ""}`} key={session.id}>
+        <button type="button" className="wh-session" aria-pressed={session.date === selected} onClick={() => { setSelected(session.date); if (period === "year") { setAnchor(session.date); setPeriod("month") } }}>
+          <span className="wh-session-icon">{session.category === "Cardio" ? <Activity size={19} /> : <Dumbbell size={19} />}</span>
+          <span className="wh-session-content"><strong>{sessionName(session)}</strong><span>{historyDate(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {session.category}</span></span>
+          <span className="wh-session-time">{session.minutes} min<small>{session.category}</small></span>
+        </button>
+        {!isSample && (confirmDelete === session.id ? <div className="wh-session-confirm" role="group" aria-label={`Confirm deletion of ${sessionName(session)} workout`}>
+          <span>Delete?</span><button type="button" onClick={() => { onDeleteSession(session.id); setConfirmDelete(null) }}>Delete</button><button type="button" onClick={() => setConfirmDelete(null)}>Keep</button>
+        </div> : <button type="button" className="wh-session-delete" aria-label={`Delete ${sessionName(session)} workout`} onClick={() => setConfirmDelete(session.id)}><Trash2 size={16} /></button>)}
+      </div>)}
       {!data.records.length && <div className="wh-empty"><p>No {filter === "All" ? "workouts" : filter.toLowerCase() + " workouts"} recorded this {period}.</p><button type="button" onClick={onStartLog}>Log a workout</button></div>}
     </div>
     <div className="wh-selection" aria-live="polite">{period === "year" ? "Select a month to explore its training days." : selectedRecords.length ? selectedRecords.map(session => `${sessionName(session)} · ${longDate(historyDate(session.date))} · ${session.minutes} minutes`).join("; ") : `${longDate(historyDate(selected))} · No ${filter === "All" ? "workout" : filter.toLowerCase() + " workout"} recorded.`}</div>

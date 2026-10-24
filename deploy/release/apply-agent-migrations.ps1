@@ -89,6 +89,12 @@ $migrationFiles = @(
     ,"20260905_add_knowledge_document_identity.sql"
     ,"20260906_repair_pgvector_embedding_column.sql"
     ,"20260907_backfill_knowledge_document_identity.sql"
+    ,"20261019_04_seed_food_fridge_inventory_ai.sql"
+    ,"20261021_01_fix_food_fridge_inventory_ai_prompt.sql"
+    ,"20261021_04_seed_food_fridge_nutrition_match_ai.sql"
+    ,"20261023_02_seed_food_nutrition_label_ai.sql"
+    ,"20261024_02_refine_food_nutrition_label_ai_two_images.sql"
+    ,"20261024_03_refine_food_nutrition_label_ai_food_first.sql"
 )
 
 foreach ($file in $migrationFiles) {

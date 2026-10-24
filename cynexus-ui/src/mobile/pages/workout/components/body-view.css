@@ -7,12 +7,16 @@
 .workout-body-title-actions { display: flex; flex-direction: column; align-items: flex-end; }
 .workout-body-start { color: var(--body-forest); padding: 5px 0; min-height: 44px; background: none; border: none; font-size: 11px !important; font-weight: 650 !important; }
 .workout-body-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #f1f4f2; border-radius: 21px; padding: 16px 0; }
-.workout-body-summary > div { text-align: center; padding: 0 5px; border-right: 1px solid #dbe3dd; min-width: 0; }
+.workout-body-summary > div, .workout-body-summary > button { position: relative; text-align: center; padding: 0 5px; border-right: 1px solid #dbe3dd; min-width: 0; }
+.workout-body-summary > button { appearance: none; border-top: 0; border-bottom: 0; border-left: 0; color: inherit; background: transparent; }
 .workout-body-summary > div:last-child { border: 0; }
+.workout-body-summary > button:focus-visible { z-index: 1; outline: 2px solid #15806b; outline-offset: -2px; border-radius: 13px; }
 .workout-body-summary span, .workout-body-summary time { display: block; color: #64776c; font-size: 10px; line-height: 1.4; }
 .workout-body-summary strong { display: block; font-size: 22px; letter-spacing: -.8px; font-weight: 500; margin: 5px 0; font-variant-numeric: tabular-nums; }
 .workout-body-summary strong small { font-size: 10px; font-weight: 400; margin-left: 3px; letter-spacing: 0; }
 .workout-body-summary .workout-body-summary-note { font-size: 9px; }
+.workout-body-summary-edit { position: absolute; top: -2px; right: 6px; color: #61786b; opacity: .72; }
+.workout-body-summary > button:hover .workout-body-summary-edit, .workout-body-summary > button:focus-visible .workout-body-summary-edit { color: var(--body-forest); opacity: 1; }
 .workout-body-date-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 14px 0 1px; }
 .workout-body-date-row label { display: flex; gap: 5px; align-items: center; font-size: 10px; color: #6a7a71; min-width: 0; }
 .workout-body-date-row input, .workout-body-compare-date input { min-height: 44px; padding: 5px; font: inherit; color: #263d30; border: none; background: transparent; max-width: 142px; min-width: 0; }

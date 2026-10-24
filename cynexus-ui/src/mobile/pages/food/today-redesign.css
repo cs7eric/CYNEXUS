@@ -1,0 +1,673 @@
+.food-today-v2 {
+  --today-ink: #243735;
+  --today-muted: #80918e;
+  --today-line: #e6eeed;
+  --today-green: #39685b;
+  --food-meal-rail: minmax(40px, 1fr);
+  padding: 0 0 28px;
+  color: var(--today-ink);
+}
+
+.mobile-theme:has(.food-today-v2) {
+  background: #f9f9f9;
+  background-image: none;
+}
+
+.food-today-v2 .food-today-section-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 16px 2px 14px;
+}
+
+.food-today-v2 .food-today-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #8a9d99;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.food-today-v2 .food-today-kicker svg {
+  width: 12px;
+  height: 12px;
+}
+
+.food-today-v2 .food-today-section-title h1 {
+  margin-top: 6px;
+  color: var(--today-ink);
+  font-family: "Outfit Display", sans-serif;
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.food-today-v2 .food-today-date {
+  align-items: flex-end;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #536b65;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.food-today-v2 .food-calendar-toolbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 9px;
+  color: #718783;
+  font-size: 12px;
+  text-align: center;
+}
+
+.food-today-v2 .food-calendar-toolbar > span {
+  grid-column: 2;
+  font-weight: 650;
+}
+
+.food-today-v2 .food-calendar-toolbar > button {
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid #dbe8e5;
+  border-radius: 50%;
+  background: #ffffff80;
+}
+
+.food-today-v2 .food-calendar-toolbar > button:first-child { grid-column: 1; grid-row: 1; }
+.food-today-v2 .food-calendar-toolbar > button:last-child { grid-column: 3; grid-row: 1; margin-left: 0; }
+
+.food-today-v2 .food-calendar-toolbar .food-back-today {
+  position: absolute;
+  right: 43px;
+  min-width: auto;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #e6f0ee;
+  color: var(--today-green);
+  font-size: 9px;
+}
+
+.food-today-v2 .food-week-strip {
+  gap: 6px;
+  margin: 0 0 2px;
+}
+
+.food-today-v2 .food-week-strip > button {
+  height: 66px;
+  gap: 7px;
+  border: 1px solid #d9e7e5;
+  border-radius: 21px;
+  background: #ffffff20;
+  color: #82938f;
+}
+
+.food-today-v2 .food-week-strip small {
+  color: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.food-today-v2 .food-week-strip strong {
+  color: inherit;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.food-today-v2 .food-week-strip > button[aria-pressed="true"] {
+  border-color: var(--today-green);
+  background: var(--today-green);
+  color: #fff;
+  box-shadow: 0 8px 18px -14px #234d42;
+}
+
+.food-today-v2 .food-week-strip i {
+  bottom: 7px;
+  width: 3px;
+  height: 3px;
+}
+
+.food-today-v2 .food-daily-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.food-today-v2 .food-calorie-card,
+.food-today-v2 .food-macro-card {
+  min-width: 0;
+  border-radius: 25px;
+  background: #fff;
+  box-shadow: 0 11px 28px -24px #46655d66;
+}
+
+.food-today-v2 .food-calorie-card {
+  padding: 7px 15px 5px;
+}
+
+.food-today-v2 .food-macro-card {
+  padding: 9px 14px;
+}
+
+.food-today-v2 .food-summary-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.food-today-v2 .food-summary-heading p {
+  margin-bottom: 6px;
+  color: #869692;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.food-today-v2 .food-summary-heading strong {
+  color: var(--today-ink);
+  font-family: "Outfit Display", sans-serif;
+  font-size: 42px;
+  font-weight: 500;
+  letter-spacing: -1.4px;
+  line-height: .9;
+  font-variant-numeric: tabular-nums;
+}
+
+.food-today-v2 .food-summary-heading > div:first-child > span {
+  margin-left: 5px;
+  color: #7b8e89;
+  font-size: 11px;
+}
+
+.food-today-v2 .food-summary-target {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  padding-bottom: 2px;
+  text-align: right;
+}
+
+.food-today-v2 .food-summary-target small {
+  color: #8a9b97;
+  font-size: 9px;
+}
+
+.food-today-v2 .food-summary-target b {
+  color: #71827e;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.food-today-v2 .food-summary-meter {
+  height: 5px;
+  margin: 16px 0 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edf2f0;
+}
+
+.food-today-v2 .food-summary-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #8bbba8;
+  transition: width 180ms ease-out;
+}
+
+.food-today-v2 .food-summary-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #8a9a96;
+  font-size: 9px;
+}
+
+.food-today-v2 .food-energy-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.food-today-v2 .food-energy-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #c1a154;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.food-today-v2 .food-energy-kicker svg {
+  width: 12px;
+  height: 12px;
+}
+
+.food-today-v2 .food-energy-target {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  color: #8c9794;
+  text-align: right;
+}
+
+.food-today-v2 .food-energy-target small,
+.food-today-v2 .food-energy-stats small {
+  font-size: 8px;
+}
+
+.food-today-v2 .food-energy-target b {
+  color: #8a9692;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.food-today-v2 .food-energy-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.food-today-v2 .food-energy-main strong {
+  color: #78b74f;
+  font-family: "Outfit Display", sans-serif;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -.8px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.food-today-v2 .food-energy-main span {
+  color: #7c9790;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.food-today-v2 .food-energy-stats {
+  display: flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  gap: 16px;
+  min-width: 0;
+}
+
+.food-today-v2 .food-energy-stats > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: #7f8f8b;
+}
+
+.food-today-v2 .food-energy-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.food-today-v2 .food-energy-stats strong {
+  color: #73827f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.food-today-v2 .food-energy-stats em {
+  color: #899793;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.food-today-v2 .food-energy-meter {
+  flex: 1 1 auto;
+  max-width: 165px;
+  min-width: 0;
+  margin: 0 0 0 auto;
+}
+
+.food-today-v2 .food-energy-lower {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 2px;
+}
+
+.food-today-v2 .food-energy-meter-segments {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0;
+  height: 17px;
+  padding: 0 1px;
+}
+
+.food-today-v2 .food-energy-meter-segments i {
+  display: block;
+  width: 3px;
+  height: 11px;
+  border-radius: 2px;
+  background: #9ed077;
+  transform: scaleY(.72);
+}
+
+.food-today-v2 .food-energy-meter-segments i:nth-child(3n) { height: 15px; }
+.food-today-v2 .food-energy-meter-segments i.is-budget { background: #e1bd61; }
+.food-today-v2 .food-energy-meter-segments i.is-limit { background: #d98776; }
+
+.food-today-v2 .food-energy-meter-segments b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--food-meter-marker, 0%);
+  width: 1px;
+  background: #7c8985;
+  transform: translateX(-50%);
+}
+
+.food-today-v2 .food-macro-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.food-today-v2 .food-macro-ring {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.food-today-v2 .food-macro-ring-visual {
+  --food-progress: 0%;
+  --food-ring-color: #76b2b1;
+  position: relative;
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--food-ring-color) 0 var(--food-progress), color-mix(in srgb, var(--food-ring-color) 14%, #fff) var(--food-progress) 100%);
+}
+
+.food-today-v2 .food-macro-ring-visual::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+
+.food-today-v2 .food-macro-ring-visual span {
+  position: relative;
+  z-index: 1;
+  color: #385650;
+  font-size: 8px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.food-today-v2 .food-macro-ring-carbsG .food-macro-ring-visual { --food-ring-color: #e3b65b; }
+.food-today-v2 .food-macro-ring-proteinG .food-macro-ring-visual { --food-ring-color: #77a9d0; }
+.food-today-v2 .food-macro-ring-fatG .food-macro-ring-visual { --food-ring-color: #82b98d; }
+
+.food-today-v2 .food-macro-ring p {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  color: #536c67;
+  font-size: 8px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.food-today-v2 .food-macro-ring p svg { width: 10px; height: 10px; }
+.food-today-v2 .food-macro-ring small { display: block; margin-top: 2px; color: #8a9a96; font-size: 7px; white-space: nowrap; }
+
+.food-today-v2 .food-meal-list {
+  display: grid;
+  gap: 16px;
+  margin: 17px 0 0;
+}
+
+.food-today-v2 .food-meal-pair {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.food-today-v2 .food-meal-swipe-track {
+  display: flex;
+  align-items: stretch;
+  width: calc(100% + 128px);
+  transition: transform 220ms ease-out;
+  will-change: transform;
+}
+
+.food-today-v2 .food-meal-pair.is-snack-revealed .food-meal-swipe-track {
+  transform: translateX(-128px);
+}
+
+.food-today-v2 .food-meal-swipe-track > .food-meal-dinner {
+  flex: 0 0 calc(100% - 128px);
+}
+
+.food-today-v2 .food-meal-snack-slide {
+  flex: 0 0 128px;
+  min-width: 0;
+  padding-left: 8px;
+}
+
+.food-today-v2 .food-meal-snack-slide > .food-meal-card-compact {
+  display: block;
+  height: 100%;
+}
+
+.food-today-v2 .food-meal-snack-slide .food-meal-card-compact .food-meal-card-body {
+  height: 100%;
+}
+
+.food-today-v2 .food-meal-card {
+  display: grid;
+  grid-template-columns: var(--food-meal-rail) minmax(0, 6fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.food-today-v2 .food-meal-rail {
+  position: relative;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.food-today-v2 .food-meal-symbol {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  margin-top: 3px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #e5f0e8;
+  color: #76a082;
+}
+
+.food-today-v2 .food-meal-symbol svg { width: 18px; height: 18px; }
+.food-today-v2 .food-meal-lunch .food-meal-symbol { background: #f3edda; color: #c8a65c; }
+.food-today-v2 .food-meal-dinner .food-meal-symbol { background: #eeedf7; color: #8d8bb8; }
+.food-today-v2 .food-meal-snack .food-meal-symbol { background: #f7e6de; color: #c98a72; }
+
+.food-today-v2 .food-meal-rail > i {
+  position: absolute;
+  top: 40px;
+  bottom: -17px;
+  left: 18px;
+  width: 2px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(to bottom, #c8d9d5 0 8px, transparent 8px 15px);
+  content: "";
+}
+
+.food-today-v2 .food-meal-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100px;
+  box-sizing: border-box;
+  padding: 5px 14px 7px;
+  border: 1px solid #f0f4f3;
+  border-radius: 21px;
+  background: #fff;
+  box-shadow: 0 8px 18px -22px #476a604f;
+}
+
+.food-today-v2 .food-meal-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.food-today-v2 .food-meal-card-head h2 {
+  color: var(--today-ink);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.food-today-v2 .food-meal-card-head > span {
+  color: #1f2f2d;
+  font-size: 15px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+  .food-today-v2 .food-meal-card-head > span small { color: #84928f; font-size: 9px; font-weight: 700; }
+
+.food-today-v2 .food-meal-foods {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  min-height: 44px;
+  padding-inline: 8px;
+}
+
+.food-today-v2 .food-meal-foods.is-empty {
+  flex: 1;
+}
+
+.food-today-v2 .food-food-item,
+.food-today-v2 .food-food-add,
+.food-today-v2 .food-food-more {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.food-today-v2 .food-food-item {
+  height: 66px;
+  min-height: 66px;
+  overflow: visible;
+  grid-template-rows: 12px 42px 12px;
+  gap: 0;
+  align-items: center;
+  border-radius: 14px;
+  background: transparent;
+}
+.food-today-v2 .food-food-item .food-art { width: 42px; height: 42px; border-radius: 50%; pointer-events: none; }
+.food-today-v2 .food-food-item .food-art-placeholder { background: #f5f7f4; }
+.food-today-v2 .food-food-item-label { display: contents; }
+.food-today-v2 .food-food-item-label strong,
+.food-today-v2 .food-food-item-label small { overflow: hidden; color: #788984; font-size: 8px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.food-today-v2 .food-food-item-label small { grid-row: 1; max-width: 66px; }
+.food-today-v2 .food-food-item-label strong { grid-row: 3; max-width: 66px; }
+.food-today-v2 .food-food-item-label small { color: #a0aca9; font-size: 7px; font-weight: 500; }
+.food-today-v2 .food-food-add {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: linear-gradient(#fff, #fff) padding-box,
+    repeating-conic-gradient(from -2deg, #c8cecc 0 13deg, transparent 13deg 29deg) border-box;
+  color: #9ca3a1;
+}
+.food-today-v2 .food-food-add svg { width: 12px; height: 12px; stroke-width: 1.3; }
+.food-today-v2 .food-food-more { border: 1px solid #dfe9e5; background: #eef5f2; color: #5d7a71; font-size: 11px; font-weight: 750; }
+
+.food-today-v2 .food-today-hint {
+  margin: 17px 0 12px;
+  color: #9aa9a5;
+  font-size: 9px;
+  text-align: center;
+}
+
+.food-today-v2 .food-complete-day {
+  min-height: 44px;
+  margin: 8px auto 0;
+  color: #71817d;
+  font-size: 10px;
+}
+
+@media (max-width: 359px) {
+  .food-today-v2 .food-today-section-title h1 { font-size: 24px; }
+  .food-today-v2 .food-today-date { max-width: 106px; overflow: hidden; font-size: 9px; }
+  .food-today-v2 .food-week-strip { gap: 4px; }
+  .food-today-v2 .food-week-strip > button { height: 61px; border-radius: 18px; }
+  .food-today-v2 .food-week-strip strong { font-size: 15px; }
+  .food-today-v2 .food-calorie-card,
+  .food-today-v2 .food-macro-card { padding-inline: 14px; }
+  .food-today-v2 .food-summary-heading strong { font-size: 36px; }
+  .food-today-v2 .food-summary-target b { font-size: 10px; }
+  .food-today-v2 .food-macro-strip { gap: 5px; }
+  .food-today-v2 .food-macro-ring { gap: 4px; }
+  .food-today-v2 .food-macro-ring-visual { width: 28px; height: 28px; flex-basis: 28px; }
+  .food-today-v2 .food-macro-ring p { font-size: 7px; }
+  .food-today-v2 .food-macro-ring p svg { width: 9px; height: 9px; }
+  .food-today-v2 .food-macro-ring small { font-size: 6px; white-space: normal; line-height: 1.2; }
+  .food-today-v2 { --food-meal-rail: minmax(36px, 1fr); }
+  .food-today-v2 .food-meal-card { gap: 6px; }
+  .food-today-v2 .food-meal-swipe-track { width: calc(100% + 112px); }
+  .food-today-v2 .food-meal-pair.is-snack-revealed .food-meal-swipe-track { transform: translateX(-112px); }
+  .food-today-v2 .food-meal-swipe-track > .food-meal-dinner { flex-basis: calc(100% - 112px); }
+  .food-today-v2 .food-meal-snack-slide { flex-basis: 112px; padding-left: 6px; }
+  .food-today-v2 .food-meal-card-body { padding: 5px 11px 8px; }
+  .food-today-v2 .food-meal-foods { padding-inline: 6px; }
+  .food-today-v2 .food-energy-meter { max-width: 145px; }
+  .food-today-v2 .food-food-item,
+  .food-today-v2 .food-food-more { width: 38px; height: 38px; flex-basis: 38px; }
+  .food-today-v2 .food-food-add { width: 34px; height: 34px; flex-basis: 34px; }
+  .food-today-v2 .food-food-item .food-art { width: 40px; height: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .food-today-v2 .food-summary-meter i { transition: none; }
+}

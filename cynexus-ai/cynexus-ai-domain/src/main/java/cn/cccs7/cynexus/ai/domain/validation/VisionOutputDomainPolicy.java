@@ -3,7 +3,7 @@ package cn.cccs7.cynexus.ai.domain.validation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/** Domain semantic checks for the four supported vision capabilities. */
+/** Domain semantic checks for supported vision capabilities. */
 public final class VisionOutputDomainPolicy {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private VisionOutputDomainPolicy() { }
@@ -18,6 +18,7 @@ public final class VisionOutputDomainPolicy {
                 case "portfolio_trade_screenshot_parse" -> validTrade(root);
                 case "portfolio_trade_screenshot_review" -> validReview(root);
                 case "wechat_image_route" -> validRoute(root);
+                case "food_nutrition_label_parse" -> validNutritionLabel(root);
                 default -> true;
             };
         } catch (Exception ignored) { return false; }
@@ -66,5 +67,56 @@ public final class VisionOutputDomainPolicy {
                 && java.util.Set.of("ACCOUNTING_RECEIPT", "PORTFOLIO_TRADE", "UNKNOWN").contains(route.asText())
                 && root.has("confidence") && root.get("confidence").isNumber()
                 && root.get("confidence").asDouble() >= 0 && root.get("confidence").asDouble() <= 1;
+    }
+
+    private static boolean validNutritionLabel(JsonNode root) {
+        JsonNode recognized = root.get("recognized");
+        JsonNode name = root.get("foodName");
+        JsonNode brand = root.get("brand");
+        JsonNode basis = root.get("basis");
+        JsonNode servingSize = root.get("servingSizeGrams");
+        JsonNode nutrition = root.get("nutrition");
+        JsonNode confidence = root.get("confidence");
+        if (recognized == null || !recognized.isBoolean()
+                || !nullableText(name, 200) || !nullableText(brand, 200)
+                || basis == null || !basis.isTextual()
+                || !java.util.Set.of("per_100g", "per_serving", "unknown").contains(basis.asText())
+                || !nullablePositive(servingSize, 1_000_000)
+                || nutrition == null || !nutrition.isObject()
+                || !hasOnlyFields(root, "recognized", "foodName", "brand", "basis", "servingSizeGrams", "nutrition", "confidence")
+                || !hasOnlyFields(nutrition, "caloriesKcal", "carbsG", "proteinG", "fatG")
+                || confidence == null || !confidence.isTextual()
+                || !java.util.Set.of("high", "medium", "low").contains(confidence.asText())) return false;
+
+        String[] keys = {"caloriesKcal", "carbsG", "proteinG", "fatG"};
+        boolean hasValue = false;
+        for (String key : keys) {
+            JsonNode value = nutrition.get(key);
+            if (!nullableNonNegative(value, 10_000_000)) return false;
+            hasValue |= value != null && !value.isNull();
+        }
+        return recognized.asBoolean() || !hasValue;
+    }
+
+    private static boolean hasOnlyFields(JsonNode value, String... names) {
+        if (value.size() != names.length) return false;
+        for (String name : names) if (!value.has(name)) return false;
+        return true;
+    }
+
+    private static boolean nullableText(JsonNode value, int maxLength) {
+        return value != null && (value.isNull() || value.isTextual() && value.asText().length() <= maxLength);
+    }
+
+    private static boolean nullablePositive(JsonNode value, int maxValue) {
+        return value != null && (value.isNull() || value.isNumber()
+                && value.decimalValue().signum() > 0
+                && value.decimalValue().compareTo(java.math.BigDecimal.valueOf(maxValue)) <= 0);
+    }
+
+    private static boolean nullableNonNegative(JsonNode value, int maxValue) {
+        return value != null && (value.isNull() || value.isNumber()
+                && value.decimalValue().signum() >= 0
+                && value.decimalValue().compareTo(java.math.BigDecimal.valueOf(maxValue)) <= 0);
     }
 }

@@ -72,6 +72,79 @@ class ApplicationAnalysisRoutingDomainServiceImplTest {
                 .containsExactly("openai_compatible/gpt-5.4-mini", "custom/gpt-5.4", "custom/gpt-5.4-mini");
     }
 
+    @Test
+    void bindingModelOverrideWinsOverRequestPreference() {
+        AiUsageBindingBO binding = AiUsageBindingBO.builder().capability("food_fridge_inventory")
+                .providerId(21L).enabled(true).modelOverride("gpt-6.1-sol").build();
+        AiProviderBO provider = AiProviderBO.builder().id(21L).code("xtyoo").providerType("xtyoo")
+                .defaultModel("gpt-6.1-sol").enabled(true).build();
+        var service = new ApplicationAnalysisRoutingDomainServiceImpl(new ModelRepository(),
+                new BindingRepository(binding), new ProviderRepository(provider), new ModelRouter());
+
+        var models = service.routeModels("food_fridge_inventory", "another-model");
+
+        assertThat(models).extracting(item -> item.getProviderCode() + "/" + item.getModelCode())
+                .startsWith("xtyoo/gpt-6.1-sol");
+    }
+
+    @Test
+    void fridgeInventoryDoesNotSilentlyFallBackToAnUnboundProvider() {
+        var service = new ApplicationAnalysisRoutingDomainServiceImpl(new ModelRepository(),
+                new BindingRepository(null), new ProviderRepository(List.of()), new ModelRouter());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.routeModels("food_fridge_inventory", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("food fridge inventory");
+    }
+
+    @Test
+    void fridgeNutritionMatchingUsesItsStructuredBindingAndDoesNotUseGenericFallback() {
+        AiUsageBindingBO binding = AiUsageBindingBO.builder().capability("food_fridge_nutrition_match")
+                .providerId(31L).enabled(true).modelOverride("gpt-6.1-sol").build();
+        AiProviderBO provider = AiProviderBO.builder().id(31L).code("xtyoo").providerType("xtyoo")
+                .defaultModel("gpt-6.1-sol").enabled(true).build();
+        var service = new ApplicationAnalysisRoutingDomainServiceImpl(new ModelRepository(),
+                new BindingRepository(binding), new ProviderRepository(provider), new ModelRouter());
+
+        var model = service.routeModels("food_fridge_nutrition_match", "other-model").getFirst();
+
+        assertThat(model.getProviderCode()).isEqualTo("xtyoo");
+        assertThat(model.getModelCode()).isEqualTo("gpt-6.1-sol");
+        assertThat(model.getCapability().isStructuredOutputSupported()).isTrue();
+        var unbound = new ApplicationAnalysisRoutingDomainServiceImpl(new ModelRepository(),
+                new BindingRepository(null), new ProviderRepository(List.of()), new ModelRouter());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> unbound.routeModels("food_fridge_nutrition_match", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("food fridge nutrition matching");
+    }
+
+    @Test
+    void foodNutritionLabelUsesItsBoundVisionModel() {
+        AiUsageBindingBO binding = AiUsageBindingBO.builder().capability("food_nutrition_label_parse")
+                .providerId(41L).enabled(true).modelOverride("gpt-6.1-sol").build();
+        AiProviderBO provider = AiProviderBO.builder().id(41L).code("xtyoo").providerType("xtyoo")
+                .defaultModel("gpt-6.1-sol").enabled(true).build();
+        var service = new ApplicationAnalysisRoutingDomainServiceImpl(new ModelRepository(),
+                new BindingRepository(binding), new ProviderRepository(provider), new ModelRouter());
+
+        var model = service.routeModels("food_nutrition_label_parse", null).getFirst();
+
+        assertThat(model.getProviderCode()).isEqualTo("xtyoo");
+        assertThat(model.getModelCode()).isEqualTo("gpt-6.1-sol");
+        assertThat(model.getCapability().isVisionSupported()).isTrue();
+        assertThat(model.getCapability().isStructuredOutputSupported()).isTrue();
+    }
+
+    @Test
+    void foodNutritionLabelDoesNotSilentlyUseAnUnboundProvider() {
+        var service = new ApplicationAnalysisRoutingDomainServiceImpl(new ModelRepository(),
+                new BindingRepository(null), new ProviderRepository(List.of()), new ModelRouter());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.routeModels("food_nutrition_label_parse", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("food nutrition label recognition");
+    }
+
     private static final class ModelRepository implements AiModelRepository {
         @Override public List<cn.cccs7.cynexus.ai.domain.entity.AiModelBO> findEnabledModels() { return List.of(); }
     }
@@ -79,7 +152,7 @@ class ApplicationAnalysisRoutingDomainServiceImplTest {
     private static final class BindingRepository implements AiUsageBindingRepository {
         private final AiUsageBindingBO binding;
         private BindingRepository(AiUsageBindingBO binding) { this.binding = binding; }
-        @Override public List<AiUsageBindingBO> listAll() { return List.of(binding); }
+        @Override public List<AiUsageBindingBO> listAll() { return binding == null ? List.of() : List.of(binding); }
         @Override public AiUsageBindingBO findById(Long id) { return binding; }
         @Override public Long create(AiUsageBindingBO value) { return 1L; }
         @Override public boolean update(AiUsageBindingBO value) { return true; }

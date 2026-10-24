@@ -6,15 +6,38 @@ import cn.cccs7.cynexus.ai.domain.applicationanalysis.ApplicationAnalysisRouting
 import cn.cccs7.cynexus.ai.domain.entity.AiModelBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiPromptBO;
 import cn.cccs7.cynexus.ai.domain.entity.AiUsageBindingBO;
+import cn.cccs7.cynexus.ai.domain.port.RepositoryAiPromptRuntimeResolver;
 import cn.cccs7.cynexus.ai.domain.repository.AiPromptRepository;
 import cn.cccs7.cynexus.ai.domain.service.routing.ModelRouteDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainService;
 import cn.cccs7.cynexus.ai.domain.validation.OutputValidationDomainServiceImpl;
 import cn.cccs7.cynexus.ai.domain.valueobject.ModelCapability;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ScenarioExecutionDomainServiceTest {
+
+    @Test
+    void selectsHighestActivePromptVersionWhenBindingIsUnavailable() {
+        AiPromptBO v1 = AiPromptBO.builder().promptKey("food_fridge_inventory").promptVersion("v1")
+                .status("active").systemPrompt("old").userPromptTemplate("{{user_input}}").build();
+        AiPromptBO v2 = AiPromptBO.builder().promptKey("food_fridge_inventory").promptVersion("v2")
+                .status("active").systemPrompt("current").userPromptTemplate("{{user_input}}").build();
+        AiPromptRepository prompts = new AiPromptRepository() {
+            @Override public List<AiPromptBO> list(String keyword, String scenarioCode, String status) { return List.of(v1, v2); }
+            @Override public AiPromptBO findById(Long id) { return null; }
+            @Override public Long create(AiPromptBO value) { return null; }
+            @Override public boolean update(AiPromptBO value) { return false; }
+            @Override public boolean delete(Long id) { return false; }
+        };
+        var resolver = new RepositoryAiPromptRuntimeResolver(new Routing(null, (AiModelBO) null), prompts);
+
+        var resolved = resolver.resolve("food_fridge_inventory", "food_fridge_inventory", "fallback", "{{user_input}}");
+
+        assertThat(resolved.promptVersion()).isEqualTo("v2");
+        assertThat(resolved.systemPrompt()).isEqualTo("current");
+    }
 
     @Test
     void routesTheFirstEnabledBindingAndResolvesItsModel() {
@@ -114,6 +137,84 @@ class ScenarioExecutionDomainServiceTest {
         assertThat(prepared.getScenario().getScenarioName()).contains("WeChat");
         assertThat(prepared.getCapability()).isEqualTo("wechat_image_route");
         assertThat(prepared.getModel()).isSameAs(model);
+    }
+
+    @Test
+    void preparesFridgeInventoryThroughItsBoundCapability() {
+        AiModelBO model = AiModelBO.builder()
+                .modelCode("gpt-6.1-sol").enabled(true)
+                .capability(ModelCapability.builder().structuredOutputSupported(true).build())
+                .build();
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(AiUsageBindingBO.builder().capability("food_fridge_inventory").enabled(true).build(), model),
+                emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+
+        var prepared = service.prepareTextExecution("food_fridge_inventory", null, "two bottles of milk", Map.of(), List.of());
+
+        assertThat(prepared.getModel()).isSameAs(model);
+        assertThat(prepared.getPrompt()).contains("fridge inventory extraction assistant");
+        assertThat(prepared.getPromptKey()).isEqualTo("food_fridge_inventory");
+        assertThat(prepared.getToolCodes()).isEmpty();
+    }
+
+    @Test
+    void preparesFridgeNutritionMatchThroughItsBoundPromptAndCandidateInput() {
+        AiModelBO model = AiModelBO.builder()
+                .modelCode("gpt-6.1-sol").enabled(true)
+                .capability(ModelCapability.builder().structuredOutputSupported(true).build())
+                .build();
+        String outputSchema = "{\"type\":\"object\",\"required\":[\"matches\"]}";
+        AiUsageBindingBO binding = AiUsageBindingBO.builder()
+                .capability("food_fridge_nutrition_match").enabled(true).promptId(42L).build();
+        AiPromptBO prompt = AiPromptBO.builder()
+                .promptKey("food_fridge_nutrition_match").promptVersion("v1").status("active")
+                .systemPrompt("Rank supplied nutrition candidates only.")
+                .userPromptTemplate("Food items and bounded nutrition candidates:\n{{candidate_input}}")
+                .variables("[\"candidate_input\"]").outputSchema(outputSchema).build();
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(binding, model), promptRepository(prompt), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+        String candidateInput = "[{\"name\":\"chicken breast\",\"candidates\":[{\"id\":\"food-123\"}]}]";
+
+        var prepared = service.prepareTextExecution("food_fridge_nutrition_match", null, "",
+                Map.of("candidate_input", candidateInput), List.of("unrelated_tool"));
+
+        assertThat(prepared.getModel()).isSameAs(model);
+        assertThat(prepared.getScenario().getScenarioCode()).isEqualTo("food_fridge_nutrition_match");
+        assertThat(prepared.getPrompt()).isEqualTo("Rank supplied nutrition candidates only."
+                + System.lineSeparator() + "Food items and bounded nutrition candidates:\n" + candidateInput);
+        assertThat(prepared.getPromptKey()).isEqualTo("food_fridge_nutrition_match");
+        assertThat(prepared.getPromptVersion()).isEqualTo("v1");
+        assertThat(prepared.getOutputSchema()).isEqualTo(outputSchema);
+        assertThat(prepared.getToolCodes()).isEmpty();
+        assertThat(service.finalizeExecution(prepared, "{\"matches\":[]}").getStatus().name()).isEqualTo("SUCCEEDED");
+    }
+
+    @Test
+    void fridgeNutritionMatchUsesBoundedFallbackPromptAndSchemaWhenPromptRowIsMissing() {
+        AiModelBO model = AiModelBO.builder()
+                .modelCode("gpt-6.1-sol").enabled(true)
+                .capability(ModelCapability.builder().structuredOutputSupported(true).build())
+                .build();
+        AiUsageBindingBO binding = AiUsageBindingBO.builder()
+                .capability("food_fridge_nutrition_match").enabled(true).promptId(42L).build();
+        ScenarioExecutionDomainService service = new ScenarioExecutionDomainServiceImpl(
+                new Routing(binding, model), emptyPromptRepository(), unusedModelRoute(), new OutputValidationDomainServiceImpl());
+        String candidateInput = "{\"name\":\"oats\",\"candidates\":[]}";
+
+        var prepared = service.prepareTextExecution("food_fridge_nutrition_match", null, "",
+                Map.of("candidate_input", candidateInput), List.of());
+
+        assertThat(prepared.getPrompt()).contains("Rank each food name against only the supplied nutrition candidates")
+                .contains("return its exact itemIndex")
+                .contains("Never invent candidate IDs, names, brands, or nutrient values")
+                .contains("Food items and bounded nutrition candidates:")
+                .contains(candidateInput);
+        assertThat(prepared.getPromptKey()).isEqualTo("food_fridge_nutrition_match");
+        assertThat(prepared.getOutputSchema()).contains("\"required\":[\"matches\"]")
+                .contains("\"itemIndex\"").contains("\"selectedId\"").contains("\"rankedIds\"");
+        assertThat(service.finalizeExecution(prepared, "{\"matches\":[]}").getStatus().name()).isEqualTo("SUCCEEDED");
+        assertThat(service.finalizeExecution(prepared, "{\"matches\":[{}]}").getStatus().name())
+                .isEqualTo("FAILED");
     }
 
     @Test

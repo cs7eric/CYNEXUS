@@ -77,10 +77,10 @@ function FinanceActivity({ workspaceId }: { workspaceId: string }) {
     if (action?.mobileAction !== "finance-entry" || !action.requestId) return
     const timer = window.setTimeout(() => {
       setEntry({ type: "expense" })
-      navigate({ hash: "#finance-activity" }, { replace: true, state: null })
+      navigate({ pathname: location.pathname, search: location.search, hash: "#finance-activity" }, { replace: true, state: null })
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [action?.mobileAction, action?.requestId, navigate])
+  }, [action?.mobileAction, action?.requestId, location.pathname, location.search, navigate])
   useEffect(() => {
     if (!notice) return
     const timer = window.setTimeout(() => setNotice(""), 4500)

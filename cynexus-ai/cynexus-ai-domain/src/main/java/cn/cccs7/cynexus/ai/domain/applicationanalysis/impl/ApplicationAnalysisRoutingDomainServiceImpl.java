@@ -29,7 +29,8 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
             "accounting_receipt_parse", "portfolio_trade_screenshot_parse", "portfolio_trade_screenshot_review",
             "wechat_image_route", "auction_analysis", "market_information_event_analysis",
             "market_information_daily_brief", "market_futures_position_analysis",
-            "market_indicator_replay_explanation", "knowledge_base_document_generate", "knowledge_base_rag_answer");
+            "market_indicator_replay_explanation", "knowledge_base_document_generate", "knowledge_base_rag_answer",
+            "food_fridge_inventory", "food_fridge_nutrition_match", "food_nutrition_label_parse");
 
     private final AiModelRepository modelRepository;
     private final AiUsageBindingRepository bindingRepository;
@@ -62,6 +63,15 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
         if (!models.isEmpty()) {
             return models;
         }
+        if ("food_fridge_inventory".equals(normalize(capability))) {
+            throw new IllegalStateException("No enabled AI provider is bound to food fridge inventory recognition.");
+        }
+        if ("food_fridge_nutrition_match".equals(normalize(capability))) {
+            throw new IllegalStateException("No enabled AI provider is bound to food fridge nutrition matching.");
+        }
+        if ("food_nutrition_label_parse".equals(normalize(capability))) {
+            throw new IllegalStateException("No enabled AI provider is bound to food nutrition label recognition.");
+        }
         AiScenarioBO scenario = AiScenarioBO.builder()
                 .scenarioCode(capability).scenarioName("Application Analysis " + capability)
                 .defaultModelCode(null).maxToolCalls(0).toolCallRequired(false)
@@ -84,8 +94,11 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
             return List.of();
         }
         Set<String> names = new LinkedHashSet<>();
-        add(names, preferredModelCode);
+        // A persisted binding is the authoritative route for a capability. The
+        // request-level preference is only useful when the binding leaves the
+        // model open, so it must not silently override model_override.
         add(names, binding.getModelOverride());
+        add(names, preferredModelCode);
         addArray(names, binding.getParams(), "fallback_chain");
         addArray(names, binding.getParams(), "fallback_models");
         add(names, provider.getDefaultModel());
@@ -154,7 +167,8 @@ public class ApplicationAnalysisRoutingDomainServiceImpl implements ApplicationA
                 .capability(ModelCapability.builder()
                         .structuredOutputSupported(STRUCTURED_CAPABILITIES.contains(capabilityOf(binding)))
                         .visionSupported(Set.of("accounting_receipt_parse", "portfolio_trade_screenshot_parse",
-                                "portfolio_trade_screenshot_review", "wechat_image_route").contains(capabilityOf(binding)))
+                                "portfolio_trade_screenshot_review", "wechat_image_route", "food_nutrition_label_parse")
+                                .contains(capabilityOf(binding)))
                         .build()).enabled(true).build();
     }
 

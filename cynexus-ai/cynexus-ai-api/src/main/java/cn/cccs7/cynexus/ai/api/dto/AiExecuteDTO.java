@@ -15,6 +15,7 @@ public class AiExecuteDTO {
 
     private String executionNo;
     private String scenarioCode;
+    private String providerCode;
     private String modelCode;
     private String status;
     private String content;

@@ -47,6 +47,7 @@ export interface DiaryItem {
   per100g: Nutrients
   nutrients: Nutrients
   assetKey?: string | null
+  assetUrl?: string | null
   sourceFridgeItemId?: string | null
   sourceFridgeQuantity?: number | null
   sourceFridgeUnit?: string | null

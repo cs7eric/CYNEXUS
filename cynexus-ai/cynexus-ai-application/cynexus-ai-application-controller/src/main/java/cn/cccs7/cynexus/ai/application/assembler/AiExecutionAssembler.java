@@ -12,6 +12,7 @@ import org.mapstruct.MappingConstants;
 public interface AiExecutionAssembler {
 
     @Mapping(target = "scenarioCode", source = "scenario.scenarioCode")
+    @Mapping(target = "providerCode", ignore = true)
     @Mapping(target = "status", expression = "java(source.getStatus().name())")
     AiExecuteDTO toDTO(AiExecutionBO source);
 

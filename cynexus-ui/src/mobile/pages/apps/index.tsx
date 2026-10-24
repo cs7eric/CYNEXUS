@@ -10,6 +10,7 @@ export default function MobileAppsPage() {
   const { workspaceId, workspace } = useWorkspace()
   const groups = getMobileAppGroups(workspaceId)
   const count = groups.reduce((total, group) => total + group.items.length, 0) + mobileFeatureApps.length
+  const featuredCount: number = mobileFeatureApps.length
   const shared = groups.find((group) => group.id === "shared")
 
   return (
@@ -34,7 +35,7 @@ export default function MobileAppsPage() {
       )}
 
       <section aria-labelledby="mobile-group-featured">
-        <div className="mobile-apps-section-heading"><h3 id="mobile-group-featured">Personal apps</h3><span>{mobileFeatureApps.length} {mobileFeatureApps.length === 1 ? "app" : "apps"}</span></div>
+        <div className="mobile-apps-section-heading"><h3 id="mobile-group-featured">Personal apps</h3><span>{featuredCount} {featuredCount === 1 ? "app" : "apps"}</span></div>
         <div className="mobile-apps-shared mobile-apps-featured">
           {mobileFeatureApps.map(({ href, label, icon: Icon }) => (
             <Link key={href} to={href} className="mobile-apps-feature mobile-apps-feature-workout">

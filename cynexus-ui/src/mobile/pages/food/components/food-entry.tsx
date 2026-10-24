@@ -1,8 +1,11 @@
-import { ArrowLeft, Star, Trash2 } from "lucide-react"
-import { useState, type FormEvent } from "react"
-import { addFavorite, announceFoodChange, createCustomFood, createFridgeMeal, createItem, deleteFavorite, deleteItem, updateItem } from "@/services/food/api"
+import { ArrowLeft, Camera, ChevronRight, ImagePlus, LoaderCircle, ScanSearch, Star, Trash2, X } from "lucide-react"
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
+import { executeVisionScenario } from "@/services/ai/vision"
+import { addFavorite, announceFoodChange, createCustomFood, createFridgeMeal, createItem, deleteFavorite, deleteItem, fetchFoodAssets, updateItem } from "@/services/food/api"
+import { mattingFoodImage } from "@/services/food/matting"
 import { formatNutrition, meals, nutrientKeys, nutrientNames, readableDate, scaledNutrition } from "@/services/food/model"
-import type { DiaryItem, Food, MealType, NutrientKey, Nutrients } from "@/services/food/types"
+import { clearUneditedNutritionLabelDraft, mergeNutritionLabelDraft, nutritionLabelPer100g, parseNutritionLabelRecognition, prepareNutritionLabelImage, type NutritionLabelDraftField } from "@/services/food/nutrition-label"
+import type { DiaryItem, Food, FoodAssetMapping, MealType, NutrientKey, Nutrients } from "@/services/food/types"
 import { FoodArt } from "./food-art"
 import { draftNutrients, readNutrients } from "./food-form"
 import { NutrientFields } from "./food-nutrient-fields"
@@ -39,7 +42,7 @@ function AmountCard({ amount, unit, max, available, disabled, onChange }: { amou
     <span className="food-amount-label">Amount</span>
     <input autoFocus type="number" inputMode="decimal" required min="0.001" max={max} step="any" value={amount} disabled={disabled} onChange={event => onChange(event.target.value)} />
     <span className="food-amount-unit">{unit}</span>
-    {available != null && <small className="food-amount-available">{formatNutrition(available, 1)} available</small>}
+    {available != null && <small className="food-amount-available"><strong>{formatNutrition(available, 1)}</strong> available</small>}
   </label>
 }
 
@@ -116,12 +119,215 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onBack, onSa
 export function CustomFoodForm({ onSaved, onBack }: { onSaved: (food: Food) => void; onBack: () => void }) {
   const [name, setName] = useState(""), [brand, setBrand] = useState("")
   const [values, setValues] = useState(() => draftNutrients())
+  const [assetMappings, setAssetMappings] = useState<FoodAssetMapping[]>([])
+  const [assetKey, setAssetKey] = useState("")
+  const [assetFilter, setAssetFilter] = useState("")
+  const [assetMappingOpen, setAssetMappingOpen] = useState(false)
+  const [assetLoading, setAssetLoading] = useState(true), [assetError, setAssetError] = useState<string | null>(null)
+  const [assetReload, setAssetReload] = useState(0)
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID())
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null)
+  const [foodPhoto, setFoodPhoto] = useState<File | null>(null)
+  const [foodPhotoUrl, setFoodPhotoUrl] = useState<string | null>(null)
+  const [nutritionPhoto, setNutritionPhoto] = useState<File | null>(null)
+  const [nutritionPhotoUrl, setNutritionPhotoUrl] = useState<string | null>(null)
+  const [cutoutUrl, setCutoutUrl] = useState<string | null>(null)
+  const [cutoutDataUrl, setCutoutDataUrl] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false), [scanError, setScanError] = useState<string | null>(null)
+  const [scanMessage, setScanMessage] = useState<string | null>(null)
+  const [matting, setMatting] = useState(false), [mattingError, setMattingError] = useState<string | null>(null)
+  const [mattingMessage, setMattingMessage] = useState<string | null>(null)
+  const foodFileInput = useRef<HTMLInputElement>(null)
+  const nutritionFileInput = useRef<HTMLInputElement>(null)
+  const foodPhotoUrlRef = useRef<string | null>(null)
+  const nutritionPhotoUrlRef = useRef<string | null>(null)
+  const cutoutUrlRef = useRef<string | null>(null)
+  const manuallyEdited = useRef(new Set<NutritionLabelDraftField>())
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchFoodAssets(controller.signal)
+      .then(setAssetMappings)
+      .catch(cause => {
+        if (cause instanceof DOMException && cause.name === "AbortError") return
+        setAssetError(cause instanceof Error ? cause.message : "Unable to load food artwork mappings.")
+      })
+      .finally(() => { if (!controller.signal.aborted) setAssetLoading(false) })
+    return () => controller.abort()
+  }, [assetReload])
+  useEffect(() => () => {
+    if (foodPhotoUrlRef.current) URL.revokeObjectURL(foodPhotoUrlRef.current)
+    if (nutritionPhotoUrlRef.current) URL.revokeObjectURL(nutritionPhotoUrlRef.current)
+    if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
+  }, [])
   async function save(event: FormEvent) {
-    event.preventDefault(); if (busy) return; setBusy(true); setError(null)
-    try { const food = await createCustomFood({ idempotencyKey: requestKey, name: name.trim(), brand: brand.trim() || undefined, nutrients: readNutrients(values) }); announceFoodChange(); onSaved(food) }
+    event.preventDefault(); if (busy || scanning || matting) return; setBusy(true); setError(null)
+    try {
+      // Persist the selected food photo even when the user saves without first
+      // pressing the separate cutout action. The cutout is reused by the saved
+      // artwork, so this cannot diverge from the image shown in the form.
+      const assetImageDataUrl = foodPhoto ? (cutoutDataUrl ?? await ensureFoodCutout() ?? undefined) : undefined
+      const food = await createCustomFood({ idempotencyKey: requestKey, name: name.trim(), brand: brand.trim() || undefined, nutrients: readNutrients(values), assetKey: assetKey || undefined, assetImageDataUrl }); announceFoodChange(); onSaved(food)
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to create food.") } finally { setBusy(false) }
   }
-  return <form className="food-form" onSubmit={save} onChange={() => setRequestKey(crypto.randomUUID())}><button type="button" className="food-text-button" disabled={busy} onClick={onBack}><ArrowLeft />Back</button><p className="food-footnote">Create once, log whenever. Nutrition is per 100 g.</p><fieldset disabled={busy}><label className="food-field"><span>Food name</span><input required maxLength={200} autoFocus value={name} onChange={event => setName(event.target.value)} /></label><label className="food-field"><span>Brand <small>optional</small></span><input maxLength={200} value={brand} onChange={event => setBrand(event.target.value)} /></label><NutrientFields values={values} onChange={(key, value) => setValues(previous => ({ ...previous, [key]: value }))} /></fieldset>{error && <p className="food-form-error" role="alert">{error}</p>}<button className="food-primary" type="submit" disabled={busy}>{busy ? "Creating…" : "Create food"}</button></form>
+  function selectFoodPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0]
+    event.target.value = ""
+    if (!selected) return
+    if (foodPhotoUrlRef.current) URL.revokeObjectURL(foodPhotoUrlRef.current)
+    if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
+    foodPhotoUrlRef.current = null
+    cutoutUrlRef.current = null
+    setFoodPhoto(null)
+    setFoodPhotoUrl(null)
+    setCutoutUrl(null)
+    setCutoutDataUrl(null)
+    setMattingMessage(null)
+    setMattingError(null)
+    if (!selected.type.startsWith("image/")) { setMattingError("Choose an image file."); return }
+    if (selected.size > 12 * 1024 * 1024) { setMattingError("Choose an image smaller than 12 MB."); return }
+    foodPhotoUrlRef.current = URL.createObjectURL(selected)
+    setFoodPhotoUrl(foodPhotoUrlRef.current)
+    setFoodPhoto(selected)
+  }
+  function selectNutritionPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0]
+    event.target.value = ""
+    if (!selected) return
+    const draft = clearUneditedNutritionLabelDraft({ name, brand, values }, manuallyEdited.current)
+    setName(draft.name)
+    setBrand(draft.brand)
+    setValues(draft.values)
+    if (nutritionPhotoUrlRef.current) URL.revokeObjectURL(nutritionPhotoUrlRef.current)
+    nutritionPhotoUrlRef.current = null
+    setNutritionPhoto(null)
+    setNutritionPhotoUrl(null)
+    setScanMessage(null)
+    setScanError(null)
+    if (!selected.type.startsWith("image/")) { setScanError("Choose an image file."); return }
+    if (selected.size > 12 * 1024 * 1024) { setScanError("Choose an image smaller than 12 MB."); return }
+    nutritionPhotoUrlRef.current = URL.createObjectURL(selected)
+    setNutritionPhotoUrl(nutritionPhotoUrlRef.current)
+    setNutritionPhoto(selected)
+  }
+  async function scanLabel() {
+    if (!nutritionPhoto || scanning || busy) return
+    setScanning(true); setScanError(null); setScanMessage(null)
+    try {
+      const labelImage = await prepareNutritionLabelImage(nutritionPhoto)
+      const foodCutout = foodPhoto ? await ensureFoodCutout() : null
+      const images = [
+        ...(foodCutout ? [{ fileName: "food-photo-cutout.png", contentType: "image/png", dataUrl: foodCutout }] : []),
+        { fileName: "nutrition-label.jpg", contentType: labelImage.contentType, dataUrl: labelImage.dataUrl },
+      ]
+      const response = await executeVisionScenario("food_nutrition_label_parse", images)
+      const label = parseNutritionLabelRecognition(response.content)
+      const per100g = nutritionLabelPer100g(label)
+      const draft = mergeNutritionLabelDraft({ name, brand, values }, label, manuallyEdited.current)
+      setName(draft.name)
+      setBrand(draft.brand)
+      setValues(draft.values)
+      if (nutrientKeys.some(key => per100g[key] != null)) {
+        setScanMessage(`Label detected · ${label.confidence} confidence. Review each value before creating.`)
+      } else if (!label.recognized) {
+        setScanMessage("No readable nutrition table found. You can enter the details manually.")
+      } else if (label.basis === "unknown") {
+        setScanMessage("Label detected, but the nutrition basis is unclear. Enter values per 100 g.")
+      } else if (label.basis === "per_serving" && label.servingSizeGrams == null) {
+        setScanMessage("Label detected, but serving weight is missing. Enter values per 100 g.")
+      } else {
+        setScanMessage("Label detected, but no nutrient values were readable. Enter the values manually.")
+      }
+    } catch (cause) {
+      setScanError(cause instanceof Error ? cause.message : "Unable to recognize this label. Try another image.")
+    } finally { setScanning(false) }
+  }
+  async function ensureFoodCutout() {
+    if (!foodPhoto) return null
+    if (cutoutDataUrl) return cutoutDataUrl
+    setMatting(true); setMattingError(null); setMattingMessage(null)
+    try {
+      const result = await mattingFoodImage(foodPhoto)
+      if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
+      cutoutUrlRef.current = URL.createObjectURL(result.blob)
+      setCutoutUrl(cutoutUrlRef.current)
+      setCutoutDataUrl(result.dataUrl)
+      setMattingMessage("Food image extracted. It will be saved with this food.")
+      return result.dataUrl
+    } finally { setMatting(false) }
+  }
+  async function extractFoodImage() {
+    if (!foodPhoto || matting || busy) return
+    setMatting(true); setMattingError(null); setMattingMessage(null)
+    try {
+      const result = await mattingFoodImage(foodPhoto)
+      if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current)
+      cutoutUrlRef.current = URL.createObjectURL(result.blob)
+      setCutoutUrl(cutoutUrlRef.current)
+      setCutoutDataUrl(result.dataUrl)
+      setMattingMessage("Food image extracted. It will be saved with this food.")
+    } catch (cause) {
+      setMattingError(cause instanceof Error ? cause.message : "Unable to extract the food image. Try a clearer photo.")
+    } finally { setMatting(false) }
+  }
+  const formBusy = busy || scanning || matting
+  const selectedAsset = assetMappings.find(mapping => mapping.assetKey === assetKey)
+  const normalizedAssetFilter = assetFilter.trim().toLocaleLowerCase()
+  const visibleAssets = normalizedAssetFilter
+    ? assetMappings.filter(mapping => `${mapping.catalogKey} ${mapping.assetKey} ${mapping.printedLabel ?? ""}`.toLocaleLowerCase().includes(normalizedAssetFilter))
+    : assetMappings
+  return <form className="food-form food-create-form" onSubmit={save} onChange={() => setRequestKey(crypto.randomUUID())}>
+    <button type="button" className="food-text-button" disabled={formBusy} onClick={onBack}><ArrowLeft />Back</button>
+    <section className="food-label-scan" aria-label="Food photo and nutrition label">
+      <button type="button" className="food-label-row" disabled={formBusy} onClick={() => foodFileInput.current?.click()}>
+        <span className="food-label-row-icon"><ImagePlus aria-hidden="true" /></span>
+        <strong>Food photo</strong>
+        <span className="food-label-row-action">{foodPhoto ? "Retake" : "Take photo"}<ChevronRight aria-hidden="true" /></span>
+      </button>
+      <input ref={foodFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a food photo" onChange={selectFoodPhoto} />
+      {foodPhotoUrl ? <div className="food-label-previews"><div className="food-label-preview"><img src={foodPhotoUrl} alt="Selected food photo" /><span>Food photo</span><button type="button" className="food-label-remove" aria-label="Remove food image" title="Remove food image" disabled={formBusy} onClick={() => { if (foodPhotoUrlRef.current) URL.revokeObjectURL(foodPhotoUrlRef.current); if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current); foodPhotoUrlRef.current = null; cutoutUrlRef.current = null; setFoodPhotoUrl(null); setFoodPhoto(null); setCutoutUrl(null); setCutoutDataUrl(null); setMattingMessage(null); setMattingError(null) }}><X /></button></div>{cutoutUrl ? <div className="food-label-preview food-cutout-preview"><img src={cutoutUrl} alt="Extracted food image" /><span>Cutout</span></div> : null}</div> : null}
+      {foodPhoto ? <div className="food-label-actions"><button type="button" className="food-label-pick" disabled={formBusy} onClick={() => foodFileInput.current?.click()}><Camera />Replace photo</button><button type="button" className="food-label-scan-button" disabled={formBusy} onClick={() => void extractFoodImage()}>{matting ? <LoaderCircle className="animate-spin" /> : <ImagePlus />}{matting ? "Cutting out…" : "Cut out food"}</button></div> : null}
+      {mattingError ? <p className="food-label-error" role="alert">{mattingError}</p> : null}
+      {mattingMessage ? <p className="food-label-result" role="status">{mattingMessage}</p> : null}
+
+      <button type="button" className="food-label-row" disabled={formBusy} onClick={() => nutritionFileInput.current?.click()}>
+        <span className="food-label-row-icon"><ScanSearch aria-hidden="true" /></span>
+        <strong>Nutrition label photo</strong>
+        <span className="food-label-row-action">{nutritionPhoto ? "Retake" : "Take photo"}<ChevronRight aria-hidden="true" /></span>
+      </button>
+      <input ref={nutritionFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a nutrition label photo" onChange={selectNutritionPhoto} />
+      {nutritionPhotoUrl ? <div className="food-label-previews"><div className="food-label-preview"><img src={nutritionPhotoUrl} alt="Selected nutrition label photo" /><span>Nutrition label</span><button type="button" className="food-label-remove" aria-label="Remove nutrition label image" title="Remove nutrition label image" disabled={formBusy} onClick={() => { if (nutritionPhotoUrlRef.current) URL.revokeObjectURL(nutritionPhotoUrlRef.current); nutritionPhotoUrlRef.current = null; setNutritionPhotoUrl(null); setNutritionPhoto(null); setScanMessage(null); setScanError(null) }}><X /></button></div></div> : null}
+      {nutritionPhoto ? <div className="food-label-actions"><button type="button" className="food-label-pick" disabled={formBusy} onClick={() => nutritionFileInput.current?.click()}><Camera />Replace photo</button><button type="button" className="food-label-scan-button" disabled={formBusy} onClick={() => void scanLabel()}>{scanning ? <LoaderCircle className="animate-spin" /> : <ScanSearch />}{scanning ? "Analyzing…" : "Analyze food + nutrition"}</button></div> : null}
+      {scanError ? <p className="food-label-error" role="alert">{scanError}</p> : null}
+      {scanMessage ? <p className="food-label-result" role="status">{scanMessage}</p> : null}
+    </section>
+    <fieldset className="food-create-fields" aria-label="Food details" disabled={formBusy}>
+      <div className="food-create-details-grid">
+        <label className="food-field"><span>Food name</span><input required maxLength={200} value={name} placeholder="e.g. Greek yogurt" onChange={event => { manuallyEdited.current.add("name"); setName(event.target.value) }} /></label>
+        <label className="food-field"><span>Brand <small>optional</small></span><input maxLength={200} value={brand} placeholder="e.g. Plain" onChange={event => { manuallyEdited.current.add("brand"); setBrand(event.target.value) }} /></label>
+      </div>
+      <section className="food-nutrition-editor" aria-labelledby="food-nutrition-editor-title">
+        <div className="food-create-section-heading"><strong id="food-nutrition-editor-title">Nutrition</strong><span>Per 100 g</span></div>
+        <NutrientFields values={values} placeholder="Add value" onChange={(key, value) => { manuallyEdited.current.add(key); setValues(previous => ({ ...previous, [key]: value })) }} />
+      </section>
+      <section className="food-asset-mapping" aria-labelledby="food-asset-mapping-title">
+        <div className="food-asset-topline">
+          <div className="food-asset-heading"><strong id="food-asset-mapping-title">Food artwork</strong><span className="food-asset-optional">Optional</span>{selectedAsset && <FoodArt food={{ name, assetKey: selectedAsset.assetKey, assetUrl: selectedAsset.assetUrl }} className="food-asset-preview" />}</div>
+          {!assetLoading && !assetError && assetMappings.length > 0 ? <details className="food-asset-disclosure" onToggle={event => setAssetMappingOpen(event.currentTarget.open)}>
+            <summary><span>{selectedAsset ? "Change mapping" : "Add mapping"}</span><ChevronRight aria-hidden="true" /></summary>
+          </details> : null}
+        </div>
+        {assetLoading ? <p className="food-asset-state" role="status">Loading artwork mappings…</p> : assetError ? <div className="food-asset-state food-asset-error" role="alert"><span>{assetError}</span><button type="button" className="food-text-button" onClick={() => { setAssetLoading(true); setAssetError(null); setAssetReload(value => value + 1) }}>Retry</button></div> : assetMappings.length === 0 ? <p className="food-asset-state">No artwork mappings are available.</p> : null}
+        {assetMappingOpen && assetMappings.length > 0 ? <div className="food-asset-controls">
+          <label className="food-field food-asset-search"><span>Find mapping <small>optional</small></span><input value={assetFilter} onChange={event => setAssetFilter(event.target.value)} placeholder="food-201 or label" /></label>
+          <label className="food-field"><span>Mapping</span><select value={assetKey} onChange={event => setAssetKey(event.target.value)}><option value="">No artwork</option>{visibleAssets.map(mapping => <option value={mapping.assetKey} key={mapping.catalogKey}>{mapping.catalogKey} · {mapping.assetKey}{mapping.printedLabel == null ? "" : ` · label ${mapping.printedLabel}`}</option>)}</select></label>
+        </div> : null}
+        {selectedAsset ? <div className="food-asset-selected"><div><strong>{selectedAsset.catalogKey}</strong><span>{selectedAsset.assetKey}{selectedAsset.sourceAtlas ? ` · ${selectedAsset.sourceAtlas}` : ""}</span></div><button type="button" className="food-text-button" onClick={() => setAssetKey("")}>Clear</button></div> : null}
+      </section>
+    </fieldset>
+    <div className="food-form-footer">
+      {error && <p className="food-form-error" role="alert">{error}</p>}
+      <button className="food-primary" type="submit" disabled={formBusy}>{busy ? "Creating…" : "Create food"}</button>
+    </div>
+  </form>
 }

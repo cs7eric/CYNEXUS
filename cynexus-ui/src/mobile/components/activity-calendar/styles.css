@@ -80,6 +80,22 @@
 .mobile-activity-summary-track.is-two .mobile-activity-summary-panel { flex: 0 0 50%; width: 50%; }
 .mobile-activity-summary-track.is-three .mobile-activity-summary-panel { flex: 0 0 33.333333%; width: 33.333333%; }
 .mobile-activity-summary-panel { min-width: 0; box-sizing: border-box; }
+.mobile-activity-nutrition { padding: 16px 14px 12px; border-color: #ffffff; background: linear-gradient(135deg, #fffef9f2 0%, #f3f8efdb 100%); box-shadow: 0 9px 30px -22px #54776545; }
+.mobile-activity-food-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.mobile-activity-food-eyebrow { margin: 0 !important; color: #6b806f; font-size: 0.5rem !important; font-weight: 650; letter-spacing: 0.12em; line-height: 1.4 !important; text-transform: uppercase; }
+.mobile-activity-food-heading h3 { margin: 3px 0 0; color: #304b3e; font-family: "Outfit Display", "Manrope Mobile", sans-serif; font-size: 1.35rem; font-weight: 500; letter-spacing: -0.04em; line-height: 1.1; }
+.mobile-activity-food-heading h3 span { color: #8aa57d; }
+.mobile-activity-food-energy { display: grid; flex-shrink: 0; gap: 2px; padding-top: 1px; text-align: right; }
+.mobile-activity-food-energy strong { color: #304b3e; font-family: "Outfit Display", "Manrope Mobile", sans-serif; font-size: 1.8rem; font-weight: 500; letter-spacing: -0.05em; line-height: 0.95; font-variant-numeric: tabular-nums; }
+.mobile-activity-food-energy span { color: #637b67; font-size: 0.5rem; line-height: 1.4; white-space: nowrap; }
+.mobile-activity-food-tabs { display: flex; align-items: center; gap: 3px; margin-top: 12px; border-bottom: 1px solid #dbe5d772; overflow: hidden; }
+.mobile-activity-food-tabs span { display: inline-flex; min-width: 0; min-height: 30px; align-items: center; justify-content: center; gap: 3px; padding: 0 2px; border-radius: 11px 11px 0 0; color: #607862; font-family: "Manrope Mobile", "Montserrat", sans-serif; font-size: 0.5rem; font-weight: 400; line-height: normal; white-space: nowrap; }
+.mobile-activity-food-tabs span.is-active { color: #3d6250; background: #e2ecde; font-weight: 750; }
+.mobile-activity-food-tabs svg { width: 10px; height: 10px; stroke-width: 1.7; }
+.mobile-activity-nutrition .mobile-activity-nutrition-grid { margin-top: 10px; }
+.mobile-activity-nutrition .mobile-activity-calorie-amount { margin-top: 0; }
+.mobile-activity-nutrition .mobile-activity-nutrition-total small { color: #6b806c; }
+.mobile-activity-nutrition .mobile-activity-macros { border-left-color: #9abfb630; }
 .mobile-activity-stat-label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.6875rem; font-weight: 550; line-height: 1.5; }
 .mobile-activity-stat-label svg { width: 14px; height: 14px; stroke-width: 1.7; }
 .mobile-activity-stat p { display: flex; align-items: baseline; gap: 4px; margin-top: 7px; }
@@ -153,6 +169,9 @@
   .mobile-activity-calorie-unit { font-size: 0.625rem; }
   .mobile-activity-macro-amount { column-gap: 1px; }
   .mobile-activity-nutrition-grid { grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr); gap: 8px; }
+  .mobile-activity-food-heading h3 { font-size: 1.2rem; }
+  .mobile-activity-food-energy strong { font-size: 1.6rem; }
+  .mobile-activity-food-tabs span { font-size: 0.4375rem; }
   .mobile-activity-macros { padding-left: 8px; }
   .mobile-activity-calorie-amount > span[aria-hidden] { white-space: normal; }
   .mobile-activity-calorie-amount > span[aria-hidden] > strong { display: block; }

@@ -15,7 +15,7 @@ export const BODY_METRICS: readonly BodyMetric[] = [
   ...([
     ["head", "Head circumference", "Head", false, 20, 90],
     ["neck", "Neck circumference", "Neck", false, 10, 90],
-    ["shoulders", "Shoulder circumference", "Shoulders", false, 40, 220],
+    ["shoulders", "Shoulder circumference", "Shoulders", false, 30, 220],
     ["shoulderWidth", "Shoulder width", "Shoulder width", false, 10, 100],
     ["chest", "Chest circumference", "Chest", false, 30, 250],
     ["underChest", "Under-chest circumference", "Under chest", false, 30, 250],

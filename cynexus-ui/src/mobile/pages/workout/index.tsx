@@ -22,7 +22,7 @@ function getView(hash: string): WorkoutView {
 }
 
 export default function MobileWorkoutPage() {
-  const { data: records, storageError, update } = useWorkoutRecords()
+  const { data: records, storageError, update, savePlanRemote, saveSessionRemote, saveMeasurementRemote, deleteSessionRemote, deleteMeasurementRemote } = useWorkoutRecords()
   const location = useLocation()
   const navigate = useNavigate()
   const today = useMemo(() => new Date(), [])
@@ -65,7 +65,9 @@ export default function MobileWorkoutPage() {
   function addSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
-      update((data) => saveSession(data, { date: sessionDate, category, minutes: Number(minutes) }, todayKey, crypto.randomUUID()))
+      const result = update((data) => saveSession(data, { date: sessionDate, category, minutes: Number(minutes) }, todayKey, crypto.randomUUID()))
+      const saved = result.data.sessions.find((session) => session.date === sessionDate)
+      if (saved) void saveSessionRemote(saved).catch(() => undefined)
       setShowForm(false)
     } catch (error) { setFormError(error instanceof Error ? error.message : "Could not save workout.") }
   }
@@ -111,7 +113,7 @@ export default function MobileWorkoutPage() {
           </div>
         </section>
 
-        {showSettings && <form className="mobile-workout-settings" onSubmit={(event) => { event.preventDefault(); setShowSettings(false) }}><label><span>Cycle starts on</span><input type="date" value={cycleStart} onChange={(event) => { if (event.target.value) update((data) => ({ ...data, cycleStart: event.target.value })) }} /></label><button type="submit"><Check aria-hidden="true" />Apply</button></form>}
+        {showSettings && <form className="mobile-workout-settings" onSubmit={(event) => { event.preventDefault(); setShowSettings(false) }}><label><span>Cycle starts on</span><input type="date" value={cycleStart} onChange={(event) => { if (event.target.value) { update((data) => ({ ...data, cycleStart: event.target.value })); void savePlanRemote(event.target.value).catch(() => undefined) } }} /></label><button type="submit"><Check aria-hidden="true" />Apply</button></form>}
 
         <section className="mobile-workout-activities" aria-labelledby="mobile-workout-activities-title">
           <h2 id="mobile-workout-activities-title" className="sr-only">Workout activity</h2>
@@ -133,7 +135,7 @@ export default function MobileWorkoutPage() {
         <section className="mobile-workout-body" aria-labelledby="mobile-workout-body-title">
           <button type="button" className="mobile-workout-body-link" aria-expanded={showBodyMetrics} onClick={() => setShowBodyMetrics((current) => !current)}>
             <span className="mobile-workout-body-link-icon-left"><Activity aria-hidden="true" /></span>
-            <span><strong id="mobile-workout-body-title">Body Metrics</strong><small>Latest measurements · {records.isSample ? "Sample data" : "On this device"}</small></span>
+            <span><strong id="mobile-workout-body-title">Body Metrics</strong><small>Latest measurements · {records.isSample ? "Sample data" : "Account sync enabled"}</small></span>
             <span className="mobile-workout-body-link-icon"><ArrowUpRight aria-hidden="true" /></span>
           </button>
           {showBodyMetrics && <div className="mobile-workout-body-details">
@@ -172,17 +174,17 @@ export default function MobileWorkoutPage() {
         </section>
         {renderWorkoutForm()}
         <section className="mobile-workout-daily-metrics" aria-label="Daily body metrics">
-          <button type="button" className="mobile-workout-daily-metric is-weight" onClick={() => navigate({ hash: "#workout-body" })}>
+          <button type="button" className="mobile-workout-daily-metric is-weight" onClick={() => navigate({ pathname: location.pathname, search: location.search, hash: "#workout-body" })}>
             <span className="mobile-workout-daily-metric-title"><Scale aria-hidden="true" />Weight<span className="mobile-workout-daily-metric-arrow"><ArrowUpRight aria-hidden="true" /></span></span>
             <strong>{bodyMeasurements.weightKg ?? "--"}<small>kg</small></strong><span className="mobile-workout-daily-metric-note">Latest weight</span>
           </button>
-          <button type="button" className="mobile-workout-daily-metric is-bmi" onClick={() => navigate({ hash: "#workout-body" })}>
+          <button type="button" className="mobile-workout-daily-metric is-bmi" onClick={() => navigate({ pathname: location.pathname, search: location.search, hash: "#workout-body" })}>
             <span className="mobile-workout-daily-metric-title"><Activity aria-hidden="true" />BMI<span className="mobile-workout-daily-metric-arrow"><ArrowUpRight aria-hidden="true" /></span></span>
             <strong>{bmi?.toFixed(1) ?? "--"}</strong><span className="mobile-workout-daily-metric-note is-badge">Height {bodyMeasurements.heightCm ?? "--"} cm</span>
           </button>
         </section>
         <section className="mobile-workout-composition" aria-labelledby="mobile-workout-composition-title">
-          <div className="mobile-workout-composition-heading"><span id="mobile-workout-composition-title"><Ruler aria-hidden="true" />Body Composition</span><button type="button" className="mobile-workout-composition-arrow" aria-label="View all body measurements" title="View all body measurements" onClick={() => navigate({ hash: "#workout-body" })}><ArrowUpRight aria-hidden="true" /></button></div>
+          <div className="mobile-workout-composition-heading"><span id="mobile-workout-composition-title"><Ruler aria-hidden="true" />Body Composition</span><button type="button" className="mobile-workout-composition-arrow" aria-label="View all body measurements" title="View all body measurements" onClick={() => navigate({ pathname: location.pathname, search: location.search, hash: "#workout-body" })}><ArrowUpRight aria-hidden="true" /></button></div>
           <div className="mobile-workout-composition-content">
             <div className="mobile-workout-waist"><strong>{bodyMeasurements.waistCm ?? "--"}<small>cm</small></strong><span>Waist</span></div>
             <svg className="mobile-workout-composition-scale" viewBox="0 0 180 88" role="img" aria-label={`Waist: ${bodyMeasurements.waistCm == null ? "not recorded" : `${bodyMeasurements.waistCm} centimeters`}. Display scale: 60 to 90 centimeters.`}>
@@ -193,17 +195,18 @@ export default function MobileWorkoutPage() {
             </svg>
           </div>
         </section>
-        <p className="mobile-workout-activity-source">{records.isSample ? "Sample data" : "On this device"}</p>
+        <p className="mobile-workout-activity-source">{records.isSample ? "Sample data" : "Account sync enabled"}</p>
       </>}
 
       {activeView === "body" && <WorkoutBodyView today={today} observations={records.observations} isSample={records.isSample}
-        onSaveObservation={(input) => update((data) => saveObservation(data, input, todayKey, crypto.randomUUID()))}
-        onDeleteObservation={(id) => update((data) => ({ ...data, observations: data.observations.filter((item) => item.id !== id) }))}
-        onStartLog={() => update(startPersonalLog)} />}
+        onSaveObservation={(input) => { const result = update((data) => saveObservation(data, input, todayKey, crypto.randomUUID())); const saved = result.data.observations.find((item) => item.metric === input.metric && item.side === input.side && item.measuredAt === input.measuredAt); if (saved) void saveMeasurementRemote(saved).catch(() => undefined) }}
+        onDeleteObservation={(id) => { update((data) => ({ ...data, observations: data.observations.filter((item) => item.id !== id) })); void deleteMeasurementRemote(id).catch(() => undefined) }}
+        onStartLog={() => { const result = update(startPersonalLog); void savePlanRemote(result.data.cycleStart).catch(() => undefined) }} />}
       {activeView === "history" && <>
         <WorkoutHistoryView today={today} sessions={displaySessions} isSample={records.isSample}
           onLogWorkout={(date) => openWorkoutForm("Strength", date)}
-          onStartLog={() => { if (records.isSample) update(startPersonalLog); openWorkoutForm() }} />
+          onStartLog={() => { if (records.isSample) { const result = update(startPersonalLog); void savePlanRemote(result.data.cycleStart).catch(() => undefined) }; openWorkoutForm() }}
+          onDeleteSession={(id) => { update((data) => ({ ...data, sessions: data.sessions.filter((item) => item.id !== id) })); void deleteSessionRemote(id).catch(() => undefined) }} />
         {renderWorkoutForm()}
       </>}
     </div>

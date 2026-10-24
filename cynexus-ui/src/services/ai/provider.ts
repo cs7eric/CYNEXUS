@@ -265,6 +265,39 @@ const AI_CAPABILITIES: AiCapability[] = [
     aliases: ["AI 记账", "小票识别", "Receipt recognition"],
   },
   {
+    code: "food_fridge_inventory",
+    label: "Fridge inventory recognition",
+    group: "Food AI",
+    description: "Turn typed or transcribed fridge notes into bounded food candidates for explicit review before saving.",
+    entry: "Food / Fridge / AI capture",
+    reads_binding: true,
+    runtime: "FridgeInventoryAiPreview",
+    prompt_key: "food_fridge_inventory",
+    aliases: ["Food fridge capture", "Fridge AI capture"],
+  },
+  {
+    code: "food_fridge_nutrition_match",
+    label: "Fridge nutrition matching",
+    group: "Food AI",
+    description: "Rank bounded owner-scoped nutrition candidates for fridge review without inventing food IDs or nutrient values.",
+    entry: "Food / Fridge / Nutrition match",
+    reads_binding: true,
+    runtime: "FridgeNutritionMatch",
+    prompt_key: "food_fridge_nutrition_match",
+    aliases: ["Fridge nutrition candidate ranking"],
+  },
+  {
+    code: "food_nutrition_label_parse",
+    label: "Nutrition label recognition",
+    group: "Food AI",
+    description: "Read nutrition from image 1 and identify the product from the original food photo in image 0, then return editable values for review before creating a custom food.",
+    entry: "Food / Custom food / Scan nutrition label",
+    reads_binding: true,
+    runtime: "ScenarioExecutionAppService.executeVision",
+    prompt_key: "food_nutrition_label_parse",
+    aliases: ["Food nutrition label scan", "Nutrition facts recognition"],
+  },
+  {
     code: "portfolio_trade_screenshot_parse",
     label: "Portfolio trade screenshot parsing",
     group: "Market / Personal Portfolio",
@@ -457,6 +490,14 @@ export function buildAiCapabilitiesFromBindings(bindings: AiBindingItem[]): AiCa
 }
 
 const AI_PROVIDER_TYPES: AiProviderType[] = [
+  {
+    code: "xtyoo",
+    label: "xtyoo",
+    default_base_url: "https://am.xtyooo.top",
+    default_model: "gpt-6.1-sol",
+    api_key_env: "CYNEXUS_AI_CUSTOM_API_KEY",
+    group_id_env: "",
+  },
   {
     code: "minimax",
     label: "MiniMax",

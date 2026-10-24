@@ -1,4 +1,4 @@
-import { Beef, BicepsFlexed, Droplet, Dumbbell, Gauge, RefreshCw, Ruler, Utensils, WalletCards, Weight, Wheat } from "lucide-react"
+import { Beef, BicepsFlexed, Droplet, Dumbbell, Gauge, LayoutGrid, RefreshCw, Ruler, Utensils, WalletCards, Weight, Wheat } from "lucide-react"
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 
 import { MobileButton } from "@/mobile/ui/button"
@@ -29,7 +29,7 @@ function formatFinanceAmount(value: number | null, currency: string | null) {
 type SummaryView = "food" | "workout" | "finance"
 const summaryViews: SummaryView[] = ["food", "workout", "finance"]
 
-export function MobileActivityCalendar({ today, records, bodyMeasurements = null, finance = null, onFinanceRetry, showFinance = true, isSample = false, showWeek = true }: { today: Date; records: readonly DailyActivity[]; bodyMeasurements?: BodyMeasurementSnapshot | null; finance?: FinanceSummarySnapshot | null; onFinanceRetry?: () => void; showFinance?: boolean; isSample?: boolean; showWeek?: boolean }) {
+export function MobileActivityCalendar({ today, records, bodyMeasurements = null, finance = null, onFinanceRetry, showFinance = true, isSample = false, nutritionState = "ready", showWeek = true }: { today: Date; records: readonly DailyActivity[]; bodyMeasurements?: BodyMeasurementSnapshot | null; finance?: FinanceSummarySnapshot | null; onFinanceRetry?: () => void; showFinance?: boolean; isSample?: boolean; nutritionState?: "loading" | "ready" | "error"; showWeek?: boolean }) {
   const id = useId()
   const todayKey = activityDateKey(today)
   const [selectedKey, setSelectedKey] = useState(todayKey)
@@ -47,6 +47,8 @@ export function MobileActivityCalendar({ today, records, bodyMeasurements = null
   const activity = entries.get(selectedKey)
   const nutrition = activity?.nutrition
   const targets = activity?.nutritionTargets
+  const nutritionUnavailable = nutritionState !== "ready"
+  const visibleTargets = nutritionUnavailable ? null : targets
   const workout = activity?.workout
   const bmi = calculateBmi(bodyMeasurements?.weightKg ?? null, bodyMeasurements?.heightCm ?? null)
   const bodyMetrics = [
@@ -150,27 +152,39 @@ export function MobileActivityCalendar({ today, records, bodyMeasurements = null
         <div className="mobile-activity-summary-viewport" onPointerDown={startSummarySwipe} onPointerMove={moveSummarySwipe} onPointerUp={endSummarySwipe} onPointerCancel={endSummarySwipe}>
           <div className={`mobile-activity-summary-track ${visibleSummaryViews.length === 3 ? "is-three" : "is-two"}${summaryDragging ? " is-dragging" : ""}`} style={{ transform: `translate3d(calc(${summaryIndex * -(100 / visibleSummaryViews.length)}% + ${summaryDragOffset}px), 0, 0)` }}>
         <div id={`${id}-food`} aria-hidden={activeSummaryView !== "food"} className="mobile-activity-stat mobile-activity-summary-panel mobile-activity-nutrition">
-          <span className="mobile-activity-stat-label"><Utensils aria-hidden="true" />Food intake</span>
+          <div className="mobile-activity-food-heading">
+            <div>
+              <p className="mobile-activity-food-eyebrow">Today’s intake</p>
+              <h3>On your table<span>.</span></h3>
+            </div>
+            <div className="mobile-activity-food-energy">
+              <strong>{nutritionUnavailable ? "—" : nutrition ? number.format(nutrition.calories) : "0"}</strong>
+              <span>{nutritionUnavailable ? (nutritionState === "loading" ? "Loading…" : "Unavailable") : visibleTargets?.calories != null ? `/ ${number.format(visibleTargets.calories)} kcal` : "kcal · No target"}</span>
+            </div>
+          </div>
+          <div className="mobile-activity-food-tabs" aria-label="Meals">
+            <span className="is-active"><LayoutGrid aria-hidden="true" />All day</span>
+          </div>
           <div className="mobile-activity-nutrition-grid">
             <div className="mobile-activity-nutrition-total">
               <p className="mobile-activity-calorie-amount">
-                <span className="sr-only">{nutrition ? `${number.format(nutrition.calories)} kcal consumed` : "Food intake not logged"}, {targets?.calories != null ? `daily target ${number.format(targets.calories)} kcal` : "daily target not set"}</span>
-                <span aria-hidden="true"><strong>{nutrition ? number.format(nutrition.calories) : "—"}</strong><span className="mobile-activity-calorie-target"> / {targets?.calories != null ? number.format(targets.calories) : "—"}</span><span className="mobile-activity-calorie-unit"> kcal</span></span>
+                <span className="sr-only">{nutritionUnavailable ? (nutritionState === "loading" ? "Food data loading" : "Food data unavailable") : nutrition ? `${number.format(nutrition.calories)} kcal consumed` : "Food intake not logged"}, {visibleTargets?.calories != null ? `daily target ${number.format(visibleTargets.calories)} kcal` : "daily target not set"}</span>
+                <span aria-hidden="true"><strong>{nutritionUnavailable ? "—" : nutrition ? number.format(nutrition.calories) : "0"}</strong><span className="mobile-activity-calorie-target"> / {visibleTargets?.calories != null ? number.format(visibleTargets.calories) : "—"}</span><span className="mobile-activity-calorie-unit"> kcal</span></span>
               </p>
-              <small>{nutrition ? `${nutrition.meals} ${nutrition.meals === 1 ? "meal" : "meals"} logged` : "No meals logged"}</small>
+              <small>{nutritionUnavailable ? (nutritionState === "loading" ? "Loading food data" : "Food data unavailable") : nutrition ? `${nutrition.meals} ${nutrition.meals === 1 ? "meal" : "meals"} logged` : "No meals logged"}</small>
             </div>
             <dl className="mobile-activity-macros" aria-label="Macronutrients, consumed / daily target in grams">
               {macronutrients.map(({ key, label, icon: Icon, tone }) => {
                 const value = nutrition?.[key]
-                const target = targets?.[key]
+                const target = visibleTargets?.[key]
                 const hasProgress = value != null && Number.isFinite(value) && value >= 0 && target != null && Number.isFinite(target) && target > 0
                 const progress = hasProgress ? Math.min(value / target, 1) * 100 : 0
                 return (
                   <div key={key} className="mobile-activity-macro" data-tone={tone}>
                     <dt><Icon aria-hidden="true" />{label}</dt>
                     <dd>
-                      <span className="sr-only">{value != null ? `${grams.format(value)} g consumed` : "Not logged"}, {target != null ? `daily target ${grams.format(target)} g` : "daily target not set"}</span>
-                      <span className="mobile-activity-macro-amount" aria-hidden="true">{value != null ? grams.format(value) : "—"}<span className="mobile-activity-macro-target">/ {target != null ? grams.format(target) : "—"}</span><span className="mobile-activity-macro-unit">g</span></span>
+                      <span className="sr-only">{nutritionUnavailable ? (nutritionState === "loading" ? "Food data loading" : "Food data unavailable") : value != null ? `${grams.format(value)} g consumed` : "Not logged"}, {target != null ? `daily target ${grams.format(target)} g` : "daily target not set"}</span>
+                      <span className="mobile-activity-macro-amount" aria-hidden="true">{nutritionUnavailable ? "—" : value != null ? grams.format(value) : "0"}<span className="mobile-activity-macro-target">/ {target != null ? grams.format(target) : "—"}</span><span className="mobile-activity-macro-unit">g</span></span>
                     </dd>
                     <dd className="mobile-activity-macro-track" data-available={hasProgress} aria-hidden="true"><span style={{ width: `${progress}%` }} /></dd>
                   </div>

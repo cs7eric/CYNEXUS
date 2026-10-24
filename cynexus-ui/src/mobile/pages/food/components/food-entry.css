@@ -6,6 +6,130 @@
   background: #f8fbfc;
 }
 
+.food-label-scan {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border: 1px solid #dce5d9;
+  border-radius: 16px;
+  background: #f8fbfc;
+}
+
+.food-label-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.food-label-heading strong { color: #304b3e; font-size: 13px; font-weight: 750; }
+.food-label-heading p { margin: 0; color: #687b73; font-size: 11px; line-height: 1.45; }
+.food-label-route {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2ebeb;
+}
+.food-label-route-label {
+  flex: 0 0 auto;
+  color: #687b73;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+}
+.food-label-route-selects {
+  display: flex !important;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 4px;
+}
+.food-label-route-selects > button {
+  min-width: 0;
+  flex: 1 1 0;
+  max-width: none !important;
+  height: 36px !important;
+  padding: 0 8px !important;
+  border: 1px solid #d6e3e3 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #304b4e !important;
+  font-size: 11px !important;
+}
+.food-label-route-selects > button [data-slot="select-value"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.food-label-file { display: none; }
+
+.food-label-actions { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.food-label-pick,
+.food-label-scan-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid #cbdde2;
+  border-radius: 11px;
+  background: #fff;
+  color: #304b4e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.food-label-scan-button { border-color: #304b4e; background: #304b4e; color: white; }
+.food-label-pick:disabled,
+.food-label-scan-button:disabled { opacity: .55; }
+.food-label-pick svg,
+.food-label-scan-button svg { width: 14px; height: 14px; }
+
+.food-label-preview { position: relative; width: 100%; max-height: 180px; margin-top: 10px; overflow: hidden; border-radius: 11px; background: #e8eeee; }
+.food-label-preview img { display: block; width: 100%; max-height: 180px; object-fit: contain; }
+.food-label-remove { position: absolute; top: 6px; right: 6px; display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 50%; background: #fff; color: #304b4e; }
+.food-label-remove svg { width: 15px; height: 15px; }
+.food-label-result,
+.food-label-error { margin: 9px 0 0; font-size: 10px; line-height: 1.5; }
+.food-label-result { color: #58705c; }
+.food-label-error { color: #b42336; }
+
+.food-asset-mapping {
+  margin: 16px 0 8px;
+  padding: 14px;
+  border: 1px solid #dce5d9;
+  border-radius: 16px;
+  background: #f8fbfc;
+}
+
+.food-asset-heading,
+.food-asset-selected,
+.food-asset-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.food-asset-heading > div,
+.food-asset-selected > div { min-width: 0; }
+.food-asset-heading strong { color: #304b3e; font-size: 12px; font-weight: 750; }
+.food-asset-heading p { margin: 3px 0 0; color: #687b73; font-size: 11px; line-height: 1.4; }
+.food-asset-preview { flex: 0 0 auto; width: 42px !important; height: 42px !important; border-radius: 11px; }
+.food-asset-state { margin: 10px 0 0; color: #687b73; font-size: 11px; line-height: 1.45; }
+.food-asset-error { align-items: flex-start; color: #b42336; }
+.food-asset-error .food-text-button { flex: 0 0 auto; min-height: 30px; }
+.food-asset-disclosure { margin-top: 12px; border-top: 1px solid #e2ebeb; }
+.food-asset-disclosure summary { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; color: #304b4e; font-size: 12px; font-weight: 700; list-style-position: inside; }
+.food-asset-disclosure summary::marker { color: #6f8980; }
+.food-asset-disclosure summary small { margin-left: auto; overflow: hidden; color: #718274; font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.food-asset-controls { padding-top: 2px; }
+.food-asset-controls .food-field { margin: 8px 0; }
+.food-asset-selected { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e7ece5; }
+.food-asset-selected strong,
+.food-asset-selected span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.food-asset-selected strong { color: #304b3e; font-size: 11px; }
+.food-asset-selected span { margin-top: 2px; color: #718274; font-size: 10px; }
+
 .food-preview-heading {
   display: flex;
   align-items: baseline;
@@ -177,8 +301,8 @@
   background: transparent;
   color: #304b4e;
   font-family: "Outfit Display", sans-serif;
-  font-size: 34px;
-  font-weight: 500;
+  font-size: 56px;
+  font-weight: 600;
   line-height: .95;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -213,6 +337,13 @@
   line-height: 1.25;
   text-align: center;
   white-space: nowrap;
+}
+
+.food-amount-available strong {
+  color: #526d6b;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Keep the entry sheet compact while preserving the serving breakdown. */
@@ -312,10 +443,11 @@
   .food-preview-measure > p { font-size: 17px !important; }
   .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
   .food-amount-card { padding-inline: 5px; }
-  .food-amount-card input { font-size: 29px; }
+  .food-amount-card input { font-size: 46px; }
   .food-amount-label { font-size: 9px; }
   .food-amount-unit { font-size: 11px; }
   .food-amount-available { font-size: 8px; }
+  .food-amount-available strong { font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -358,5 +490,1574 @@ dialog.food-sheet .food-form .food-primary { min-height: 46px; margin-top: 12px;
   section.food-nutrition-preview.food-nutrition-goal-preview { padding: 13px 12px; }
   dialog.food-sheet .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
   dialog.food-sheet .food-amount-card { padding-inline: 5px; }
-  dialog.food-sheet .food-amount-card input { font-size: 29px; }
+  dialog.food-sheet .food-amount-card input { font-size: 46px; }
+}
+
+/* Mobile create flow: keep the primary fields visible before optional controls. */
+dialog.food-sheet .food-form .food-field { gap: 6px; margin: 10px 0; }
+dialog.food-sheet .food-form .food-field > span { font-size: 12px; }
+dialog.food-sheet .food-form .food-field input,
+dialog.food-sheet .food-form .food-field select { min-height: 46px; padding: 10px 12px; }
+dialog.food-sheet .food-form .food-field-grid { gap: 0 12px; }
+dialog.food-sheet .food-form .food-footnote { font-size: 11px !important; line-height: 1.6; }
+dialog.food-sheet .food-form .food-primary { margin-top: 16px; }
+
+@media (max-width: 359px) {
+  dialog.food-sheet .food-label-route { align-items: flex-start; flex-direction: column; gap: 6px; }
+  dialog.food-sheet .food-label-route-selects { width: 100%; }
+  dialog.food-sheet .food-form .food-field-grid { gap: 0 10px; }
+}
+
+/* Create-food layout: one strong scan surface, then a calm form rhythm. */
+dialog.food-sheet {
+  padding: 10px 24px max(24px, env(safe-area-inset-bottom));
+  background: #f4f8f6;
+  color: #17332a;
+}
+dialog.food-sheet .food-sheet-heading { min-height: 48px; margin-bottom: 8px; }
+dialog.food-sheet .food-sheet-heading h2 { color: #17332a; font-size: 26px; font-weight: 700; letter-spacing: -.7px; }
+
+dialog.food-sheet .food-create-form { padding-bottom: 0; }
+dialog.food-sheet .food-create-form > .food-text-button:first-child {
+  min-height: 36px;
+  margin: -2px 0 2px;
+  padding-inline: 0;
+  color: #2f6b58 !important;
+  font-size: 13px !important;
+}
+.food-create-intro {
+  margin: 0 0 18px !important;
+  color: #6e8178;
+  font-size: 12px !important;
+  line-height: 1.5;
+}
+
+dialog.food-sheet .food-create-form .food-label-scan {
+  margin: 0 0 24px;
+  padding: 16px;
+  border: 1px solid #dce7e1;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 22px -22px #17332a;
+}
+.food-label-topline {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.food-label-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  background: #e4f0eb;
+  color: #2f6b58;
+}
+.food-label-icon svg { width: 17px; height: 17px; }
+.food-label-heading { gap: 2px; }
+.food-label-heading strong { color: #17332a; font-size: 15px; font-weight: 750; line-height: 1.2; }
+.food-label-heading p { color: #6e8178; font-size: 11px; line-height: 1.4; }
+.food-label-topline .food-label-pick { min-height: 38px; padding-inline: 10px; border-radius: 10px; font-size: 11px; }
+.food-label-topline .food-label-pick svg { width: 14px; height: 14px; }
+.food-label-preview { max-height: 140px; margin-top: 12px; border-radius: 12px; }
+.food-label-preview img { max-height: 140px; }
+.food-label-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); margin-top: 10px; }
+.food-label-actions > button { width: 100%; }
+.food-label-settings { margin-top: 12px; border-top: 1px solid #e4ece8; }
+.food-label-settings summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  color: #3e5b50;
+  font-size: 11px;
+  font-weight: 700;
+  list-style-position: inside;
+}
+.food-label-settings summary small { margin-left: auto; color: #8a9b92; font-size: 10px; font-weight: 500; }
+.food-label-settings .food-label-route { margin-top: 0; padding: 10px 0 0; border-top: 0; }
+.food-label-route { align-items: stretch; flex-direction: column; gap: 7px; }
+.food-label-route-label { font-size: 10px; }
+.food-label-route-selects { width: 100%; }
+.food-label-route-selects > button { height: 38px !important; background: #f7faf8 !important; }
+
+dialog.food-sheet .food-create-fields .food-create-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+dialog.food-sheet .food-create-fields .food-create-section-heading:not(:first-child) { margin-top: 24px; }
+.food-create-section-heading strong { color: #17332a; font-size: 15px; font-weight: 750; line-height: 1.25; }
+.food-create-section-heading p { margin: 3px 0 0; color: #6e8178; font-size: 11px; line-height: 1.35; }
+.food-create-section-heading > span { color: #8a9b92; font-size: 10px; font-weight: 700; letter-spacing: .35px; text-transform: uppercase; }
+dialog.food-sheet .food-create-fields .food-field { gap: 7px; margin: 0 0 12px; }
+dialog.food-sheet .food-create-fields .food-field > span { color: #3e5b50; font-size: 12px; font-weight: 650; }
+dialog.food-sheet .food-create-fields .food-field input,
+dialog.food-sheet .food-create-fields .food-field select {
+  min-height: 48px;
+  border-color: #dce7e1;
+  border-radius: 14px;
+  background: #fff;
+  color: #17332a;
+  font-size: 16px;
+}
+dialog.food-sheet .food-create-fields .food-field input::placeholder { color: #a2b0aa; opacity: 1; }
+dialog.food-sheet .food-create-fields .food-field-grid { gap: 0 12px; }
+
+dialog.food-sheet .food-create-fields .food-asset-mapping {
+  margin: 24px 0 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid #dce7e1;
+  border-radius: 0;
+  background: transparent;
+}
+dialog.food-sheet .food-create-fields .food-asset-heading strong { color: #17332a; font-size: 15px; }
+dialog.food-sheet .food-create-fields .food-asset-heading p { color: #6e8178; font-size: 11px; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure { margin-top: 10px; }
+
+dialog.food-sheet .food-create-form .food-form-footer {
+  position: sticky;
+  bottom: -1px;
+  z-index: 2;
+  margin: 24px -24px -24px;
+  padding: 12px 24px max(8px, env(safe-area-inset-bottom));
+  border-top: 1px solid #dce7e1;
+  background: #f4f8f6;
+}
+dialog.food-sheet .food-create-form .food-form-footer .food-form-error { margin: 0 0 8px !important; }
+dialog.food-sheet .food-create-form .food-form-footer .food-primary { min-height: 50px; margin: 0; border-radius: 14px; background: #2f6b58; font-size: 14px !important; font-weight: 750 !important; }
+
+@media (max-width: 359px) {
+  dialog.food-sheet { padding-inline: 18px; }
+  .food-label-topline { grid-template-columns: 32px minmax(0, 1fr); }
+  .food-label-topline .food-label-pick { grid-column: 1 / -1; width: 100%; }
+  dialog.food-sheet .food-create-fields .food-asset-mapping { margin-top: 20px; }
+  dialog.food-sheet .food-create-form .food-form-footer { margin-inline: -18px; padding-inline: 18px; }
+}
+
+/* The scan entry is a single, tappable tool row. */
+dialog.food-sheet .food-create-form .food-label-scan {
+  margin-bottom: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.food-label-row {
+  display: grid;
+  width: 100%;
+  min-height: 56px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 9px;
+  border: 1px solid #d5e6dd;
+  border-radius: 16px;
+  background: #fff;
+  color: #17332a;
+  text-align: left;
+  box-shadow: 0 8px 20px -22px #17332a;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.food-label-row:hover { border-color: #9fc3b1; box-shadow: 0 10px 20px -20px #17332a; }
+.food-label-row:active { transform: translateY(1px); }
+.food-label-row:focus-visible { outline: 2px solid #2f6b58; outline-offset: 3px; }
+.food-label-row:disabled { cursor: default; }
+.food-label-row-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 12px;
+  background: #17332a;
+  color: #fff;
+}
+.food-label-row-icon svg { width: 17px; height: 17px; }
+.food-label-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #17332a;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -.1px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.food-label-row-action {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 1px;
+  padding: 0 8px 0 12px;
+  border-radius: 999px;
+  background: #2f6b58;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.food-label-row-action svg { width: 14px; height: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .food-label-row { transition: none; }
+}
+
+/* Keep the alternate photo action consistent after a file is selected. */
+.food-label-actions .food-label-pick {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #b8d5c7;
+  border-radius: 9px;
+  background: #fff;
+  color: #2f6b58;
+  font-size: 12px;
+  font-weight: 750;
+  box-shadow: 0 2px 7px -6px #2f6b58;
+}
+.food-label-actions .food-label-pick svg { width: 14px; height: 14px; }
+
+/* Create form: make the editable data feel like one compact instrument panel. */
+dialog.food-sheet .food-create-fields .food-create-section-heading {
+  min-height: 0;
+  margin: 0 0 11px;
+  padding: 0 0 9px;
+  border-bottom: 1px solid #dce7e1;
+}
+
+dialog.food-sheet .food-create-fields .food-create-section-heading:not(:first-child) {
+  margin-top: 26px;
+}
+
+dialog.food-sheet .food-create-fields .food-create-section-heading strong {
+  color: #17332a;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -.15px;
+  line-height: 1.25;
+}
+
+dialog.food-sheet .food-create-fields > label.food-field {
+  margin-bottom: 13px;
+}
+
+dialog.food-sheet .food-create-fields > .food-field > span {
+  color: #456257;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+dialog.food-sheet .food-create-fields > .food-field input {
+  min-height: 46px;
+  border-color: #d5e3dc;
+  border-radius: 13px;
+  background: #fff;
+  color: #17332a;
+  font-size: 15px;
+}
+
+dialog.food-sheet .food-create-fields > .food-field input:focus-visible {
+  border-color: #2f6b58;
+  outline-color: #2f6b58;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field {
+  min-height: 91px;
+  margin: 0;
+  padding: 12px 13px 11px;
+  border: 1px solid #d7e4df;
+  border-radius: 16px;
+  background: #fff;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  color: #456257;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field > span small {
+  margin: 0;
+  color: #6f837b;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input {
+  min-height: 36px;
+  margin-top: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #17332a;
+  font-size: 23px;
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input:focus-visible {
+  outline-offset: 4px;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input::placeholder {
+  color: #8ca29a;
+  opacity: 1;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-caloriesKcal {
+  border-color: #eadba7;
+  background: #fff8df;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-caloriesKcal > span { color: #725a19; }
+dialog.food-sheet .food-create-fields .food-nutrient-caloriesKcal > span small { color: #927a36; }
+
+dialog.food-sheet .food-create-fields .food-nutrient-carbsG {
+  border-color: #cbdde9;
+  background: #eff7fb;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-carbsG > span { color: #3b6174; }
+dialog.food-sheet .food-create-fields .food-nutrient-carbsG > span small { color: #628397; }
+
+dialog.food-sheet .food-create-fields .food-nutrient-proteinG {
+  border-color: #c9dfcf;
+  background: #eff8f1;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-proteinG > span { color: #3f6d4b; }
+dialog.food-sheet .food-create-fields .food-nutrient-proteinG > span small { color: #658d6e; }
+
+dialog.food-sheet .food-create-fields .food-nutrient-fatG {
+  border-color: #ddcfe1;
+  background: #f8f1fa;
+}
+
+dialog.food-sheet .food-create-fields .food-nutrient-fatG > span { color: #6d4c76; }
+dialog.food-sheet .food-create-fields .food-nutrient-fatG > span small { color: #8b6b94; }
+
+dialog.food-sheet .food-create-fields .food-asset-mapping {
+  margin: 28px 0 0;
+  padding: 17px 0 0;
+  border: 0;
+  border-top: 1px solid #dce7e1;
+  border-radius: 0;
+  background: transparent;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-heading {
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-heading strong {
+  color: #17332a;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-heading > span {
+  margin-left: auto;
+  color: #82948c;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-preview {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure {
+  margin-top: 9px;
+  border-top: 1px solid #e1eae5;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary {
+  min-height: 43px;
+  color: #2f5142;
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary:focus-visible {
+  outline: 2px solid #2f6b58;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary::-webkit-details-marker { display: none; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary::marker { content: ""; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > span:first-child { min-width: 0; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > small { margin-left: auto; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > svg { width: 15px; height: 15px; color: #718980; transition: transform 160ms ease; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure[open] summary > svg { transform: rotate(90deg); }
+
+dialog.food-sheet .food-create-fields .food-asset-selected {
+  margin-top: 7px;
+  padding: 9px 0 0;
+  border-top: 1px solid #e1eae5;
+}
+
+@media (max-width: 359px) {
+  dialog.food-sheet .food-create-fields .food-nutrient-grid { gap: 8px; }
+  dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field { padding-inline: 11px; }
+  dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input { font-size: 21px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.food-sheet .food-create-fields .food-asset-disclosure summary > svg { transition: none; }
+}
+
+/* Black-and-white create flow: let the numbers carry the visual hierarchy. */
+dialog.food-sheet:has(.food-create-form) {
+  background: #f5f5f2;
+  color: #111;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading h2 { color: #111; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-handle { background: #c5c5c0; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading .food-round { border-color: #d3d3ce; background: #fff; color: #111; }
+
+dialog.food-sheet .food-create-form .food-text-button {
+  color: #111 !important;
+}
+
+dialog.food-sheet .food-create-form button:focus-visible,
+dialog.food-sheet .food-create-form input:focus-visible,
+dialog.food-sheet .food-create-form select:focus-visible {
+  outline-color: #111;
+}
+
+dialog.food-sheet .food-create-intro {
+  color: #6e6e68;
+}
+
+dialog.food-sheet .food-create-form .food-label-scan {
+  border-color: #d6d6d0;
+  background: #fff;
+  box-shadow: 0 8px 22px -22px #111;
+}
+
+dialog.food-sheet .food-label-row {
+  border-color: #cfcfca;
+  background: #fff;
+  color: #111;
+  box-shadow: none;
+}
+
+dialog.food-sheet .food-label-row:hover { border-color: #8d8d87; box-shadow: 0 8px 18px -18px #111; }
+dialog.food-sheet .food-label-row:focus-visible { outline-color: #111; }
+dialog.food-sheet .food-label-row-icon { background: #111; color: #fff; }
+dialog.food-sheet .food-label-row strong { color: #111; }
+dialog.food-sheet .food-label-row-action { background: #111; color: #fff; }
+
+dialog.food-sheet .food-create-form .food-label-actions .food-label-pick {
+  border-color: #cfcfca;
+  background: #fff;
+  color: #111;
+  box-shadow: none;
+}
+
+dialog.food-sheet .food-create-form .food-label-actions .food-label-scan-button {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+dialog.food-sheet .food-create-form .food-label-preview { background: #ecece8; }
+dialog.food-sheet .food-create-form .food-label-remove { color: #111; }
+
+dialog.food-sheet .food-create-fields .food-create-section-heading {
+  border-bottom-color: #d7d7d1;
+}
+
+dialog.food-sheet .food-create-fields .food-create-section-heading strong {
+  color: #111;
+}
+
+dialog.food-sheet .food-create-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+dialog.food-sheet .food-create-details-grid .food-field {
+  min-width: 0;
+  margin: 0;
+}
+
+dialog.food-sheet .food-create-details-grid .food-field > span {
+  color: #363631;
+}
+
+dialog.food-sheet .food-create-details-grid .food-field input {
+  min-height: 46px;
+  padding: 10px 11px;
+  border-color: #cfcfca;
+  border-radius: 12px;
+  background: #fff;
+  color: #111;
+  font-size: 14px;
+}
+
+dialog.food-sheet .food-create-details-grid .food-field input:focus-visible {
+  border-color: #111;
+  outline-color: #111;
+}
+
+dialog.food-sheet .food-create-details-grid .food-field input::placeholder {
+  color: #8a8a84;
+}
+
+dialog.food-sheet .food-nutrition-editor {
+  margin-top: 26px;
+  overflow: hidden;
+  border: 1px solid #111;
+  border-radius: 16px;
+  background: #fff;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading {
+  display: flex;
+  min-height: 49px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 15px;
+  border: 0;
+  background: #111;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading strong {
+  color: #fff;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading > span {
+  color: #bdbdb7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .45px;
+  text-transform: uppercase;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid {
+  gap: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-caloriesKcal,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-carbsG,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-proteinG,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-fatG {
+  min-height: 86px;
+  padding: 12px;
+  border-color: #d8d8d2;
+  border-radius: 12px;
+  background: #f7f7f4;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field {
+  color: #111;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field > span,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-caloriesKcal > span,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-carbsG > span,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-proteinG > span,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-fatG > span {
+  color: #343430;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field > span small,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::placeholder {
+  color: #8a8a84;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input {
+  min-height: 34px;
+  margin-top: 8px;
+  color: #111;
+  font-size: 23px;
+  font-weight: 750;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input:focus-visible {
+  outline-color: #111;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-mapping {
+  border-top-color: #d5d5d0;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-heading strong,
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary {
+  color: #111;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-heading > span,
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > small {
+  color: #777771;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure {
+  border-top-color: #deded8;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > svg {
+  color: #55554f;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary:focus-visible {
+  outline-color: #111;
+}
+
+dialog.food-sheet .food-create-form .food-form-footer {
+  border-top-color: #d5d5d0;
+  background: #f5f5f2;
+}
+
+dialog.food-sheet .food-create-form .food-form-footer .food-primary {
+  border-color: #111;
+  background: #111;
+  color: #fff !important;
+}
+
+dialog.food-sheet .food-create-form .food-form-footer .food-primary:hover {
+  background: #2b2b29;
+}
+
+/* Nutrition editor: a quiet data table instead of four floating cards. */
+dialog.food-sheet .food-nutrition-editor {
+  margin-top: 24px;
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid #cfcfca;
+  border-bottom: 1px solid #cfcfca;
+  border-radius: 0;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading {
+  min-height: 43px;
+  padding: 10px 0 9px;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading strong {
+  color: #111;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading > span {
+  color: #777771;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border-top: 1px solid #deded8;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-caloriesKcal,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-carbsG,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-proteinG,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-nutrient-fatG {
+  position: relative;
+  min-height: 72px;
+  margin: 0;
+  padding: 10px 13px 8px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(odd) {
+  border-right: 1px solid #deded8;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(-n + 2) {
+  border-bottom: 1px solid #deded8;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-name {
+  display: block;
+  color: #353530;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-unit {
+  position: absolute;
+  top: 10px;
+  right: 13px;
+  margin: 0;
+  color: #85857e;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input {
+  width: calc(100% - 32px);
+  min-height: 29px;
+  margin-top: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111;
+  font-size: 22px;
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::-webkit-inner-spin-button,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::placeholder {
+  color: #85857e;
+  opacity: 1;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 3px;
+}
+
+@media (max-width: 359px) {
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field { padding-inline: 10px; }
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-unit { right: 10px; }
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input { font-size: 20px; }
+}
+
+/* Final nutrition layout: four readable rows with the editable value at the edge. */
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid {
+  display: block;
+  border-top: 1px solid #deded8;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(odd),
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(-n + 2) {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid #e2e2dd;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:last-child {
+  border-bottom: 0;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-name {
+  color: #2f2f2b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-value {
+  display: inline-flex;
+  min-width: 118px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-unit {
+  position: static;
+  width: 29px;
+  margin: 0;
+  color: #7b7b75;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input {
+  width: 80px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid #d1d1cb;
+  border-radius: 9px;
+  background: #fff;
+  color: #111;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1;
+  text-align: right;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::placeholder {
+  color: #9a9a93;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input:focus-visible {
+  border-color: #111;
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+@media (max-width: 359px) {
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-value { min-width: 108px; }
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input { width: 72px; }
+}
+
+/* Shared create-form language: one surface, one radius scale, one section rhythm. */
+dialog.food-sheet:has(.food-create-form) {
+  background: #f5f5f2;
+  color: #111;
+  font-family: "Manrope Mobile", sans-serif;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading h2 {
+  color: #111;
+  font-family: "Manrope Mobile", sans-serif;
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-sheet-handle { background: #c8c8c2; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading .food-round { border-color: #d2d2cc; background: #fff; color: #111; }
+
+dialog.food-sheet .food-create-form .food-text-button { color: #111 !important; }
+dialog.food-sheet .food-create-form button:focus-visible,
+dialog.food-sheet .food-create-form input:focus-visible,
+dialog.food-sheet .food-create-form select:focus-visible { outline-color: #111; }
+
+dialog.food-sheet .food-create-form .food-create-intro {
+  margin-bottom: 16px !important;
+  color: #686862;
+  font-size: 12px !important;
+  line-height: 1.5;
+}
+
+dialog.food-sheet .food-create-form .food-label-scan {
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+dialog.food-sheet .food-create-form .food-label-row {
+  min-height: 56px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 11px;
+  padding: 8px 10px;
+  border: 1px solid #d1d1cb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+  color: #111;
+}
+
+dialog.food-sheet .food-create-form .food-label-row:hover { border-color: #999992; box-shadow: none; }
+dialog.food-sheet .food-create-form .food-label-row:focus-visible { outline-color: #111; }
+dialog.food-sheet .food-create-form .food-label-row-icon { border-radius: 10px; background: #111; color: #fff; }
+dialog.food-sheet .food-create-form .food-label-row strong { color: #111; font-size: 14px; font-weight: 750; }
+
+dialog.food-sheet .food-create-form .food-label-row-action {
+  min-height: 36px;
+  gap: 3px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  font-size: 11px;
+}
+
+dialog.food-sheet .food-create-form .food-label-actions .food-label-pick,
+dialog.food-sheet .food-create-form .food-label-actions .food-label-scan-button {
+  min-height: 40px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+dialog.food-sheet .food-create-form .food-label-actions .food-label-pick { border-color: #d1d1cb; background: #fff; color: #111; }
+dialog.food-sheet .food-create-form .food-label-actions .food-label-scan-button { border-color: #111; background: #111; color: #fff; }
+dialog.food-sheet .food-create-form .food-label-preview { border-radius: 10px; background: #ebebe7; }
+dialog.food-sheet .food-create-form .food-label-remove { color: #111; }
+
+dialog.food-sheet .food-create-fields .food-create-section-heading {
+  min-height: 43px;
+  align-items: center;
+  margin: 0;
+  padding: 0 0 9px;
+  border-bottom: 1px solid #d5d5cf;
+}
+
+dialog.food-sheet .food-create-fields .food-create-section-heading:not(:first-child) { margin-top: 20px; }
+dialog.food-sheet .food-create-fields .food-create-section-heading strong { color: #111; font-size: 16px; font-weight: 750; letter-spacing: 0; }
+
+dialog.food-sheet .food-create-details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+dialog.food-sheet .food-create-details-grid .food-field { gap: 6px; margin: 9px 0 0; }
+dialog.food-sheet .food-create-details-grid .food-field > span { color: #353530; font-size: 12px; font-weight: 650; }
+
+dialog.food-sheet .food-create-details-grid .food-field input {
+  min-height: 46px;
+  padding: 9px 11px;
+  border: 1px solid #d1d1cb;
+  border-radius: 10px;
+  background: #fff;
+  color: #111;
+  font-size: 14px;
+}
+
+dialog.food-sheet .food-create-details-grid .food-field input::placeholder { color: #85857f; opacity: 1; }
+dialog.food-sheet .food-create-details-grid .food-field input:focus-visible { border-color: #111; outline: 2px solid #111; outline-offset: 2px; }
+
+dialog.food-sheet .food-nutrition-editor {
+  margin-top: 20px;
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid #d5d5cf;
+  border-bottom: 1px solid #d5d5cf;
+  border-radius: 0;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading {
+  min-height: 43px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading strong { font-size: 16px; }
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading > span { color: #777771; font-size: 10px; font-weight: 700; letter-spacing: .35px; }
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid {
+  display: block;
+  padding: 0;
+  border-top: 1px solid #deded8;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(odd),
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(-n + 2) {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid #e2e2dd;
+  border-radius: 0;
+  background: transparent;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:last-child { border-bottom: 0; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-name { color: #2f2f2b; font-size: 12px; font-weight: 700; }
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-value {
+  display: inline-flex;
+  min-width: 118px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-unit { position: static; width: 29px; margin: 0; color: #777771; font-size: 10px; font-weight: 700; }
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input {
+  width: 80px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid #d1d1cb;
+  border-radius: 10px;
+  background: #fff;
+  color: #111;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1;
+  text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::-webkit-inner-spin-button,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::-webkit-outer-spin-button { margin: 0; appearance: none; }
+
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input::placeholder { color: #85857f; font-size: 11px; font-weight: 500; text-align: center; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input:focus-visible { border-color: #111; outline: 2px solid #111; outline-offset: 2px; }
+
+dialog.food-sheet .food-create-fields .food-asset-mapping {
+  margin: 20px 0 0;
+  padding: 0;
+  border: 0;
+  border-top: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-heading { min-height: 43px; gap: 8px; }
+dialog.food-sheet .food-create-fields .food-asset-heading strong { color: #111; font-size: 16px; font-weight: 750; }
+dialog.food-sheet .food-create-fields .food-asset-heading > span { color: #777771; font-size: 10px; font-weight: 700; letter-spacing: .35px; }
+dialog.food-sheet .food-create-fields .food-asset-preview { width: 36px !important; height: 36px !important; border-radius: 10px; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure { margin: 0; border-top: 1px solid #e2e2dd; }
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary {
+  min-height: 43px;
+  color: #111;
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary::-webkit-details-marker { display: none; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary::marker { content: ""; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > small { margin-left: auto; color: #777771; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary > svg { width: 15px; height: 15px; color: #55554f; transition: transform 160ms ease; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure[open] summary > svg { transform: rotate(90deg); }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary:focus-visible { outline: 2px solid #111; outline-offset: 2px; border-radius: 8px; }
+
+dialog.food-sheet .food-create-fields .food-asset-controls .food-field {
+  gap: 6px;
+  margin: 9px 0;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-controls .food-field input,
+dialog.food-sheet .food-create-fields .food-asset-controls .food-field select {
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 9px 11px;
+  border: 1px solid #d1d1cb;
+  border-radius: 10px;
+  background: #fff;
+  color: #111;
+  font-size: 14px;
+}
+
+dialog.food-sheet .food-create-fields .food-asset-controls .food-field input::placeholder {
+  color: #85857f;
+  opacity: 1;
+}
+
+dialog.food-sheet .food-create-form .food-form-footer {
+  margin: 20px -24px -24px;
+  padding: 12px 24px max(8px, env(safe-area-inset-bottom));
+  border-top: 1px solid #d5d5cf;
+  background: #f5f5f2;
+}
+
+dialog.food-sheet .food-create-form .food-form-footer .food-primary {
+  min-height: 50px;
+  margin: 0;
+  border: 1px solid #111;
+  border-radius: 12px;
+  background: #111;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 750 !important;
+}
+
+@media (max-width: 359px) {
+  dialog.food-sheet .food-create-details-grid { gap: 8px; }
+  dialog.food-sheet .food-create-details-grid .food-field input { padding-inline: 9px; font-size: 13px; }
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-value { min-width: 108px; }
+  dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input { width: 72px; }
+  dialog.food-sheet .food-create-form .food-form-footer { margin-inline: -18px; padding-inline: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.food-sheet .food-create-fields .food-asset-disclosure summary > svg { transition: none; }
+}
+
+/* Final compact layout: all required fields fit in a half-height sheet on phones. */
+dialog.food-sheet:has(.food-create-form) {
+  max-height: min(560px, 50dvh);
+  padding: 8px 20px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-sheet-handle { margin-bottom: 4px; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading { min-height: 34px; margin-bottom: 1px; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading h2 { font-size: 20px; line-height: 1.1; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading .food-round { width: 34px; height: 34px; }
+dialog.food-sheet:has(.food-create-form) .food-sheet-heading .food-round svg { width: 16px; height: 16px; }
+
+dialog.food-sheet .food-create-form > .food-text-button:first-child { min-height: 26px; margin: 0 0 5px; padding: 0; gap: 5px; font-size: 11px !important; }
+dialog.food-sheet .food-create-form > .food-text-button:first-child svg { width: 13px; height: 13px; }
+dialog.food-sheet .food-create-form .food-label-scan { margin: 0 0 8px; }
+dialog.food-sheet .food-create-form .food-label-row { min-height: 44px; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; padding: 6px 7px; border-radius: 10px; }
+dialog.food-sheet .food-create-form .food-label-row-icon { width: 30px; height: 30px; border-radius: 8px; }
+dialog.food-sheet .food-create-form .food-label-row-icon svg { width: 15px; height: 15px; }
+dialog.food-sheet .food-create-form .food-label-row strong { font-size: 12px; }
+dialog.food-sheet .food-create-form .food-label-row-action { min-height: 28px; padding: 0 7px; border-radius: 8px; font-size: 10px; }
+dialog.food-sheet .food-create-form .food-label-row-action svg { width: 12px; height: 12px; }
+
+dialog.food-sheet .food-create-fields .food-create-section-heading { min-height: 28px; margin: 0 0 6px; padding: 0 0 5px; }
+dialog.food-sheet .food-create-fields .food-create-section-heading:not(:first-child) { margin-top: 13px; }
+dialog.food-sheet .food-create-fields .food-create-section-heading strong { font-size: 14px; }
+dialog.food-sheet .food-create-details-grid { gap: 8px; }
+dialog.food-sheet .food-create-details-grid .food-field { gap: 3px; margin: 0; }
+dialog.food-sheet .food-create-details-grid .food-field > span { font-size: 10px; }
+dialog.food-sheet .food-create-details-grid .food-field input { min-height: 40px; padding: 7px 9px; border-radius: 9px; font-size: 13px; }
+
+dialog.food-sheet .food-nutrition-editor { margin-top: 8px; }
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading { min-height: 28px; margin: 0; padding: 0 0 5px; }
+dialog.food-sheet .food-nutrition-editor .food-create-section-heading > span { font-size: 9px; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid #deded8; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field,
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(odd),
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(-n + 2) {
+  display: block;
+  min-height: 44px;
+  margin: 0;
+  padding: 5px 9px 4px;
+  border: 0;
+  border-bottom: 1px solid #e2e2dd;
+  border-radius: 0;
+  background: #fff;
+}
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-child(odd) { border-right: 1px solid #deded8; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field:nth-last-child(-n + 2) { border-bottom: 0; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-name { font-size: 10px; line-height: 1.1; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-value { min-width: 0; width: 100%; justify-content: space-between; gap: 5px; margin-top: 2px; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-unit { width: auto; font-size: 9px; }
+dialog.food-sheet .food-nutrition-editor .food-nutrient-grid .food-field input { width: calc(100% - 22px); min-height: 20px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 16px; text-align: left; }
+
+dialog.food-sheet .food-create-fields .food-asset-mapping { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; margin: 8px 0 0; padding: 0; border: 0; }
+dialog.food-sheet .food-create-fields .food-asset-heading { min-width: 0; min-height: 32px; justify-content: flex-start; gap: 6px; }
+dialog.food-sheet .food-create-fields .food-asset-heading strong { font-size: 13px; }
+dialog.food-sheet .food-create-fields .food-asset-heading > span { margin-left: 0; font-size: 9px; }
+dialog.food-sheet .food-create-fields .food-asset-preview { width: 28px !important; height: 28px !important; margin-left: auto; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure { grid-column: 2; min-width: 0; margin: 0; border-top: 0; }
+dialog.food-sheet .food-create-fields .food-asset-disclosure summary { min-height: 32px; font-size: 11px; }
+dialog.food-sheet .food-create-fields .food-asset-state,
+dialog.food-sheet .food-create-fields .food-asset-controls,
+dialog.food-sheet .food-create-fields .food-asset-selected { grid-column: 1 / -1; }
+dialog.food-sheet .food-create-fields .food-asset-selected { margin-top: 4px; padding-top: 5px; }
+
+dialog.food-sheet .food-create-form .food-form-footer { position: sticky; bottom: 0; z-index: 3; margin: 8px -20px 0; padding: 6px 20px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid #d5d5cf; background: #f5f5f2; }
+dialog.food-sheet .food-create-form .food-form-footer .food-primary { min-height: 42px; margin: 0; border-radius: 10px; font-size: 13px !important; }
+
+@media (max-width: 359px) {
+  dialog.food-sheet:has(.food-create-form) { padding-inline: 16px; }
+  dialog.food-sheet .food-create-details-grid { gap: 6px; }
+  dialog.food-sheet .food-create-details-grid .food-field input { padding-inline: 8px; font-size: 12px; }
+  dialog.food-sheet .food-create-fields .food-asset-mapping { column-gap: 6px; }
+  dialog.food-sheet .food-create-fields .food-asset-disclosure summary { font-size: 10px; }
+  dialog.food-sheet .food-create-form .food-form-footer { margin-inline: -16px; padding-inline: 16px; }
+}
+
+/* Artwork mapping stays a single, readable row until the controls are opened. */
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-mapping {
+  display: block;
+  min-width: 0;
+  margin: 10px 0 0;
+  padding: 7px 0 0;
+  border-top: 1px solid #deded8;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-topline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-heading {
+  min-width: 0;
+  min-height: 38px;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-heading strong {
+  flex: 0 0 auto;
+  color: #111;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-heading > .food-asset-optional {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #777771;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .28px;
+  text-transform: uppercase;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-disclosure {
+  min-width: 0;
+  margin: 0;
+  border-top: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-disclosure summary {
+  display: flex;
+  min-width: 0;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 1px 0 8px;
+  border-left: 1px solid #deded8;
+  color: #111;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-disclosure summary > span {
+  flex: 0 0 auto;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-disclosure summary > svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: #111;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-preview {
+  flex: 0 0 auto;
+  width: 27px !important;
+  height: 27px !important;
+  margin-left: auto;
+  border-radius: 8px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  padding: 3px 0 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-controls .food-field {
+  min-width: 0;
+  margin: 7px 0 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-controls .food-field > span {
+  color: #777771;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .25px;
+  text-transform: uppercase;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-controls .food-field input,
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-controls .food-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #d1d1cb;
+  border-radius: 9px;
+  background: #fff;
+  color: #111;
+  font-size: 13px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-selected {
+  display: flex;
+  min-width: 0;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid #e2e2dd;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-selected strong { color: #111; font-size: 10px; font-weight: 750; }
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-selected span { color: #777771; font-size: 9px; }
+
+@media (max-width: 359px) {
+  dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-topline { gap: 6px; }
+  dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-disclosure summary { gap: 5px; padding-left: 6px; font-size: 10px; }
+}
+
+/* Name and brand use an editorial underline field instead of two floating boxes. */
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field {
+  min-width: 0;
+  gap: 4px;
+  margin: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field > span {
+  overflow: hidden;
+  color: #777771;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .32px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field > span small {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 35px;
+  margin: 0;
+  padding: 5px 0 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #111;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field input::placeholder {
+  color: #96968f;
+  opacity: 1;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field input:hover {
+  border-color: transparent;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field input:focus-visible {
+  border-color: transparent;
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+@media (max-width: 359px) {
+  dialog.food-sheet:has(.food-create-form) .food-create-details-grid { gap: 12px; }
+  dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field input { font-size: 13px; }
+}
+
+/* Keep label capture as a quiet utility row rather than a nested card. */
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-scan {
+  margin: 0 0 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row {
+  min-height: 39px;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 0 0 8px;
+  border: 0;
+  border-bottom: 1px solid #deded8;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #111;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row:hover {
+  border-bottom-color: #777771;
+  box-shadow: none;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 3px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row strong {
+  color: #111;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-action {
+  min-height: 28px;
+  gap: 2px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-action svg {
+  width: 13px;
+  height: 13px;
+}
+
+@media (max-width: 359px) {
+  dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row { gap: 7px; }
+  dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row strong { font-size: 12px; }
+  dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-action { font-size: 10px; }
+}
+
+/* Section rhythm comes from spacing and type, without horizontal rules. */
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-create-section-heading {
+  border-bottom: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-nutrient-grid {
+  border-top: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-nutrition-editor {
+  border-top: 0;
+  border-bottom: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-mapping {
+  border-top: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row {
+  border-bottom: 0;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-form-footer {
+  border-top: 0;
+}
+
+.food-label-previews {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.food-label-previews .food-label-preview {
+  display: grid;
+  min-width: 0;
+  height: 112px;
+  max-height: none;
+  margin: 0;
+  place-items: center;
+  background-color: #f3f3f1;
+  background-image: linear-gradient(45deg, #e6e6e2 25%, transparent 25%), linear-gradient(-45deg, #e6e6e2 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e6e6e2 75%), linear-gradient(-45deg, transparent 75%, #e6e6e2 75%);
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  background-size: 10px 10px;
+}
+
+.food-label-previews .food-label-preview img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+
+.food-label-previews .food-label-preview > span {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 92%);
+  color: #333;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-previews {
+  margin-top: 8px;
+}
+
+dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-previews .food-label-preview {
+  height: 82px;
+  border-radius: 8px;
+}
+
+.food-label-actions .food-label-scan-button {
+  gap: 7px;
+}
+
+.food-label-actions .food-label-scan-button svg + svg {
+  margin-left: -4px;
 }

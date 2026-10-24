@@ -134,6 +134,12 @@ if ($selectedServices -contains "market") {
 if ($selectedServices -contains "wechat") {
     & (Join-Path $repoRoot "deploy\release\apply-wechat-migrations.ps1")
 }
+# Core and the mobile UI consume the Life food catalog and artwork mapping.
+# Apply the idempotent bundle whenever either consumer is deployed, including
+# narrow service deployments on a fresh environment.
+if ($selectedServices -contains "core" -or $selectedServices -contains "ui" -or $fullDeployment) {
+    & (Join-Path $repoRoot "deploy\release\apply-life-migrations.ps1")
+}
 
 $pom = [xml](Get-Content (Join-Path $repoRoot "pom.xml") -Raw)
 $currentMavenVersion = [string]$pom.project.version
