@@ -1,8 +1,9 @@
-import { Activity, ArrowUpRight, BedDouble, CalendarDays, Check, Dumbbell, Ruler, Scale, Settings2, TimerReset, X } from "lucide-react"
+import { Activity, ArrowUpRight, BedDouble, CalendarDays, Check, CloudOff, Dumbbell, LoaderCircle, RefreshCw, Ruler, Scale, Settings2, TimerReset, X } from "lucide-react"
 import { useMemo, useState, type CSSProperties, type FormEvent } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { calculateBmi } from "@/mobile/components/activity-calendar/model"
 import { useWorkoutRecords } from "@/mobile/hooks/use-workout-records"
+import { MobileButton } from "@/mobile/ui/button"
 import { WorkoutHistoryView } from "./components/workout-history-view"
 import { WorkoutBodyView } from "./components/body-view"
 import { WorkoutFormDialog } from "./components/workout-form-dialog"
@@ -22,11 +23,12 @@ function getView(hash: string): WorkoutView {
 }
 
 export default function MobileWorkoutPage() {
-  const { data: records, storageError, update, savePlanRemote, saveSessionRemote, saveMeasurementRemote, deleteSessionRemote, deleteMeasurementRemote } = useWorkoutRecords()
+  const { data: records, storageError, syncing, syncError, pendingCount, retryable, sync, update, savePlanRemote, saveSessionRemote, saveMeasurementRemote, deleteSessionRemote, deleteMeasurementRemote } = useWorkoutRecords()
   const location = useLocation()
   const navigate = useNavigate()
   const today = useMemo(() => new Date(), [])
   const todayKey = dateKey(today)
+  const syncLabel = records.isSample ? "Sample data" : syncing ? "Syncing…" : pendingCount > 0 ? "Saved on this device" : syncError ? "Sync unavailable" : "Account sync enabled"
   const activeView = getView(location.hash)
   const cycleStart = records.cycleStart
   const [sessionDate, setSessionDate] = useState(todayKey)
@@ -89,6 +91,11 @@ export default function MobileWorkoutPage() {
   return (
     <div className={`mobile-workout is-${activeView}`}>
       {storageError && <p className="mobile-workout-empty" role="alert">{storageError}</p>}
+      {(syncError || pendingCount > 0) && <div className="mobile-workout-sync-note" role="status" aria-live="polite" aria-busy={syncing}>
+        {syncing ? <LoaderCircle className="is-syncing" aria-hidden="true" /> : <CloudOff aria-hidden="true" />}
+        <div><strong>{pendingCount > 0 ? "Saved on this device" : "Workout sync unavailable"}</strong><p>{syncing ? "Syncing with your account…" : syncError || "Waiting to sync with your account."}</p>{!syncing && retryable && <small>Reconnect or tap Retry sync.</small>}</div>
+        <MobileButton type="button" variant="ghost" className="mobile-workout-sync-retry" isDisabled={syncing} onPress={() => { void sync().catch(() => undefined) }}><RefreshCw aria-hidden="true" />{syncing ? "Syncing…" : "Retry sync"}</MobileButton>
+      </div>}
       {activeView === "overview" && <>
         <header className="mobile-workout-intro">
           <span className="mobile-workout-date-pill">{formatLongDate(todayKey)}</span>
@@ -135,7 +142,7 @@ export default function MobileWorkoutPage() {
         <section className="mobile-workout-body" aria-labelledby="mobile-workout-body-title">
           <button type="button" className="mobile-workout-body-link" aria-expanded={showBodyMetrics} onClick={() => setShowBodyMetrics((current) => !current)}>
             <span className="mobile-workout-body-link-icon-left"><Activity aria-hidden="true" /></span>
-            <span><strong id="mobile-workout-body-title">Body Metrics</strong><small>Latest measurements · {records.isSample ? "Sample data" : "Account sync enabled"}</small></span>
+            <span><strong id="mobile-workout-body-title">Body Metrics</strong><small>Latest measurements · {syncLabel}</small></span>
             <span className="mobile-workout-body-link-icon"><ArrowUpRight aria-hidden="true" /></span>
           </button>
           {showBodyMetrics && <div className="mobile-workout-body-details">
@@ -195,10 +202,10 @@ export default function MobileWorkoutPage() {
             </svg>
           </div>
         </section>
-        <p className="mobile-workout-activity-source">{records.isSample ? "Sample data" : "Account sync enabled"}</p>
+        <p className="mobile-workout-activity-source">{syncLabel}</p>
       </>}
 
-      {activeView === "body" && <WorkoutBodyView today={today} observations={records.observations} isSample={records.isSample}
+      {activeView === "body" && <WorkoutBodyView today={today} observations={records.observations} isSample={records.isSample} syncLabel={syncLabel}
         onSaveObservation={(input) => { const result = update((data) => saveObservation(data, input, todayKey, crypto.randomUUID())); const saved = result.data.observations.find((item) => item.metric === input.metric && item.side === input.side && item.measuredAt === input.measuredAt); if (saved) void saveMeasurementRemote(saved).catch(() => undefined) }}
         onDeleteObservation={(id) => { update((data) => ({ ...data, observations: data.observations.filter((item) => item.id !== id) })); void deleteMeasurementRemote(id).catch(() => undefined) }}
         onStartLog={() => { const result = update(startPersonalLog); void savePlanRemote(result.data.cycleStart).catch(() => undefined) }} />}

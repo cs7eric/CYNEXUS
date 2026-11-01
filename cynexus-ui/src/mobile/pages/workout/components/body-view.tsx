@@ -6,7 +6,7 @@ import { BodyDiagram } from "./body-diagram"
 import { MeasurementEditor } from "./measurement-editor"
 import "./body-view.css"
 
-type Props = { today: Date; observations: readonly BodyObservation[]; isSample: boolean; onSaveObservation: (input: BodyObservationInput) => void; onDeleteObservation: (id: string) => void; onStartLog: () => void }
+type Props = { today: Date; observations: readonly BodyObservation[]; isSample: boolean; syncLabel: string; onSaveObservation: (input: BodyObservationInput) => void; onDeleteObservation: (id: string) => void; onStartLog: () => void }
 type Period = "Week" | "Month" | "Year"
 const formatDate = (value: string) => `${shortDate(value)}, ${value.slice(0, 4)}`
 
@@ -16,7 +16,7 @@ function startOfRange(end: string, period: Period) {
   return dateKey(date)
 }
 
-export function WorkoutBodyView({ today, observations, isSample, onSaveObservation, onDeleteObservation, onStartLog }: Props) {
+export function WorkoutBodyView({ today, observations, isSample, syncLabel, onSaveObservation, onDeleteObservation, onStartLog }: Props) {
   const todayKey = dateKey(today)
   const [asOf, setAsOf] = useState(todayKey)
   const [rangeEnd, setRangeEnd] = useState(todayKey)
@@ -65,7 +65,7 @@ export function WorkoutBodyView({ today, observations, isSample, onSaveObservati
     setEditor({ observation: isSample ? undefined : observation ?? undefined })
   }
   return <section className="workout-body-view" aria-label="Body measurements">
-    <div className="workout-body-title"><h1>Your body</h1><div className="workout-body-title-actions"><span className="workout-body-source">{isSample ? "Sample data" : "Account sync enabled"}</span>{isSample && <button className="workout-body-start" onClick={onStartLog}>Start my log</button>}</div></div>
+    <div className="workout-body-title"><h1>Your body</h1><div className="workout-body-title-actions"><span className="workout-body-source" aria-live="polite">{syncLabel}</span>{isSample && <button className="workout-body-start" onClick={onStartLog}>Start my log</button>}</div></div>
     <div className="workout-body-summary">
       <button type="button" className="workout-body-summary-cell" onClick={() => editSummaryMetric("weight", weight)} aria-label={weight ? "Edit weight" : "Record weight"}>
         <span>Weight</span><strong>{weight ? weight.value.toFixed(1) : "—"}<small>kg</small></strong><time>{weight ? formatDate(weight.measuredAt) : "Not logged"}</time><Pencil className="workout-body-summary-edit" size={13} aria-hidden="true" />
@@ -95,6 +95,6 @@ export function WorkoutBodyView({ today, observations, isSample, onSaveObservati
     <div className="workout-body-records-heading"><h2>Recent measurements</h2>{records.length > 3 && <button onClick={() => setAllRecords(!allRecords)}>{allRecords ? "Show less" : `View all (${records.length})`}</button>}</div>
     {shownRecords.length ? shownRecords.map((entry) => <div className="workout-body-record" key={entry.id}><button className="workout-body-record-date" onClick={() => setAsOf(entry.measuredAt)}><strong>{formatDate(entry.measuredAt)}</strong><span>{entry.note ?? label}</span></button><b>{entry.value.toFixed(1)} <small>{definition.unit}</small></b>{!isSample && <button className="workout-body-edit" onClick={() => setEditor({ observation: entry })} aria-label={`Edit ${label} from ${formatDate(entry.measuredAt)}`}><Pencil size={16} /></button>}</div>) : <p className="workout-body-empty">Nothing recorded yet. Measurements appear here after you save them.</p>}
     <p className="workout-body-disclaimer">Illustration based on recorded measurements, with a neutral shape where data is missing. It does not estimate body fat, muscle or your actual appearance. Dates may differ by measurement.</p>
-    {editor && <MeasurementEditor today={todayKey} initialMetric={editor.observation?.metric ?? metric} initialSide={editor.observation?.side ?? side} initialDate={asOf} observation={editor.observation} isSample={isSample} onSave={onSaveObservation} onDelete={onDeleteObservation} onClose={() => setEditor(null)} />}
+    {editor && <MeasurementEditor today={todayKey} initialMetric={editor.observation?.metric ?? metric} initialSide={editor.observation?.side ?? side} initialDate={asOf} observation={editor.observation} isSample={isSample} syncLabel={syncLabel} onSave={onSaveObservation} onDelete={onDeleteObservation} onClose={() => setEditor(null)} />}
   </section>
 }

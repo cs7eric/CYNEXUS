@@ -52,6 +52,7 @@ function taskPage(visionResponses, workflowStatus = "SUCCEEDED") {
     "@/services/food/recognition": { listFoodRecognitionTasks: async () => [], isFoodRecognitionVisionTask: () => false },
     "@/mobile/pages/food/hooks/use-food-recognition-tasks": { useFoodRecognitionTasks() {} },
     "./components/nutrition-task-result": {},
+    "./components/summary-panel": { MobileTaskSummary: () => null },
     "@/mobile/pages/tasks/tasks.css": {},
   }
   const source = readFileSync(new URL("../src/mobile/pages/tasks/index.tsx", import.meta.url), "utf8")

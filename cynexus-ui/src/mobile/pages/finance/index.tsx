@@ -9,6 +9,7 @@ import { fetchFinanceAccounts, fetchFinanceOverview, saveFinanceAccount, type Fi
 import "@/mobile/pages/finance/finance.css"
 import { FinanceOverviewView } from "./overview"
 import { FinanceActivityView } from "./activity"
+import { FinanceSummaryView } from "./summary"
 
 type FinanceLoadState = "loading" | "ready" | "error"
 
@@ -77,6 +78,7 @@ export default function MobileFinancePage() {
 
   if (hash === "#finance-accounts") return <FinanceAccountsView />
   if (hash === "#finance-activity") return <FinanceActivityView />
+  if (hash === "#finance-summary") return <FinanceSummaryView />
   return <FinanceOverviewView />
 }
 

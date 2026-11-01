@@ -1,0 +1,43 @@
+.mobile-food .food-history-summary {
+  padding: 10px 14px 8px;
+  border-radius: 20px;
+}
+
+.mobile-food .food-history-key-stat > strong {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.mobile-food .food-history-key-stat > p {
+  margin-top: 1px;
+}
+
+.mobile-food .food-history-macros {
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 7px;
+}
+
+.mobile-food .food-history-macros > div {
+  gap: 1px;
+}
+
+.mobile-food .food-history-macros strong {
+  font-size: 18px;
+}
+
+.mobile-food .food-history-chart-wrap {
+  margin-top: 10px;
+}
+
+.mobile-food .food-history-chart {
+  height: 158px;
+}
+
+.mobile-food .food-history-chart-empty {
+  height: 140px;
+}
+
+.mobile-food .food-trend-caption {
+  margin-top: 4px;
+}

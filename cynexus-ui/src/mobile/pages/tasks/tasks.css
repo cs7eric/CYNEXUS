@@ -9,6 +9,12 @@
 .mobile-tasks-refresh { display: inline-flex; width: 44px; height: 44px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--border); border-radius: 50%; color: var(--foreground); background: #ffffff66; }
 .mobile-tasks-refresh svg { width: 21px; height: 21px; stroke-width: 1.7; }
 .mobile-tasks-refresh:disabled { opacity: .55; }
+.mobile-tasks-tabs { display: flex; gap: 20px; margin-top: 14px; border-bottom: 1px solid var(--border); }
+.mobile-tasks-tabs button { position: relative; display: inline-flex; min-height: 44px; align-items: center; gap: 5px; padding: 0 2px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .78rem; font-weight: 550; }
+.mobile-tasks-tabs button[aria-selected=true] { color: var(--foreground); font-weight: 700; }
+.mobile-tasks-tabs button[aria-selected=true]::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; border-radius: 2px; background: var(--foreground); content: ""; }
+.mobile-tasks-tabs button svg { width: 15px; height: 15px; }
+.mobile-task-history-panel .mobile-tasks-status-filters { margin-top: 8px; }
 .mobile-tasks-filters, .mobile-tasks-status-filters { display: flex; gap: 8px; overflow-x: auto; padding: 2px 1px; scrollbar-width: none; }
 .mobile-tasks-filters { margin-top: 22px; }
 .mobile-tasks-status-filters { margin-top: 8px; }

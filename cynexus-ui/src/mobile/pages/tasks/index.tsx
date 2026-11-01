@@ -1,5 +1,5 @@
-import { AlertCircle, CheckCircle2, ChevronDown, Clock3, FileImage, FileVideo2, ListTodo, LoaderCircle, RefreshCw, RotateCcw, ScanLine, WalletCards } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AlertCircle, CheckCircle2, ChevronDown, Clock3, FileImage, FileVideo2, History, ListTodo, LoaderCircle, RefreshCw, RotateCcw, ScanLine, WalletCards } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 
 import { listApiWorkflows, retryApiWorkflow, type ApiWorkflowProcess, type ApiWorkflowStatus } from "@/services/core/api-workflows"
 import { listVisionTasks, retryVisionTask, type AiVisionTaskSummary } from "@/services/ai/vision"
@@ -7,12 +7,17 @@ import { isFoodRecognitionVisionTask, listFoodRecognitionTasks, retryFoodRecogni
 import { useFoodRecognitionTasks } from "@/mobile/pages/food/hooks/use-food-recognition-tasks"
 import { MobileButton } from "@/mobile/ui/button"
 import { NutritionTaskResult } from "./components/nutrition-task-result"
+import { MobileTaskSummary } from "./components/summary-panel"
+import { type TaskSummaryCoverage } from "./lib/summary"
 
 import "@/mobile/pages/tasks/tasks.css"
 
 type TaskType = ApiWorkflowProcess["workflowType"] | "AI_VISION"
 type TypeFilter = "all" | TaskType
-type StatusFilter = "all" | "active" | "failed" | "complete"
+type StatusFilter = "all" | "active" | "attention" | "failed" | "complete"
+type TaskView = "summary" | "history"
+
+const taskTypeOrder: TaskType[] = ["AI_VISION", "FINANCE_AI_CAPTURE", "MEDIA_TRANSCRIPTION", "PORTFOLIO_TRADE_IMPORT"]
 
 const typeLabels: Record<TaskType, string> = {
   MEDIA_TRANSCRIPTION: "Media transcription",
@@ -57,6 +62,7 @@ function statusTone(status: ApiWorkflowStatus) {
 function statusFilterMatch(item: TaskItem, filter: StatusFilter) {
   if (filter === "all") return true
   if (filter === "active") return item.status === "QUEUED" || item.status === "RUNNING"
+  if (filter === "attention") return item.status === "FAILED" || item.status === "WAITING_REVIEW"
   if (filter === "failed") return item.status === "FAILED" || item.status === "CANCELLED"
   return item.status === "SUCCEEDED" || item.status === "WAITING_REVIEW"
 }
@@ -66,6 +72,11 @@ function formatTime(value?: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+}
+
+function oldestCreatedAt(items: Array<{ createdAt?: string | null }>) {
+  return items.map((item) => item.createdAt).filter((value): value is string => !!value && Number.isFinite(new Date(value).getTime()))
+    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0] ?? null
 }
 
 type TaskItem = ApiWorkflowProcess & { workflowType: Exclude<TaskType, "AI_VISION">; retryable?: boolean }
@@ -163,6 +174,8 @@ function TaskRow({ item, retrying, savingDraft, onRetry }: { item: TaskItem; ret
 
 export default function MobileTasksPage() {
   const [items, setItems] = useState<TaskItem[]>([])
+  const [summaryCoverage, setSummaryCoverage] = useState<TaskSummaryCoverage[]>([])
+  const [view, setView] = useState<TaskView>("summary")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [loading, setLoading] = useState(true)
@@ -198,6 +211,11 @@ export default function MobileTasksPage() {
       ]
       if (failures.length === Number(needsWorkflows) + Number(needsVision) * 2) throw failures[0]
       const internalAiTasks = new Set((foodTasks ?? []).map(task => task.aiTaskId).filter(Boolean))
+      setSummaryCoverage([
+        ...(workflowPage ? [{ name: "Core and Market", hasMore: workflowPage.total > workflowPage.items.length, oldestAt: oldestCreatedAt(workflowPage.items) }] : []),
+        ...(visionTasks ? [{ name: "Image analysis", hasMore: visionTasks.length >= 100, oldestAt: oldestCreatedAt(visionTasks) }] : []),
+        ...(foodTasks ? [{ name: "Food recognition", hasMore: foodTasks.length >= 100, oldestAt: oldestCreatedAt(foodTasks) }] : []),
+      ])
       setItems([
         ...(workflowPage?.items ?? []),
         ...(visionTasks ?? []).filter(task => !isFoodRecognitionVisionTask(task) && !internalAiTasks.has(task.id)).map(visionTaskItem),
@@ -233,7 +251,7 @@ export default function MobileTasksPage() {
 
   const visibleItems = useMemo(() => items.filter((item) => statusFilterMatch(item, statusFilter)), [items, statusFilter])
   const groups = useMemo(() => {
-    const types: TaskType[] = typeFilter === "all" ? ["MEDIA_TRANSCRIPTION", "PORTFOLIO_TRADE_IMPORT", "FINANCE_AI_CAPTURE", "AI_VISION"] : [typeFilter]
+    const types: TaskType[] = typeFilter === "all" ? taskTypeOrder : [typeFilter]
     return types.map((type) => ({ type, items: visibleItems.filter((item) => item.workflowType === type) })).filter((group) => group.items.length > 0)
   }, [typeFilter, visibleItems])
 
@@ -252,31 +270,51 @@ export default function MobileTasksPage() {
     }
   }, [load])
 
+  function showHistory(filter: "all" | "attention" = "all") {
+    setStatusFilter(filter)
+    setView("history")
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return
+    event.preventDefault()
+    const next = event.key === "Home" ? "summary" : event.key === "End" ? "history" : view === "summary" ? "history" : "summary"
+    setView(next)
+    document.querySelector<HTMLButtonElement>(`[data-task-view="${next}"]`)?.focus()
+  }
+
   return <div className="mobile-tasks">
     <header className="mobile-tasks-heading">
       <div><p className="mobile-tasks-eyebrow"><ListTodo aria-hidden="true" /> Profile</p><h2>Async tasks</h2></div>
       <button type="button" className="mobile-tasks-refresh" onClick={() => void load(true)} disabled={refreshing} aria-label="Refresh async tasks" title="Refresh async tasks"><RefreshCw aria-hidden="true" className={refreshing ? "is-spinning" : ""} /></button>
     </header>
 
-    <div className="mobile-tasks-filters" role="group" aria-label="Task type">
-      <button type="button" aria-pressed={typeFilter === "all"} className={typeFilter === "all" ? "is-selected" : ""} onClick={() => setTypeFilter("all")}>All</button>
-      {(Object.keys(typeLabels) as TaskType[]).map((type) => <button key={type} type="button" aria-pressed={typeFilter === type} className={typeFilter === type ? "is-selected" : ""} onClick={() => setTypeFilter(type)}>{typeLabels[type]}</button>)}
-    </div>
-    <div className="mobile-tasks-status-filters" role="group" aria-label="Task status">
-      {(["all", "active", "failed", "complete"] as StatusFilter[]).map((filter) => <button key={filter} type="button" aria-pressed={statusFilter === filter} className={statusFilter === filter ? "is-selected" : ""} onClick={() => setStatusFilter(filter)}>{filter === "all" ? "All statuses" : filter === "active" ? "In progress" : filter === "failed" ? "Failed" : "Complete"}</button>)}
+    <div className="mobile-tasks-tabs" role="tablist" aria-label="Async task pages" onKeyDown={handleTabKeyDown}>
+      <button id="mobile-task-summary-tab" type="button" role="tab" aria-selected={view === "summary"} aria-controls="mobile-task-summary-panel" tabIndex={view === "summary" ? 0 : -1} data-task-view="summary" onClick={() => setView("summary")}>Summary</button>
+      <button id="mobile-task-history-tab" type="button" role="tab" aria-selected={view === "history"} aria-controls="mobile-task-history-panel" tabIndex={view === "history" ? 0 : -1} data-task-view="history" onClick={() => setView("history")}><History aria-hidden="true" />Task history</button>
     </div>
 
+    <div className="mobile-tasks-filters" role="group" aria-label="Task type">
+      <button type="button" aria-pressed={typeFilter === "all"} className={typeFilter === "all" ? "is-selected" : ""} onClick={() => setTypeFilter("all")}>All</button>
+      {taskTypeOrder.map((type) => <button key={type} type="button" aria-pressed={typeFilter === type} className={typeFilter === type ? "is-selected" : ""} onClick={() => setTypeFilter(type)}>{typeLabels[type]}</button>)}
+    </div>
     {unavailableSources.length > 0 && <p className="mobile-tasks-stale" role="status">Some task sources are unavailable: {unavailableSources.join(", ")}. Showing the available history.</p>}
     {message && <p className="mobile-tasks-message" role="status">{message}</p>}
     {loading && <div className="mobile-tasks-state"><LoaderCircle aria-hidden="true" className="is-spinning" /><span>Loading task history…</span></div>}
     {!loading && error && <div className="mobile-tasks-state is-error"><AlertCircle aria-hidden="true" /><span>{error}</span><button type="button" onClick={() => void load()}>Try again</button></div>}
-    {!loading && !error && groups.length === 0 && <div className="mobile-tasks-state"><CheckCircle2 aria-hidden="true" /><span>{items.length ? "No tasks match these filters." : "No async tasks yet."}</span></div>}
-    {!loading && !error && groups.map(({ type, items: groupItems }) => {
+    {!loading && !error && <section id="mobile-task-summary-panel" role="tabpanel" aria-labelledby="mobile-task-summary-tab" hidden={view !== "summary"}><MobileTaskSummary items={items} typeFilter={typeFilter} typeOrder={taskTypeOrder} typeLabels={typeLabels} coverage={summaryCoverage} unavailableSources={unavailableSources} onSelectType={setTypeFilter} onViewHistory={showHistory} /></section>}
+    {!loading && !error && <section id="mobile-task-history-panel" role="tabpanel" aria-labelledby="mobile-task-history-tab" hidden={view !== "history"}>
+      <div className="mobile-tasks-status-filters" role="group" aria-label="Task status">
+        {(["all", "active", "attention", "failed", "complete"] as StatusFilter[]).map((filter) => <button key={filter} type="button" aria-pressed={statusFilter === filter} className={statusFilter === filter ? "is-selected" : ""} onClick={() => setStatusFilter(filter)}>{filter === "all" ? "All statuses" : filter === "active" ? "In progress" : filter === "attention" ? "Needs attention" : filter === "failed" ? "Failed" : "Complete"}</button>)}
+      </div>
+      {groups.length === 0 && <div className="mobile-tasks-state"><CheckCircle2 aria-hidden="true" /><span>{items.length ? "No tasks match these filters." : "No async tasks yet."}</span></div>}
+      {groups.map(({ type, items: groupItems }) => {
       const Icon = typeIcons[type]
       return <section key={type} className="mobile-task-group" aria-labelledby={`mobile-task-group-${type}`}>
         <div className="mobile-task-group-heading"><span className="mobile-task-group-icon"><Icon aria-hidden="true" /></span><div><h3 id={`mobile-task-group-${type}`}>{typeLabels[type]}</h3><p>{groupItems.length} {groupItems.length === 1 ? "task" : "tasks"}</p></div></div>
         <div className="mobile-task-list">{groupItems.map((item) => <TaskRow key={item.id} item={item} retrying={retryingId === `${item.workflowType}:${item.id}`} savingDraft={false} onRetry={retry} />)}</div>
       </section>
-    })}
+      })}
+    </section>}
   </div>
 }

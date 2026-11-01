@@ -20,9 +20,9 @@ const instructions: Partial<Record<BodyMetricId, string>> = {
   height: "Stand barefoot, upright against a flat wall. Record height in centimeters.",
 }
 
-type Props = { today: string; initialMetric: BodyMetricId; initialSide: BodySide; initialDate: string; observation?: BodyObservation; isSample?: boolean; onSave: (input: BodyObservationInput) => void; onDelete: (id: string) => void; onClose: () => void }
+type Props = { today: string; initialMetric: BodyMetricId; initialSide: BodySide; initialDate: string; observation?: BodyObservation; isSample?: boolean; syncLabel: string; onSave: (input: BodyObservationInput) => void; onDelete: (id: string) => void; onClose: () => void }
 
-export function MeasurementEditor({ today, initialMetric, initialSide, initialDate, observation, isSample = false, onSave, onDelete, onClose }: Props) {
+export function MeasurementEditor({ today, initialMetric, initialSide, initialDate, observation, isSample = false, syncLabel, onSave, onDelete, onClose }: Props) {
   const portal = useMobilePortal()
   const dialog = useRef<HTMLDialogElement>(null)
   const [metric, setMetric] = useState(initialMetric)
@@ -53,7 +53,8 @@ export function MeasurementEditor({ today, initialMetric, initialSide, initialDa
   const content = <dialog ref={dialog} className="workout-measurement-dialog" aria-labelledby="measurement-editor-title" onCancel={onClose} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <div className="workout-measurement-sheet">
       <header><h2 id="measurement-editor-title">{observation ? "Edit measurement" : "Record measurement"}</h2><button type="button" onClick={onClose} aria-label="Close measurement editor"><X size={21} /></button></header>
-      <p className="workout-body-muted">Account sync enabled</p>
+      <p className="workout-body-muted" aria-live="polite">{syncLabel}</p>
+      <p className="workout-measurement-guide">Changes save on this device first, then sync with your account.</p>
       {isSample && <p className="workout-measurement-guide">Saving starts your personal log. Sample measurements and workouts will be excluded.</p>}
       <form onSubmit={save}>
         <label>Measurement<select value={metric} onChange={(event) => { setMetric(event.target.value as BodyMetricId); setError(""); setConfirmDelete(false) }}>{BODY_METRICS.map((entry) => <option key={entry.id} value={entry.id}>{entry.label} ({entry.unit})</option>)}</select></label>

@@ -28,14 +28,17 @@ function FoodTodayContent({ day, today, onDateChange, onAdd, onEdit, onSelectGro
   const [snackRevealed, setSnackRevealed] = useState(false)
   const snackSwipeStart = useRef<{ x: number; y: number } | null>(null)
   const daySwipeStart = useRef<{ x: number; y: number } | null>(null)
-  const remaining = day.targets.caloriesKcal != null && day.totals.caloriesKcal != null ? day.targets.caloriesKcal - day.totals.caloriesKcal : null
   const partial = day.missingCounts.caloriesKcal > 0
   const dateValue = parseDate(day.date)
   const dateLabel = `${String(dateValue.getDate()).padStart(2, "0")}-${dateValue.toLocaleDateString("en-US", { month: "short" })}-${dateValue.getFullYear()}`
   const calories = partial ? day.knownTotals.caloriesKcal : day.totals.caloriesKcal
   const calorieTarget = day.targets.caloriesKcal
-  const calorieProgress = calorieTarget && calorieTarget > 0 && calories != null ? Math.min(100, calories / calorieTarget * 100) : 0
-  const remainingCalories = remaining == null ? null : Math.max(0, remaining)
+  const calorieDelta = !partial && calorieTarget != null && calorieTarget > 0 && calories != null ? calorieTarget - calories : null
+  const isOverBudget = calorieDelta != null && calorieDelta < 0
+  const energyAmount = calorieDelta == null ? null : Math.abs(calorieDelta)
+  const calorieArrowPosition = calorieDelta == null || calorieTarget == null || calorieTarget <= 0
+    ? null
+    : Math.min(100, Math.max(0, 50 - calorieDelta / calorieTarget * 50))
   function handleSnackSwipeEnd(event: TouchEvent<HTMLDivElement>) {
     const start = snackSwipeStart.current
     snackSwipeStart.current = null
@@ -95,7 +98,36 @@ function FoodTodayContent({ day, today, onDateChange, onAdd, onEdit, onSelectGro
   }
   return <div className="food-today food-today-v2" onTouchStart={startDiarySwipe} onTouchEnd={handleDiarySwipeEnd}>
     <div className="food-today-section-title"><div><p className="food-today-kicker"><Leaf />Nutrition diary</p><h1>Today's log</h1></div><label className="food-date-picker food-today-date"><span>{dateLabel}</span><input aria-label="Choose diary date" type="date" value={day.date} max={today} onChange={event => { if (event.target.value && event.target.value <= today) onDateChange(event.target.value) }} /></label></div>
-    <div className="food-daily-summary" aria-label="Daily nutrition summary"><section className="food-calorie-card"><div className="food-energy-topline"><p className="food-energy-kicker"><Leaf />Still to eat{partial && " · Partial"}</p><div className="food-energy-target"><small>Budget</small><b>{calorieTarget == null ? "No target" : `${formatNutrition(calorieTarget)} kcal`}</b></div></div><div className="food-energy-main"><strong>{formatNutrition(remainingCalories)}</strong><span>kcal</span></div><div className="food-energy-lower"><div className="food-energy-stats"><span><span className="food-energy-stat-value"><strong>{formatNutrition(calories)}</strong><em>kcal</em></span><small>Intake</small></span><span><span className="food-energy-stat-value"><strong>—</strong><em>kcal</em></span><small>Burned</small></span></div><div className="food-energy-meter" role={calorieTarget == null ? undefined : "progressbar"} aria-label="Daily calorie progress" aria-valuemin={calorieTarget == null ? undefined : 0} aria-valuemax={calorieTarget == null ? undefined : 100} aria-valuenow={calorieTarget == null ? undefined : calorieProgress} style={{ "--food-meter-marker": `${calorieProgress}%` } as CSSProperties}><div className="food-energy-meter-segments" aria-hidden="true">{Array.from({ length: 26 }, (_, index) => <i key={index} className={index < 13 ? "is-logged" : index < 21 ? "is-budget" : "is-limit"} />)}<b /></div></div></div></section><section className="food-macro-card" aria-label="Macronutrients"><div className="food-macro-strip">{macroKeys.map(key => { const Icon = macroIcons[key], isPartial = day.missingCounts[key] > 0, total = isPartial ? day.knownTotals[key] : day.totals[key], target = day.targets[key], progress = target != null && target > 0 && total != null ? Math.min(100, total / target * 100) : 0; return <div key={key} className={`food-macro-ring food-macro-ring-${key}`}><div className="food-macro-ring-visual" style={{ "--food-progress": `${progress}%` } as CSSProperties}><span>{formatNutrition(total, 1)}</span></div><div><p><Icon />{nutrientNames[key]}</p><small>{target == null ? "No target" : `of ${formatNutrition(target, 1)} g`}</small></div></div> })}</div></section></div>
+    <div className="food-daily-summary" aria-label="Daily nutrition summary">
+      <section className="food-calorie-card">
+        <div className="food-energy-topline">
+          <p className="food-energy-kicker"><Leaf />{isOverBudget ? "Over budget" : "Still to eat"}{partial && " · Partial"}</p>
+          <div className="food-energy-target"><small>Budget</small><b>{calorieTarget == null ? "No target" : `${formatNutrition(calorieTarget)} kcal`}</b></div>
+        </div>
+        <div className={`food-energy-main${isOverBudget ? " is-over-budget" : ""}`}><strong>{formatNutrition(energyAmount)}</strong><span>kcal</span></div>
+        <div className="food-energy-lower">
+          <div className="food-energy-stats">
+            <span><span className="food-energy-stat-value"><strong>{formatNutrition(calories)}</strong><em>kcal</em></span><small>Intake</small></span>
+            <span><span className="food-energy-stat-value"><strong>—</strong><em>kcal</em></span><small>Burned</small></span>
+          </div>
+          <div
+            className={`food-energy-meter${isOverBudget ? " is-over-budget" : calorieDelta != null && calorieDelta !== 0 ? " has-delta" : ""}`}
+            role="img"
+            aria-label={calorieDelta == null ? "Daily calorie status unavailable" : `Daily calorie status: ${formatNutrition(energyAmount)} kcal ${isOverBudget ? "over budget" : "remaining"}`}
+            style={{ "--food-meter-arrow": calorieArrowPosition == null ? undefined : `${calorieArrowPosition}%` } as CSSProperties}
+          >
+            <div className="food-energy-meter-segments" aria-hidden="true">
+              <div className="food-energy-meter-ticks">
+                {Array.from({ length: 26 }, (_, index) => <i key={index} className={index < 13 ? "is-logged" : index < 21 ? "is-budget" : "is-limit"} />)}
+              </div>
+              <b />
+              {calorieDelta != null && calorieDelta !== 0 && <><span className="food-energy-meter-delta" /><em className={`food-energy-meter-arrow${isOverBudget ? " is-over" : " is-remaining"}`} /></>}
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="food-macro-card" aria-label="Macronutrients"><div className="food-macro-strip">{macroKeys.map(key => { const Icon = macroIcons[key], isPartial = day.missingCounts[key] > 0, total = isPartial ? day.knownTotals[key] : day.totals[key], target = day.targets[key], remaining = target != null && total != null ? Math.max(0, target - total) : null, progress = target != null && target > 0 && total != null ? Math.min(100, total / target * 100) : 0; return <div key={key} className={`food-macro-ring food-macro-ring-${key}`}><div className="food-macro-ring-visual" style={{ "--food-progress": `${progress}%` } as CSSProperties} /><div><small>{remaining == null ? "No target" : <><strong>{formatNutrition(remaining, 1)} g</strong> <span>left</span></>}</small><p><Icon />{nutrientNames[key]}</p></div></div> })}</div></section>
+    </div>
     <div className="food-meal-list food-meal-timeline">{meals.slice(0, 2).map((meal, index) => <Fragment key={meal.id}>{mealCard(meal, index)}</Fragment>)}<div className={`food-meal-pair${snackRevealed ? " is-snack-revealed" : ""}`} key="dinner-snacks" role="group" tabIndex={0} aria-expanded={snackRevealed} aria-label="Dinner and snacks. Swipe left to view snacks." onTouchStart={event => { const touch = event.touches[0]; if (touch) snackSwipeStart.current = { x: touch.clientX, y: touch.clientY } }} onTouchEnd={handleSnackSwipeEnd} onKeyDown={handleSnackSwipeKey}><div className="food-meal-swipe-track">{mealCard(meals[2], 2)}<div className="food-meal-snack-slide">{mealCard(meals[3], 3, true)}</div></div></div></div>
     <button type="button" className="food-complete-day" disabled={busy} onClick={onComplete}>{day.status === "complete" ? <Pencil /> : <Check />}{day.status === "complete" ? "Reopen this day" : "Finish this day"}</button>
   </div>

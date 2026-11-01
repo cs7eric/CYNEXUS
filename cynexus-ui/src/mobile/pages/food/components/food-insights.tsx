@@ -1,8 +1,13 @@
 import { CalendarDays, ChartNoAxesColumnIncreasing, Check, ChevronLeft, ChevronRight, Leaf, LoaderCircle, Save, Target } from "lucide-react"
-import { useState, type FormEvent } from "react"
+import { useState, type CSSProperties, type FormEvent } from "react"
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { addDays, dateKey, emptyNutrition, formatNutrition, historyBounds, macroKeys, nutrientKeys, nutrientNames, parseDate, readableDate, type HistoryPeriod } from "@/services/food/model"
 import type { FoodDay, FoodGoal, NutrientKey, Nutrients } from "@/services/food/types"
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { FoodArt } from "./food-art"
+import { foodAmount, groupFoods } from "./scene-model"
 import "../insights.css"
+import "../insights-compact.css"
 
 interface FoodHistoryProps {
   days: FoodDay[]
@@ -24,7 +29,23 @@ function shiftedAnchor(anchor: string, period: HistoryPeriod, direction: number)
   return dateKey(period === "month" ? new Date(current.getFullYear(), current.getMonth() + direction, 1) : new Date(current.getFullYear() + direction, current.getMonth(), 1))
 }
 
+const foodHistoryChartConfig = {
+  kcal: { label: "Energy", color: "#378da2" },
+  target: { label: "Daily target", color: "#6d9a83" },
+} satisfies ChartConfig
+
+const historyFoodSpots = [
+  { x: 42, y: 28, angle: -12 }, { x: 31, y: 38, angle: 8 }, { x: 53, y: 14, angle: 11 },
+  { x: 36, y: 48, angle: 5 }, { x: 48, y: 8, angle: -9 }, { x: 59, y: 42, angle: 4 },
+]
+
+function chartTarget(days: FoodDay[]) {
+  const known = days.filter(day => day.targets.caloriesKcal != null)
+  return known.length ? known.reduce((sum, day) => sum + day.targets.caloriesKcal!, 0) / known.length : null
+}
+
 export function FoodHistory({ days, anchor, period, onAnchorChange, onPeriodChange, onSelectDate }: FoodHistoryProps) {
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const today = dateKey(new Date())
   const bounds = historyBounds(anchor, period)
   const logged = days.filter(day => day.date >= bounds.start && day.date <= bounds.end && day.date <= today && (day.items.length > 0 || day.status === "complete")).sort((a, b) => a.date.localeCompare(b.date))
@@ -42,7 +63,16 @@ export function FoodHistory({ days, anchor, period, onAnchorChange, onPeriodChan
     }
   }
   const values = bars.map(bar => average(bar.days, "caloriesKcal"))
-  const max = Math.max(1, ...values.map(value => value.value ?? 0))
+  const chartData = bars.map((bar, index) => ({
+    date: bar.date,
+    label: bar.label,
+    fullLabel: bar.fullLabel,
+    kcal: values[index].value,
+    target: chartTarget(bar.days),
+    partial: values[index].partial,
+    available: bar.days.length > 0,
+  }))
+  const hasTarget = chartData.some(item => item.target != null)
   const next = shiftedAnchor(anchor, period, 1)
   const rangeLabel = period === "year" ? String(parseDate(anchor).getFullYear()) : period === "month" ? parseDate(anchor).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : `${readableDate(bounds.start)} – ${readableDate(bounds.end)}, ${parseDate(bounds.end).getFullYear()}`
   return <div className="food-insights food-history">
@@ -52,12 +82,89 @@ export function FoodHistory({ days, anchor, period, onAnchorChange, onPeriodChan
     <div className="food-history-jump"><label><CalendarDays /><span>Choose date</span><input type="date" max={today} value={anchor} aria-label="Choose history date" onChange={event => { if (event.target.value && event.target.value <= today) onAnchorChange(event.target.value) }} /></label>{anchor !== today && <button type="button" onClick={() => onAnchorChange(today)}>Back to today</button>}</div>
     <section className="food-history-summary" aria-label="Recorded nutrition averages"><div className="food-history-key-stat"><span>Daily average{kcal.partial && " · Partial"}</span><strong>{formatNutrition(kcal.value)} <small>{kcal.partial ? "known kcal" : "kcal"}</small></strong><p>{logged.length} {logged.length === 1 ? "day" : "days"} logged · {logged.filter(day => day.status === "complete").length} complete</p></div>
       <div className="food-history-macros">{macroKeys.map(key => { const value = average(logged, key); return <div key={key}><span>{nutrientNames[key]}</span><strong>{formatNutrition(value.value, 1)} <small>g</small></strong><small>{value.partial ? "Known average · Partial" : "Daily average"}</small></div> })}</div>
-      <div className="food-trend-scroll"><div className={`food-trend food-trend-${period}`} style={{ gridTemplateColumns: `repeat(${bars.length},minmax(${period === "month" ? "17px" : "0"},1fr))` }} role="group" aria-label={period === "year" ? "Monthly average energy in kcal" : "Daily energy in kcal"}>{bars.map((bar, index) => { const value = values[index]; return <button type="button" key={bar.date} className={`food-trend-column${value.partial ? " is-partial" : ""}`} disabled={bar.date > today || !bar.days.length} onClick={() => { if (period === "year") { onPeriodChange("month"); onAnchorChange(bar.date) } else onSelectDate(bar.date) }} aria-label={`${bar.fullLabel}: ${!bar.days.length ? "Not logged" : `${formatNutrition(value.value)} ${value.partial ? "known " : ""}kcal${period === "year" ? " daily average" : ""}${value.partial ? ", Partial" : ""}`}`} title={`${bar.fullLabel}: ${formatNutrition(value.value)} ${value.partial ? "known " : ""}kcal`}><span className="food-trend-track"><i style={{ height: value.value == null ? "0%" : `${Math.max(3, value.value / max * 100)}%` }} />{value.value == null && <span aria-hidden="true">—</span>}</span><small>{bar.label}</small></button> })}</div></div>
+      <div className="food-history-chart-wrap">
+        {chartData.some(item => item.kcal != null) ? <ChartContainer config={foodHistoryChartConfig} className="food-history-chart h-[190px] w-full aspect-auto" initialDimension={{ width: 320, height: 190 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 4, left: 4, bottom: 0 }} onClick={(state) => {
+            const index = Number(state.activeTooltipIndex)
+            const point = Number.isInteger(index) ? chartData[index] : undefined
+            if (!point?.available) return
+            if (period === "year") { onPeriodChange("month"); onAnchorChange(point.date) } else onSelectDate(point.date)
+          }}>
+            <defs>
+              <linearGradient id="foodHistoryEnergyFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-kcal)" stopOpacity={0.34} />
+                <stop offset="95%" stopColor="var(--color-kcal)" stopOpacity={0.03} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={period === "month" ? 12 : 8} />
+            <ChartLegend content={<ChartLegendContent className="gap-3 text-[9px]" />} />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={(_, payload) => String(payload?.[0]?.payload?.fullLabel ?? "")} formatter={(value, name, item) => [
+              value == null ? "No data" : `${formatNutrition(Number(value))} kcal`,
+              item?.payload?.partial && name === "kcal" ? "Known energy · Partial" : name === "target" ? "Daily target" : "Energy",
+            ]} />} />
+            <Area dataKey="kcal" type="natural" stroke="var(--color-kcal)" strokeWidth={2.5} fill="url(#foodHistoryEnergyFill)" connectNulls={false} activeDot={{ r: 4, fill: "var(--color-kcal)", stroke: "#fff", strokeWidth: 2 }} />
+            {hasTarget && <Area dataKey="target" type="monotone" stroke="var(--color-target)" strokeWidth={1.5} strokeDasharray="4 4" fill="none" dot={false} connectNulls={false} />}
+          </AreaChart>
+        </ChartContainer> : <div className="food-history-chart-empty">No nutrition values in this period.</div>}
+      </div>
       <div className="food-trend-caption"><span>{period === "year" ? "Monthly average · kcal" : "Daily intake · kcal"}</span><span>{period === "year" ? "Tap a month to explore" : "Tap a day to open diary"}</span></div>
     </section>
     <p className="food-insight-note"><Leaf />Averages use available nutrition on logged days. Partial values include known nutrition; missing values are excluded, not zero. Future and unlogged days are excluded.</p>
     <div className="food-history-list-heading"><h2>Your days</h2><span>{logged.length} recorded</span></div>
-    {!logged.length ? <div className="food-insight-empty"><CalendarDays /><h3>A little space for a fresh start.</h3><p>No food diary entries in this period.</p><button type="button" onClick={() => onSelectDate(anchor)}>Open this day<ChevronRight /></button></div> : [...logged].reverse().map(day => <button type="button" key={day.date} className="food-history-day" onClick={() => onSelectDate(day.date)}><span className="food-history-day-date"><strong>{parseDate(day.date).getDate()}</strong><small>{parseDate(day.date).toLocaleDateString("en-GB", { month: "short" })}</small></span><span className="food-history-day-description"><strong>{parseDate(day.date).toLocaleDateString("en-GB", { weekday: "long" })}</strong><small>{day.items.length} {day.items.length === 1 ? "food" : "foods"} · {day.status === "complete" ? "Complete" : "Open"}{day.missingCounts.caloriesKcal > 0 && " · Partial"}</small></span><span className="food-history-day-energy">{formatNutrition(day.missingCounts.caloriesKcal ? day.knownTotals.caloriesKcal : day.totals.caloriesKcal)}<small>{day.missingCounts.caloriesKcal ? "known kcal" : "kcal"}</small></span><ChevronRight /></button>)}
+    {!logged.length ? <div className="food-insight-empty"><CalendarDays /><h3>A little space for a fresh start.</h3><p>No food diary entries in this period.</p><button type="button" onClick={() => onSelectDate(anchor)}>Open this day<ChevronRight /></button></div> : [...logged].reverse().map(day => {
+      const isExpanded = expandedDate === day.date
+      const foods = isExpanded ? groupFoods(day.items).map((group, index) => {
+        const food = group.entries[0]!
+        const knownEnergy = group.entries.filter(item => item.nutrients.caloriesKcal != null)
+        const totalEnergy = knownEnergy.reduce((sum, item) => sum + item.nutrients.caloriesKcal!, 0)
+        const spot = historyFoodSpots[index % historyFoodSpots.length]
+        const cycle = Math.floor(index / historyFoodSpots.length)
+        return {
+          group,
+          food,
+          meals: [...new Set(group.entries.map(item => item.mealType))].map(meal => meal[0].toUpperCase() + meal.slice(1)).join(" + "),
+          amount: foodAmount(group.entries),
+          energy: knownEnergy.length === group.entries.length
+            ? `${formatNutrition(totalEnergy)} kcal`
+            : knownEnergy.length ? `${formatNutrition(totalEnergy)} known kcal` : "Energy unavailable",
+          style: {
+            "--food-left": `${spot.x + cycle}%`,
+            "--food-top": `${spot.y + cycle}%`,
+            "--food-angle": `${spot.angle + cycle * 2}deg`,
+            "--food-layer": String(index + 1),
+            "--food-scale": String(Math.max(0.72, 1 - cycle * 0.08)),
+          } as CSSProperties,
+        }
+      }) : []
+      const dateLabel = parseDate(day.date)
+      return <div key={day.date} className="food-history-day-wrap">
+        <button type="button" className="food-history-day" aria-expanded={isExpanded} aria-controls={`food-history-day-${day.date}`} onClick={() => setExpandedDate(current => current === day.date ? null : day.date)}>
+          <span className="food-history-day-date"><strong>{dateLabel.getDate()}</strong><small>{dateLabel.toLocaleDateString("en-GB", { month: "short" })}</small></span>
+          <span className="food-history-day-description"><strong>{dateLabel.toLocaleDateString("en-GB", { weekday: "long" })}</strong><small>{day.items.length} {day.items.length === 1 ? "food" : "foods"} · {day.status === "complete" ? "Complete" : "Open"}{day.missingCounts.caloriesKcal > 0 && " · Partial"}</small></span>
+          <span className="food-history-day-energy">{formatNutrition(day.missingCounts.caloriesKcal ? day.knownTotals.caloriesKcal : day.totals.caloriesKcal)}<small>{day.missingCounts.caloriesKcal ? "known kcal" : "kcal"}</small></span>
+          <ChevronRight aria-hidden="true" />
+        </button>
+        <div id={`food-history-day-${day.date}`} className="food-history-day-details" role="region" aria-label={`${dateLabel.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} foods`} hidden={!isExpanded}>
+          {isExpanded && (foods.length ? <>
+            <div className="food-history-gathering" aria-hidden="true">
+              <div className="food-history-gathered-items">
+                {foods.map(({ group, food, style }) => <span className="food-history-gathered-item" key={group.key} style={style}>
+                  <FoodArt food={food} className="food-history-gathered-art" />
+                  {group.entries.length > 1 && <small>×{group.entries.length}</small>}
+                </span>)}
+              </div>
+            </div>
+            <div className="food-history-food-summary" role="list" aria-label="Food items and combined amounts">
+              {foods.map(({ group, food, meals, amount, energy }) => <div className="food-history-food-summary-item" role="listitem" key={group.key}>
+                <strong title={food.foodName}>{food.foodName}</strong>
+                <small>{meals} · {amount}{group.entries.length > 1 ? ` · ${group.entries.length} entries` : ""} · {energy}</small>
+              </div>)}
+            </div>
+          </> : <p className="food-history-no-items">No food entries for this day.</p>)}
+        </div>
+      </div>
+    })}
   </div>
 }
 

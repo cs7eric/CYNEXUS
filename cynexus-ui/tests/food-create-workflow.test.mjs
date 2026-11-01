@@ -19,6 +19,12 @@ function form({ pendingMatting = false } = {}) {
   const { CustomFoodForm } = loadTsModule(new URL("../src/mobile/pages/food/components/food-entry.tsx", import.meta.url), {
     react: renderer.react,
     "react/jsx-runtime": { jsx, jsxs: jsx },
+    "@heroui/react": {
+      Button: "HeroButton",
+      ButtonGroup: Object.assign("HeroButtonGroup", { Separator: "HeroButtonGroup.Separator" }),
+      Tag: "HeroTag",
+      TagGroup: Object.assign("HeroTagGroup", { List: "HeroTagGroup.List" }),
+    },
     "lucide-react": new Proxy({}, { get: () => () => null }),
     "@/services/food/model": model,
     "@/services/food/api": {
@@ -55,7 +61,7 @@ function form({ pendingMatting = false } = {}) {
     ...renderer, submissions, saved, queued, preparedPhotos, scanImages, mattingSignals,
     changes: () => changes, created: () => created,
     async photo(label, file) {
-      nodes().find(node => node.props["aria-label"] === label).props.onChange({ target: { files: [file], value: "" } })
+      nodes().find(node => node.type === "input" && node.props["aria-label"] === label).props.onChange({ target: { files: [file], value: "" } })
       await renderer.settle()
     },
     async details(values = complete) {

@@ -368,6 +368,19 @@
   font-size: 22px;
 }
 
+dialog.food-sheet:has(.food-entry-identity) .food-sheet-heading h2 {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  overflow-wrap: normal;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .food-sheet-heading .food-round {
   width: 40px;
   height: 40px;
@@ -392,10 +405,6 @@
 .food-entry-identity > .food-art {
   width: 60px;
   height: 60px;
-}
-
-.food-entry-identity h3 {
-  font-size: 20px;
 }
 
 .food-entry-identity p {
@@ -1629,12 +1638,12 @@ dialog.food-sheet .food-create-form .food-form-footer .food-primary {
   dialog.food-sheet .food-create-fields .food-asset-disclosure summary > svg { transition: none; }
 }
 
-/* Final compact layout: all required fields fit in a half-height sheet on phones. */
+/* Let the create sheet grow with its content instead of scrolling inside the panel. */
 dialog.food-sheet:has(.food-create-form) {
-  max-height: min(560px, 50dvh);
+  height: max-content;
+  max-height: none;
   padding: 8px 20px 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
 }
 
 dialog.food-sheet:has(.food-create-form) .food-sheet-handle { margin-bottom: 4px; }
@@ -1906,78 +1915,14 @@ dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field i
   dialog.food-sheet:has(.food-create-form) .food-create-details-grid .food-field input { font-size: 13px; }
 }
 
-/* Keep label capture as a quiet utility row rather than a nested card. */
+/* Keep capture actions in a compact segmented control without a nested card. */
 dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-scan {
   margin: 0 0 9px;
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: #fff;
   box-shadow: none;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row {
-  min-height: 39px;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 8px;
-  padding: 0 0 8px;
-  border: 0;
-  border-bottom: 1px solid #deded8;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #111;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row:hover {
-  border-bottom-color: #777771;
-  box-shadow: none;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row:focus-visible {
-  outline: 2px solid #111;
-  outline-offset: 3px;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: #111;
-  color: #fff;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row strong {
-  color: #111;
-  font-size: 13px;
-  font-weight: 750;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-action {
-  min-height: 28px;
-  gap: 2px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #111;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-action svg {
-  width: 13px;
-  height: 13px;
-}
-
-@media (max-width: 359px) {
-  dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row { gap: 7px; }
-  dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row strong { font-size: 12px; }
-  dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row-action { font-size: 10px; }
 }
 
 /* Section rhythm comes from spacing and type, without horizontal rules. */
@@ -1996,10 +1941,6 @@ dialog.food-sheet:has(.food-create-form) .food-nutrition-editor {
 
 dialog.food-sheet:has(.food-create-form) .food-create-fields .food-asset-mapping {
   border-top: 0;
-}
-
-dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-row {
-  border-bottom: 0;
 }
 
 dialog.food-sheet:has(.food-create-form) .food-create-form .food-form-footer {
@@ -2061,3 +2002,170 @@ dialog.food-sheet:has(.food-create-form) .food-create-form .food-label-previews 
 .food-label-actions .food-label-scan-button svg + svg {
   margin-left: -4px;
 }
+
+.food-label-control {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.food-label-button-group {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: #252525;
+  --default: #fff;
+  --default-foreground: #252525;
+  --default-hover: #fff;
+}
+
+.food-label-button-group > .food-label-button {
+  display: flex;
+  position: relative;
+  min-width: 0;
+  height: auto;
+  min-height: 44px;
+  flex: 1 1 0;
+  aspect-ratio: 3 / 1;
+  gap: 5px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: #252525;
+  font-size: 11px;
+}
+
+.food-label-button-group > .food-label-button:first-child,
+.food-label-button-group > .food-label-button:last-child {
+  border-radius: 0;
+}
+
+.food-label-button-group .button-group__separator {
+  opacity: 0.22;
+}
+
+.food-label-button-group .food-label-button-label {
+  min-width: 0;
+  color: #666666;
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.food-label-button-group .food-label-button-hint {
+  position: absolute;
+  top: max(50%, 27px);
+  left: 50%;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  color: #777777;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.food-label-button-content {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.food-label-button-group .food-label-button-content > svg:not([data-slot]) {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  margin: 0;
+}
+
+/* Lift the create flow slightly so the sheet does not sit against the viewport edge. */
+dialog.food-sheet:has(.food-create-form) {
+  bottom: 12px;
+  border-bottom: 1px solid #fff;
+  border-radius: 30px;
+}
+
+/* Keep food logging in the neutral palette used by the food library. */
+dialog.food-sheet:has(.food-entry-identity) {
+  border-color: #e5e5e5;
+  background: #fff;
+  color: #171717;
+  box-shadow: 0 -12px 40px #11111112;
+}
+
+dialog.food-sheet:has(.food-entry-identity)::backdrop {
+  background: #12121266;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+dialog.food-sheet:has(.food-entry-identity) .food-sheet-handle { background: #dedede; }
+dialog.food-sheet:has(.food-entry-identity) .food-sheet-heading h2 { color: #171717; }
+dialog.food-sheet:has(.food-entry-identity) .food-round { border-color: #e5e5e5; background: #f4f4f4; color: #171717; }
+dialog.food-sheet:has(.food-entry-identity) .food-entry-identity p,
+dialog.food-sheet:has(.food-entry-identity) .food-context,
+dialog.food-sheet:has(.food-entry-identity) .food-footnote,
+dialog.food-sheet:has(.food-entry-identity) .food-source { color: #737373; }
+dialog.food-sheet:has(.food-entry-identity) .food-form .food-field input,
+dialog.food-sheet:has(.food-entry-identity) .food-form .food-field select {
+  border-color: #dedede;
+  background: #fff;
+  color: #171717;
+}
+dialog.food-sheet:has(.food-entry-identity) .food-form input:focus-visible,
+dialog.food-sheet:has(.food-entry-identity) .food-form select:focus-visible,
+dialog.food-sheet:has(.food-entry-identity) .food-form button:focus-visible {
+  outline-color: #555;
+}
+
+dialog.food-sheet:has(.food-entry-identity) .food-nutrition-goal-preview {
+  border-color: #e5e5e5;
+  background: #f5f5f5;
+}
+dialog.food-sheet:has(.food-entry-identity) .food-preview-heading,
+dialog.food-sheet:has(.food-entry-identity) .food-preview-measure-head,
+dialog.food-sheet:has(.food-entry-identity) .food-preview-caption,
+dialog.food-sheet:has(.food-entry-identity) .food-preview-target,
+dialog.food-sheet:has(.food-entry-identity) .food-preview-partial { color: #737373; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-measure-head strong,
+dialog.food-sheet:has(.food-entry-identity) .food-preview-measure > p { color: #171717; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-track { background: #e5e5e5; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-track > i { background: #555; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-carbsG .food-preview-track > i { background: #737373; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-proteinG .food-preview-track > i { background: #8a8a8a; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-fatG .food-preview-track > i { background: #a3a3a3; }
+dialog.food-sheet:has(.food-entry-identity) .food-preview-caloriesKcal,
+dialog.food-sheet:has(.food-entry-identity) .food-preview-macros .food-preview-measure + .food-preview-measure { border-color: #e5e5e5; }
+
+dialog.food-sheet:has(.food-entry-identity) .food-amount-card {
+  border-color: #e5e5e5;
+  background: #f7f7f7;
+  color: #171717;
+  box-shadow: none;
+}
+dialog.food-sheet:has(.food-entry-identity) .food-amount-label,
+dialog.food-sheet:has(.food-entry-identity) .food-amount-unit,
+dialog.food-sheet:has(.food-entry-identity) .food-amount-available,
+dialog.food-sheet:has(.food-entry-identity) .food-amount-available strong { color: #737373; }
+dialog.food-sheet:has(.food-entry-identity) .food-amount-card input { color: #171717; }
+dialog.food-sheet:has(.food-entry-identity) .food-amount-card input:focus-visible { outline-color: #555; }
+dialog.food-sheet:has(.food-entry-identity) .food-form .food-primary { border-color: #171717; background: #171717; }
+
+/* Keep the Meal TagGroup's native HeroUI sizing, color, and icon treatment. */
+.food-form .tag,
+.food-form .tag svg { all: revert-layer; }
+.food-form .tag:is([data-selected="true"], [aria-selected="true"]) { font-weight: 700; }

@@ -1,5 +1,6 @@
-import { ArrowLeft, Camera, ChevronRight, ImagePlus, LoaderCircle, ScanSearch, Star, Trash2, X } from "lucide-react"
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
+import { Apple, ArrowLeft, Camera, ChevronRight, Coffee, Image, ImagePlus, LoaderCircle, Sandwich, ScanSearch, Star, Trash2, Utensils, X, type LucideIcon } from "lucide-react"
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react"
+import { Button, ButtonGroup, Tag, TagGroup } from "@heroui/react"
 import { enqueueVisionScenario, fetchVisionTask } from "@/services/ai/vision"
 import { addFavorite, announceFoodChange, createCustomFood, createFridgeMeal, createItem, deleteFavorite, deleteItem, fetchFoodAssets, updateItem } from "@/services/food/api"
 import { mattingFoodImage } from "@/services/food/matting"
@@ -12,6 +13,13 @@ import { draftNutrients, readNutrients } from "./food-form"
 import { NutrientFields } from "./food-nutrient-fields"
 import { foodAmount } from "./scene-model"
 import "./food-entry.css"
+
+const mealIcons: Record<MealType, LucideIcon> = {
+  breakfast: Coffee,
+  lunch: Sandwich,
+  dinner: Utensils,
+  snack: Apple,
+}
 
 function initialAmount(food?: Food) {
   if (!food?.fridgeItemId) return 100
@@ -58,8 +66,9 @@ export function NutritionPreview({ values, caption, targets }: { values: Nutrien
   </section>
 }
 
-export function FoodEntry({ date, initialMeal, food, item, targets, onBack, onSaved }: { date: string; initialMeal: MealType; food?: Food; item?: DiaryItem; targets?: Nutrients; onBack: () => void; onSaved: (fridgeChanged?: boolean) => void }) {
+export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: { date: string; initialMeal: MealType; food?: Food; item?: DiaryItem; targets?: Nutrients; onSaved: (fridgeChanged?: boolean) => void }) {
   const quick = item ? item.entryKind === "quick" : !food
+  const mealLabelId = useId()
   const [meal, setMeal] = useState(initialMeal)
   const [amount, setAmount] = useState(String(item?.consumedGrams ?? initialAmount(food)))
   const [name, setName] = useState(item?.foodName ?? "")
@@ -99,10 +108,14 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onBack, onSa
   }
   function changed() { setRequestKey(crypto.randomUUID()) }
   return <form className="food-form" onSubmit={save}>
-    <button type="button" className="food-text-button" disabled={busy} onClick={onBack}><ArrowLeft />Back</button>
-    {!quick && <div className="food-entry-identity"><FoodArt food={food ?? item!} /><div><h3>{food?.name ?? item?.foodName}</h3><p>{food?.brand ?? item?.brand ?? (food?.fridgeItemId || item?.sourceFridgeItemId ? "In your fridge" : food?.source ?? "Food library")}</p></div>{food && !food.fridgeItemId && <button type="button" className="food-round" aria-label={favorite ? "Remove favorite" : "Add favorite"} aria-pressed={!!favorite} disabled={busy} onClick={toggleFavorite}><Star fill={favorite ? "currentColor" : "none"} /></button>}</div>}
+    {!quick && <div className="food-entry-identity"><FoodArt food={food ?? item!} /><div><p>{food?.brand ?? item?.brand ?? (food?.fridgeItemId || item?.sourceFridgeItemId ? "In your fridge" : food?.source ?? "Food")}</p></div>{food && !food.fridgeItemId && <button type="button" className="food-round" aria-label={favorite ? "Remove favorite" : "Add favorite"} aria-pressed={!!favorite} disabled={busy} onClick={toggleFavorite}><Star fill={favorite ? "currentColor" : "none"} /></button>}</div>}
     <p className="food-context">{readableDate(date, true)}{item && ` · ${meals.find(value => value.id === item.mealType)?.name}`}</p>
-    <label className="food-field"><span>Meal</span><select value={meal} disabled={busy} onChange={event => { setMeal(event.target.value as MealType); changed() }}>{meals.map(value => <option value={value.id} key={value.id}>{value.name}</option>)}</select></label>
+    <div className="food-field"><span id={mealLabelId}>Meal</span><TagGroup aria-labelledby={mealLabelId} selectionMode="single" disallowEmptySelection selectedKeys={new Set([meal])} onSelectionChange={keys => { if (keys === "all") return; const nextMeal = [...keys][0] as MealType | undefined; if (nextMeal && nextMeal !== meal) { setMeal(nextMeal); changed() } }}>
+      <TagGroup.List>{meals.map(value => {
+        const MealIcon = mealIcons[value.id]
+        return <Tag key={value.id} id={value.id} isDisabled={busy}><MealIcon size={16} aria-hidden="true" />{value.name}</Tag>
+      })}</TagGroup.List>
+    </TagGroup></div>
     {quick ? <><label className="food-field"><span>Description</span><input maxLength={200} value={name} disabled={!!item || busy} placeholder="e.g. Afternoon snack" onChange={event => { setName(event.target.value); changed() }} /></label><p className="food-footnote">For this entry · enter the nutrition you actually consumed.</p><fieldset disabled={busy}><NutrientFields values={nutrients} onChange={(key, value) => { setNutrients(previous => ({ ...previous, [key]: value })); changed() }} /></fieldset><NutritionPreview values={preview} targets={targets} caption="Current entry" /></> : <div className="food-entry-summary-row">
       <NutritionPreview values={preview} targets={targets} caption={food?.fridgeItemId ? `${formatNutrition(Number(amount) || 0, 1)} ${food.availableUnit ?? "g"} · ${formatNutrition(previewGrams, 1)} g equivalent` : `${formatNutrition(previewGrams, 1)} g serving`} />
       <AmountCard amount={amount} unit={food?.fridgeItemId ? food.availableUnit ?? "g" : "g"} max={food?.fridgeItemId ? food.availableQuantity ?? undefined : 1000000} available={food?.fridgeItemId ? food.availableQuantity : null} disabled={busy} onChange={value => { setAmount(value); changed() }} />
@@ -328,23 +341,32 @@ export function CustomFoodForm({ onSaved, onQueued, onBack }: { onSaved: (food: 
   return <form className="food-form food-create-form" onSubmit={save} onChange={() => setRequestKey(crypto.randomUUID())}>
     <button type="button" className="food-text-button" disabled={formBusy} onClick={onBack}><ArrowLeft />Back</button>
     <section className="food-label-scan" aria-label="Food photo and nutrition label">
-      <button type="button" className="food-label-row" disabled={formBusy} onClick={() => foodFileInput.current?.click()}>
-        <span className="food-label-row-icon"><ImagePlus aria-hidden="true" /></span>
-        <strong>Food photo</strong>
-        <span className="food-label-row-action">{foodPhoto ? "Retake" : "Take photo"}<ChevronRight aria-hidden="true" /></span>
-      </button>
-      <input ref={foodFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a food photo" onChange={selectFoodPhoto} />
+      <div className="food-label-control">
+        <ButtonGroup fullWidth variant="tertiary" className="food-label-button-group" aria-label="Add food photos">
+          <Button className="food-label-button" type="button" aria-label="Take a food photo" isDisabled={formBusy} onPress={() => foodFileInput.current?.click()}>
+            <span className="food-label-button-content">
+              <Image aria-hidden="true" className="size-3.5" />
+              <span className="food-label-button-label">Food photo</span>
+            </span>
+            <span className="food-label-button-hint">Click to take photos</span>
+          </Button>
+          <Button className="food-label-button" type="button" aria-label="Take a nutrition label photo" isDisabled={formBusy} onPress={() => nutritionFileInput.current?.click()}>
+            <ButtonGroup.Separator />
+            <span className="food-label-button-content">
+              <ScanSearch aria-hidden="true" className="size-3.5" />
+              <span className="food-label-button-label">Nutrition label</span>
+            </span>
+            <span className="food-label-button-hint">Click to take photos</span>
+          </Button>
+        </ButtonGroup>
+        <input ref={foodFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a food photo" onChange={selectFoodPhoto} />
+        <input ref={nutritionFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a nutrition label photo" onChange={selectNutritionPhoto} />
+      </div>
       {foodPhotoUrl ? <div className="food-label-previews"><div className="food-label-preview"><img src={foodPhotoUrl} alt="Selected food photo" /><span>Food photo</span><button type="button" className="food-label-remove" aria-label="Remove food image" title="Remove food image" disabled={formBusy} onClick={() => { if (foodPhotoUrlRef.current) URL.revokeObjectURL(foodPhotoUrlRef.current); if (cutoutUrlRef.current) URL.revokeObjectURL(cutoutUrlRef.current); foodPhotoUrlRef.current = null; cutoutUrlRef.current = null; setFoodPhotoUrl(null); setFoodPhoto(null); setCutoutUrl(null); setCutoutDataUrl(null); setMattingMessage(null); setMattingError(null) }}><X /></button></div>{cutoutUrl ? <div className="food-label-preview food-cutout-preview"><img src={cutoutUrl} alt="Extracted food image" /><span>Cutout</span></div> : null}</div> : null}
       {foodPhoto ? <div className="food-label-actions"><button type="button" className="food-label-pick" disabled={formBusy} onClick={() => foodFileInput.current?.click()}><Camera />Replace photo</button><button type="button" className="food-label-scan-button" disabled={formBusy} onClick={() => void extractFoodImage()}>{matting ? <LoaderCircle className="animate-spin" /> : <ImagePlus />}{matting ? "Cutting out…" : "Cut out food"}</button></div> : null}
       {mattingError ? <p className="food-label-error" role="alert">{mattingError}</p> : null}
       {mattingMessage ? <p className="food-label-result" role="status">{mattingMessage}</p> : null}
 
-      <button type="button" className="food-label-row" disabled={formBusy} onClick={() => nutritionFileInput.current?.click()}>
-        <span className="food-label-row-icon"><ScanSearch aria-hidden="true" /></span>
-        <strong>Nutrition label photo</strong>
-        <span className="food-label-row-action">{nutritionPhoto ? "Retake" : "Take photo"}<ChevronRight aria-hidden="true" /></span>
-      </button>
-      <input ref={nutritionFileInput} className="food-label-file" type="file" accept="image/*" capture="environment" aria-label="Take a nutrition label photo" onChange={selectNutritionPhoto} />
       {nutritionPhotoUrl ? <div className="food-label-previews"><div className="food-label-preview"><img src={nutritionPhotoUrl} alt="Selected nutrition label photo" /><span>Nutrition label</span><button type="button" className="food-label-remove" aria-label="Remove nutrition label image" title="Remove nutrition label image" disabled={formBusy} onClick={() => { if (nutritionPhotoUrlRef.current) URL.revokeObjectURL(nutritionPhotoUrlRef.current); nutritionPhotoUrlRef.current = null; setNutritionPhotoUrl(null); setNutritionPhoto(null); setScanMessage(null); setScanError(null) }}><X /></button></div></div> : null}
       {nutritionPhoto ? <div className="food-label-actions"><button type="button" className="food-label-pick" disabled={formBusy} onClick={() => nutritionFileInput.current?.click()}><Camera />Replace photo</button><button type="button" className="food-label-scan-button" disabled={busy || scanning} onClick={() => void scanLabel()}>{scanning ? <LoaderCircle className="animate-spin" /> : <ScanSearch />}{scanning ? "Analyzing…" : "Analyze food + nutrition"}</button></div> : null}
       {scanError ? <p className="food-label-error" role="alert">{scanError}</p> : null}

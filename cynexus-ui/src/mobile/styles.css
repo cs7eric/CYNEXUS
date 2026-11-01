@@ -4,8 +4,11 @@
 @import "@heroui/styles/themes/default/variables.css";
 @import "@heroui/styles/utilities";
 @import "@heroui/styles/components/button.css" layer(components);
+@import "@heroui/styles/components/button-group.css" layer(components);
 @import "@heroui/styles/components/card.css" layer(components);
 @import "@heroui/styles/components/chip.css" layer(components);
+@import "@heroui/styles/components/tag-group.css" layer(components);
+@import "@heroui/styles/components/tag.css" layer(components);
 @import "@heroui/styles/components/dropdown.css" layer(components);
 @import "@heroui/styles/components/menu-item.css" layer(components);
 @import "@heroui/styles/components/alert-dialog.css" layer(components);
@@ -27,15 +30,13 @@
 }
 
 .mobile-theme {
-  --background: #edf2f6;
+  --background: #fff;
   --foreground: #202a34;
   --card: #fff;
   --muted: #687582;
   --muted-foreground: var(--muted);
   --accent: #6b9fcb;
   --accent-foreground: oklch(0.99 0 0);
-  --default: #e2ebf3;
-  --default-foreground: #324554;
   --surface: #fff;
   --surface-secondary: #e7eef4;
   --surface-tertiary: #dcecf1;
@@ -45,14 +46,11 @@
   --mobile-sky: #c8def0;
   --mobile-mint: #cfeae6;
   --mobile-header-accent: #a8cbe7;
-  --mobile-nav-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  --mobile-nav-bottom: max(20px, env(safe-area-inset-bottom, 0px));
   --mobile-nav-clearance: calc(64px + var(--mobile-nav-bottom) + 24px);
   --mobile-z-navigation: 20;
   --z-index-overlay: 100000;
-  background:
-    radial-gradient(120% 62% at 4% 0%, color-mix(in oklab, var(--mobile-sky) 62%, transparent), transparent 72%),
-    radial-gradient(105% 58% at 98% 10%, color-mix(in oklab, var(--mobile-mint) 64%, transparent), transparent 74%),
-    linear-gradient(160deg, #edf5fa 0%, #f2f7f7 48%, #f7faf8 100%);
+  background: #fff;
   position: var(--mobile-viewport-position, relative);
   top: var(--mobile-viewport-top, 0px);
   left: var(--mobile-viewport-left, 0px);
@@ -79,6 +77,8 @@
 .mobile-header .mobile-header-control svg { width: 20px; height: 20px; stroke-width: 1.7; }
 .mobile-header .mobile-header-control:hover { background: var(--default); }
 .mobile-header-leading .mobile-header-control { background: var(--mobile-header-accent); border: 3px solid var(--surface); }
+.mobile-header-leading .mobile-header-back { color: #fff; background: #111118; }
+.mobile-header-leading .mobile-header-back:hover { background: #111118; }
 .mobile-header-actions .mobile-header-refresh { border: 1px solid var(--border); background: #ffffff66; }
 .mobile-header-actions .mobile-header-refresh svg { width: 22px; height: 22px; }
 .mobile-header-actions .mobile-header-control { background: transparent; border: 1px solid var(--border); }
@@ -100,11 +100,11 @@
 }
 .mobile-tab-capsule { position: relative; z-index: 1; display: grid; width: 100%; min-width: 0; min-height: 64px; flex: 1; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; padding: 4px; border-radius: 9999px; transition: opacity 160ms ease, transform 200ms ease, visibility 160ms; }
 .mobile-tab-capsule[data-actions-open="true"] { visibility: hidden; opacity: 0; pointer-events: none; transform: translateX(-12px) scale(0.97); }
-.mobile-tab { display: flex; min-width: 0; min-height: 54px; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 1px; border-radius: 9999px; color: #50606d; white-space: nowrap; transition: color 150ms ease, background-color 150ms ease; }
+.mobile-tab { display: flex; min-width: 0; min-height: 54px; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 1px; border-radius: 9999px; color: #757575; white-space: nowrap; transition: color 150ms ease, background-color 150ms ease; }
 .mobile-tab span { font-size: 0.625rem; font-weight: 600; line-height: 1.25; }
 .mobile-tab svg { stroke-width: 1.8; }
-.mobile-tab:focus-visible { outline: 2px solid var(--mobile-header-accent); outline-offset: -2px; }
-.mobile-tab-active { color: #263a4a; background: #dceaf4; box-shadow: inset 0 1px 0 #ffffffa8; }
+.mobile-tab:focus-visible { outline: 2px solid var(--foreground); outline-offset: -2px; }
+.mobile-tab-active { color: #fff; background: var(--foreground); box-shadow: none; }
 .mobile-quick-actions { position: absolute; z-index: 2; right: 0; bottom: 0; width: 64px; height: 64px; pointer-events: none; }
 .mobile-quick-action { position: absolute; right: 0; bottom: 0; display: flex; width: 64px; min-height: 42px; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; color: #fff; background: transparent; opacity: 0; pointer-events: none; transform: translateY(0) scale(0.7); transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 160ms ease; text-shadow: 0 1px 4px #11111866; }
 .mobile-quick-action > svg { width: 22px; height: 22px; color: #fff; stroke-width: 1.8; }

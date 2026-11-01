@@ -12,7 +12,7 @@ The user supplied and approved the four references below on 2026-10-17: “吸�
 | [Full style board](references/mobile-style/style-board.jpg) | The wider range: vivid color, oversized editorial type, playful object imagery, asymmetric layouts and a confident black/white foundation. |
 | [Profile close-up](references/mobile-style/profile-detail.png) | Circular identity, compact metadata, three pastel summaries and flat divided navigation rows; adapted to Cynexus workspace and security features. |
 
-The user subsequently selected the “Daily challenge / Your plan” Home in `activity-and-profile.jpg` and explicitly requested a close reproduction. The current palette is overridden by the latest supplied references: a cool pale-blue and mist-gray canvas, white content surfaces, dark text and restrained mint-green accents. The current Home keeps the useful activity calendar and plan surfaces while omitting the decorative Daily challenge feature card. Example people, schedules, watermarks and device mockups are not product requirements; destinations and workspace information come from Cynexus.
+The user subsequently selected the “Daily challenge / Your plan” Home in `activity-and-profile.jpg` and explicitly requested a close reproduction. The latest global mobile canvas preference is white, with white content surfaces, dark text, neutral black-and-white shared controls and restrained mint-green accents on feature content. The current Home keeps the useful activity calendar and plan surfaces while omitting the decorative Daily challenge feature card. Example people, schedules, watermarks and device mockups are not product requirements; destinations and workspace information come from Cynexus.
 
 ## Shared visual language
 
@@ -21,7 +21,7 @@ The recurring language is bold, rounded and tactile: strong black/white contrast
 - **Geometry:** circles for compact actions, capsules for switching and navigation, generous rounded rectangles for substantial content. Rounded shapes must remain visibly circular or pill-shaped rather than slightly softened boxes.
 - **Contrast:** near-black and white establish the structure. Inverted controls make active states immediately legible. Neutral canvas areas give bright content room to stand out.
 - **Color:** lemon yellow, yellow-green, lavender, sky blue, orange and pink appear as deliberate solid blocks. A screen can use one dominant accent, or a few colors assigned to different content groups. The reference set does not select yellow as the mandatory global brand color.
-- **Typography:** geometric sans-serif, strong size differences and short, left-aligned headlines. Large titles can wrap across two lines. Supporting text is quieter; key numbers stay clear and readable.
+- **Typography:** geometric sans-serif with a deliberate, restrained size scale. Page titles stay compact on task-focused screens; large editorial type is reserved for a feature-led Home surface. Supporting text is quieter; key numbers stay clear and readable.
 - **Composition:** one primary feature or subject leads the screen, followed by useful secondary actions. Vary card proportions where content warrants it. A profile/settings page can remain a simple divided list rather than becoming a wall of cards.
 - **Imagery:** bicycles, terrain, avatars and sculptural 3D objects give specific content a focal point. Image cropping and occasional overlap create depth. Use imagery that belongs to the feature rather than adding generic decoration to every panel.
 - **Depth:** matte surfaces, tonal separation and restrained shadows. Photo overlays and glass effects belong to specific image treatments; most controls and panels are solid.
@@ -38,9 +38,27 @@ The recurring language is bold, rounded and tactile: strong black/white contrast
 | Profile | Configured identity, workspace/access metadata, three pastel app-count summaries and flat divided action rows based on the supplied profile reference. |
 | Data and research | Carry over shape, spacing and hierarchy while preserving precise figures, units, freshness and market semantics. Decorative color must not compete with financial direction/status colors. |
 
-Use the existing mobile components, Lucide icon system and shared services. A useful starting scale is 20–24px page edges, 24–32px corners on large feature panels, fully rounded compact controls, and 28–36px short page headlines where the viewport supports them. These are implementation starting points inferred from the images, not measurements of the source designs. Validate at 320px before settling sizes.
+### Mobile typography scale
 
-All mobile routes use the reference's greeting/search header, detached white navigation capsule with a pale-blue active pill, pale-blue canvas and Manrope typography. These are shared layout features that remain stable while switching tabs and scrolling. Home uses the week capsules, cool-blue asymmetric cards and mint quick links.
+Use the existing mobile components, Lucide icon system and shared services. Use this type scale in CSS pixels; keep sizes fixed across viewport widths rather than scaling text with `vw` or `clamp()`:
+
+| Role | Size / line height | Use |
+| --- | --- | --- |
+| Page title | 24px / 30px | One screen-level heading; use 28px only for a feature-led Home headline. |
+| Section heading | 16px / 22px | A content section or major card title. |
+| Item title | 14px / 20px | Food names, list rows and compact card titles. |
+| Body text | 14px / 20px | Main content and entered form values. |
+| Supporting text | 12px / 17px | Descriptions, placeholders and secondary labels. |
+| Compact control label | 12px / 16px | Buttons, tabs and segmented filters. |
+| Dense toolbar label | 10px / 14px | A short search placeholder or compact action/filter label when the toolbar is crowded. Do not use this for body copy. |
+| Metadata | 10px / 14px | Counts, timestamps and nonessential eyebrow labels. |
+| Key metric | 20–24px / 26–30px | A small number of decision-relevant values, not every number on the screen. |
+
+Keep control hit areas at least 44px even when their labels are compact. Selected controls keep the same font size as unselected controls; indicate selection with surface, color or weight. Validate long labels and the 320px viewport before settling horizontal padding. For editable inputs in iOS Safari, use 16px text when preventing focus zoom is more important than matching the compact toolbar scale.
+
+For large feature panels, keep the existing 24–32px corner range and use fully rounded compact controls. These geometry values are implementation starting points inferred from the references, not measurements of the source designs.
+
+All mobile routes use the reference's greeting/search header, detached white navigation capsule with a high-contrast charcoal active pill, white canvas and Manrope typography. These are shared layout features that remain stable while switching tabs and scrolling. Home uses the week capsules, cool-blue asymmetric cards and mint quick links.
 
 ## Implemented Home
 

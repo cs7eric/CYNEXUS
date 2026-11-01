@@ -140,6 +140,17 @@
 .mobile-workout-session-row div > span { display: block; margin-top: 3px; color: var(--workout-muted); font-size: .59375rem; }
 .mobile-workout-session-row b { font-size: .75rem; font-weight: 800; }
 .mobile-workout-empty { margin: 0; padding: 16px 0; color: var(--workout-muted); font-size: .6875rem; }
+.mobile-workout-sync-note { display: flex; min-width: 0; align-items: flex-start; gap: 9px; padding: 12px 0; border-block: 1px solid var(--workout-line); color: var(--workout-ink); }
+.mobile-workout-sync-note > svg { width: 17px; height: 17px; flex: 0 0 17px; margin-top: 2px; color: var(--default-foreground); }
+.mobile-workout-sync-note > div { min-width: 0; flex: 1; }
+.mobile-workout-sync-note strong { display: block; font-size: .75rem; font-weight: 650; line-height: 1.5; }
+.mobile-workout-sync-note p, .mobile-workout-sync-note small { display: block; margin: 3px 0 0; color: var(--default-foreground); font-size: .6875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.mobile-workout .mobile-workout-sync-retry { height: auto; min-height: 44px; max-width: 100%; flex-shrink: 0; gap: 5px; padding: 0 8px; border-radius: 999px; background: var(--surface-secondary); color: var(--default-foreground); font-size: .6875rem; font-weight: 600; white-space: nowrap; }
+.mobile-workout-sync-retry svg { width: 14px; height: 14px; }
+.mobile-workout-sync-note .is-syncing { animation: workout-sync-spin 1s linear infinite; }
+@keyframes workout-sync-spin { to { transform: rotate(360deg); } }
+@media (max-width: 359px) { .mobile-workout-sync-note { flex-wrap: wrap; } .mobile-workout-sync-note > div { flex-basis: calc(100% - 26px); } .mobile-workout .mobile-workout-sync-retry { margin-left: 26px; } }
+@media (prefers-reduced-motion: reduce) { .mobile-workout-sync-note .is-syncing { animation: none; } }
 .mobile-workout-current-actions { display: inline-flex; align-items: center; gap: 5px; }
 .mobile-workout-current-actions .mobile-workout-settings-button { width: 34px; height: 34px; margin: -7px -8px -7px 0; color: inherit; }
 .mobile-workout-page-heading { display: grid; gap: 5px; padding: 8px 2px 4px; }

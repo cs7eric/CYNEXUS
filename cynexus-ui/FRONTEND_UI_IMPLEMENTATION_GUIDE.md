@@ -85,7 +85,7 @@ A 股行情有一个必须保留的领域约定：**红色表示上涨，绿色�
 
 `App` 内的 `WorkspaceProvider` 负责同步当前空间与路由。新增菜单时在 `src/config/workspaces.ts` 指定个人、开发或公共归属；侧边栏、首页和搜索据此显示入口。公共页面通过 history state 保留空间，空间位置只在导航成功后持久化。编辑器可复用 `UnsavedChangesGuard`，保护切换、导航及刷新前的未保存内容。运行 `pnpm test:workspaces` 检查归属及路由覆盖。完整约定见 `../design/frontend/workspace-navigation.md`。
 
-移动端是同一应用中的独立路由树，入口为 `/m`。`src/mobile/layout` 负责移动壳层，`src/mobile/pages` 负责移动页面，`src/mobile/ui` 只封装移动端使用的 HeroUI 控件。桌面页面继续使用 `WorkspaceShell` 和 shadcn/Radix；移动端 HeroUI 样式由 `src/mobile/styles.css` 限定在 `.mobile-theme`，弹层使用移动端 portal，不能把两套组件混在同一个弹层内部。移动端尚未迁移的业务通过明确的桌面版入口访问。详见 `../design/frontend/mobile-shell.md`。
+移动端是同一应用中的独立路由树，入口为 `/m`。`src/mobile/layout` 负责移动壳层，`src/mobile/pages` 负责移动页面，`src/mobile/ui` 放置项目级 HeroUI 封装。组件库按端严格区分：PC 页面使用 `WorkspaceShell` 和 shadcn/Radix，移动页面优先使用 `@heroui/react`；不要在同一页面、表单或弹层中混用两套组件，也不要从桌面页面引入 HeroUI 控件或从移动页面引入 shadcn/Radix 控件。HeroUI 样式由 `src/mobile/styles.css` 限定在 `.mobile-theme`，弹层使用移动端 portal。移动端字号按 [mobile visual direction](../design/frontend/mobile-visual-direction.md#mobile-typography-scale) 中的 CSS px 规范执行；触控目标仍保持至少 44px。移动端尚未迁移的业务通过明确的桌面版入口访问。详见 `../design/frontend/mobile-shell.md`。
 
 普通路由必须从 `WorkspaceShell` 开始：
 
@@ -169,9 +169,18 @@ export default function ExamplePage() {
 
 ## 4. 组件选型规则
 
+### 按端选择组件库
+
+- PC 页面优先使用 `src/components/ui` 的 shadcn/Radix 组件。
+- `/m` 页面优先使用 `@heroui/react`；高频或需要项目统一行为的 HeroUI 控件可封装到 `src/mobile/ui`。
+- 单个页面、表单或弹层不得混用 shadcn/Radix 与 HeroUI。共享业务逻辑和服务不受此限制。
+- 直接使用所选组件库的原生组件、variants 和状态样式。不要用页面级 CSS 或 utility class 重画组件外观、选中态和未选中态；为布局补充尺寸、间距等样式时，不要覆盖组件本身的视觉状态。
+- 避免用宽泛的 `button`、`svg` reset 覆盖 HeroUI 字号、颜色、图标尺寸或交互状态；旧控件的 reset 规则应限定在非 HeroUI 控件。
+- 移动端需要选项组时，使用 HeroUI `TagGroup` 的 `selectionMode`、`selectedKeys` 和 `onSelectionChange` 表达选中与未选中状态；必选字段使用 `disallowEmptySelection`，保留 HeroUI 原生的 Tag 外观和选中态。
+
 ### Button
 
-使用 [`src/components/ui/button.tsx`](./src/components/ui/button.tsx)。**能用 `secondary` 就用 `secondary`。** 刷新、筛选、取消、重试、次要操作、工具栏文字按钮都写 `variant="secondary"`，不要省略 variant，也不要默认写成 `outline` 或 primary。
+PC 页面使用 [`src/components/ui/button.tsx`](./src/components/ui/button.tsx)。**能用 `secondary` 就用 `secondary`。** 刷新、筛选、取消、重试、次要操作、工具栏文字按钮都写 `variant="secondary"`，不要省略 variant，也不要默认写成 `outline` 或 primary。移动页面使用 HeroUI `Button` 或项目的 `src/mobile/ui` 封装。
 
 - `secondary`：默认选择。几乎所有非主提交按钮都用它。
 - `default`：仅页面唯一的主要提交/确认动作，必须显式写 `variant="default"`。

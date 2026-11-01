@@ -4,6 +4,12 @@ import type { BodyMetricId, BodyObservationInput, SplitDay, WorkoutCategory, Wor
 
 const API = `${SERVICE_PREFIX.core}/workout`
 
+export class WorkoutApiError extends Error {
+  readonly status: number
+  constructor(message: string, status = 0) { super(message); this.status = status }
+  get retryable() { return this.status === 0 || this.status === 408 || this.status === 429 || this.status >= 500 }
+}
+
 export type WorkoutApiSession = {
   id: string | number
   date: string
@@ -31,12 +37,34 @@ export type WorkoutApiSnapshot = {
 }
 
 async function request<T>(path: string, method = "GET", body?: unknown, signal?: AbortSignal): Promise<T> {
-  return cynexusResult<T>(await fetch(`${API}${path}`, {
+  let response: Response
+  try { response = await fetch(`${API}${path}`, {
     method,
     cache: "no-store",
     signal,
     ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-  }))
+  }) } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error
+    throw new WorkoutApiError("Workout sync is unavailable. Your changes are saved on this device.")
+  }
+  if (!response.ok) {
+    let message = ""
+    try {
+      const body = await response.clone().json() as { message?: unknown; error?: unknown }
+      const detail = body.message ?? body.error
+      if (typeof detail === "string" && !/[<>]/.test(detail)) message = detail
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error
+      /* An HTML proxy response is not a user-facing error message. */
+    }
+    throw new WorkoutApiError(message || (response.status >= 500 ? "Workout sync is temporarily unavailable. Your changes are saved on this device." : `Workout sync failed (HTTP ${response.status}). Please review your changes and retry.`), response.status)
+  }
+  try { return await cynexusResult<T>(response) }
+  catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error
+    const detail = error instanceof Error ? error.message : ""
+    throw new WorkoutApiError(detail && !/[<>]/.test(detail) ? detail : "Workout sync returned an invalid response. Please retry.", 400)
+  }
 }
 
 function unwrapSnapshot(value: WorkoutApiSnapshot | { snapshot?: WorkoutApiSnapshot | null; workout?: WorkoutApiSnapshot | null } | null | undefined) {
@@ -51,6 +79,7 @@ export async function fetchWorkoutSnapshot(signal?: AbortSignal) {
   } catch (error) {
     // Core releases before the aggregate route was named expose it at /snapshot.
     if (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError") throw error
+    if (!(error instanceof WorkoutApiError) || (error.status !== 404 && error.status !== 405)) throw error
     return unwrapSnapshot(await request<WorkoutApiSnapshot | { snapshot?: WorkoutApiSnapshot | null; workout?: WorkoutApiSnapshot | null }>("/snapshot", "GET", undefined, signal))
   }
 }

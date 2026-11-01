@@ -1,4 +1,4 @@
-import { Beef, BicepsFlexed, Droplet, Dumbbell, Gauge, LayoutGrid, RefreshCw, Ruler, Utensils, WalletCards, Weight, Wheat } from "lucide-react"
+import { Beef, BicepsFlexed, Droplet, Dumbbell, Gauge, RefreshCw, Ruler, Utensils, WalletCards, Weight, Wheat } from "lucide-react"
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 
 import { MobileButton } from "@/mobile/ui/button"
@@ -158,13 +158,6 @@ export function MobileActivityCalendar({ today, records, bodyMeasurements = null
               <p className="mobile-activity-food-eyebrow">Today’s intake</p>
               <h3>On your table<span>.</span></h3>
             </div>
-            <div className="mobile-activity-food-energy">
-              <strong>{nutritionUnavailable ? "—" : nutrition ? calorieNumber.format(nutrition.calories) : "0"}</strong>
-              <span>{nutritionUnavailable ? (nutritionState === "loading" ? "Loading…" : "Unavailable") : visibleTargets?.calories != null ? `/ ${calorieNumber.format(visibleTargets.calories)} kcal` : "kcal · No target"}</span>
-            </div>
-          </div>
-          <div className="mobile-activity-food-tabs" aria-label="Meals">
-            <span className="is-active"><LayoutGrid aria-hidden="true" />All day</span>
           </div>
           <div className="mobile-activity-nutrition-grid">
             <div className="mobile-activity-nutrition-total">

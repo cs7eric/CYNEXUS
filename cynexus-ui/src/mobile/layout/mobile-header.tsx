@@ -65,7 +65,7 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
     <header className="mobile-header">
       <div className="mobile-header-top mx-auto w-full max-w-2xl px-4">
         <div className="mobile-header-leading">
-          {isAppRoute ? <button type="button" className="mobile-header-control" aria-label="Back" title="Back" onClick={goBack}><ArrowLeft aria-hidden="true" /></button> : workspaceControl}
+          {isAppRoute ? <button type="button" className="mobile-header-control mobile-header-back" aria-label="Back" title="Back" onClick={goBack}><ArrowLeft aria-hidden="true" /></button> : workspaceControl}
         </div>
         <div className="mobile-header-greeting"><h1>Hello, {sidebarConfig.user.name}</h1><p>Today {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.</p></div>
         <div className="mobile-header-actions">

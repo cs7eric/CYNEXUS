@@ -1,7 +1,7 @@
 import { createSampleWorkoutRecords, dateKey, decodeWorkoutRecords, type BodyObservationInput, type WorkoutRecords, type WorkoutSession } from "./model"
 import { deleteWorkoutMeasurement, deleteWorkoutSession, fetchWorkoutSnapshot, normalizeWorkoutSnapshot, saveWorkoutMeasurement, saveWorkoutPlan, saveWorkoutSession } from "./api"
 
-export type WorkoutSnapshot = { data: WorkoutRecords; storageError: string | null }
+export type WorkoutSnapshot = { data: WorkoutRecords; storageError: string | null; syncing: boolean; syncError: string | null; pendingCount: number; retryable: boolean }
 type SessionWrite = Omit<WorkoutSession, "id"> & { id?: string | number }
 type PendingWrite =
   | { requestId: string; idempotencyKey: string; kind: "plan"; cycleStart: string }
@@ -17,6 +17,36 @@ const flushChains = new Map<string, Promise<void>>()
 const prefix = "cynexus.workout.records.v1."
 const pendingPrefix = "cynexus.workout.pending.v1."
 const migrationPrefix = "cynexus.workout.core-migration.v1."
+const retries = new Map<string, ReturnType<typeof setTimeout>>()
+const attempts = new Map<string, number>()
+const syncs = new Map<string, Promise<SyncResult>>()
+const revisions = new Map<string, number>()
+type SyncResult = { snapshot: WorkoutSnapshot; synced: boolean; error: string | null }
+
+function notify(scope: string, patch: Partial<WorkoutSnapshot>) {
+  const snapshot = { ...getWorkoutSnapshot(scope), ...patch, pendingCount: readPending(scope).length }
+  cache.set(scope, snapshot)
+  listeners.get(scope)?.forEach((listener) => listener())
+  return snapshot
+}
+
+function scheduleRetry(scope: string) {
+  if (!listeners.get(scope)?.size || retries.has(scope) || !getWorkoutSnapshot(scope).retryable) return
+  const attempt = attempts.get(scope) ?? 0
+  if (attempt >= 6) return
+  attempts.set(scope, attempt + 1)
+  retries.set(scope, setTimeout(() => { retries.delete(scope); void syncWorkoutRecords(scope) }, Math.min(10_000 * 2 ** attempt, 60_000)))
+}
+
+function failed(scope: string, error: unknown) {
+  if (error instanceof Error && error.name === "AbortError") return notify(scope, { syncing: false })
+  const message = error instanceof Error && !/[<>]/.test(error.message) ? error.message : "Workout sync is unavailable. Your changes are saved on this device."
+  const retryable = !(error instanceof Error && "retryable" in error) || Boolean((error as { retryable: unknown }).retryable)
+  if (!retryable) { clearTimeout(retries.get(scope)); retries.delete(scope) }
+  const snapshot = notify(scope, { syncing: false, syncError: message, retryable })
+  scheduleRetry(scope)
+  return snapshot
+}
 
 export function getWorkoutSnapshot(scope: string): WorkoutSnapshot {
   const previous = cache.get(scope)
@@ -26,7 +56,7 @@ export function getWorkoutSnapshot(scope: string): WorkoutSnapshot {
     const raw = typeof window === "undefined" ? null : window.localStorage.getItem(prefix + scope)
     if (raw !== null) data = decodeWorkoutRecords(raw, dateKey(new Date()))
   } catch { storageError = "Saved records could not be loaded. Sample data is shown. Changes can be saved again from this device." }
-  const snapshot = { data, storageError }
+  const snapshot: WorkoutSnapshot = { data, storageError, syncing: false, syncError: null, pendingCount: readPending(scope).length, retryable: false }
   cache.set(scope, snapshot)
   return snapshot
 }
@@ -34,7 +64,8 @@ export function getWorkoutSnapshot(scope: string): WorkoutSnapshot {
 export function subscribeWorkoutRecords(scope: string, listener: () => void) {
   const group = listeners.get(scope) ?? new Set<() => void>()
   group.add(listener); listeners.set(scope, group)
-  return () => { group.delete(listener) }
+  if (group.size === 1) { attempts.delete(scope); void syncWorkoutRecords(scope) }
+  return () => { group.delete(listener); if (!group.size) { clearTimeout(retries.get(scope)); retries.delete(scope); attempts.delete(scope) } }
 }
 
 export function updateWorkoutRecords(scope: string, update: (current: WorkoutRecords) => WorkoutRecords) {
@@ -42,16 +73,15 @@ export function updateWorkoutRecords(scope: string, update: (current: WorkoutRec
   let storageError: string | null = null
   try { window.localStorage.setItem(prefix + scope, JSON.stringify(data)) }
   catch { storageError = "Could not save to this browser. Changes are kept for this session only." }
-  cache.set(scope, { data, storageError })
-  listeners.get(scope)?.forEach((listener) => listener())
-  return { data, storageError }
+  revisions.set(scope, (revisions.get(scope) ?? 0) + 1)
+  return notify(scope, { data, storageError })
 }
 
 function publish(scope: string, data: WorkoutRecords, storageError: string | null = null) {
-  const snapshot = { data, storageError }
-  cache.set(scope, snapshot)
-  listeners.get(scope)?.forEach((listener) => listener())
-  return snapshot
+  try { window.localStorage.setItem(prefix + scope, JSON.stringify(data)) }
+  catch { storageError = "Could not save to this browser. Changes are kept for this session only." }
+  clearTimeout(retries.get(scope)); retries.delete(scope); attempts.delete(scope)
+  return notify(scope, { data, storageError, syncing: false, syncError: null, retryable: false })
 }
 
 function hasPersonalRecords(data: WorkoutRecords) {
@@ -106,13 +136,19 @@ function flushPending(scope: string, signal?: AbortSignal): Promise<RemoteSnapsh
 }
 
 async function queueWrite(scope: string, write: PendingWrite, signal?: AbortSignal) {
-  writePending(scope, [...readPending(scope), write])
+  const revision = revisions.get(scope) ?? 0
+  try { writePending(scope, [...readPending(scope), write]) }
+  catch (error) {
+    notify(scope, { storageError: "Could not queue account sync in this browser. Your changes are kept for this session only." })
+    throw error
+  }
+  notify(scope, { syncing: true })
   try {
     const snapshot = await flushPending(scope, signal) ?? await fetchWorkoutSnapshot(signal)
+    if ((revisions.get(scope) ?? 0) !== revision || readPending(scope).length) return publish(scope, getWorkoutSnapshot(scope).data)
     return publishRemote(scope, snapshot)
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Workout service is unavailable."
-    publish(scope, getWorkoutSnapshot(scope).data, message)
+    failed(scope, error)
     throw error
   }
 }
@@ -130,11 +166,22 @@ function markMigrationComplete(scope: string) {
 function sessionIdentity(session: WorkoutSession) { return session.date }
 function observationIdentity(observation: BodyObservationInput) { return `${observation.metric}:${observation.side ?? "none"}:${observation.measuredAt}` }
 
-/** Pull Core state, finish any interrupted legacy migration, then replay offline writes. */
-export async function syncWorkoutRecords(scope: string, signal?: AbortSignal) {
+/** Replay offline writes before merging legacy records and publishing Core state. */
+export function syncWorkoutRecords(scope: string, signal?: AbortSignal): Promise<SyncResult> {
+  const existing = syncs.get(scope)
+  if (existing) return existing
+  const task = performSync(scope, signal).finally(() => syncs.delete(scope))
+  syncs.set(scope, task)
+  return task
+}
+
+async function performSync(scope: string, signal?: AbortSignal): Promise<SyncResult> {
   const local = getWorkoutSnapshot(scope)
+  const revision = revisions.get(scope) ?? 0
+  notify(scope, { syncing: true })
   try {
-    let data = normalizeWorkoutSnapshot(await fetchWorkoutSnapshot(signal), dateKey(new Date()))
+    const replayed = await flushPending(scope, signal)
+    let data = normalizeWorkoutSnapshot(replayed ?? await fetchWorkoutSnapshot(signal), dateKey(new Date()))
     if (!isMigrationComplete(scope) && hasPersonalRecords(local.data)) {
       if (!hasRemoteRecords(data)) {
         await saveWorkoutPlan({ cycleStart: local.data.cycleStart, idempotencyKey: crypto.randomUUID() }, signal)
@@ -156,11 +203,11 @@ export async function syncWorkoutRecords(scope: string, signal?: AbortSignal) {
     }
     const pending = await flushPending(scope, signal)
     if (pending) data = normalizeWorkoutSnapshot(pending, dateKey(new Date()))
+    if ((revisions.get(scope) ?? 0) !== revision || readPending(scope).length) data = getWorkoutSnapshot(scope).data
     return { snapshot: publish(scope, data), synced: true, error: null as string | null }
   } catch (error) {
-    if (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError") throw error
-    const message = error instanceof Error ? error.message : "Workout service is unavailable."
-    return { snapshot: getWorkoutSnapshot(scope), synced: false, error: message }
+    const snapshot = failed(scope, error)
+    return { snapshot, synced: false, error: snapshot.syncError }
   }
 }
 
@@ -195,3 +242,13 @@ if (typeof window !== "undefined") window.addEventListener("storage", (event) =>
   const scopes = event.key === null ? [...cache.keys()] : [event.key.slice(prefix.length)]
   scopes.forEach((scope) => { cache.delete(scope); listeners.get(scope)?.forEach((listener) => listener()) })
 })
+
+if (typeof window !== "undefined") {
+  const recover = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+    listeners.forEach((group, scope) => { if (group.size && getWorkoutSnapshot(scope).retryable) { attempts.delete(scope); void syncWorkoutRecords(scope) } })
+  }
+  window.addEventListener("online", recover)
+  window.addEventListener("focus", recover)
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", recover)
+}

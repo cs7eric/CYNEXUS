@@ -25,12 +25,14 @@ const nameAliases: Record<string, keyof typeof artwork> = {
 export function FoodArt({ food, className = "" }: { food: { assetKey?: string | null; assetUrl?: string | null; name?: string; foodName?: string; id?: string | null; foodId?: string | null; kind?: string | null; entryKind?: string | null }; className?: string }) {
   const key = food.assetKey?.trim().toLowerCase()
   const name = (food.name ?? food.foodName ?? "").trim().toLowerCase()
-  const customFoodId = food.foodId ?? (food.kind === "custom" || food.entryKind === "custom" ? food.id : null)
+  const isCustomFood = food.kind === "custom" || food.entryKind === "custom"
+  const customFoodId = isCustomFood ? food.foodId ?? food.id : null
+  const customAssetUrl = customFoodId && /^\d+$/.test(customFoodId) ? `/api/core/food/custom-foods/${customFoodId}/asset` : null
   const matchingAlias = Object.keys(nameAliases).find(alias => name.includes(alias))
   const inferredKey = nameAliases[name] ?? (matchingAlias ? nameAliases[matchingAlias] : undefined)
   const sources = [
+    customAssetUrl,
     food.assetUrl,
-    customFoodId && /^\d+$/.test(customFoodId) ? `/api/core/food/custom-foods/${customFoodId}/asset` : null,
     key && /^food-\d{3}$/.test(key) ? `/mobile/fridge/foods/${key}.webp` : null,
     key && artwork[key] ? `/mobile/food/${artwork[key]}` : null,
     key && /^(?:tabletop\/)?[^/]+\.(?:svg|webp|png)$/i.test(key) ? `/mobile/food/${key}` : null,
@@ -39,8 +41,9 @@ export function FoodArt({ food, className = "" }: { food: { assetKey?: string | 
   ].filter((value): value is string => !!value)
   const [failedSource, setFailedSource] = useState<string | null>(null)
   const source = sources.find(value => value !== failedSource)
+  const isUploadedAsset = !!customAssetUrl && source === customAssetUrl
 
   return source
-    ? <img className={`food-art ${className}`} src={source} alt="" draggable={false} onError={() => setFailedSource(source)} />
+    ? <img className={`food-art${isUploadedAsset ? " food-art-user-asset" : ""} ${className}`} src={source} alt="" draggable={false} onError={() => setFailedSource(source)} />
     : <span className={`food-art food-art-placeholder ${className}`} aria-hidden="true"><CookingPot /><span>{food.name ?? food.foodName ?? "Food"}</span></span>
 }

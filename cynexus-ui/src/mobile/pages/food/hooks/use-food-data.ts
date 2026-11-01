@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react"
-import { fetchDay, fetchGoals, fetchHistory, fetchCatalog, fetchCustomFoods, fetchFavorites, FOOD_CHANGED } from "@/services/food/api"
+import { fetchDay, fetchHistory, fetchCatalog, fetchCustomFoods, fetchFavorites, FOOD_CHANGED } from "@/services/food/api"
 import { fetchFridgeInventory } from "@/services/fridge/api"
 import type { FridgeItem } from "@/services/fridge/model"
-import type { Food, FoodDay, FoodGoal } from "@/services/food/types"
+import type { Food, FoodDay } from "@/services/food/types"
 
 export interface Remote<T> { data: T | null; loading: boolean; error: string | null }
 export function useFoodRemote<T>(key: string, load: (signal: AbortSignal) => Promise<T>) {
@@ -24,10 +24,6 @@ export function useFoodRemote<T>(key: string, load: (signal: AbortSignal) => Pro
 export function useFoodDay(date: string) {
   const load = useCallback((signal: AbortSignal) => fetchDay(date, signal), [date])
   return useFoodRemote<FoodDay>(date, load)
-}
-export function useFoodGoals() {
-  const load = useCallback((signal: AbortSignal) => fetchGoals(signal), [])
-  return useFoodRemote<FoodGoal[]>("goals", load)
 }
 export function useFoodHistory(start: string, end: string) {
   const load = useCallback((signal: AbortSignal) => fetchHistory(start, end, signal), [start, end])

@@ -1,0 +1,45 @@
+.mobile-theme .mobile-finance-summary { padding: 8px 2px 24px; color: var(--foreground); }
+.mobile-theme .mfs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mobile-theme .mfs-head h2 { margin: 0; font-size: 1.5rem; font-weight: 800; line-height: 1.15; }
+.mobile-theme .mfs-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 20px; }
+.mobile-theme .mfs-segment { display: flex; padding: 3px; border: 1px solid #385b5e29; border-radius: 999px; background: #ffffff75; }
+.mobile-theme .mfs-segment button { min-height: 34px; padding: 0 13px; border: 0; border-radius: 999px; color: #6f8589; background: transparent; font: inherit; font-size: .75rem; font-weight: 650; }
+.mobile-theme .mfs-segment button[aria-pressed="true"] { color: #173f38; background: #bde4d1; }
+.mobile-theme .mfs-period { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.mobile-theme .mfs-period strong { min-width: 98px; text-align: center; font-size: .875rem; }
+.mobile-theme .mfs-period button { width: 34px; height: 34px; border: 1px solid #385b5e29; border-radius: 50%; color: #345958; background: #ffffff85; font-size: 1.25rem; }
+.mobile-theme .mfs-period button:disabled { opacity: .35; }
+.mobile-theme .mfs-account { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 15px; color: #6f8589; font-size: .75rem; }
+.mobile-theme .mfs-account select { width: 100%; min-width: 0; height: 40px; padding: 0 11px; border: 1px solid #385b5e29; border-radius: 12px; color: var(--foreground); background: #ffffff85; font: inherit; }
+.mobile-theme .mfs-state { display: grid; min-height: 120px; place-content: center; gap: 10px; margin-top: 18px; border-radius: 18px; color: #6f8589; background: #ffffff55; text-align: center; font-size: .875rem; }
+.mobile-theme .mfs-state button { border: 0; color: #28735e; background: transparent; font: inherit; font-weight: 700; }
+.mobile-theme .mfs-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 21px; padding: 15px 0; border-top: 1px solid #25303c1c; border-bottom: 1px solid #25303c1c; }
+.mobile-theme .mfs-totals > div { min-width: 0; }
+.mobile-theme .mfs-totals span { display: block; color: #6f8589; font-size: .6875rem; }
+.mobile-theme .mfs-totals strong { display: block; margin-top: 5px; overflow-wrap: anywhere; font-size: .95rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.mobile-theme .mfs-section { margin-top: 25px; }
+.mobile-theme .mfs-chart { display: grid; grid-auto-columns: minmax(18px, 1fr); grid-auto-flow: column; gap: 3px; height: 156px; margin-top: 14px; padding: 12px 2px 0; overflow-x: auto; border-bottom: 1px solid #25303c20; }
+.mobile-theme .mfs-bar-group { display: grid; min-width: 0; grid-template-rows: minmax(0, 1fr) 22px; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: center; }
+.mobile-theme .mfs-bar-group.is-selected { border-radius: 7px 7px 0 0; background: #4a9a7912; }
+.mobile-theme .mfs-bars { display: flex; min-height: 0; align-items: flex-end; justify-content: center; gap: 2px; }
+.mobile-theme .mfs-bars i { width: min(8px, 40%); min-height: 0; border-radius: 4px 4px 1px 1px; }
+.mobile-theme .mfs-bars .is-income, .mobile-theme .mfs-legend .is-income { background: #4a9a79; }
+.mobile-theme .mfs-bars .is-expense, .mobile-theme .mfs-legend .is-expense { background: #e28468; }
+.mobile-theme .mfs-bars .is-net, .mobile-theme .mfs-legend .is-net { background: #597eaf; }
+.mobile-theme .mfs-bars .is-net.is-negative { background: #916a9b; }
+.mobile-theme .mfs-bar-group > span { overflow: hidden; color: #829295; font-size: .5625rem; line-height: 22px; text-overflow: clip; white-space: nowrap; }
+.mobile-theme .mfs-legend { display: flex; justify-content: center; gap: 16px; margin-top: 9px; color: #6f8589; font-size: .6875rem; }
+.mobile-theme .mfs-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mobile-theme .mfs-legend i { width: 8px; height: 8px; border-radius: 2px; }
+.mobile-theme .mfs-slider { display: block; width: 100%; height: 24px; margin-top: 7px; accent-color: #40876d; }
+.mobile-theme .mfs-trend-readout { display: flex; flex-wrap: wrap; gap: 5px 12px; color: #718487; font-size: .6875rem; }
+.mobile-theme .mfs-trend-readout strong { flex-basis: 100%; color: var(--foreground); font-size: .8125rem; }
+.mobile-theme .mfs-section > .mfs-segment { display: inline-flex; margin-top: 12px; }
+.mobile-theme .mfs-categories { margin: 12px 0 0; padding: 0; list-style: none; }
+.mobile-theme .mfs-categories li { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #25303c12; font-size: .8125rem; }
+.mobile-theme .mfs-categories li span { min-width: 0; overflow-wrap: anywhere; }
+.mobile-theme .mfs-categories li strong { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.mobile-theme .mfs-muted, .mobile-theme .mfs-note { color: #718487; font-size: .6875rem; line-height: 1.6; }
+.mobile-theme .mfs-note { margin: 19px 0 0; }
+.mobile-theme .mfs-head button:focus-visible, .mobile-theme .mfs-controls button:focus-visible, .mobile-theme .mfs-account select:focus-visible, .mobile-theme .mfs-bar-group:focus-visible, .mobile-theme .mfs-slider:focus-visible { outline: 3px solid #4f9a7a; outline-offset: 3px; }
+@media (max-width: 360px) { .mobile-theme .mfs-controls { align-items: flex-start; flex-direction: column; } .mobile-theme .mfs-period { align-self: flex-end; } .mobile-theme .mfs-totals strong { font-size: .8rem; } }

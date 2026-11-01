@@ -21,8 +21,9 @@ export const mobileAppNavigation = {
     mode: "views",
     items: [
       { href: "#finance-overview", label: "Overview", icon: ChartNoAxesCombined },
-      { href: "#finance-accounts", label: "Accounts", icon: WalletCards },
       { href: "#finance-activity", label: "Activity", icon: ArrowLeftRight },
+      { href: "#finance-accounts", label: "Accounts", icon: WalletCards },
+      { href: "#finance-summary", label: "Summary", icon: Activity },
     ],
   },
   "/m/workout": {
@@ -41,7 +42,6 @@ export const mobileAppNavigation = {
       { href: "#food-fridge", label: "Fridge", icon: Refrigerator },
       { href: "#food-foods", label: "Foods", icon: LayoutGrid },
       { href: "#food-history", label: "History", icon: ChartNoAxesCombined },
-      { href: "#food-goals", label: "Goals", icon: Activity },
     ],
   },
 } as const
