@@ -56,7 +56,7 @@ function foodCatalog({ fridgeItemId } = {}) {
     "./food-art": { FoodArt: "FoodArt" },
     "./food-catalog.css": {},
   })
-  renderer.mount(() => FoodCatalog({ onSelect: value => selected.push(value), onCustom() {}, onOpenFridge: () => fridgeOpened.push(true), compact: true }))
+  renderer.mount(() => FoodCatalog({ onSelect: value => selected.push(value), onCustom() {}, onOpenFridge: fridgeItemId => fridgeOpened.push(fridgeItemId), compact: true }))
   return { ...renderer, Card, selected, fridgeOpened, catalogFood }
 }
 
@@ -99,13 +99,13 @@ test("food choice and fridge inventory expose separate actions", () => {
   catalog.close()
 })
 
-test("fridge stock action opens the fridge view without selecting the food", () => {
+test("fridge stock action opens the selected fridge item's stock sheet", () => {
   const catalog = foodCatalog({ fridgeItemId: "fridge-42" })
   const stockButton = elements(catalog.view()).find(element => element.props?.className === "food-catalog-card-stock food-catalog-card-stock-action")
   let propagationStopped = false
   stockButton.props.onClick({ stopPropagation() { propagationStopped = true } })
   assert.equal(propagationStopped, true)
-  assert.deepEqual(catalog.fridgeOpened, [true])
+  assert.deepEqual(catalog.fridgeOpened, ["fridge-42"])
   assert.deepEqual(catalog.selected, [])
   catalog.close()
 })

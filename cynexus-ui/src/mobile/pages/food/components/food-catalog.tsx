@@ -44,7 +44,7 @@ export function FoodLibraryFavoriteButton({ food }: { food: Food }) {
   </>
 }
 
-export function FoodCatalog({ onSelect, onCustom, onOpenFridge, onQuick, compact = false }: { onSelect: (food: Food) => void; onCustom: () => void; onOpenFridge: () => void; onQuick?: () => void; compact?: boolean }) {
+export function FoodCatalog({ onSelect, onCustom, onOpenFridge, onQuick, compact = false }: { onSelect: (food: Food) => void; onCustom: () => void; onOpenFridge: (fridgeItemId: string) => void; onQuick?: () => void; compact?: boolean }) {
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<FoodFilter>("all")
   const result = useFoodSearch(query, filter)
@@ -77,7 +77,7 @@ export function FoodCatalog({ onSelect, onCustom, onOpenFridge, onQuick, compact
             <span className="food-catalog-card-energy"><Flame aria-hidden="true" /><strong>{formatNutrition(food.nutrients.caloriesKcal)}</strong><small>kcal / 100 g</small></span>
           </Card.Header>
           <span className="food-catalog-card-summary">
-            <span className="food-catalog-card-meta">{food.fridgeItemId ? <><Refrigerator aria-hidden="true" /><button className="food-catalog-card-stock food-catalog-card-stock-action" type="button" aria-label={`Open fridge view. ${formatNutrition(food.availableQuantity, 1)} ${food.availableUnit ?? "g"} in fridge.`} onClick={event => { event.stopPropagation(); onOpenFridge() }}><strong>{formatNutrition(food.availableQuantity, 1)} {food.availableUnit ?? "g"}</strong><span>in fridge</span><ChevronRight aria-hidden="true" /></button></> : <>{food.kind === "custom" && <UserRound aria-hidden="true" />}<span>{[food.brand, food.source ?? (food.kind === "custom" ? "My food" : null)].filter(Boolean).join(" · ") || "Food"}</span></>}</span>
+            <span className="food-catalog-card-meta">{food.fridgeItemId ? <><Refrigerator aria-hidden="true" /><button className="food-catalog-card-stock food-catalog-card-stock-action" type="button" aria-label={`Open fridge view. ${formatNutrition(food.availableQuantity, 1)} ${food.availableUnit ?? "g"} in fridge.`} onClick={event => { event.stopPropagation(); onOpenFridge(food.fridgeItemId!) }}><strong>{formatNutrition(food.availableQuantity, 1)} {food.availableUnit ?? "g"}</strong><span>in fridge</span><ChevronRight aria-hidden="true" /></button></> : <>{food.kind === "custom" && <UserRound aria-hidden="true" />}<span>{[food.brand, food.source ?? (food.kind === "custom" ? "My food" : null)].filter(Boolean).join(" · ") || "Food"}</span></>}</span>
           </span>
         </Card.Content>
         <span className="food-catalog-card-macros">

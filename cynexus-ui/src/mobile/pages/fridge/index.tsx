@@ -644,12 +644,12 @@ function FoodEditor({ onClose, onSave, onSaveMany }: { onClose: () => void; onSa
   return portal ? createPortal(editor, portal) : editor
 }
 
-export default function MobileFridgePage({ onLogMeal, initialView }: { onLogMeal?: (item: FridgeItem, selection?: MealAmountSelection) => void; initialView?: FridgeView } = {}) {
+export default function MobileFridgePage({ onLogMeal, initialView, initialSelectedFoodId }: { onLogMeal?: (item: FridgeItem, selection?: MealAmountSelection) => void; initialView?: FridgeView; initialSelectedFoodId?: string } = {}) {
   const { data, storageError, syncError, syncing, refresh, update, createRemote, adjustRemote, confirmMappingRemote } = useFridgeRecords()
   const [, setAssetRevision] = useState(0)
   const [view, setView] = useState<FridgeView>(initialView ?? "overview")
   const [showEditor, setShowEditor] = useState(false)
-  const [selectedFoodId, setSelectedFoodId] = useState<string | null>(null)
+  const [selectedFoodId, setSelectedFoodId] = useState<string | null>(initialSelectedFoodId ?? null)
   const [notice, setNotice] = useState<string | null>(null)
   const today = dateKey(new Date())
   const items = data.items
