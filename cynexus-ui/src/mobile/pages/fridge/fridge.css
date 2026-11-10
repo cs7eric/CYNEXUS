@@ -179,3 +179,17 @@
 .fridge-quantity-error { color: #b4473f; font-size: .58rem; }
 .fridge-stock-log-meal-primary { border: 0; color: #21352e; background: #9be477; font-weight: 800; }
 .fridge-stock-log-meal-primary:disabled { color: #526255; background: #e0e7dc; }
+.fridge-stock-editor { max-height: calc(100svh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+.fridge-meal-amount { --accent: #171717; --accent-soft: #171717; --accent-soft-foreground: #fff; --accent-soft-hover: #303030; display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--fridge-line); }
+.fridge-meal-amount .tag-group__list { flex-wrap: nowrap; gap: 4px; }
+.fridge-meal-amount-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fridge-meal-amount-heading strong { font-size: .68rem; font-weight: 750; }
+.fridge-meal-amount-heading span { color: var(--fridge-muted); font-size: .58rem; font-variant-numeric: tabular-nums; }
+.fridge-meal-amount-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.fridge-meal-amount-input { display: inline-flex; width: min(42%, 132px); min-width: 96px; min-height: 42px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--fridge-line); border-radius: 10px; background: #fff; }
+.fridge-meal-amount-input input, .fridge-piece-weight input { width: 100%; min-width: 0; min-height: 38px; padding: 0; border: 0; outline: 0; color: var(--fridge-ink); background: transparent; font: inherit; font-size: .8rem; font-variant-numeric: tabular-nums; text-align: right; }
+.fridge-meal-amount-input input:focus-visible, .fridge-piece-weight input:focus-visible { outline: 2px solid #56666e; outline-offset: 2px; border-radius: 3px; }
+.fridge-meal-amount-input b, .fridge-piece-weight b { color: var(--fridge-muted); font-size: .62rem; font-weight: 750; }
+.fridge-piece-weight { display: flex; width: fit-content; min-height: 38px; align-items: center; gap: 6px; margin: 0; color: var(--fridge-muted); font-size: .62rem; font-weight: 650; }
+.fridge-piece-weight input { width: 72px; min-height: 34px; padding: 0 7px; border: 1px solid var(--fridge-line); border-radius: 8px; background: #fff; text-align: center; }
+.fridge-meal-amount-error { color: #b4473f; font-size: .58rem; }

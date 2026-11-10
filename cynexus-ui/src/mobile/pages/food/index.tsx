@@ -18,10 +18,10 @@ import { foodAmount } from "./components/scene-model"
 import { fridgeItemAsFood, useFoodDay, useFoodHistory } from "./hooks/use-food-data"
 import { useFoodRecognitionTasks } from "./hooks/use-food-recognition-tasks"
 import { useFridgeRecords } from "@/mobile/hooks/use-fridge-records"
-import MobileFridgePage from "../fridge"
+import MobileFridgePage, { type MealAmountUnit } from "../fridge"
 import "./food.css"
 
-type Sheet = { type: "search"; meal: MealType } | { type: "entry"; meal: MealType; food?: Food; item?: DiaryItem } | { type: "custom"; meal: MealType } | { type: "group"; items: DiaryItem[] } | { type: "reopen"; next: Sheet | null } | { type: "complete" }
+type Sheet = { type: "search"; meal: MealType } | { type: "entry"; meal: MealType; food?: Food; item?: DiaryItem; initialAmount?: number; initialUnit?: MealAmountUnit; initialPieceGrams?: number; initialMlGrams?: number } | { type: "custom"; meal: MealType } | { type: "group"; items: DiaryItem[] } | { type: "reopen"; next: Sheet | null } | { type: "complete" }
 type FoodView = "today" | "foods" | "history" | "fridge"
 
 function normalizeFoodView(hash: string): FoodView {
@@ -63,7 +63,7 @@ function FoodDiaryPage({ today, date, setDate }: { today: string; date: string; 
   const handledRequest = useRef<string | null>(null)
   const saveMessageTimer = useRef<number | null>(null)
   useEffect(() => () => { if (saveMessageTimer.current !== null) window.clearTimeout(saveMessageTimer.current) }, [])
-  const action = location.state as { mobileAction?: string; requestId?: string; fridgeItemId?: string; fridgeView?: "overview" | "inside" } | null
+  const action = location.state as { mobileAction?: string; requestId?: string; fridgeItemId?: string; fridgeView?: "overview" | "inside"; mealQuantity?: number; mealUnit?: MealAmountUnit; mealGramsPerUnit?: number; mealGramsPerMl?: number } | null
   useEffect(() => {
     if (!action?.requestId || !["food-entry", "food-fridge-entry"].includes(action.mobileAction ?? "") || handledRequest.current === action.requestId) return
     const timer = window.setTimeout(() => {
@@ -75,7 +75,7 @@ function FoodDiaryPage({ today, date, setDate }: { today: string; date: string; 
         void fetchFridgeInventory().then(inventory => {
           const item = inventory.items.find(candidate => candidate.id === action.fridgeItemId)
           if (!item) { setError("This fridge item is no longer available."); return }
-          const entry: Sheet = { type: "entry", food: fridgeItemAsFood(item), meal }
+          const entry: Sheet = { type: "entry", food: fridgeItemAsFood(item), meal, initialAmount: action.mealQuantity, initialUnit: action.mealUnit, initialPieceGrams: action.mealGramsPerUnit, initialMlGrams: action.mealGramsPerMl }
           setSheet(day.data?.status === "complete" ? { type: "reopen", next: entry } : entry)
         }).catch(cause => setError(cause instanceof Error ? cause.message : "Unable to open this fridge item."))
       } else setSheet(day.data?.status === "complete" ? { type: "reopen", next } : next)
@@ -104,7 +104,7 @@ function FoodDiaryPage({ today, date, setDate }: { today: string; date: string; 
     {sheet && <FoodSheet title={sheetTitle} busy={busy} onClose={() => { if (!busy) { setSheet(null); setError(null) } }}>
       <div className={`mobile-food food-sheet-body${view === "foods" ? " food-library-sheet-body" : ""}`}>
         {sheet.type === "search" && <><p className="food-context">{readableDate(date, true)}</p><FoodCatalog compact onSelect={food => setSheet({ type: "entry", food, meal: sheet.meal })} onCustom={() => setSheet({ type: "custom", meal: sheet.meal })} onOpenFridge={() => navigate({ pathname: location.pathname, search: location.search, hash: "#food-fridge" }, { state: { fridgeView: "inside" } })} onQuick={() => setSheet({ type: "entry", meal: sheet.meal })} /></>}
-        {sheet.type === "entry" && <FoodEntry key={sheet.item?.id ?? `${sheet.food?.fridgeItemId ?? sheet.food?.kind}/${sheet.food?.id}`} date={date} initialMeal={sheet.meal} food={sheet.food} item={sheet.item} targets={displayedDay?.targets} onSaved={fridgeChanged => { if (fridgeChanged) void fridge.refresh(); if (sheet.item) { setSheet(null); return } setSheet(null); setError(null); showSaveMessage() }} />}
+        {sheet.type === "entry" && <FoodEntry key={sheet.item?.id ?? `${sheet.food?.fridgeItemId ?? sheet.food?.kind}/${sheet.food?.id}`} date={date} initialMeal={sheet.meal} food={sheet.food} item={sheet.item} targets={displayedDay?.targets} initialAmount={sheet.initialAmount} initialUnit={sheet.initialUnit} initialPieceGrams={sheet.initialPieceGrams} initialMlGrams={sheet.initialMlGrams} onSaved={fridgeChanged => { if (fridgeChanged) void fridge.refresh(); if (sheet.item) { setSheet(null); return } setSheet(null); setError(null); showSaveMessage() }} />}
         {sheet.type === "custom" && <CustomFoodForm onBack={() => setSheet({ type: "search", meal: sheet.meal })} onSaved={food => setSheet({ type: "entry", food, meal: sheet.meal })} onQueued={task => { foodRecognitionTasks.add(task); setSheet(null); setError(null); showSaveMessage("Nutrition task submitted successfully."); navigate({ pathname: location.pathname, search: location.search, hash: "#food-foods" }) }} />}
         {sheet.type === "group" && <><div className="food-section-title"><h3>{sheet.items[0]?.foodName}</h3><p>{foodAmount(sheet.items)} · {sheet.items.length} {sheet.items.length === 1 ? "entry" : "entries"}</p></div><NutritionPreview values={sumNutrition(sheet.items).totals} caption="For these diary entries" /><p className="food-footnote">Select an entry to change its amount.</p>{sheet.items.map(item => <button key={item.id} type="button" className="food-group-entry" onClick={() => open({ type: "entry", item, meal: item.mealType })}><span>{item.mealType === "snack" ? "Snacks" : item.mealType.charAt(0).toUpperCase() + item.mealType.slice(1)}<small>{foodAmount([item])}</small></span><ChevronRight /></button>)}</>}
         {sheet.type === "reopen" && <div className="food-confirmation"><h3>Make room for a change.</h3><p>This diary is complete. Reopen {readableDate(date)} to add or edit food.</p><button type="button" className="food-primary" disabled={busy} onClick={() => changeStatus(false, sheet.next)}>{busy ? "Reopening…" : "Reopen diary"}</button><button type="button" className="food-text-button" disabled={busy} onClick={() => setSheet(null)}>Keep it complete</button></div>}
@@ -127,5 +127,5 @@ export default function FoodPage() {
     navigate({ pathname: location.pathname, search: location.search, hash: "#food-today" }, { replace: true })
   }, [location.pathname, location.search, navigate, rawView, view])
   const fridgeView = (location.state as { fridgeView?: "overview" | "inside" } | null)?.fridgeView
-  return view === "fridge" ? <MobileFridgePage initialView={fridgeView === "inside" ? "inside" : undefined} onLogMeal={item => navigate({ pathname: location.pathname, search: location.search, hash: "#food-today" }, { state: { mobileAction: "food-fridge-entry", fridgeItemId: item.id, requestId: crypto.randomUUID() } })} /> : <FoodDiaryPage today={today} date={date} setDate={setDate} />
+  return view === "fridge" ? <MobileFridgePage initialView={fridgeView === "inside" ? "inside" : undefined} onLogMeal={(item, selection) => navigate({ pathname: location.pathname, search: location.search, hash: "#food-today" }, { state: { mobileAction: "food-fridge-entry", fridgeItemId: item.id, requestId: crypto.randomUUID(), mealQuantity: selection?.quantity, mealUnit: selection?.unit, mealGramsPerUnit: selection?.gramsPerUnit, mealGramsPerMl: selection?.gramsPerMl } })} /> : <FoodDiaryPage today={today} date={date} setDate={setDate} />
 }

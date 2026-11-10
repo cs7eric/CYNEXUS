@@ -61,16 +61,20 @@ export function NutritionPreview({ values, caption, targets }: { values: Nutrien
   </section>
 }
 
-export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: { date: string; initialMeal: MealType; food?: Food; item?: DiaryItem; targets?: Nutrients; onSaved: (fridgeChanged?: boolean) => void }) {
+export function FoodEntry({ date, initialMeal, food, item, targets, initialAmount, initialUnit, initialPieceGrams, initialMlGrams, onSaved }: { date: string; initialMeal: MealType; food?: Food; item?: DiaryItem; targets?: Nutrients; initialAmount?: number; initialUnit?: FoodAmountUnit; initialPieceGrams?: number | null; initialMlGrams?: number | null; onSaved: (fridgeChanged?: boolean) => void }) {
   const quick = item ? item.entryKind === "quick" : !food
   const mealLabelId = useId()
   const unitLabelId = useId()
   const [meal, setMeal] = useState(initialMeal)
-  const [amountUnit, setAmountUnit] = useState<FoodAmountUnit>(item ? "g" : initialFoodAmountUnit(food))
-  const [amount, setAmount] = useState(String(item?.consumedGrams ?? initialFoodAmount(food)))
-  const initialPieceGrams = food?.fridgeItemId ? foodAmountInGrams(food, 1, "pcs") : null
-  const [pieceGrams, setPieceGrams] = useState(initialPieceGrams == null ? "" : String(Number(initialPieceGrams.toFixed(3))))
-  const [pieceGramsEdited, setPieceGramsEdited] = useState(false)
+  const [amountUnit, setAmountUnit] = useState<FoodAmountUnit>(item ? "g" : initialUnit ?? initialFoodAmountUnit(food))
+  const [amount, setAmount] = useState(String(item?.consumedGrams ?? initialAmount ?? initialFoodAmount(food)))
+  const inferredPieceGrams = food?.fridgeItemId ? foodAmountInGrams(food, 1, "pcs") : null
+  const startingPieceGrams = initialPieceGrams ?? inferredPieceGrams
+  const [pieceGrams, setPieceGrams] = useState(startingPieceGrams == null ? "" : String(Number(startingPieceGrams.toFixed(3))))
+  const [pieceGramsEdited, setPieceGramsEdited] = useState(initialPieceGrams != null)
+  const inferredMlGrams = food?.fridgeItemId ? foodAmountInGrams(food, 1, "ml") : null
+  const startingMlGrams = initialMlGrams ?? inferredMlGrams
+  const [mlGrams, setMlGrams] = useState(startingMlGrams == null ? "" : String(Number(startingMlGrams.toFixed(3))))
   const [name, setName] = useState(item?.foodName ?? "")
   const [nutrients, setNutrients] = useState(() => draftNutrients(item?.nutrients))
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID())
@@ -80,14 +84,16 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: {
   const numericAmount = Number(amount)
   const numericPieceGrams = Number(pieceGrams)
   const pieceGramsValue = Number.isFinite(numericPieceGrams) && numericPieceGrams > 0 ? numericPieceGrams : null
+  const numericMlGrams = Number(mlGrams)
+  const mlGramsValue = Number.isFinite(numericMlGrams) && numericMlGrams > 0 ? numericMlGrams : null
   const amountUnits = food?.fridgeItemId ? foodAmountUnits(food) : ["g" as const]
-  const previewGrams = item ? (item.consumedGrams ?? (numericAmount || 0)) : food?.fridgeItemId ? (amountUnits.length ? foodAmountInGrams(food, numericAmount || 0, amountUnit, pieceGramsValue) : null) : (numericAmount || 0)
+  const previewGrams = item ? (item.consumedGrams ?? (numericAmount || 0)) : food?.fridgeItemId ? (amountUnits.length ? foodAmountInGrams(food, numericAmount || 0, amountUnit, pieceGramsValue, mlGramsValue) : null) : (numericAmount || 0)
   const preview = quick ? Object.fromEntries(nutrientKeys.map(key => [key, nutrients[key] === "" ? null : Number(nutrients[key])])) as Nutrients : previewGrams == null ? Object.fromEntries(nutrientKeys.map(key => [key, null])) as Nutrients : scaledNutrition(food?.nutrients ?? item!.per100g, previewGrams)
-  const availableAmount = food?.fridgeItemId ? availableFoodAmount(food, amountUnit, pieceGramsValue) : null
+  const availableAmount = food?.fridgeItemId ? availableFoodAmount(food, amountUnit, pieceGramsValue, mlGramsValue) : null
   function changeAmountUnit(nextUnit: FoodAmountUnit) {
     if (nextUnit === amountUnit) return
-    const grams = food?.fridgeItemId ? foodAmountInGrams(food, numericAmount || 0, amountUnit, pieceGramsValue) : numericAmount || 0
-    const nextGramsPerUnit = food?.fridgeItemId ? foodAmountInGrams(food, 1, nextUnit, nextUnit === "pcs" ? pieceGramsValue : null) : 1
+    const grams = food?.fridgeItemId ? foodAmountInGrams(food, numericAmount || 0, amountUnit, pieceGramsValue, mlGramsValue) : numericAmount || 0
+    const nextGramsPerUnit = food?.fridgeItemId ? foodAmountInGrams(food, 1, nextUnit, nextUnit === "pcs" ? pieceGramsValue : null, nextUnit === "ml" ? mlGramsValue : null) : 1
     const nextAmount = grams != null && nextGramsPerUnit != null && nextGramsPerUnit > 0 ? grams / nextGramsPerUnit : 0
     setAmountUnit(nextUnit)
     setAmount(String(Number.isFinite(nextAmount) && nextAmount > 0 ? Number(nextAmount.toFixed(3)) : (nextUnit === "pcs" ? 1 : 100)))
@@ -98,12 +104,12 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: {
     setBusy(true); setError(null)
     try {
       const values = quick ? readNutrients(nutrients) : undefined
-      if (!quick && (!Number.isFinite(numericAmount) || numericAmount <= 0 || (amountUnit === "pcs" && (!Number.isInteger(numericAmount) || pieceGramsValue == null)) || (food?.fridgeItemId ? (availableAmount == null || numericAmount > availableAmount) : numericAmount > 1000000))) throw new Error(amountUnit === "pcs" && pieceGramsValue == null ? "Enter the weight of one piece in grams." : food?.fridgeItemId ? "Enter a quantity within your available fridge stock." : "Enter an amount between 0 and 1,000,000 g.")
+      if (!quick && (!Number.isFinite(numericAmount) || numericAmount <= 0 || (amountUnit === "pcs" && (!Number.isInteger(numericAmount) || pieceGramsValue == null)) || (amountUnit === "ml" && food?.fridgeItemId && foodAmountInGrams(food, 1, "ml", null, mlGramsValue) == null) || (food?.fridgeItemId ? (availableAmount == null || numericAmount > availableAmount) : numericAmount > 1000000))) throw new Error(amountUnit === "pcs" && pieceGramsValue == null ? "Enter the weight of one piece in grams." : amountUnit === "ml" && food?.fridgeItemId && foodAmountInGrams(food, 1, "ml", null, mlGramsValue) == null ? "Enter the weight of one millilitre in grams." : food?.fridgeItemId ? "Enter a quantity within your available fridge stock." : "Enter an amount between 0 and 1,000,000 g.")
       if (food?.fridgeItemId && !food.fridgeMealReady) throw new Error("This fridge item needs a confirmed nutrition match before it can be logged.")
       if (item) await updateItem(date, item.id, quick ? { mealType: meal, nutrients: values } : { mealType: meal, quantity: Number(amount), unit: "g", gramsPerUnit: 1 })
       else if (food?.fridgeItemId) {
         const pieceWeightOverride = amountUnit === "pcs" && pieceGramsEdited ? pieceGramsValue : null
-        const mealAmount = fridgeMealQuantityAndUnit(food, numericAmount, amountUnit, pieceWeightOverride)
+        const mealAmount = fridgeMealQuantityAndUnit(food, numericAmount, amountUnit, pieceWeightOverride, amountUnit === "ml" ? mlGramsValue : null)
         if (!mealAmount) throw new Error("This amount cannot be converted using the available fridge measurements.")
         await createFridgeMeal(date, { idempotencyKey: requestKey, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, mealType: meal, fridgeItemId: food.fridgeItemId, ...mealAmount })
       }
@@ -133,7 +139,7 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: {
       })}</TagGroup.List>
     </TagGroup></div>
     {quick ? <><label className="food-field"><span>Description</span><input maxLength={200} value={name} disabled={!!item || busy} placeholder="e.g. Afternoon snack" onChange={event => { setName(event.target.value); changed() }} /></label><p className="food-footnote">For this entry · enter the nutrition you actually consumed.</p><fieldset disabled={busy}><NutrientFields values={nutrients} onChange={(key, value) => { setNutrients(previous => ({ ...previous, [key]: value })); changed() }} /></fieldset><NutritionPreview values={preview} targets={targets} caption="Current entry" /></> : <>
-      {(amountUnits.length > 1 || amountUnit === "pcs") && <div className="food-unit-selector"><span id={unitLabelId}>Unit</span><TagGroup aria-labelledby={unitLabelId} size="sm" variant="surface" selectionMode="single" disallowEmptySelection selectedKeys={new Set([amountUnit])} onSelectionChange={keys => { if (keys === "all") return; const next = [...keys][0] as FoodAmountUnit | undefined; if (next && next !== amountUnit) changeAmountUnit(next) }}><TagGroup.List>{amountUnits.map(unit => <Tag key={unit} id={unit}>{unit}</Tag>)}</TagGroup.List></TagGroup>{amountUnit === "pcs" && <label className="food-piece-weight"><span>1 pc =</span><input type="number" min="0.001" step="any" inputMode="decimal" value={pieceGrams} placeholder="g" aria-label="Weight of one piece in grams" required disabled={busy} onChange={event => { setPieceGrams(event.target.value); setPieceGramsEdited(true); changed() }} /><b>g</b></label>}</div>}
+      {(amountUnits.length > 1 || amountUnit === "pcs") && <div className="food-unit-selector"><span id={unitLabelId}>Unit</span><TagGroup aria-labelledby={unitLabelId} size="sm" variant="surface" selectionMode="single" disallowEmptySelection selectedKeys={new Set([amountUnit])} onSelectionChange={keys => { if (keys === "all") return; const next = [...keys][0] as FoodAmountUnit | undefined; if (next && next !== amountUnit) changeAmountUnit(next) }}><TagGroup.List>{amountUnits.map(unit => <Tag key={unit} id={unit}>{unit}</Tag>)}</TagGroup.List></TagGroup>{amountUnit === "pcs" && <label className="food-piece-weight"><span>1 pc =</span><input type="number" min="0.001" step="any" inputMode="decimal" value={pieceGrams} placeholder="g" aria-label="Weight of one piece in grams" required disabled={busy} onChange={event => { setPieceGrams(event.target.value); setPieceGramsEdited(true); changed() }} /><b>g</b></label>}{amountUnit === "ml" && food?.fridgeItemId && !inferredMlGrams && <label className="food-piece-weight"><span>1 ml =</span><input type="number" min="0.001" step="any" inputMode="decimal" value={mlGrams} placeholder="g" aria-label="Weight of one millilitre in grams" required disabled={busy} onChange={event => { setMlGrams(event.target.value); changed() }} /><b>g</b></label>}</div>}
       <div className={`food-entry-summary-row${amountUnits.length ? "" : " has-no-amount"}`}>
         <NutritionPreview values={preview} targets={targets} caption={food?.fridgeItemId ? `${formatNutrition(numericAmount || 0, 1)} ${amountUnit}${previewGrams == null ? " · nutrition unavailable" : ` · ${formatNutrition(previewGrams, 1)} g equivalent`}` : `${formatNutrition(previewGrams ?? 0, 1)} g serving`} />
         {amountUnits.length ? <AmountCard amount={amount} unit={amountUnit} max={food?.fridgeItemId ? availableAmount ?? undefined : 1000000} available={food?.fridgeItemId ? availableAmount : null} disabled={busy} onChange={value => { setAmount(value); changed() }} /> : <p className="food-unit-unavailable">Measured stock unavailable</p>}

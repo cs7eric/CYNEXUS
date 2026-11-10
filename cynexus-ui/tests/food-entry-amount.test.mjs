@@ -24,7 +24,7 @@ const fridgeFood = (overrides = {}) => ({
 
 test("keeps gram stock in the original unit", () => {
   const food = fridgeFood()
-  assert.deepEqual(Array.from(foodAmountUnits(food)), ["g"])
+  assert.deepEqual(Array.from(foodAmountUnits(food)), ["g", "ml", "pcs"])
   assert.equal(availableFoodAmount(food, "g"), 1000)
   const mealAmount = fridgeMealQuantityAndUnit(food, 250, "g")
   assert.equal(mealAmount?.quantity, 250)
@@ -33,11 +33,29 @@ test("keeps gram stock in the original unit", () => {
 
 test("supports measured millilitres without guessing density", () => {
   const food = fridgeFood({ availableQuantity: 500, availableUnit: "ml", availableGrams: 450 })
-  assert.deepEqual(Array.from(foodAmountUnits(food)), ["g", "ml"])
+  assert.deepEqual(Array.from(foodAmountUnits(food)), ["g", "ml", "pcs"])
   assert.equal(foodAmountInGrams(food, 100, "ml"), 90)
   const mealAmount = fridgeMealQuantityAndUnit(food, 100, "ml")
   assert.equal(mealAmount?.quantity, 100)
   assert.equal(mealAmount?.unit, "ml")
+})
+
+test("converts volume servings from gram stock with a supplied density", () => {
+  const food = fridgeFood()
+  assert.equal(availableFoodAmount(food, "ml", null, 1.05), 1000 / 1.05)
+  assert.equal(foodAmountInGrams(food, 100, "ml", null, 1.05), 105)
+  const mealAmount = fridgeMealQuantityAndUnit(food, 100, "ml", null, 1.05)
+  assert.equal(mealAmount?.quantity, 105)
+  assert.equal(mealAmount?.unit, "g")
+})
+
+test("converts piece servings from gram stock with a supplied piece weight", () => {
+  const food = fridgeFood()
+  assert.equal(availableFoodAmount(food, "pcs", 200), 5)
+  assert.equal(foodAmountInGrams(food, 2, "pcs", 200), 400)
+  const mealAmount = fridgeMealQuantityAndUnit(food, 2, "pcs", 200)
+  assert.equal(mealAmount?.quantity, 400)
+  assert.equal(mealAmount?.unit, "g")
 })
 
 test("converts litres to grams for the meal API", () => {
@@ -51,7 +69,7 @@ test("converts litres to grams for the meal API", () => {
 
 test("supports pieces when a measured piece weight is present", () => {
   const food = fridgeFood({ availableQuantity: 10, availableUnit: "pcs", availableGrams: 1200 })
-  assert.deepEqual(Array.from(foodAmountUnits(food)), ["g", "pcs"])
+  assert.deepEqual(Array.from(foodAmountUnits(food)), ["g", "ml", "pcs"])
   assert.equal(availableFoodAmount(food, "pcs"), 10)
   assert.equal(foodAmountInGrams(food, 2, "pcs"), 240)
   const mealAmount = fridgeMealQuantityAndUnit(food, 2, "pcs")

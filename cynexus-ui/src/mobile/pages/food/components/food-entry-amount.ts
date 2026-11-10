@@ -30,8 +30,8 @@ export function foodAmountUnits(food?: Food): FoodAmountUnit[] {
   if (!food?.fridgeItemId) return ["g"]
   const units: FoodAmountUnit[] = []
   if (food.availableUnit === "g" || food.availableUnit === "kg" || food.availableUnit === "mg" || (food.availableGrams != null && food.availableGrams > 0)) units.push("g")
-  if (food.availableUnit === "ml" || (food.availableUnit === "L" && gramsPerStockUnit(food) != null)) units.push("ml")
-  if (food.availableUnit === "pcs") units.push("pcs")
+  if (food.availableUnit === "ml" || (food.availableUnit === "L" && gramsPerStockUnit(food) != null) || (totalStockGrams(food) != null && totalStockGrams(food)! > 0)) units.push("ml")
+  if (food.availableUnit === "pcs" || (totalStockGrams(food) != null && totalStockGrams(food)! > 0)) units.push("pcs")
   return units
 }
 
@@ -42,10 +42,11 @@ export function initialFoodAmountUnit(food?: Food): FoodAmountUnit {
   return "g"
 }
 
-export function gramsPerFoodAmountUnit(food: Food | undefined, unit: FoodAmountUnit, pcsGrams?: number | null) {
+export function gramsPerFoodAmountUnit(food: Food | undefined, unit: FoodAmountUnit, pcsGrams?: number | null, mlGrams?: number | null) {
   if (unit === "g") return 1
   if (!food?.fridgeItemId) return null
   if (unit === "pcs" && pcsGrams != null && Number.isFinite(pcsGrams) && pcsGrams > 0) return pcsGrams
+  if (unit === "ml" && mlGrams != null && Number.isFinite(mlGrams) && mlGrams > 0) return mlGrams
   const stockGramsPerUnit = gramsPerStockUnit(food)
   if (stockGramsPerUnit == null) return null
   if (unit === "ml" && food.availableUnit === "ml") return stockGramsPerUnit
@@ -54,17 +55,17 @@ export function gramsPerFoodAmountUnit(food: Food | undefined, unit: FoodAmountU
   return null
 }
 
-export function availableFoodAmount(food: Food | undefined, unit: FoodAmountUnit, pcsGrams?: number | null) {
+export function availableFoodAmount(food: Food | undefined, unit: FoodAmountUnit, pcsGrams?: number | null, mlGrams?: number | null) {
   if (!food?.fridgeItemId) return null
   if (unit === "ml" && food.availableUnit === "ml") return food.availableQuantity ?? null
   if (unit === "ml" && food.availableUnit === "L") {
-    const gramsPerMl = gramsPerFoodAmountUnit(food, unit)
+    const gramsPerMl = gramsPerFoodAmountUnit(food, unit, null, mlGrams)
     const grams = totalStockGrams(food)
     return gramsPerMl != null && grams != null ? grams / gramsPerMl : null
   }
   if (unit === "pcs" && food.availableUnit === "pcs") return food.availableQuantity ?? null
   if (unit === "g" && (food.availableUnit === "g" || food.availableUnit === "kg" || food.availableUnit === "mg")) return totalStockGrams(food)
-  const gramsPerUnit = gramsPerFoodAmountUnit(food, unit, pcsGrams)
+  const gramsPerUnit = gramsPerFoodAmountUnit(food, unit, pcsGrams, mlGrams)
   const stockGrams = totalStockGrams(food)
   return gramsPerUnit != null && stockGrams != null ? stockGrams / gramsPerUnit : null
 }
@@ -77,9 +78,9 @@ export function initialFoodAmount(food?: Food) {
   return available == null ? (foodAmountUnits(food).length ? base : 0) : Math.min(base, available)
 }
 
-export function foodAmountInGrams(food: Food | undefined, amount: number, unit: FoodAmountUnit, pcsGrams?: number | null) {
+export function foodAmountInGrams(food: Food | undefined, amount: number, unit: FoodAmountUnit, pcsGrams?: number | null, mlGrams?: number | null) {
   if (!food?.fridgeItemId) return unit === "g" ? amount : null
-  const gramsPerUnit = gramsPerFoodAmountUnit(food, unit, pcsGrams)
+  const gramsPerUnit = gramsPerFoodAmountUnit(food, unit, pcsGrams, mlGrams)
   return gramsPerUnit == null ? null : amount * gramsPerUnit
 }
 
@@ -88,12 +89,12 @@ export function foodAmountInGrams(food: Food | undefined, amount: number, unit: 
  * Piece counts stay in the inventory unit, with an optional per-piece weight
  * used to calculate consumed nutrition when the user supplies one.
  */
-export function fridgeMealQuantityAndUnit(food: Food, amount: number, unit: FoodAmountUnit, pcsGrams?: number | null) {
+export function fridgeMealQuantityAndUnit(food: Food, amount: number, unit: FoodAmountUnit, pcsGrams?: number | null, mlGrams?: number | null) {
   if (!Number.isFinite(amount) || amount <= 0) return null
   if (unit === "pcs" && food.availableUnit === "pcs") {
     return { quantity: amount, unit: food.availableUnit, ...(pcsGrams != null ? { gramsPerUnit: pcsGrams } : {}) }
   }
   if (unit === food.availableUnit) return { quantity: amount, unit: food.availableUnit }
-  const grams = foodAmountInGrams(food, amount, unit, pcsGrams)
+  const grams = foodAmountInGrams(food, amount, unit, pcsGrams, mlGrams)
   return grams == null || grams <= 0 ? null : { quantity: grams, unit: "g" }
 }

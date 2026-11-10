@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ClipboardList, LoaderCircle, Mic, Minus, Plus, ShoppingCart, Sparkles, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { Tag, TagGroup } from "@heroui/react"
 
 import { useFridgeRecords } from "@/mobile/hooks/use-fridge-records"
 import { useMobilePortal } from "@/mobile/hooks/use-mobile-portal"
@@ -11,6 +12,8 @@ import { fridgeFoodCatalog, findFridgeFoodByName, getFridgeFoodAssetUrl, getFrid
 import "./fridge.css"
 
 type FridgeView = "overview" | "inside" | "records"
+export type MealAmountUnit = "g" | "ml" | "pcs"
+export type MealAmountSelection = { quantity: number; unit: MealAmountUnit; gramsPerUnit?: number; gramsPerMl?: number }
 type ShelfZone = "top" | "middle" | "lower" | "bottom" | "drawer" | "door"
 
 const shelves: readonly { id: ShelfZone; label: string }[] = [
@@ -142,7 +145,19 @@ function ExpiringFoodRow({ item, onSelect }: { item: FridgeItem; onSelect: () =>
   </button>
 }
 
-function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMapping }: { item: FridgeItem; today: string; onClose: () => void; onChange: (delta: number) => void; onLogMeal: () => void; onConfirmMapping: (candidate: FridgeMappingCandidate) => Promise<void> }) {
+function measuredItemGrams(item: FridgeItem) {
+  if (item.grams != null && item.grams >= 0) return item.grams
+  const gramsPerUnit = item.gramsPerUnit
+  if (gramsPerUnit == null || !Number.isFinite(gramsPerUnit) || gramsPerUnit <= 0) {
+    if (item.unit === "g") return item.quantity
+    if (item.unit === "kg") return item.quantity * 1000
+    if (item.unit === "mg") return item.quantity / 1000
+    return null
+  }
+  return item.quantity * gramsPerUnit * (item.unit === "L" ? 1000 : 1)
+}
+
+function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMapping }: { item: FridgeItem; today: string; onClose: () => void; onChange: (delta: number) => void; onLogMeal: (selection: MealAmountSelection) => void; onConfirmMapping: (candidate: FridgeMappingCandidate) => Promise<void> }) {
   const portal = useMobilePortal()
   const dialog = useRef<HTMLDialogElement>(null)
   const status = stateCopy(item, today)
@@ -155,6 +170,28 @@ function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMappi
   const [quantityError, setQuantityError] = useState<string | null>(null)
   const quantityEditActive = useRef(false)
   const quantityInput = useRef<HTMLInputElement>(null)
+  const stockGrams = measuredItemGrams(item)
+  const mealUnits = useMemo<MealAmountUnit[]>(() => {
+    const values: MealAmountUnit[] = []
+    if (stockGrams != null && stockGrams > 0) values.push("g", "ml", "pcs")
+    else if (item.unit === "pcs" && item.quantity > 0) values.push("pcs")
+    return values
+  }, [item.quantity, item.unit, stockGrams])
+  const initialMealUnit = item.unit === "ml" || item.unit === "L" ? "ml" : item.unit === "pcs" ? "pcs" : "g"
+  const [mealUnit, setMealUnit] = useState<MealAmountUnit>(mealUnits.includes(initialMealUnit) ? initialMealUnit : (mealUnits[0] ?? "g"))
+  const initialGramsPerMl = item.unit === "ml" && item.quantity > 0 && stockGrams != null ? stockGrams / item.quantity : item.unit === "L" && item.quantity > 0 && stockGrams != null ? stockGrams / (item.quantity * 1000) : null
+  const initialGramsPerPiece = item.unit === "pcs" && item.quantity > 0 && stockGrams != null ? stockGrams / item.quantity : item.unit === "pcs" ? item.gramsPerUnit ?? null : null
+  const initialMealQuantity = initialMealUnit === "pcs" ? Math.min(1, item.quantity) : initialMealUnit === "ml" ? Math.min(item.unit === "L" ? item.quantity * 1000 : item.quantity, 100) : Math.min(stockGrams ?? item.quantity, 100)
+  const [mealQuantity, setMealQuantity] = useState(initialMealQuantity)
+  const [pieceGrams, setPieceGrams] = useState(() => initialGramsPerPiece == null ? "" : String(Number(initialGramsPerPiece.toFixed(3))))
+  const [mlGrams, setMlGrams] = useState(() => initialGramsPerMl == null ? "" : String(Number(initialGramsPerMl.toFixed(3))))
+  const pieceGramsValue = Number(pieceGrams)
+  const mlGramsValue = Number(mlGrams)
+  const validPieceGrams = Number.isFinite(pieceGramsValue) && pieceGramsValue > 0 ? pieceGramsValue : initialGramsPerPiece
+  const validMlGrams = Number.isFinite(mlGramsValue) && mlGramsValue > 0 ? mlGramsValue : initialGramsPerMl
+  const mealGramsPerUnit = mealUnit === "g" ? 1 : mealUnit === "pcs" ? validPieceGrams : validMlGrams
+  const mealAvailable = mealUnit === "pcs" && item.unit === "pcs" ? item.quantity : mealUnit === "ml" && item.unit === "ml" ? item.quantity : mealUnit === "ml" && item.unit === "L" ? item.quantity * 1000 : mealGramsPerUnit != null && stockGrams != null ? stockGrams / mealGramsPerUnit : null
+  const mealValid = mealQuantity > 0 && Number.isFinite(mealQuantity) && (mealUnit !== "pcs" || Number.isInteger(mealQuantity)) && (mealUnit === "g" || mealGramsPerUnit != null) && mealAvailable != null && mealQuantity <= mealAvailable + 1e-9
   useEffect(() => {
     const element = dialog.current
     element?.showModal()
@@ -187,6 +224,13 @@ function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMappi
     const delta = Math.round((next - item.quantity) * 1000) / 1000
     if (delta !== 0) onChange(delta)
   }
+  function changeMealUnit(nextUnit: MealAmountUnit) {
+    if (nextUnit === mealUnit || !mealUnits.includes(nextUnit)) return
+    const currentGrams = mealGramsPerUnit == null ? null : mealQuantity * mealGramsPerUnit
+    const nextGramsPerUnit = nextUnit === "g" ? 1 : nextUnit === "pcs" ? validPieceGrams : validMlGrams
+    setMealUnit(nextUnit)
+    setMealQuantity(currentGrams != null && nextGramsPerUnit != null ? Number((currentGrams / nextGramsPerUnit).toFixed(3)) : nextUnit === "pcs" ? 1 : 100)
+  }
   async function findMappings() {
     setMappingLoading(true); setMappingError(null)
     try { setMappingCandidates([...(await searchFridgeMappings(item.name)).candidates]) }
@@ -205,7 +249,8 @@ function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMappi
     <div className="fridge-stock-summary"><FoodArt item={item} /><div>{editingQuantity ? <input ref={quantityInput} className="fridge-stock-quantity-input" type="number" min="0" max="100000" step={item.unit === "pcs" ? "1" : "any"} inputMode="decimal" value={quantityDraft} aria-label={`Fridge quantity in ${item.unit}`} onChange={event => { setQuantityDraft(event.target.value); setQuantityError(null) }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); finishQuantityEdit(true) } else if (event.key === "Escape") { event.preventDefault(); finishQuantityEdit(false) } }} onBlur={() => finishQuantityEdit(true)} /> : <button type="button" className="fridge-stock-quantity-display" title="Double-click to edit fridge stock" aria-label={`Fridge stock, ${item.quantity} ${item.unit}. Double-click to edit`} onDoubleClick={startQuantityEdit} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); startQuantityEdit() } }}>{item.quantity} {item.unit}</button>}<span className={`is-${status.state}`}>{status.label} · {formatDate(item.bestBefore)}</span>{quantityError && <small className="fridge-quantity-error" role="alert">{quantityError}</small>}</div></div>
     {item.nutrition && <section className="fridge-nutrition-summary" aria-label="Nutrition per 100 grams"><strong>Nutrition per 100 g</strong><div>{([['Calories', item.nutrition.caloriesKcal, 'kcal'], ['Carbs', item.nutrition.carbsG, 'g'], ['Protein', item.nutrition.proteinG, 'g'], ['Fat', item.nutrition.fatG, 'g']] as const).map(([label, value, unit]) => <span key={label}><small>{label}</small><b>{value == null ? "—" : `${value} ${unit}`}</b></span>)}</div></section>}
     {item.mappingStatus !== "matched" && item.mappingStatus !== "user_confirmed" && <section className="fridge-mapping-panel" aria-label="Nutrition match"><div><strong>Nutrition match needed</strong><span>Choose the closest food so meals can use its calories and macros.</span></div>{mappingCandidates === null ? <button type="button" className="fridge-stock-log-meal" onClick={findMappings} disabled={mappingLoading}>{mappingLoading ? "Searching…" : "Find food match"}</button> : mappingCandidates.length ? <div className="fridge-mapping-options">{mappingCandidates.map(candidate => <button type="button" key={`${candidate.kind}:${candidate.id}`} disabled={savingMapping !== null} onClick={() => void chooseMapping(candidate)}><span><strong>{candidate.name}</strong><small>{candidate.kind === "custom" ? "Your food" : "Nutrition catalog"}</small></span><span>{candidate.nutrition?.caloriesKcal == null ? "Nutrition unavailable" : `${candidate.nutrition.caloriesKcal} kcal / 100 g`}</span>{savingMapping === `${candidate.kind}:${candidate.id}` && <LoaderCircle className="is-spinning" aria-hidden="true" />}</button>)}</div> : <p className="fridge-mapping-empty">No food matches found. Add a matching food to your Food catalog first.</p>}{mappingError && <p className="fridge-form-error" role="alert">{mappingError}</p>}</section>}
-    <button type="button" className="fridge-stock-log-meal fridge-stock-log-meal-primary" disabled={!item.nutrition || item.grams == null || item.grams <= 0} onClick={onLogMeal}>Log as today&apos;s meal</button>
+    <section className="fridge-meal-amount" aria-label="Meal amount"><div className="fridge-meal-amount-heading"><strong>Amount to log</strong><span>{mealAvailable == null ? "Enter a measured amount" : `${mealAvailable.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${mealUnit} available`}</span></div><div className="fridge-meal-amount-controls"><TagGroup aria-label="Meal amount unit" size="sm" variant="surface" selectionMode="single" disallowEmptySelection selectedKeys={new Set([mealUnit])} onSelectionChange={keys => { if (keys === "all") return; const next = [...keys][0] as MealAmountUnit | undefined; if (next) changeMealUnit(next) }}><TagGroup.List>{(["g", "ml", "pcs"] as const).map(unit => <Tag key={unit} id={unit} isDisabled={!mealUnits.includes(unit)}>{unit}</Tag>)}</TagGroup.List></TagGroup><label className="fridge-meal-amount-input"><input type="number" min="0.001" step={mealUnit === "pcs" ? "1" : "any"} inputMode="decimal" value={mealQuantity} onChange={event => setMealQuantity(Number(event.target.value))} aria-label={`Meal amount in ${mealUnit}`} /><b>{mealUnit === "pcs" ? (mealQuantity === 1 ? "pc" : "pcs") : mealUnit}</b></label></div>{mealUnit === "pcs" && <label className="fridge-piece-weight"><span>1 pc =</span><input type="number" min="0.001" step="any" inputMode="decimal" value={pieceGrams} placeholder="g" onChange={event => setPieceGrams(event.target.value)} aria-label="Weight of one piece in grams" /><b>g</b></label>}{mealUnit === "ml" && !initialGramsPerMl && <label className="fridge-piece-weight"><span>1 ml =</span><input type="number" min="0.001" step="any" inputMode="decimal" value={mlGrams} placeholder="g" onChange={event => setMlGrams(event.target.value)} aria-label="Weight of one millilitre in grams" /><b>g</b></label>}{!mealValid && <small className="fridge-meal-amount-error">Enter a valid amount, conversion, and quantity within current stock.</small>}</section>
+    <button type="button" className="fridge-stock-log-meal fridge-stock-log-meal-primary" disabled={!item.nutrition || stockGrams == null || stockGrams <= 0 || !mealValid} onClick={() => onLogMeal({ quantity: mealQuantity, unit: mealUnit, ...(mealUnit === "pcs" && validPieceGrams != null ? { gramsPerUnit: validPieceGrams } : {}), ...(mealUnit === "ml" && validMlGrams != null ? { gramsPerMl: validMlGrams } : {}) })}>Log as today&apos;s meal</button>
   </div></dialog>
   return portal ? createPortal(editor, portal) : editor
 }
@@ -599,7 +644,7 @@ function FoodEditor({ onClose, onSave, onSaveMany }: { onClose: () => void; onSa
   return portal ? createPortal(editor, portal) : editor
 }
 
-export default function MobileFridgePage({ onLogMeal, initialView }: { onLogMeal?: (item: FridgeItem) => void; initialView?: FridgeView } = {}) {
+export default function MobileFridgePage({ onLogMeal, initialView }: { onLogMeal?: (item: FridgeItem, selection?: MealAmountSelection) => void; initialView?: FridgeView } = {}) {
   const { data, storageError, syncError, syncing, refresh, update, createRemote, adjustRemote, confirmMappingRemote } = useFridgeRecords()
   const [, setAssetRevision] = useState(0)
   const [view, setView] = useState<FridgeView>(initialView ?? "overview")
@@ -720,6 +765,6 @@ export default function MobileFridgePage({ onLogMeal, initialView }: { onLogMeal
       <section className="fridge-record-list" aria-label="Fridge activity">{data.operations.length ? data.operations.slice(0, 18).map((operation) => <article className="fridge-record-row" key={operation.id}><span className={`fridge-record-icon is-${operation.kind}`} aria-hidden="true">{operation.kind === "remove" ? <Minus /> : operation.kind === "create" ? <Plus /> : <ClipboardList />}</span><div><strong>{operation.itemName} {operation.kind === "create" ? "added" : operation.kind === "remove" ? "used" : "adjusted"}</strong><span>{operation.quantityDelta > 0 ? "+" : ""}{operation.quantityDelta} · {operation.quantityAfter} remaining</span></div><time>{formatWhen(operation.at)}</time></article>) : <div className="fridge-empty-records"><ClipboardList aria-hidden="true" /><strong>No changes yet</strong><span>Add or adjust an item to start your fridge log.</span></div>}</section>
     </>}
     {showEditor && <FoodEditor onClose={() => setShowEditor(false)} onSave={addFood} onSaveMany={addFoods} />}
-    {selectedFood && <StockEditor item={selectedFood} today={today} onClose={() => setSelectedFoodId(null)} onChange={(delta) => adjust(selectedFood, delta)} onLogMeal={() => { setSelectedFoodId(null); onLogMeal?.(selectedFood) }} onConfirmMapping={candidate => confirmMappingRemote(selectedFood.id, { candidateId: candidate.id, kind: candidate.kind }).then(() => undefined)} />}
+    {selectedFood && <StockEditor item={selectedFood} today={today} onClose={() => setSelectedFoodId(null)} onChange={(delta) => adjust(selectedFood, delta)} onLogMeal={selection => { setSelectedFoodId(null); onLogMeal?.(selectedFood, selection) }} onConfirmMapping={candidate => confirmMappingRemote(selectedFood.id, { candidateId: candidate.id, kind: candidate.kind }).then(() => undefined)} />}
   </div>
 }
