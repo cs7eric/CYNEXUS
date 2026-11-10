@@ -25,6 +25,7 @@ export type FridgeMealInput = {
   fridgeItemId: string
   quantity: number
   unit: string
+  gramsPerUnit?: number
 }
 export const createFridgeMeal = (date: string, data: FridgeMealInput) => request<FoodDay>(`/days/${date}/fridge-items`, "POST", data)
 export const updateItem = (date: string, id: string, data: EditInput) => request<FoodDay>(`/days/${date}/items/${encodeURIComponent(id)}`, "PUT", data)

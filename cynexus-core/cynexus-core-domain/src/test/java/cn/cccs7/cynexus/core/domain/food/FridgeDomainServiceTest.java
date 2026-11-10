@@ -12,6 +12,41 @@ import static org.assertj.core.api.Assertions.*;
 
 class FridgeDomainServiceTest {
     @Test
+    void prepareMealUsesAnEnteredPieceWeightAndConsumesTheRequestedPieceCount() {
+        AtomicReference<MealSource> prepared = new AtomicReference<>();
+        FoodModels.Nutrients nutrition = new FoodModels.Nutrients(new BigDecimal("165"), new BigDecimal("0"),
+                new BigDecimal("31"), new BigDecimal("3.6"));
+        FridgeRepository repository = (FridgeRepository) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{FridgeRepository.class}, (proxy, method, args) -> switch (method.getName()) {
+                    case "mealStock" -> new MealStock("fridge-1", "food-1", "catalog", "Chicken", null,
+                            List.of(new MealLot(12, new BigDecimal("5"), "pcs", null, null, nutrition)));
+                    default -> throw new AssertionError(method.getName());
+                });
+
+        MealSource source = new FridgeDomainService(repository).prepareMeal("owner-a", "fridge-1",
+                new BigDecimal("2"), "pcs", new BigDecimal("200"));
+        prepared.set(source);
+
+        assertThat(prepared.get().requestedQuantity()).isEqualByComparingTo("2");
+        assertThat(prepared.get().consumedGrams()).isEqualByComparingTo("400");
+        assertThat(prepared.get().allocations()).singleElement().satisfies(allocation -> {
+            assertThat(allocation.quantity()).isEqualByComparingTo("2");
+            assertThat(allocation.unit()).isEqualTo("pcs");
+            assertThat(allocation.consumedGrams()).isEqualByComparingTo("400");
+        });
+    }
+
+    @Test
+    void prepareMealRejectsInvalidEnteredPieceWeight() {
+        FridgeDomainService service = new FridgeDomainService((FridgeRepository) Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{FridgeRepository.class}, (proxy, method, args) -> null));
+
+        assertThatThrownBy(() -> service.prepareMeal("owner-a", "fridge-1", BigDecimal.ONE,
+                "pcs", BigDecimal.ZERO)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("positive value for pcs meals");
+    }
+
+    @Test
     void replaceMealRestoresThenConsumesTheRequestedGramsFromCurrentLots() {
         List<String> calls = new ArrayList<>();
         AtomicReference<MealSource> consumed = new AtomicReference<>();

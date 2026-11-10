@@ -263,6 +263,10 @@
   margin: 0;
 }
 
+.food-entry-summary-row.has-no-amount {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .food-amount-card {
   display: grid;
   min-width: 0;
@@ -344,6 +348,98 @@
   font-size: 12px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+.food-unit-selector {
+  --accent: #171717;
+  --accent-soft: #171717;
+  --accent-soft-foreground: #fff;
+  --accent-soft-hover: #303030;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.food-unit-selector > span {
+  color: #607572;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.food-unit-selector .tag-group__list {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.food-unit-selector > .tag-group {
+  flex: 0 0 auto;
+}
+
+.food-piece-weight {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 0 2px;
+  color: #525252;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.food-piece-weight input {
+  width: 58px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid #dedede;
+  border-radius: 8px;
+  background: #fff;
+  color: #171717;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  appearance: textfield;
+}
+
+.food-piece-weight input::-webkit-inner-spin-button,
+.food-piece-weight input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.food-piece-weight input:focus-visible {
+  border-color: #737373;
+  outline: 2px solid #171717;
+  outline-offset: 2px;
+}
+
+.food-piece-weight input:disabled {
+  background: #f5f5f5;
+  color: #737373;
+}
+
+.food-piece-weight b {
+  color: #525252;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.food-unit-unavailable {
+  display: grid;
+  min-height: 100%;
+  margin: 0;
+  place-items: center;
+  color: #737373;
+  font-size: 10px;
+  line-height: 1.3;
+  text-align: center;
 }
 
 /* Keep the entry sheet compact while preserving the serving breakdown. */
@@ -457,6 +553,10 @@ dialog.food-sheet:has(.food-entry-identity) .food-sheet-heading h2 {
   .food-amount-unit { font-size: 11px; }
   .food-amount-available { font-size: 8px; }
   .food-amount-available strong { font-size: 11px; }
+  .food-unit-selector { gap: 6px; }
+  .food-piece-weight { min-height: 34px; gap: 4px; font-size: 10px; }
+  .food-piece-weight input { width: 52px; min-height: 34px; font-size: 12px; }
+  .food-piece-weight b { font-size: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -500,6 +600,9 @@ dialog.food-sheet .food-form .food-primary { min-height: 46px; margin-top: 12px;
   dialog.food-sheet .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
   dialog.food-sheet .food-amount-card { padding-inline: 5px; }
   dialog.food-sheet .food-amount-card input { font-size: 46px; }
+  dialog.food-sheet .food-unit-selector { gap: 6px; }
+  dialog.food-sheet .food-piece-weight { min-height: 34px; gap: 4px; font-size: 10px; }
+  dialog.food-sheet .food-piece-weight input { width: 52px; min-height: 34px; font-size: 12px; }
 }
 
 /* Mobile create flow: keep the primary fields visible before optional controls. */
@@ -2165,7 +2268,17 @@ dialog.food-sheet:has(.food-entry-identity) .food-amount-card input { color: #17
 dialog.food-sheet:has(.food-entry-identity) .food-amount-card input:focus-visible { outline-color: #555; }
 dialog.food-sheet:has(.food-entry-identity) .food-form .food-primary { border-color: #171717; background: #171717; }
 
-/* Keep the Meal TagGroup's native HeroUI sizing, color, and icon treatment. */
-.food-form .tag,
-.food-form .tag svg { all: revert-layer; }
-.food-form .tag:is([data-selected="true"], [aria-selected="true"]) { font-weight: 700; }
+/* Keep HeroUI's native tag states while matching the mobile food palette and hit area. */
+.food-form .food-meal-selector {
+  --accent: #171717;
+  --accent-soft: #171717;
+  --accent-soft-foreground: #fff;
+  --accent-soft-hover: #303030;
+}
+.food-form .food-meal-selector .tag {
+  min-height: 34px;
+  padding-inline: 12px;
+  font-size: 11px;
+}
+.food-form .food-meal-selector .tag svg { width: 14px; height: 14px; }
+.food-form .food-meal-selector .tag:is([data-selected="true"], [aria-selected="true"]) { font-weight: 700; }

@@ -40,7 +40,13 @@ public final class FoodDTO {
                                BigDecimal gramsPerUnit, Nutrients nutrients) {}
     /** A measured portion consumed from the authenticated owner's fridge stock. */
     public record FridgeMealRequest(String idempotencyKey, String timezone, String mealType,
-                                    String fridgeItemId, BigDecimal quantity, String unit) {}
+                                    String fridgeItemId, BigDecimal quantity, String unit,
+                                    BigDecimal gramsPerUnit) {
+        public FridgeMealRequest(String idempotencyKey, String timezone, String mealType,
+                                 String fridgeItemId, BigDecimal quantity, String unit) {
+            this(idempotencyKey, timezone, mealType, fridgeItemId, quantity, unit, null);
+        }
+    }
     public record EditRequest(BigDecimal quantity, String unit, BigDecimal gramsPerUnit, Nutrients nutrients, String mealType) {}
     public record GoalRequest(String idempotencyKey, LocalDate effectiveFrom, Nutrients nutrients) {}
     public record CustomRequest(String idempotencyKey, String name, String brand, Nutrients nutrients,

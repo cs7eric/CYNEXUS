@@ -33,12 +33,12 @@ public class FoodAppService {
         String timezone = r.timezone() == null || r.timezone().isBlank() ? "Asia/Shanghai" : r.timezone();
         String mealType = r.mealType() == null || r.mealType().isBlank() ? defaultMealType(timezone) : r.mealType();
         FoodModels.Day retry = domain.fridgeMealRetry(owner, date, r.idempotencyKey(), timezone, mealType,
-                r.fridgeItemId(), r.quantity(), r.unit());
+                r.fridgeItemId(), r.quantity(), r.unit(), r.gramsPerUnit());
         if (retry != null) return day(retry);
-        FridgeModels.MealSource source = fridge.prepareMeal(owner, r.fridgeItemId(), r.quantity(), r.unit());
+        FridgeModels.MealSource source = fridge.prepareMeal(owner, r.fridgeItemId(), r.quantity(), r.unit(), r.gramsPerUnit());
         FoodModels.EntryCommand entry = new FoodModels.EntryCommand(r.idempotencyKey(), timezone, mealType,
                 source.foodKind(), source.foodId(), source.name(), source.requestedQuantity(), source.requestedUnit(), null, null);
-        FoodDomainService.FridgeMealResult created = domain.addFromFridge(owner, date, entry, source);
+        FoodDomainService.FridgeMealResult created = domain.addFromFridge(owner, date, entry, source, r.gramsPerUnit());
         if (created.created()) fridge.consumeMeal(owner, source, created.mealItemId(), r.idempotencyKey());
         return day(created.day());
     }

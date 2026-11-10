@@ -64,7 +64,7 @@ export function useFoodSearch(query: string, filter: FoodFilter) {
     // the secondary library filter. This keeps today's available food visible
     // before catalog and saved-food fallbacks.
     const fridgeInventory = normalizedQuery
-      ? await fetchFridgeInventory(signal).catch(() => ({ items: [] }))
+      ? await fetchFridgeInventory(signal)
       : null
     const fridgeFoods = fridgeInventory
       ? fridgeInventory.items
@@ -85,7 +85,7 @@ export function useFoodSearch(query: string, filter: FoodFilter) {
     const [catalog, own, inventory] = await Promise.all([
       query.trim() ? fetchCatalog(query.trim(), signal) : fetchFavorites(signal),
       fetchCustomFoods(query, signal),
-      fridgeInventory ?? fetchFridgeInventory(signal).catch(() => ({ items: [] })),
+      fridgeInventory ?? fetchFridgeInventory(signal),
     ])
     const allFridgeFoods: Food[] = inventory.items
       .filter(item => !normalizedQuery || `${item.name} ${item.catalogFoodId ?? ""}`.toLocaleLowerCase().includes(normalizedQuery))

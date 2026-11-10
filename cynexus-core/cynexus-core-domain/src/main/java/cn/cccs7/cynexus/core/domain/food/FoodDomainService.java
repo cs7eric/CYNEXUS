@@ -67,9 +67,15 @@ public class FoodDomainService {
 
     public Day fridgeMealRetry(String owner, LocalDate date, String key, String zone, String mealType,
                                String fridgeItemId, java.math.BigDecimal quantity, String unit) {
+        return fridgeMealRetry(owner, date, key, zone, mealType, fridgeItemId, quantity, unit, null);
+    }
+
+    public Day fridgeMealRetry(String owner, LocalDate date, String key, String zone, String mealType,
+                               String fridgeItemId, java.math.BigDecimal quantity, String unit,
+                               java.math.BigDecimal gramsPerUnit) {
         date(date); key(key); timezone(zone);
         repository.lockOwner(owner);
-        String fingerprint = fridgeMealFingerprint(date, zone, mealType, fridgeItemId, quantity, unit);
+        String fingerprint = fridgeMealFingerprint(date, zone, mealType, fridgeItemId, quantity, unit, gramsPerUnit);
         StoredRequest retry = repository.request(owner, "item", key);
         if (retry == null) return null;
         replay(retry, fingerprint);
@@ -77,11 +83,16 @@ public class FoodDomainService {
     }
 
     public FridgeMealResult addFromFridge(String owner, LocalDate date, EntryCommand command, MealSource source) {
+        return addFromFridge(owner, date, command, source, null);
+    }
+
+    public FridgeMealResult addFromFridge(String owner, LocalDate date, EntryCommand command, MealSource source,
+                                          java.math.BigDecimal gramsPerUnit) {
         date(date); key(command.idempotencyKey()); timezone(command.timezone());
         require(source != null, "Fridge meal source is required");
         repository.lockOwner(owner);
         String fingerprint = fridgeMealFingerprint(date, command.timezone(), command.mealType(),
-                source.fridgeItemId(), source.requestedQuantity(), source.requestedUnit());
+                source.fridgeItemId(), source.requestedQuantity(), source.requestedUnit(), gramsPerUnit);
         StoredRequest retry = repository.request(owner, "item", command.idempotencyKey());
         if (retry != null) {
             replay(retry, fingerprint);
@@ -287,7 +298,14 @@ public class FoodDomainService {
 
     private static String fridgeMealFingerprint(LocalDate date, String zone, String mealType, String fridgeItemId,
                                                 java.math.BigDecimal quantity, String unit) {
-        return fingerprint(date, "fridge", zone, mealType, fridgeItemId, quantity, unit);
+        return fridgeMealFingerprint(date, zone, mealType, fridgeItemId, quantity, unit, null);
+    }
+
+    private static String fridgeMealFingerprint(LocalDate date, String zone, String mealType, String fridgeItemId,
+                                                java.math.BigDecimal quantity, String unit,
+                                                java.math.BigDecimal gramsPerUnit) {
+        if (gramsPerUnit == null) return fingerprint(date, "fridge", zone, mealType, fridgeItemId, quantity, unit);
+        return fingerprint(date, "fridge", zone, mealType, fridgeItemId, quantity, unit, gramsPerUnit);
     }
 
     public record FridgeMealResult(Day day, String mealItemId, boolean created) {}

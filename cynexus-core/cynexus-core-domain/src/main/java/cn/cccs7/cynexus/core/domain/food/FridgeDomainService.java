@@ -58,10 +58,18 @@ public class FridgeDomainService {
     }
 
     public MealSource prepareMeal(String owner, String itemId, BigDecimal quantity, String unit) {
+        return prepareMeal(owner, itemId, quantity, unit, null);
+    }
+
+    public MealSource prepareMeal(String owner, String itemId, BigDecimal quantity, String unit,
+                                  BigDecimal gramsPerUnit) {
         require(itemId != null && !itemId.isBlank(), "fridgeItemId is required");
         require(quantity != null && quantity.signum() > 0 && quantity.compareTo(new BigDecimal("1000000")) <= 0,
                 "quantity must be between 0 and 1000000");
         unit(unit);
+        require(gramsPerUnit == null || ("pcs".equals(unit) && gramsPerUnit.signum() > 0
+                        && gramsPerUnit.compareTo(new BigDecimal("1000000")) <= 0),
+                "gramsPerUnit is only supported as a positive value for pcs meals");
         MealStock stock = repository.mealStock(owner, itemId);
         require(stock != null, "Fridge item was not found");
         require(stock.foodId() != null, "Confirm the Food match before logging this fridge item");
@@ -78,7 +86,9 @@ public class FridgeDomainService {
         List<MealAllocation> allocations = new ArrayList<>();
         for (MealLot lot : stock.lots()) {
             if (remaining.signum() <= 0) break;
-            BigDecimal availableGrams = toGrams(lot.quantity(), lot.unit(), lot.gramsPerUnit(), lot.density());
+            BigDecimal effectiveGramsPerUnit = gramsPerUnit != null && "pcs".equals(lot.unit())
+                    ? gramsPerUnit : lot.gramsPerUnit();
+            BigDecimal availableGrams = toGrams(lot.quantity(), lot.unit(), effectiveGramsPerUnit, lot.density());
             require(availableGrams != null && availableGrams.signum() > 0,
                     "This fridge item has no measured nutrition conversion");
             BigDecimal usedQuantity;
@@ -93,7 +103,7 @@ public class FridgeDomainService {
                 }
             } else {
                 usedQuantity = remaining.min(lot.quantity());
-                usedGrams = toGrams(usedQuantity, lot.unit(), lot.gramsPerUnit(), lot.density());
+                usedGrams = toGrams(usedQuantity, lot.unit(), effectiveGramsPerUnit, lot.density());
             }
             allocations.add(new MealAllocation(lot.id(), usedQuantity, lot.unit(), usedGrams));
             consumedGrams = consumedGrams.add(usedGrams);

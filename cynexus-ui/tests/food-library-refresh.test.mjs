@@ -4,7 +4,7 @@ import { hookRenderer, loadTsModule } from "./helpers/react-hooks.mjs"
 
 const food = { id: "42", kind: "custom", name: "Oats", brand: "Grain Co", nutrients: { caloriesKcal: 380, carbsG: 64, proteinG: 12, fatG: 8 } }
 
-function library(filter, query = "", inventory = []) {
+function library(filter, query = "", inventory = [], inventoryError = false) {
   const renderer = hookRenderer(), listeners = new Map(), timers = new Map()
   let foods = [], timerId = 0
   const { useFoodSearch } = loadTsModule(new URL("../src/mobile/pages/food/hooks/use-food-data.ts", import.meta.url), {
@@ -13,7 +13,7 @@ function library(filter, query = "", inventory = []) {
       FOOD_CHANGED: "food-changed", fetchCustomFoods: async () => foods,
       fetchFavorites: async () => [], fetchCatalog: async () => [],
     },
-    "@/services/fridge/api": { fetchFridgeInventory: async () => ({ items: inventory }) },
+    "@/services/fridge/api": { fetchFridgeInventory: async () => inventoryError ? Promise.reject(new Error("Fridge unavailable")) : ({ items: inventory }) },
   }, {
     window: {
       addEventListener: (name, callback) => listeners.set(name, callback),
@@ -53,5 +53,15 @@ test("a same-name fridge result does not hide newly saved My foods", async () =>
   assert.equal(h.view().data.length, 2)
   assert.equal(h.view().data[0].fridgeItemId, "stock")
   assert.equal(h.view().data[1].id, "42")
+  h.close()
+})
+
+test("a fridge search failure is visible instead of looking like an empty result", async () => {
+  const h = library("all", "Oats", [], true)
+  await h.load()
+  assert.equal(h.view().loading, false)
+  assert.equal(h.view().data, null)
+  assert.equal(typeof h.view().error, "string")
+  assert.ok(h.view().error.length > 0)
   h.close()
 })

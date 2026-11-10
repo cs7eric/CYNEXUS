@@ -43,10 +43,6 @@ function quantityStep(unit: FridgeUnit) {
   if (unit === "kg" || unit === "L") return 0.1
   return 1
 }
-function formatQuantityStep(unit: FridgeUnit) {
-  const step = quantityStep(unit)
-  return step < 1 ? step.toFixed(1) : String(step)
-}
 const formatDate = (value: string) => parseDate(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 const formatWhen = (value: string) => new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 
@@ -154,11 +150,43 @@ function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMappi
   const [mappingLoading, setMappingLoading] = useState(false)
   const [mappingError, setMappingError] = useState<string | null>(null)
   const [savingMapping, setSavingMapping] = useState<string | null>(null)
+  const [editingQuantity, setEditingQuantity] = useState(false)
+  const [quantityDraft, setQuantityDraft] = useState(String(item.quantity))
+  const [quantityError, setQuantityError] = useState<string | null>(null)
+  const quantityEditActive = useRef(false)
+  const quantityInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const element = dialog.current
     element?.showModal()
     return () => element?.close()
   }, [])
+  useEffect(() => {
+    if (editingQuantity) {
+      quantityInput.current?.focus()
+      quantityInput.current?.select()
+    }
+  }, [editingQuantity])
+  function startQuantityEdit() {
+    quantityEditActive.current = true
+    setQuantityError(null)
+    setQuantityDraft(String(item.quantity))
+    setEditingQuantity(true)
+  }
+  function finishQuantityEdit(save: boolean) {
+    if (!quantityEditActive.current) return
+    quantityEditActive.current = false
+    setEditingQuantity(false)
+    if (!save) return
+    const next = quantityDraft.trim() ? Number(quantityDraft) : Number.NaN
+    if (!Number.isFinite(next) || next < 0 || next > 100000 || (item.unit === "pcs" && !Number.isInteger(next))) {
+      setQuantityDraft(String(item.quantity))
+      setQuantityError(item.unit === "pcs" ? "Enter a whole number of pieces." : "Enter a quantity from 0 to 100,000.")
+      return
+    }
+    setQuantityError(null)
+    const delta = Math.round((next - item.quantity) * 1000) / 1000
+    if (delta !== 0) onChange(delta)
+  }
   async function findMappings() {
     setMappingLoading(true); setMappingError(null)
     try { setMappingCandidates([...(await searchFridgeMappings(item.name)).candidates]) }
@@ -174,11 +202,10 @@ function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMappi
   }
   const editor = <dialog ref={dialog} className="fridge-native-dialog" aria-labelledby="fridge-stock-title" onCancel={(event) => { event.preventDefault(); onClose() }} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}><div className="fridge-stock-editor">
     <div className="fridge-editor-heading"><div><span>FRIDGE STOCK</span><h2 id="fridge-stock-title">{item.name}</h2></div><button type="button" className="fridge-icon-button" aria-label="Close stock adjustment" title="Close" onClick={onClose}><X aria-hidden="true" /></button></div>
-    <div className="fridge-stock-summary"><FoodArt item={item} /><div><strong>{item.quantity} {item.unit}</strong><span className={`is-${status.state}`}>{status.label} · {formatDate(item.bestBefore)}</span></div></div>
+    <div className="fridge-stock-summary"><FoodArt item={item} /><div>{editingQuantity ? <input ref={quantityInput} className="fridge-stock-quantity-input" type="number" min="0" max="100000" step={item.unit === "pcs" ? "1" : "any"} inputMode="decimal" value={quantityDraft} aria-label={`Fridge quantity in ${item.unit}`} onChange={event => { setQuantityDraft(event.target.value); setQuantityError(null) }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); finishQuantityEdit(true) } else if (event.key === "Escape") { event.preventDefault(); finishQuantityEdit(false) } }} onBlur={() => finishQuantityEdit(true)} /> : <button type="button" className="fridge-stock-quantity-display" title="Double-click to edit fridge stock" aria-label={`Fridge stock, ${item.quantity} ${item.unit}. Double-click to edit`} onDoubleClick={startQuantityEdit} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); startQuantityEdit() } }}>{item.quantity} {item.unit}</button>}<span className={`is-${status.state}`}>{status.label} · {formatDate(item.bestBefore)}</span>{quantityError && <small className="fridge-quantity-error" role="alert">{quantityError}</small>}</div></div>
+    {item.nutrition && <section className="fridge-nutrition-summary" aria-label="Nutrition per 100 grams"><strong>Nutrition per 100 g</strong><div>{([['Calories', item.nutrition.caloriesKcal, 'kcal'], ['Carbs', item.nutrition.carbsG, 'g'], ['Protein', item.nutrition.proteinG, 'g'], ['Fat', item.nutrition.fatG, 'g']] as const).map(([label, value, unit]) => <span key={label}><small>{label}</small><b>{value == null ? "—" : `${value} ${unit}`}</b></span>)}</div></section>}
     {item.mappingStatus !== "matched" && item.mappingStatus !== "user_confirmed" && <section className="fridge-mapping-panel" aria-label="Nutrition match"><div><strong>Nutrition match needed</strong><span>Choose the closest food so meals can use its calories and macros.</span></div>{mappingCandidates === null ? <button type="button" className="fridge-stock-log-meal" onClick={findMappings} disabled={mappingLoading}>{mappingLoading ? "Searching…" : "Find food match"}</button> : mappingCandidates.length ? <div className="fridge-mapping-options">{mappingCandidates.map(candidate => <button type="button" key={`${candidate.kind}:${candidate.id}`} disabled={savingMapping !== null} onClick={() => void chooseMapping(candidate)}><span><strong>{candidate.name}</strong><small>{candidate.kind === "custom" ? "Your food" : "Nutrition catalog"}</small></span><span>{candidate.nutrition?.caloriesKcal == null ? "Nutrition unavailable" : `${candidate.nutrition.caloriesKcal} kcal / 100 g`}</span>{savingMapping === `${candidate.kind}:${candidate.id}` && <LoaderCircle className="is-spinning" aria-hidden="true" />}</button>)}</div> : <p className="fridge-mapping-empty">No food matches found. Add a matching food to your Food catalog first.</p>}{mappingError && <p className="fridge-form-error" role="alert">{mappingError}</p>}</section>}
-    <button type="button" className="fridge-stock-log-meal" disabled={!item.nutrition || item.grams == null || item.grams <= 0} onClick={onLogMeal}>Log as today&apos;s meal</button>
-    <div className="fridge-stock-actions"><button type="button" aria-label={`Decrease ${item.name} by ${formatQuantityStep(item.unit)} ${item.unit}`} title={`Decrease by ${formatQuantityStep(item.unit)}`} onClick={() => onChange(-quantityStep(item.unit))}><Minus aria-hidden="true" /></button><span>Adjust by {formatQuantityStep(item.unit)} {item.unit}</span><button type="button" aria-label={`Increase ${item.name} by ${formatQuantityStep(item.unit)} ${item.unit}`} title={`Increase by ${formatQuantityStep(item.unit)}`} onClick={() => onChange(quantityStep(item.unit))}><Plus aria-hidden="true" /></button></div>
-    <button type="button" className="fridge-stock-done" onClick={onClose}>Done</button>
+    <button type="button" className="fridge-stock-log-meal fridge-stock-log-meal-primary" disabled={!item.nutrition || item.grams == null || item.grams <= 0} onClick={onLogMeal}>Log as today&apos;s meal</button>
   </div></dialog>
   return portal ? createPortal(editor, portal) : editor
 }
@@ -572,10 +599,10 @@ function FoodEditor({ onClose, onSave, onSaveMany }: { onClose: () => void; onSa
   return portal ? createPortal(editor, portal) : editor
 }
 
-export default function MobileFridgePage({ onLogMeal }: { onLogMeal?: (item: FridgeItem) => void } = {}) {
-  const { data, storageError, update, createRemote, adjustRemote, confirmMappingRemote } = useFridgeRecords()
+export default function MobileFridgePage({ onLogMeal, initialView }: { onLogMeal?: (item: FridgeItem) => void; initialView?: FridgeView } = {}) {
+  const { data, storageError, syncError, syncing, refresh, update, createRemote, adjustRemote, confirmMappingRemote } = useFridgeRecords()
   const [, setAssetRevision] = useState(0)
-  const [view, setView] = useState<FridgeView>("overview")
+  const [view, setView] = useState<FridgeView>(initialView ?? "overview")
   const [showEditor, setShowEditor] = useState(false)
   const [selectedFoodId, setSelectedFoodId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -672,6 +699,7 @@ export default function MobileFridgePage({ onLogMeal }: { onLogMeal?: (item: Fri
   }
   return <div className={`mobile-fridge is-${view}`}>
     {storageError && <p className="fridge-alert" role="alert">{storageError}</p>}
+    {syncError && <p className="fridge-alert" role="alert"><span>Fridge data could not be refreshed. {syncError}</span><button type="button" className="fridge-text-button" onClick={() => void refresh()} disabled={syncing}>{syncing ? "Retrying…" : "Try again"}</button></p>}
     {notice && <p className="fridge-toast" role="status">{notice}</p>}
     {view === "overview" && <>
       <header className="fridge-page-heading"><div className="fridge-heading-row"><div><span className="fridge-eyebrow">PERSONAL COLD STORAGE</span><h1>My fridge</h1></div><button type="button" className="fridge-icon-button" aria-label="View fridge activity" title="View fridge activity" onClick={() => setView("records")}><ClipboardList aria-hidden="true" /></button></div></header>

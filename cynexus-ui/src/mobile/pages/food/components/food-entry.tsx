@@ -12,6 +12,7 @@ import { FoodArt } from "./food-art"
 import { draftNutrients, readNutrients } from "./food-form"
 import { NutrientFields } from "./food-nutrient-fields"
 import { foodAmount } from "./scene-model"
+import { availableFoodAmount, foodAmountInGrams, foodAmountUnits, fridgeMealQuantityAndUnit, initialFoodAmount, initialFoodAmountUnit, type FoodAmountUnit } from "./food-entry-amount"
 import "./food-entry.css"
 
 const mealIcons: Record<MealType, LucideIcon> = {
@@ -19,12 +20,6 @@ const mealIcons: Record<MealType, LucideIcon> = {
   lunch: Sandwich,
   dinner: Utensils,
   snack: Apple,
-}
-
-function initialAmount(food?: Food) {
-  if (!food?.fridgeItemId) return 100
-  const available = food.availableQuantity ?? 0
-  return food.availableUnit === "g" || food.availableUnit === "ml" ? Math.min(100, available) : Math.min(1, available)
 }
 
 function targetShare(value: number | null, target: number | null) {
@@ -46,10 +41,10 @@ function NutritionMeasure({ nutrient, value, target }: { nutrient: NutrientKey; 
   </div>
 }
 
-function AmountCard({ amount, unit, max, available, disabled, onChange }: { amount: string; unit: string; max?: number; available?: number | null; disabled: boolean; onChange: (value: string) => void }) {
+function AmountCard({ amount, unit, max, available, disabled, onChange }: { amount: string; unit: FoodAmountUnit; max?: number; available?: number | null; disabled: boolean; onChange: (value: string) => void }) {
   return <label className="food-amount-card">
     <span className="food-amount-label">Amount</span>
-    <input autoFocus type="number" inputMode="decimal" required min="0.001" max={max} step="any" value={amount} disabled={disabled} onChange={event => onChange(event.target.value)} />
+    <input autoFocus type="number" inputMode="decimal" required min="0.001" max={max} step={unit === "pcs" ? "1" : "any"} value={amount} disabled={disabled} onChange={event => onChange(event.target.value)} />
     <span className="food-amount-unit">{unit}</span>
     {available != null && <small className="food-amount-available"><strong>{formatNutrition(available, 1)}</strong> available</small>}
   </label>
@@ -69,28 +64,49 @@ export function NutritionPreview({ values, caption, targets }: { values: Nutrien
 export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: { date: string; initialMeal: MealType; food?: Food; item?: DiaryItem; targets?: Nutrients; onSaved: (fridgeChanged?: boolean) => void }) {
   const quick = item ? item.entryKind === "quick" : !food
   const mealLabelId = useId()
+  const unitLabelId = useId()
   const [meal, setMeal] = useState(initialMeal)
-  const [amount, setAmount] = useState(String(item?.consumedGrams ?? initialAmount(food)))
+  const [amountUnit, setAmountUnit] = useState<FoodAmountUnit>(item ? "g" : initialFoodAmountUnit(food))
+  const [amount, setAmount] = useState(String(item?.consumedGrams ?? initialFoodAmount(food)))
+  const initialPieceGrams = food?.fridgeItemId ? foodAmountInGrams(food, 1, "pcs") : null
+  const [pieceGrams, setPieceGrams] = useState(initialPieceGrams == null ? "" : String(Number(initialPieceGrams.toFixed(3))))
+  const [pieceGramsEdited, setPieceGramsEdited] = useState(false)
   const [name, setName] = useState(item?.foodName ?? "")
   const [nutrients, setNutrients] = useState(() => draftNutrients(item?.nutrients))
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID())
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [favorite, setFavorite] = useState(food?.favoriteId ?? null)
-  const fridgeGrams = food?.fridgeItemId && food.availableQuantity && food.availableGrams != null
-    ? Number(amount || 0) / food.availableQuantity * food.availableGrams
-    : null
-  const previewGrams = fridgeGrams ?? (Number(amount) || 0)
-  const preview = quick ? Object.fromEntries(nutrientKeys.map(key => [key, nutrients[key] === "" ? null : Number(nutrients[key])])) as Nutrients : scaledNutrition(food?.nutrients ?? item!.per100g, previewGrams)
+  const numericAmount = Number(amount)
+  const numericPieceGrams = Number(pieceGrams)
+  const pieceGramsValue = Number.isFinite(numericPieceGrams) && numericPieceGrams > 0 ? numericPieceGrams : null
+  const amountUnits = food?.fridgeItemId ? foodAmountUnits(food) : ["g" as const]
+  const previewGrams = item ? (item.consumedGrams ?? (numericAmount || 0)) : food?.fridgeItemId ? (amountUnits.length ? foodAmountInGrams(food, numericAmount || 0, amountUnit, pieceGramsValue) : null) : (numericAmount || 0)
+  const preview = quick ? Object.fromEntries(nutrientKeys.map(key => [key, nutrients[key] === "" ? null : Number(nutrients[key])])) as Nutrients : previewGrams == null ? Object.fromEntries(nutrientKeys.map(key => [key, null])) as Nutrients : scaledNutrition(food?.nutrients ?? item!.per100g, previewGrams)
+  const availableAmount = food?.fridgeItemId ? availableFoodAmount(food, amountUnit, pieceGramsValue) : null
+  function changeAmountUnit(nextUnit: FoodAmountUnit) {
+    if (nextUnit === amountUnit) return
+    const grams = food?.fridgeItemId ? foodAmountInGrams(food, numericAmount || 0, amountUnit, pieceGramsValue) : numericAmount || 0
+    const nextGramsPerUnit = food?.fridgeItemId ? foodAmountInGrams(food, 1, nextUnit, nextUnit === "pcs" ? pieceGramsValue : null) : 1
+    const nextAmount = grams != null && nextGramsPerUnit != null && nextGramsPerUnit > 0 ? grams / nextGramsPerUnit : 0
+    setAmountUnit(nextUnit)
+    setAmount(String(Number.isFinite(nextAmount) && nextAmount > 0 ? Number(nextAmount.toFixed(3)) : (nextUnit === "pcs" ? 1 : 100)))
+    changed()
+  }
   async function save(event: FormEvent) {
     event.preventDefault(); if (busy) return
     setBusy(true); setError(null)
     try {
       const values = quick ? readNutrients(nutrients) : undefined
-      if (!quick && (!Number.isFinite(Number(amount)) || Number(amount) <= 0 || Number(amount) > (food?.fridgeItemId ? food.availableQuantity ?? 0 : 1000000))) throw new Error(food?.fridgeItemId ? "Enter a quantity within your available fridge stock." : "Enter an amount between 0 and 1,000,000 g.")
+      if (!quick && (!Number.isFinite(numericAmount) || numericAmount <= 0 || (amountUnit === "pcs" && (!Number.isInteger(numericAmount) || pieceGramsValue == null)) || (food?.fridgeItemId ? (availableAmount == null || numericAmount > availableAmount) : numericAmount > 1000000))) throw new Error(amountUnit === "pcs" && pieceGramsValue == null ? "Enter the weight of one piece in grams." : food?.fridgeItemId ? "Enter a quantity within your available fridge stock." : "Enter an amount between 0 and 1,000,000 g.")
       if (food?.fridgeItemId && !food.fridgeMealReady) throw new Error("This fridge item needs a confirmed nutrition match before it can be logged.")
       if (item) await updateItem(date, item.id, quick ? { mealType: meal, nutrients: values } : { mealType: meal, quantity: Number(amount), unit: "g", gramsPerUnit: 1 })
-      else if (food?.fridgeItemId) await createFridgeMeal(date, { idempotencyKey: requestKey, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, mealType: meal, fridgeItemId: food.fridgeItemId, quantity: Number(amount), unit: food.availableUnit ?? "g" })
+      else if (food?.fridgeItemId) {
+        const pieceWeightOverride = amountUnit === "pcs" && pieceGramsEdited ? pieceGramsValue : null
+        const mealAmount = fridgeMealQuantityAndUnit(food, numericAmount, amountUnit, pieceWeightOverride)
+        if (!mealAmount) throw new Error("This amount cannot be converted using the available fridge measurements.")
+        await createFridgeMeal(date, { idempotencyKey: requestKey, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, mealType: meal, fridgeItemId: food.fridgeItemId, ...mealAmount })
+      }
       else await createItem(date, { idempotencyKey: requestKey, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, mealType: meal, entryKind: food?.kind ?? "quick", foodId: food?.id, foodName: name.trim() || "Quick entry", ...(quick ? { nutrients: values } : { quantity: Number(amount), unit: "g", gramsPerUnit: 1 }) })
       announceFoodChange(); onSaved(!!food?.fridgeItemId)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save. Try again.") } finally { setBusy(false) }
@@ -110,22 +126,26 @@ export function FoodEntry({ date, initialMeal, food, item, targets, onSaved }: {
   return <form className="food-form" onSubmit={save}>
     {!quick && <div className="food-entry-identity"><FoodArt food={food ?? item!} /><div><p>{food?.brand ?? item?.brand ?? (food?.fridgeItemId || item?.sourceFridgeItemId ? "In your fridge" : food?.source ?? "Food")}</p></div>{food && !food.fridgeItemId && <button type="button" className="food-round" aria-label={favorite ? "Remove favorite" : "Add favorite"} aria-pressed={!!favorite} disabled={busy} onClick={toggleFavorite}><Star fill={favorite ? "currentColor" : "none"} /></button>}</div>}
     <p className="food-context">{readableDate(date, true)}{item && ` · ${meals.find(value => value.id === item.mealType)?.name}`}</p>
-    <div className="food-field"><span id={mealLabelId}>Meal</span><TagGroup aria-labelledby={mealLabelId} selectionMode="single" disallowEmptySelection selectedKeys={new Set([meal])} onSelectionChange={keys => { if (keys === "all") return; const nextMeal = [...keys][0] as MealType | undefined; if (nextMeal && nextMeal !== meal) { setMeal(nextMeal); changed() } }}>
+    <div className="food-field"><span id={mealLabelId}>Meal</span><TagGroup className="food-meal-selector" aria-labelledby={mealLabelId} selectionMode="single" disallowEmptySelection selectedKeys={new Set([meal])} onSelectionChange={keys => { if (keys === "all") return; const nextMeal = [...keys][0] as MealType | undefined; if (nextMeal && nextMeal !== meal) { setMeal(nextMeal); changed() } }}>
       <TagGroup.List>{meals.map(value => {
         const MealIcon = mealIcons[value.id]
         return <Tag key={value.id} id={value.id} isDisabled={busy}><MealIcon size={16} aria-hidden="true" />{value.name}</Tag>
       })}</TagGroup.List>
     </TagGroup></div>
-    {quick ? <><label className="food-field"><span>Description</span><input maxLength={200} value={name} disabled={!!item || busy} placeholder="e.g. Afternoon snack" onChange={event => { setName(event.target.value); changed() }} /></label><p className="food-footnote">For this entry · enter the nutrition you actually consumed.</p><fieldset disabled={busy}><NutrientFields values={nutrients} onChange={(key, value) => { setNutrients(previous => ({ ...previous, [key]: value })); changed() }} /></fieldset><NutritionPreview values={preview} targets={targets} caption="Current entry" /></> : <div className="food-entry-summary-row">
-      <NutritionPreview values={preview} targets={targets} caption={food?.fridgeItemId ? `${formatNutrition(Number(amount) || 0, 1)} ${food.availableUnit ?? "g"} · ${formatNutrition(previewGrams, 1)} g equivalent` : `${formatNutrition(previewGrams, 1)} g serving`} />
-      <AmountCard amount={amount} unit={food?.fridgeItemId ? food.availableUnit ?? "g" : "g"} max={food?.fridgeItemId ? food.availableQuantity ?? undefined : 1000000} available={food?.fridgeItemId ? food.availableQuantity : null} disabled={busy} onChange={value => { setAmount(value); changed() }} />
-    </div>}
+    {quick ? <><label className="food-field"><span>Description</span><input maxLength={200} value={name} disabled={!!item || busy} placeholder="e.g. Afternoon snack" onChange={event => { setName(event.target.value); changed() }} /></label><p className="food-footnote">For this entry · enter the nutrition you actually consumed.</p><fieldset disabled={busy}><NutrientFields values={nutrients} onChange={(key, value) => { setNutrients(previous => ({ ...previous, [key]: value })); changed() }} /></fieldset><NutritionPreview values={preview} targets={targets} caption="Current entry" /></> : <>
+      {(amountUnits.length > 1 || amountUnit === "pcs") && <div className="food-unit-selector"><span id={unitLabelId}>Unit</span><TagGroup aria-labelledby={unitLabelId} size="sm" variant="surface" selectionMode="single" disallowEmptySelection selectedKeys={new Set([amountUnit])} onSelectionChange={keys => { if (keys === "all") return; const next = [...keys][0] as FoodAmountUnit | undefined; if (next && next !== amountUnit) changeAmountUnit(next) }}><TagGroup.List>{amountUnits.map(unit => <Tag key={unit} id={unit}>{unit}</Tag>)}</TagGroup.List></TagGroup>{amountUnit === "pcs" && <label className="food-piece-weight"><span>1 pc =</span><input type="number" min="0.001" step="any" inputMode="decimal" value={pieceGrams} placeholder="g" aria-label="Weight of one piece in grams" required disabled={busy} onChange={event => { setPieceGrams(event.target.value); setPieceGramsEdited(true); changed() }} /><b>g</b></label>}</div>}
+      <div className={`food-entry-summary-row${amountUnits.length ? "" : " has-no-amount"}`}>
+        <NutritionPreview values={preview} targets={targets} caption={food?.fridgeItemId ? `${formatNutrition(numericAmount || 0, 1)} ${amountUnit}${previewGrams == null ? " · nutrition unavailable" : ` · ${formatNutrition(previewGrams, 1)} g equivalent`}` : `${formatNutrition(previewGrams ?? 0, 1)} g serving`} />
+        {amountUnits.length ? <AmountCard amount={amount} unit={amountUnit} max={food?.fridgeItemId ? availableAmount ?? undefined : 1000000} available={food?.fridgeItemId ? availableAmount : null} disabled={busy} onChange={value => { setAmount(value); changed() }} /> : <p className="food-unit-unavailable">Measured stock unavailable</p>}
+      </div>
+      {food?.fridgeItemId && !amountUnits.length && <p className="food-form-error" role="status">No reliable quantity conversion is available for this fridge item.</p>}
+    </>}
     {!quick && item?.sourceFridgeItemId && <p className="food-footnote">Changing this amount updates your fridge stock and diary together.</p>}
     {!quick && !food?.fridgeItemId && item?.unit && item.unit !== "g" && <p className="food-footnote">Previously {foodAmount([item])} · {formatNutrition(item.consumedGrams, 1)} g.</p>}
     {food?.source && <details className="food-source"><summary>About this food</summary><p>Source: {food.source}</p>{food.license && <p>License: {food.license}</p>}{food.usageScope && <p>{food.usageScope}</p>}<p>Nutrition is saved with each diary entry. Later catalog changes do not rewrite your meals.</p></details>}
     {error && <p className="food-form-error" role="alert">{error}</p>}
-    {food?.fridgeItemId && !food.fridgeMealReady && <p className="food-form-error" role="status">Confirm a food and nutrition match in the fridge before logging it as a meal.</p>}
-    <button type="submit" className="food-primary" disabled={busy || (!!food?.fridgeItemId && !food.fridgeMealReady)}>{busy ? "Saving…" : item ? "Save changes" : food?.fridgeItemId ? `Log ${meals.find(value => value.id === meal)?.name.toLowerCase()}` : `Add to ${meals.find(value => value.id === meal)?.name.toLowerCase()}`}</button>
+    {food?.fridgeItemId && amountUnits.length > 0 && !food.fridgeMealReady && <p className="food-form-error" role="status">Confirm a food and nutrition match in the fridge before logging it as a meal.</p>}
+    <button type="submit" className="food-primary" disabled={busy || (!!food?.fridgeItemId && (!food.fridgeMealReady || !amountUnits.length))}>{busy ? "Saving…" : item ? "Save changes" : food?.fridgeItemId ? `Log ${meals.find(value => value.id === meal)?.name.toLowerCase()}` : `Add to ${meals.find(value => value.id === meal)?.name.toLowerCase()}`}</button>
     {item && <div className="food-delete-section">{confirmDelete ? <><p>{item.sourceFridgeItemId ? "Remove this entry and return its quantity to your fridge?" : "Remove this entry from your diary?"}</p><div><button type="button" className="food-danger" disabled={busy} onClick={remove}>Remove entry</button><button type="button" className="food-text-button" disabled={busy} onClick={() => setConfirmDelete(false)}>Keep it</button></div></> : <button type="button" className="food-text-button food-danger" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 />Remove entry</button>}</div>}
   </form>
 }

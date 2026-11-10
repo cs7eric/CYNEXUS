@@ -159,3 +159,23 @@
 .fridge-ai-match-options button > span:first-child { display: grid; min-width: 0; }
 .fridge-ai-match-options small { color: var(--mobile-muted); }
 .fridge-ai-match-empty { margin: 0.35rem 0 0; color: var(--mobile-muted); font-size: 0.65rem; }
+.fridge-nutrition-summary {
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid #dce5e9;
+  border-radius: 14px;
+  background: #fff;
+}
+.fridge-nutrition-summary > strong { font-size: .68rem; }
+.fridge-nutrition-summary > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fridge-nutrition-summary span { display: grid; gap: 2px; min-width: 0; }
+.fridge-nutrition-summary small { color: var(--fridge-muted); font-size: .52rem; }
+.fridge-nutrition-summary b { color: var(--fridge-ink); font-size: .62rem; font-weight: 750; }
+
+.fridge-stock-quantity-display { width: fit-content; min-height: 44px; margin: -7px 0 -5px; padding: 0; border: 0; color: var(--fridge-ink); background: transparent; font: inherit; font-size: 1.05rem; font-weight: 750; line-height: 1.2; text-align: left; cursor: text; }
+.fridge-stock-quantity-display:focus-visible { outline: 2px solid #56666e; outline-offset: 2px; border-radius: 3px; }
+.fridge-stock-quantity-input { width: min(100%, 180px) !important; min-height: 44px !important; padding: 0 8px !important; font-size: 16px !important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fridge-quantity-error { color: #b4473f; font-size: .58rem; }
+.fridge-stock-log-meal-primary { border: 0; color: #21352e; background: #9be477; font-weight: 800; }
+.fridge-stock-log-meal-primary:disabled { color: #526255; background: #e0e7dc; }
