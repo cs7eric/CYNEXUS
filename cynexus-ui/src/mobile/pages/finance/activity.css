@@ -1,6 +1,7 @@
 .mobile-content.is-finance-fixed { display: flex; flex-direction: column; overflow: hidden; }
 .mobile-content.is-finance-fixed .mobile-route-container { display: flex; height: 100%; min-height: 0; flex: 1; flex-direction: column; padding-top: calc(80px + env(safe-area-inset-top, 0px)); padding-bottom: 0; }
-.mobile-content.is-finance-fixed .mobile-finance-activity { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; padding-bottom: 12px; }
+.mobile-content.is-finance-fixed .mobile-finance-activity { flex: 1; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-x: none; overscroll-behavior-y: contain; touch-action: pan-y; scrollbar-width: none; padding-bottom: 12px; }
+.mobile-content.is-finance-fixed .mobile-finance-activity::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .mobile-theme .mobile-finance-activity { padding: 4px 4px 12px; color: var(--foreground); }
 .mobile-theme .fa-period,
 .mobile-theme .fa-sheet-heading, .mobile-theme .fa-year-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
