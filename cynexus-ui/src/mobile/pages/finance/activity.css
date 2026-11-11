@@ -263,20 +263,20 @@
 .mobile-theme .fa-entry-sheet .fa-entry-choice-copy small { opacity: .7; font-size: 10px; font-weight: 400; }
 .mobile-theme .fa-entry-sheet .fa-entry-choice-search { display: flex; align-items: center; gap: 7px; margin: 5px 9px 2px; border-bottom: 1px solid var(--border); }
 .mobile-theme .fa-entry-sheet .fa-entry-choice-search > svg { width: 15px; height: 15px; color: var(--muted); }
-.mobile-theme .fa-entry-sheet .fa-entry-choice-search > input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-search > input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 16px; }
 .mobile-theme .fa-entry-sheet .fa-entry-choice-empty { margin: 0; padding: 12px; font-size: 12px; color: var(--muted); }
 .mobile-theme .fa-entry-sheet .fa-entry-account-hint { margin: 8px 0; color: var(--muted); font-size: 10px; line-height: 15px; }
 .mobile-theme .fa-entry-sheet .fa-entry-row { display: flex; min-height: 54px; align-items: center; gap: 11px; border-bottom: 1px solid var(--border); }
 .mobile-theme .fa-entry-sheet .fa-entry-row > svg { width: 17px; height: 17px; flex: 0 0 17px; color: #707880; }
 .mobile-theme .fa-entry-sheet .fa-entry-row > span { flex: 0 0 auto; font-size: 12px; font-weight: 450; color: #575f67; }
-.mobile-theme .fa-entry-sheet .fa-entry-row > input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--foreground); font: inherit; font-size: 13px; text-align: right; }
-.mobile-theme .fa-entry-sheet .fa-entry-row > input[type=datetime-local] { flex: 1 1 auto; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-row > input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--foreground); font: inherit; font-size: 16px; text-align: right; }
+.mobile-theme .fa-entry-sheet .fa-entry-row > input[type=datetime-local] { flex: 1 1 auto; font-size: 16px; }
 .mobile-theme .fa-entry-sheet .fa-entry-payment > .button-group { min-width: 0; margin-left: auto; }
 .mobile-theme .fa-entry-sheet .fa-entry-payment .button { min-width: 0; height: 44px; padding: 0 10px; border-radius: 12px; font-size: 11px; }
 .mobile-theme .fa-entry-sheet .fa-entry-payment [aria-pressed=true] { font-weight: 650; }
 .mobile-theme .fa-entry-sheet .fa-entry-note-toggle { width: 100%; height: 46px; justify-content: flex-start; gap: 11px; padding: 0; font-size: 12px; }
 .mobile-theme .fa-entry-sheet .fa-entry-note-toggle > small { margin-left: auto; color: var(--muted); font-size: 10px; }
-.mobile-theme .fa-entry-sheet .fa-entry-note > textarea { width: 100%; height: 76px; margin-bottom: 10px; padding: 10px 12px; resize: vertical; border: 1px solid #e4e7e9; border-radius: 12px; background: var(--surface); font: inherit; font-size: 13px; line-height: 20px; }
+.mobile-theme .fa-entry-sheet .fa-entry-note > textarea { width: 100%; height: 76px; margin-bottom: 10px; padding: 10px 12px; resize: vertical; border: 1px solid #e4e7e9; border-radius: 12px; background: var(--surface); font: inherit; font-size: 16px; line-height: 20px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan { padding: 14px 0 2px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-heading { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 11px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-heading > svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
@@ -294,6 +294,7 @@
 .mobile-theme .fa-entry-sheet .fa-entry-plan-fields > .fa-entry-choice { padding: 0; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-field { display: block; min-width: 0; color: var(--muted); font-size: 11px; line-height: 16px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-field :is(input, output), .mobile-theme .fa-entry-sheet .fa-entry-choice.is-boxed .fa-entry-choice-trigger { display: flex; width: 100%; min-width: 0; height: 44px; align-items: center; margin-top: 6px; padding: 0 10px; border: 1px solid #e4e7e9; border-radius: 10px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-field input { font-size: 16px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-hint { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 15px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-schedule { margin-top: 2px; color: var(--muted); font-size: 11px; }
 .mobile-theme .fa-entry-sheet .fa-entry-plan-schedule summary { min-height: 44px; padding-block: 14px; cursor: pointer; }
@@ -311,8 +312,9 @@
   .mobile-theme .fa-entry-sheet .fa-entry-types > button { gap: 4px; font-size: 11px; }
   .mobile-theme .fa-entry-sheet .fa-entry-row { gap: 8px; }
   .mobile-theme .fa-entry-sheet .fa-entry-row > span { font-size: 11px; }
-  .mobile-theme .fa-entry-sheet .fa-entry-row > input[type=datetime-local] { font-size: 11px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-row > input[type=datetime-local] { font-size: 16px; }
   .mobile-theme .fa-entry-sheet .fa-entry-payment .button { padding-inline: 8px; font-size: 10px; }
   .mobile-theme .fa-entry-sheet .fa-entry-plan-fields { gap: 10px; }
-  .mobile-theme .fa-entry-sheet .fa-entry-plan-field :is(input, output), .mobile-theme .fa-entry-sheet .fa-entry-choice.is-boxed .fa-entry-choice-trigger { padding-inline: 7px; font-size: 11px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-plan-field :is(input, output), .mobile-theme .fa-entry-sheet .fa-entry-choice.is-boxed .fa-entry-choice-trigger { padding-inline: 7px; font-size: 12px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-plan-field input { font-size: 16px; }
 }

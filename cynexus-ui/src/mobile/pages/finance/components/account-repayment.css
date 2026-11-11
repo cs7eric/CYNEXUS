@@ -9,7 +9,8 @@
 .mobile-theme .fa-repayment-sheet .fa-repayment-source { padding-top: 12px; border-bottom: 1px solid var(--border); }
 .mobile-theme .fa-repayment-sheet .fa-repayment-source .fa-entry-choice { padding: 0; }
 .mobile-theme .fa-repayment-sheet .fa-repayment-note { display: grid; gap: 8px; margin-block: 14px; font-size: 11px; color: var(--muted); }
-.mobile-theme .fa-repayment-sheet .fa-repayment-note textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 13px; line-height: 20px; resize: vertical; }
+.mobile-theme .fa-repayment-sheet .fa-repayment-note textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 16px; line-height: 20px; resize: vertical; }
+.mobile-theme .fa-repayment-sheet .fa-entry-row > input { font-size: 16px; }
 .mobile-theme .fa-repayment-sheet .fa-repayment-installments { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; }
 .mobile-theme .fa-repayment-sheet .fa-repayment-installments p { flex: 1; margin: 0; color: var(--muted); font-size: 10px; line-height: 15px; }
 .mobile-theme .fa-repayment-sheet .fa-repayment-installments .button { min-height: 44px; padding-inline: 8px; font-size: 11px; }
