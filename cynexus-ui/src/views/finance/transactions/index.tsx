@@ -51,6 +51,7 @@ import {
 import { notification } from "@/components/ui/notification";
 import { WorkspaceShell } from "@/layout/workspace-shell";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { canUseFinanceAccountForTransaction } from "@/services/finance/account-eligibility";
 import {
   archiveFinanceTransaction,
   deleteFinanceTransaction,
@@ -167,7 +168,7 @@ export default function FinanceTransactionsPage() {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editing) return;
+    if (!editing || saving) return;
     const form = new FormData(event.currentTarget);
     const transactionType = String(
       form.get("transactionType"),
@@ -192,6 +193,14 @@ export default function FinanceTransactionsPage() {
       notification.danger({
         title: "请补全账目信息",
         description: "金额、时间、账户和收支分类必须填写；转账还需要目标账户。",
+      });
+      return;
+    }
+    const sourceAccount = accounts.find((item) => item.id === nextAccountId);
+    if (!sourceAccount || !canUseFinanceAccountForTransaction(sourceAccount, transactionType)) {
+      notification.danger({
+        title: "请选择可用的资金账户",
+        description: "证券账户仅支持转账，不能记录收入或支出，请选择其他账户。",
       });
       return;
     }
@@ -1001,6 +1010,12 @@ function TransactionEditForm({
   const [transactionType, setTransactionType] = useState<
     FinanceTransaction["transactionType"]
   >(row.transactionType);
+  const [sourceAccountId, setSourceAccountId] = useState(() => {
+    const sourceAccount = accounts.find((item) => item.id === row.accountId);
+    return sourceAccount && canUseFinanceAccountForTransaction(sourceAccount, row.transactionType)
+      ? String(sourceAccount.id)
+      : "";
+  });
   const [categoryId, setCategoryId] = useState(
     row.categoryId == null ? "" : String(row.categoryId),
   );
@@ -1009,8 +1024,13 @@ function TransactionEditForm({
       !item.archived &&
       (item.direction === "both" || item.direction === transactionType),
   );
+  const sourceAccounts = accounts.filter((item) => canUseFinanceAccountForTransaction(item, transactionType));
   function changeTransactionType(value: FinanceTransaction["transactionType"]) {
     setTransactionType(value);
+    const sourceAccount = accounts.find((item) => String(item.id) === sourceAccountId);
+    if (sourceAccount && !canUseFinanceAccountForTransaction(sourceAccount, value)) {
+      setSourceAccountId("");
+    }
     if (value === "transfer") {
       setCategoryId("");
       return;
@@ -1073,11 +1093,13 @@ function TransactionEditForm({
         <span>账户</span>
         <select
           name="accountId"
-          defaultValue={row.accountId}
+          value={sourceAccountId}
+          onChange={(event) => setSourceAccountId(event.target.value)}
           className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
           required
         >
-          {accounts.map((item) => (
+          <option value="">选择账户</option>
+          {sourceAccounts.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>

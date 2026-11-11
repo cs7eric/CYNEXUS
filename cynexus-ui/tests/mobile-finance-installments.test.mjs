@@ -34,15 +34,22 @@ test("schedule dates stay anchored to the first due day and honor leap years and
   assert.deepEqual(plain(yearly.schedule).map(row => row.dueDate), ["2024-02-29", "2025-02-28", "2026-02-28", "2027-02-28", "2028-02-29"])
 })
 
-test("each principal is at least one cent, including the database constraint missed by backend policy", () => {
+test("each installment principal is at least one cent", () => {
   assert.match(model.buildActivityInstallmentTerms(input({ totalFen: 2, countText: "3" })).error, /at least/)
   assert.deepEqual(plain(model.buildActivityInstallmentTerms(input({ totalFen: 2, countText: "2" })).value.schedule).map(row => row.principalFen), [1, 1])
 })
 
 test("count and interval must be bounded whole numbers", () => {
-  for (const countText of ["", "1", "61", "2.5", "2e1", "-2"]) assert.ok(model.buildActivityInstallmentTerms(input({ countText })).error, countText)
+  for (const countText of ["", "0", "61", "2.5", "2e1", "-2"]) assert.ok(model.buildActivityInstallmentTerms(input({ countText })).error, countText)
   for (const intervalText of ["", "0", "13", "1.5", "1e1", "-1"]) assert.ok(model.buildActivityInstallmentTerms(input({ intervalText })).error, intervalText)
   assert.equal(model.buildActivityInstallmentTerms(input({ countText: "60", intervalText: "12" })).value.schedule.length, 60)
+})
+
+test("one scheduled payment retains the full principal, fees and selected due date", () => {
+  const result = model.buildActivityInstallmentTerms(input({ countText: "1", feeText: "3.25", firstDueDate: "2026-12-10" })).value
+  assert.equal(result.count, 1)
+  assert.equal(result.feeFen, 325)
+  assert.deepEqual(plain(result.schedule), [{ dueDate: "2026-12-10", principalFen: 10000, feeFen: 325, amountFen: 10325 }])
 })
 
 test("total fees accept explicit zero or blank and reject unsafe, negative or subcent values", () => {

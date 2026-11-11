@@ -12,6 +12,15 @@
 @import "@heroui/styles/components/dropdown.css" layer(components);
 @import "@heroui/styles/components/menu-item.css" layer(components);
 @import "@heroui/styles/components/alert-dialog.css" layer(components);
+@import "@heroui/styles/components/modal.css" layer(components);
+@import "@heroui/styles/components/select.css" layer(components);
+@import "@heroui/styles/components/list-box.css" layer(components);
+@import "@heroui/styles/components/textfield.css" layer(components);
+@import "@heroui/styles/components/label.css" layer(components);
+@import "@heroui/styles/components/input.css" layer(components);
+@import "@heroui/styles/components/input-group.css" layer(components);
+@import "@heroui/styles/components/textarea.css" layer(components);
+@import "@heroui/styles/components/popover.css" layer(components);
 
 @font-face {
   font-family: "Manrope Mobile";

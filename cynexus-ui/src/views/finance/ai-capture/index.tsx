@@ -41,6 +41,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useIsMobile } from "@/hooks/use-mobile";
 import { WorkspaceShell } from "@/layout/workspace-shell";
 import { AiBindingProviderSelect } from "@/components/ai/ai-binding-provider-select";
+import { canUseFinanceAccountForTransaction } from "@/services/finance/account-eligibility";
 import {
   archiveFinanceAiCapture,
   fetchFinanceAccounts,
@@ -59,8 +60,21 @@ import { formatMoney } from "../lib/format";
 
 type Draft = FinanceAiCaptureItem;
 
-function editable(item: Draft, patch: Partial<Draft>) {
-  return { ...item, ...patch };
+function editable(item: Draft, patch: Partial<Draft>, accounts: FinanceAccount[]) {
+  const next = { ...item, ...patch };
+  const sourceAccount = accounts.find((account) => account.id === next.accountId);
+  if (sourceAccount && !canUseFinanceAccountForTransaction(sourceAccount, next.transactionType)) {
+    next.accountId = null;
+  }
+  return next;
+}
+
+function hasUsableAccount(item: Draft, accounts: FinanceAccount[]) {
+  return accounts.some(
+    (account) => account.id === item.accountId
+      && !account.archived
+      && canUseFinanceAccountForTransaction(account, item.transactionType),
+  );
 }
 
 const statusLabels: Record<FinanceAiCapture["status"], string> = {
@@ -228,7 +242,7 @@ export default function FinanceAiCapturePage() {
 
   function update(id: number, patch: Partial<Draft>) {
     setDrafts((items) =>
-      items.map((item) => (item.id === id ? editable(item, patch) : item)),
+      items.map((item) => (item.id === id ? editable(item, patch, accounts) : item)),
     );
   }
   function reject(id: number) {
@@ -239,20 +253,20 @@ export default function FinanceAiCapturePage() {
   }
 
   async function confirm() {
-    if (!capture) return;
+    if (!capture || confirming) return;
     const active = drafts.filter((item) => item.status !== "rejected");
     if (
       active.some(
         (item) =>
           !item.amount ||
-          !item.accountId ||
+          !hasUsableAccount(item, accounts) ||
           !item.categoryId ||
           !item.occurredAt,
       )
     ) {
       notification.warn({
         title: "草稿尚未完整",
-        description: "请补全金额、日期、账户和分类后再入账。",
+        description: "请补全金额、日期、可用账户和分类；证券账户仅支持转账。",
       });
       return;
     }
@@ -285,14 +299,14 @@ export default function FinanceAiCapturePage() {
   }
 
   function updateHistory(id: number, patch: Partial<Draft>) {
-    setHistoryDrafts((items) => items.map((item) => (item.id === id ? editable(item, patch) : item)));
+    setHistoryDrafts((items) => items.map((item) => (item.id === id ? editable(item, patch, accounts) : item)));
   }
 
   async function confirmHistory() {
-    if (!historySelected) return;
+    if (!historySelected || confirming) return;
     const active = historyDrafts.filter((item) => item.status !== "rejected");
-    if (active.some((item) => !item.amount || !item.accountId || !item.categoryId || !item.occurredAt)) {
-      notification.warn({ title: "账目尚未完整", description: "请补全金额、日期、账户和分类后再保存。" });
+    if (active.some((item) => !item.amount || !hasUsableAccount(item, accounts) || !item.categoryId || !item.occurredAt)) {
+      notification.warn({ title: "账目尚未完整", description: "请补全金额、日期、可用账户和分类；证券账户仅支持转账。" });
       return;
     }
     setConfirming(true);
@@ -596,7 +610,10 @@ function DraftRow({
       category.direction === "both" ||
       category.direction === item.transactionType,
   );
-  const selectedAccount = accounts.find(
+  const sourceAccounts = accounts.filter(
+    (account) => !account.archived && canUseFinanceAccountForTransaction(account, item.transactionType),
+  );
+  const selectedAccount = sourceAccounts.find(
     (account) => account.id === item.accountId,
   );
   const credit = selectedAccount?.nature === "credit";
@@ -680,7 +697,7 @@ function DraftRow({
             账户
             <select
               required
-              value={item.accountId ?? ""}
+              value={selectedAccount?.id ?? ""}
               onChange={(event) =>
                 onUpdate(item.id, {
                   accountId: event.target.value
@@ -691,13 +708,11 @@ function DraftRow({
               className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             >
               <option value="">选择账户</option>
-              {accounts
-                .filter((account) => !account.archived)
-                .map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
+              {sourceAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="space-y-1 text-[11px] font-medium">

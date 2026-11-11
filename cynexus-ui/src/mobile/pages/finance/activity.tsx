@@ -1,5 +1,5 @@
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BriefcaseBusiness, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, House, RefreshCw, Search, ShoppingBag, ShoppingBasket, TrainFront, Utensils, Wallet, X } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BriefcaseBusiness, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, House, ShoppingBag, ShoppingBasket, TrainFront, Utensils, Wallet } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate, useOutletContext } from "react-router-dom"
 
 import { useWorkspace } from "@/layout/workspace-provider"
@@ -54,19 +54,16 @@ function FinanceActivity({ workspaceId }: { workspaceId: string }) {
   const navigate = useNavigate()
   const [month, setMonth] = useState(currentActivityMonth)
   const [filter, setFilter] = useState<ActivityFilterType>("all")
-  const [query, setQuery] = useState("")
-  const [searching, setSearching] = useState(false)
   const [pickerYear, setPickerYear] = useState<number | null>(null)
   const [moneyType, setMoneyType] = useState<"income" | "expense" | null>(null)
   const [detail, setDetail] = useState<FinanceTransaction | null>(null)
   const [showInstallments, setShowInstallments] = useState(false)
   const [entry, setEntry] = useState<{ record?: FinanceTransaction; type: FinanceTransaction["transactionType"] } | null>(null)
   const [notice, setNotice] = useState("")
-  const searchInput = useRef<HTMLInputElement>(null)
   const load = useFinanceActivity({ month, workspaceId, refreshToken: financeRefreshToken })
   const { snapshot } = load
   const summary = useMemo(() => summarizeActivityTransactions(snapshot?.transactions ?? [], { complete: !!snapshot?.complete }), [snapshot])
-  const filtered = useMemo(() => filterActivityTransactions(snapshot?.transactions ?? [], { type: filter, query }), [snapshot, filter, query])
+  const filtered = useMemo(() => filterActivityTransactions(snapshot?.transactions ?? [], { type: filter }), [snapshot, filter])
   const groups = useMemo(() => groupActivityTransactions(filtered, { complete: !!snapshot?.complete }), [filtered, snapshot?.complete])
   const monthText = new Date(month.year, month.month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })
   const isCurrent = activityMonthKey(month) === activityMonthKey(currentActivityMonth())
@@ -92,7 +89,7 @@ function FinanceActivity({ workspaceId }: { workspaceId: string }) {
     document.getElementById("mobile-content")?.scrollTo({ top: 0 })
   }
   function saved(record: FinanceTransaction, message?: string) {
-    setEntry(null); setFilter("all"); setQuery("")
+    setEntry(null); setFilter("all")
     const date = new Date(record.occurredAt)
     if (Number.isFinite(date.getTime())) chooseMonth(currentActivityMonth(date))
     load.refresh()
@@ -101,13 +98,11 @@ function FinanceActivity({ workspaceId }: { workspaceId: string }) {
   const cashAmount = moneyType === "income" ? summary.incomeFen : summary.expenseFen
 
   return <section className="mobile-finance-activity" aria-label="Finance activity" aria-busy={load.status === "loading"}>
-    <div className="fa-heading"><h2>Activity</h2><div><button type="button" className="fa-round" aria-label="Search records" title="Search records" aria-expanded={searching} onClick={() => { setSearching(!searching); if (!searching) requestAnimationFrame(() => searchInput.current?.focus()); else setQuery("") }}><Search aria-hidden="true" /></button><button type="button" className="fa-round" aria-label="Refresh activity" title="Refresh activity" disabled={load.status === "loading"} onClick={load.refresh}><RefreshCw aria-hidden="true" /></button></div></div>
     <div className="fa-period" aria-label="Month navigation">
       <button type="button" className="fa-round" aria-label="Previous month" title="Previous month" disabled={month.year === 1 && month.month === 0} onClick={() => chooseMonth(shiftActivityMonth(month, -1))}><ChevronLeft aria-hidden="true" /></button>
       <button type="button" className="fa-period-label" aria-label={`Choose month, ${monthText}`} aria-haspopup="dialog" onClick={() => setPickerYear(month.year)}>{isCurrent && <span className="fa-current-mark" />}{monthText}<ChevronDown aria-hidden="true" /></button>
       <button type="button" className="fa-round" aria-label="Next month" title="Next month" disabled={month.year === 9999 && month.month === 11} onClick={() => chooseMonth(shiftActivityMonth(month, 1))}><ChevronRight aria-hidden="true" /></button>
     </div>
-    {searching && <div className="fa-search"><Search aria-hidden="true" /><input ref={searchInput} type="search" aria-label="Search merchant, category, account or note" placeholder="Search merchant, category, account…" value={query} onChange={(event) => setQuery(event.target.value)} /><button type="button" className="fa-round" aria-label="Close search" onClick={() => { setSearching(false); setQuery("") }}><X aria-hidden="true" /></button></div>}
     <div className="fa-flow-grid" aria-label="CNY totals for the selected month">{(["income", "expense"] as const).map((type) => {
       const amount = type === "income" ? summary.incomeFen : summary.expenseFen
       const count = type === "income" ? summary.incomeCount : summary.expenseCount
@@ -121,7 +116,7 @@ function FinanceActivity({ workspaceId }: { workspaceId: string }) {
     <div className="fa-filters" role="group" aria-label="Filter record type">{filters.map((item) => <button type="button" key={item.type} aria-pressed={filter === item.type} onClick={() => setFilter(item.type)}>{item.label}</button>)}</div>
     <div className="fa-ledger-heading"><h3>Transactions</h3><span role="status">{snapshot ? `${snapshot.complete ? "" : "At least "}${filtered.length} ${filtered.length === 1 ? "record" : "records"}` : load.status === "loading" ? "Loading…" : "Unavailable"}</span></div>
     <button type="button" className="fa-installments-link" disabled={!snapshot?.accountsAvailable} onClick={() => setShowInstallments(true)}><CalendarClock aria-hidden="true" /><span>Installment plans</span><ChevronRight aria-hidden="true" /></button>
-    {!snapshot ? <div className="fa-empty" role="status"><Wallet aria-hidden="true" /><h3>{load.status === "loading" ? "Gathering your activity…" : "Activity unavailable"}</h3><p>{load.status === "loading" ? "Loading the selected month." : "Your transactions could not be loaded."}</p>{load.status === "error" && <button type="button" className="fa-text-button" onClick={load.refresh}>Try again</button>}</div> : !filtered.length ? <div className="fa-empty"><Wallet aria-hidden="true" /><h3>{query ? "No matching records." : !snapshot.transactions.length && snapshot.complete ? "A fresh page for this month." : "No records to show."}</h3><p>{query ? "Try another merchant, category, account or note." : !snapshot.complete ? "Some records could not be loaded. Try refreshing this month." : "Add an expense, income or transfer. Your monthly flow will appear above."}</p><button type="button" className="fa-text-button" onClick={() => query ? setQuery("") : setEntry({ type: filter === "all" ? "expense" : filter })}>{query ? "Clear search" : "Add a record"}</button></div> : groups.map((group) => <section className="fa-day" key={group.date} aria-label={group.date}>
+    {!snapshot ? <div className="fa-empty" role="status"><Wallet aria-hidden="true" /><h3>{load.status === "loading" ? "Gathering your activity…" : "Activity unavailable"}</h3><p>{load.status === "loading" ? "Loading the selected month." : "Your transactions could not be loaded."}</p>{load.status === "error" && <button type="button" className="fa-text-button" onClick={load.refresh}>Try again</button>}</div> : !filtered.length ? <div className="fa-empty"><Wallet aria-hidden="true" /><h3>{!snapshot.transactions.length && snapshot.complete ? "A fresh page for this month." : "No records to show."}</h3><p>{!snapshot.complete ? "Some records could not be loaded. Try refreshing this month." : "Add an expense, income or transfer. Your monthly flow will appear above."}</p><button type="button" className="fa-text-button" onClick={() => setEntry({ type: filter === "all" ? "expense" : filter })}>Add a record</button></div> : groups.map((group) => <section className="fa-day" key={group.date} aria-label={group.date}>
       <div className="fa-date-heading"><strong>{dayLabel(group.date)}{group.date !== "unknown" && <time dateTime={group.date}>{new Date(`${group.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</time>}</strong><span>{filter === "transfer" || group.summary.excludedCurrencyCount > 0 || group.summary.netFen === null ? `${group.transactions.length} records` : signed(group.summary.netFen)}</span></div>
       <ul className="fa-record-list">{group.transactions.map((record) => { const Icon = recordIcon(record); return <li key={record.id}><button type="button" className="fa-record" onClick={() => setDetail(record)} aria-haspopup="dialog"><span className={`fa-record-icon is-${record.transactionType}`}><Icon aria-hidden="true" /></span><span className="fa-record-copy"><strong>{titleFor(record)}</strong><span>{record.transactionType === "transfer" ? `${record.accountName ?? "Account"} → ${record.toAccountName ?? "Account"}` : `${record.categoryName ?? "Uncategorized"} · ${record.accountName ?? "Account"}`}</span></span><span className={`fa-record-amount is-${record.transactionType}`}>{recordAmount(record)}</span></button></li> })}</ul>
     </section>)}

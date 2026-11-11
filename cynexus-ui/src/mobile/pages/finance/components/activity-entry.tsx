@@ -1,14 +1,16 @@
-import { CalendarClock, Check, Plus } from "lucide-react"
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CalendarDays, CalendarClock, Check, CreditCard, ListTree, Plus, Store, Wallet } from "lucide-react"
+import { Button, ButtonGroup } from "@heroui/react"
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 
 import { fetchFinanceInstallmentPlans, saveFinanceInstallmentPlan, saveFinanceTransaction, updateFinanceTransaction, type FinanceAccount, type FinanceCategory, type FinanceInstallmentPlan, type FinanceTransaction } from "@/services/finance/ledger"
+import { canUseFinanceAccountForTransaction } from "@/services/finance/account-eligibility"
 import { activityTransactionFen, type ActivityMonth } from "../lib/activity"
 import { activityDateTimePayload, defaultActivityEntryDate, localActivityDateTime, parseActivityAmount } from "../lib/activity-entry"
 import { buildActivityInstallmentTerms } from "../lib/activity-installments"
-import { compactCny, decomposeAssets, formatCny } from "../lib/asset-pile"
-import { ActivityCash } from "./activity-cash"
-import { ActivityCategoryPicker } from "./activity-category-picker"
+import { formatCny } from "../lib/asset-pile"
+import { ActivityEntryChoice } from "./activity-entry-choice"
+import { ActivityEntryPlan } from "./activity-entry-plan"
 import { ActivitySheet } from "./activity-sheet"
 
 type EntryType = FinanceTransaction["transactionType"]
@@ -29,20 +31,21 @@ interface ActivityEntryProps {
 
 export function ActivityEntry({ record, initialType = "expense", month, accounts, categories, available, loading, onClose, onSaved, onPosted, onOpenInstallments }: ActivityEntryProps) {
   const activeAccounts = accounts.filter((account) => !account.archived && account.currency.toUpperCase() === "CNY")
+  const initialAccountId = record?.accountId ?? activeAccounts.find((account) => canUseFinanceAccountForTransaction(account, initialType))?.id
   const [type, setType] = useState<EntryType>(record?.transactionType ?? initialType)
   const [amount, setAmount] = useState(record ? record.amount.toFixed(2) : "")
-  const [accountId, setAccountId] = useState(String(record?.accountId ?? activeAccounts[0]?.id ?? ""))
-  const [toAccountId, setToAccountId] = useState(String(record?.toAccountId ?? activeAccounts.find((account) => account.id !== (record?.accountId ?? activeAccounts[0]?.id))?.id ?? ""))
+  const [accountId, setAccountId] = useState(String(initialAccountId ?? ""))
+  const [toAccountId, setToAccountId] = useState(String(record?.toAccountId ?? activeAccounts.find((account) => account.id !== initialAccountId)?.id ?? ""))
   const [categoryId, setCategoryId] = useState(String(record?.categoryId ?? categories.find((category) => !category.archived && (category.direction === initialType || category.direction === "both"))?.id ?? ""))
   const [occurredAt, setOccurredAt] = useState(record ? localActivityDateTime(new Date(record.occurredAt)) : defaultActivityEntryDate(month))
   const [merchant, setMerchant] = useState(record?.merchant ?? "")
   const [note, setNote] = useState(record?.note ?? "")
   const [showNote, setShowNote] = useState(Boolean(record?.note))
   const [installments, setInstallments] = useState(false)
-  const [countText, setCountText] = useState("6")
+  const [countText, setCountText] = useState("12")
   const [feeText, setFeeText] = useState("0.00")
   const [firstDueDate, setFirstDueDate] = useState("")
-  const [intervalText, setIntervalText] = useState("1")
+  const intervalText = "1"
   const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null)
   const pendingRef = useRef<PendingPlan | null>(null)
   const [linkedPlan, setLinkedPlan] = useState<FinanceInstallmentPlan | null>(null)
@@ -56,12 +59,27 @@ export function ActivityEntry({ record, initialType = "expense", month, accounts
   const compatibleCategories = categories.filter((category) => !category.archived && (category.direction === type || category.direction === "both"))
   const selectedCategory = compatibleCategories.some((category) => String(category.id) === categoryId) ? categoryId : ""
   const creditAccounts = activeAccounts.filter((account) => account.nature === "credit")
-  const entryAccounts = installments ? creditAccounts : activeAccounts
+  const entryAccounts = installments ? creditAccounts : activeAccounts.filter((account) => canUseFinanceAccountForTransaction(account, type))
   const terms = buildActivityInstallmentTerms({ totalFen: fen ?? 0, feeText, countText, firstDueDate, intervalText })
-  const { groups, loose } = decomposeAssets(fen ?? 0)
   const checkExistingPlan = !!record && record.transactionType === "expense" && accounts.some((account) => account.id === record.accountId && account.nature === "credit")
   const canEdit = (!record || record.currency.toUpperCase() === "CNY" && !record.archived) && (!checkExistingPlan || planLookup === "ready")
   const baseLocked = saving || !canEdit || !available || !!pendingPlan || installments && !!record
+  const controlsLocked = saving || !canEdit || !available || !!pendingPlan
+  const planLocked = saving || !canEdit || !available || !!pendingPlan
+  const previewTerms = buildActivityInstallmentTerms({ totalFen: fen ?? 0, feeText, countText, firstDueDate: firstDueDate || occurredAt.slice(0, 10), intervalText }).value
+  const categoryOptions = compatibleCategories.map((category) => {
+    const path: string[] = []
+    const visited = new Set([category.id])
+    let parentId = category.parentId
+    while (parentId != null && !visited.has(parentId)) {
+      visited.add(parentId)
+      const parent = categories.find((item) => item.id === parentId)
+      if (!parent) break
+      path.unshift(parent.name)
+      parentId = parent.parentId
+    }
+    return { id: String(category.id), label: category.name, description: path.join(" / ") }
+  })
 
   useEffect(() => {
     if (!record || !checkExistingPlan) return
@@ -79,6 +97,12 @@ export function ActivityEntry({ record, initialType = "expense", month, accounts
 
   function changeType(next: EntryType) {
     setType(next); setInstallments(false)
+    const nextAccounts = activeAccounts.filter((account) => canUseFinanceAccountForTransaction(account, next))
+    const nextAccountId = nextAccounts.some((account) => String(account.id) === accountId) ? accountId : String(nextAccounts[0]?.id ?? "")
+    setAccountId(nextAccountId)
+    if (next === "transfer" && (!activeAccounts.some((account) => String(account.id) === toAccountId) || toAccountId === nextAccountId)) {
+      setToAccountId(String(activeAccounts.find((account) => String(account.id) !== nextAccountId)?.id ?? ""))
+    }
     setCategoryId(String(categories.find((category) => !category.archived && (category.direction === next || category.direction === "both"))?.id ?? ""))
     setError("")
   }
@@ -100,6 +124,7 @@ export function ActivityEntry({ record, initialType = "expense", month, accounts
       if (!fen) return fail("Enter an amount greater than zero, with up to two decimal places.")
       const account = entryAccounts.find((item) => String(item.id) === accountId)
       if (!account) return fail(installments ? "Choose an active CNY credit account for installments." : "Choose an active CNY account.")
+      if (!canUseFinanceAccountForTransaction(account, type)) return fail("Investment accounts only support transfers.")
       const destination = activeAccounts.find((item) => String(item.id) === toAccountId)
       if (type === "transfer" && (!destination || destination.id === account.id)) return fail("Choose two different active CNY accounts.")
       if (!(installments && record)) {
@@ -151,42 +176,91 @@ export function ActivityEntry({ record, initialType = "expense", month, accounts
     <button type="button" className="fa-primary" onClick={onOpenInstallments}><CalendarClock aria-hidden="true" />View installment plans</button>
   </ActivitySheet>
 
-  return <ActivitySheet title={record ? "Edit record" : "New record"} onClose={onClose} busy={saving}>
-    {!activeAccounts.length && !pendingPlan ? <div className="fa-empty" role="status"><h3>{loading ? "Loading your accounts…" : !available ? "Entry unavailable" : "Add a CNY account first"}</h3><p>{!available ? "Your accounts and categories must be available before recording a transaction." : "Choose an account for your income, expenses and transfers."}</p><Link to="#finance-accounts" className="fa-text-button" onClick={onClose}>View accounts</Link></div> :
-    <form className="fa-entry-form" onSubmit={submit} noValidate aria-busy={saving}>
-      {!available && !pendingPlan && <p className="fa-message" role="status">Accounts or categories unavailable. Your entry is preserved; close this sheet and refresh before saving.</p>}
-      {checkExistingPlan && planLookup !== "ready" && <div className="fa-alert" role="status"><p>{planLookup === "loading" ? "Checking installment details…" : "Installment details unavailable. Refresh them before editing this expense."}</p>{planLookup === "error" && <button type="button" className="fa-text-button" onClick={() => setLookupRefresh((value) => value + 1)}>Try again</button>}</div>}
-      <fieldset disabled={saving || !canEdit || !available || !!pendingPlan}>
-        <div className="fa-type-switch" role="group" aria-label="Record type">{(["expense", "income", "transfer"] as const).map((value) => <button key={value} type="button" disabled={installments && !!record && value !== "expense"} aria-pressed={type === value} onClick={() => changeType(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div>
-        <div className="fa-amount-entry"><label htmlFor="fa-entry-amount">CNY</label><input id="fa-entry-amount" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" readOnly={installments && !!record} value={amount} aria-describedby="fa-entry-composition fa-entry-error" onChange={(event) => { setAmount(event.target.value); setError("") }} /></div>
-        {fen !== null && <ActivityCash amount={fen} size="entry" />}
-        <p className={`fa-denominations${fen === null ? " is-empty" : ""}`} id="fa-entry-composition">{fen ? [...groups, ...loose].map((group) => `${group.count} × ${compactCny(group.valueInFen)}`).join(" · ") : "Enter an amount to see it in cash."}</p>
-        {type === "expense" && (!record || record.transactionType === "expense" && accounts.some((account) => account.id === record.accountId && account.nature === "credit")) && <div className="fa-payment-mode"><span className="fa-field-label">Payment</span><div role="group" aria-label="Payment mode"><button type="button" aria-pressed={!installments} onClick={() => changePaymentMode(false)}>One payment</button><button type="button" aria-pressed={installments} onClick={() => changePaymentMode(true)}><CalendarClock aria-hidden="true" />Installments</button></div></div>}
-      </fieldset>
-      <fieldset disabled={baseLocked}>
-        <label className="fa-field"><span>{installments ? "Credit account" : type === "transfer" ? "From account" : "Account"}</span><select aria-label={installments ? "Credit account" : type === "transfer" ? "From account" : "Account"} value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="">Choose account</option>{entryAccounts.map((account) => <option value={account.id} key={account.id}>{account.name}</option>)}</select></label>
-        {installments && !creditAccounts.length && <p className="fa-message">Installments need an active CNY credit account. <Link to="#finance-accounts" onClick={onClose}>View accounts</Link>.</p>}
-        {type !== "transfer" && <ActivityCategoryPicker categories={compatibleCategories} value={selectedCategory} onChange={setCategoryId} />}
-        {type === "transfer" && <label className="fa-field"><span>To account</span><select aria-label="To account" value={toAccountId} onChange={(event) => setToAccountId(event.target.value)}><option value="">Choose account</option>{activeAccounts.map((account) => <option value={account.id} key={account.id}>{account.name}</option>)}</select></label>}
-        <label className="fa-field"><span>Date &amp; time</span><input type="datetime-local" aria-label="Date and time" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} /></label>
-        <label className="fa-field"><span>{type === "income" ? "Source / title" : "Merchant / title"}</span><input type="text" maxLength={80} placeholder={type === "income" ? "e.g. Monthly salary" : type === "transfer" ? "e.g. Credit card repayment" : "e.g. Lunch at the corner café"} value={merchant} onChange={(event) => setMerchant(event.target.value)} /></label>
-        <button type="button" className="fa-notes-toggle" aria-expanded={showNote} onClick={() => setShowNote(!showNote)}><Plus aria-hidden="true" />{showNote ? "Hide note" : "Add a note"}</button>
-        {showNote && <label className="fa-field"><span>Note</span><textarea maxLength={300} placeholder="Anything you want to remember" value={note} onChange={(event) => setNote(event.target.value)} /></label>}
-      </fieldset>
-      {installments && <fieldset className="fa-installment-fields" disabled={saving || !available || !!pendingPlan}>
-        <div className="fa-installment-heading"><CalendarClock aria-hidden="true" /><h3>Repayment plan</h3></div>
-        <div className="fa-form-row"><label className="fa-field"><span>Number of payments</span><input aria-label="Number of payments" type="number" inputMode="numeric" min={2} max={60} step={1} value={countText} onChange={(event) => { setCountText(event.target.value); setError("") }} /></label><label className="fa-field"><span>Total fees · CNY</span><input aria-label="Total fees" inputMode="decimal" placeholder="0.00" value={feeText} onChange={(event) => { setFeeText(event.target.value); setError("") }} /></label></div>
-        <label className="fa-field"><span>First due date</span><input aria-label="First due date" type="date" value={firstDueDate} onChange={(event) => { setFirstDueDate(event.target.value); setError("") }} /></label>
-        <label className="fa-field"><span>Payment frequency</span><select aria-label="Payment frequency" value={intervalText} onChange={(event) => { setIntervalText(event.target.value); setError("") }}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{index === 0 ? "Monthly" : `Every ${index + 1} months`}</option>)}</select></label>
-        {terms.value ? <div className="fa-installment-preview"><strong>First payment {formatCny(terms.value.schedule[0].amountFen)}</strong><span>{terms.value.count} payments · Last payment {formatCny(terms.value.schedule.at(-1)!.amountFen)}</span><details><summary>Preview repayment schedule</summary><ol>{terms.value.schedule.map((payment, index) => <li key={index}><span>{index + 1}. {payment.dueDate}</span><strong>{formatCny(payment.amountFen)}</strong></li>)}</ol></details></div> : <p className="fa-message">{!firstDueDate ? "Choose a first due date to preview the repayment schedule." : terms.error}</p>}
-        <p className="fa-message">{record ? "This expense is already recorded. Only a repayment plan will be added." : "The full purchase is recorded once. Repayments are transfers, so the purchase is not counted twice."}</p>
-      </fieldset>}
-      <div className="fa-entry-submit">
+  return <ActivitySheet title={record ? "Edit record" : "New record"} onClose={onClose} busy={saving} className="fa-entry-sheet">
+    {!activeAccounts.length && !pendingPlan ? <div className="fa-empty" role="status">
+      <h3>{loading ? "Loading your accounts…" : !available ? "Entry unavailable" : "Add a CNY account first"}</h3>
+      <p>{!available ? "Your accounts and categories must be available before recording a transaction." : "Choose an account for your income, expenses and transfers."}</p>
+      <Link to="#finance-accounts" className="fa-text-button" onClick={onClose}>View accounts</Link>
+    </div> : <form className="fa-entry-form" onSubmit={submit} noValidate aria-busy={saving}>
+      <div className="fa-entry-scroll">
+        {!available && !pendingPlan && <p className="fa-message" role="status">Accounts or categories unavailable. Your entry is preserved; close this sheet and refresh before saving.</p>}
+        {checkExistingPlan && planLookup !== "ready" && <div className="fa-alert" role="status">
+          <p>{planLookup === "loading" ? "Checking installment details…" : "Installment details unavailable. Refresh them before editing this expense."}</p>
+          {planLookup === "error" && <Button type="button" variant="ghost" onPress={() => setLookupRefresh((value) => value + 1)}>Try again</Button>}
+        </div>}
+        <fieldset disabled={controlsLocked}>
+          <ButtonGroup className="fa-entry-types" variant="tertiary" aria-label="Record type">
+            {(["expense", "income", "transfer"] as const).map((value) => {
+              const Icon = value === "expense" ? ArrowUpRight : value === "income" ? ArrowDownLeft : ArrowLeftRight
+              return <Button key={value} type="button" variant={type === value ? "primary" : "tertiary"}
+                isDisabled={controlsLocked || installments && !!record && value !== "expense"}
+                aria-pressed={type === value} onPress={() => changeType(value)}>
+                <Icon aria-hidden="true" />{value[0].toUpperCase() + value.slice(1)}
+              </Button>
+            })}
+          </ButtonGroup>
+          <div className="fa-entry-amount-block">
+            <div className="fa-entry-amount-heading"><label htmlFor="fa-entry-amount">Amount</label><span>CNY</span></div>
+            <div className="fa-entry-amount-line"><span aria-hidden="true">¥</span><input id="fa-entry-amount" type="text"
+              inputMode="decimal" autoComplete="off" placeholder="0.00" aria-label="Amount in Chinese yuan"
+              readOnly={installments && !!record} value={amount} aria-describedby="fa-entry-error"
+              onChange={(event) => { setAmount(event.target.value); setError("") }} /></div>
+          </div>
+        </fieldset>
+        <fieldset disabled={baseLocked}>
+          <div className="fa-entry-paired">
+            {type !== "transfer" && <ActivityEntryChoice label="Category" icon={<ListTree aria-hidden="true" />} disabled={baseLocked}
+              value={selectedCategory} options={categoryOptions} searchable onChange={(value) => { setCategoryId(value); setError("") }} />}
+            <ActivityEntryChoice label={type === "transfer" ? "From" : "Account"} icon={<Wallet aria-hidden="true" />} disabled={baseLocked}
+              value={accountId} options={entryAccounts.map((account) => ({ id: String(account.id), label: account.name }))}
+              onChange={(value) => {
+                setAccountId(value); setError("")
+                if (value === toAccountId) setToAccountId(String(activeAccounts.find((account) => String(account.id) !== value)?.id ?? ""))
+              }} />
+            {type === "transfer" && <ActivityEntryChoice label="To" icon={<ArrowLeftRight aria-hidden="true" />} disabled={baseLocked}
+              value={toAccountId} options={activeAccounts.map((account) => ({ id: String(account.id), label: account.name, disabled: String(account.id) === accountId }))}
+              onChange={(value) => { setToAccountId(value); setError("") }} />}
+          </div>
+          {type !== "transfer" && !compatibleCategories.length && <p className="fa-message">No categories available. Add one in desktop Finance, or choose another record type.</p>}
+          {type !== "transfer" && activeAccounts.some((account) => account.accountType === "investment") && <p className="fa-entry-account-hint">Investment accounts only support transfers.</p>}
+          {installments && !creditAccounts.length && <p className="fa-message">Installments need an active CNY credit account. <Link to="#finance-accounts" onClick={onClose}>View accounts</Link>.</p>}
+        </fieldset>
+        {type === "expense" && (!record || record.transactionType === "expense" && accounts.some((account) => account.id === record.accountId && account.nature === "credit")) && <fieldset disabled={controlsLocked}>
+          <div className="fa-entry-row fa-entry-payment"><CreditCard aria-hidden="true" /><span>Payment</span>
+            <ButtonGroup variant="tertiary" aria-label="Payment mode" isDisabled={controlsLocked}>
+              <Button type="button" variant={installments ? "ghost" : "tertiary"} aria-pressed={!installments} onPress={() => changePaymentMode(false)}>One payment</Button>
+              <Button type="button" variant={installments ? "tertiary" : "ghost"} aria-pressed={installments} onPress={() => changePaymentMode(true)}>Installments</Button>
+            </ButtonGroup>
+          </div>
+        </fieldset>}
+        <fieldset disabled={baseLocked}>
+          <label className="fa-entry-row"><CalendarDays aria-hidden="true" /><span>Date &amp; time</span><input type="datetime-local" aria-label="Date and time"
+            min="0001-01-01T00:00" max="9999-12-31T23:59" value={occurredAt} onChange={(event) => { setOccurredAt(event.target.value); setError("") }} /></label>
+          <label className="fa-entry-row"><Store aria-hidden="true" /><span>{type === "income" ? "Source" : type === "transfer" ? "Title" : "Merchant"}</span>
+            <input type="text" maxLength={80} placeholder="Add a name" value={merchant} onChange={(event) => setMerchant(event.target.value)} /></label>
+        </fieldset>
+        {installments && <ActivityEntryPlan count={countText} fees={feeText} firstDueDate={firstDueDate} preview={previewTerms} terms={terms.value}
+          error={terms.error} disabled={planLocked} existingPurchase={!!record}
+          onCountChange={(value) => { setCountText(value); setError("") }}
+          onFeesChange={(value) => { setFeeText(value); setError("") }}
+          onDateChange={(value) => { setFirstDueDate(value); setError("") }} />}
+        <fieldset disabled={baseLocked}>
+          <Button type="button" variant="ghost" className="fa-entry-note-toggle" isDisabled={baseLocked}
+            aria-expanded={showNote} aria-controls="fa-entry-note" onPress={() => setShowNote(!showNote)}>
+            <Plus aria-hidden="true" /><span>{showNote ? "Hide note" : "Add a note"}</span><small>Optional</small>
+          </Button>
+          {showNote && <label className="fa-entry-note"><span className="sr-only">Note</span><textarea id="fa-entry-note" maxLength={300}
+            placeholder="Anything you want to remember" value={note} onChange={(event) => setNote(event.target.value)} /></label>}
+        </fieldset>
+      </div>
+      <footer className="fa-entry-submit">
         {pendingPlan && <p className="fa-message" role="status">Expense saved · installment setup pending. Retry to finish, or close and set up installments from this expense later.</p>}
         <p ref={errorRef} tabIndex={-1} id="fa-entry-error" className="fa-form-error" role={error ? "alert" : undefined}>{error}</p>
-        <button type="submit" className="fa-primary" disabled={saving || !pendingPlan && (!canEdit || !available)}><Check aria-hidden="true" />{saving ? "Saving…" : pendingPlan ? "Retry installment plan" : installments ? record ? "Create installment plan" : "Add installment purchase" : record ? "Save changes" : "Add record"}</button>
-        {!installments && <p className="fa-footnote">{type === "transfer" ? "Transfers and credit repayments are excluded from income and expenses." : "Saving updates your account balance and monthly activity."}</p>}
-      </div>
+        <Button type="submit" variant="primary" className="fa-entry-save" isDisabled={saving || !pendingPlan && (!canEdit || !available || !entryAccounts.some((account) => String(account.id) === accountId))}>
+          <Check aria-hidden="true" />{saving ? "Saving…" : pendingPlan ? "Retry installment plan" : installments ? record ? "Create installment plan" : "Add installment purchase" : record ? "Save changes" : type === "transfer" ? "Save transfer" : `Add ${type}`}
+        </Button>
+        <p className="fa-entry-caption">{installments ? "Records one purchase and creates its payment plan." : type === "transfer" ? "Moves money between accounts. Not an expense." : "Updates your account balance and activity."}</p>
+      </footer>
     </form>}
   </ActivitySheet>
 }

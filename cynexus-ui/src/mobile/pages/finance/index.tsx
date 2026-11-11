@@ -1,16 +1,21 @@
-import { ArrowUpRight, Banknote, ChevronLeft, ChevronRight, CreditCard, Landmark, LoaderCircle, Pencil, Plus, Save, TrendingUp, Wallet, WalletCards, X } from "lucide-react"
-import { createPortal } from "react-dom"
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent } from "react"
+import { ArrowUpRight, Banknote, ChevronLeft, ChevronRight, CreditCard, Landmark, LoaderCircle, Pencil, Save, TrendingUp, Wallet, WalletCards, X } from "lucide-react"
+import { Button } from "@heroui/react/button"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react"
 import { Link, useLocation, useOutletContext } from "react-router-dom"
 
 import { useWorkspace } from "@/layout/workspace-provider"
-import { useMobilePortal } from "@/mobile/hooks/use-mobile-portal"
 import { fetchFinanceAccounts, fetchFinanceOverview, saveFinanceAccount, type FinanceAccount, type FinanceOverview } from "@/services/finance/ledger"
 import "@/mobile/pages/finance/finance.css"
 import "@/mobile/pages/finance/account-fit.css"
 import { FinanceOverviewView } from "./overview"
 import { FinanceActivityView } from "./activity"
 import { FinanceSummaryView } from "./summary"
+import { AccountFormSheet } from "./components/account-form"
+import { AccountRepaymentSheet } from "./components/account-repayment"
+import { ActivityInstallments } from "./components/activity-installments"
+import { useAccountActivity } from "./hooks/use-account-activity"
+import { rankAccountsByRecentActivity } from "./lib/account-activity"
+import { accountRepaymentDueFen } from "./lib/account-repayment"
 
 type FinanceLoadState = "loading" | "ready" | "error"
 
@@ -76,8 +81,17 @@ function accountPalette(account: FinanceAccount, index: number) {
 
 export default function MobileFinancePage() {
   const { hash } = useLocation()
+  const { workspaceId } = useWorkspace()
+  const fixedFinancePage = hash === "#finance-summary" || hash === "#finance-activity"
 
-  if (hash === "#finance-accounts") return <FinanceAccountsView />
+  useEffect(() => {
+    const content = document.getElementById("mobile-content")
+    if (!content) return
+    content.classList.toggle("is-finance-fixed", fixedFinancePage)
+    return () => content.classList.remove("is-finance-fixed")
+  }, [fixedFinancePage])
+
+  if (hash === "#finance-accounts") return <FinanceAccountsView key={workspaceId} />
   if (hash === "#finance-activity") return <FinanceActivityView />
   if (hash === "#finance-summary") return <FinanceSummaryView />
   return <FinanceOverviewView />
@@ -86,6 +100,7 @@ export default function MobileFinancePage() {
 function FinanceAccountsView() {
   const { workspaceId } = useWorkspace()
   const { financeRefreshToken } = useOutletContext<{ financeRefreshToken: number }>()
+  const accountsPage = useLocation().hash === "#finance-accounts"
   const [accountsState, setAccountsState] = useState<FinanceLoadState>("loading")
   const [overviewState, setOverviewState] = useState<FinanceLoadState>("loading")
   const [accounts, setAccounts] = useState<FinanceAccount[]>([])
@@ -93,21 +108,28 @@ function FinanceAccountsView() {
   const [reloadKey, setReloadKey] = useState(0)
   const [accountForm, setAccountForm] = useState<{ mode: "add" | "edit"; account?: FinanceAccount } | null>(null)
   const [focusAccountId, setFocusAccountId] = useState<number | null>(null)
+  const [repaymentAccount, setRepaymentAccount] = useState<FinanceAccount | null>(null)
+  const [installmentAccountId, setInstallmentAccountId] = useState<number | null>(null)
+  const [notice, setNotice] = useState("")
+  const requestId = useRef(0)
+  const activity = useAccountActivity({ workspaceId, refreshToken: reloadKey + financeRefreshToken })
   const bounds = useMemo(() => monthBounds(), [])
 
   useEffect(() => {
-    const addAccount = () => setAccountForm({ mode: "add" })
-    window.addEventListener("mobile-finance-account-add", addAccount)
-    return () => window.removeEventListener("mobile-finance-account-add", addAccount)
+    const openAccountForm = () => setAccountForm((current) => current ?? { mode: "add" })
+    window.addEventListener("mobile-finance-account-add", openAccountForm)
+    return () => window.removeEventListener("mobile-finance-account-add", openAccountForm)
   }, [])
 
   const load = useCallback(async () => {
+    const request = ++requestId.current
     setAccountsState("loading")
     setOverviewState("loading")
     const [accountsResult, overviewResult] = await Promise.allSettled([
       fetchFinanceAccounts(false),
       fetchFinanceOverview(bounds),
     ])
+    if (request !== requestId.current) return false
     if (accountsResult.status === "fulfilled") {
       setAccounts(accountsResult.value.filter((account) => !account.archived))
       setAccountsState("ready")
@@ -120,33 +142,46 @@ function FinanceAccountsView() {
     } else {
       setOverviewState("error")
     }
+    return accountsResult.status === "fulfilled" && overviewResult.status === "fulfilled"
   }, [bounds])
+  const invalidateRequests = useCallback(() => { requestId.current++ }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [load, reloadKey, workspaceId, financeRefreshToken])
+    return () => { window.clearTimeout(timer); invalidateRequests() }
+  }, [load, reloadKey, workspaceId, financeRefreshToken, invalidateRequests])
+
+  useEffect(() => {
+    const content = document.getElementById("mobile-content")
+    if (!content) return
+    content.classList.toggle("is-finance-accounts", accountsPage)
+    return () => content.classList.remove("is-finance-accounts")
+  }, [accountsPage])
 
   const currency = "CNY"
-  const displayAccounts = accounts.length ? accounts : overview?.accounts.filter((account) => !account.archived) ?? []
+  const sourceAccounts = accountsState === "ready" ? accounts : accounts.length ? accounts : overview?.accounts.filter((account) => !account.archived) ?? []
+  const ranked = activity.snapshot?.complete ? rankAccountsByRecentActivity(sourceAccounts, activity.snapshot.transactions, activity.snapshot.range) : null
+  const displayAccounts = ranked?.map((item) => item.account) ?? sourceAccounts
   const loading = accountsState === "loading" || overviewState === "loading"
   const unavailable = accountsState === "error" && overviewState === "error"
   const hasData = displayAccounts.length > 0 || Boolean(overview && (overview.income !== 0 || overview.expense !== 0 || overview.assetTotal !== 0 || overview.liabilityTotal !== 0 || overview.recentTransactions.length > 0))
 
   return (
-    <div id="finance-accounts" className="mobile-finance">
-      <header className="mobile-finance-page-head">
-        <div><p className="mobile-finance-eyebrow">Finance</p><h2>Your accounts</h2></div>
-        <div className="mobile-finance-page-actions"><span>{displayAccounts.length} {displayAccounts.length === 1 ? "account" : "accounts"}</span><button type="button" className="mobile-finance-circle-button" aria-label="Add account" title="Add account" onClick={() => setAccountForm({ mode: "add" })}><Plus aria-hidden="true" /></button></div>
-      </header>
+    <div id="finance-accounts" className={`mobile-finance${accountsPage ? " is-accounts-page" : ""}`} aria-busy={loading}>
+      <div className="mobile-finance-account-order" role="status">
+        <span className="mobile-finance-account-order-copy">{activity.snapshot?.complete ? activity.stale ? "Most used · Last available activity" : "Most used · Last 30 days" : activity.status === "loading" ? "Loading recent activity…" : "Recent activity unavailable · Showing account order"}</span>
+        <span className="mobile-finance-account-count">{displayAccounts.length} {displayAccounts.length === 1 ? "account" : "accounts"}</span>
+        {(activity.status === "error" || activity.snapshot && !activity.snapshot.complete) && <Button type="button" size="sm" variant="ghost" onPress={activity.refresh}>Retry</Button>}
+      </div>
+      {notice && <p className="mobile-finance-account-notice" role="status">{notice}</p>}
 
-      {loading && <FinanceLoading />}
+      {loading && !hasData && <FinanceLoading />}
       {unavailable && <FinanceError onRetry={() => setReloadKey((value) => value + 1)} />}
       {!loading && !unavailable && !hasData && <FinanceEmpty onAdd={() => setAccountForm({ mode: "add" })} />}
-      {!loading && !unavailable && hasData && (
+      {!unavailable && hasData && (
         <>
-          <section className="mobile-finance-accounts" aria-labelledby="mobile-finance-accounts-title">
-            {accountsState === "error" ? <div className="mobile-finance-inline-empty">Accounts are unavailable</div> : displayAccounts.length ? <AccountStack accounts={displayAccounts} overview={overview} overviewState={overviewState} focusAccountId={focusAccountId} onFocusHandled={() => setFocusAccountId(null)} onEdit={(account) => setAccountForm({ mode: "edit", account })} onSaved={async (saved) => {
+          <section className="mobile-finance-accounts" aria-label="Accounts">
+            {accountsState === "error" ? <div className="mobile-finance-inline-empty">Accounts are unavailable</div> : displayAccounts.length ? <AccountStack accounts={displayAccounts} overview={overview} overviewState={overviewState} available={accountsState === "ready"} focusAccountId={focusAccountId} onFocusHandled={() => setFocusAccountId(null)} onRepay={setRepaymentAccount} onEdit={(account) => setAccountForm({ mode: "edit", account })} onSaved={async (saved) => {
               setAccounts((current) => {
                 const source = current.length ? current : displayAccounts
                 return source.map((account) => account.id === saved.id ? saved : account)
@@ -164,13 +199,23 @@ function FinanceAccountsView() {
           {overviewState === "error" && <p className="mobile-finance-stale-note">Monthly totals are unavailable</p>}
         </>
       )}
-      {accountForm && <AccountFormSheet mode={accountForm.mode} account={accountForm.account} onClose={() => setAccountForm(null)} onSaved={async (saved) => { setAccountForm(null); setFocusAccountId(saved.id); await load() }} />}
+      {accountForm && <AccountFormSheet mode={accountForm.mode} account={accountForm.account} onClose={() => setAccountForm(null)} onSaved={async (saved) => { setFocusAccountId(saved.id); await load() }} />}
+      {repaymentAccount && <AccountRepaymentSheet key={repaymentAccount.id} account={accounts.find((account) => account.id === repaymentAccount.id) ?? repaymentAccount}
+        accounts={accounts} available={accountsState === "ready" && accounts.some((account) => account.id === repaymentAccount.id)} onClose={() => setRepaymentAccount(null)} onOpenInstallments={() => { setInstallmentAccountId(repaymentAccount.id); setRepaymentAccount(null) }}
+        onSaved={async (transaction) => {
+          setRepaymentAccount(null); setFocusAccountId(transaction.toAccountId); setNotice("Repayment saved.")
+          activity.refresh()
+          if (!await load()) setNotice("Repayment saved. Some balances could not refresh; use Refresh to update them.")
+        }} />}
+      {installmentAccountId !== null && <ActivityInstallments accounts={displayAccounts.filter((account) => account.nature === "asset" || account.id === installmentAccountId)}
+        onClose={() => setInstallmentAccountId(null)} onChanged={async () => { activity.refresh(); await load() }} />}
     </div>
   )
 }
 
-function AccountStack({ accounts, overview, overviewState, focusAccountId, onFocusHandled, onEdit, onSaved }: { accounts: FinanceAccount[]; overview: FinanceOverview | null; overviewState: FinanceLoadState; focusAccountId: number | null; onFocusHandled: () => void; onEdit: (account: FinanceAccount) => void; onSaved: (account: FinanceAccount) => Promise<void> | void }) {
-  const [activeIndex, setActiveIndex] = useState(0)
+function AccountStack({ accounts, overview, overviewState, available, focusAccountId, onFocusHandled, onEdit, onRepay, onSaved }: { accounts: FinanceAccount[]; overview: FinanceOverview | null; overviewState: FinanceLoadState; available: boolean; focusAccountId: number | null; onFocusHandled: () => void; onEdit: (account: FinanceAccount) => void; onRepay: (account: FinanceAccount) => void; onSaved: (account: FinanceAccount) => Promise<void> | void }) {
+  const [activeId, setActiveId] = useState<number | null>(null)
+  const [balanceVisible, setBalanceVisible] = useState(false)
   const [editingField, setEditingField] = useState<EditableAccountField | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -178,20 +223,21 @@ function AccountStack({ accounts, overview, overviewState, focusAccountId, onFoc
   const suppressClick = useRef(false)
 
   const focusIndex = focusAccountId == null ? -1 : accounts.findIndex((account) => account.id === focusAccountId)
-  const safeActiveIndex = accounts.length ? (focusIndex >= 0 ? focusIndex : activeIndex % accounts.length) : 0
+  const selectedIndex = accounts.findIndex((account) => account.id === activeId)
+  const safeActiveIndex = Math.max(0, focusIndex >= 0 ? focusIndex : selectedIndex)
   const orderedAccounts = accounts.length ? [...accounts.slice(safeActiveIndex), ...accounts.slice(0, safeActiveIndex)] : []
   const visibleAccounts = orderedAccounts.slice(0, Math.min(4, orderedAccounts.length))
   const activeAccount = accounts[safeActiveIndex]
 
   function selectIndex(index: number) {
     onFocusHandled()
-    setActiveIndex(index)
+    setActiveId(accounts[index]?.id ?? null)
   }
 
   function move(direction: 1 | -1) {
     if (accounts.length < 2) return
     onFocusHandled()
-    setActiveIndex((current) => (current + direction + accounts.length) % accounts.length)
+    setActiveId(accounts[(safeActiveIndex + direction + accounts.length) % accounts.length].id)
     setEditingField(null)
     setSaveError(null)
   }
@@ -268,7 +314,7 @@ function AccountStack({ accounts, overview, overviewState, focusAccountId, onFoc
         onPointerMove={trackGesture}
         onPointerUp={endGesture}
         onPointerCancel={endGesture}
-        style={{ minHeight: `${205 + Math.max(0, visibleAccounts.length - 1) * 18}px` }}
+        style={{ minHeight: `${160 + Math.max(0, visibleAccounts.length - 1) * 18}px` }}
       >
       {visibleAccounts.map((account, index) => {
         const Icon = accountIcon(account.accountType)
@@ -299,7 +345,17 @@ function AccountStack({ accounts, overview, overviewState, focusAccountId, onFoc
               </span>
               <span className="mobile-finance-account-bottom">
                 <span>{account.nature === "credit" ? "Current due" : "Balance"}</span>
-                <strong>{formatMoney(balance, account.currency)}</strong>
+                <strong>
+                  <button
+                    type="button"
+                    className="mobile-finance-balance-toggle"
+                    aria-label={balanceVisible ? "Hide account balance" : "Show account balance"}
+                    aria-pressed={balanceVisible}
+                    onClick={(event) => { event.stopPropagation(); setBalanceVisible((visible) => !visible) }}
+                  >
+                    {balanceVisible ? formatMoney(balance, account.currency) : "••••••"}
+                  </button>
+                </strong>
                 <span className="mobile-finance-account-action" aria-hidden="true"><ChevronRight /></span>
               </span>
             </button>
@@ -310,18 +366,20 @@ function AccountStack({ accounts, overview, overviewState, focusAccountId, onFoc
       {accounts.length > 1 && <div className="mobile-finance-stack-controls"><button type="button" className="mobile-finance-stack-control" onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /><span>Previous</span></button><div className="mobile-finance-dots" aria-label="Select account">{accounts.map((account, index) => <button key={account.id} type="button" className={`mobile-finance-dot${index === safeActiveIndex ? " is-active" : ""}`} aria-label={`Select ${account.name}`} aria-pressed={index === safeActiveIndex} onClick={() => selectIndex(index)} />)}</div><button type="button" className="mobile-finance-stack-control" onClick={() => move(1)}><span>Next</span><ChevronRight aria-hidden="true" /></button></div>}
     </div>
     {accounts.length > 1 && <div className="mobile-finance-account-switcher" aria-label="All accounts">{accounts.map((account, index) => <button key={account.id} type="button" className={`mobile-finance-account-chip${index === safeActiveIndex ? " is-active" : ""}`} aria-pressed={index === safeActiveIndex} onClick={() => { selectIndex(index); setEditingField(null); setSaveError(null) }}>{account.name}</button>)}</div>}
-    {activeAccount && <AccountOverviewPanel account={activeAccount} overview={overview} overviewState={overviewState} saving={savingId === activeAccount.id} editingField={editingField} error={saveError} onEdit={() => onEdit(activeAccount)} onBeginEdit={(field) => { setEditingField(field); setSaveError(null) }} onCancel={() => { setEditingField(null); setSaveError(null) }} onSave={(field, value) => save(activeAccount, field, value)} />}
+    {activeAccount && <AccountOverviewPanel key={activeAccount.id} account={activeAccount} overview={overview} overviewState={overviewState} available={available} saving={savingId === activeAccount.id} editingField={editingField} error={saveError} onEdit={() => onEdit(activeAccount)} onRepay={() => onRepay(activeAccount)} onBeginEdit={(field) => { setEditingField(field); setSaveError(null) }} onCancel={() => { setEditingField(null); setSaveError(null) }} onSave={(field, value) => save(activeAccount, field, value)} />}
   </>
 }
 
-function AccountOverviewPanel({ account, overview, overviewState, editingField, saving, error, onEdit, onBeginEdit, onCancel, onSave }: {
+function AccountOverviewPanel({ account, overview, overviewState, available, editingField, saving, error, onEdit, onRepay, onBeginEdit, onCancel, onSave }: {
   account: FinanceAccount
   overview: FinanceOverview | null
   overviewState: FinanceLoadState
+  available: boolean
   editingField: EditableAccountField | null
   saving: boolean
   error: string | null
   onEdit: () => void
+  onRepay: () => void
   onBeginEdit: (field: EditableAccountField) => void
   onCancel: () => void
   onSave: (field: EditableAccountField, value: string) => Promise<void>
@@ -331,6 +389,10 @@ function AccountOverviewPanel({ account, overview, overviewState, editingField, 
       <div><span>Net assets</span><strong>{formatMoney(overview?.netAssets)}</strong><small>{overview ? "Assets " + formatMoney(overview.assetTotal) + " · Credit " + formatMoney(overview.liabilityTotal) : "Unavailable"}</small></div>
       <div><span>This month</span><strong className="is-negative">{formatMoney(overview?.expense)}</strong><small>spent so far</small></div>
     </div>
+    {account.nature === "credit" && <div className="mobile-finance-credit-action"><div><span>Current due</span><strong>{formatMoney(account.balance, account.currency)}</strong></div>
+      <Button type="button" variant="primary" isDisabled={!available || saving || accountRepaymentDueFen(account) === null || accountRepaymentDueFen(account) === 0} onPress={onRepay}>
+        <CreditCard aria-hidden="true" />{accountRepaymentDueFen(account) === 0 ? "Nothing due" : "Repay"}
+      </Button></div>}
     <div className="mobile-finance-details">
       <div className="mobile-finance-details-head"><h3>Selected account</h3><button type="button" className="mobile-finance-text-button" onClick={onEdit}><Pencil aria-hidden="true" />Edit account</button></div>
       <AccountExpandedDetails account={account} editingField={editingField} saving={saving} error={error} onBeginEdit={onBeginEdit} onCancel={onCancel} onSave={onSave} />
@@ -396,81 +458,6 @@ function FinanceLoading() {
 
 function FinanceError({ onRetry }: { onRetry: () => void }) {
   return <div className="mobile-finance-message"><WalletCards aria-hidden="true" /><strong>Finance is unavailable</strong><p>We could not load your accounts.</p><button type="button" onClick={onRetry}>Try again</button></div>
-}
-
-function AccountFormSheet({ mode, account, onClose, onSaved }: { mode: "add" | "edit"; account?: FinanceAccount; onClose: () => void; onSaved: (account: FinanceAccount) => Promise<void> | void }) {
-  const portal = useMobilePortal()
-  const dialog = useRef<HTMLDialogElement>(null)
-  const [accountType, setAccountType] = useState<FinanceAccount["accountType"]>(account?.accountType ?? "bank")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const title = mode === "add" ? "Add account" : "Edit account"
-
-  useEffect(() => {
-    const element = dialog.current
-    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    element?.showModal()
-    return () => { element?.close(); trigger?.focus() }
-  }, [])
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (saving) return
-    const form = new FormData(event.currentTarget)
-    const name = String(form.get("name") ?? "").trim()
-    const openingBalance = parseNonNegative(String(form.get("openingBalance") ?? ""))
-    const credit = creditAccountTypes.has(accountType)
-    const creditLimit = parseNonNegativeOrNull(String(form.get("creditLimit") ?? ""))
-    const billingDay = parseDayOrNull(String(form.get("billingDay") ?? ""))
-    const dueDay = parseDayOrNull(String(form.get("dueDay") ?? ""))
-    if (!name || openingBalance == null || creditLimit === undefined || billingDay === undefined || dueDay === undefined) {
-      setError("Enter valid account details before saving.")
-      return
-    }
-    setSaving(true)
-    setError(null)
-    try {
-      const saved = await saveFinanceAccount({
-        ...(account ? { id: account.id } : {}),
-        name,
-        accountType,
-        nature: credit ? "credit" : "asset",
-        currency: account?.currency ?? String(form.get("currency") ?? "CNY"),
-        openingBalance,
-        creditLimit: credit ? creditLimit : null,
-        billingDay: credit ? billingDay : null,
-        dueDay: credit ? dueDay : null,
-        color: account?.color ?? null,
-        notes: String(form.get("notes") ?? "").trim() || null,
-      })
-      await onSaved(saved)
-      onClose()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this account.")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const content = <dialog ref={dialog} className="mobile-finance-dialog" aria-labelledby="mobile-finance-dialog-title" onCancel={(event) => { event.preventDefault(); if (!saving) onClose() }} onClick={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
-    <form className="mobile-finance-dialog-inner" onSubmit={(event) => void submit(event)}>
-      <div className="mobile-finance-dialog-head"><div><h2 id="mobile-finance-dialog-title">{title}</h2><p>{mode === "add" ? "Set up an account once. Its balance will follow your saved activity." : "Update account details. Current balance remains derived from activity."}</p></div><button type="button" className="mobile-finance-circle-button" aria-label="Close account form" onClick={onClose} disabled={saving}><X aria-hidden="true" /></button></div>
-      <label className="mobile-finance-form-field"><span>Account name</span><input required name="name" defaultValue={account?.name ?? ""} maxLength={80} autoComplete="off" /></label>
-      <label className="mobile-finance-form-field"><span>Account type</span><select name="accountType" value={accountType} onChange={(event) => setAccountType(event.target.value as FinanceAccount["accountType"])}>{accountTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-      <div className="mobile-finance-form-field"><span>Nature</span><div className="mobile-finance-readonly">{creditAccountTypes.has(accountType) ? "Credit account" : "Asset account"} · derived from type</div></div>
-      {mode === "add" ? <label className="mobile-finance-form-field"><span>Currency</span><select name="currency" defaultValue="CNY"><option>CNY</option><option>USD</option><option>EUR</option><option>GBP</option><option>JPY</option><option>HKD</option></select></label> : <div className="mobile-finance-form-field"><span>Currency</span><div className="mobile-finance-readonly">{account?.currency ?? "CNY"}</div></div>}
-      <label className="mobile-finance-form-field"><span>Opening balance</span><input required name="openingBalance" type="number" min="0" step="0.01" defaultValue={account?.openingBalance ?? 0} inputMode="decimal" /><small>Current balance is updated by activity records.</small></label>
-      {creditAccountTypes.has(accountType) && <div className="mobile-finance-editor-grid">
-        <label className="mobile-finance-form-field"><span>Credit limit</span><input name="creditLimit" type="number" min="0" step="0.01" defaultValue={account?.creditLimit ?? ""} inputMode="decimal" /></label>
-        <label className="mobile-finance-form-field"><span>Billing day</span><input name="billingDay" type="number" min="1" max="31" defaultValue={account?.billingDay ?? ""} inputMode="numeric" /></label>
-        <label className="mobile-finance-form-field"><span>Due day</span><input name="dueDay" type="number" min="1" max="31" defaultValue={account?.dueDay ?? ""} inputMode="numeric" /></label>
-      </div>}
-      <label className="mobile-finance-form-field"><span>Notes</span><textarea name="notes" defaultValue={account?.notes ?? ""} rows={3} /></label>
-      {error && <p className="mobile-finance-dialog-error" role="alert">{error}</p>}
-      <div className="mobile-finance-dialog-actions"><button type="button" className="mobile-finance-form-cancel" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="mobile-finance-form-save" disabled={saving}>{saving ? <LoaderCircle aria-hidden="true" className="is-spinning" /> : <Save aria-hidden="true" />}{saving ? "Saving" : mode === "add" ? "Add account" : "Save changes"}</button></div>
-    </form>
-  </dialog>
-  return portal ? createPortal(content, portal) : content
 }
 
 function FinanceEmpty({ onAdd }: { onAdd: () => void }) {

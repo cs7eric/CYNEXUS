@@ -39,9 +39,9 @@ export function buildActivityInstallmentTerms({ totalFen, feeText, countText, fi
   totalFen: number; feeText: string; countText: string; firstDueDate: string; intervalText: string
 }): { error?: string; value?: ActivityInstallmentTerms } {
   if (!Number.isSafeInteger(totalFen) || totalFen <= 0 || activityTransactionFen({ amount: totalFen / 100 }) !== totalFen) return { error: "Enter a valid purchase amount first." }
-  if (!/^\d+$/.test(countText.trim())) return { error: "Choose a whole number of installments from 2 to 60." }
+  if (!/^\d+$/.test(countText.trim())) return { error: "Choose a whole number of installments from 1 to 60." }
   const count = Number(countText.trim())
-  if (!Number.isInteger(count) || count < 2 || count > 60) return { error: "Choose a whole number of installments from 2 to 60." }
+  if (!Number.isInteger(count) || count < 1 || count > 60) return { error: "Choose a whole number of installments from 1 to 60." }
   if (totalFen < count) return { error: "Each installment needs at least ¥0.01 of principal. Reduce the installment count." }
   const feeValue = feeText.trim()
   const feeFen = feeValue === "" || /^0+(?:\.0{1,2})?$/.test(feeValue) ? 0 : parseActivityAmount(feeValue)

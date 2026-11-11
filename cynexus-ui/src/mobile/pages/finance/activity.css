@@ -1,9 +1,9 @@
-.mobile-theme .mobile-finance-activity { padding: 25px 4px 12px; color: var(--foreground); }
-.mobile-theme .fa-heading, .mobile-theme .fa-heading > div, .mobile-theme .fa-period,
+.mobile-content.is-finance-fixed { display: flex; flex-direction: column; overflow: hidden; }
+.mobile-content.is-finance-fixed .mobile-route-container { display: flex; height: 100%; min-height: 0; flex: 1; flex-direction: column; padding-top: calc(80px + env(safe-area-inset-top, 0px)); padding-bottom: 0; }
+.mobile-content.is-finance-fixed .mobile-finance-activity { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; padding-bottom: 12px; }
+.mobile-theme .mobile-finance-activity { padding: 4px 4px 12px; color: var(--foreground); }
+.mobile-theme .fa-period,
 .mobile-theme .fa-sheet-heading, .mobile-theme .fa-year-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.mobile-theme .fa-heading { margin-bottom: 7px; }
-.mobile-theme .fa-heading h2 { margin: 0; font-size: 33px; font-weight: 550; letter-spacing: -1.5px; line-height: 1.2; }
-.mobile-theme .fa-heading > div { gap: 0; margin-right: -8px; }
 .mobile-theme .fa-round { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
 .mobile-theme .fa-round svg { width: 20px; height: 20px; }
 .mobile-theme :is(.mobile-finance-activity, .finance-activity-dialog) :is(button, input, select, textarea):focus-visible { outline: 2px solid #426d5a; outline-offset: 3px; }
@@ -36,11 +36,6 @@
 .mobile-theme .fa-cash.is-detail > .finance-asset-scene { transform: translateX(-50%) scale(.54); top: -4px; }
 .mobile-theme .fa-net { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 13px 2px 15px; font-size: 11px; color: var(--muted); }
 .mobile-theme .fa-net strong { font: 500 16px "Outfit Display", "Manrope Mobile", sans-serif; letter-spacing: -.2px; color: #3c6856; text-align: right; overflow-wrap: anywhere; }
-.mobile-theme .fa-search { position: relative; margin: 1px 0 13px; }
-.mobile-theme .fa-search > svg { position: absolute; left: 14px; top: 14px; width: 18px; height: 18px; color: var(--muted); }
-.mobile-theme .fa-search input { display: block; width: 100%; height: 46px; padding: 0 45px 0 41px; background: #f7fafc; border: 1px solid #c9d5dd; border-radius: 16px; font-size: 12px; }
-.mobile-theme .fa-search .fa-round { position: absolute; right: 1px; top: 1px; }
-.mobile-theme .fa-search .fa-round svg { width: 16px; height: 16px; }
 .mobile-theme .fa-filters { display: flex; gap: 3px; padding: 4px; background: #f7fafbcc; border-radius: 27px; margin-bottom: 23px; }
 .mobile-theme .fa-filters button { flex: 1; min-width: 0; min-height: 44px; display: grid; place-items: center; padding: 0 7px; border: 0; border-radius: 22px; background: transparent; font-size: 10px; font-weight: 600; color: #5f7280; cursor: pointer; }
 .mobile-theme .fa-filters button[aria-pressed=true] { background: var(--foreground); color: white; }
@@ -213,4 +208,111 @@
 @media (prefers-reduced-motion: no-preference) {
   .mobile-theme .fa-record, .mobile-theme .fa-filters button { transition: background .15s ease, color .15s ease; }
   .mobile-theme .fa-record:hover { background: #ffffff35; }
+}
+
+/* Approved mobile record sheet; scoped so other Finance sheets keep their layout. */
+.mobile-theme .finance-activity-dialog.fa-entry-sheet {
+  --foreground: #22282e;
+  --muted: #636b73;
+  --accent: #22282e;
+  --accent-hover: #373f46;
+  --accent-foreground: #fff;
+  --default: #f4f5f6;
+  --default-hover: #e9ecee;
+  --default-foreground: #22282e;
+  --surface: #fff;
+  --border: #edf0f1;
+  --focus: #22282e;
+  overflow: hidden;
+  background: var(--surface);
+}
+.mobile-theme .fa-entry-sheet::backdrop { background: #20282e4a; }
+.mobile-theme .fa-entry-sheet .fa-sheet { display: flex; min-height: 0; max-height: calc(var(--mobile-viewport-height, 100dvh) - 35px); flex-direction: column; padding: 12px 22px 0; }
+.mobile-theme .fa-entry-sheet .fa-handle { flex: 0 0 4px; width: 30px; background: #d9dde0; margin-bottom: 10px; }
+.mobile-theme .fa-entry-sheet .fa-sheet-heading { flex: 0 0 auto; margin-bottom: 8px; }
+.mobile-theme .fa-entry-sheet .fa-sheet-heading h2 { font-size: 20px; font-weight: 550; line-height: 28px; letter-spacing: -.6px; }
+.mobile-theme .fa-entry-sheet .fa-entry-form { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
+.mobile-theme .fa-entry-sheet .fa-entry-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 4px; margin: -4px; }
+.mobile-theme .fa-entry-sheet .fa-entry-scroll::-webkit-scrollbar { display: none; }
+.mobile-theme .fa-entry-sheet .fa-entry-types { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 4px; border-radius: 26px; background: var(--default); }
+.mobile-theme .fa-entry-sheet .fa-entry-types > button { width: 100%; min-width: 0; height: 44px; padding: 0 6px; gap: 5px; border-radius: 22px; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-types > button[aria-pressed=true] { font-weight: 650; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-block { padding: 18px 2px 12px; border-bottom: 1px solid var(--border); }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-heading { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; line-height: 16px; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-heading > span { font-size: 10px; font-weight: 600; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-line { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-line > span { font-size: 26px; font-weight: 450; line-height: 1.2; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-line > input { width: 100%; min-width: 0; height: 56px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 42px; font-weight: 500; line-height: 56px; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-line > input::placeholder { color: #858c92; opacity: 1; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-line > input:focus-visible { outline: none; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-block:focus-within { border-bottom-color: var(--foreground); }
+.mobile-theme .fa-entry-sheet .fa-entry-paired { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 0 4px; border-bottom: 1px solid var(--border); }
+.mobile-theme .fa-entry-sheet .fa-entry-choice { min-width: 0; padding-right: 14px; }
+.mobile-theme .fa-entry-sheet .fa-entry-paired > .fa-entry-choice + .fa-entry-choice { padding-right: 0; padding-left: 14px; border-left: 1px solid var(--border); }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-label { display: flex; min-height: 16px; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; line-height: 16px; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-label > svg { width: 14px; height: 14px; flex-shrink: 0; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-trigger { display: flex; width: 100%; min-width: 0; height: 44px; justify-content: space-between; gap: 7px; padding: 0 2px; border-radius: 8px; font-size: 12px; text-align: left; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-popover { min-width: 180px; width: max-content; max-width: min(300px, calc(100vw - 24px)); max-height: min(280px, var(--visual-viewport-height, 100dvh)); border: 1px solid #e7eaec; border-radius: 13px; background: var(--surface); color: var(--foreground); scrollbar-width: none; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-popover [role=menu] { max-height: 220px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 5px; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-popover [role^=menuitem] { min-height: 44px; border-radius: 9px; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-popover [role^=menuitem][aria-checked=true] { background: var(--accent); color: var(--accent-foreground); font-weight: 600; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-popover [aria-checked=true] [data-slot=menu-item-indicator] { color: inherit; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-popover::-webkit-scrollbar, .mobile-theme .fa-entry-sheet .fa-entry-choice-popover [role=menu]::-webkit-scrollbar { display: none; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-copy { display: flex; min-width: 0; flex-direction: column; overflow-wrap: anywhere; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-copy small { opacity: .7; font-size: 10px; font-weight: 400; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-search { display: flex; align-items: center; gap: 7px; margin: 5px 9px 2px; border-bottom: 1px solid var(--border); }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-search > svg { width: 15px; height: 15px; color: var(--muted); }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-search > input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-choice-empty { margin: 0; padding: 12px; font-size: 12px; color: var(--muted); }
+.mobile-theme .fa-entry-sheet .fa-entry-account-hint { margin: 8px 0; color: var(--muted); font-size: 10px; line-height: 15px; }
+.mobile-theme .fa-entry-sheet .fa-entry-row { display: flex; min-height: 54px; align-items: center; gap: 11px; border-bottom: 1px solid var(--border); }
+.mobile-theme .fa-entry-sheet .fa-entry-row > svg { width: 17px; height: 17px; flex: 0 0 17px; color: #707880; }
+.mobile-theme .fa-entry-sheet .fa-entry-row > span { flex: 0 0 auto; font-size: 12px; font-weight: 450; color: #575f67; }
+.mobile-theme .fa-entry-sheet .fa-entry-row > input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--foreground); font: inherit; font-size: 13px; text-align: right; }
+.mobile-theme .fa-entry-sheet .fa-entry-row > input[type=datetime-local] { flex: 1 1 auto; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-payment > .button-group { min-width: 0; margin-left: auto; }
+.mobile-theme .fa-entry-sheet .fa-entry-payment .button { min-width: 0; height: 44px; padding: 0 10px; border-radius: 12px; font-size: 11px; }
+.mobile-theme .fa-entry-sheet .fa-entry-payment [aria-pressed=true] { font-weight: 650; }
+.mobile-theme .fa-entry-sheet .fa-entry-note-toggle { width: 100%; height: 46px; justify-content: flex-start; gap: 11px; padding: 0; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-note-toggle > small { margin-left: auto; color: var(--muted); font-size: 10px; }
+.mobile-theme .fa-entry-sheet .fa-entry-note > textarea { width: 100%; height: 76px; margin-bottom: 10px; padding: 10px 12px; resize: vertical; border: 1px solid #e4e7e9; border-radius: 12px; background: var(--surface); font: inherit; font-size: 13px; line-height: 20px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan { padding: 14px 0 2px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-heading { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 11px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-heading > svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-heading h3 { margin: 0; font-size: 13px; font-weight: 650; line-height: 18px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-heading p { margin: 2px 0 0; color: var(--muted); font-size: 10px; line-height: 15px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-summary { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 10px; margin-bottom: 8px; padding: 12px; border-radius: 12px; background: var(--foreground); color: #fff; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-summary > div { min-width: 0; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-summary > div + div { padding-left: 10px; border-left: 1px solid #ffffff38; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-summary span { display: block; color: #d3d9dd; font-size: 10px; line-height: 15px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-summary strong { display: block; margin-top: 2px; font-size: 18px; font-weight: 600; line-height: 23px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-summary > div + div strong { font-size: 15px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-breakdown { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 12px; color: var(--muted); font-size: 10px; line-height: 15px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-breakdown strong { color: var(--foreground); font-weight: 600; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-fields > .fa-entry-choice { padding: 0; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-field { display: block; min-width: 0; color: var(--muted); font-size: 11px; line-height: 16px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-field :is(input, output), .mobile-theme .fa-entry-sheet .fa-entry-choice.is-boxed .fa-entry-choice-trigger { display: flex; width: 100%; min-width: 0; height: 44px; align-items: center; margin-top: 6px; padding: 0 10px; border: 1px solid #e4e7e9; border-radius: 10px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 12px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-hint { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 15px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-schedule { margin-top: 2px; color: var(--muted); font-size: 11px; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-schedule summary { min-height: 44px; padding-block: 14px; cursor: pointer; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-schedule ol { display: grid; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-schedule li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; border-bottom: 1px solid var(--border); font-size: 11px; font-variant-numeric: tabular-nums; }
+.mobile-theme .fa-entry-sheet .fa-entry-plan-schedule strong { font-weight: 550; color: var(--foreground); }
+.mobile-theme .fa-entry-sheet .fa-entry-form .fa-entry-submit { position: static; z-index: auto; flex: 0 0 auto; margin: 0; padding: 12px 0 max(18px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); }
+.mobile-theme .fa-entry-sheet .fa-entry-submit .fa-form-error { margin: 0 0 9px; font-size: 12px; line-height: 18px; }
+.mobile-theme .fa-entry-sheet .fa-entry-submit .fa-form-error:empty { display: none; }
+.mobile-theme .fa-entry-sheet .fa-entry-save { width: 100%; height: auto; min-height: 48px; padding: 10px 12px; font-size: 13px; font-weight: 650; white-space: normal; }
+.mobile-theme .fa-entry-sheet .fa-entry-caption { margin: 9px 0 0; color: var(--muted); font-size: 10px; line-height: 15px; text-align: center; }
+.mobile-theme .fa-entry-sheet :is(button, input, textarea):focus-visible { outline-color: var(--foreground); }
+@media (max-width: 360px) {
+  .mobile-theme .fa-entry-sheet .fa-sheet { padding-inline: 18px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-types > button { gap: 4px; font-size: 11px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-row { gap: 8px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-row > span { font-size: 11px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-row > input[type=datetime-local] { font-size: 11px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-payment .button { padding-inline: 8px; font-size: 10px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-plan-fields { gap: 10px; }
+  .mobile-theme .fa-entry-sheet .fa-entry-plan-field :is(input, output), .mobile-theme .fa-entry-sheet .fa-entry-choice.is-boxed .fa-entry-choice-trigger { padding-inline: 7px; font-size: 11px; }
 }

@@ -3,6 +3,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { canUseFinanceAccountForTransaction } from "@/services/finance/account-eligibility";
 import type { FinanceAccount, FinanceCategory } from "@/services/finance/ledger";
 
 type EntryType = "expense" | "income" | "transfer";
@@ -37,6 +38,10 @@ export function QuickEntryForm({
     () => accounts.filter((item) => !item.archived),
     [accounts],
   );
+  const sourceAccounts = useMemo(
+    () => activeAccounts.filter((item) => canUseFinanceAccountForTransaction(item, type)),
+    [activeAccounts, type],
+  );
   const activeCategories = useMemo(
     () =>
       categories.filter(
@@ -49,11 +54,13 @@ export function QuickEntryForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     const numericAmount = Number(amount);
+    const sourceAccount = sourceAccounts.find((item) => String(item.id) === accountId);
     if (
       !Number.isFinite(numericAmount) ||
       numericAmount <= 0 ||
-      !accountId ||
+      !sourceAccount ||
       !occurredAt ||
       (type === "transfer" ? !toAccountId : !categoryId) ||
       (type === "transfer" && accountId === toAccountId)
@@ -118,6 +125,10 @@ export function QuickEntryForm({
               type="button"
               onClick={() => {
                 setType(value);
+                const sourceAccount = activeAccounts.find((item) => String(item.id) === accountId);
+                if (sourceAccount && !canUseFinanceAccountForTransaction(sourceAccount, value)) {
+                  setAccountId("");
+                }
                 if (value === "transfer") setCategoryId("");
                 else setToAccountId("");
               }}
@@ -158,7 +169,7 @@ export function QuickEntryForm({
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">选择账户</option>
-              {activeAccounts.map((item) => (
+              {sourceAccounts.map((item) => (
                 <option key={String(item.id)} value={String(item.id)}>
                   {item.name} · {item.nature === "credit" ? "信用" : "资产"}
                 </option>
@@ -218,7 +229,7 @@ export function QuickEntryForm({
         <div className="flex justify-end">
           <Button
             type="submit"
-            disabled={saving || !activeAccounts.length}
+            disabled={saving || !sourceAccounts.length}
             className="gap-2"
           >
             {saving ? "保存中" : <><Check className="size-4" />入账</>}

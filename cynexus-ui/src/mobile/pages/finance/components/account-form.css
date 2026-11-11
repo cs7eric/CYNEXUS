@@ -1,0 +1,87 @@
+.mobile-theme {
+  .fac-account-backdrop, .fac-account-choice-popover { --foreground: #22282e; --muted: #636b73; --accent: #22282e; --accent-hover: #373f46; --accent-foreground: #fff; --border: #edf0f1; --focus: #22282e; --danger: #b33d32; --field-border: #e4e7e9; --field-foreground: #22282e; --field-placeholder: #636b73; --field-background: #fff; --overlay: #fff; --overlay-foreground: #22282e; color: var(--foreground); }
+.fac-account-backdrop.modal__backdrop { position: fixed; inset: 0; width: 100%; height: var(--mobile-viewport-height, 100dvh); z-index: 100; background: #202a354a; }
+.fac-account-modal-container.modal__container { width: 100%; height: 100%; min-height: 0; padding: 36px 0 0; }
+.fac-account-sheet.modal__dialog { display: flex; width: 100%; max-width: 440px; max-height: 100%; margin: auto auto 0; padding: 0; overflow: hidden; border-radius: 28px 28px 0 0; background: #fff; box-shadow: none; }
+.fac-account-form svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.7; }
+.fac-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.fac-account-form { display: flex; width: 100%; min-height: 0; max-height: 100%; flex-direction: column; padding: 12px 22px 0; overflow: hidden; }
+.fac-sheet-grip { width: 30px; height: 4px; flex: 0 0 4px; margin: 0 auto 10px; border-radius: 4px; background: #d9dde0; }
+.fac-sheet-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -8px 8px 0; }
+.fac-sheet-heading h1 { margin: 0; font-size: 20px; font-weight: 550; letter-spacing: -.6px; line-height: 28px; }
+.fac-sheet-close.button { width: 44px; height: 44px; min-width: 44px; padding: 0; border-radius: 50%; color: var(--muted); }
+.fac-sheet-close svg { width: 18px; height: 18px; }
+.fac-sheet-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 4px; margin: -4px; }
+.fac-sheet-scroll::-webkit-scrollbar { display: none; }
+.fac-account-form .text-field, .fac-account-form .select { min-width: 0; width: 100%; gap: 0; }
+.fac-account-form .label, .fac-field-label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 450; line-height: 16px; }
+.fac-account-form .label > svg, .fac-field-label > svg { width: 14px; height: 14px; color: #707880; }
+.fac-account-form .input, .fac-account-form .input-group, .fac-account-form .select__trigger { width: 100%; min-width: 0; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--foreground); box-shadow: none; font-size: 12px; }
+.fac-account-form .input-group__input { min-width: 0; height: 44px; padding: 0; color: var(--foreground); font-size: 12px; font-weight: 400; line-height: 20px; }
+.fac-account-form .input-group__prefix, .fac-account-form .input-group__suffix { border: 0; }
+.fac-account-form .input::placeholder, .fac-account-form .input-group__input::placeholder, .fac-account-form .textarea::placeholder { color: var(--muted); opacity: 1; }
+.fac-account-form .input:focus-visible, .fac-account-form .input-group:has(:focus-visible), .fac-account-form .select__trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fac-account-form .input[aria-invalid="true"], .fac-account-form .input-group:has([aria-invalid="true"]) { outline: 1px solid var(--danger); outline-offset: 2px; }
+.fac-account-form .fac-name-field, .fac-account-form .fac-credit-limit-row { display: grid; min-height: 54px; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 11px; border-bottom: 1px solid var(--border); }
+.fac-account-form .fac-name-field > .label, .fac-account-form .fac-credit-limit-row > .label { gap: 11px; color: #575f67; font-size: 12px; white-space: nowrap; }
+.fac-account-form .fac-name-field > .label > svg, .fac-account-form .fac-credit-limit-row > .label > svg { width: 17px; height: 17px; }
+.fac-account-form .fac-name-field > .input, .fac-account-form .fac-credit-limit-row > .input { font-size: 13px; text-align: right; }
+.fac-account-type-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 0 4px; border-bottom: 1px solid var(--border); }
+.fac-account-type-row > .fac-account-type-select { padding-right: 14px; }
+.fac-account-type-row > :is(.fac-currency-select, .fac-currency-readonly) { padding-left: 14px; border-left: 1px solid var(--border); }
+.fac-account-form .select__trigger { display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 0 2px; border-radius: 8px; text-align: left; }
+.fac-account-form .select__value { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 450; text-overflow: ellipsis; white-space: nowrap; }
+.fac-account-form .select__indicator { width: 13px; height: 13px; margin-left: auto; color: #7b8389; }
+.fac-currency-readonly { display: flex; min-width: 0; flex-direction: column; }
+.fac-currency-readonly > div { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px; font-size: 12px; line-height: 20px; }
+.fac-currency-readonly > div > svg { width: 12px; height: 12px; color: #7b8389; }
+.fac-account-kind { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; padding: 9px 0 8px; color: var(--muted); font-size: 10px; line-height: 15px; }
+.fac-transfer-only { display: flex; align-items: center; gap: 5px; color: #454f59; }
+.fac-transfer-only svg { width: 12px; height: 12px; }
+.fac-account-choice-popover { max-width: calc(100vw - 24px); max-height: min(320px, calc(100dvh - 100px)); padding: 5px; border: 1px solid #e7eaec; border-radius: 13px; background: #fff; color: var(--foreground); box-shadow: 0 8px 24px #19232d24; font-family: var(--font-sans); }
+.fac-account-choice-popover .list-box { max-height: 300px; padding: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.fac-account-choice-popover .list-box::-webkit-scrollbar { display: none; }
+.fac-account-choice-popover .list-box-item { min-height: 44px; padding: 0 10px; border-radius: 9px; color: var(--foreground); font-size: 12px; }
+.fac-account-choice-popover .list-box-item[data-selected] { background: var(--accent); color: var(--accent-foreground); font-weight: 600; }
+.fac-account-choice-popover .list-box-item[data-selected] .list-box-item__indicator { color: inherit; }
+.fac-opening-section { padding: 10px 2px 12px; border-bottom: 1px solid var(--border); }
+.fac-opening-field > .label { justify-content: space-between; }
+.fac-opening-field > .label > span { font-size: 10px; font-weight: 600; }
+.fac-opening-field .input-group { height: 56px; min-height: 56px; align-items: baseline; gap: 8px; margin-top: 2px; border-radius: 0; }
+.fac-opening-field .input-group__prefix { padding: 0; color: var(--foreground); font-size: 26px; font-weight: 450; line-height: 1.2; }
+.fac-opening-field .input-group__input { height: 56px; padding: 0; font-size: 42px; font-weight: 500; line-height: 56px; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
+.fac-opening-field .input-group:has(:focus-visible) { outline: none; }
+.fac-opening-section:focus-within { border-bottom-color: var(--foreground); }
+.fac-opening-section:has([aria-invalid="true"]) { border-bottom-color: var(--danger); }
+.fac-balance-hint { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 15px; }
+.fac-current-balance { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 11px; line-height: 16px; }
+.fac-current-balance > span { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+.fac-current-balance svg { width: 11px; height: 11px; }
+.fac-current-balance strong { font-size: 12px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.fac-credit-section { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.fac-credit-days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 10px; }
+.fac-credit-days > :first-child { padding-right: 14px; }
+.fac-credit-days > :last-child { padding-left: 14px; border-left: 1px solid var(--border); }
+.fac-credit-days .input-group__suffix { padding: 0; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.fac-credit-section .fac-balance-hint { margin-top: 0; }
+.fac-notes-section { padding-bottom: 4px; }
+.fac-notes-toggle.button { display: flex; width: 100%; min-height: 46px; justify-content: flex-start; gap: 11px; padding: 0; border-radius: 8px; color: var(--muted); font-size: 12px; font-weight: 450; }
+.fac-notes-toggle > svg:first-child { width: 17px; height: 17px; color: #707880; }
+.fac-notes-toggle small { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 400; }
+.fac-notes-toggle > svg:last-child { width: 13px; height: 13px; color: #7b8389; transition: transform 160ms ease; }
+.fac-notes-toggle .fac-is-open { transform: rotate(180deg); }
+.fac-notes-section .textarea { width: 100%; height: 76px; min-height: 76px; max-height: 130px; margin: 0 0 6px; padding: 10px 12px; border: 1px solid var(--field-border); border-radius: 12px; background: #fff; box-shadow: none; font-size: 13px; line-height: 20px; resize: vertical; }
+.fac-sheet-footer { flex: 0 0 auto; padding: 12px 0 max(18px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: #fff; }
+.fac-footer-buttons { display: flex; }
+.fac-footer-buttons .button { width: 100%; min-height: 48px; padding: 10px 18px; border-radius: 25px; background: var(--accent); color: var(--accent-foreground); font-size: 13px; font-weight: 650; }
+.fac-footer-buttons .button:hover { background: var(--accent-hover); }
+.fac-footer-buttons .button svg { width: 17px; height: 17px; }
+.fac-sheet-footer > p:not(.fac-form-error) { margin: 9px 0 0; color: var(--muted); font-size: 10px; line-height: 15px; text-align: center; }
+.fac-form-error { margin: 0 0 9px; color: var(--danger); font-size: 12px; line-height: 18px; }
+@media (max-width: 360px) {
+  .fac-account-form { padding-inline: 18px; }
+  .fac-account-form .fac-name-field, .fac-account-form .fac-credit-limit-row { column-gap: 8px; }
+  .fac-account-form .fac-name-field > .label, .fac-account-form .fac-credit-limit-row > .label { gap: 8px; font-size: 11px; }
+  .fac-account-form .fac-name-field > .input, .fac-account-form .fac-credit-limit-row > .input { font-size: 12px; }
+}
+}
