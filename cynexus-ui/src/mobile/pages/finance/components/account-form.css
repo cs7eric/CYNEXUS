@@ -50,7 +50,7 @@
 .fac-opening-field > .label > span { font-size: 10px; font-weight: 600; }
 .fac-opening-field .input-group { height: 56px; min-height: 56px; align-items: baseline; gap: 8px; margin-top: 2px; border-radius: 0; }
 .fac-opening-field .input-group__prefix { padding: 0; color: var(--foreground); font-size: 26px; font-weight: 450; line-height: 1.2; }
-.fac-opening-field .input-group__input { height: 56px; padding: 0; font-size: 42px; font-weight: 500; line-height: 56px; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
+.fac-opening-field .input-group__input { --mobile-editable-font-size: 42px; height: 56px; padding: 0; font-size: 42px; font-weight: 500; line-height: 56px; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
 .fac-opening-field .input-group:has(:focus-visible) { outline: none; }
 .fac-opening-section:focus-within { border-bottom-color: var(--foreground); }
 .fac-opening-section:has([aria-invalid="true"]) { border-bottom-color: var(--danger); }

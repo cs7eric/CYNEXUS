@@ -7,7 +7,7 @@
     <parent>
         <groupId>cn.cccs7</groupId>
         <artifactId>cynexus-knowledgebase</artifactId>
-    <version>2.9.3-SNAPSHOT</version>
+    <version>2.9.4-SNAPSHOT</version>
     </parent>
 
     <artifactId>cynexus-knowledgebase-starter</artifactId>

@@ -243,7 +243,7 @@
 .mobile-theme .fa-entry-sheet .fa-entry-amount-heading > span { font-size: 10px; font-weight: 600; }
 .mobile-theme .fa-entry-sheet .fa-entry-amount-line { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
 .mobile-theme .fa-entry-sheet .fa-entry-amount-line > span { font-size: 26px; font-weight: 450; line-height: 1.2; }
-.mobile-theme .fa-entry-sheet .fa-entry-amount-line > input { width: 100%; min-width: 0; height: 56px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 42px; font-weight: 500; line-height: 56px; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
+.mobile-theme .fa-entry-sheet .fa-entry-amount-line > input { --mobile-editable-font-size: 42px; width: 100%; min-width: 0; height: 56px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 42px; font-weight: 500; line-height: 56px; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
 .mobile-theme .fa-entry-sheet .fa-entry-amount-line > input::placeholder { color: #858c92; opacity: 1; }
 .mobile-theme .fa-entry-sheet .fa-entry-amount-line > input:focus-visible { outline: none; }
 .mobile-theme .fa-entry-sheet .fa-entry-amount-block:focus-within { border-bottom-color: var(--foreground); }

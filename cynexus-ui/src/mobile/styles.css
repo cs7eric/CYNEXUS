@@ -72,6 +72,9 @@
 }
 
 .mobile-shell { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+/* iOS Safari zooms editable controls below 16px; keep page zoom available for accessibility. */
+.mobile-theme :is(input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]):not([type="image"]):not([type="color"]), select, textarea, [contenteditable="true"], [role="textbox"]) { font-size: var(--mobile-editable-font-size, 16px) !important; }
+.mobile-theme .food-goal-field input { --mobile-editable-font-size: 26px; }
 .mobile-header { position: absolute; z-index: calc(var(--mobile-z-navigation) - 1); top: 0; right: 0; left: 0; flex-shrink: 0; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px); background: transparent; pointer-events: none; }
 .mobile-header::before { content: ""; position: absolute; z-index: 0; inset: 0; background: #ffffff70; opacity: 0; pointer-events: none; transition: opacity 180ms ease; }
 .mobile-header:has(+ .mobile-content[data-scrolled="true"])::before { opacity: 1; }

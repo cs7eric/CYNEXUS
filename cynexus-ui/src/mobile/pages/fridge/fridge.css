@@ -188,7 +188,7 @@
 .fridge-meal-amount .unit-button:disabled { opacity: .4; cursor: not-allowed; }
 .fridge-meal-amount .amount-controls { display: flex; min-height: 35px; align-items: center; justify-content: space-between; gap: 8px; }
 .fridge-meal-amount .amount-input { display: flex; min-width: 0; align-items: baseline; justify-content: flex-end; gap: 5px; }
-.fridge-meal-amount .amount-input input { width: 90px; min-width: 0; padding: 0; border: 0; outline: 0; color: #34424a; background: transparent; font-family: "Manrope Mobile", sans-serif; font-size: 23px; font-weight: 650; letter-spacing: -.4px; line-height: 1; text-align: right; }
+.fridge-meal-amount .amount-input input { --mobile-editable-font-size: 23px; width: 90px; min-width: 0; padding: 0; border: 0; outline: 0; color: #34424a; background: transparent; font-family: "Manrope Mobile", sans-serif; font-size: 23px; font-weight: 650; letter-spacing: -.4px; line-height: 1; text-align: right; }
 .fridge-meal-amount .amount-input output { min-width: 23px; color: #62747e; font-size: 12px; font-weight: 650; }
 .fridge-meal-amount .conversion-note { margin: 3px 0 0; color: #a0abb1; font-size: 9px; line-height: 1.35; text-align: right; }
 .fridge-meal-amount .portion-preview { margin: 4px 0 0; color: #829099; font-size: 10px; line-height: 1.35; text-align: right; }
@@ -198,7 +198,7 @@
 .fridge-meal-amount button:focus-visible, .fridge-meal-amount input:focus-visible { outline: 2px solid #46687c; outline-offset: 3px; }
 @media (max-width: 359px) {
   .fridge-meal-amount .unit-button { min-width: 31px; }
-  .fridge-meal-amount .amount-input input { width: 68px; font-size: 21px; }
+  .fridge-meal-amount .amount-input input { --mobile-editable-font-size: 21px; width: 68px; font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .fridge-meal-amount .unit-button { transition: none; }

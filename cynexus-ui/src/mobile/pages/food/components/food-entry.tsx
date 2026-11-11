@@ -44,7 +44,7 @@ function NutritionMeasure({ nutrient, value, target }: { nutrient: NutrientKey; 
 function AmountCard({ amount, unit, max, available, disabled, onChange }: { amount: string; unit: FoodAmountUnit; max?: number; available?: number | null; disabled: boolean; onChange: (value: string) => void }) {
   return <label className="food-amount-card">
     <span className="food-amount-label">Amount</span>
-    <input autoFocus type="number" inputMode="decimal" required min="0.001" max={max} step={unit === "pcs" ? "1" : "any"} value={amount} disabled={disabled} onChange={event => onChange(event.target.value)} />
+    <input type="number" inputMode="decimal" required min="0.001" max={max} step={unit === "pcs" ? "1" : "any"} value={amount} disabled={disabled} onChange={event => onChange(event.target.value)} />
     <span className="food-amount-unit">{unit}</span>
     {available != null && <small className="food-amount-available"><strong>{formatNutrition(available, 1)}</strong> available</small>}
   </label>

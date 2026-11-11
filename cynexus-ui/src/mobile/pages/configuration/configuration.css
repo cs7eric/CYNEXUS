@@ -32,7 +32,7 @@
 .mobile-configuration-field > span:first-child { min-width: 0; font-size: 0.8125rem; line-height: 1.5; }
 .mobile-configuration-field select { width: min(240px, 65%); min-width: 0; min-height: 42px; padding: 8px 28px 8px 11px; border: 1px solid color-mix(in oklab, var(--border) 75%, white); border-radius: 11px; color: var(--foreground); background: var(--surface-secondary); font: inherit; font-size: 0.6875rem; text-align: right; }
 .mobile-configuration-input-wrap { display: flex; min-width: 0; align-items: baseline; gap: 6px; }
-.mobile-configuration-input-wrap input { width: 94px; min-width: 0; height: 42px; padding: 7px 0; border: 0; outline: 0; color: var(--foreground); background: transparent; font: inherit; font-size: 1.1rem; font-weight: 650; text-align: right; }
+.mobile-configuration-input-wrap input { --mobile-editable-font-size: 1.1rem; width: 94px; min-width: 0; height: 42px; padding: 7px 0; border: 0; outline: 0; color: var(--foreground); background: transparent; font: inherit; font-size: 1.1rem; font-weight: 650; text-align: right; }
 .mobile-configuration-input-wrap input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 5px; }
 .mobile-configuration-input-wrap small { width: 38px; color: var(--muted); font-size: 0.625rem; text-align: right; }
 .mobile-configuration-help { margin: 11px 0 0; color: var(--muted); font-size: 0.6875rem; line-height: 1.7; }

@@ -294,6 +294,7 @@
 }
 
 .food-amount-card input {
+  --mobile-editable-font-size: 56px;
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -548,7 +549,7 @@ dialog.food-sheet:has(.food-entry-identity) .food-sheet-heading h2 {
   .food-preview-measure > p { font-size: 17px !important; }
   .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
   .food-amount-card { padding-inline: 5px; }
-  .food-amount-card input { font-size: 46px; }
+  .food-amount-card input { --mobile-editable-font-size: 46px; font-size: 46px; }
   .food-amount-label { font-size: 9px; }
   .food-amount-unit { font-size: 11px; }
   .food-amount-available { font-size: 8px; }
@@ -599,7 +600,7 @@ dialog.food-sheet .food-form .food-primary { min-height: 46px; margin-top: 12px;
   section.food-nutrition-preview.food-nutrition-goal-preview { padding: 13px 12px; }
   dialog.food-sheet .food-entry-summary-row { grid-template-columns: minmax(0, 1fr) 78px; gap: 7px; }
   dialog.food-sheet .food-amount-card { padding-inline: 5px; }
-  dialog.food-sheet .food-amount-card input { font-size: 46px; }
+  dialog.food-sheet .food-amount-card input { --mobile-editable-font-size: 46px; font-size: 46px; }
   dialog.food-sheet .food-unit-selector { gap: 6px; }
   dialog.food-sheet .food-piece-weight { min-height: 34px; gap: 4px; font-size: 10px; }
   dialog.food-sheet .food-piece-weight input { width: 52px; min-height: 34px; font-size: 12px; }
@@ -917,6 +918,7 @@ dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field > span sma
 }
 
 dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input {
+  --mobile-editable-font-size: 23px;
   min-height: 36px;
   margin-top: 7px;
   padding: 0;
@@ -1043,7 +1045,7 @@ dialog.food-sheet .food-create-fields .food-asset-selected {
 @media (max-width: 359px) {
   dialog.food-sheet .food-create-fields .food-nutrient-grid { gap: 8px; }
   dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field { padding-inline: 11px; }
-  dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input { font-size: 21px; }
+  dialog.food-sheet .food-create-fields .food-nutrient-grid .food-field input { --mobile-editable-font-size: 21px; font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
