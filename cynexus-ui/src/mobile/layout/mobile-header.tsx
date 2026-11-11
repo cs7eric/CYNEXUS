@@ -71,7 +71,7 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
         <div className="mobile-header-actions">
           {isFinance && onFinanceRefresh && <MobileButton isIconOnly variant="ghost" className="mobile-header-control mobile-header-refresh" aria-label="Refresh finance" onPress={onFinanceRefresh}><span title="Refresh finance"><RefreshCw aria-hidden="true" /></span></MobileButton>}
           {isFridgePage && <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label="Add food to fridge" onPress={() => window.dispatchEvent(new Event("mobile-fridge-add"))}><span title="Add food to fridge"><Plus aria-hidden="true" /></span></MobileButton>}
-          <MobileAppSearch />
+          {isFinance ? <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label="Add account" onPress={() => window.dispatchEvent(new Event("mobile-finance-account-add"))}><span title="Add account"><Plus aria-hidden="true" /></span></MobileButton> : <MobileAppSearch />}
         </div>
       </div>
     </header>

@@ -1,0 +1,194 @@
+@media (max-height: 900px) and (orientation: portrait) {
+  #finance-accounts .mobile-finance-account-order {
+    margin-top: 0;
+  }
+
+  #finance-accounts .mobile-finance-page-head {
+    margin-bottom: 0;
+  }
+
+  #finance-accounts.mobile-finance {
+    padding-bottom: 0;
+  }
+
+  #finance-accounts .mobile-finance-accounts {
+    margin-top: 8px;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-stack {
+    min-height: 120px !important;
+    padding-bottom: 4px;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-account-card {
+    height: 120px !important;
+    min-height: 120px !important;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-account-summary {
+    min-height: 120px !important;
+    padding: 10px 16px;
+  }
+
+  #finance-accounts .mobile-finance-stack-controls {
+    display: none;
+  }
+
+  #finance-accounts .mobile-finance-account-switcher {
+    gap: 6px;
+    margin: 0 0 4px;
+    padding: 0;
+  }
+
+  #finance-accounts .mobile-finance-account-chip {
+    min-height: 44px;
+  }
+
+  #finance-accounts .mobile-finance-account-overview {
+    padding: 8px;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals {
+    gap: 8px;
+    margin-top: 0;
+    padding-bottom: 4px;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals span {
+    margin-bottom: 3px;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals strong,
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals > div + div strong {
+    font-size: 1.2rem;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals small {
+    margin-top: 3px;
+  }
+
+  #finance-accounts .mobile-finance-text-button {
+    min-height: 44px;
+  }
+
+  #finance-accounts .mobile-finance-account-details {
+    gap: 2px 12px;
+  }
+
+  #finance-accounts .mobile-finance-account-details > :nth-child(2),
+  #finance-accounts .mobile-finance-account-details > :nth-child(3),
+  #finance-accounts .mobile-finance-account-details > :nth-child(4) {
+    display: none;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-account-data-row {
+    min-height: 44px;
+    padding: 2px 0;
+  }
+
+  #finance-accounts .mobile-finance-flow {
+    margin-top: 6px;
+  }
+
+  #finance-accounts .mobile-finance-flow > div {
+    padding: 6px;
+  }
+
+  #finance-accounts .mobile-finance-derived-note {
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+}
+
+@media (max-height: 700px) and (orientation: portrait) {
+  #finance-accounts .mobile-finance-page-head {
+    display: none;
+  }
+
+  #finance-accounts .mobile-finance-account-details-hint {
+    display: none;
+  }
+
+  #finance-accounts .mobile-finance-accounts {
+    margin-top: 0;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-stack {
+    min-height: 112px !important;
+    padding-bottom: 0;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-account-card {
+    height: 112px !important;
+    min-height: 112px !important;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-account-summary {
+    min-height: 112px !important;
+    padding: 7px 14px;
+  }
+
+  #finance-accounts .mobile-finance-stack-wrap .mobile-finance-account-icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: 2px;
+  }
+
+  #finance-accounts .mobile-finance-text-button {
+    min-height: 44px;
+  }
+
+  #finance-accounts .mobile-finance-account-overview .mobile-finance-totals > div + div {
+    display: none;
+  }
+
+  #finance-accounts .mobile-finance-details {
+    padding-top: 0;
+  }
+
+  #finance-accounts .mobile-finance-details-head {
+    margin-bottom: 0;
+  }
+
+  #finance-accounts .mobile-finance-details .mobile-finance-inline-note {
+    display: none;
+  }
+
+  #finance-accounts .mobile-finance-account-details {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 8px;
+  }
+
+  #finance-accounts .mobile-finance-account-data-row {
+    padding-right: 16px;
+  }
+
+  #finance-accounts .mobile-finance-account-data-row > svg {
+    opacity: 0.6;
+  }
+
+  #finance-accounts .mobile-finance-account-data-row.is-wide {
+    grid-column: auto;
+  }
+
+  #finance-accounts .mobile-finance-account-overview {
+    padding: 6px;
+  }
+
+  #finance-accounts .mobile-finance-account-switcher {
+    margin-bottom: 0;
+  }
+
+  #finance-accounts .mobile-finance-flow {
+    margin-top: 4px;
+  }
+
+  #finance-accounts .mobile-finance-derived-note {
+    margin-top: 0;
+  }
+}

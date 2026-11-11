@@ -7,6 +7,7 @@ import { useWorkspace } from "@/layout/workspace-provider"
 import { useMobilePortal } from "@/mobile/hooks/use-mobile-portal"
 import { fetchFinanceAccounts, fetchFinanceOverview, saveFinanceAccount, type FinanceAccount, type FinanceOverview } from "@/services/finance/ledger"
 import "@/mobile/pages/finance/finance.css"
+import "@/mobile/pages/finance/account-fit.css"
 import { FinanceOverviewView } from "./overview"
 import { FinanceActivityView } from "./activity"
 import { FinanceSummaryView } from "./summary"
@@ -93,6 +94,12 @@ function FinanceAccountsView() {
   const [accountForm, setAccountForm] = useState<{ mode: "add" | "edit"; account?: FinanceAccount } | null>(null)
   const [focusAccountId, setFocusAccountId] = useState<number | null>(null)
   const bounds = useMemo(() => monthBounds(), [])
+
+  useEffect(() => {
+    const addAccount = () => setAccountForm({ mode: "add" })
+    window.addEventListener("mobile-finance-account-add", addAccount)
+    return () => window.removeEventListener("mobile-finance-account-add", addAccount)
+  }, [])
 
   const load = useCallback(async () => {
     setAccountsState("loading")
