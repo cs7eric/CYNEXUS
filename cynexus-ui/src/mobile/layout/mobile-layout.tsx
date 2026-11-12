@@ -10,6 +10,7 @@ import { useWorkoutRecords } from "@/mobile/hooks/use-workout-records"
 import { MobileHeader } from "@/mobile/layout/mobile-header"
 import { MobileTabBar } from "@/mobile/layout/mobile-tab-bar"
 import { MobileMetricEntry, type MetricEntryMode, type MetricEntryValue } from "@/mobile/components/metric-entry"
+import { MobileNumericKeyboard } from "@/mobile/components/numeric-keyboard"
 import { dateKey, saveObservation, saveSession } from "@/services/workout/model"
 import "@/mobile/styles.css"
 
@@ -53,6 +54,7 @@ export default function MobileLayout() {
             {metricEntryMode && <MobileMetricEntry initialMode={metricEntryMode} onClose={() => setMetricEntryMode(null)} onAdd={addMetric} />}
           </div>
           <div ref={setPortal} />
+          <MobileNumericKeyboard />
         </div>
       </MobilePortalContext.Provider>
     </I18nProvider>

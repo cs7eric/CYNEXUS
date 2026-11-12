@@ -199,12 +199,6 @@ function StockEditor({ item, today, onClose, onChange, onLogMeal, onConfirmMappi
     element?.showModal()
     return () => element?.close()
   }, [])
-  useEffect(() => {
-    if (editingQuantity) {
-      quantityInput.current?.focus()
-      quantityInput.current?.select()
-    }
-  }, [editingQuantity])
   function startQuantityEdit() {
     quantityEditActive.current = true
     setQuantityError(null)
