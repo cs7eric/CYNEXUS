@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>Knowledge Base · Mobile Concept</title>
+  <style>
+    @font-face { font-family: Manrope; src: url("../../../cynexus-ui/public/fonts/manrope/manrope-latin-variable.woff") format("woff"); font-weight: 200 800; font-display: swap; }
+    :root { color-scheme: light; --ink: #22282e; --muted: #7a858f; --line: #e9edef; --soft: #f5f6f7; --surface: #fff; --app-bg: #e9ecee; --safe-bottom: env(safe-area-inset-bottom, 0px); font-family: Manrope, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-width: 320px; min-height: 100%; margin: 0; }
+    body { display: grid; min-height: 100dvh; place-items: center; background: var(--app-bg); color: var(--ink); }
+    button, input, textarea, select { color: inherit; font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .preview { width: min(414px, 100vw); height: min(896px, 100dvh); min-height: 620px; overflow: hidden; position: relative; background: var(--surface); box-shadow: 0 12px 48px #1d252d1a; }
+    .app-header { position: absolute; z-index: 4; inset: 0 0 auto; height: 92px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 10px; padding: max(12px, env(safe-area-inset-top)) 20px 0; background: #ffffffed; }
+    .header-control { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #dce2e6; border-radius: 50%; background: white; color: var(--ink); cursor: pointer; }
+    .header-control svg { width: 21px; height: 21px; }
+    .greeting { display: grid; gap: 1px; text-align: center; }
+    .greeting strong { font-size: 16px; line-height: 21px; font-weight: 700; }
+    .greeting span { color: var(--muted); font-size: 14px; line-height: 20px; }
+    .page-scroll { position: absolute; inset: 80px 0 calc(80px + var(--safe-bottom)); overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
+    .page-scroll::-webkit-scrollbar { display: none; }
+    .view { display: none; padding: 14px 22px 28px; }
+    .view.is-active { display: block; }
+    .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+    .page-heading h1 { margin: 0; font-size: 23px; line-height: 29px; font-weight: 700; }
+    .page-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 19px; }
+    .heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
+    .doc-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .new-document { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--ink); color: #fff; cursor: pointer; }
+    .new-document svg { width: 19px; height: 19px; }
+    .summary-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 17px 0 17px; padding: 7px 0; border-block: 1px solid var(--line); background: #fff; }
+    .summary-cell { display: grid; min-width: 0; min-height: 48px; align-content: center; justify-items: center; gap: 2px; padding: 4px 6px; text-align: center; }
+    .summary-cell + .summary-cell { border-left: 1px solid var(--line); }
+    .summary-cell strong { display: block; color: var(--ink); font-size: 18px; line-height: 21px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .summary-cell span { display: block; overflow: hidden; color: var(--muted); font-size: 11px; line-height: 15px; text-overflow: ellipsis; white-space: nowrap; }
+    .search-row { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+    .search-box { display: flex; min-width: 0; height: 46px; flex: 1; align-items: center; gap: 9px; padding: 0 13px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); }
+    .search-box svg { width: 18px; height: 18px; }
+    .search-box input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; font-size: 14px; }
+    .search-box input::placeholder { color: #939da5; }
+    .filter-select { width: 116px; height: 46px; padding: 0 11px; border: 1px solid var(--line); border-radius: 14px; background: #fff; font-size: 12px; }
+    .status-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 0 0 15px; padding: 4px; border-radius: 14px; background: #f1f2f1; }
+    .status-tab { min-width: 0; min-height: 36px; overflow: hidden; padding: 0 5px; border: 0; border-radius: 11px; background: transparent; color: #68727a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .status-tab.is-selected { background: #fff; color: var(--ink); font-weight: 700; box-shadow: 0 1px 4px #19232b0d; }
+    .document-panel { padding: 15px 15px 4px; border-radius: 17px; background: #f4f5f4; }
+    .section-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; color: var(--muted); font-size: 11px; line-height: 17px; }
+    .section-label strong { color: var(--ink); font-size: 14px; font-weight: 700; }
+    .document-list { position: relative; }
+    .document-row { position: relative; display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) 16px; align-items: center; gap: 10px; padding: 14px 0; border: 0; border-bottom: 1px solid #e2e5e3; background: transparent; text-align: left; cursor: pointer; }
+    .document-row:last-child { border-bottom: 0; }
+    .doc-main { display: block; min-width: 0; }
+    .doc-title-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; min-width: 0; }
+    .doc-title { display: -webkit-box; overflow: hidden; color: var(--ink); font-size: 14px; line-height: 20px; font-weight: 700; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .doc-status { padding-top: 2px; color: #747e86; font-size: 9px; line-height: 14px; white-space: nowrap; }
+    .doc-status.draft { color: var(--ink); font-weight: 700; }
+    .doc-description { display: -webkit-box; min-width: 0; overflow: hidden; margin-top: 3px; color: #616c74; font-size: 12px; line-height: 17px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .doc-meta { display: flex; align-items: center; gap: 7px; margin-top: 6px; color: #707b84; font-size: 10px; line-height: 14px; }
+    .doc-category { color: #343c43; font-weight: 700; }
+    .doc-meta-separator { width: 3px; height: 3px; border-radius: 50%; background: #a5adb3; }
+    .doc-chevron { width: 15px; height: 15px; margin-top: 5px; color: #737d85; }
+    .empty-state { display: none; padding: 34px 12px; color: var(--muted); text-align: center; font-size: 13px; }
+    .bottom-nav { position: absolute; z-index: 5; inset: auto 0 0; display: flex; height: calc(75px + var(--safe-bottom)); align-items: flex-start; justify-content: space-around; padding: 9px 12px var(--safe-bottom); border-top: 1px solid #edf0f1; background: #fff; }
+    .nav-item { display: grid; min-width: 54px; justify-items: center; gap: 4px; padding: 3px 8px; border: 0; border-radius: 12px; background: transparent; color: #818a92; font-size: 10px; line-height: 13px; cursor: pointer; }
+    .nav-item svg { width: 20px; height: 20px; }
+    .nav-item.is-active { color: var(--ink); font-weight: 700; }
+    .nav-item.is-active svg { stroke-width: 2.3; }
+    @media (max-width: 359px) { .heading-actions { gap: 6px; } .doc-count { font-size: 11px; } .new-document { width: 40px; height: 40px; flex-basis: 40px; } }
+    .reader-top { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; margin: -2px 0 19px; }
+    .circle-action { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: white; cursor: pointer; }
+    .reader-top > span { color: var(--muted); font-size: 12px; text-align: center; }
+    .reader-title { margin: 0; font-size: 25px; line-height: 32px; font-weight: 750; }
+    .reader-description { margin: 9px 0 14px; color: #656f78; font-size: 14px; line-height: 21px; }
+    .reader-meta { display: flex; flex-wrap: wrap; gap: 7px 12px; padding-bottom: 17px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 17px; }
+    .tag { display: inline-flex; align-items: center; min-height: 23px; padding: 0 9px; border-radius: 999px; background: var(--soft); color: #424a51; font-size: 10px; }
+    .article { padding: 19px 0 28px; color: #424a51; font-size: 14px; line-height: 1.75; }
+    .article h2 { margin: 20px 0 7px; color: var(--ink); font-size: 17px; line-height: 24px; }
+    .article p { margin: 0 0 12px; }
+    .article ul { margin: 6px 0 16px; padding-left: 20px; }
+    .article li { margin: 5px 0; }
+    .article code { padding: 2px 5px; border-radius: 5px; background: var(--soft); color: #1e252b; font-size: 12px; }
+    .callout { margin: 15px 0; padding: 12px 14px; border-left: 2px solid var(--ink); background: #f7f8f9; color: #515b64; font-size: 13px; line-height: 20px; }
+    .primary-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--ink); color: white; font-size: 13px; font-weight: 650; cursor: pointer; }
+    .primary-button svg { width: 17px; height: 17px; }
+    .reader-edit { width: 100%; margin-top: 6px; }
+    .editor-header { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 9px; margin: -2px 0 20px; }
+    .editor-header strong { font-size: 15px; }
+    .editor-form { display: grid; gap: 17px; }
+    .field { display: grid; gap: 7px; }
+    .field label { color: #56616a; font-size: 12px; font-weight: 650; }
+    .field input, .field textarea { width: 100%; padding: 12px 13px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 14px; line-height: 20px; }
+    .field textarea { min-height: 250px; resize: vertical; }
+    .editor-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+    .text-button { min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: #545e67; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .toast { position: absolute; z-index: 10; right: 18px; bottom: calc(89px + var(--safe-bottom)); left: 18px; display: none; padding: 12px 14px; border-radius: 12px; background: var(--ink); color: white; font-size: 13px; text-align: center; }
+    @media (min-width: 600px) { .preview { height: min(896px, calc(100dvh - 36px)); min-height: 620px; border-radius: 30px; } }
+    @media (max-height: 680px) { .app-header { height: 78px; } .page-scroll { inset-block-start: 70px; } }
+    @media (prefers-reduced-motion: no-preference) { .view.is-active { animation: enter .18s ease-out both; } @keyframes enter { from { opacity: .7; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } } }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="6" height="6" rx="1.5"/><rect x="14.5" y="3.5" width="6" height="6" rx="1.5"/><rect x="3.5" y="14.5" width="6" height="6" rx="1.5"/><rect x="14.5" y="14.5" width="6" height="6" rx="1.5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16.2 16.2 4.3 4.3"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h7l5 5v12H7z"/><path d="M14 3.5v5h5M10 13h6M10 17h6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m14.5 5-7 7 7 7M8 12h12"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="19" cy="12" r=".8"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-7h-5v7h-6z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5v14A2.5 2.5 0 0 1 6.5 17H20"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2.5"/><path d="M3 8h16a2 2 0 0 1 2 2v2h-5a2.5 2.5 0 0 0 0 5h5M16 14.5h.01"/></symbol>
+    <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11M4.5 9.5l5-5M14.5 19.5l5-5M2.5 7.5l5-5M16.5 21.5l5-5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 5 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+  </svg>
+  <main class="preview" aria-label="Knowledge Base mobile design prototype">
+    <header class="app-header">
+      <button class="header-control" aria-label="Apps"><svg><use href="#i-grid"/></svg></button>
+      <div class="greeting"><strong>Hello, cccs7</strong><span>Today 12 Nov.</span></div>
+      <button class="header-control" aria-label="Search documents" onclick="document.querySelector('#search').focus()"><svg><use href="#i-search"/></svg></button>
+    </header>
+    <div class="page-scroll" id="page-scroll">
+      <section class="view is-active" id="list-view" aria-label="Knowledge documents">
+        <header class="page-heading"><div><h1>Knowledge Base</h1><p>Personal workspace</p></div><div class="heading-actions"><button class="new-document" type="button" title="New document" aria-label="New document" onclick="createDocument()"><svg><use href="#i-plus"/></svg></button></div></header>
+        <div class="summary-strip" aria-label="Document summary">
+          <div class="summary-cell"><strong id="summary-total">12</strong><span>Documents</span></div>
+          <div class="summary-cell"><strong id="summary-published">9</strong><span>Published</span></div>
+          <div class="summary-cell"><strong id="summary-drafts">3</strong><span>Drafts</span></div>
+        </div>
+        <div class="search-row">
+          <label class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" placeholder="Search documents" autocomplete="off"></label>
+          <select class="filter-select" id="category-filter" aria-label="Document category"><option value="all">Category</option><option value="Engineering">Engineering</option><option value="Product">Product</option><option value="Design">Design</option><option value="Research">Research</option><option value="Operations">Operations</option></select>
+        </div>
+        <div class="status-tabs" role="tablist" aria-label="Filter by status">
+          <button class="status-tab is-selected" role="tab" aria-selected="true" data-status="all">All</button>
+          <button class="status-tab" role="tab" aria-selected="false" data-status="published">Published</button>
+          <button class="status-tab" role="tab" aria-selected="false" data-status="draft">Drafts</button>
+          <button class="status-tab" role="tab" aria-selected="false" data-status="archived">Archived</button>
+        </div>
+        <section class="document-panel" aria-labelledby="recent-documents-heading">
+          <div class="section-label"><strong id="recent-documents-heading">Recently updated</strong><span id="result-count">12 documents</span></div>
+          <div class="document-list" id="document-list"></div>
+          <div class="empty-state" id="empty-state">No documents match these filters.</div>
+        </section>
+      </section>
+      <section class="view" id="reader-view" aria-label="Document reader">
+        <div class="reader-top"><button class="circle-action" aria-label="Back to documents" onclick="showView('list-view')"><svg><use href="#i-back"/></svg></button><span>Knowledge Base</span><button class="circle-action" aria-label="Document actions"><svg><use href="#i-more"/></svg></button></div>
+        <div class="reader-meta" id="reader-meta"></div>
+        <h1 class="reader-title" id="reader-title"></h1>
+        <p class="reader-description" id="reader-description"></p>
+        <div class="reader-meta" id="reader-tags"></div>
+        <article class="article" id="reader-content"></article>
+        <button class="primary-button reader-edit" onclick="openEditor()"><svg><use href="#i-edit"/></svg>Edit document</button>
+      </section>
+      <section class="view" id="editor-view" aria-label="Edit document">
+        <div class="editor-header"><button class="circle-action" aria-label="Back to document" onclick="cancelEditor()"><svg><use href="#i-back"/></svg></button><strong>Edit document</strong><span class="tag" id="edit-status">Published</span></div>
+        <form class="editor-form" id="editor-form">
+          <div class="field"><label for="edit-title">Title</label><input id="edit-title" required></div>
+          <div class="field"><label for="edit-description">Description</label><input id="edit-description"></div>
+          <div class="field"><label for="edit-content">Content</label><textarea id="edit-content"></textarea></div>
+          <div class="field"><label for="edit-tags">Tags</label><input id="edit-tags" placeholder="Separate tags with commas"></div>
+          <div class="editor-actions"><button type="button" class="text-button" onclick="cancelEditor()">Cancel</button><button type="submit" class="primary-button"><svg><use href="#i-check"/></svg>Save changes</button></div>
+        </form>
+      </section>
+    </div>
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item"><svg><use href="#i-home"/></svg><span>Home</span></button>
+      <button class="nav-item is-active"><svg><use href="#i-grid"/></svg><span>Apps</span></button>
+      <button class="nav-item"><svg><use href="#i-wallet"/></svg><span>Finance</span></button>
+      <button class="nav-item"><svg><use href="#i-dumbbell"/></svg><span>Workout</span></button>
+      <button class="nav-item"><svg><use href="#i-user"/></svg><span>Profile</span></button>
+    </nav>
+    <div class="toast" id="toast" role="status">Changes saved</div>
+  </main>
+  <script>
+    const documents = [
+      { title: "Mobile workspace navigation", description: "Patterns for moving between apps, workspaces, and saved destinations.", category: "Product", status: "Published", updated: "12 Nov", read: "6 min read", tags: ["Mobile", "Navigation"], body: `<p>The mobile workspace keeps frequent destinations close while preserving the current workspace context. Shared destinations remain available from either workspace.</p><h2>Navigation model</h2><ul><li>Home provides the current workspace summary and shortcuts.</li><li>Apps contains shared tools and workspace-specific destinations.</li><li>Opening a shared app preserves the workspace that launched it.</li></ul><div class="callout">Keep the bottom navigation stable as users move between mobile routes.</div><h2>Workspace changes</h2><p>Switching workspaces updates the app directory in place. The destination and selected workspace travel together when opening a full workspace tool.</p>` },
+      { title: "Finance ledger conventions", description: "Account balances, transaction direction, and currency handling.", category: "Product", status: "Published", updated: "11 Nov", read: "8 min read", tags: ["Finance", "Ledger"], body: `<p>Ledger entries record the movement between accounts and the category that explains the movement. Amounts are stored in the account currency.</p><h2>Balance rules</h2><ul><li>Transfers change two account balances and do not count as spending.</li><li>Expense entries reduce the source account.</li><li>Income entries increase the destination account.</li></ul><h2>Currency display</h2><p>Totals are grouped by currency. Never add unlike currencies without an explicit exchange rate and conversion timestamp.</p>` },
+      { title: "Service integration checklist", description: "A concise checklist for adding a service to the workspace.", category: "Engineering", status: "Published", updated: "10 Nov", read: "5 min read", tags: ["Services", "Checklist"], body: `<p>Integrations should use the shared request layer and keep transport details out of page components.</p><h2>Before implementation</h2><ul><li>Identify the owning service and API contract.</li><li>Confirm authentication and workspace scope.</li><li>Define loading, empty, stale, and failure states.</li></ul><h2>Verification</h2><p>Run the narrowest useful test, then validate the full user path that uses the integration.</p>` },
+      { title: "Knowledge publishing workflow", description: "Draft, review, publish, and archive behavior for documents.", category: "Operations", status: "Published", updated: "08 Nov", read: "4 min read", tags: ["Publishing", "Content"], body: `<p>Documents move through a simple lifecycle. Draft content remains editable; published content is available to readers; archived content is retained for reference.</p><h2>Document states</h2><ul><li><strong>Draft</strong> — working content that is not yet published.</li><li><strong>Published</strong> — available in the active document list.</li><li><strong>Archived</strong> — retained but excluded from the default list.</li></ul>` },
+      { title: "Mobile typography notes", description: "Type sizes and reading rhythm for narrow screens.", category: "Design", status: "Draft", updated: "07 Nov", read: "3 min read", tags: ["Mobile", "Design"], body: `<p>Body copy should stay comfortable to read at arm's length. Keep labels short and separate metadata from primary reading content.</p><h2>Reading width</h2><p>Use the available viewport width and keep side padding consistent. Long technical strings should wrap rather than create horizontal scrolling.</p>` },
+      { title: "Research source evaluation", description: "How to record source quality, freshness, and evidence.", category: "Research", status: "Published", updated: "05 Nov", read: "7 min read", tags: ["Research", "Sources"], body: `<p>Record the source, publication date, and the claim it supports. A source summary should let another reader verify the evidence without reconstructing the search.</p><h2>Capture</h2><ul><li>Preserve a stable URL or document identifier.</li><li>Mark the date accessed when information changes over time.</li><li>Separate the source's claim from your interpretation.</li></ul>` },
+      { title: "Workspace access model", description: "Roles and boundaries for personal and shared workspaces.", category: "Engineering", status: "Draft", updated: "03 Nov", read: "9 min read", tags: ["Access", "Workspace"], body: `<p>Workspace identity is part of every user-owned query and mutation. Shared records follow their own access policy and must not inherit personal scope by accident.</p><h2>Request context</h2><p>Resolve the active workspace before loading domain data. Keep authorization checks at the service boundary.</p>` },
+      { title: "API response conventions", description: "Response envelopes, pagination, and error handling.", category: "Engineering", status: "Published", updated: "29 Oct", read: "6 min read", tags: ["API", "Standards"], body: `<p>Responses should have predictable envelopes, stable identifiers, and errors that identify a recovery action.</p><h2>Errors</h2><p>Return a useful status code and a concise detail. Clients should preserve usable stale data when refresh fails.</p>` },
+      { title: "Personal knowledge capture", description: "A lightweight process for keeping useful notes discoverable.", category: "Product", status: "Archived", updated: "21 Oct", read: "3 min read", tags: ["Notes", "Workflow"], body: `<p>Capture the decision or fact first, then add the context needed to find and reuse it. Prefer descriptive titles and a small number of durable tags.</p>` },
+      { title: "Data freshness guide", description: "How to describe snapshots, refresh time, and unavailable data.", category: "Research", status: "Published", updated: "18 Oct", read: "5 min read", tags: ["Data", "Freshness"], body: `<p>Always distinguish current data from cached or delayed data. Show the relevant timestamp near the value it describes.</p><h2>When refresh fails</h2><p>Keep the previous snapshot visible and label it as stale. Provide a retry action where a new request can recover the data.</p>` },
+      { title: "Document metadata fields", description: "Title, description, tags, category, and lifecycle status.", category: "Operations", status: "Published", updated: "14 Oct", read: "4 min read", tags: ["Metadata", "Content"], body: `<p>Metadata helps readers find and assess a document before opening it. Keep descriptions concrete and categories broad enough to remain useful.</p><h2>Useful metadata</h2><ul><li>Title names the subject.</li><li>Description states what the reader will find.</li><li>Tags connect related documents across categories.</li></ul>` },
+      { title: "Mobile reader interaction", description: "Reader controls and document transitions on phones.", category: "Design", status: "Draft", updated: "09 Oct", read: "4 min read", tags: ["Mobile", "Reader"], body: `<p>Reading should take the full content width. Keep navigation actions at the top and avoid embedding a desktop-style document rail on a phone.</p><h2>Document actions</h2><p>Open a document in a dedicated reading view. Keep edit and return actions reachable without obscuring the text.</p>` },
+    ];
+    let selectedStatus = "all";
+    let activeDocument = documents[0];
+    let creatingDocument = false;
+    const list = document.querySelector("#document-list");
+    const search = document.querySelector("#search");
+    const categoryFilter = document.querySelector("#category-filter");
+    const icon = (id, cls = "") => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"></use></svg>`;
+    function renderList() {
+      const query = search.value.trim().toLowerCase();
+      const filtered = documents.filter(doc => (selectedStatus === "all" || doc.status.toLowerCase() === selectedStatus) && (categoryFilter.value === "all" || doc.category === categoryFilter.value) && (!query || `${doc.title} ${doc.description} ${doc.tags.join(" ")}`.toLowerCase().includes(query)));
+      list.innerHTML = filtered.map(doc => `<button class="document-row" type="button" data-title="${doc.title}"><span class="doc-main"><span class="doc-title-line"><span class="doc-title">${doc.title}</span><span class="doc-status ${doc.status.toLowerCase()}">${doc.status}</span></span><span class="doc-description">${doc.description}</span><span class="doc-meta"><span class="doc-category">${doc.category}</span><span class="doc-meta-separator"></span><span>${doc.updated}</span></span></span>${icon("i-chevron", "doc-chevron")}</button>`).join("");
+      document.querySelector("#summary-total").textContent = documents.length;
+      document.querySelector("#summary-published").textContent = documents.filter(doc => doc.status === "Published").length;
+      document.querySelector("#summary-drafts").textContent = documents.filter(doc => doc.status === "Draft").length;
+      document.querySelector("#result-count").textContent = `${filtered.length} ${filtered.length === 1 ? "document" : "documents"}`;
+      document.querySelector("#empty-state").style.display = filtered.length ? "none" : "block";
+      list.querySelectorAll(".document-row").forEach(row => row.addEventListener("click", () => openDocument(documents.find(doc => doc.title === row.dataset.title))));
+    }
+    function showView(id) { document.querySelectorAll(".view").forEach(view => view.classList.toggle("is-active", view.id === id)); document.querySelector("#page-scroll").scrollTop = 0; }
+    function openDocument(doc) {
+      creatingDocument = false;
+      activeDocument = doc;
+      document.querySelector("#reader-meta").innerHTML = `<span>${doc.category}</span><span>${doc.status}</span><span>Updated ${doc.updated}</span><span>${doc.read}</span>`;
+      document.querySelector("#reader-title").textContent = doc.title;
+      document.querySelector("#reader-description").textContent = doc.description;
+      document.querySelector("#reader-tags").innerHTML = doc.tags.map(tag => `<span class="tag">${tag}</span>`).join("");
+      document.querySelector("#reader-content").innerHTML = doc.body;
+      showView("reader-view");
+    }
+    function openEditor() {
+      document.querySelector("#edit-title").value = activeDocument.title;
+      document.querySelector("#edit-description").value = activeDocument.description;
+      document.querySelector("#edit-content").value = activeDocument.body.replace(/<\/(p|h2|li|ul|div)>/g, "\n\n").replace(/<[^>]*>/g, "").trim();
+      document.querySelector("#edit-tags").value = activeDocument.tags.join(", ");
+      document.querySelector("#edit-status").textContent = activeDocument.status;
+      showView("editor-view");
+    }
+    function createDocument() {
+      creatingDocument = true;
+      activeDocument = { title: "", description: "", category: "Product", status: "Draft", updated: "Today", read: "1 min read", tags: [], body: "" };
+      document.querySelector("#edit-title").value = "";
+      document.querySelector("#edit-description").value = "";
+      document.querySelector("#edit-content").value = "";
+      document.querySelector("#edit-tags").value = "";
+      document.querySelector("#edit-status").textContent = "Draft";
+      showView("editor-view");
+    }
+    function cancelEditor() { showView(creatingDocument ? "list-view" : "reader-view"); creatingDocument = false; }
+    search.addEventListener("input", renderList);
+    categoryFilter.addEventListener("change", renderList);
+    document.querySelectorAll(".status-tab").forEach(button => button.addEventListener("click", () => { selectedStatus = button.dataset.status; document.querySelectorAll(".status-tab").forEach(tab => { const selected = tab === button; tab.classList.toggle("is-selected", selected); tab.setAttribute("aria-selected", String(selected)); }); renderList(); }));
+    document.querySelector("#editor-form").addEventListener("submit", event => { event.preventDefault(); activeDocument.title = document.querySelector("#edit-title").value.trim(); activeDocument.description = document.querySelector("#edit-description").value.trim(); activeDocument.tags = document.querySelector("#edit-tags").value.split(",").map(tag => tag.trim()).filter(Boolean); activeDocument.body = document.querySelector("#edit-content").value.split(/\n\s*\n/).map(block => `<p>${block.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char])}</p>`).join(""); activeDocument.updated = "Today"; if (creatingDocument) { documents.unshift(activeDocument); creatingDocument = false; } openDocument(activeDocument); const toast = document.querySelector("#toast"); toast.style.display = "block"; setTimeout(() => { toast.style.display = "none"; }, 1800); renderList(); });
+    renderList();
+  </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ import { sidebarConfig } from "@/config/sidebar"
 import { sharedNavigation, workspaces } from "@/config/workspaces"
 import { useWorkspace } from "@/layout/workspace-provider"
 import { useWorkspaceState } from "@/layout/workspace-state"
-import { getMobileAppGroups } from "@/mobile/navigation"
+import { getMobileAppGroups, getMobileAppHref } from "@/mobile/navigation"
 import { MobileButton } from "@/mobile/ui/button"
 import { MobileLogoutDialog } from "@/mobile/ui/confirm-dialog"
 import { logoutOwner } from "@/services/common/owner-auth"
@@ -28,8 +28,8 @@ export default function MobileProfilePage() {
     { title: "Your apps", detail: `${appCount} apps in ${workspace.name}`, href: "/m/apps", icon: LayoutGrid },
     { title: "Async tasks", detail: "Track background work and retry failures", href: "/m/tasks", icon: ListTodo },
     { title: "Configuration center", detail: "Daily targets and basic data", href: "/m/configuration", icon: Settings2 },
-    { title: "Cynexus Agent", detail: "Plan, ask and explore", href: "/cynexus-agent", icon: Sparkles },
-    { title: "Knowledge Base", detail: "Notes, files and collections", href: "/knowledge-base/view", icon: BookOpen },
+    { title: "Cynexus Agent", detail: "Plan, ask and explore", href: getMobileAppHref("/cynexus-agent"), icon: Sparkles },
+    { title: "Knowledge Base", detail: "Notes, files and collections", href: getMobileAppHref("/knowledge-base/view"), icon: BookOpen },
     { title: "Desktop workspace", detail: `Continue in ${workspace.name}`, href: desktopPath, icon: Monitor },
   ]
 

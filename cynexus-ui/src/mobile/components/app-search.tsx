@@ -3,7 +3,7 @@ import { useRef, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { useWorkspace } from "@/layout/workspace-provider"
-import { getMobileAppGroups, mobileFeatureApps } from "@/mobile/navigation"
+import { getMobileAppGroups, getMobileAppHref, mobileFeatureApps } from "@/mobile/navigation"
 import { MobileButton } from "@/mobile/ui/button"
 
 export function MobileAppSearch() {
@@ -40,7 +40,7 @@ export function MobileAppSearch() {
         <label className="mobile-app-search-field"><Search size={18} aria-hidden="true" /><input ref={input} value={query} onChange={(event) => setQuery(event.target.value)} type="search" aria-label="Search apps" placeholder="Search your apps" autoComplete="off" /></label>
         <nav className="mobile-app-search-results" aria-label="Search results">
           {apps.map(({ title, url, icon: Icon }) => (
-            <Link key={url} to={url} state={{ workspace: workspaceId }} onClick={() => dialog.current?.close()}><Icon size={20} aria-hidden="true" />{title}</Link>
+            <Link key={url} to={getMobileAppHref(url)} state={{ workspace: workspaceId }} onClick={() => dialog.current?.close()}><Icon size={20} aria-hidden="true" />{title}</Link>
           ))}
           {apps.length === 0 && <p role="status">No apps found. Try another name.</p>}
         </nav>

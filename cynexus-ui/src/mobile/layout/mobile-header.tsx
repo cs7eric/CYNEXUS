@@ -1,5 +1,5 @@
 import { Dropdown } from "@heroui/react/dropdown"
-import { ArrowLeft, Check, Plus, RefreshCw } from "lucide-react"
+import { ArrowLeft, BookOpenText, Check, History, Plus, RefreshCw, Sparkles } from "lucide-react"
 import { useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
@@ -20,22 +20,32 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
   const WorkspaceIcon = workspace.icon
   const mobilePath = normalizeMobileAppPath(location.pathname)
   const currentApp = [...mobileNavigation, ...mobileFeatureApps].find((item) => item.href === mobilePath)
-  const CurrentIcon = currentApp?.icon ?? WorkspaceIcon
-  const currentLabel = currentApp?.label ?? workspace.name
+  const isKnowledgeBase = mobilePath === "/m/knowledge-base"
+  const isAgent = mobilePath === "/m/agent"
+  const CurrentIcon = isAgent ? Sparkles : isKnowledgeBase ? BookOpenText : currentApp?.icon ?? WorkspaceIcon
+  const currentLabel = isAgent ? "Cynexus Agent" : isKnowledgeBase ? "Knowledge Base" : currentApp?.label ?? workspace.name
   const isFinance = mobilePath === "/m/finance" && location.hash === "#finance-accounts"
   const isFridgePage = mobilePath === "/m/food" && location.hash === "#food-fridge"
-  const isAppRoute = Boolean(getMobileAppNavigation(mobilePath)) || mobilePath === "/m/configuration"
+  const isAppRoute = Boolean(getMobileAppNavigation(mobilePath)) || mobilePath === "/m/configuration" || isKnowledgeBase || isAgent
 
   function goBack() {
     if (!window.dispatchEvent(new Event("mobile-back", { cancelable: true }))) return
     // Mobile app pages have an explicit parent route. Do not use the browser
     // history here: opening an app from another page should still return to
     // the app's parent rather than to an unrelated previously visited page.
-    if (location.hash) {
-      navigate({ pathname: mobilePath, search: location.search }, { replace: true })
+    if (isAgent) {
+      navigate("/m/apps", { replace: true, state: { workspace: workspaceId } })
       return
     }
-    navigate("/m", { replace: true })
+    if (location.hash) {
+      navigate({ pathname: mobilePath, search: location.search }, { replace: true, state: { ...location.state, workspace: workspaceId } })
+      return
+    }
+    if (isKnowledgeBase) {
+      navigate("/m/apps", { replace: true, state: { workspace: workspaceId } })
+      return
+    }
+    navigate("/m", { replace: true, state: { workspace: workspaceId } })
   }
 
   const workspaceControl = (
@@ -62,16 +72,16 @@ export function MobileHeader({ onFinanceRefresh }: { onFinanceRefresh?: () => vo
   )
 
   return (
-    <header className="mobile-header">
+    <header className="mobile-header" data-agent={isAgent || undefined}>
       <div className="mobile-header-top mx-auto w-full max-w-2xl px-4">
         <div className="mobile-header-leading">
           {isAppRoute ? <button type="button" className="mobile-header-control mobile-header-back" aria-label="Back" title="Back" onClick={goBack}><ArrowLeft aria-hidden="true" /></button> : workspaceControl}
         </div>
-        <div className="mobile-header-greeting"><h1>Hello, {sidebarConfig.user.name}</h1><p>Today {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.</p></div>
+        {!isAgent && <div className="mobile-header-greeting"><h1>Hello, {sidebarConfig.user.name}</h1><p>Today {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.</p></div>}
         <div className="mobile-header-actions">
           {isFinance && onFinanceRefresh && <MobileButton isIconOnly variant="ghost" className="mobile-header-control mobile-header-refresh" aria-label="Refresh finance" onPress={onFinanceRefresh}><span title="Refresh finance"><RefreshCw aria-hidden="true" /></span></MobileButton>}
           {isFridgePage && <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label="Add food to fridge" onPress={() => window.dispatchEvent(new Event("mobile-fridge-add"))}><span title="Add food to fridge"><Plus aria-hidden="true" /></span></MobileButton>}
-          {isFinance ? <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label="Add account" onPress={() => window.dispatchEvent(new Event("mobile-finance-account-add"))}><span title="Add account"><Plus aria-hidden="true" /></span></MobileButton> : <MobileAppSearch />}
+          {isFinance ? <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label="Add account" onPress={() => window.dispatchEvent(new Event("mobile-finance-account-add"))}><span title="Add account"><Plus aria-hidden="true" /></span></MobileButton> : isAgent ? <MobileButton isIconOnly variant="ghost" className="mobile-header-control" aria-label="Conversation history" onPress={() => window.dispatchEvent(new Event("mobile-agent-history"))}><span title="Conversation history"><History aria-hidden="true" /></span></MobileButton> : <MobileAppSearch />}
         </div>
       </div>
     </header>

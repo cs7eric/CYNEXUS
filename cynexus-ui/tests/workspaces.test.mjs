@@ -91,7 +91,7 @@ test("navigation state remains usable when browser storage is unavailable", () =
 })
 
 test("mobile shell routes share spaces without claiming similar desktop paths", () => {
-  for (const route of ["/m", "/m/", "/m/apps", "/m/me?tab=security#session", "/m/unknown"]) {
+  for (const route of ["/m", "/m/", "/m/apps", "/m/agent", "/m/knowledge-base", "/m/me?tab=security#session", "/m/unknown"]) {
     assert.equal(getWorkspaceForPath(route), "shared", route)
     assert.ok(isPathInWorkspace(route, "personal"))
     assert.ok(isPathInWorkspace(route, "development"))
@@ -110,6 +110,22 @@ test("mobile navigation updates active space while preserving both desktop desti
   useWorkspaceState.getState().recordLocation("development", "/m/me")
   assert.equal(useWorkspaceState.getState().activeWorkspace, "development")
   assert.equal(useWorkspaceState.getState().lastLocations.development, "/ai/provider?tab=routing")
+  useWorkspaceState.getState().recordLocation("development", "/m/agent?conversation=123")
+  assert.equal(useWorkspaceState.getState().activeWorkspace, "development")
+  assert.equal(useWorkspaceState.getState().lastLocations.development, "/ai/provider?tab=routing")
+})
+
+test("mobile app destinations use migrated pages and preserve local query/hash", () => {
+  const { getMobileAppHref, getMobileTitle } = loadSource("mobile/navigation")
+  assert.equal(getMobileAppHref("/cynexus-agent"), "/m/agent")
+  assert.equal(getMobileAppHref("/ai/agent/?conversation=123#answer"), "/m/agent?conversation=123#answer")
+  assert.equal(getMobileAppHref("/knowledge-base/view?id=123"), "/m/knowledge-base?id=123")
+  assert.equal(getMobileAppHref("/finance/overview"), "/m/finance")
+  for (const route of ["/m/agent", "/ai/provider", "/market/overview", "/finance/ledger", "/cynexus-agent-other", "/knowledge-base/writing?id=123"]) {
+    assert.equal(getMobileAppHref(route), route)
+  }
+  assert.equal(getMobileTitle("/m/agent/"), "Cynexus Agent")
+  assert.equal(getWorkspaceForPath("/cynexus-agent"), "shared")
 })
 
 test("mobile app groups follow the same space ownership as desktop", () => {

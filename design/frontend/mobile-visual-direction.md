@@ -38,6 +38,10 @@ The recurring language is bold, rounded and tactile: strong black/white contrast
 | Profile | Configured identity, workspace/access metadata, three pastel app-count summaries and flat divided action rows based on the supplied profile reference. |
 | Data and research | Carry over shape, spacing and hierarchy while preserving precise figures, units, freshness and market semantics. Decorative color must not compete with financial direction/status colors. |
 
+### Knowledge Base
+
+The mobile Knowledge Base uses the shared white canvas with black as its sole emphasis color. Use black for selected filters, active document states and primary actions, with neutral gray for metadata and separators. Do not use the Home / Apps mint accent on Knowledge Base surfaces.
+
 ### Mobile typography scale
 
 Use the existing mobile components, Lucide icon system and shared services. Use this type scale in CSS pixels; keep sizes fixed across viewport widths rather than scaling text with `vw` or `clamp()`:
@@ -58,7 +62,17 @@ Keep control hit areas at least 44px even when their labels are compact. Selecte
 
 For large feature panels, keep the existing 24–32px corner range and use fully rounded compact controls. These geometry values are implementation starting points inferred from the references, not measurements of the source designs.
 
-All mobile routes use the reference's greeting/search header, detached white navigation capsule with a high-contrast charcoal active pill, white canvas and Manrope typography. These are shared layout features that remain stable while switching tabs and scrolling. Home uses the week capsules, cool-blue asymmetric cards and mint quick links.
+The shared mobile shell uses the reference's greeting/search header, detached white navigation capsule with a high-contrast charcoal active pill, white canvas and Manrope typography. These layout features remain stable while switching tabs and scrolling, with the Agent conversation using the focused header and navigation treatment below. Home uses the week capsules, cool-blue asymmetric cards and mint quick links.
+
+### Agent
+
+The mobile Agent uses a white canvas, Manrope and charcoal as its emphasis color. Its shared header contains only Back on the left and History on the right, with no greeting, date or app search. The bottom navigation capsule and `+` stay hidden throughout the page. History opens a dedicated bottom sheet without workspace tabs, with a search bar, New chat in the header, a highlighted current conversation and readable divided rows with dates and confirmed archiving. Activity, draft confirmation, scheduled tasks and available tools remain in the page toolbar's separate workspace sheet; black identifies the active section.
+
+A compact conversation toolbar leads to a quiet welcome state with a dark Agent mark, a two-line prompt and three flat suggestion rows. Messages use a light-gray user bubble and unboxed Agent responses, with the shared Web read-only Markdown renderer used continuously during streaming and after completion. The outlined, rounded composer has 24px of clearance plus the device safe-area inset from the visible viewport's bottom edge. Provider and Model HeroUI selects sit directly inside the message composer, following the Web layout; their widths adapt to narrow screens and long selected labels truncate. All inputs use at least 16px, with no automatic focus on entry or panel changes. The sheets and composer follow the visible viewport when the keyboard opens.
+
+## Implemented Apps
+
+`/m/apps` follows the approved [Apps HTML prototype](prototypes/apps/mobile.html). It retains the shared header, Manrope font and detached navigation. Shared Agent / Knowledge Base shortcuts use 116px blue/mint cards with 24px corners and circular arrow affordances. Workout / Food sit side by side in a single 62px unboxed row. Workspace groups use 54px divided rows with bare Lucide icons, 14px item labels and quiet counts. Finance and Knowledge Base open their mobile routes; workspace ownership and application counts still come from the shared navigation configuration. Search and workspace switching remain in the shared header. The shell owns scrolling and bottom-navigation clearance.
 
 ## Implemented Home
 

@@ -39,7 +39,8 @@
 }
 
 .mobile-theme .finance-asset-amount-line { margin-top: 14px; min-height: 51px; }
-.mobile-theme .finance-asset-figure { display: block; min-width: 0; flex: 1; font-family: "Outfit Display", "Manrope Mobile", sans-serif; font-variant-numeric: tabular-nums; }
+.mobile-theme .finance-asset-figure { display: block; min-width: 0; min-height: 44px; max-width: 100%; flex: 1; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font-family: "Outfit Display", "Manrope Mobile", sans-serif; font-variant-numeric: tabular-nums; }
+.mobile-theme .finance-asset-figure:focus-visible { outline: 2px solid var(--foreground); outline-offset: 4px; border-radius: 4px; }
 .mobile-theme .finance-asset-figure > span { display: inline-block; white-space: nowrap; font-size: 24px; line-height: 1.2; letter-spacing: -.5px; font-weight: 450; }
 .mobile-theme .finance-asset-figure.is-primary > span { font-size: 44px; line-height: 1.14; letter-spacing: -1.8px; font-weight: 460; }
 .mobile-theme .finance-asset-cents { font-size: .68em; color: var(--muted); letter-spacing: -1px; }
@@ -63,7 +64,7 @@
 .mobile-theme :is(.finance-asset-icon-button, .finance-asset-pile-trigger, .finance-asset-composition, .finance-asset-text-button):focus-visible { outline: 2px solid var(--foreground); outline-offset: 4px; }
 
 .mobile-theme .finance-asset-pile-trigger { display: block; width: calc(100% + 40px); margin: 3px -20px 0; padding: 0; background: transparent; border: 0; border-radius: 20px; cursor: pointer; }
-.mobile-theme .finance-asset-scene { display: block; position: relative; width: 100%; max-width: 380px; margin-inline: auto; aspect-ratio: 380 / 330; pointer-events: none; }
+.mobile-theme .finance-asset-scene { display: block; position: relative; width: 100%; max-width: 380px; margin-inline: auto; aspect-ratio: 380 / 350; pointer-events: none; }
 .mobile-theme .finance-asset-ground { position: absolute; left: 20%; top: 77%; width: 63%; height: 15%; border-radius: 50%; background: #49605625; filter: blur(17px); }
 .mobile-theme .finance-asset-piece { position: absolute; transform: translate(-50%, -50%) rotate(var(--piece-angle)); filter: drop-shadow(0 5px 4px #23333128); }
 .mobile-theme .finance-asset-piece img { display: block; width: 100%; height: auto; user-select: none; }

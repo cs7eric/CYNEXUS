@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { I18nProvider } from "react-aria-components/I18nProvider"
-import { Outlet } from "react-router-dom"
+import { Outlet, useLocation } from "react-router-dom"
 
 import { useWorkspace } from "@/layout/workspace-provider"
 import { MobilePortalContext } from "@/mobile/hooks/use-mobile-portal"
@@ -11,11 +11,14 @@ import { MobileHeader } from "@/mobile/layout/mobile-header"
 import { MobileTabBar } from "@/mobile/layout/mobile-tab-bar"
 import { MobileMetricEntry, type MetricEntryMode, type MetricEntryValue } from "@/mobile/components/metric-entry"
 import { MobileNumericKeyboard } from "@/mobile/components/numeric-keyboard"
+import { normalizeMobileAppPath } from "@/mobile/navigation"
 import { dateKey, saveObservation, saveSession } from "@/services/workout/model"
 import "@/mobile/styles.css"
 
 export default function MobileLayout() {
   const { workspaceId } = useWorkspace()
+  const { pathname } = useLocation()
+  const showBottomNavigation = normalizeMobileAppPath(pathname) !== "/m/agent"
   const theme = useRef<HTMLDivElement>(null)
   const main = useRef<HTMLElement>(null)
   const [portal, setPortal] = useState<HTMLDivElement | null>(null)
@@ -50,7 +53,7 @@ export default function MobileLayout() {
             <main ref={main} id="mobile-content" className="mobile-content">
               <div className="mobile-route-container mx-auto w-full max-w-2xl px-5 pb-6"><Outlet context={{ financeRefreshToken }} /></div>
             </main>
-            <MobileTabBar onOpenMetricEntry={setMetricEntryMode} />
+            {showBottomNavigation && <MobileTabBar onOpenMetricEntry={setMetricEntryMode} />}
             {metricEntryMode && <MobileMetricEntry initialMode={metricEntryMode} onClose={() => setMetricEntryMode(null)} onAdd={addMetric} />}
           </div>
           <div ref={setPortal} />

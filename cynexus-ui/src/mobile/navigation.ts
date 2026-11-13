@@ -46,6 +46,20 @@ export const mobileAppNavigation = {
   },
 } as const
 
+export function getMobileAppHref(href: string) {
+  const suffixIndex = href.search(/[?#]/)
+  const pathname = (suffixIndex < 0 ? href : href.slice(0, suffixIndex)).replace(/\/+$/, "")
+  const suffix = suffixIndex < 0 ? "" : href.slice(suffixIndex)
+  const mobileHref = pathname === "/cynexus-agent" || pathname === "/ai/agent"
+    ? "/m/agent"
+    : pathname === "/knowledge-base/view"
+      ? "/m/knowledge-base"
+      : pathname === "/finance/overview"
+        ? "/m/finance"
+        : null
+  return mobileHref ? `${mobileHref}${suffix}` : href
+}
+
 export function normalizeMobileAppPath(pathname: string) {
   const normalizedPath = pathname.replace(/\/+$/, "") || "/m"
   return normalizedPath === "/m/fridge" ? "/m/food" : normalizedPath
@@ -58,6 +72,8 @@ export function getMobileAppNavigation(pathname: string) {
 
 export function getMobileTitle(pathname: string) {
   const normalizedPath = normalizeMobileAppPath(pathname)
+  if (normalizedPath === "/m/agent") return "Cynexus Agent"
+  if (normalizedPath === "/m/knowledge-base") return "Knowledge Base"
   if (normalizedPath === "/m/tasks") return "Async tasks"
   return [...mobileNavigation, ...mobileFeatureApps].find((item) => item.href === normalizedPath)?.label ?? "Page not found"
 }

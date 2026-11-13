@@ -6,7 +6,7 @@ import { useWorkspace } from "@/layout/workspace-provider"
 import { MobileActivityCalendar } from "@/mobile/components/activity-calendar"
 import { activityDateKey, activityMonthStart, shiftActivityDate, shiftActivityMonth, type FinanceSummarySnapshot } from "@/mobile/components/activity-calendar/model"
 import { createActivityPreview, createBodyMeasurementPreview } from "@/mobile/components/activity-calendar/preview"
-import { getMobileAppGroups } from "@/mobile/navigation"
+import { getMobileAppGroups, getMobileAppHref } from "@/mobile/navigation"
 import { useFoodDay } from "@/mobile/pages/food/hooks/use-food-data"
 import { useNutritionConfig } from "@/mobile/hooks/use-nutrition-config"
 import { useWorkoutRecords } from "@/mobile/hooks/use-workout-records"
@@ -100,7 +100,7 @@ export default function MobileHomePage() {
       <section className="mobile-home-plan" aria-labelledby="mobile-home-plan-title">
         <h2 id="mobile-home-plan-title">Your plan</h2>
         <div className="mobile-home-plan-grid">
-          <Link to={primaryApp?.url ?? "/m/apps"} state={{ workspace: workspaceId }} className="mobile-home-primary-card">
+          <Link to={getMobileAppHref(primaryApp?.url ?? "/m/apps")} state={{ workspace: workspaceId }} className="mobile-home-primary-card">
             <span className="mobile-home-card-tag">{workspace.name}</span>
             <div className="mobile-home-primary-copy">
               <h3>{primaryApp?.title ?? "Your apps"}</h3>
@@ -113,7 +113,7 @@ export default function MobileHomePage() {
             </div>
           </Link>
 
-          <Link to="/knowledge-base/view" state={{ workspace: workspaceId }} className="mobile-home-library-card">
+          <Link to={getMobileAppHref("/knowledge-base/view")} state={{ workspace: workspaceId }} className="mobile-home-library-card">
             <span className="mobile-home-card-tag">Shared</span>
             <h3>Knowledge<br />Base</h3>
             <p>Your ideas,<br />connected.</p>
@@ -121,7 +121,7 @@ export default function MobileHomePage() {
           </Link>
 
           <div className="mobile-home-tools-card" role="group" aria-label="Quick access">
-            <Link to="/cynexus-agent" state={{ workspace: workspaceId }} aria-label="Cynexus Agent" title="Cynexus Agent"><Sparkles aria-hidden="true" /></Link>
+            <Link to={getMobileAppHref("/cynexus-agent")} state={{ workspace: workspaceId }} aria-label="Cynexus Agent" title="Cynexus Agent"><Sparkles aria-hidden="true" /></Link>
             <Link to="/m/apps" aria-label="App directory" title="App directory"><LayoutGrid aria-hidden="true" /></Link>
             <Link to="/m/me" aria-label="Profile" title="Profile"><UserRound aria-hidden="true" /></Link>
           </div>

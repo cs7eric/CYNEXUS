@@ -21,7 +21,7 @@ export function AssetPile({ amountInFen }: { amountInFen: number }) {
           "--piece-angle": `${piece.rotation}deg`,
           "--piece-delay": `${Math.min(index * 16, 300)}ms`,
           "--bundle-depth": `${bundleDepth}px`,
-          zIndex: (group.kind === "bundle" ? 200 : group.kind === "coin" ? 400 : 0) + index + 1,
+          zIndex: (group.kind === "bundle" ? 200 : group.kind === "coin" ? 400 : 300) + index + 1,
         } as CSSProperties
         return (
           <span key={piece.key} className={`finance-asset-piece is-${group.kind}${thinBundle ? " is-thin-bundle" : ""}`} style={style}>

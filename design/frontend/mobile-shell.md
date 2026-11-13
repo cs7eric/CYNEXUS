@@ -58,9 +58,23 @@ Date helpers use local calendar arithmetic at noon, avoiding UTC date parsing an
 
 All groups, app names, counts and destinations come from the existing navigation configuration. Switching workspace in the shared header updates the directory in place; each app link carries the current workspace to the desktop destination. The fixed greeting header and capsule navigation stay visible while the list scrolls. No usage metrics or new business functionality are implied.
 
+The shared Knowledge Base shortcut opens `/m/knowledge-base`. Its list uses the black-selected status control, document summary strip, category filter and recent document rows. Opening a row replaces the list with a full-width Markdown reader; creating or editing a document uses a focused form with draft and publish actions. Reads and writes use the existing Knowledge Base document, tag and category services. The mobile screen stays separate from the desktop two-pane view.
+
 ## Profile
 
 The fourth tab is Profile at the existing `/m/me` address, implemented in `src/mobile/pages/profile/index.tsx` with page-local CSS. It adapts the supplied fitness profile into Cynexus: configured username/email and an initials avatar, current workspace and owner access, then mint/sky/slate summaries with the actual Personal, Development and shared app counts from navigation configuration. These app counts describe available navigation entries, not usage or backend health. Summary links open the matching app directory and retain the selected workspace.
+
+## Agent
+
+`/m/agent` is the mobile destination for Apps → Cynexus Agent, Home, Profile, shared app search and the quick menu. The desktop aliases remain unchanged; `getMobileAppHref` resolves mobile entry links and preserves workspace state, query and hash. Back returns to Apps.
+
+The single-column page uses a simplified shared header with only Back on the left and History on the right. Greeting, date and app search are absent, and the bottom navigation capsule and `+` stay hidden throughout `/m/agent`. History opens a dedicated bottom sheet without workspace tabs, with a search bar, a New chat action in its header and readable divided conversation rows with dates. The current conversation is highlighted, and archiving requires confirmation. Activity, confirmed draft writes, scheduled tasks and tool availability remain accessible through the page toolbar's separate workspace sheet.
+
+The conversation scrolls independently, and the composer has 24px of clearance plus the device safe-area inset from the visible viewport's bottom edge. Provider and Model HeroUI selects sit directly inside the message composer, following the Web layout; their widths adapt to narrow screens and long selected labels truncate. Selected controls use charcoal, editable fields remain at least 16px, and entering the page or switching panels does not focus an input. The existing visual-viewport measurements keep the composer and sheets inside the visible area when the software keyboard opens. Code and tables scroll locally.
+
+Desktop and mobile share `useAgentWorkspace` plus the pure `lib/agent/model` and `lib/agent/timeline` helpers. The controller reuses the existing stream/reconnect service, Provider binding, history, stop, retry/regenerate and export operations. It filters intermediate tool messages, guards concurrent requests and deduplicates replayed stream events. Mobile sends the existing `workspace: "agent"` contract with `locale: "en-US"`. Streaming and completed answers continuously use the shared Web read-only Markdown renderer. Retry/regenerate remain synchronous service calls, with Stop disabled during those calls. Reopening a running historical conversation displays its latest snapshot; reopening it again refreshes the snapshot.
+
+Draft writes require a preview and an explicit confirmation token, with expiry and rejection. Mutation requests lock the sheet against dismissal and repeated submission. Scheduled tasks reuse the existing schedule/pause/resume/cancel API, and feedback uses the existing rating API. This is a UI migration of the existing `autonomous_agent` capability, with no new data operation, prompt, Provider route, usage binding or autonomous write authority.
 
 ## Finance
 

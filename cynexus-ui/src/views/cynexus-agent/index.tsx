@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { type ReactNode } from "react"
 import { Archive, AlertCircle, ArrowUp, Check, CircleDashed, Cpu, Download, ExternalLink, PanelRight, RefreshCw, Sparkles, Square, Wrench } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { notification } from "@/components/ui/notification"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { WorkspaceShell } from "@/layout/workspace-shell"
-import { archiveAgentConversation, cancelAgent, exportAgentRun, fetchAgentConversations, fetchAgentMessages, fetchAgentTools, getAgentRun, regenerateAgent, retryAgent, runAgentStream, searchAgentConversations, type AgentCancellationResult, type AgentCitation, type AgentConversation, type AgentMessage, type AgentRun, type AgentRunStep, type AgentToolDefinition } from "@/services/ai/agent"
+import { type AgentCitation, type AgentRunStep } from "@/services/ai/agent"
+import { useAgentWorkspace, type AgentNotice } from "@/hooks/use-agent-workspace"
+import { clarification, conversationLabel, evidence } from "@/lib/agent/model"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
@@ -17,12 +19,12 @@ import { Message, MessageContent, MessageFooter, MessageHeader } from "@/compone
 import { Spinner } from "@/components/ui/spinner"
 import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { AgentActivityTimeline, appendRetry, appendThinkingDelta, appendToolStep, completeThinking, timelineFromSteps, type AgentTimelineEntry } from "./components/agent-activity-timeline"
+import { AgentActivityTimeline } from "./components/agent-activity-timeline"
 import { AgentFeedbackPanel } from "./components/agent-feedback-panel"
 import { AgentMarkdown } from "./components/agent-markdown"
 import { AgentWritePanel } from "./components/agent-write-panel"
 import { AgentTaskPanel } from "./components/agent-task-panel"
-import { AI_REASONING_EFFORT_PARAM, AI_REASONING_EFFORTS, DEFAULT_AI_REASONING_EFFORT, fetchAiBindings, fetchAiProviders, normalizeAiReasoningEffort, type AiProviderItem, type AiReasoningEffort } from "@/services/ai/provider"
+import { AI_REASONING_EFFORTS, type AiReasoningEffort } from "@/services/ai/provider"
 
 function stepLabel(step: AgentRunStep) {
   if (step.kind === "ANSWER") return "Answer"
@@ -46,51 +48,8 @@ function outputPreview(step: AgentRunStep) {
   }
 }
 
-function evidence(run: AgentRun) {
-  if (!run.evidenceJson) return [] as Array<{ toolCode?: string; source?: string; sourceUrl?: string; dataDate?: string; summary?: string; citations?: AgentCitation[] }>
-  try {
-    const value = JSON.parse(run.evidenceJson) as unknown
-    return Array.isArray(value) ? value as Array<{ toolCode?: string; source?: string; sourceUrl?: string; dataDate?: string; summary?: string; citations?: AgentCitation[] }> : []
-  } catch {
-    return []
-  }
-}
-
-function clarification(run: AgentRun) {
-  if (run.status !== "NEEDS_CLARIFICATION" || !run.clarificationJson) return null
-  try {
-    const value = JSON.parse(run.clarificationJson) as { summary?: string; questions?: string[]; missingFields?: string[] }
-    return value.questions?.length ? value : null
-  } catch {
-    return null
-  }
-}
-
-function notifyAgentError(title: string, reason: unknown, fallback: string) {
-  notification.danger({
-    title,
-    description: reason instanceof Error ? reason.message : fallback,
-  })
-}
-
-function markdownTitle(markdown?: string | null) {
-  return (markdown ?? "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/^\s{0,3}#{1,6}\s*/gm, "")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*\d+[.)]\s+/gm, "")
-    .replace(/^\s*>\s?/gm, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/[|*_~`]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function conversationLabel(conversation: AgentConversation) {
-  const source = conversation.lastMessage || conversation.title || conversation.conversationNo
-  return markdownTitle(source) || conversation.title || conversation.conversationNo
+function notifyAgentNotice({ tone, title, description }: AgentNotice) {
+  notification[tone]({ title, description })
 }
 
 function CitationList({ citations }: { citations: AgentCitation[] }) {
@@ -144,340 +103,16 @@ function AgentMessageBubble({ align, children, footer }: { align: "start" | "end
   )
 }
 
-const TERMINAL_RUN_STATUSES = new Set([
-  "SUCCEEDED",
-  "FAILED",
-  "NEEDS_CLARIFICATION",
-  "CANCELLED",
-])
-
-function isTerminalRunStatus(status?: string | null) {
-  return TERMINAL_RUN_STATUSES.has(status ?? "")
-}
-
-function hasToolCalls(message: AgentMessage) {
-  const raw = message.toolCallsJson?.trim()
-  return Boolean(raw && raw !== "[]" && raw !== "null")
-}
-
-function isVisibleTranscriptMessage(message: AgentMessage) {
-  const content = message.content?.trim()
-  if (!content) return false
-  if (message.role === "user") return true
-  // Intermediate model turns that requested tools often contain greetings/preambles.
-  // Keep only final assistant answers in the conversation transcript.
-  if (message.role === "assistant") return !hasToolCalls(message)
-  return false
-}
-
-function sameMessageText(left?: string | null, right?: string | null) {
-  return (left ?? "").trim() === (right ?? "").trim()
-}
-
-function providerReasoningEffort(provider?: AiProviderItem): AiReasoningEffort {
-  return normalizeAiReasoningEffort(provider?.extra?.model_reasoning_effort) || DEFAULT_AI_REASONING_EFFORT
-}
-
-function bindingReasoningEffort(params?: Record<string, unknown>): AiReasoningEffort | null {
-  return normalizeAiReasoningEffort(params?.[AI_REASONING_EFFORT_PARAM])
-}
-
-function removeCurrentRunFromTranscript(messages: AgentMessage[], run: AgentRun | null) {
-  const visible = messages.filter(isVisibleTranscriptMessage)
-  if (!run) return visible
-
-  const duplicateIndexes = new Set<number>()
-  if (run.userInput) {
-    const userIndex = [...visible].reverse().findIndex(
-      (message) => message.role === "user" && sameMessageText(message.content, run.userInput),
-    )
-    if (userIndex >= 0) duplicateIndexes.add(visible.length - 1 - userIndex)
-  }
-  if (run.answer) {
-    const answerIndex = [...visible].reverse().findIndex(
-      (message) => message.role === "assistant" && sameMessageText(message.content, run.answer),
-    )
-    if (answerIndex >= 0) duplicateIndexes.add(visible.length - 1 - answerIndex)
-  }
-
-  return visible.filter((_, index) => !duplicateIndexes.has(index))
-}
-
 export default function AutonomousAgentPage() {
-  const [input, setInput] = useState("")
-  const [run, setRun] = useState<AgentRun | null>(null)
-  const [conversationMessages, setConversationMessages] = useState<AgentMessage[]>([])
-  const [tools, setTools] = useState<AgentToolDefinition[]>([])
-  const [providers, setProviders] = useState<AiProviderItem[]>([])
-  const [defaultProviderCode, setDefaultProviderCode] = useState("")
-  const [bindingDefaultReasoning, setBindingDefaultReasoning] = useState<AiReasoningEffort>(DEFAULT_AI_REASONING_EFFORT)
-  const [selectedProviderCode, setSelectedProviderCode] = useState("")
-  const [selectedModelCode, setSelectedModelCode] = useState("")
-  const [selectedReasoningEffort, setSelectedReasoningEffort] = useState<AiReasoningEffort | "">("")
-  const [conversations, setConversations] = useState<AgentConversation[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const [activeRunNo, setActiveRunNo] = useState<string | null>(null)
-  const abortController = useRef<AbortController | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [historyQuery, setHistoryQuery] = useState("")
-  const [archiveLoadingNo, setArchiveLoadingNo] = useState<string | null>(null)
-  const [workspaceOpen, setWorkspaceOpen] = useState(false)
-  const [workspaceTab, setWorkspaceTab] = useState("history")
-  const [timeline, setTimeline] = useState<AgentTimelineEntry[]>([])
-  const historyRequestId = useRef(0)
-
-  const displayedConversationMessages = useMemo(
-    () => removeCurrentRunFromTranscript(conversationMessages, run),
-    [conversationMessages, run],
-  )
-
-  const runIsTerminal = isTerminalRunStatus(run?.status) && !loading
-  const showAssistantBubble = Boolean(
-    run && (
-      Boolean(run.answer?.trim()) ||
-      Boolean(run.errorMessage?.trim()) ||
-      Boolean(clarification(run)) ||
-      runIsTerminal
-    ),
-  )
-  const showRunActions = Boolean(run?.runNo && runIsTerminal)
-
-  async function refreshConversations(query = "") {
-    const requestId = ++historyRequestId.current
-    try {
-      const nextConversations = query.trim()
-        ? await searchAgentConversations(query.trim())
-        : await fetchAgentConversations()
-      if (requestId === historyRequestId.current) setConversations(nextConversations)
-    } catch (reason: unknown) {
-      if (requestId === historyRequestId.current) {
-        notifyAgentError("加载 Agent 会话失败", reason, "无法加载会话记录")
-      }
-    }
-  }
-
-  useEffect(() => {
-    let disposed = false
-    async function loadWorkspace() {
-      const [nextTools, nextProviders, nextBindings] = await Promise.all([
-        fetchAgentTools(),
-        fetchAiProviders(),
-        fetchAiBindings(),
-        refreshConversations(),
-      ])
-      if (!disposed) {
-        const enabledProviders = nextProviders.filter((provider) => provider.is_enabled)
-        const binding = nextBindings.find((item) => item.capability === "autonomous_agent" && item.is_enabled)
-        const boundProvider = enabledProviders.find((provider) =>
-          provider.code === binding?.provider?.code || provider.id === binding?.provider_id,
-        )
-        const boundProviderCode = boundProvider?.code || ""
-        setTools(nextTools)
-        setProviders(enabledProviders)
-        setDefaultProviderCode(boundProviderCode)
-        setSelectedProviderCode(boundProviderCode)
-        setSelectedModelCode(binding?.model_override || boundProvider?.default_model || boundProvider?.models[0] || "")
-        setBindingDefaultReasoning(bindingReasoningEffort(binding?.params) || providerReasoningEffort(boundProvider))
-        setSelectedReasoningEffort("")
-      }
-    }
-
-    void loadWorkspace().catch((reason: unknown) => {
-      if (!disposed) notifyAgentError("加载 Agent 工具失败", reason, "无法加载 Agent 工具")
-    })
-    return () => {
-      disposed = true
-    }
-  }, [])
-
-  const toolGroups = useMemo(() => {
-    const groups = new Map<string, AgentToolDefinition[]>()
-    for (const tool of tools) groups.set(tool.module, [...(groups.get(tool.module) ?? []), tool])
-    return [...groups.entries()]
-  }, [tools])
-
-  const selectedProvider = providers.find((provider) => provider.code === selectedProviderCode)
-    ?? providers.find((provider) => provider.code === defaultProviderCode)
-  const providerDefaultReasoning = !selectedProviderCode || selectedProviderCode === defaultProviderCode
-    ? bindingDefaultReasoning
-    : providerReasoningEffort(selectedProvider)
-  const providerDisplayName = selectedProvider?.name || selectedProvider?.code || "Default provider"
-  const displayedModelCode = selectedModelCode
-    || run?.modelCode?.trim()
-    || selectedProvider?.default_model
-    || selectedProvider?.models[0]
-    || ""
-
-  async function submit() {
-    const userInput = input.trim()
-    if (!userInput || loading) return
-    const conversationNo = run?.conversationNo ?? undefined
-    setInput("")
-    setLoading(true)
-    setActiveRunNo(null)
-    setTimeline([])
-    setRun({ conversationNo, userInput, status: "RUNNING", answer: "" })
-    try {
-      const controller = new AbortController()
-      abortController.current = controller
-      const nextRun = await runAgentStream({
-        conversationNo,
-        userInput,
-        preferredProviderCode: selectedProviderCode || undefined,
-        preferredModelCode: selectedModelCode || undefined,
-        preferredReasoningEffort: selectedReasoningEffort || undefined,
-        workspace: "agent",
-        locale: "zh-CN",
-      }, (event) => {
-        if (event.runNo) setActiveRunNo(event.runNo)
-        if (event.type === "THINKING_DELTA" && event.delta) {
-          setTimeline((current) => appendThinkingDelta(current, event.delta || ""))
-        }
-        if (event.type === "THINKING") {
-          setTimeline((current) => completeThinking(current, event.summary))
-              }
-        if (event.type === "TOOL_STEP") {
-          setTimeline((current) => appendToolStep(current, {
-            stepNo: event.stepNo,
-            toolCode: event.toolCode,
-            summary: event.summary,
-            status: event.status,
-          }))
-        }
-        if (event.type === "RETRYING") {
-          setTimeline((current) => appendRetry(current, {
-            sequenceNo: event.sequenceNo,
-            summary: event.summary,
-          }))
-        }
-        if (event.type === "TOKEN_DELTA" || event.answer) {
-                setTimeline((current) => completeThinking(current))
-          setRun((current) => ({
-            ...(current ?? {}),
-            runNo: event.runNo ?? current?.runNo,
-            conversationNo,
-            userInput,
-            status: event.type === "RUN_COMPLETED" ? event.status ?? current?.status : "RUNNING",
-            answer: event.delta ? `${current?.answer ?? ""}${event.delta}` : event.answer ?? current?.answer,
-          }))
-        }
-        if (event.type === "RUN_COMPLETED") {
-                setTimeline((current) => completeThinking(current))
-        }
-      }, controller.signal)
-      setRun(nextRun)
-      if (nextRun.modelCode?.trim()) setSelectedModelCode(nextRun.modelCode.trim())
-      setTimeline((current) => current.length ? current : timelineFromSteps(nextRun.steps))
-        if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
-      setConversations(await fetchAgentConversations())
-    } catch (reason: unknown) {
-      const message = reason instanceof Error ? reason.message : "Agent run failed"
-      notifyAgentError("Agent 执行失败", reason, message)
-      setRun((current) => current?.userInput === userInput ? { ...current, status: "FAILED", errorMessage: message } : current)
-    } finally {
-      abortController.current = null
-      setActiveRunNo(null)
-      setLoading(false)
-    }
-  }
-
-  async function stopAgent() {
-    if (activeRunNo) {
-      try {
-        const result: AgentCancellationResult = await cancelAgent(activeRunNo)
-        if (result.status === "CANCEL_REQUESTED") {
-          setRun((current) => current ? { ...current, status: "CANCEL_REQUESTED" } : current)
-          notification.info({ title: "已请求停止 Agent", description: "正在等待 Agent 安全停止" })
-        } else if (result.status === "ALREADY_TERMINAL") {
-          const terminalRun = await getAgentRun(activeRunNo)
-          setRun(terminalRun)
-          notification.warn({
-            title: "Agent 已结束",
-            description: `当前运行已结束（${terminalRun.status ?? result.runStatus ?? "terminal"}）`,
-          })
-        } else {
-          notification.danger({ title: "停止 Agent 失败", description: "找不到当前工作区中的运行记录" })
-        }
-      } catch (reason: unknown) {
-        notifyAgentError("停止 Agent 失败", reason, "无法停止 Agent")
-      }
-      return
-    }
-    abortController.current?.abort()
-  }
-
-  async function openConversation(conversation: AgentConversation) {
-    if (!conversation.lastRunNo || historyLoading) return
-    setHistoryLoading(true)
-    try {
-      const nextRun = await getAgentRun(conversation.lastRunNo)
-      setRun(nextRun)
-      if (nextRun.modelCode?.trim()) setSelectedModelCode(nextRun.modelCode.trim())
-      setTimeline(timelineFromSteps(nextRun.steps))
-        setConversationMessages(await fetchAgentMessages(conversation.conversationNo))
-      setWorkspaceOpen(false)
-    } catch (reason: unknown) {
-      notifyAgentError("打开 Agent 会话失败", reason, "无法重新打开会话")
-    } finally {
-      setHistoryLoading(false)
-    }
-  }
-
-  async function archiveConversation(conversation: AgentConversation) {
-    if (archiveLoadingNo) return
-    setArchiveLoadingNo(conversation.conversationNo)
-    try {
-      const archived = await archiveAgentConversation(conversation.conversationNo)
-      if (!archived) throw new Error("Conversation is no longer available")
-      setConversations((current) => current.filter((item) => item.conversationNo !== conversation.conversationNo))
-      if (run?.conversationNo === conversation.conversationNo) {
-        setRun(null)
-        setConversationMessages([])
-        setTimeline([])
-      }
-      notification.success({ title: "会话已归档" })
-    } catch (reason: unknown) {
-      notifyAgentError("归档会话失败", reason, "无法归档此会话")
-    } finally {
-      setArchiveLoadingNo(null)
-    }
-  }
-
-  async function rerun(action: "retry" | "regenerate") {
-    if (!run?.runNo || loading) return
-    setLoading(true)
-    setTimeline([])
-    try {
-      setRun((current) => current ? { ...current, status: "RUNNING" } : current)
-      const nextRun = action === "retry" ? await retryAgent(run.runNo) : await regenerateAgent(run.runNo)
-      setRun(nextRun)
-      if (nextRun.modelCode?.trim()) setSelectedModelCode(nextRun.modelCode.trim())
-      setTimeline((current) => current.length ? current : timelineFromSteps(nextRun.steps))
-      if (nextRun.conversationNo) setConversationMessages(await fetchAgentMessages(nextRun.conversationNo))
-      setConversations(await fetchAgentConversations())
-    } catch (reason: unknown) {
-      const message = reason instanceof Error ? reason.message : "Unable to rerun Agent"
-      notifyAgentError("重新运行 Agent 失败", reason, message)
-      setRun((current) => current ? { ...current, status: "FAILED", errorMessage: message } : current)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function exportResult() {
-    if (!run?.runNo) return
-    try {
-      const result = await exportAgentRun(run.runNo)
-      const url = URL.createObjectURL(new Blob([result.content], { type: result.contentType }))
-      const anchor = document.createElement("a")
-      anchor.href = url
-      anchor.download = result.filename
-      anchor.click()
-      URL.revokeObjectURL(url)
-    } catch (reason: unknown) {
-      notifyAgentError("导出 Agent 结果失败", reason, "无法导出 Agent 结果")
-    }
-  }
+  const {
+    input, setInput, run, providers, selectedProviderCode, setSelectedProviderCode,
+    selectedModelCode, setSelectedModelCode, selectedReasoningEffort, setSelectedReasoningEffort,
+    conversations, historyLoading, historyQuery, setHistoryQuery, archiveLoadingNo,
+    activeRunNo, loading, canStop, workspaceOpen, setWorkspaceOpen, workspaceTab, setWorkspaceTab, timeline,
+    displayedConversationMessages, showAssistantBubble, showRunActions, toolGroups,
+    selectedProvider, providerDefaultReasoning, providerDisplayName, displayedModelCode,
+    submit, stopAgent, openConversation, archiveConversation, rerun, exportResult, refreshConversations,
+  } = useAgentWorkspace({ onNotice: notifyAgentNotice })
 
   return (
     <WorkspaceShell
@@ -870,7 +505,7 @@ export default function AutonomousAgentPage() {
                         {AI_REASONING_EFFORTS.map((effort) => <SelectItem key={effort} value={effort}>{effort}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {loading ? <InputGroupButton type="button" variant="outline" size="icon-sm" aria-label="Stop Agent" title="Stop Agent" onClick={() => { void stopAgent() }} className="ml-auto size-9 border-destructive/30 bg-destructive/5 text-destructive hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/30 sm:size-8"><Square className="size-3.5" fill="currentColor" /></InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto size-9 sm:size-8" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}
+                    {loading ? <InputGroupButton type="button" disabled={!canStop} variant="outline" size="icon-sm" aria-label="Stop Agent" title="Stop Agent" onClick={() => { void stopAgent() }} className="ml-auto size-9 border-destructive/30 bg-destructive/5 text-destructive hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/30 sm:size-8"><Square className="size-3.5" fill="currentColor" /></InputGroupButton> : <InputGroupButton type="submit" variant="default" size="icon-sm" aria-label="Run Agent" title="Run Agent" className="ml-auto size-9 sm:size-8" disabled={!input.trim()}><ArrowUp /></InputGroupButton>}
                   </InputGroupAddon>
                 </InputGroup>
               </form>

@@ -18,8 +18,8 @@ interface LoadState {
   snapshot?: Snapshot
 }
 
-function FittedAmount({ amount, hidden, primary = false }: { amount: number | null; hidden: boolean; primary?: boolean }) {
-  const frame = useRef<HTMLSpanElement>(null)
+function FittedAmount({ amount, hidden, onToggle, primary = false }: { amount: number | null; hidden: boolean; onToggle: () => void; primary?: boolean }) {
+  const frame = useRef<HTMLButtonElement>(null)
   const figure = useRef<HTMLSpanElement>(null)
   const label = hidden ? "Amounts hidden" : amount === null ? "Unavailable" : formatCny(amount)
   useEffect(() => {
@@ -42,10 +42,10 @@ function FittedAmount({ amount, hidden, primary = false }: { amount: number | nu
   }, [label, primary])
   const [integer, cents] = label.split(".")
   return (
-    <span ref={frame} className={`finance-asset-figure${primary ? " is-primary" : ""}`}>
-      <span ref={figure} aria-hidden="true">{hidden ? "••••••" : primary && amount !== null ? <>{integer}<span className="finance-asset-cents">.{cents}</span></> : label}</span>
+    <button type="button" ref={frame} onClick={onToggle} aria-label={hidden ? "Show amounts" : "Hide amounts"} aria-pressed={!hidden} className={`finance-asset-figure${primary ? " is-primary" : ""}`}>
+      <span ref={figure} aria-hidden="true">{hidden ? "****" : primary && amount !== null ? <>{integer}<span className="finance-asset-cents">.{cents}</span></> : label}</span>
       <span className="sr-only">{label}</span>
-    </span>
+    </button>
   )
 }
 
@@ -58,14 +58,10 @@ function FinanceAssetOverview() {
   const { financeRefreshToken } = useOutletContext<{ financeRefreshToken: number }>()
   const [load, setLoad] = useState<LoadState>({ status: "loading" })
   const [refresh, setRefresh] = useState(0)
-  const [hidden, setHidden] = useState(() => {
-    try { return sessionStorage.getItem("cynexus.finance.hide-amounts") === "true" } catch { return false }
-  })
+  const [hidden, setHidden] = useState(true)
 
   function togglePrivacy() {
-    const next = !hidden
-    setHidden(next)
-    try { sessionStorage.setItem("cynexus.finance.hide-amounts", String(next)) } catch { /* Privacy still works when storage is blocked. */ }
+    setHidden(value => !value)
   }
 
   useEffect(() => {
@@ -91,7 +87,7 @@ function FinanceAssetOverview() {
     <section className="mobile-finance-overview" aria-label="Finance overview" aria-busy={status === "loading"}>
       <div className="finance-asset-heading"><h2>Your assets</h2><span className="finance-asset-currency">CNY</span></div>
       <div className="finance-asset-amount-line">
-        {!snapshot && status === "loading" ? <span className="finance-asset-loading-amount" aria-label="Loading balances" /> : <FittedAmount amount={summary?.assetFen ?? null} hidden={hidden} primary />}
+        {!snapshot && status === "loading" ? <span className="finance-asset-loading-amount" aria-label="Loading balances" /> : <FittedAmount amount={summary?.assetFen ?? null} hidden={hidden} onToggle={togglePrivacy} primary />}
         <button type="button" className="finance-asset-icon-button" onClick={togglePrivacy} aria-label={hidden ? "Show amounts" : "Hide amounts"} aria-pressed={hidden} title={hidden ? "Show amounts" : "Hide amounts"}>{hidden ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button>
       </div>
       <p className="finance-asset-subtitle">Total assets · Chinese yuan</p>
@@ -100,8 +96,6 @@ function FinanceAssetOverview() {
         <div className="finance-asset-empty" role="status">
           {status === "loading" ? <><span className="finance-asset-loading-pile" /><p>Gathering your balances…</p></> : <><strong>Balances unavailable</strong><p>Your accounts could not be loaded.</p><button type="button" className="finance-asset-text-button" onClick={() => setRefresh((value) => value + 1)}>Try again</button></>}
         </div>
-      ) : hidden ? (
-        <div className="finance-asset-empty"><EyeOff aria-hidden="true" /><p>Amounts hidden</p></div>
       ) : summary && summary.assetFen !== null && summary.assetFen > 0 ? (
         <PileBreakdown amountInFen={summary.assetFen} />
       ) : (
@@ -113,8 +107,8 @@ function FinanceAssetOverview() {
       )}
 
       <div className="finance-asset-metrics" aria-label="Net assets and liabilities">
-        <div><span>Net assets</span>{!snapshot && status === "loading" ? <span className="finance-asset-loading-metric" aria-label="Loading net assets" /> : <FittedAmount amount={summary?.netFen ?? null} hidden={hidden} />}</div>
-        <div><span>Liabilities</span>{!snapshot && status === "loading" ? <span className="finance-asset-loading-metric" aria-label="Loading liabilities" /> : <FittedAmount amount={summary?.liabilityFen ?? null} hidden={hidden} />}</div>
+        <div><span>Net assets</span>{!snapshot && status === "loading" ? <span className="finance-asset-loading-metric" aria-label="Loading net assets" /> : <FittedAmount amount={summary?.netFen ?? null} hidden={hidden} onToggle={togglePrivacy} />}</div>
+        <div><span>Liabilities</span>{!snapshot && status === "loading" ? <span className="finance-asset-loading-metric" aria-label="Loading liabilities" /> : <FittedAmount amount={summary?.liabilityFen ?? null} hidden={hidden} onToggle={togglePrivacy} />}</div>
       </div>
       <div className="finance-asset-footer">
         <div role="status">

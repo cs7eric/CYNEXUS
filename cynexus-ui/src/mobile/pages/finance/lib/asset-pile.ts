@@ -33,7 +33,7 @@ export interface PilePiece {
 }
 
 export const PILE_STAGE_WIDTH = 380
-export const PILE_STAGE_HEIGHT = 330
+export const PILE_STAGE_HEIGHT = 350
 
 const MAX_SAFE_FEN = BigInt(Number.MAX_SAFE_INTEGER)
 const DENOMINATIONS: ReadonlyArray<readonly [CurrencyAssetId, number]> = [
@@ -157,7 +157,7 @@ function stableJitter(key: string): [number, number] {
 function makePiece(group: AssetGroup, index: number, slot: readonly number[], representedCount: number): PilePiece {
   const key = `${group.kind}-${group.valueInFen}-${index}`
   const [jitterX, jitterY] = stableJitter(key)
-  const width = PIECE_WIDTHS[group.id]
+  const width = PIECE_WIDTHS[group.id] * (group.kind === "coin" ? 0.9 : 0.8)
   const rotation = slot[2]
   // All note canvases are shorter than 0.53 × width; coins fit within 1.04 × width.
   // Include the bundle's paper edges and count badge in the safe stage margins.
@@ -169,8 +169,8 @@ function makePiece(group: AssetGroup, index: number, slot: readonly number[], re
     key,
     group,
     representedCount,
-    x: Math.min(PILE_STAGE_WIDTH - radiusX, Math.max(radiusX, slot[0] + jitterX)),
-    y: Math.min(PILE_STAGE_HEIGHT - radiusY, Math.max(radiusY, slot[1] + jitterY)),
+    x: Math.min(PILE_STAGE_WIDTH - radiusX, Math.max(radiusX, 190 + (slot[0] - 190) * 1.12 + jitterX)),
+    y: Math.min(PILE_STAGE_HEIGHT - radiusY, Math.max(radiusY, slot[1] * 1.18 + jitterY)),
     rotation,
     width,
   }
@@ -198,7 +198,7 @@ export function getPilePieces(fen: number): PilePiece[] {
         const slots = groups.length ? FRONT_NOTE_SLOTS : NOTE_SLOTS
         slot = slots[noteIndex++ % slots.length]
       } else {
-        slot = [284 + coinIndex % 3 * 19, 264 + Math.floor(coinIndex / 3) * 19 + coinIndex % 2 * 9, -20 + coinIndex * 31]
+        slot = [284 + coinIndex % 3 * 19, 230 + Math.floor(coinIndex / 3) * 19 + coinIndex % 2 * 9, -20 + coinIndex * 31]
         coinIndex++
       }
       pieces.push(makePiece(group, index, slot, representedCount))
